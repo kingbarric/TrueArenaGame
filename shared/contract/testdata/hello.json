@@ -1,0 +1,6 @@
+{
+  "v": 1,
+  "type": "HELLO",
+  "ts": 1717171717171,
+  "payload": { "lastSeq": 0 }
+}

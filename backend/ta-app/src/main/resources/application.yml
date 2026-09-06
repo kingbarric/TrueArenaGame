@@ -1,0 +1,54 @@
+spring:
+  application:
+    name: truearena-backend
+  r2dbc:
+    url: ${R2DBC_URL:r2dbc:postgresql://localhost:5432/truearena}
+    username: ${DB_USERNAME:truearena}
+    password: ${DB_PASSWORD:truearena}
+  flyway:
+    enabled: true
+    url: ${JDBC_URL:jdbc:postgresql://localhost:5432/truearena}
+    user: ${DB_USERNAME:truearena}
+    password: ${DB_PASSWORD:truearena}
+    locations: classpath:db/migration
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+server:
+  port: ${PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+truearena:
+  auth:
+    jwt-secret: ${JWT_SECRET:dev-only-change-me-0000000000000000000000000000}
+    access-ttl: 15m
+    refresh-ttl: 30d
+  livekit:
+    url: ${LIVEKIT_URL:ws://localhost:7880}
+    api-key: ${LIVEKIT_API_KEY:devkey}
+    api-secret: ${LIVEKIT_API_SECRET:devsecret_devsecret_devsecret_1234}
+
+logging:
+  level:
+    root: INFO
+    app.truearena: DEBUG
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+truearena:
+  auth:
+    otp-dev-bypass-code: "000000"

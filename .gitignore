@@ -1,0 +1,36 @@
+# Java / Gradle
+backend/.gradle/
+backend/**/build/
+!backend/gradle/wrapper/gradle-wrapper.jar
+*.class
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.code-workspace
+
+# OS
+.DS_Store
+
+# Env / secrets
+.env
+*.local.json
+!.env.example
+
+# Flutter
+app/.dart_tool/
+app/.packages
+app/build/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/ios/Pods/
+app/android/.gradle/
+app/**/GeneratedPluginRegistrant.*
+
+# Generated contract code
+backend/ta-ws/src/generated/
+app/lib/core/contract/generated/
+
+# Claude local settings
+.claude/settings.local.json

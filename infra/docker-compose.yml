@@ -1,0 +1,68 @@
+name: truearena-dev
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: truearena
+      POSTGRES_USER: truearena
+      POSTGRES_PASSWORD: truearena
+    ports: ["5432:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U truearena -d truearena"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7
+    command: ["redis-server", "--notify-keyspace-events", "Ex", "--appendonly", "no"]
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  livekit:
+    image: livekit/livekit-server:v1.7.2
+    command: ["--config", "/etc/livekit.yaml", "--node-ip", "127.0.0.1"]
+    ports:
+      - "7880:7880"     # HTTP / WS signal
+      - "7881:7881"     # TCP fallback
+      - "50000-50020:50000-50020/udp"
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+
+  sms-stub:
+    image: mendhak/http-https-echo:35
+    environment:
+      HTTP_PORT: 8025
+    ports: ["8025:8025"]
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      PORT: 8080
+      R2DBC_URL: r2dbc:postgresql://postgres:5432/truearena
+      JDBC_URL: jdbc:postgresql://postgres:5432/truearena
+      DB_USERNAME: truearena
+      DB_PASSWORD: truearena
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      LIVEKIT_URL: ws://livekit:7880
+      LIVEKIT_API_KEY: devkey
+      LIVEKIT_API_SECRET: devsecret_devsecret_devsecret_1234
+      JWT_SECRET: dev-only-change-me-0000000000000000000000000000
+    ports: ["8080:8080"]
+
+volumes:
+  pgdata:

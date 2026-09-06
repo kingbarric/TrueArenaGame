@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://truearena.app/contract/envelope.schema.json",
+  "title": "TrueArena WebSocket envelope",
+  "description": "Single message envelope for both directions on /ws/room/{roomId}. Architecture §3.2.",
+  "type": "object",
+  "required": ["v", "type", "ts"],
+  "additionalProperties": false,
+  "properties": {
+    "v": { "type": "integer", "const": 1 },
+    "type": { "$ref": "#/$defs/messageType" },
+    "seq": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Redis stream sequence. Present on server→client EVENT/SNAPSHOT frames and on client HELLO (as lastSeq echo)."
+    },
+    "ts": { "type": "integer", "description": "Unix epoch millis." },
+    "payload": { "type": "object", "description": "Type-specific body. Shape defined per message type in later phases." }
+  },
+  "$defs": {
+    "messageType": {
+      "type": "string",
+      "enum": [
+        "HELLO",
+        "READY_SET",
+        "CONFIG_SET",
+        "GAME_START",
+        "PLAYER_ACTION",
+        "HOST_CONTROL",
+        "PING",
+        "SNAPSHOT",
+        "EVENT",
+        "PHASE",
+        "ERROR",
+        "PONG"
+      ]
+    }
+  }
+}

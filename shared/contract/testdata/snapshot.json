@@ -1,0 +1,7 @@
+{
+  "v": 1,
+  "type": "SNAPSHOT",
+  "seq": 42,
+  "ts": 1717171717999,
+  "payload": { "phase": "LOBBY", "members": [] }
+}

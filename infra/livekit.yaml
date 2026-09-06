@@ -1,0 +1,11 @@
+# Dev-only LiveKit config. Do not use these keys anywhere real.
+port: 7880
+rtc:
+  tcp_port: 7881
+  port_range_start: 50000
+  port_range_end: 50020
+  use_external_ip: false
+keys:
+  devkey: devsecret_devsecret_devsecret_1234
+logging:
+  level: info
