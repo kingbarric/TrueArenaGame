@@ -1,7 +1,6 @@
-# Java / Gradle
-backend/.gradle/
-backend/**/build/
-!backend/gradle/wrapper/gradle-wrapper.jar
+# Java / Maven
+backend/**/target/
+!backend/.mvn/wrapper/maven-wrapper.properties
 *.class
 
 # IDE
@@ -29,7 +28,7 @@ app/android/.gradle/
 app/**/GeneratedPluginRegistrant.*
 
 # Generated contract code
-backend/ta-ws/src/generated/
+backend/ta-ws/target/generated-sources/contract/
 app/lib/core/contract/generated/
 
 # Claude local settings

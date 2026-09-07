@@ -220,8 +220,8 @@ fake Faithful client + a fake broadcast client, and asserts no frame ever contai
 
 ```
 truearena/
-├── backend/                     # Gradle multi-module, Java 21
-│   ├── settings.gradle.kts
+├── backend/                     # Maven multi-module, Java 21
+│   ├── pom.xml                  # parent (spring-boot-starter-parent), <modules>
 │   ├── ta-app/
 │   ├── ta-api/
 │   ├── ta-ws/
@@ -282,7 +282,7 @@ without 16 devices.
 ## 7. CI/CD
 
 **CI (`ci.yml`), every PR:**
-1. `./gradlew build` — unit tests incl. `ta-engine` reducer tests + the secret-data contract test.
+1. `./mvnw verify -DskipITs` — compile + unit tests incl. `ta-engine` reducer tests + the secret-data contract test.
 2. Testcontainers integration tests (real Postgres + Redis): `ta-room`, reconnection/replay, host migration.
 3. `flutter analyze` + `flutter test`.
 4. Contract codegen staleness check.

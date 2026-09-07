@@ -18,5 +18,5 @@ Current state:
   (uses `python -m jsonschema` when available; otherwise a structural fallback).
 
 TODO (tracked in PROJECT_PLAN.md 0.5): replace the hand-authored types with a
-`./gradlew generateContract` task + a Dart `tool/gen_contract.dart`, and make
+`generate-sources` step in `ta-ws` + a Dart `tool/gen_contract.dart`, and make
 `contract-codegen-check` fail on drift.

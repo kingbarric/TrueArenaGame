@@ -10,7 +10,7 @@ later web/host-display funnel surface.
 ## Repository layout
 
 ```
-backend/          Gradle multi-module, Java 21, Spring Boot 3 (WebFlux)
+backend/          Maven multi-module, Java 21, Spring Boot 3 (WebFlux)
   ta-app          Boot entrypoint + wiring
   ta-api          REST: auth, groups, rooms
   ta-ws           Reactive WebSocket transport, fan-out, per-subscriber filtering
@@ -47,9 +47,11 @@ phone number.
 
 ```bash
 cd backend
-./gradlew build          # unit + slice tests
-./gradlew integrationTest # Testcontainers (needs Docker)
+./mvnw verify -DskipITs   # compile + unit/slice tests + boot jar
+./mvnw verify             # also runs @Tag("integration") tests via failsafe (needs Docker)
 ```
+
+Requires JDK 21 on `JAVA_HOME`. The boot jar lands at `ta-app/target/truearena-backend.jar`.
 
 ## Flutter app
 

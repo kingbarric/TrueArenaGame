@@ -34,18 +34,18 @@
 **Goal:** anyone can clone, `docker compose up`, and hit a health endpoint. CI runs on PRs.
 
 - [x] **0.1 Monorepo skeleton**
-  - `backend/` (Gradle multi-module, Java 21, Spring Boot 3.3), `app/` (Flutter), `shared/contract/`, `infra/`, `docs/`.
+  - `backend/` (Maven multi-module, Java 21, Spring Boot 3.3), `app/` (Flutter), `shared/contract/`, `infra/`, `docs/`.
   - Root `README.md` with the one-command dev instructions.
-  - **Done when:** `./gradlew build` and `flutter --version` both succeed on a clean checkout.
+  - **Done when:** `./mvnw verify -DskipITs` and `flutter --version` both succeed on a clean checkout.
   - **Tests:** a trivial `ContextLoads` Spring test; `flutter test` on the default counter test.
-  - _Status: `./gradlew build` green (JDK 21, Gradle 8.10.2 wrapper committed). Flutter project is Dart-level only — run `flutter create .` once to add platform folders (see app/README.md); not verified on a machine without Flutter._
+  - _Status: `./mvnw verify -DskipITs` green (JDK 21, Maven wrapper committed, script-only). Flutter project is Dart-level only — run `flutter create .` once to add platform folders (see app/README.md); not verified on a machine without Flutter._
 
-- [x] **0.2 Gradle module split**
+- [x] **0.2 Maven module split**
   - Modules: `ta-app`, `ta-api`, `ta-ws`, `ta-engine` (no Spring), `ta-game-truearena`, `ta-room`, `ta-voice`, `ta-persistence`, `ta-contract-tests`.
   - `ta-engine` has **no** `org.springframework` dependency (enforced by a dependency-check test or ArchUnit rule).
   - **Done when:** modules compile, `ta-app` wires an empty context.
   - **Tests:** ArchUnit rule `ta-engine must not depend on Spring`; module graph builds.
-  - _Status: all 9 modules compile; `NoSpringInEngineTest` (ArchUnit) + `ContextLoadsTest` (infra autoconfig excluded) green. `./gradlew integrationTest` task registered, gated on `@Tag("integration")`._
+  - _Status: all 9 modules compile; `NoSpringInEngineTest` (ArchUnit) + `ContextLoadsTest` (infra autoconfig excluded) green. surefire excludes `@Tag("integration")`; failsafe runs them on `./mvnw verify`._
 
 - [~] **0.3 Docker Compose dev stack**
   - Services: `postgres:16`, `redis:7` (with `notify-keyspace-events Ex`), `livekit/livekit-server`, `backend`, `sms-stub`.
@@ -63,8 +63,8 @@
 
 - [~] **0.5 Contract schema stub (`shared/contract/`)**
   - JSON Schema for the WS envelope `{ v, type, seq, ts, payload }` and an enum of message `type`s.
-  - Codegen script → Java records into `ta-ws/build/generated`, Dart classes into `app/lib/core/contract/`.
-  - **Done when:** `./gradlew generateContract` and `dart run tool/gen_contract.dart` both emit compiling code; `contract-codegen-check` fails if generated output is stale.
+  - Codegen → Java records into `ta-ws/target/generated-sources/contract`, Dart classes into `app/lib/core/contract/`.
+  - **Done when:** `./mvnw -pl ta-ws generate-sources` and `dart run tool/gen_contract.dart` both emit compiling code; `contract-codegen-check` fails if generated output is stale.
   - **Tests:** round-trip test — encode a sample envelope in Java, decode in a Dart test fixture (golden JSON files in `shared/contract/testdata/`).
   - _Status: `envelope.schema.json` + golden vectors done. Round-trip tests exist **both sides** (`EnvelopeRoundTripTest` in ta-ws — green; `envelope_test.dart` in app). `tools/check_contract.sh` validates vectors against the schema. **Deferred:** replace the hand-authored Java/Dart types with a real `generateContract` task so drift fails CI._
 
