@@ -23,6 +23,7 @@ WORKDIR /app
 COPY --from=build /src/ta-app/target/truearena-backend.jar app.jar
 USER appuser
 EXPOSE 8080
+# temurin jre images ship neither curl nor wget; bash /dev/tcp is enough for a liveness probe.
 HEALTHCHECK --interval=10s --timeout=3s --retries=12 \
-  CMD ["sh", "-c", "wget -qO- http://localhost:8080/actuator/health | grep -q UP"]
+  CMD ["bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /actuator/health HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q UP <&3"]
 ENTRYPOINT ["java", "-jar", "app.jar"]
