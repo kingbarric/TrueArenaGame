@@ -7,7 +7,9 @@ services:
       POSTGRES_DB: truearena
       POSTGRES_USER: truearena
       POSTGRES_PASSWORD: truearena
-    ports: ["5432:5432"]
+    # Host port 5433 to avoid clashing with a native Postgres on 5432.
+    # Containers on this network still reach it as postgres:5432.
+    ports: ["5433:5432"]
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -19,7 +21,8 @@ services:
   redis:
     image: redis:7
     command: ["redis-server", "--notify-keyspace-events", "Ex", "--appendonly", "no"]
-    ports: ["6379:6379"]
+    # Host port 6380 to avoid clashing with a native/other Redis on 6379.
+    ports: ["6380:6379"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s

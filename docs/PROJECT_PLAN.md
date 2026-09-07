@@ -13,9 +13,9 @@
 | Phase | Title | Status |
 |---|---|---|
 | 0 | Foundations: monorepo, infra, CI | `[~]` |
-| 1 | Data layer: Postgres schema + migrations + repos | `[ ]` |
-| 2 | Auth & accounts (phone + OTP) | `[ ]` |
-| 3 | Groups, friends, rooms (REST) | `[ ]` |
+| 1 | Data layer: Postgres schema + migrations + repos | `[~]` |
+| 2 | Auth & accounts (phone + OTP) | `[~]` |
+| 3 | Groups, friends, rooms (REST) | `[~]` |
 | 4 | WebSocket transport, Redis room state, reconnection | `[ ]` |
 | 5 | Game engine core (game-agnostic) | `[ ]` |
 | 6 | TrueArena game module v1 | `[ ]` |
@@ -26,6 +26,48 @@
 | 11 | Hardening, load test, observability | `[ ]` |
 | 12 | Deployment: staging → production | `[ ]` |
 | B0–B2 | Track B: web + host display + install funnel | `[ ]` |
+
+---
+
+## Running slice (verified locally, 2026-09-07)
+
+A vertical slice of Phases 1–3 runs against Dockerised Postgres + Redis:
+
+- **Swagger UI:** `http://localhost:8080/swagger-ui.html` · **OpenAPI:** `/v3/api-docs`
+  (checked-in snapshots: [openapi.json](openapi.json) / [openapi.yaml](openapi.yaml))
+- Endpoints live: `POST /api/v1/auth/otp/request|verify`, `POST /api/v1/auth/refresh`,
+  `GET /api/v1/me`, `POST/GET /api/v1/groups`, `GET /api/v1/groups/{id}` + `/members`,
+  `POST /api/v1/groups/{id}/members`, `POST /api/v1/rooms`, `POST /api/v1/rooms/join`,
+  `GET /api/v1/rooms/{id}` — plus `/actuator/health`.
+- Auth: phone+OTP → HS256 JWT (access 15m / refresh 30d); dev bypass code `000000`
+  under `SPRING_PROFILES_ACTIVE=local`. `WebFilter` + reactive `SecurityWebFilterChain`
+  guards `/api/**`; Swagger/actuator/`/api/v1/auth/**` are public.
+- Flyway `V1__core.sql` + `V2__rooms.sql` apply on boot. R2DBC repos + services in
+  `ta-api`. OTP codes in Redis (`otp:{phone}`, 5-min TTL).
+
+**How to run it**
+
+```bash
+docker compose -f infra/docker-compose.yml up -d postgres redis   # host ports 5433 / 6380
+cd backend && ./mvnw -q -DskipTests -pl ta-app -am package
+SPRING_PROFILES_ACTIVE=local \
+  R2DBC_URL=r2dbc:postgresql://localhost:5433/truearena \
+  JDBC_URL=jdbc:postgresql://localhost:5433/truearena \
+  DB_USERNAME=truearena DB_PASSWORD=truearena REDIS_PORT=6380 \
+  java -jar ta-app/target/truearena-backend.jar
+```
+
+**Still stubbed / TODO before ticking the phase boxes**
+
+- No Testcontainers slice tests yet (Phases 1.1–1.4, 2.1–2.4, 3.1–3.3 "Tests").
+- `RoomView.createdAt` is null on the create response (R2DBC doesn't re-read DB
+  defaults on `save`); populated on subsequent `GET`.
+- `RoomView.sessionToken` reuses the access token — real room-scoped tokens + the
+  Redis room registry (`room:{id}:*`) land in Phase 3.4 / 4.
+- Refresh tokens aren't revocable yet; group `addMember` allows any member (owner-only
+  check is Phase 3.1).
+- Compose host ports moved to **5433** (pg) and **6380** (redis) to avoid clashing
+  with services already bound to 5432/6379 on this machine.
 
 ---
 

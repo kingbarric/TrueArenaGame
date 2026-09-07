@@ -19,6 +19,13 @@ spring:
 server:
   port: ${PORT:8080}
 
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    display-request-duration: true
+  api-docs:
+    path: /v3/api-docs
+
 management:
   endpoints:
     web:
