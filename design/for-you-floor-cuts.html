@@ -1,0 +1,460 @@
+<title>Five Cuts of the Floor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@600;700;800;900&family=Chivo:wght@400;500;700&family=Sora:wght@700;800&family=Unbounded:wght@600;900&display=swap">
+
+<style>
+  /* One committed world: vertical, after-dark, cyan through-line. No light mode by design. */
+  :root{
+    --bg:#07080b; --panel:#0e1015; --ink:#eef1f6; --mid:#aab0bb; --mute:#6a7079;
+    --line:#1b1e25; --cyan:#25f4ee; --red:#fe2c55; --violet:#7c5cff;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box}
+  html{background:var(--bg)}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font:400 16px/1.6 "Chivo",system-ui,sans-serif; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1140px; margin:0 auto; padding:clamp(28px,5vw,60px) clamp(18px,4vw,40px) 90px}
+
+  /* ---------- header ---------- */
+  .head{display:flex; flex-direction:column; gap:20px; margin-bottom:clamp(40px,6vw,72px)}
+  .eyebrow{
+    font:700 12px/1 "Archivo",sans-serif; letter-spacing:.24em; text-transform:uppercase;
+    color:var(--cyan); display:flex; align-items:center; gap:11px;
+  }
+  .eyebrow::before{content:""; width:30px; height:2px; background:var(--cyan)}
+  .head h1{
+    margin:0; font:400 clamp(40px,8vw,82px)/.92 "Anton",sans-serif; letter-spacing:.01em;
+    text-transform:uppercase; max-width:14ch; text-wrap:balance;
+  }
+  .head h1 em{font-style:normal; color:var(--cyan)}
+  .head p{margin:0; max-width:60ch; color:var(--mid); font-size:clamp(15px,1.6vw,17px)}
+  .dna{
+    display:flex; flex-wrap:wrap; gap:8px; margin-top:6px;
+  }
+  .dna b{
+    font:600 11px/1 "Archivo",sans-serif; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--mid); background:var(--panel); border:1px solid var(--line);
+    padding:8px 11px; border-radius:999px;
+  }
+  .dna b::before{content:"› "; color:var(--cyan)}
+
+  /* ---------- direction row ---------- */
+  .cut{
+    display:grid; grid-template-columns:minmax(0,352px) 1fr; gap:clamp(24px,4vw,56px);
+    padding:clamp(30px,5vw,54px) 0; border-top:1px solid var(--line); align-items:start;
+  }
+  .cut:last-of-type{border-bottom:1px solid var(--line)}
+  .meta{position:sticky; top:24px; display:flex; flex-direction:column; gap:18px}
+  .idx{font:700 12px/1 "Archivo",sans-serif; letter-spacing:.28em; color:var(--cyan)}
+  .meta h2{margin:0; font:400 clamp(28px,3.4vw,40px)/1 "Anton",sans-serif; letter-spacing:.01em; text-transform:uppercase}
+  .shows{
+    font:600 11px/1.4 "Archivo",sans-serif; letter-spacing:.1em; text-transform:uppercase; color:var(--mute);
+  }
+  .shows b{color:var(--ink)}
+  .move{margin:0; color:var(--mid); font-size:14.5px; max-width:40ch}
+  .pal{display:flex; gap:9px; flex-wrap:wrap}
+  .sw{display:flex; flex-direction:column; align-items:center; gap:5px; font:500 10px/1 var(--mono); color:var(--mute)}
+  .sw i{width:34px; height:34px; border-radius:8px; box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}
+  .credit{font:500 12px/1.4 var(--mono); color:var(--mute)}
+  .risk{
+    font-size:12.5px; color:var(--mid); border-left:2px solid var(--red); padding-left:11px;
+  }
+  .risk b{color:var(--ink); font-weight:700; text-transform:uppercase; font-size:10px; letter-spacing:.14em; display:block; margin-bottom:3px}
+
+  .stage{display:flex; justify-content:center; padding-top:2px}
+
+  /* ---------- shared phone ---------- */
+  .phone{
+    width:322px; flex:0 0 auto; border-radius:44px; padding:12px; background:#14161b;
+    box-shadow:0 46px 100px -44px rgba(0,0,0,.85), inset 0 0 0 1px rgba(255,255,255,.05);
+  }
+  .screen{position:relative; height:642px; border-radius:32px; overflow:hidden; display:flex; flex-direction:column}
+  .grain::after{
+    content:""; position:absolute; inset:0; pointer-events:none; opacity:.05; mix-blend-mode:overlay;
+    background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  }
+  .avatar{display:grid; place-items:center; border-radius:50%; font-family:"Archivo",sans-serif; font-weight:800; flex:0 0 auto}
+
+  @media (max-width:900px){
+    .cut{grid-template-columns:1fr; gap:26px}
+    .meta{position:static}
+  }
+  @media (prefers-reduced-motion:reduce){ *{animation:none !important} }
+
+  /* ===================================================== */
+  /* 01 — BROADCAST CUT  (Round Table)                      */
+  /* ===================================================== */
+  .bc{background:linear-gradient(#0c0e13,#08090c); color:#eef2f7; font-family:"Archivo",sans-serif}
+  .bc .bc-top{
+    display:flex; align-items:center; justify-content:space-between; gap:8px; padding:15px 18px 0;
+    font:700 10px/1 "Archivo"; letter-spacing:.12em; text-transform:uppercase;
+  }
+  .bc .live{display:flex; align-items:center; gap:6px; color:#fe2c55}
+  .bc .live i{width:7px; height:7px; border-radius:50%; background:#fe2c55; box-shadow:0 0 10px #fe2c55; animation:blink 1.4s steps(1) infinite}
+  @keyframes blink{50%{opacity:.25}}
+  .bc .rd{color:#8b93a0}
+  .bc .watch{color:#25f4ee; font-variant-numeric:tabular-nums}
+  .bc .bc-stage{flex:1; position:relative; display:grid; place-items:center}
+  .bc .key{position:absolute; inset:0; background:radial-gradient(60% 42% at 50% 40%, rgba(37,244,238,.16), transparent 70%)}
+  .bc .spk{position:relative; width:140px; height:140px; display:grid; place-items:center}
+  .bc .spk .rim{position:absolute; inset:-3px; border-radius:50%; background:conic-gradient(from 180deg,#25f4ee,#7c5cff,#25f4ee); filter:blur(2px); opacity:.9}
+  .bc .spk .avatar{width:132px; height:132px; font-size:40px; background:linear-gradient(150deg,#1a1d24,#0c0e12); color:#eef2f7; border:2px solid #0c0e12}
+  .bc .lower3{padding:0 16px; display:flex; flex-direction:column; gap:11px}
+  .bc .strap{position:relative; background:linear-gradient(90deg,rgba(37,244,238,.14),rgba(37,244,238,0)); border-left:3px solid #25f4ee; padding:9px 12px; overflow:hidden}
+  .bc .strap b{display:block; font:400 26px/1 "Anton"; letter-spacing:.02em; text-transform:uppercase}
+  .bc .strap span{font:600 11px/1 "Archivo"; letter-spacing:.06em; text-transform:uppercase; color:#9aa3b0}
+  .bc .strap .wipe{position:absolute; left:0; bottom:0; height:2px; width:40%; background:#25f4ee; animation:wipe 3s ease-in-out infinite}
+  @keyframes wipe{0%,100%{width:16%}50%{width:78%}}
+  .bc .meter{display:flex; align-items:center; gap:8px; font:700 9px/1 "Archivo"; letter-spacing:.1em; text-transform:uppercase; color:#8b93a0}
+  .bc .meter .track{flex:1; height:6px; border-radius:99px; position:relative; background:linear-gradient(90deg,#25f4ee,#3a4150 55%,#fe2c55)}
+  .bc .meter .track i{position:absolute; top:-4px; width:3px; height:14px; border-radius:2px; background:#eef2f7; box-shadow:0 0 8px rgba(255,255,255,.7)}
+  .bc .chapters{display:flex; gap:6px}
+  .bc .chapters .c{
+    flex:1; text-align:center; font:700 8.5px/1 "Archivo"; letter-spacing:.08em; text-transform:uppercase;
+    padding:7px 4px; border-radius:7px; color:#5b636f; background:#12151b; border:1px solid #1b1f27;
+  }
+  .bc .chapters .c.done{color:#8b93a0}
+  .bc .chapters .c.on{color:#04211f; background:#25f4ee; border-color:#25f4ee}
+  .bc .bc-dock{display:flex; align-items:center; gap:8px; padding:14px 16px 18px}
+  .bc .hold{flex:1; text-align:center; font:800 12px/1 "Archivo"; letter-spacing:.14em; text-transform:uppercase; padding:13px; border-radius:12px; border:1px solid rgba(37,244,238,.4); color:#25f4ee}
+  .bc .rx{font:800 12px/1 "Archivo"; padding:12px 12px; border-radius:12px; background:#12151b; border:1px solid #1b1f27; font-variant-numeric:tabular-nums}
+
+  /* ===================================================== */
+  /* 02 — NEON NIGHT-MARKET  (Vote)                         */
+  /* ===================================================== */
+  .nm{background:#050308; color:#f4f0ff; font-family:"Unbounded",sans-serif}
+  .nm .marquee{overflow:hidden; border-bottom:1px solid #1c1330; padding:9px 0; -webkit-mask:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}
+  .nm .run{display:inline-block; white-space:nowrap; font:600 10px/1 "Archivo"; letter-spacing:.22em; text-transform:uppercase; color:#c6ff3d; animation:mq 16s linear infinite}
+  @keyframes mq{to{transform:translateX(-50%)}}
+  .nm .nm-head{display:flex; align-items:baseline; justify-content:space-between; padding:18px 18px 6px}
+  .nm .nm-head b{font:900 20px/1 "Unbounded"; letter-spacing:.01em; text-transform:uppercase; text-shadow:0 0 18px rgba(37,244,238,.5)}
+  .nm .nm-head .t{font:900 22px/1 "Unbounded"; color:#ff2e9a; font-variant-numeric:tabular-nums; animation:tp 1s ease-in-out infinite}
+  @keyframes tp{50%{opacity:.55}}
+  .nm .signs{flex:1; display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:12px 16px}
+  .nm .sign{
+    position:relative; display:grid; place-items:center; border-radius:12px; background:#0c0814;
+    font:600 15px/1 "Unbounded"; letter-spacing:.01em; text-align:center; padding:20px 8px 22px;
+  }
+  .nm .sign i{position:absolute; left:22%; right:22%; bottom:12px; height:2px; border-radius:2px}
+  .nm .sign.cy{box-shadow:inset 0 0 0 1.5px rgba(37,244,238,.55), 0 0 22px -6px rgba(37,244,238,.5)}
+  .nm .sign.cy i{background:#25f4ee; box-shadow:0 0 12px #25f4ee}
+  .nm .sign.mag{box-shadow:inset 0 0 0 1.5px rgba(255,46,154,.55), 0 0 22px -6px rgba(255,46,154,.5)}
+  .nm .sign.mag i{background:#ff2e9a; box-shadow:0 0 12px #ff2e9a}
+  .nm .sign.ac{box-shadow:inset 0 0 0 1.5px rgba(198,255,61,.5), 0 0 22px -6px rgba(198,255,61,.4)}
+  .nm .sign.ac i{background:#c6ff3d; box-shadow:0 0 12px #c6ff3d}
+  .nm .sign.sel{background:linear-gradient(160deg,#ff2e9a,#7c1f4f); color:#fff; box-shadow:0 0 34px -6px rgba(255,46,154,.8)}
+  .nm .sign.sel i{display:none}
+  .nm .sign em{position:absolute; top:-9px; font:700 8px/1 "Archivo"; letter-spacing:.16em; text-transform:uppercase; background:#fff; color:#7c1f4f; padding:4px 7px; border-radius:6px; font-style:normal}
+  .nm .nm-lock{
+    margin:8px 16px 18px; text-align:center; font:900 15px/1 "Unbounded"; letter-spacing:.05em; text-transform:uppercase;
+    padding:16px; border-radius:14px; background:linear-gradient(90deg,#ff2e9a,#fe2c55); color:#fff;
+    box-shadow:0 0 30px -8px rgba(254,44,85,.9);
+  }
+
+  /* ===================================================== */
+  /* 03 — QUIET LOUD  (Role reveal)                         */
+  /* ===================================================== */
+  .ql{background:#000; color:#f2f4f7; font-family:"Chivo",sans-serif}
+  .ql .ql-top{
+    padding:18px 20px 0; font:500 10px/1 "Chivo"; letter-spacing:.24em; text-transform:uppercase; color:#5f5f5f;
+  }
+  .ql .ql-mid{flex:1; display:flex; flex-direction:column; align-items:flex-start; justify-content:center; gap:16px; padding:0 20px}
+  .ql .word{
+    font:400 clamp(56px,17vw,74px)/.86 "Anton",sans-serif; letter-spacing:.005em; text-transform:uppercase;
+    position:relative; padding-bottom:12px;
+  }
+  .ql .word::after{content:""; position:absolute; left:0; bottom:0; width:64px; height:3px; background:#fe2c55}
+  .ql .ql-sub{font-size:13.5px; color:#8a8a8a; max-width:26ch}
+  .ql .ql-foot{display:flex; align-items:center; justify-content:space-between; padding:18px 20px 24px}
+  .ql .ally{display:flex; align-items:center; gap:9px; font:500 11px/1.3 "Chivo"; color:#c9c9c9}
+  .ql .ally .avatar{width:28px; height:28px; font-size:11px; background:#141414; color:#25f4ee; border:1px solid #262626}
+  .ql .ack{font:600 9px/1 "Chivo"; letter-spacing:.22em; text-transform:uppercase; color:#25f4ee; border:1px solid rgba(37,244,238,.35); padding:8px 10px; border-radius:999px}
+
+  /* ===================================================== */
+  /* 04 — DUET  (Confrontation)                             */
+  /* ===================================================== */
+  .duet{background:#08090c; color:#eef2f7; font-family:"Archivo",sans-serif}
+  .duet .cell{flex:1; display:flex; flex-direction:column; gap:10px; padding:18px 18px}
+  .duet .cell.top{background:linear-gradient(180deg,rgba(37,244,238,.09),transparent); border-left:3px solid #25f4ee}
+  .duet .cell.bot{background:linear-gradient(0deg,rgba(254,44,85,.09),transparent); border-left:3px solid #fe2c55}
+  .duet .c-head{display:flex; align-items:center; gap:9px}
+  .duet .c-head .avatar{width:38px; height:38px; font-size:14px; background:#14161c; color:#eef2f7; border:1px solid #22252d}
+  .duet .c-head b{font:900 17px/1 "Archivo"; letter-spacing:.01em}
+  .duet .tag{margin-left:auto; font:700 8.5px/1 "Archivo"; letter-spacing:.16em; text-transform:uppercase; padding:6px 8px; border-radius:6px}
+  .duet .tag.cy{background:rgba(37,244,238,.16); color:#25f4ee}
+  .duet .tag.rd{background:rgba(254,44,85,.16); color:#fe2c55}
+  .duet .quote{margin:0; font:400 18px/1.34 "Chivo"; color:#cdd3dc}
+  .duet .vs{display:flex; flex-direction:column; align-items:center; gap:7px; padding:12px 18px; background:#0b0d11; border-block:1px solid #1b1e25}
+  .duet .vs-chip{font:900 12px/1 "Archivo"; letter-spacing:.2em; color:#7c5cff}
+  .duet .side{width:100%; height:8px; border-radius:99px; background:#fe2c55; overflow:hidden}
+  .duet .side i{display:block; height:100%; background:#25f4ee}
+  .duet .vs-nums{font:600 10px/1 "Archivo"; letter-spacing:.06em; text-transform:uppercase; color:#8b93a0}
+  .duet .vs-nums b{color:#eef2f7}
+  .duet .duet-dock{display:flex; gap:9px; padding:14px 16px 18px}
+  .duet .half{flex:1; text-align:center; font:800 12px/1 "Archivo"; letter-spacing:.1em; text-transform:uppercase; padding:14px; border-radius:12px}
+  .duet .half.cy{background:rgba(37,244,238,.14); color:#25f4ee; border:1px solid rgba(37,244,238,.4)}
+  .duet .half.rd{background:rgba(254,44,85,.14); color:#fe2c55; border:1px solid rgba(254,44,85,.4)}
+
+  /* ===================================================== */
+  /* 05 — STORY MODE  (Vote review)                         */
+  /* ===================================================== */
+  .story{background:#0a0716; color:#ede9fb; font-family:"Chivo",sans-serif; isolation:isolate}
+  .story .mesh{
+    position:absolute; inset:-40%; z-index:0; filter:blur(60px); opacity:.6;
+    background:
+      radial-gradient(30% 30% at 25% 25%, #25f4ee, transparent 70%),
+      radial-gradient(34% 34% at 78% 30%, #7c5cff, transparent 70%),
+      radial-gradient(40% 40% at 50% 88%, #ff6fd8, transparent 70%);
+    animation:mesh 20s ease-in-out infinite alternate;
+  }
+  @keyframes mesh{to{transform:translate(3%,-4%) scale(1.1)}}
+  .story > *:not(.mesh){position:relative; z-index:1}
+  .story .segs{display:flex; gap:4px; padding:16px 16px 0}
+  .story .segs i{flex:1; height:3px; border-radius:99px; background:rgba(255,255,255,.18)}
+  .story .segs i.f{background:#ede9fb}
+  .story .segs i.p{background:linear-gradient(90deg,#ede9fb 55%,rgba(255,255,255,.18) 55%)}
+  .story .st-head{display:flex; justify-content:space-between; padding:16px 18px 0; font:600 10px/1 "Sora"; letter-spacing:.24em; text-transform:uppercase; color:#a99fd6}
+  .story .st-card{
+    margin:auto 18px; padding:26px 20px; border-radius:20px; text-align:center;
+    background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.14); backdrop-filter:blur(10px);
+    display:flex; flex-direction:column; gap:8px;
+  }
+  .story .st-card b{font:800 34px/1 "Sora"; letter-spacing:-.01em}
+  .story .st-card .arrow{font:500 11px/1 "Sora"; letter-spacing:.18em; text-transform:uppercase; color:#a99fd6}
+  .story .st-card .pick{font:800 40px/1 "Sora"; letter-spacing:-.01em; color:#25f4ee; text-shadow:0 0 30px rgba(37,244,238,.5)}
+  .story .st-line{display:flex; flex-direction:column; gap:6px; padding:0 20px; font-size:12.5px}
+  .story .st-line span{color:#9a92c4}
+  .story .st-line .now{color:#ede9fb; font-weight:700}
+  .story .st-line .seal{color:#6b638f; letter-spacing:.16em}
+  .story .st-tally{text-align:center; font:600 10px/1 "Sora"; letter-spacing:.2em; text-transform:uppercase; color:#a99fd6; padding:6px 0 0}
+  .story .st-next{
+    margin:12px 16px 6px; text-align:center; font:800 13px/1 "Sora"; letter-spacing:.1em; text-transform:uppercase;
+    padding:15px; border-radius:14px; background:linear-gradient(120deg,#25f4ee,#7c5cff); color:#0a0716;
+  }
+  .story .st-host{text-align:center; font:500 9px/1 "Sora"; letter-spacing:.2em; text-transform:uppercase; color:#6b638f; padding-bottom:16px}
+
+  footer{margin-top:56px; color:var(--mute); font-size:12.5px; max-width:72ch}
+  footer b{color:var(--mid)}
+</style>
+
+<div class="wrap">
+  <header class="head">
+    <span class="eyebrow">TrueArena · For You Floor — evolved</span>
+    <h1>Five cuts of the <em>Floor</em>.</h1>
+    <p>You picked the loud one. Here it is pushed five ways — same instinct, more craft. Each cut takes a different screen from the round and a different production idea, but they're unmistakably the same app.</p>
+    <div class="dna">
+      <b>Vertical, after-dark</b>
+      <b>One outsized display face</b>
+      <b>The speaker or subject dead center</b>
+      <b>Reactions are a control, never a chat</b>
+      <b>Cyan carries, red means danger</b>
+      <b>Every action is one tap</b>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- 01 -->
+    <section class="cut">
+      <div class="meta">
+        <span class="idx">Cut 01</span>
+        <h2>Broadcast Cut</h2>
+        <p class="shows">Shows · <b>Round Table</b></p>
+        <p class="move">Same energy, real production values. A proper animated lower-third, a live believe-vs-doubt meter, chapter dots for the round. The flat feed becomes a show someone is directing.</p>
+        <div class="pal">
+          <span class="sw"><i style="background:#0a0c10"></i>#0A0C10</span>
+          <span class="sw"><i style="background:#25f4ee"></i>#25F4EE</span>
+          <span class="sw"><i style="background:#fe2c55"></i>#FE2C55</span>
+          <span class="sw"><i style="background:#7c5cff"></i>#7C5CFF</span>
+          <span class="sw"><i style="background:#e9edf2"></i>#E9EDF2</span>
+        </div>
+        <p class="credit">Anton · Archivo 700/900 · tabular figures</p>
+        <p class="risk"><b>Risk</b>Broadcast furniture can crowd a phone. The meter has to read as live, or it's just decoration.</p>
+      </div>
+      <div class="stage">
+        <div class="phone"><div class="screen bc grain">
+          <div class="bc-top">
+            <span class="live"><i></i>Live</span>
+            <span class="rd">Round 3 · Round Table</span>
+            <span class="watch">&#9650; 1,204</span>
+          </div>
+          <div class="bc-stage">
+            <span class="key"></span>
+            <div class="spk"><span class="rim"></span><span class="avatar">P</span></div>
+          </div>
+          <div class="lower3">
+            <div class="strap"><b>Priya</b><span>has the floor · 0:42 left</span><i class="wipe"></i></div>
+            <div class="meter">
+              <span>&#128293; believe</span>
+              <span class="track"><i style="left:63%"></i></span>
+              <span>doubt &#128064;</span>
+            </div>
+            <div class="chapters">
+              <span class="c done">Night</span>
+              <span class="c on">Round Table</span>
+              <span class="c">Vote</span>
+              <span class="c">Reveal</span>
+            </div>
+          </div>
+          <div class="bc-dock">
+            <span class="hold">Hold to react</span>
+            <span class="rx">&#128293; 128</span>
+            <span class="rx">&#128064; 210</span>
+          </div>
+        </div></div>
+      </div>
+    </section>
+
+    <!-- 02 -->
+    <section class="cut">
+      <div class="meta">
+        <span class="idx">Cut 02</span>
+        <h2>Neon Night-Market</h2>
+        <p class="shows">Shows · <b>The Vote</b></p>
+        <p class="move">Pushes the after-dark palette to its edge — a tight triad of neon, vote targets rendered as glowing signboards, a reaction marquee overhead. Loud on purpose, but locked to a strict grid so it never collapses into noise.</p>
+        <div class="pal">
+          <span class="sw"><i style="background:#050308"></i>#050308</span>
+          <span class="sw"><i style="background:#25f4ee"></i>#25F4EE</span>
+          <span class="sw"><i style="background:#ff2e9a"></i>#FF2E9A</span>
+          <span class="sw"><i style="background:#c6ff3d"></i>#C6FF3D</span>
+          <span class="sw"><i style="background:#fe2c55"></i>#FE2C55</span>
+        </div>
+        <p class="credit">Unbounded 600/900 · Archivo 700</p>
+        <p class="risk"><b>Risk</b>One notch too far and it's a headache. Needs the grid held firm and a low-saturation fallback for anyone who wants it.</p>
+      </div>
+      <div class="stage">
+        <div class="phone"><div class="screen nm grain">
+          <div class="marquee"><span class="run">Kwan is sus&nbsp;·&nbsp;called it&nbsp;·&nbsp;no way&nbsp;·&nbsp;&#128293;&#128293;&#128293;&nbsp;·&nbsp;watch Dex&nbsp;·&nbsp;Kwan is sus&nbsp;·&nbsp;called it&nbsp;·&nbsp;no way&nbsp;·&nbsp;&#128293;&#128293;&#128293;&nbsp;·&nbsp;watch Dex&nbsp;·&nbsp;</span></div>
+          <div class="nm-head"><b>Cast your vote</b><span class="t">0:19</span></div>
+          <div class="signs">
+            <span class="sign sel"><em>Locked in</em>Ronan</span>
+            <span class="sign cy">Priya<i></i></span>
+            <span class="sign ac">Dex<i></i></span>
+            <span class="sign cy">Ana<i></i></span>
+            <span class="sign mag">Otis<i></i></span>
+            <span class="sign ac">Kwan<i></i></span>
+          </div>
+          <div class="nm-lock">Lock — no takebacks</div>
+        </div></div>
+      </div>
+    </section>
+
+    <!-- 03 -->
+    <section class="cut">
+      <div class="meta">
+        <span class="idx">Cut 03</span>
+        <h2>Quiet Loud</h2>
+        <p class="shows">Shows · <b>Role reveal</b></p>
+        <p class="move">The restraint move. One word at the size of the screen, one hairline, ninety percent black. Proof the direction doesn't need saturation to land — here the scale of the type is the volume.</p>
+        <div class="pal">
+          <span class="sw"><i style="background:#000000"></i>#000000</span>
+          <span class="sw"><i style="background:#f2f4f7"></i>#F2F4F7</span>
+          <span class="sw"><i style="background:#fe2c55"></i>#FE2C55</span>
+          <span class="sw"><i style="background:#25f4ee"></i>#25F4EE</span>
+          <span class="sw"><i style="background:#6a6a6a"></i>#6A6A6A</span>
+        </div>
+        <p class="credit">Anton (one word) · Chivo 400/500</p>
+        <p class="risk"><b>Risk</b>Brave for a party game — could read cold. The reveal beat has to earn its silence.</p>
+      </div>
+      <div class="stage">
+        <div class="phone"><div class="screen ql">
+          <div class="ql-top">TrueArena · Round 1 · for your eyes only</div>
+          <div class="ql-mid">
+            <div class="word">Traitor</div>
+            <p class="ql-sub">Two of you know the truth tonight. Kwan is the other.</p>
+          </div>
+          <div class="ql-foot">
+            <span class="ally"><span class="avatar">K</span><span>Kwan<br>your co-Traitor</span></span>
+            <span class="ack">tap to acknowledge</span>
+          </div>
+        </div></div>
+      </div>
+    </section>
+
+    <!-- 04 -->
+    <section class="cut">
+      <div class="meta">
+        <span class="idx">Cut 04</span>
+        <h2>Duet</h2>
+        <p class="shows">Shows · <b>A confrontation</b></p>
+        <p class="move">Borrows TikTok's duet frame outright: the accusation as a stacked one-on-one, each player their own vertical cell, a crowd-siding bar between them. Discussion becomes a face-off you can watch.</p>
+        <div class="pal">
+          <span class="sw"><i style="background:#08090c"></i>#08090C</span>
+          <span class="sw"><i style="background:#25f4ee"></i>#25F4EE</span>
+          <span class="sw"><i style="background:#fe2c55"></i>#FE2C55</span>
+          <span class="sw"><i style="background:#7c5cff"></i>#7C5CFF</span>
+          <span class="sw"><i style="background:#e9edf2"></i>#E9EDF2</span>
+        </div>
+        <p class="credit">Archivo Black · Archivo 600 · Chivo quotes</p>
+        <p class="risk"><b>Risk</b>Only works for two-person moments. Needs a graceful fallback the second a third player piles in.</p>
+      </div>
+      <div class="stage">
+        <div class="phone"><div class="screen duet grain">
+          <div class="cell top">
+            <div class="c-head"><span class="avatar">O</span><b>@otis</b><span class="tag cy">accusing</span></div>
+            <p class="quote">&ldquo;You were quiet all night. That's the tell, Dex.&rdquo;</p>
+          </div>
+          <div class="vs">
+            <span class="vs-chip">VS</span>
+            <span class="side"><i style="width:41%"></i></span>
+            <span class="vs-nums"><b>41%</b> Otis &nbsp;·&nbsp; <b>59%</b> Dex</span>
+          </div>
+          <div class="cell bot">
+            <div class="c-head"><span class="avatar">D</span><b>@dex</b><span class="tag rd">on the back foot</span></div>
+            <p class="quote">&ldquo;Quiet because I was listening. Ask Priya who I watched.&rdquo;</p>
+          </div>
+          <div class="duet-dock"><span class="half cy">Side with Otis</span><span class="half rd">Side with Dex</span></div>
+        </div></div>
+      </div>
+    </section>
+
+    <!-- 05 -->
+    <section class="cut">
+      <div class="meta">
+        <span class="idx">Cut 05</span>
+        <h2>Story Mode</h2>
+        <p class="shows">Shows · <b>Vote review</b></p>
+        <p class="move">Reframes the whole round as swipeable beats — a segmented timeline up top like stories, a gradient mesh that shifts colour per phase. The softest surface of the five, carrying the same outsized type.</p>
+        <div class="pal">
+          <span class="sw"><i style="background:#0a0716"></i>#0A0716</span>
+          <span class="sw"><i style="background:#25f4ee"></i>#25F4EE</span>
+          <span class="sw"><i style="background:#7c5cff"></i>#7C5CFF</span>
+          <span class="sw"><i style="background:#ff6fd8"></i>#FF6FD8</span>
+          <span class="sw"><i style="background:#ede9fb"></i>#EDE9FB</span>
+        </div>
+        <p class="credit">Sora 700/800 · Chivo 400/500</p>
+        <p class="risk"><b>Risk</b>Mesh plus glass is the performance cost again. The timeline has to stay honest to real phase lengths.</p>
+      </div>
+      <div class="stage">
+        <div class="phone"><div class="screen story">
+          <span class="mesh"></span>
+          <div class="segs"><i class="f"></i><i class="f"></i><i class="f"></i><i class="p"></i><i></i><i></i><i></i></div>
+          <div class="st-head"><span>The votes</span><span>Round 3</span></div>
+          <div class="st-card">
+            <b>Ronan</b>
+            <span class="arrow">votes to banish</span>
+            <span class="pick">Mara</span>
+          </div>
+          <div class="st-line">
+            <span>Ana &rarr; Mara</span>
+            <span>Dex &rarr; Otis</span>
+            <span class="now">Ronan &rarr; Mara</span>
+            <span class="seal">&#9634; &#9634; &#9634; &#9634;&nbsp; sealed</span>
+          </div>
+          <div class="st-tally">Mara 2 &nbsp;·&nbsp; Otis 1</div>
+          <div class="st-next">Tap for next vote</div>
+          <div class="st-host">revealed by the host</div>
+        </div></div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    Five evolutions of one direction, not five directions. Mockups with real product copy and a placeholder cast — <b>Priya, Ronan, Dex, Otis, Ana, Kwan, Mara</b>. Traitors, the Round Table, sealed votes and banishment are from the TrueArena spec. This board commits to a single dark world on purpose; there's no light mode because the concept doesn't have one.
+  </footer>
+</div>
