@@ -1,0 +1,361 @@
+<title>Neon Night-Market</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800;900&family=Unbounded:wght@600;900&display=swap">
+
+<style>
+  /* One committed world — after-dark, neon triad, Unbounded. No light mode by design. */
+  :root{
+    --bg:#040207; --panel:#0c0814; --ink:#f4f0ff; --mid:#b9aed6; --mute:#6e6390;
+    --line:#1c1330; --cy:#25f4ee; --mag:#ff2e9a; --ac:#c6ff3d; --red:#fe2c55;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box}
+  html{background:var(--bg)}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font:400 16px/1.6 "Archivo",system-ui,sans-serif; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1140px; margin:0 auto; padding:clamp(28px,5vw,60px) clamp(18px,4vw,40px) 90px}
+
+  /* ---------- header ---------- */
+  .head{display:flex; flex-direction:column; gap:18px; margin-bottom:clamp(40px,6vw,72px)}
+  .eyebrow{
+    font:700 12px/1 "Archivo"; letter-spacing:.26em; text-transform:uppercase; color:var(--cy);
+    display:flex; align-items:center; gap:11px;
+  }
+  .eyebrow::before{content:""; width:30px; height:2px; background:var(--cy)}
+  .head h1{
+    margin:0; font:900 clamp(38px,7vw,72px)/.96 "Unbounded"; letter-spacing:.005em;
+    text-transform:uppercase; max-width:15ch; text-wrap:balance;
+    text-shadow:0 0 40px rgba(37,244,238,.28);
+  }
+  .head h1 em{font-style:normal; color:var(--mag); text-shadow:0 0 40px rgba(255,46,154,.4)}
+  .head p{margin:0; max-width:58ch; color:var(--mid); font-size:clamp(15px,1.6vw,17px)}
+  .rules{display:flex; flex-wrap:wrap; gap:8px; margin-top:4px}
+  .rules b{
+    font:700 10.5px/1 "Archivo"; letter-spacing:.08em; text-transform:uppercase; color:var(--mid);
+    background:var(--panel); border:1px solid var(--line); padding:8px 11px; border-radius:999px;
+  }
+  .kit{display:flex; flex-wrap:wrap; gap:22px; align-items:flex-end; margin-top:6px}
+  .pal{display:flex; gap:9px; flex-wrap:wrap}
+  .sw{display:flex; flex-direction:column; align-items:center; gap:5px; font:500 10px/1 var(--mono); color:var(--mute)}
+  .sw i{width:34px; height:34px; border-radius:8px; box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}
+  .credit{font:500 12px/1.5 var(--mono); color:var(--mute)}
+
+  /* ---------- screen row ---------- */
+  .row{
+    display:grid; grid-template-columns:minmax(0,320px) 1fr; gap:clamp(24px,4vw,56px);
+    padding:clamp(30px,5vw,52px) 0; border-top:1px solid var(--line); align-items:start;
+  }
+  .row:last-of-type{border-bottom:1px solid var(--line)}
+  .meta{position:sticky; top:24px; display:flex; flex-direction:column; gap:14px}
+  .idx{font:900 12px/1 "Archivo"; letter-spacing:.3em; color:var(--cy)}
+  .meta h2{margin:0; font:900 clamp(24px,3vw,34px)/1 "Unbounded"; letter-spacing:.01em; text-transform:uppercase}
+  .moment{margin:0; color:var(--mid); font-size:14.5px; max-width:36ch}
+  .lead{font:700 10px/1 "Archivo"; letter-spacing:.16em; text-transform:uppercase; color:var(--mute)}
+  .lead u{text-decoration:none}
+  .lead .cy{color:var(--cy)} .lead .mag{color:var(--mag)} .lead .ac{color:var(--ac)} .lead .red{color:var(--red)}
+  .note{font-size:12.5px; color:var(--mid); border-left:2px solid var(--mag); padding-left:11px}
+
+  .stage{display:flex; justify-content:center; padding-top:2px}
+
+  /* ---------- phone ---------- */
+  .phone{
+    width:322px; flex:0 0 auto; border-radius:44px; padding:12px; background:#120c1c;
+    box-shadow:0 46px 100px -44px rgba(0,0,0,.9), inset 0 0 0 1px rgba(255,255,255,.05);
+  }
+  .screen{position:relative; height:642px; border-radius:32px; overflow:hidden; display:flex; flex-direction:column;
+    background:#050308; color:#f4f0ff; font-family:"Unbounded",sans-serif}
+  .grain::after{
+    content:""; position:absolute; inset:0; pointer-events:none; opacity:.06; mix-blend-mode:overlay;
+    background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  }
+
+  /* ---- shared neon primitives ---- */
+  .mq{overflow:hidden; padding:9px 0; border-bottom:1px solid #1c1330;
+    -webkit-mask:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}
+  .mq .run{display:inline-block; white-space:nowrap; font:700 9px/1 "Archivo";
+    letter-spacing:.24em; text-transform:uppercase; color:#c6ff3d; animation:mq 17s linear infinite}
+  @keyframes mq{to{transform:translateX(-50%)}}
+
+  .hdr{display:flex; align-items:baseline; justify-content:space-between; gap:10px; padding:16px 18px 2px}
+  .hdr b{font:900 19px/1 "Unbounded"; text-transform:uppercase; letter-spacing:.01em}
+  .hdr .cyG{text-shadow:0 0 20px rgba(37,244,238,.55); color:#eafffe}
+  .hdr .magG{text-shadow:0 0 20px rgba(255,46,154,.55); color:#ffe9f5}
+  .tmr{font:900 20px/1 "Unbounded"; color:#fe2c55; font-variant-numeric:tabular-nums; animation:tp 1s ease-in-out infinite}
+  @keyframes tp{50%{opacity:.5}}
+  .sub{padding:2px 18px 0; font:700 8.5px/1.5 "Archivo"; letter-spacing:.16em; text-transform:uppercase; color:#8b7fb0}
+
+  .chips{display:flex; flex-wrap:wrap; gap:6px; padding:10px 16px 4px}
+  .chips b{font:800 8px/1 "Archivo"; letter-spacing:.08em; text-transform:uppercase;
+    padding:7px 8px; border-radius:8px; background:#0c0814; color:#c9bfe0}
+  .chips b.cy{box-shadow:inset 0 0 0 1px rgba(37,244,238,.5)}
+  .chips b.mag{box-shadow:inset 0 0 0 1px rgba(255,46,154,.5)}
+  .chips b.ac{box-shadow:inset 0 0 0 1px rgba(198,255,61,.5)}
+
+  .grid{flex:1; display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:12px 16px; align-content:start}
+  .sign{
+    position:relative; display:flex; align-items:center; gap:8px; border-radius:12px; background:#0c0814;
+    padding:11px 10px; font:600 11px/1 "Unbounded"; text-transform:uppercase; letter-spacing:.005em;
+  }
+  .sign .av{width:24px; height:24px; border-radius:50%; display:grid; place-items:center;
+    font:800 9px/1 "Archivo"; background:#1a1226; color:#f4f0ff; flex:0 0 auto}
+  .sign.cy{box-shadow:inset 0 0 0 1.5px rgba(37,244,238,.5), 0 0 20px -8px rgba(37,244,238,.5)}
+  .sign.mag{box-shadow:inset 0 0 0 1.5px rgba(255,46,154,.5), 0 0 20px -8px rgba(255,46,154,.5)}
+  .sign.ac{box-shadow:inset 0 0 0 1.5px rgba(198,255,61,.45), 0 0 20px -8px rgba(198,255,61,.4)}
+  .sign.sel{background:linear-gradient(155deg,#ff2e9a,#7c1f4f); color:#fff; box-shadow:0 0 30px -6px rgba(255,46,154,.85)}
+  .sign.sel .av{background:#fff; color:#7c1f4f}
+  .sign.off{opacity:.4; animation:flick 5.5s infinite}
+  @keyframes flick{0%,17%,19%,53%,55%,100%{opacity:.42}18%,54%{opacity:.14}}
+  .sign .tube{margin-left:auto; font:800 6.5px/1 "Archivo"; letter-spacing:.12em; padding:4px 6px; border-radius:5px; flex:0 0 auto}
+  .tube.on{background:rgba(198,255,61,.16); color:#c6ff3d; box-shadow:0 0 10px -3px rgba(198,255,61,.6)}
+  .tube.wait{background:rgba(254,44,85,.14); color:#fe2c55; animation:flick 3s infinite}
+  .tube.host{background:rgba(255,46,154,.18); color:#ff2e9a}
+  .tube.faith{background:rgba(37,244,238,.14); color:#25f4ee}
+  .tube.trait{background:rgba(255,46,154,.18); color:#ff2e9a}
+  .sign em{position:absolute; top:-8px; left:10px; font:800 7px/1 "Archivo"; letter-spacing:.16em;
+    background:#fff; color:#7c1f4f; padding:3px 6px; border-radius:5px; font-style:normal}
+
+  .bar{margin:8px 16px 18px; text-align:center; font:900 14px/1 "Unbounded"; letter-spacing:.05em;
+    text-transform:uppercase; padding:16px; border-radius:14px; color:#fff}
+  .bar.cy{background:linear-gradient(90deg,#25f4ee,#12cfc8); color:#04211f; box-shadow:0 0 30px -8px rgba(37,244,238,.85)}
+  .bar.grn{background:linear-gradient(90deg,#c6ff3d,#25f4ee); color:#08210a; box-shadow:0 0 30px -8px rgba(198,255,61,.7)}
+  .bar.mag{background:linear-gradient(90deg,#ff2e9a,#fe2c55); box-shadow:0 0 30px -8px rgba(254,44,85,.9)}
+  .bar.ghost{background:transparent; box-shadow:inset 0 0 0 1.5px rgba(37,244,238,.5); color:#25f4ee}
+  .barrow{display:flex; gap:9px; margin:8px 16px 18px}
+  .barrow .bar{flex:1; margin:0}
+
+  /* ---- screen 02 · night ---- */
+  .shutter{padding:9px 0; text-align:center; font:800 8px/1 "Archivo"; letter-spacing:.32em; text-transform:uppercase;
+    color:#fe2c55; background:repeating-linear-gradient(45deg,#0c0814 0 10px,#1a0a12 10px 20px);
+    border-bottom:1px solid #2a0f1e}
+  .cotr{display:flex; align-items:center; gap:8px; padding:8px 18px; font:700 8px/1 "Archivo";
+    letter-spacing:.14em; text-transform:uppercase; color:#b9aed6}
+  .cotr .av{width:20px; height:20px; border-radius:50%; display:grid; place-items:center; font:800 8px/1 "Archivo";
+    background:linear-gradient(150deg,#ff2e9a,#7c1f4f); color:#fff}
+
+  /* ---- screen 03 · round table ---- */
+  .floor{font:900 62px/1 "Unbounded"; text-align:center; color:#25f4ee; padding:10px 0 4px;
+    text-shadow:0 0 44px rgba(37,244,238,.6); font-variant-numeric:tabular-nums}
+  .strip{flex:1; display:flex; align-items:center; justify-content:center; gap:9px; padding:0 12px}
+  .stall{width:42px; height:42px; border-radius:11px; display:grid; place-items:center; font:800 13px/1 "Archivo";
+    background:#0c0814; color:#8b7fb0; opacity:.5; animation:flick 6s infinite}
+  .stall.spk{width:92px; height:92px; font-size:30px; opacity:1; color:#25f4ee; animation:none;
+    box-shadow:inset 0 0 0 2px rgba(37,244,238,.7), 0 0 44px -6px rgba(37,244,238,.6)}
+  .onfloor{text-align:center; font:900 10px/1 "Archivo"; letter-spacing:.24em; text-transform:uppercase;
+    color:#25f4ee; padding:6px 0 2px}
+  .rrail{display:flex; justify-content:center; gap:8px; padding:10px 16px 2px}
+  .rrail b{font:800 9px/1 "Archivo"; letter-spacing:.06em; padding:8px 9px; border-radius:9px;
+    background:#0c0814; box-shadow:inset 0 0 0 1px rgba(37,244,238,.35); color:#c9bfe0; font-variant-numeric:tabular-nums}
+  .yield{text-align:center; font:700 7.5px/1 "Archivo"; letter-spacing:.2em; text-transform:uppercase; color:#6e6390; padding-top:8px}
+
+  /* ---- screen 04 · verdict ---- */
+  .vwrap{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:0 20px; text-align:center}
+  .verdict{font:900 clamp(46px,14vw,58px)/.86 "Unbounded"; text-transform:uppercase; color:#fe2c55;
+    text-shadow:2px 0 rgba(37,244,238,.55), -2px 0 rgba(255,46,154,.6), 0 0 34px rgba(254,44,85,.45)}
+  .who-big{font:900 30px/1 "Unbounded"; text-transform:uppercase; letter-spacing:.02em}
+  .reveal{
+    width:100%; border-radius:14px; padding:16px; background:#0c0814;
+    box-shadow:inset 0 0 0 1.5px rgba(37,244,238,.5), 0 0 26px -8px rgba(37,244,238,.5);
+    font:800 12px/1.4 "Archivo"; letter-spacing:.06em; text-transform:uppercase; color:#c9bfe0;
+  }
+  .reveal u{text-decoration:none; color:#25f4ee; font:900 15px/1 "Unbounded"; display:block; margin-top:6px}
+  .still{font:700 8.5px/1 "Archivo"; letter-spacing:.18em; text-transform:uppercase; color:#8b7fb0}
+  .tallychip{font:800 9px/1 "Archivo"; letter-spacing:.1em; text-transform:uppercase; color:#b9aed6;
+    padding:8px 10px; border-radius:8px; background:#0c0814; box-shadow:inset 0 0 0 1px rgba(255,46,154,.35);
+    font-variant-numeric:tabular-nums}
+
+  /* ---- screen 05 · results ---- */
+  .ticker{display:flex; gap:12px; justify-content:center; flex-wrap:wrap; padding:10px 16px 2px;
+    font:800 9px/1 "Archivo"; letter-spacing:.06em; color:#c9bfe0; font-variant-numeric:tabular-nums}
+  .ticker b.up{color:#c6ff3d}
+  .ticker b.up::before{content:"\25B2  "}
+  .ticker b.dn{color:#fe2c55}
+  .ticker b.dn::before{content:"\25BC  "}
+  .stat{padding:6px 18px 0; font:600 10px/1.5 "Archivo"; color:#b9aed6; text-align:center}
+  .stat u{text-decoration:none; color:#25f4ee}
+
+  footer{margin-top:56px; color:var(--mute); font-size:12.5px; max-width:72ch}
+  footer b{color:var(--mid)}
+
+  @media (max-width:900px){ .row{grid-template-columns:1fr; gap:26px} .meta{position:static} }
+  @media (prefers-reduced-motion:reduce){ *{animation:none !important} }
+</style>
+
+<div class="wrap">
+  <header class="head">
+    <span class="eyebrow">TrueArena · direction locked</span>
+    <h1>Neon <em>Night-Market</em></h1>
+    <p>The one you kept, taken through the whole round. Same rules on every screen — the round only changes what's lit.</p>
+    <div class="rules">
+      <b>Signboard plates, inset neon outline</b>
+      <b>Cyan · magenta · acid, plus danger red</b>
+      <b>Unbounded, oversized and glowing</b>
+      <b>A reaction marquee overhead</b>
+      <b>Strict two-column grid</b>
+      <b>Grain over everything</b>
+    </div>
+    <div class="kit">
+      <div class="pal">
+        <span class="sw"><i style="background:#050308"></i>#050308</span>
+        <span class="sw"><i style="background:#25f4ee"></i>#25F4EE</span>
+        <span class="sw"><i style="background:#ff2e9a"></i>#FF2E9A</span>
+        <span class="sw"><i style="background:#c6ff3d"></i>#C6FF3D</span>
+        <span class="sw"><i style="background:#fe2c55"></i>#FE2C55</span>
+      </div>
+      <span class="credit">Unbounded 600/900 · Archivo 700/800/900</span>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- 01 · LOBBY -->
+    <section class="row">
+      <div class="meta">
+        <span class="idx">Screen 01</span>
+        <h2>Doors</h2>
+        <p class="moment">The lobby as a market about to open. Player plates light up as people ready; the setup sits in glowing chips; an OPEN sign flickers on when the host can start.</p>
+        <p class="lead">Leads with <span class="ac">acid</span> + <span class="cy">cyan</span></p>
+        <p class="note">Status is a lit tube, not a checkmark — READY glows, WAIT flickers.</p>
+      </div>
+      <div class="stage">
+        <div class="phone"><div class="screen grain">
+          <div class="mq"><span class="run">Friday Crew&nbsp;·&nbsp;7 in&nbsp;·&nbsp;waiting on Otis&nbsp;·&nbsp;doors open soon&nbsp;·&nbsp;Friday Crew&nbsp;·&nbsp;7 in&nbsp;·&nbsp;waiting on Otis&nbsp;·&nbsp;doors open soon&nbsp;·&nbsp;</span></div>
+          <div class="hdr"><b class="cyG">Friday Crew</b><span class="tmr" style="color:#c6ff3d;animation:flick 2s infinite">OPEN</span></div>
+          <div class="sub">Lobby · host: Mara · 6 of 7 ready</div>
+          <div class="chips">
+            <b class="cy">7 players</b><b class="mag">2 traitors</b><b class="ac">talk 4:00</b><b class="cy">vote 60s</b><b class="ac">reveal: sequential</b>
+          </div>
+          <div class="grid">
+            <span class="sign mag"><span class="av">M</span>Mara<span class="tube host">host</span></span>
+            <span class="sign cy"><span class="av">R</span>Ronan<span class="tube on">ready</span></span>
+            <span class="sign cy"><span class="av">P</span>Priya<span class="tube on">ready</span></span>
+            <span class="sign cy"><span class="av">D</span>Dex<span class="tube on">ready</span></span>
+            <span class="sign cy"><span class="av">A</span>Ana<span class="tube on">ready</span></span>
+            <span class="sign ac"><span class="av">O</span>Otis<span class="tube wait">wait</span></span>
+            <span class="sign cy"><span class="av">K</span>Kwan<span class="tube on">ready</span></span>
+          </div>
+          <div class="bar grn">Start the night</div>
+        </div></div>
+      </div>
+    </section>
+
+    <!-- 02 · NIGHT -->
+    <section class="row">
+      <div class="meta">
+        <span class="idx">Screen 02</span>
+        <h2>Shutters Down</h2>
+        <p class="moment">The Traitors' private screen. Hazard-striped shutter across the top, a hard red clock, targets rendered cold and dim — one goes hot magenta when you mark it.</p>
+        <p class="lead">Leads with <span class="mag">magenta</span> + <span class="red">red</span></p>
+        <p class="note">Only screen where cyan retreats. The market is closed.</p>
+      </div>
+      <div class="stage">
+        <div class="phone"><div class="screen grain">
+          <div class="shutter">Closed · Traitors only</div>
+          <div class="hdr"><b class="magG">Choose a target</b><span class="tmr">0:44</span></div>
+          <div class="cotr"><span class="av">L</span>You &amp; Lena — pick together</div>
+          <div class="grid">
+            <span class="sign sel"><em>marked</em><span class="av">M</span>Mara</span>
+            <span class="sign cy"><span class="av">P</span>Priya</span>
+            <span class="sign cy"><span class="av">D</span>Dex</span>
+            <span class="sign cy"><span class="av">A</span>Ana</span>
+            <span class="sign cy"><span class="av">O</span>Otis</span>
+            <span class="sign cy"><span class="av">K</span>Kwan</span>
+          </div>
+          <div class="bar mag">Seal the choice</div>
+        </div></div>
+      </div>
+    </section>
+
+    <!-- 03 · ROUND TABLE -->
+    <section class="row">
+      <div class="meta">
+        <span class="idx">Screen 03</span>
+        <h2>The Strip</h2>
+        <p class="moment">Discussion as a row of market stalls. Whoever holds the floor is lit large in cyan; everyone else is a dim stall with a faint flicker. The floor timer is the biggest thing on screen.</p>
+        <p class="lead">Leads with <span class="cy">cyan</span></p>
+        <p class="note">Reactions are small lit tubes along the bottom — glanceable, never a feed.</p>
+      </div>
+      <div class="stage">
+        <div class="phone"><div class="screen grain">
+          <div class="mq"><span class="run">Priya has the floor&nbsp;·&nbsp;&#128293; 128&nbsp;·&nbsp;watch Dex&nbsp;·&nbsp;&#128064; 210&nbsp;·&nbsp;Priya has the floor&nbsp;·&nbsp;&#128293; 128&nbsp;·&nbsp;watch Dex&nbsp;·&nbsp;&#128064; 210&nbsp;·&nbsp;</span></div>
+          <div class="sub" style="padding-top:12px">Round 3 · Round Table</div>
+          <div class="floor">3:48</div>
+          <div class="strip">
+            <span class="stall">M</span>
+            <span class="stall">D</span>
+            <span class="stall spk">P</span>
+            <span class="stall">A</span>
+            <span class="stall">K</span>
+          </div>
+          <div class="onfloor">@priya — on the floor</div>
+          <div class="rrail"><b>&#128293; 128</b><b>&#128064; 210</b><b>&#128514; 90</b><b>&#129309; 44</b></div>
+          <div class="yield">tap &#128081; to yield the floor</div>
+          <div class="bar cy">Hold to talk</div>
+        </div></div>
+      </div>
+    </section>
+
+    <!-- 04 · VERDICT -->
+    <section class="row">
+      <div class="meta">
+        <span class="idx">Screen 04</span>
+        <h2>The Verdict</h2>
+        <p class="moment">The banishment. One word at screen height with a chromatic-split glow, the name under it, then the role plate lights up — cyan for Faithful, magenta for Traitor.</p>
+        <p class="lead">Leads with <span class="red">red</span>, resolves to <span class="cy">cyan</span></p>
+        <p class="note">The glitch on BANISHED is real offset text-shadow, not an image.</p>
+      </div>
+      <div class="stage">
+        <div class="phone"><div class="screen grain">
+          <div class="sub" style="padding-top:16px;color:#fe2c55">Round 3 · Verdict</div>
+          <div class="vwrap">
+            <div class="verdict">Banished</div>
+            <div class="who-big">Ronan</div>
+            <div class="reveal">Ronan was a<u>Faithful</u></div>
+            <div class="still">The Traitors are still among you</div>
+            <span class="tallychip">Ronan 4 · Otis 2 · Ana 1</span>
+          </div>
+          <div class="bar mag">Night falls again &rarr;</div>
+        </div></div>
+      </div>
+    </section>
+
+    <!-- 05 · RESULTS -->
+    <section class="row">
+      <div class="meta">
+        <span class="idx">Screen 05</span>
+        <h2>Closing Time</h2>
+        <p class="moment">Full role reveal as a wall of signs — Faithful glow cyan, Traitors burn magenta, the banished are flickered out. A season ticker and the group's running joke-stat sit underneath.</p>
+        <p class="lead">Leads with <span class="cy">cyan</span> vs <span class="mag">magenta</span></p>
+        <p class="note">Season points and "first accused" stat are the hook back for next week.</p>
+      </div>
+      <div class="stage">
+        <div class="phone"><div class="screen grain">
+          <div class="mq"><span class="run">The Faithful held&nbsp;·&nbsp;Season 1&nbsp;·&nbsp;Game 12 of 100&nbsp;·&nbsp;The Faithful held&nbsp;·&nbsp;Season 1&nbsp;·&nbsp;Game 12 of 100&nbsp;·&nbsp;</span></div>
+          <div class="hdr"><b class="cyG">Faithful held</b></div>
+          <div class="sub">All three Traitors banished · Round 4</div>
+          <div class="grid">
+            <span class="sign cy"><span class="av">M</span>Mara<span class="tube faith">faithful</span></span>
+            <span class="sign mag off"><span class="av">R</span>Ronan<span class="tube trait">traitor</span></span>
+            <span class="sign cy"><span class="av">P</span>Priya<span class="tube faith">faithful</span></span>
+            <span class="sign mag off"><span class="av">D</span>Dex<span class="tube trait">traitor</span></span>
+            <span class="sign cy off"><span class="av">A</span>Ana<span class="tube faith">faithful</span></span>
+            <span class="sign cy"><span class="av">O</span>Otis<span class="tube faith">faithful</span></span>
+            <span class="sign cy"><span class="av">K</span>Kwan<span class="tube faith">faithful</span></span>
+            <span class="sign mag off"><span class="av">L</span>Lena<span class="tube trait">traitor</span></span>
+          </div>
+          <div class="ticker"><b class="up">Mara 14</b><b class="up">Priya 11</b><b class="dn">Dex 3</b></div>
+          <div class="stat">Priya was <u>first accused in 3 of the last 5 rounds</u> — a Friday Crew record</div>
+          <div class="barrow"><span class="bar ghost">Group stats</span><span class="bar grn">Rematch</span></div>
+        </div></div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    One visual direction, five screens of the loop — <b>Doors, Shutters Down, The Strip, The Verdict, Closing Time</b> — plus the Vote screen you first saw. Mockups with real product copy and a placeholder cast (<b>Mara, Ronan, Priya, Dex, Ana, Otis, Kwan, Lena</b>). Traitors, the Round Table, banishment and the best-of-100 season are from the TrueArena spec. Committed to a single dark world on purpose.
+  </footer>
+</div>
