@@ -63,12 +63,9 @@ public class ConfigController {
     }
 
     private PresetView toView(GameConfigPresetRow row) {
-        Object cfg = row.configJson() == null ? null : parse(row.configJson());
+        // parse to a typed GameConfig so the response carries a clean object, not a JSON string
+        Object cfg = row.configJson() == null ? null : json.readConfig(row.configJson());
         return new PresetView(String.valueOf(row.id()), row.scope(), row.slug(), row.name(), row.tag(),
                 row.description(), row.catalogVersion(), cfg);
-    }
-
-    private Object parse(String jsonStr) {
-        return json.readConfig(jsonStr); // returns a typed GameConfig; Jackson re-serializes it on the way out
     }
 }

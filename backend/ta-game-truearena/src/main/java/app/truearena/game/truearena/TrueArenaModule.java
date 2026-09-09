@@ -204,7 +204,7 @@ public final class TrueArenaModule implements GameModule {
             }
             case "Vote" -> closeVoting(d);
             case "VoteReview" -> {
-                if (!veiled(build(d))) {
+                if (!veiled(d)) {
                     while (d.votesRevealed < d.votes.size()) {
                         String voter = new ArrayList<>(d.votes.keySet()).get(d.votesRevealed++);
                         d.emit("VOTE_REVEALED", Map.of("voter", voter, "target", d.votes.get(voter)));
@@ -273,7 +273,7 @@ public final class TrueArenaModule implements GameModule {
         }
         d.phase = "VoteReview";
         d.votesRevealed = 0;
-        d.emit("ALL_VOTES_IN", Map.of("count", d.votes.size(), "veiled", veiled(build(d))));
+        d.emit("ALL_VOTES_IN", Map.of("count", d.votes.size(), "veiled", veiled(d)));
     }
 
     private void tallyAndBanish(TruearenaState.Draft d) {
@@ -389,9 +389,17 @@ public final class TrueArenaModule implements GameModule {
         };
     }
 
-    private boolean veiled(TruearenaState s) {
-        int threshold = s.config.veilThreshold();
-        return threshold > 0 && s.alive.size() <= threshold;
+    private static boolean veiled(TruearenaState s) {
+        return veiled(s.config, s.alive.size());
+    }
+
+    private static boolean veiled(TruearenaState.Draft d) {
+        return veiled(d.config, d.alive.size());
+    }
+
+    private static boolean veiled(GameConfig config, int livingPlayers) {
+        int threshold = config.veilThreshold();
+        return threshold > 0 && livingPlayers <= threshold;
     }
 
     private static TruearenaState build(TruearenaState.Draft d) {
