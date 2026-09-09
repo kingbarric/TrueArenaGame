@@ -19,7 +19,7 @@
 | 4 | WebSocket transport, Redis room state, reconnection | `[ ]` |
 | 5 | Game engine core (game-agnostic) | `[ ]` |
 | 6 | TrueArena game module v1 | `[ ]` |
-| 7 | Vote review + outcome presets | `[ ]` |
+| 7 | Config catalog: modes, twists, Veiled Endgame, custom games | `[ ]` |
 | 8 | Voice (LiveKit, audio-only, forced mute) | `[ ]` |
 | 9 | Results, rematch, per-group stats | `[ ]` |
 | 10 | Flutter app (runs alongside 2–9) | `[ ]` |
@@ -126,8 +126,9 @@ SPRING_PROFILES_ACTIVE=local \
   - _Status: `V1__core.sql` drafted during Phase 0 (users, groups, group_members, friends). Still needs the Testcontainers migration test before checking._
 
 - [ ] **1.2 Flyway `V2__rooms_sessions.sql`**
-  - Tables: `rooms` (`group_id` nullable), `room_members`, `game_sessions` (with `rng_seed`), `roles`, `game_events` (append-only, `visibility_scope`), `votes`, `game_results`.
-  - Indexes: `game_events (game_session_id, seq)`, `rooms (code)` unique.
+  - Tables: `rooms` (`group_id` nullable), `room_members`, `game_sessions` (with `rng_seed`, `config JSONB`, `config_preset_id`), `roles`, `game_events` (append-only, `visibility_scope`), `votes`, `game_results`, `game_config_preset` (see [GAME_CONFIG.md](GAME_CONFIG.md) §7 — `scope` builtin/group/user, `config JSONB`, `catalog_version`).
+  - Indexes: `game_events (game_session_id, seq)`, `rooms (code)` unique, `game_config_preset (scope, slug)` unique.
+  - _Note: the 5 `builtin` mode rows are seeded in Phase 7.6, not here._
   - **Done when:** migration applies; a manual insert of a full fake session succeeds.
   - **Tests:** Testcontainers — insert session → role → events → result graph; assert FK cascade behavior is what we want (events survive? decide and encode).
 
@@ -303,21 +304,22 @@ SPRING_PROFILES_ACTIVE=local \
 **Goal:** real roles, night, discussion, vote (with lock), banishment, win conditions. Brief §9.1–9.2.
 
 - [ ] **6.1 Phase definition + config schema**
-  - `definePhases`: Lobby → RoleReveal → (Night → Discussion → Vote → VoteReview → Banishment)* → Results.
-  - `GameConfig`: traitor ratio/count, night/discussion/vote timers, vote reveal mode. Defaults + ranges from §9.1.
-  - **Done when:** `definePhases` returns the right sequence for a given player count; defaults match the table.
-  - **Tests:** table-driven test over player counts 6–16 → expected default traitor counts (§9.1 table); every timer default/range enforced.
+  - `definePhases`: `Lobby → RoleReveal → (Night → MorningReveal → RoundTable → Vote → VoteReview → Elimination → WinCheck)* → FinalFire → Results` (see [GAME_CONFIG.md](GAME_CONFIG.md) §2).
+  - `GameConfig` = the full catalog: `table` (players/override/traitorCurve), `timers`, `nightKill` cadence (openingNight / doubleAfterRound / allowSkip / requireTraitorConsensus), `revealOnElimination`, tie/`secondTie`/AFK, `voteReveal`, `endgameVeil`, `twists{}`. Structure + enums: GAME_CONFIG.md §3–4.
+  - **Done when:** `definePhases` returns the right sequence for a config; every enum + range validated per GAME_CONFIG.md §8.
+  - **Tests:** table-driven over player counts 5–16 → traitorCurve resolves to the expected int; `openingNight:"off"` skips the round-1 kill; every timer/enum out-of-range rejected.
 
 - [ ] **6.2 Role assignment (RoleReveal)**
   - Seeded shuffle assigns Traitor/Faithful per config; writes `roles` rows; emits per-player `ROLE_ASSIGNED` events scoped `PLAYER:<id>`.
   - **Done when:** counts correct; each player's reveal is private.
   - **Tests:** N-run distribution test (seeded) → exact traitor count every time; **secret-data test**: Faithful socket + broadcast never receive another player's `role` before Results (this is the §8 non-negotiable — gates merge).
 
-- [ ] **6.3 Night phase**
-  - Traitors submit a shared target (`NIGHT_TARGET`); resolution on timer or all-traitors-submitted; emits `PLAYER_ELIMINATED` (public) at phase end.
+- [ ] **6.3 Night phase + kill cadence**
+  - Traitors submit a shared target (`NIGHT_TARGET`); resolution on timer or all-traitors-submitted (or all-confirmed if `requireTraitorConsensus`). `MorningReveal` announces the eliminated player and applies `revealOnElimination` (`always`/`never`/`alternating`).
+  - Cadence from config: `openingNight:"off"` → no round-1 kill; `doubleAfterRound:R` → two targets allowed after round R; `allowSkip` → traitors may pass once per game.
   - Non-traitor `NIGHT_TARGET` rejected.
-  - **Done when:** target dies, reveal happens at Discussion start.
-  - **Tests:** two traitors disagree → last-write or majority rule (pick one, document); non-traitor action rejected; timer with no submission → configurable no-kill or random (per rules — document).
+  - **Done when:** each cadence variant produces the right kills; MorningReveal reveal policy correct.
+  - **Tests:** disagree → last-write or majority (pick + document); Final-Gambit config → silent opening night; Blood-Moon config → single kills R1–2 then optional double; skip consumed once only.
 
 - [ ] **6.4 Discussion (Round Table) + host controls**
   - Open floor; `HOST_CONTROL`: `MUTE`/`UNMUTE` (one player), `EXTEND_TIMER`, `CUT_TIMER`, `ADVANCE_PHASE`.
@@ -351,9 +353,11 @@ SPRING_PROFILES_ACTIVE=local \
 
 ---
 
-## Phase 7 — Vote review + outcome presets
+## Phase 7 — Config catalog: modes, twists, Veiled Endgame, custom games
 
-**Goal:** Brief §9.2 step 6 and §9.3 — reveal modes, tie presets, AFK presets, custom saved presets.
+**Goal:** the config-driven layer from [GAME_CONFIG.md](GAME_CONFIG.md) — reveal modes,
+tie/AFK presets, the twist registry, the 5 modes as data, host-composed custom games,
+and Veiled Endgame.
 
 - [ ] **7.1 Vote review reveal modes**
   - `Sequential`: host `HOST_CONTROL REVEAL_NEXT` reveals one vote at a time. `AllAtOnce`: all revealed on phase enter.
@@ -372,11 +376,25 @@ SPRING_PROFILES_ACTIVE=local \
   - **Done when:** a game never stalls on one silent player.
   - **Tests:** timer expiry with 1 non-voter → abstain path completes; host-assign path records the assigned vote; disconnected mid-vote → immediate AFK flag.
 
-- [ ] **7.4 Custom named presets**
-  - Host saves a `{ tiePreset, afkPreset, name }` combo (per user or per group); listed at lobby setup.
-  - Composition only — no scripting (Brief §2).
-  - **Done when:** saved preset reloads and pre-fills lobby config.
-  - **Tests:** save → list → apply round-trip; invalid combo rejected; preset scoped correctly (not visible to other groups).
+- [ ] **7.4 `TwistRegistry` + twist hooks**
+  - `ta-game-truearena`: registry keyed by twist id for `catalogVersion` 1 — the 12 entries in [GAME_CONFIG.md](GAME_CONFIG.md) §5, each with a param schema + the phases it hooks.
+  - Reducer consults `config.twists[id]` before the relevant phase hook; unknown id → config rejected.
+  - Ship at least: `hidden_legacy`, `poisoned_gift`, `secret_accusation`, `last_will`, `trial_of_two`, `survivors_choice`, `immunity_coin`, `silent_witness` (the rest can land incrementally behind the same registry).
+  - **Done when:** each shipped twist changes the game as specified, seeded/deterministic; disabling it is a true no-op.
+  - **Tests:** per-twist scripted game; `hidden_legacy` recruits exactly when the trigger fires and never otherwise; **secret-data test still passes with every twist on**.
+
+- [ ] **7.5 Veiled Endgame**
+  - Once `livingPlayers ≤ endgameVeil` threshold, `VoteReview`/`Elimination` emit only `VOTE_LOCKED`, `ALL_VOTES_IN`, and the eliminated player; full ballot history released on `Results`.
+  - **Done when:** the veil turns on at the right count for each mode and never leaks tallies/targets while on.
+  - **Tests:** drive a game to the threshold → assert no `VOTE_REVEALED` payload carries a voter→target pair until `Results`; `endgameVeil:"off"` behaves as today.
+
+- [ ] **7.6 Modes as data + custom games**
+  - Flyway migration + seeder: `game_config_preset` (GAME_CONFIG.md §7); upsert the 5 `builtin` modes by `slug` from GAME_CONFIG.md §6.
+  - `GET /config/presets` (builtins + caller's `user`/`group` presets); `POST /groups/{id}/presets` / `POST /me/presets` to save a host-composed `GameConfig` (scope `group`/`user`).
+  - Lobby `CONFIG_SET` accepts a full `GameConfig`; server re-validates per GAME_CONFIG.md §8 (balance warning for out-of-range + `adminOverride`).
+  - `game_sessions` gains `config JSONB` + `config_preset_id`.
+  - **Done when:** pick a mode → edit → save as custom → reload → start; a session records the config it ran.
+  - **Tests:** each builtin seed round-trips through the validator; out-of-range players blocked without `adminOverride`, allowed with; custom preset scoped correctly (invisible to other groups); unknown `catalogVersion` rejected.
 
 ---
 

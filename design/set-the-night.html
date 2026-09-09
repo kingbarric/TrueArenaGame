@@ -1,0 +1,702 @@
+<title>Set the Night</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800;900&family=Unbounded:wght@600;900&display=swap">
+
+<style>
+  :root{
+    --bg:#040207; --panel:#0c0814; --plate:#0e0a17; --ink:#f4f0ff; --mid:#b9aed6; --mute:#6e6390;
+    --line:#1c1330; --cy:#25f4ee; --mag:#ff2e9a; --ac:#c6ff3d; --red:#fe2c55;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --ease:cubic-bezier(.22,1,.36,1);
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box}
+  html{background:var(--bg)}
+  body{margin:0; background:var(--bg); color:var(--ink); font:400 16px/1.55 "Archivo",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .board{max-width:960px; margin:0 auto; padding:clamp(26px,5vw,56px) 20px 80px; display:flex; flex-direction:column; align-items:center; gap:28px}
+
+  .intro{width:100%; max-width:560px; display:flex; flex-direction:column; gap:14px}
+  .eyebrow{font:700 12px/1 "Archivo"; letter-spacing:.26em; text-transform:uppercase; color:var(--cy);
+    display:flex; align-items:center; gap:11px}
+  .eyebrow::before{content:""; width:28px; height:2px; background:var(--cy)}
+  .intro h1{margin:0; font:900 clamp(34px,7vw,54px)/.98 "Unbounded"; text-transform:uppercase; letter-spacing:.005em;
+    text-shadow:0 0 42px rgba(37,244,238,.28); text-wrap:balance}
+  .intro h1 em{font-style:normal; color:var(--mag); text-shadow:0 0 42px rgba(255,46,154,.4)}
+  .intro p{margin:0; color:var(--mid); font-size:15px}
+  .legend{display:flex; flex-wrap:wrap; gap:7px}
+  .legend b{font:700 10px/1 "Archivo"; letter-spacing:.08em; text-transform:uppercase; color:var(--mid);
+    background:var(--panel); border:1px solid var(--line); padding:7px 10px; border-radius:999px}
+
+  /* ---------- device ---------- */
+  .device{width:360px; border-radius:46px; padding:12px; background:#120c1c;
+    box-shadow:0 50px 110px -46px rgba(0,0,0,.92), inset 0 0 0 1px rgba(255,255,255,.05)}
+  .app{position:relative; height:772px; border-radius:34px; overflow:hidden; background:#050308;
+    display:flex; flex-direction:column; font-family:"Unbounded",sans-serif}
+  .app::after{content:""; position:absolute; inset:0; pointer-events:none; opacity:.06; mix-blend-mode:overlay; z-index:5;
+    background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>")}
+  .amb{position:absolute; inset:-30%; z-index:0; pointer-events:none; filter:blur(70px); opacity:.5;
+    background:radial-gradient(28% 28% at 22% 18%, #25f4ee, transparent 70%),
+               radial-gradient(30% 30% at 82% 26%, #ff2e9a, transparent 70%),
+               radial-gradient(34% 34% at 50% 92%, #7c5cff, transparent 70%);
+    animation:amb 22s ease-in-out infinite alternate}
+  @keyframes amb{to{transform:translate(3%,-4%) scale(1.08)}}
+  .app > *:not(.amb){position:relative; z-index:1}
+
+  .mq{overflow:hidden; padding:8px 0; border-bottom:1px solid #1c1330;
+    -webkit-mask:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}
+  .mq b{display:inline-block; white-space:nowrap; font:700 8.5px/1 "Archivo"; letter-spacing:.24em;
+    text-transform:uppercase; color:var(--ac); animation:mq 18s linear infinite}
+  @keyframes mq{to{transform:translateX(-50%)}}
+
+  .topbar{display:flex; align-items:center; gap:10px; padding:12px 14px 10px}
+  .back{display:flex; align-items:center; gap:6px; font:800 9px/1 "Archivo"; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--cy); background:transparent; border:1px solid rgba(37,244,238,.4); border-radius:999px;
+    padding:8px 11px; cursor:pointer; transition:background .2s var(--ease), transform .2s var(--ease)}
+  .back:hover{background:rgba(37,244,238,.12)}
+  .back:active{transform:scale(.94)}
+  .banner{margin-left:auto; text-align:right; overflow:hidden}
+  .banner b{display:block; font:900 17px/1 "Unbounded"; text-transform:uppercase; letter-spacing:.01em;
+    text-shadow:0 0 20px rgba(37,244,238,.5); color:#eafffe}
+  .banner span{font:700 7.5px/1.3 "Archivo"; letter-spacing:.14em; text-transform:uppercase; color:var(--mute)}
+
+  .view{flex:1; overflow-y:auto; overflow-x:hidden; scrollbar-width:thin; scrollbar-color:#2a1f45 transparent}
+  .view::-webkit-scrollbar{width:6px}
+  .view::-webkit-scrollbar-thumb{background:#2a1f45; border-radius:99px}
+  [hidden]{display:none !important}
+
+  /* ---------- modes view ---------- */
+  .modes{display:flex; flex-direction:column; gap:11px; padding:12px 14px 20px}
+  .mcard{position:relative; text-align:left; border-radius:16px; background:var(--plate); color:var(--ink);
+    border:1px solid var(--line); padding:15px 14px; cursor:pointer; overflow:hidden;
+    transition:transform .24s var(--ease), box-shadow .24s var(--ease), border-color .24s var(--ease)}
+  .mcard::after{content:""; position:absolute; top:0; left:-60%; width:40%; height:100%;
+    background:linear-gradient(100deg,transparent,rgba(37,244,238,.16),transparent); transform:skewX(-18deg);
+    transition:left .5s var(--ease)}
+  .mcard:hover{transform:translateY(-4px); border-color:rgba(37,244,238,.5);
+    box-shadow:0 0 34px -8px rgba(37,244,238,.5)}
+  .mcard:hover::after{left:130%}
+  .mcard:focus-visible{outline:2px solid var(--cy); outline-offset:2px}
+  .mcard.custom{border-style:dashed; border-color:rgba(198,255,61,.45)}
+  .mcard.custom:hover{border-color:var(--ac); box-shadow:0 0 34px -8px rgba(198,255,61,.5)}
+  .mcard h3{margin:0 0 8px; font:900 16px/1 "Unbounded"; text-transform:uppercase; letter-spacing:.01em}
+  .mcard .twix{font:600 10px/1.5 "Archivo"; color:var(--mid); margin:0 0 10px}
+  .mstats{display:flex; gap:6px; flex-wrap:wrap}
+  .mstats i{font:800 8px/1 "Archivo"; letter-spacing:.08em; text-transform:uppercase; font-style:normal;
+    padding:6px 7px; border-radius:7px; background:#0a0712; color:#c9bfe0}
+  .mstats i.cy{box-shadow:inset 0 0 0 1px rgba(37,244,238,.5)}
+  .mstats i.mag{box-shadow:inset 0 0 0 1px rgba(255,46,154,.5)}
+  .mstats i.ac{box-shadow:inset 0 0 0 1px rgba(198,255,61,.5)}
+
+  /* ---------- setup view ---------- */
+  .setup{padding:6px 14px 20px; display:flex; flex-direction:column; gap:14px}
+  .grp{border:1px solid var(--line); border-radius:16px; background:rgba(12,8,20,.6); padding:13px 13px 15px;
+    display:flex; flex-direction:column; gap:12px}
+  .entering .grp{opacity:0; transform:translateY(14px); animation:pop .5s var(--ease) forwards; animation-delay:calc(var(--i,0) * 55ms)}
+  @keyframes pop{to{opacity:1; transform:none}}
+  .grp > h4{margin:0; font:800 9px/1 "Archivo"; letter-spacing:.22em; text-transform:uppercase; color:var(--cy)}
+
+  .field{display:flex; flex-direction:column; gap:8px}
+  .field .lab{display:flex; justify-content:space-between; align-items:baseline; font:700 10px/1 "Archivo";
+    letter-spacing:.06em; text-transform:uppercase; color:var(--mid)}
+  .field .val{font:900 14px/1 "Unbounded"; color:var(--ink); font-variant-numeric:tabular-nums}
+  .field .val.flash{color:var(--ac); transition:color .05s}
+
+  /* slider */
+  .slider{position:relative; height:26px; display:flex; align-items:center}
+  .slider input{-webkit-appearance:none; appearance:none; width:100%; height:6px; border-radius:99px; margin:0;
+    background:linear-gradient(90deg,var(--cy) var(--pct,50%), #1a1030 var(--pct,50%)); outline:none}
+  .slider input::-webkit-slider-thumb{-webkit-appearance:none; width:20px; height:20px; border-radius:50%;
+    background:#fff; box-shadow:0 0 16px rgba(37,244,238,.9); cursor:pointer; transition:transform .12s var(--ease)}
+  .slider input::-moz-range-thumb{width:20px; height:20px; border:0; border-radius:50%; background:#fff;
+    box-shadow:0 0 16px rgba(37,244,238,.9); cursor:pointer}
+  .slider input:active::-webkit-slider-thumb{transform:scale(1.18)}
+  .slider input:focus-visible{outline:2px solid var(--cy); outline-offset:6px; border-radius:99px}
+  .ticks{display:flex; justify-content:space-between; font:600 8px/1 "Archivo"; letter-spacing:.1em; color:var(--mute); text-transform:uppercase}
+  .safe{color:var(--ac)}
+
+  /* balance warning */
+  .warn{overflow:hidden; max-height:0; opacity:0; transition:max-height .34s var(--ease), opacity .3s var(--ease)}
+  .warn.show{max-height:160px; opacity:1}
+  .warn.shake{animation:shake .4s}
+  @keyframes shake{10%,90%{transform:translateX(-2px)}30%,70%{transform:translateX(3px)}50%{transform:translateX(-3px)}}
+  .warn .box{margin-top:8px; border-radius:12px; padding:11px; background:rgba(254,44,85,.1);
+    box-shadow:inset 0 0 0 1px rgba(254,44,85,.45); font:600 10.5px/1.5 "Archivo"; color:#ffd7e2}
+  .warn .box b{color:var(--red); text-transform:uppercase; letter-spacing:.1em; font-size:9px; display:block; margin-bottom:3px}
+
+  /* stepper */
+  .step{display:flex; align-items:center; gap:9px}
+  .step button{width:32px; height:32px; border-radius:10px; border:1px solid var(--line); background:#0a0712; color:var(--ink);
+    font:900 16px/1 "Unbounded"; cursor:pointer; transition:transform .12s var(--ease), box-shadow .2s var(--ease)}
+  .step button:hover{box-shadow:0 0 16px -4px rgba(37,244,238,.6)}
+  .step button:active{transform:scale(.88)}
+  .step .n{min-width:34px; text-align:center; font:900 16px/1 "Unbounded"; font-variant-numeric:tabular-nums}
+  .step .u{font:700 8px/1 "Archivo"; letter-spacing:.12em; text-transform:uppercase; color:var(--mute)}
+
+  /* toggle switch */
+  .row{display:flex; align-items:center; justify-content:space-between; gap:10px}
+  .row .t{font:700 10px/1.3 "Archivo"; letter-spacing:.04em; text-transform:uppercase; color:var(--mid)}
+  .sw{position:relative; width:46px; height:26px; border-radius:99px; border:1px solid var(--line); background:#0a0712;
+    cursor:pointer; flex:0 0 auto; transition:background .25s var(--ease), box-shadow .25s var(--ease)}
+  .sw .knob{position:absolute; top:2px; left:2px; width:20px; height:20px; border-radius:50%; background:#4a4066;
+    transition:transform .24s var(--ease), background .24s var(--ease)}
+  .sw[aria-pressed="true"]{background:rgba(37,244,238,.18); box-shadow:0 0 18px -4px rgba(37,244,238,.7), inset 0 0 0 1px rgba(37,244,238,.5)}
+  .sw[aria-pressed="true"] .knob{transform:translateX(20px); background:var(--cy)}
+  .sw:active .knob{width:24px}
+  .sw:focus-visible{outline:2px solid var(--cy); outline-offset:3px}
+
+  /* segmented */
+  .seg{position:relative; display:flex; gap:2px; background:#0a0712; border:1px solid var(--line); border-radius:12px; padding:3px}
+  .seg .pill{position:absolute; top:3px; bottom:3px; border-radius:9px; background:linear-gradient(90deg,var(--cy),#12cfc8);
+    box-shadow:0 0 20px -4px rgba(37,244,238,.8); transition:transform .26s var(--ease), width .26s var(--ease); z-index:0}
+  .seg .opt{position:relative; z-index:1; flex:1; text-align:center; border:0; background:transparent; cursor:pointer;
+    font:800 8.5px/1 "Archivo"; letter-spacing:.06em; text-transform:uppercase; color:var(--mute); padding:9px 4px;
+    transition:color .2s var(--ease)}
+  .seg .opt[aria-selected="true"]{color:#04211f}
+  .seg .opt:focus-visible{outline:2px solid var(--cy); outline-offset:2px; border-radius:8px}
+
+  /* tie chips */
+  .chiprow{display:flex; gap:7px; flex-wrap:wrap}
+  .chip{border:1px solid var(--line); background:#0a0712; color:var(--mid); border-radius:10px; cursor:pointer;
+    font:800 8.5px/1 "Archivo"; letter-spacing:.06em; text-transform:uppercase; padding:9px 10px;
+    transition:transform .16s var(--ease), box-shadow .22s var(--ease), color .2s var(--ease), background .2s var(--ease)}
+  .chip:hover{transform:translateY(-2px)}
+  .chip[aria-pressed="true"]{color:#04211f; background:linear-gradient(90deg,var(--cy),#12cfc8);
+    box-shadow:0 0 20px -5px rgba(37,244,238,.8)}
+  .chip:focus-visible{outline:2px solid var(--cy); outline-offset:2px}
+
+  /* twists */
+  .twhead{display:flex; align-items:center; justify-content:space-between}
+  .twcount{font:900 9px/1 "Archivo"; letter-spacing:.1em; text-transform:uppercase; color:var(--ac);
+    background:rgba(198,255,61,.14); padding:6px 8px; border-radius:8px; transition:transform .2s var(--ease)}
+  .twcount.bump{transform:scale(1.22)}
+  .twgrid{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+  .twist{position:relative; text-align:left; border:1px solid var(--line); background:#0a0712; color:var(--mid);
+    border-radius:11px; padding:10px 9px; cursor:pointer; overflow:hidden;
+    transition:transform .16s var(--ease), box-shadow .24s var(--ease), border-color .24s var(--ease), background .24s var(--ease)}
+  .twist b{display:block; font:800 9.5px/1.25 "Archivo"; letter-spacing:.03em; text-transform:uppercase; color:var(--ink); padding-right:16px}
+  .twist .q{position:absolute; top:8px; right:8px; width:15px; height:15px; border-radius:50%; display:grid; place-items:center;
+    font:900 9px/1 "Archivo"; color:var(--mute); box-shadow:inset 0 0 0 1px var(--line)}
+  .twist:hover{transform:translateY(-2px)}
+  .twist[aria-pressed="true"]{border-color:rgba(255,46,154,.6); background:rgba(255,46,154,.1);
+    box-shadow:0 0 22px -6px rgba(255,46,154,.7); color:var(--ink)}
+  .twist[aria-pressed="true"]::before{content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--mag);
+    box-shadow:0 0 12px var(--mag)}
+  .twist.justOn{animation:tpop .34s var(--ease)}
+  @keyframes tpop{40%{transform:scale(1.06)}}
+  .twist:focus-visible{outline:2px solid var(--mag); outline-offset:2px}
+  .blurb{grid-column:1 / -1; overflow:hidden; max-height:0; opacity:0; transition:max-height .3s var(--ease), opacity .26s var(--ease)}
+  .blurb.open{max-height:120px; opacity:1}
+  .blurb p{margin:0; border-radius:10px; padding:10px; background:#0a0712; box-shadow:inset 0 0 0 1px var(--line);
+    font:600 10px/1.5 "Archivo"; color:var(--mid)}
+
+  /* receipt */
+  .receipt{border-top:1px solid var(--line); background:rgba(6,3,10,.9); backdrop-filter:blur(6px)}
+  .rtoggle{width:100%; display:flex; align-items:center; gap:9px; padding:11px 14px; background:transparent; border:0; cursor:pointer;
+    font:800 9px/1 "Archivo"; letter-spacing:.12em; text-transform:uppercase; color:var(--mid)}
+  .rtoggle .dot{width:6px; height:6px; border-radius:50%; background:var(--ac); box-shadow:0 0 8px var(--ac)}
+  .rtoggle .chev{margin-left:auto; transition:transform .3s var(--ease)}
+  .receipt.open .chev{transform:rotate(180deg)}
+  .rtoggle .quick{color:var(--ink); letter-spacing:.06em}
+  .rbody{overflow:hidden; max-height:0; transition:max-height .34s var(--ease)}
+  .receipt.open .rbody{max-height:240px}
+  .rbody dl{margin:0; padding:0 14px 12px; display:grid; grid-template-columns:auto 1fr; gap:6px 12px;
+    font:700 9.5px/1.4 "Archivo"; letter-spacing:.04em}
+  .rbody dt{color:var(--mute); text-transform:uppercase}
+  .rbody dd{margin:0; color:var(--ink); text-align:right; font-variant-numeric:tabular-nums}
+  .rbody dd.tw{color:var(--mag)}
+
+  /* launch */
+  .launch{padding:12px 14px 16px; display:flex; flex-direction:column; gap:8px; border-top:1px solid var(--line)}
+  .namewrap{overflow:hidden; max-height:0; opacity:0; transition:max-height .3s var(--ease), opacity .26s var(--ease)}
+  .namewrap.show{max-height:60px; opacity:1}
+  .namewrap input{width:100%; border-radius:11px; border:1px solid rgba(198,255,61,.4); background:#0a0712; color:var(--ink);
+    font:700 11px/1 "Archivo"; letter-spacing:.04em; padding:11px 12px; outline:none}
+  .namewrap input:focus{box-shadow:0 0 16px -4px rgba(198,255,61,.6)}
+  .go{border:0; cursor:pointer; text-align:center; font:900 15px/1 "Unbounded"; letter-spacing:.05em; text-transform:uppercase;
+    padding:16px; border-radius:14px; color:#04211f; background:linear-gradient(90deg,var(--ac),var(--cy)); background-size:200% 100%;
+    box-shadow:0 0 30px -8px rgba(198,255,61,.75); animation:sheen 6s linear infinite}
+  @keyframes sheen{to{background-position:200% 0}}
+  .go.custom{color:#fff; background:linear-gradient(90deg,var(--mag),var(--cy)); box-shadow:0 0 32px -8px rgba(255,46,154,.85)}
+  .go:active{transform:translateY(1px)}
+  .go:focus-visible{outline:2px solid var(--cy); outline-offset:3px}
+
+  footer{max-width:560px; color:var(--mute); font-size:12.5px}
+  footer b{color:var(--mid)}
+
+  @media (max-width:420px){ .device{width:100%; max-width:360px} }
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none !important; transition-duration:.001s !important}
+  }
+</style>
+
+<div class="board">
+  <div class="intro">
+    <span class="eyebrow">TrueArena · interactive prototype</span>
+    <h1>Set the <em>Night</em></h1>
+    <p>Pick one of the five modes, or build a custom game. Every twist and rule is a preset toggle — the five modes are just named bundles of them. Neon Night-Market theme. Everything on the phone is live.</p>
+    <div class="legend">
+      <b>Tap a mode ↔ tweak the setup</b><b>Toggles animate</b><b>Balance check is real</b><b>Receipt pulls up</b>
+    </div>
+  </div>
+
+  <div class="device"><div class="app" id="app">
+    <div class="amb"></div>
+    <div class="mq"><b id="mqtxt">Blood Moon · 3 traitors · double murder after round 2 · veil at final 5 · Blood Moon · 3 traitors · double murder after round 2 · veil at final 5 · </b></div>
+
+    <div class="topbar">
+      <button class="back" id="back" type="button">&larr; All modes</button>
+      <div class="banner"><b id="bname">Midnight Heist</b><span id="brange">7–12 players · 2–3 traitors</span></div>
+    </div>
+
+    <!-- MODES -->
+    <div class="view view-modes" id="vModes" hidden>
+      <div class="modes" id="modeList"></div>
+    </div>
+
+    <!-- SETUP -->
+    <div class="view view-setup" id="vSetup">
+      <div class="setup" id="setup"></div>
+    </div>
+
+    <!-- RECEIPT -->
+    <div class="receipt" id="receipt">
+      <button class="rtoggle" id="rtoggle" type="button">
+        <span class="dot"></span>
+        <span class="quick" id="rquick">10 players · 3 traitors · 0 twists</span>
+        <span class="chev">▲</span>
+      </button>
+      <div class="rbody"><dl id="rlist"></dl></div>
+    </div>
+
+    <!-- LAUNCH -->
+    <div class="launch">
+      <div class="namewrap" id="namewrap"><input id="cname" type="text" placeholder="Name this custom game…" maxlength="28"></div>
+      <button class="go" id="go" type="button">Open the room</button>
+    </div>
+  </div></div>
+
+  <footer>
+    Prototype only — no backend. The five modes and the twist catalog mirror <b>docs/GAME_CONFIG.md</b>: one <em>Traitors and Faithful</em> engine, driven entirely by a <b>GameConfig</b>. Modes are preset bundles; edit one and it becomes a custom game you can save. Cast and copy are placeholders.
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var RM = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // ---- catalog (mirror of docs/GAME_CONFIG.md) ----
+  var TWISTS = [
+    ["hidden_legacy","Hidden Legacy","If the last original Traitor falls before the trigger, the app secretly recruits one living Faithful. Only the host and the recruit are told."],
+    ["poisoned_gift","Poisoned Gift & the Shield","Each use, Traitors pick Direct Poison (a delayed death) or plant a public mystery Shield — real protection, or a poison in disguise."],
+    ["secret_accusation","Secret Accusation","One Faithful holds a one-use public accusation. Spend it and the accused gets 60 seconds to answer before the vote."],
+    ["blackmail","Blackmail","One Faithful privately learns one random player's true side, and may share it, sit on it, or lie."],
+    ["double_agent","Double Agent","One Faithful is flagged recruitable. The Traitors may turn them on a later night — or never."],
+    ["last_will","Last Will","An eliminated player may leave one host-approved final sentence. No private info allowed."],
+    ["confessional","Confessional","Once a round, every living player submits one line. The host reads them out anonymously."],
+    ["immunity_coin","Immunity Coin","A challenge winner holds a public one-use immunity from elimination, spent whenever they choose."],
+    ["silent_witness","Silent Witness","One Faithful learns a murdered player was definitely Faithful — and nothing about any Traitor."],
+    ["false_reveal","False Reveal","Once a game, the Traitors can force one eliminated Faithful's role to be announced as unknown."],
+    ["trial_of_two","Trial of Two","On a tie, both tied players get 45 seconds to defend while everyone else is muted, then a final vote."],
+    ["survivors_choice","Survivors' Choice","At the final four, the group may end the game early. Any Traitor still alive means the Traitors win."]
+  ];
+  var TW_NAME = {}; TWISTS.forEach(function(t){ TW_NAME[t[0]] = t[1]; });
+
+  function base(){
+    return {
+      preset:"custom", players:10, minPlayers:6, maxPlayers:10, adminOverride:false, traitors:2,
+      night:60, roundTable:300, vote:60,
+      openingNight:true, doubleAfterRound:0, allowSkip:false, consensus:false,
+      revealElim:"always", voteReveal:"sequential", veil:"final_4",
+      tieBreak:"revote", afk:"abstain",
+      twists:{}
+    };
+  }
+  function M(over){ var c = base(); for (var k in over) c[k] = over[k]; return c; }
+
+  var MODES = [
+    { id:"classic_conspiracy", name:"Classic Conspiracy", twix:"No powers. Pure deduction.",
+      cfg:M({preset:"classic_conspiracy", minPlayers:6,maxPlayers:10, players:8, traitors:2,
+             revealElim:"always", tieBreak:"revote", veil:"final_4"}) },
+    { id:"midnight_heist", name:"Midnight Heist", twix:"A challenge Shield — real, or poisoned.",
+      cfg:M({preset:"midnight_heist", minPlayers:7,maxPlayers:12, players:10, traitors:3,
+             tieBreak:"host_decides", veil:"final_5", twists:{poisoned_gift:1, immunity_coin:1}}) },
+    { id:"blood_moon", name:"Blood Moon", twix:"Double murder after round 2.",
+      cfg:M({preset:"blood_moon", minPlayers:8,maxPlayers:14, players:10, traitors:3,
+             doubleAfterRound:2, allowSkip:true, tieBreak:"random", veil:"final_5"}) },
+    { id:"the_last_alibi", name:"The Last Alibi", twix:"Reveals alternate public, hidden, public…",
+      cfg:M({preset:"the_last_alibi", minPlayers:9,maxPlayers:16, players:12, traitors:3,
+             consensus:true, revealElim:"alternating", tieBreak:"sudden_death", veil:"final_6"}) },
+    { id:"final_gambit", name:"Final Gambit", twix:"No opening kill. One secret accusation.",
+      cfg:M({preset:"final_gambit", minPlayers:5,maxPlayers:8, players:7, traitors:2,
+             openingNight:false, tieBreak:"no_elimination", veil:"final_4", twists:{secret_accusation:1}}) }
+  ];
+  function modeById(id){ for (var i=0;i<MODES.length;i++) if (MODES[i].id===id) return MODES[i]; return null; }
+
+  // ---- state ----
+  var cfg = clone(MODES[1].cfg);          // land on Midnight Heist
+  var baseline = clone(cfg);
+  var view = "setup";
+
+  function clone(o){ return JSON.parse(JSON.stringify(o)); }
+  function twCount(c){ return Object.keys(c.twists).length; }
+  function equalCfg(a,b){ return JSON.stringify(a) === JSON.stringify(b); }
+  function veilLabel(v){ return v==="off" ? "Off" : "Final " + v.slice(-1); }
+  function cadence(c){
+    if (!c.openingNight) return "No opening kill";
+    if (c.doubleAfterRound) return "Double after R" + c.doubleAfterRound;
+    return "One a night";
+  }
+  var TIE_LABEL = {revote:"Revote",no_elimination:"No elimination",random:"Random tied",
+    sudden_death:"Sudden death",host_decides:"Host decides",trial_of_two:"Trial of two"};
+
+  // ---- element helpers ----
+  function el(tag, cls, txt){ var e = document.createElement(tag); if (cls) e.className = cls; if (txt!=null) e.textContent = txt; return e; }
+  function tween(node, from, to){
+    if (RM || from === to){ node.textContent = to; return; }
+    var t0 = performance.now(), dur = 380;
+    node.classList.add("flash");
+    (function step(t){
+      var k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+      node.textContent = Math.round(from + (to - from) * e);
+      if (k < 1) requestAnimationFrame(step);
+      else { node.textContent = to; setTimeout(function(){ node.classList.remove("flash"); }, 120); }
+    })(t0);
+  }
+
+  // ---- render: MODES ----
+  var modeList = document.getElementById("modeList");
+  MODES.forEach(function (m) {
+    var card = el("button", "mcard"); card.type = "button";
+    card.innerHTML = "<h3></h3><p class='twix'></p><div class='mstats'></div>";
+    card.querySelector("h3").textContent = m.name;
+    card.querySelector(".twix").textContent = m.twix;
+    var st = card.querySelector(".mstats");
+    st.appendChild(mk("i","cy", m.cfg.minPlayers + "–" + m.cfg.maxPlayers + " players"));
+    st.appendChild(mk("i","mag", m.cfg.traitors + " traitors"));
+    st.appendChild(mk("i","ac", "veil " + veilLabel(m.cfg.veil).toLowerCase()));
+    var tw = twCount(m.cfg); if (tw) st.appendChild(mk("i", "", tw + " twist" + (tw>1?"s":"")));
+    card.addEventListener("click", function(){ chooseMode(m.id); });
+    modeList.appendChild(card);
+  });
+  var custom = el("button", "mcard custom"); custom.type = "button";
+  custom.innerHTML = "<h3>Custom Game</h3><p class='twix'>Start from scratch and pick your own twists.</p><div class='mstats'><i class='ac'>build it</i></div>";
+  custom.addEventListener("click", function(){ cfg = base(); baseline = base(); baseline.preset = "__none__"; openSetup(); });
+  modeList.appendChild(custom);
+  function mk(t,c,x){ return el(t,c,x); }
+
+  // ---- render: SETUP ----
+  var setup = document.getElementById("setup");
+  function renderSetup(){
+    setup.innerHTML = "";
+    var i = 0;
+    setup.appendChild(grpTable(i++));
+    setup.appendChild(grpClocks(i++));
+    setup.appendChild(grpNight(i++));
+    setup.appendChild(grpReveals(i++));
+    setup.appendChild(grpTies(i++));
+    setup.appendChild(grpTwists(i++));
+    // position segmented pills after layout
+    requestAnimationFrame(function(){ setup.querySelectorAll(".seg").forEach(movePill); });
+    syncReceipt(); syncLaunch();
+  }
+  function grp(i, title){ var g = el("div","grp"); g.style.setProperty("--i", i); g.appendChild(el("h4", null, title)); return g; }
+
+  function grpTable(i){
+    var g = grp(i, "The table");
+    // players slider
+    var f = el("div","field");
+    var lab = el("div","lab"); lab.innerHTML = "<span>Players</span>"; var val = el("span","val", String(cfg.players)); lab.appendChild(val);
+    var sl = el("div","slider");
+    var inp = el("input"); inp.type = "range"; inp.min = 4; inp.max = 20; inp.value = cfg.players;
+    setPct(inp);
+    var ticks = el("div","ticks");
+    ticks.innerHTML = "<span>4</span><span class='safe'>"+cfg.minPlayers+"</span><span class='safe'>"+cfg.maxPlayers+"</span><span>20</span>";
+    sl.appendChild(inp);
+    inp.addEventListener("input", function(){
+      var prev = cfg.players; cfg.players = +inp.value; setPct(inp);
+      tween(val, prev, cfg.players); onChange();
+    });
+    f.appendChild(lab); f.appendChild(sl); f.appendChild(ticks);
+    // warning
+    var warn = el("div","warn"); warn.id = "balWarn";
+    warn.innerHTML = "<div class='box'><b>Outside the recommended range</b>Balance shifts when you leave "+cfg.minPlayers+"–"+cfg.maxPlayers+" players. Turn on Admin override to launch anyway.</div>";
+    f.appendChild(warn);
+    // override toggle
+    var ov = el("div","row");
+    ov.innerHTML = "<span class='t'>Admin override (4–20)</span>";
+    ov.appendChild(mkSwitch(cfg.adminOverride, function(on){ cfg.adminOverride = on; onChange(); }));
+    f.appendChild(ov);
+    g.appendChild(f);
+    // traitors stepper
+    var tf = el("div","field");
+    var tl = el("div","lab"); tl.innerHTML = "<span>Traitors</span>";
+    tf.appendChild(tl);
+    tf.appendChild(mkStepper(cfg.traitors, 1, 6, "traitors", function(v){ cfg.traitors = v; onChange(); }));
+    g.appendChild(tf);
+    return g;
+  }
+  function setPct(inp){ inp.style.setProperty("--pct", ((inp.value - 4) / 16 * 100) + "%"); }
+
+  function grpClocks(i){
+    var g = grp(i, "Clocks");
+    g.appendChild(clockField("Night", "night", 30, 120, 15));
+    g.appendChild(clockField("Round table", "roundTable", 60, 600, 30));
+    g.appendChild(clockField("Vote", "vote", 30, 90, 15));
+    return g;
+  }
+  function clockField(label, key, min, max, stepv){
+    var f = el("div","field");
+    var l = el("div","lab"); l.innerHTML = "<span>"+label+"</span>";
+    var v = el("span","val", fmt(cfg[key])); l.appendChild(v);
+    var st = el("div","step");
+    var minus = el("button", null, "–"), plus = el("button", null, "+");
+    var n = el("span","n", fmt(cfg[key]));
+    minus.addEventListener("click", function(){ bump(-1); });
+    plus.addEventListener("click", function(){ bump(1); });
+    function bump(d){
+      var prev = cfg[key]; cfg[key] = Math.max(min, Math.min(max, cfg[key] + d*stepv));
+      n.textContent = fmt(cfg[key]); v.textContent = fmt(cfg[key]);
+      if (!RM){ n.animate([{transform:"scale(1.18)"},{transform:"scale(1)"}], {duration:180}); }
+      onChange();
+    }
+    st.appendChild(minus); st.appendChild(n); st.appendChild(plus);
+    f.appendChild(l); f.appendChild(st);
+    return f;
+    function fmt(s){ return s>=60 ? (s/60).toFixed(s%60?1:0).replace(".0","")+"m" : s+"s"; }
+  }
+
+  function grpNight(i){
+    var g = grp(i, "The night");
+    g.appendChild(mkRow("Kill on the opening night", cfg.openingNight, function(on){ cfg.openingNight = on; onChange(); }));
+    g.appendChild(mkRow("Traitors may skip one kill", cfg.allowSkip, function(on){ cfg.allowSkip = on; onChange(); }));
+    g.appendChild(mkRow("Require Traitor consensus", cfg.consensus, function(on){ cfg.consensus = on; onChange(); }));
+    var f = el("div","field");
+    f.appendChild(labOnly("Double murder"));
+    f.appendChild(mkSeg([["0","Never"],["2","After R2"],["3","After R3"]], String(cfg.doubleAfterRound), function(v){
+      cfg.doubleAfterRound = +v; onChange();
+    }));
+    g.appendChild(f);
+    return g;
+  }
+
+  function grpReveals(i){
+    var g = grp(i, "Reveals");
+    g.appendChild(segField("Role on elimination", [["always","Always"],["never","Never"],["alternating","Alternating"]],
+      cfg.revealElim, function(v){ cfg.revealElim = v; onChange(); }));
+    g.appendChild(segField("Vote review", [["sequential","Sequential"],["all_at_once","All at once"]],
+      cfg.voteReveal, function(v){ cfg.voteReveal = v; onChange(); }));
+    g.appendChild(segField("Veiled endgame", [["final_4","Final 4"],["final_5","Final 5"],["final_6","Final 6"],["off","Off"]],
+      cfg.veil, function(v){ cfg.veil = v; onChange(); }));
+    return g;
+  }
+
+  function grpTies(i){
+    var g = grp(i, "Ties & AFK");
+    var f = el("div","field"); f.appendChild(labOnly("On a tie"));
+    var row = el("div","chiprow");
+    Object.keys(TIE_LABEL).forEach(function(k){
+      var c = el("button","chip"); c.type = "button"; c.textContent = TIE_LABEL[k];
+      c.setAttribute("aria-pressed", cfg.tieBreak === k);
+      c.addEventListener("click", function(){
+        cfg.tieBreak = k;
+        row.querySelectorAll(".chip").forEach(function(x,idx){ x.setAttribute("aria-pressed", Object.keys(TIE_LABEL)[idx] === k); });
+        onChange();
+      });
+      row.appendChild(c);
+    });
+    f.appendChild(row); g.appendChild(f);
+    g.appendChild(segField("Missed vote", [["abstain","Abstain"],["host_assigns","Host assigns"]],
+      cfg.afk, function(v){ cfg.afk = v; onChange(); }));
+    return g;
+  }
+
+  function grpTwists(i){
+    var g = grp(i, "Twists");
+    var head = el("div","twhead");
+    head.innerHTML = "<span class='t' style='font:800 9px/1 Archivo;letter-spacing:.14em;text-transform:uppercase;color:var(--mid)'>Preset toggles</span>";
+    var count = el("span","twcount"); count.id = "twCount"; count.textContent = twCount(cfg) + " on";
+    head.appendChild(count); g.appendChild(head);
+    var grid = el("div","twgrid");
+    TWISTS.forEach(function(t){
+      var btn = el("button","twist"); btn.type = "button"; btn.dataset.id = t[0];
+      btn.setAttribute("aria-pressed", !!cfg.twists[t[0]]);
+      btn.innerHTML = "<b></b><span class='q'>?</span>";
+      btn.querySelector("b").textContent = t[1];
+      var blurb = el("div","blurb"); blurb.innerHTML = "<p></p>"; blurb.querySelector("p").textContent = t[2];
+      btn.querySelector(".q").addEventListener("click", function(ev){
+        ev.stopPropagation(); blurb.classList.toggle("open");
+      });
+      btn.addEventListener("click", function(){
+        var on = !cfg.twists[t[0]];
+        if (on){ cfg.twists[t[0]] = 1; btn.classList.add("justOn"); setTimeout(function(){ btn.classList.remove("justOn"); }, 360); }
+        else delete cfg.twists[t[0]];
+        btn.setAttribute("aria-pressed", on);
+        count.textContent = twCount(cfg) + " on";
+        count.classList.add("bump"); setTimeout(function(){ count.classList.remove("bump"); }, 220);
+        onChange();
+      });
+      grid.appendChild(btn); grid.appendChild(blurb);
+    });
+    g.appendChild(grid);
+    return g;
+  }
+
+  // ---- shared controls ----
+  function labOnly(text){ var l = el("div","lab"); l.innerHTML = "<span>"+text+"</span>"; return l; }
+  function mkRow(text, on, cb){
+    var r = el("div","row"); r.appendChild(el("span","t", text)); r.appendChild(mkSwitch(on, cb)); return r;
+  }
+  function mkSwitch(on, cb){
+    var b = el("button","sw"); b.type = "button"; b.setAttribute("aria-pressed", !!on);
+    b.innerHTML = "<span class='knob'></span>";
+    b.addEventListener("click", function(){
+      var v = b.getAttribute("aria-pressed") !== "true";
+      b.setAttribute("aria-pressed", v); cb(v);
+    });
+    return b;
+  }
+  function mkStepper(value, min, max, unit, cb){
+    var s = el("div","step");
+    var minus = el("button", null, "–"), plus = el("button", null, "+"), n = el("span","n", String(value)), u = el("span","u", unit);
+    minus.addEventListener("click", function(){ set(value - 1); });
+    plus.addEventListener("click", function(){ set(value + 1); });
+    function set(v){ value = Math.max(min, Math.min(max, v)); n.textContent = value;
+      if (!RM) n.animate([{transform:"scale(1.18)"},{transform:"scale(1)"}], {duration:180}); cb(value); }
+    s.appendChild(minus); s.appendChild(n); s.appendChild(plus); s.appendChild(u);
+    return s;
+  }
+  function segField(label, opts, current, cb){
+    var f = el("div","field"); f.appendChild(labOnly(label)); f.appendChild(mkSeg(opts, current, cb)); return f;
+  }
+  function mkSeg(opts, current, cb){
+    var seg = el("div","seg");
+    var pill = el("span","pill"); seg.appendChild(pill);
+    opts.forEach(function(o){
+      var b = el("button","opt", o[1]); b.type = "button"; b.dataset.v = o[0];
+      b.setAttribute("aria-selected", o[0] === current);
+      b.addEventListener("click", function(){
+        seg.querySelectorAll(".opt").forEach(function(x){ x.setAttribute("aria-selected", x === b); });
+        movePill(seg); cb(o[0]);
+      });
+      seg.appendChild(b);
+    });
+    return seg;
+  }
+  function movePill(seg){
+    var active = seg.querySelector('.opt[aria-selected="true"]') || seg.querySelector(".opt");
+    var pill = seg.querySelector(".pill");
+    if (!active || !pill) return;
+    pill.style.width = active.offsetWidth + "px";
+    pill.style.transform = "translateX(" + (active.offsetLeft - 3) + "px)";
+  }
+
+  // ---- change propagation ----
+  function onChange(){
+    if (cfg.preset !== "custom" && !equalCfg(cfg, baseline)) cfg.preset = "custom";
+    syncReceipt(); syncLaunch(); syncWarn(); syncMarquee();
+  }
+  function syncWarn(){
+    var w = document.getElementById("balWarn"); if (!w) return;
+    var bad = (cfg.players < cfg.minPlayers || cfg.players > cfg.maxPlayers) && !cfg.adminOverride;
+    if (bad && !w.classList.contains("show")){
+      w.classList.add("show");
+      if (!RM){ w.classList.add("shake"); setTimeout(function(){ w.classList.remove("shake"); }, 420); }
+    } else if (!bad){ w.classList.remove("show"); }
+  }
+  var rquick = document.getElementById("rquick"), rlist = document.getElementById("rlist");
+  function syncReceipt(){
+    var n = twCount(cfg);
+    rquick.textContent = cfg.players + " players · " + cfg.traitors + " traitors · " + n + " twist" + (n===1?"":"s");
+    rlist.innerHTML = "";
+    addRow("Players", cfg.players + (cfg.adminOverride ? "  (override)" : ""));
+    addRow("Traitors", String(cfg.traitors));
+    addRow("Night kill", cadence(cfg));
+    addRow("Reveal role", cap(cfg.revealElim));
+    addRow("Vote review", cfg.voteReveal === "all_at_once" ? "All at once" : "Sequential");
+    addRow("Veil", veilLabel(cfg.veil));
+    addRow("Tie", TIE_LABEL[cfg.tieBreak]);
+    addRow("Missed vote", cfg.afk === "host_assigns" ? "Host assigns" : "Abstain");
+    var tw = Object.keys(cfg.twists).map(function(k){ return TW_NAME[k]; });
+    var dd = addRow("Twists", tw.length ? tw.join(", ") : "none");
+    if (tw.length) dd.className = "tw";
+    function addRow(k,v){ var dt = el("dt",null,k), dd = el("dd",null,v); rlist.appendChild(dt); rlist.appendChild(dd); return dd; }
+    function cap(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
+  }
+  var go = document.getElementById("go"), namewrap = document.getElementById("namewrap");
+  function syncLaunch(){
+    var diverged = cfg.preset === "custom";
+    go.classList.toggle("custom", diverged);
+    go.textContent = diverged ? "Save & open the room" : "Open the room";
+    namewrap.classList.toggle("show", diverged);
+  }
+  var mqtxt = document.getElementById("mqtxt");
+  function syncMarquee(){
+    var m = modeById(cfg.preset);
+    var line = (m ? m.name : "Custom game") + " · " + cfg.traitors + " traitors · " + cadence(cfg).toLowerCase()
+             + " · veil " + veilLabel(cfg.veil).toLowerCase() + " · ";
+    mqtxt.textContent = line + line;
+  }
+
+  // ---- navigation ----
+  var vModes = document.getElementById("vModes"), vSetup = document.getElementById("vSetup");
+  var banner = document.getElementById("bname"), brange = document.getElementById("brange");
+  var backBtn = document.getElementById("back");
+
+  function swap(toSetup){
+    var enter = toSetup ? vSetup : vModes, leave = toSetup ? vModes : vSetup;
+    function apply(){
+      leave.hidden = true; enter.hidden = false;
+      if (toSetup){ vSetup.querySelector(".setup").classList.add("entering");
+        setTimeout(function(){ vSetup.querySelector(".setup").classList.remove("entering"); }, 900); }
+    }
+    if (!RM && document.startViewTransition){ document.startViewTransition(apply); }
+    else {
+      enter.hidden = false; enter.style.opacity = 0; enter.style.transform = "translateY(10px)";
+      requestAnimationFrame(function(){
+        enter.style.transition = "opacity .3s ease, transform .3s ease";
+        enter.style.opacity = 1; enter.style.transform = "none";
+        setTimeout(function(){ leave.hidden = true; enter.style.transition = ""; }, 300);
+      });
+      apply();
+    }
+  }
+  function chooseMode(id){
+    var m = modeById(id); cfg = clone(m.cfg); baseline = clone(m.cfg);
+    openSetup();
+  }
+  function openSetup(){
+    view = "setup";
+    var m = modeById(cfg.preset);
+    banner.textContent = m ? m.name : "Custom Game";
+    brange.textContent = cfg.minPlayers + "–" + cfg.maxPlayers + " players · " + cfg.traitors + " traitors";
+    backBtn.hidden = false;
+    renderSetup(); syncMarquee();
+    swap(true);
+  }
+  function openModes(){
+    view = "modes";
+    banner.textContent = "Choose a mode"; brange.textContent = "or build a custom game";
+    backBtn.hidden = true;
+    swap(false);
+  }
+  backBtn.addEventListener("click", openModes);
+
+  // ---- receipt toggle ----
+  var receipt = document.getElementById("receipt");
+  document.getElementById("rtoggle").addEventListener("click", function(){ receipt.classList.toggle("open"); });
+
+  go.addEventListener("click", function(){
+    go.animate([{transform:"scale(1)"},{transform:"scale(.97)"},{transform:"scale(1)"}], {duration:220});
+  });
+
+  // ---- boot: land on setup (Midnight Heist) ----
+  banner.textContent = "Midnight Heist";
+  brange.textContent = cfg.minPlayers + "–" + cfg.maxPlayers + " players · " + cfg.traitors + " traitors";
+  renderSetup();
+  syncMarquee();
+  window.addEventListener("resize", function(){ setup.querySelectorAll(".seg").forEach(movePill); });
+})();
+</script>

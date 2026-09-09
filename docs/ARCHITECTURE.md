@@ -48,7 +48,7 @@ serve any socket, and pods can restart/scale without killing games.
 | `ta-api` | REST: OTP auth, users, friends, groups, room creation/join. Reactive, R2DBC. |
 | `ta-ws` | Reactive WebSocket handler `/ws/room/{roomId}`. Subscribe/publish loop, per-subscriber state filtering, event-log replay. |
 | `ta-engine` | Transport-agnostic engine. `GameModule` interface, phase/timer state machine, `GameState` reducer, event-log writer. **No Spring, no I/O** — pure functions + a scheduler port. |
-| `ta-game-truearena` | The one `GameModule` impl: roles, night action, vote-lock, banishment, win checks, outcome presets. |
+| `ta-game-truearena` | The one `GameModule` impl — the *Traitors and Faithful* social-deduction engine. Config-driven: phase set (incl. **MorningReveal**), night-kill cadence, reveal policy, **Veiled Endgame**, tie/AFK presets, and a `TwistRegistry` of enumerated twists. Modes are data, not code. Full model: [GAME_CONFIG.md](GAME_CONFIG.md). |
 | `ta-room` | Room lifecycle: Redis-backed registry, membership, ready-check, host migration, reconnection tokens. |
 | `ta-voice` | LiveKit admin: mints tokens, force-mutes on Vote phase entry, consumes LiveKit webhooks. |
 | `ta-persistence` | R2DBC repos, Flyway migrations, write-behind flush of `GameEvent`/`GameResult`/`PlayerStat` to Postgres at session end. |
@@ -93,7 +93,10 @@ fan-out, per connection.
 ### 2.3 Postgres 16 — durable record
 
 Owns: `User`, `Friend`, `Group`, `GroupMember`, `Room` (metadata + final status),
-`GameSession`, `GameResult`, `PlayerStat`, and an archived copy of `GameEvent`
+`GameSession` (now carries the resolved `config JSONB` + nullable `config_preset_id`),
+`GameConfigPreset` (the 5 shipped modes as `scope='builtin'` rows, plus `group`/`user`
+saved custom setups — see [GAME_CONFIG.md](GAME_CONFIG.md) §7),
+`GameResult`, `PlayerStat`, and an archived copy of `GameEvent`
 (append-only, written at session end from the Redis stream — or incrementally every
 N events for crash safety on long games).
 
@@ -186,6 +189,12 @@ public interface GameModule {
     List<GameEvent> drainEvents(GameState prev, GameState next);      // for the log
 }
 ```
+
+`definePhases(config)` returns the per-round loop **`Lobby → RoleReveal → (Night →
+MorningReveal → RoundTable → Vote → VoteReview → Elimination → WinCheck)* → FinalFire →
+Results`**; `config.endgameVeil` makes `VoteReview`/`Elimination` run silent once living
+players hit the threshold. Twist logic lives in a `TwistRegistry` the reducer consults
+by id per phase — see [GAME_CONFIG.md](GAME_CONFIG.md).
 
 `RandomSource` is seeded per session; the seed is stored on `GameSession` — makes
 games replayable in tests and debuggable in prod.
@@ -336,8 +345,9 @@ a guest-token auth path and a React/Svelte client.
 
 ## 10. Deliberate seams for §11 (built now, cheap)
 
-- `GameSession.game_type` + a `GameModule` registry keyed by string → multi-game catalog is a registry entry, not a rebuild.
+- `GameSession.game_type` + a `GameModule` registry keyed by string → a *second* game (Mafia, Secret-Hitler-style) is a registry entry, not a rebuild. The *Traitors and Faithful* modes are **not** separate games — they're preset `GameConfig`s of the one module (see below).
+- `GameConfig` is an enumerated, versioned catalog of toggles + a twist registry; modes are `builtin` preset rows and custom games are `user`/`group` preset rows. New modes = new data. Full model: [GAME_CONFIG.md](GAME_CONFIG.md).
 - Everything logged against `Group` with append-only `GameEvent` → group history / lore / seasons are read-side projections over data already stored.
 - `PlayerStat` keyed `(group_id, user_id)` from day one → group-relative stat pages need no migration.
 - `RandomSource` seed on the session → replays now; a home for future Chaos Mode random events.
-- Outcome presets as a named, saved config object → the "custom preset" feature and future mode mutations extend the same `GameConfig` shape.
+- Outcome presets as a named, saved config object → the mode presets and host-authored custom games are the same `GameConfigPreset` shape; the twist catalog is versioned so old sessions replay under the catalog they started on.
