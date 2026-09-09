@@ -18,8 +18,16 @@
     ],
     "tags": [
         {
+            "name": "dev",
+            "description": "Local-only helpers"
+        },
+        {
             "name": "auth",
             "description": "Phone + OTP. In the local profile, code 000000 always verifies."
+        },
+        {
+            "name": "config",
+            "description": "GameConfig presets, the twist catalog, and validation (docs/GAME_CONFIG.md)."
         }
     ],
     "paths": {
@@ -209,6 +217,71 @@
                 }
             }
         },
+        "/api/v1/dev/simulate": {
+            "post": {
+                "tags": [
+                    "dev"
+                ],
+                "summary": "Auto-play a full game and return the winning side, the public event log, and the final roles",
+                "operationId": "simulate",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SimulateRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Result"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/config/validate": {
+            "post": {
+                "tags": [
+                    "config"
+                ],
+                "summary": "Validate a GameConfig against the current catalog",
+                "operationId": "validate",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationView"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/auth/refresh": {
             "post": {
                 "tags": [
@@ -380,6 +453,54 @@
                     }
                 }
             }
+        },
+        "/api/v1/config/twists": {
+            "get": {
+                "tags": [
+                    "config"
+                ],
+                "summary": "The twist catalog for the current version",
+                "operationId": "twists",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Twist"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/config/presets": {
+            "get": {
+                "tags": [
+                    "config"
+                ],
+                "summary": "Builtin modes plus the caller's saved custom games",
+                "operationId": "presets",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/PresetView"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     "components": {
@@ -529,6 +650,85 @@
                     }
                 }
             },
+            "SimulateRequest": {
+                "type": "object",
+                "properties": {
+                    "preset": {
+                        "type": "string"
+                    },
+                    "config": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "object"
+                        }
+                    },
+                    "players": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "seed": {
+                        "type": "integer",
+                        "format": "int64"
+                    }
+                }
+            },
+            "Result": {
+                "type": "object",
+                "properties": {
+                    "winningSide": {
+                        "type": "string"
+                    },
+                    "rounds": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "players": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "finalRoles": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        }
+                    },
+                    "eliminated": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "publicEvents": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "object"
+                            }
+                        }
+                    }
+                }
+            },
+            "ValidationView": {
+                "type": "object",
+                "properties": {
+                    "ok": {
+                        "type": "boolean"
+                    },
+                    "errors": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "warnings": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
             "RefreshRequest": {
                 "required": [
                     "refreshToken"
@@ -599,6 +799,62 @@
                     "phone": {
                         "pattern": "\\+?[0-9]{6,15}",
                         "type": "string"
+                    }
+                }
+            },
+            "Twist": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "summary": {
+                        "type": "string"
+                    },
+                    "hooks": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "defaults": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "object"
+                        }
+                    }
+                }
+            },
+            "PresetView": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "scope": {
+                        "type": "string"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "tag": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "catalogVersion": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "config": {
+                        "type": "object"
                     }
                 }
             }

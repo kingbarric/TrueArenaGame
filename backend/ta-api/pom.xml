@@ -34,6 +34,14 @@
             <groupId>app.truearena</groupId>
             <artifactId>ta-room</artifactId>
         </dependency>
+        <dependency>
+            <groupId>app.truearena</groupId>
+            <artifactId>ta-engine</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>app.truearena</groupId>
+            <artifactId>ta-game-truearena</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>org.springdoc</groupId>

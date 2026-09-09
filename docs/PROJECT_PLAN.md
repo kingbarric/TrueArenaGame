@@ -17,9 +17,9 @@
 | 2 | Auth & accounts (phone + OTP) | `[~]` |
 | 3 | Groups, friends, rooms (REST) | `[~]` |
 | 4 | WebSocket transport, Redis room state, reconnection | `[ ]` |
-| 5 | Game engine core (game-agnostic) | `[ ]` |
-| 6 | TrueArena game module v1 | `[ ]` |
-| 7 | Config catalog: modes, twists, Veiled Endgame, custom games | `[ ]` |
+| 5 | Game engine core (game-agnostic) | `[~]` |
+| 6 | TrueArena game module v1 | `[~]` |
+| 7 | Config catalog: modes, twists, Veiled Endgame, custom games | `[~]` |
 | 8 | Voice (LiveKit, audio-only, forced mute) | `[ ]` |
 | 9 | Results, rematch, per-group stats | `[ ]` |
 | 10 | Flutter app (runs alongside 2–9) | `[ ]` |
@@ -68,6 +68,31 @@ SPRING_PROFILES_ACTIVE=local \
   check is Phase 3.1).
 - Compose host ports moved to **5433** (pg) and **6380** (redis) to avoid clashing
   with services already bound to 5432/6379 on this machine.
+
+### Engine + first game (verified locally, 2026-09-10)
+
+- **`ta-engine`** SPI built: `GameConfig` (catalog + `ConfigVocab` enums), `GameModule`,
+  `GameState`, `PlayerAction`, `GameEvent` (+ `Visibility`), `Phase`, `WinResult`,
+  `RandomSource` (seeded), `GameRunner`. `NoSpringInEngineTest` still green.
+- **`ta-game-truearena`** — the flagship module: `TrueArenaModule` (RoleReveal → Night →
+  MorningReveal → RoundTable → Vote → VoteReview → Elimination → WinCheck → Results;
+  seeded role assignment, night-kill cadence incl. `openingNight:"off"`, vote-lock,
+  tie-break, alternating reveal, Veiled Endgame, win checks), `Presets` (the 5 modes as
+  `GameConfig`), `ConfigValidator` (GAME_CONFIG.md §8), `TwistRegistry` (12 ids +
+  metadata; `hidden_legacy` wired), `AutoPlay` (deterministic bot game).
+- **Tests:** `TrueArenaEngineTest` (8: role counts, vote-lock, self-vote, idempotency,
+  every preset plays to a terminal result, determinism, hidden_legacy fires),
+  `SecretDataGuaranteeTest` (§8 — 75 seeded full games audit every Faithful/broadcast
+  frame + event for a foreign role), `ConfigValidatorTest` (6).
+- **`V3__game.sql`**: `game_config_preset`, `game_sessions` (+`config`/`config_preset_id`),
+  `roles`, `game_events`, `votes`, `game_results`. `PresetSeeder` rewrites the 5
+  `builtin` rows on every boot.
+- **Endpoints:** `GET /api/v1/config/presets` (builtins + caller's saved), `GET /config/twists`,
+  `POST /config/validate`, and (local) `POST /api/v1/dev/simulate` → runs a full
+  deterministic game, returns winning side + public event log + final roles.
+- **Caveat:** `ContextLoadsIT` (full wiring against Testcontainers PG+Redis) needs a
+  Docker socket Testcontainers can see — locally set `DOCKER_HOST=unix://$HOME/.docker/run/docker.sock`;
+  CI's ubuntu runner has `/var/run/docker.sock`. `./mvnw verify -DskipITs` (fast build) skips it.
 
 ---
 

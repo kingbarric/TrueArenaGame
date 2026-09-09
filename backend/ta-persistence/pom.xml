@@ -21,7 +21,7 @@
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>r2dbc-postgresql</artifactId>
-            <scope>runtime</scope>
+            <!-- compile scope: the Json codec type is used on entities with jsonb columns -->
         </dependency>
 
         <dependency>
