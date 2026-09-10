@@ -6,6 +6,8 @@ later web/host-display funnel surface.
 - **Vision, scope, game spec:** the Build Brief (source of truth for product decisions).
 - **Architecture:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - **Implementation plan (checkboxed, phased):** [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md)
+- **Database schema (canonical):** [docs/DATABASE.md](docs/DATABASE.md)
+- **Game config & twist catalog:** [docs/GAME_CONFIG.md](docs/GAME_CONFIG.md)
 
 ## Repository layout
 

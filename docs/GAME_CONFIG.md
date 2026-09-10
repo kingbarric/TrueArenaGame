@@ -217,28 +217,20 @@ Each is a full `GameConfig` seeded with `scope = builtin`. Deltas from the defau
 
 ---
 
-## 7. Storage — `game_config_preset`
+## 7. Storage
 
-```sql
-CREATE TABLE game_config_preset (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    scope           TEXT NOT NULL,            -- 'builtin' | 'group' | 'user'
-    owner_group_id  UUID REFERENCES groups (id) ON DELETE CASCADE,   -- scope='group'
-    owner_user_id   UUID REFERENCES users  (id) ON DELETE CASCADE,   -- scope='user'
-    slug            TEXT,                     -- 'blood_moon' etc. for builtins; null otherwise
-    name            TEXT NOT NULL,
-    description     TEXT,
-    config          JSONB NOT NULL,
-    catalog_version INT  NOT NULL,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (scope, slug)                      -- one builtin per slug
-);
-```
+Full column-level DDL: **[DATABASE.md](DATABASE.md)** (`V3__game.sql`). In short:
 
-- Builtins seeded by a Flyway migration + a `data.sql` (or a `@PostConstruct` seeder
-  guarded by `scope='builtin'` upsert on `slug`).
-- `game_sessions` gains `config JSONB NOT NULL` + `config_preset_id UUID NULL` (the
-  preset this session started from, for stats like "Blood Moon win rate").
+- **`game_config_preset`** — `id`, `scope` (`builtin`|`group`|`user`), `owner_group_id` /
+  `owner_user_id` (exactly one, set to match `scope`; both null for builtins),
+  `slug` (set only for builtins), `name`, `description`, `tag`, `config` JSONB,
+  `catalog_version`, `created_at`. A `CHECK` enforces the scope↔owner↔slug shape;
+  `UNIQUE (scope, slug)` plus partial `UNIQUE (owner, name)` per group / per user.
+- The 5 builtins are **rewritten from `Presets` on every boot** by `PresetSeeder`
+  (delete `scope='builtin'` → re-insert), so shipped modes always match the build.
+- **`game_sessions`** carries `config` JSONB, nullable `config_preset_id` (the preset it
+  started from — for stats like "Blood Moon win rate"), `catalog_version`, `rng_seed`,
+  and `phase_ends_at`.
 
 ---
 

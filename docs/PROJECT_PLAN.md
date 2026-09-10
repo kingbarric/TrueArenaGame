@@ -42,7 +42,7 @@ A vertical slice of Phases 1–3 runs against Dockerised Postgres + Redis:
 - Auth: phone+OTP → HS256 JWT (access 15m / refresh 30d); dev bypass code `000000`
   under `SPRING_PROFILES_ACTIVE=local`. `WebFilter` + reactive `SecurityWebFilterChain`
   guards `/api/**`; Swagger/actuator/`/api/v1/auth/**` are public.
-- Flyway `V1__core.sql` + `V2__rooms.sql` apply on boot. R2DBC repos + services in
+- Flyway `V1`–`V4` apply on boot (full schema: docs/DATABASE.md). R2DBC repos + services in
   `ta-api`. OTP codes in Redis (`otp:{phone}`, 5-min TTL).
 
 **How to run it**
@@ -84,9 +84,12 @@ SPRING_PROFILES_ACTIVE=local \
   every preset plays to a terminal result, determinism, hidden_legacy fires),
   `SecretDataGuaranteeTest` (§8 — 75 seeded full games audit every Faithful/broadcast
   frame + event for a foreign role), `ConfigValidatorTest` (6).
-- **`V3__game.sql`**: `game_config_preset`, `game_sessions` (+`config`/`config_preset_id`),
-  `roles`, `game_events`, `votes`, `game_results`. `PresetSeeder` rewrites the 5
-  `builtin` rows on every boot.
+- **Schema (`V1`–`V4`, normalized 2026-09-10)**: `game_config_preset`, `game_sessions`
+  (`config`/`config_preset_id`/`catalog_version`/`phase_ends_at`), `roles`, `game_events`,
+  `votes`, `game_results`, `player_stats`. Every enum-like column has a `CHECK`; the
+  preset table has a scope↔owner↔slug `CHECK`; `player_stats` uses
+  `UNIQUE NULLS NOT DISTINCT`. `PresetSeeder` rewrites the 5 `builtin` rows on every
+  boot. Full column-level reference: **[DATABASE.md](DATABASE.md)**.
 - **Endpoints:** `GET /api/v1/config/presets` (builtins + caller's saved), `GET /config/twists`,
   `POST /config/validate`, and (local) `POST /api/v1/dev/simulate` → runs a full
   deterministic game, returns winning side + public event log + final roles.
@@ -141,26 +144,41 @@ SPRING_PROFILES_ACTIVE=local \
 
 ## Phase 1 — Data layer
 
-**Goal:** every durable table from Architecture §2.3 exists, migrated, with reactive repositories and a seed path.
+**Goal:** every durable table exists, migrated, with reactive repositories and a seed
+path. **Canonical schema: [DATABASE.md](DATABASE.md)** (migrations are the executable truth).
 
-- [ ] **1.1 Flyway baseline migration `V1__core.sql`**
-  - Tables: `users`, `friends`, `groups`, `group_members`.
-  - Constraints: `friends` unique on ordered pair; `group_members` PK `(group_id, user_id)`.
+- [~] **1.1 Flyway `V1__core.sql` — accounts + social graph**
+  - `users`, `groups`, `group_members`, `friends`. Enum-like columns carry `CHECK`s;
+    `friends` ordered-pair unique + `requested_by ∈ pair`.
   - **Done when:** Flyway migrates cleanly on an empty DB and is idempotent on restart.
-  - **Tests:** Testcontainers Postgres — migrate, assert `information_schema` has the tables + constraints; migrate again, no error.
-  - _Status: `V1__core.sql` drafted during Phase 0 (users, groups, group_members, friends). Still needs the Testcontainers migration test before checking._
+  - **Tests:** Testcontainers Postgres — migrate, assert `information_schema` has the
+    tables + constraints; migrate again, no error.
+  - _Status: written + verified to apply (V1–V4 clean on a fresh DB). Still needs the
+    Testcontainers assertion test._
 
-- [ ] **1.2 Flyway `V2__rooms_sessions.sql`**
-  - Tables: `rooms` (`group_id` nullable), `room_members`, `game_sessions` (with `rng_seed`, `config JSONB`, `config_preset_id`), `roles`, `game_events` (append-only, `visibility_scope`), `votes`, `game_results`, `game_config_preset` (see [GAME_CONFIG.md](GAME_CONFIG.md) §7 — `scope` builtin/group/user, `config JSONB`, `catalog_version`).
-  - Indexes: `game_events (game_session_id, seq)`, `rooms (code)` unique, `game_config_preset (scope, slug)` unique.
-  - _Note: the 5 `builtin` mode rows are seeded in Phase 7.6, not here._
-  - **Done when:** migration applies; a manual insert of a full fake session succeeds.
-  - **Tests:** Testcontainers — insert session → role → events → result graph; assert FK cascade behavior is what we want (events survive? decide and encode).
+- [~] **1.2 Flyway `V2__rooms.sql` + `V3__game.sql`**
+  - V2: `rooms`, `room_members`. V3: `game_config_preset`, `game_sessions`
+    (`config`/`config_preset_id`/`catalog_version`/`rng_seed`/`phase_ends_at`), `roles`,
+    `game_events` (`visibility_scope`/`_key` + the public⇔key CHECK), `votes`
+    (`voter ≠ target`, unique per round), `game_results`. Full columns + CHECKs in
+    [DATABASE.md](DATABASE.md).
+  - _The 5 `builtin` preset rows are seeded from code by `PresetSeeder` (Phase 7.6)._
+  - **Done when:** migrations apply; a manual insert of a full fake session succeeds.
+  - **Tests:** Testcontainers — insert session → role → events → result graph; assert FK
+    cascade + the CHECK constraints reject bad rows.
+  - _Status: written + applied on a fresh DB; `PresetSeeder` inserts 5 builtins; the
+    `game_config_preset` scope/owner CHECK verified to reject an illegal row._
 
-- [ ] **1.3 Flyway `V3__stats.sql`**
-  - `player_stats` PK `(group_id, user_id)` with `group_id` nullable-sentinel handled via a partial unique index or a `NULL`-safe scheme (document the choice); columns: `games_played`, `wins`, `traitor_wins`, `traitor_games`, `times_suspected_first`, `updated_at`.
-  - **Done when:** upsert (`INSERT ... ON CONFLICT`) works for both group-scoped and lifetime rows.
-  - **Tests:** upsert twice, assert increment semantics; concurrent upsert test (2 threads) stays consistent.
+- [ ] **1.3 Flyway `V4__stats.sql` — `player_stats`**
+  - One row per `(group_id, user_id)`; `group_id IS NULL` = the user's lifetime rollup.
+    `UNIQUE NULLS NOT DISTINCT (group_id, user_id)` (PG 15+). Counts only
+    (`games_played`, `wins`, `traitor_games`, `traitor_wins`, `times_first_accused`,
+    win-streak); rates derived in queries. Sanity CHECKs (`wins ≤ games_played`, …).
+  - **Done when:** upsert (`INSERT ... ON CONFLICT`) works for both group-scoped and
+    lifetime rows.
+  - **Tests:** upsert twice, assert increment semantics; concurrent upsert (2 threads)
+    stays consistent.
+  - _Status: `V4__stats.sql` written + applied; repo/upsert logic is Phase 9.2._
 
 - [ ] **1.4 R2DBC repositories + domain records**
   - `ta-persistence`: `UserRepository`, `GroupRepository`, `GroupMemberRepository`, `RoomRepository`, `GameSessionRepository`, `GameEventRepository`, `GameResultRepository`, `PlayerStatRepository`.

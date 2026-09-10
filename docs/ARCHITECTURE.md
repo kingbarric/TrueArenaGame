@@ -92,20 +92,24 @@ fan-out, per connection.
 
 ### 2.3 Postgres 16 — durable record
 
-Owns: `User`, `Friend`, `Group`, `GroupMember`, `Room` (metadata + final status),
-`GameSession` (now carries the resolved `config JSONB` + nullable `config_preset_id`),
-`GameConfigPreset` (the 5 shipped modes as `scope='builtin'` rows, plus `group`/`user`
-saved custom setups — see [GAME_CONFIG.md](GAME_CONFIG.md) §7),
-`GameResult`, `PlayerStat`, and an archived copy of `GameEvent`
-(append-only, written at session end from the Redis stream — or incrementally every
-N events for crash safety on long games).
+**Full column-level schema: [DATABASE.md](DATABASE.md)** (the migrations under
+`ta-persistence/.../db/migration/` are the executable truth). Tables:
 
-Live `Role`/`Vote`/in-progress `GameEvent` exist only in Redis during play; they land
-in Postgres at Results. Rationale (brief §6): rooms aren't throwaway, Group history is
-the retention hook, so at session end the events belong to a durable Group.
+- `users`, `friends`, `groups`, `group_members` — accounts + social graph (V1).
+- `rooms`, `room_members` — one live game instance, group-linked or ad-hoc (V2).
+- `game_config_preset` — the 5 shipped modes (`scope='builtin'`, rewritten from code on
+  every boot) + `group`/`user` custom games; a full `GameConfig` JSONB per row
+  (see [GAME_CONFIG.md](GAME_CONFIG.md)).
+- `game_sessions` (`config` JSONB + `config_preset_id` + `catalog_version` + `rng_seed`
+  + `phase_ends_at`), `roles`, `game_events` (append-only, `visibility_scope`/`_key`),
+  `votes`, `game_results` (V3).
+- `player_stats` — one row per `(group_id, user_id)`; a `group_id IS NULL` row is the
+  user's lifetime rollup (V4).
 
-`PlayerStat` is upserted per `(group_id, user_id)` at Results, plus a
-`(user_id, group_id = NULL)` lifetime rollup row for ad-hoc/web games.
+Rationale (brief §6): rooms aren't throwaway — Group history is the retention hook, so
+at session end the event log + result belong to a durable Group. Live per-round state
+(current votes, un-flushed events, in-play roles) is Redis-only during a game; the
+tables are the record written at/near session end.
 
 ### 2.4 LiveKit (self-hosted SFU)
 
