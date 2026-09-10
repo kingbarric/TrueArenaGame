@@ -1,6 +1,7 @@
 /// Wire models. `GameConfig` is kept as a raw map — the app renders and edits it
 /// generically against the twist catalog rather than mirroring every field of
 /// docs/GAME_CONFIG.md in Dart.
+library;
 
 class UserView {
   const UserView({required this.id, required this.displayName, this.phone});

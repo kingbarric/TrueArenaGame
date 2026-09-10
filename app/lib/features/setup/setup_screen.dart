@@ -144,7 +144,7 @@ class _SetupScreenState extends State<SetupScreen> {
                       onChanged: (v) => _change(() => _table['adminOverride'] = v),
                     ),
                     const SizedBox(height: 6),
-                    FieldLabel('Traitors'),
+                    const FieldLabel('Traitors'),
                     const SizedBox(height: 6),
                     NeonStepper(
                       value: _traitors,
@@ -177,7 +177,7 @@ class _SetupScreenState extends State<SetupScreen> {
                       onChanged: (v) => _change(() => _night['requireTraitorConsensus'] = v),
                     ),
                     const SizedBox(height: 8),
-                    FieldLabel('Double murder'),
+                    const FieldLabel('Double murder'),
                     const SizedBox(height: 6),
                     NeonSegmented<int>(
                       options: const [SegOption(0, 'Never'), SegOption(2, 'After R2'), SegOption(3, 'After R3')],
@@ -186,7 +186,7 @@ class _SetupScreenState extends State<SetupScreen> {
                     ),
                   ]),
                   _section('Reveals', [
-                    FieldLabel('Role on elimination'),
+                    const FieldLabel('Role on elimination'),
                     const SizedBox(height: 6),
                     NeonSegmented<String>(
                       options: const [SegOption('always', 'Always'), SegOption('never', 'Never'), SegOption('alternating', 'Alternating')],
@@ -194,7 +194,7 @@ class _SetupScreenState extends State<SetupScreen> {
                       onChanged: (v) => _change(() => _config['revealOnElimination'] = v),
                     ),
                     const SizedBox(height: 10),
-                    FieldLabel('Vote review'),
+                    const FieldLabel('Vote review'),
                     const SizedBox(height: 6),
                     NeonSegmented<String>(
                       options: const [SegOption('sequential', 'Sequential'), SegOption('all_at_once', 'All at once')],
@@ -202,7 +202,7 @@ class _SetupScreenState extends State<SetupScreen> {
                       onChanged: (v) => _change(() => _config['voteReveal'] = v),
                     ),
                     const SizedBox(height: 10),
-                    FieldLabel('Veiled endgame'),
+                    const FieldLabel('Veiled endgame'),
                     const SizedBox(height: 6),
                     NeonSegmented<String>(
                       options: const [
@@ -216,7 +216,7 @@ class _SetupScreenState extends State<SetupScreen> {
                     ),
                   ]),
                   _section('Ties & AFK', [
-                    FieldLabel('On a tie'),
+                    const FieldLabel('On a tie'),
                     const SizedBox(height: 8),
                     Wrap(spacing: 7, runSpacing: 7, children: [
                       for (final t in const [
@@ -234,7 +234,7 @@ class _SetupScreenState extends State<SetupScreen> {
                         ),
                     ]),
                     const SizedBox(height: 12),
-                    FieldLabel('Missed vote'),
+                    const FieldLabel('Missed vote'),
                     const SizedBox(height: 6),
                     NeonSegmented<String>(
                       options: const [SegOption('abstain', 'Abstain'), SegOption('host_assigns', 'Host assigns')],
@@ -419,7 +419,7 @@ class _TwistTileState extends State<_TwistTile> {
               Switch(
                 value: widget.enabled,
                 onChanged: (_) => widget.onToggle(),
-                activeColor: n.onAccent,
+                activeThumbColor: n.onAccent,
                 activeTrackColor: n.magenta,
               ),
               const SizedBox(width: 4),

@@ -46,7 +46,7 @@ class NeonSwitchRow extends StatelessWidget {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeColor: n.onAccent,
+            activeThumbColor: n.onAccent,
             activeTrackColor: n.cyan,
           ),
         ],
