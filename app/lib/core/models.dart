@@ -77,6 +77,50 @@ class ModePreset {
       );
 }
 
+class RoomMember {
+  const RoomMember({required this.userId, this.nickname, required this.ready, required this.connected});
+  final String userId;
+  final String? nickname;
+  final bool ready;
+  final bool connected;
+
+  factory RoomMember.fromJson(Map<String, dynamic> j) => RoomMember(
+        userId: j['userId'] as String,
+        nickname: j['nickname'] as String?,
+        ready: j['ready'] as bool? ?? false,
+        connected: (j['connectionStatus'] as String? ?? 'connected') == 'connected',
+      );
+}
+
+class RoomView {
+  const RoomView({
+    required this.id,
+    required this.code,
+    required this.hostId,
+    required this.status,
+    required this.members,
+    this.wsUrl,
+  });
+
+  final String id;
+  final String code;
+  final String hostId;
+  final String status;
+  final List<RoomMember> members;
+  final String? wsUrl;
+
+  factory RoomView.fromJson(Map<String, dynamic> j) => RoomView(
+        id: j['id'] as String,
+        code: j['code'] as String,
+        hostId: j['hostId'] as String,
+        status: j['status'] as String? ?? 'lobby',
+        wsUrl: j['wsUrl'] as String?,
+        members: ((j['members'] as List?) ?? const [])
+            .map((e) => RoomMember.fromJson((e as Map).cast<String, dynamic>()))
+            .toList(),
+      );
+}
+
 class TwistMeta {
   const TwistMeta({required this.id, required this.name, required this.summary, required this.hooks});
 

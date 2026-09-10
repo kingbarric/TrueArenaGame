@@ -32,7 +32,7 @@ class WelcomeScreen extends StatelessWidget {
                       style: Theme.of(context).textTheme.displayLarge?.copyWith(
                             fontSize: 56,
                             height: 0.92,
-                            shadows: [Shadow(color: n.cyan.withOpacity(0.35), blurRadius: 40)],
+                            shadows: [Shadow(color: n.cyan.withValues(alpha: 0.35), blurRadius: 40)],
                           )),
                   const SizedBox(height: 14),
                   Text(

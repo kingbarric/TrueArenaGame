@@ -5,6 +5,8 @@ import '../../core/app_state.dart';
 import '../../core/models.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/neon.dart';
+import '../lobby/lobby_screen.dart';
+import '../setup/setup_screen.dart';
 
 /// Presets-first: the five modes launch as-is. "Customize" (an admin choice) opens the
 /// full GameConfig editor — a later screen; here it's a stub target.
@@ -167,14 +169,12 @@ class _ModeSelectScreenState extends State<ModeSelectScreen> {
   }
 
   void _openRoom(ModePreset p) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('“${p.name}” room — the lobby screen lands next (Phase 4).')),
-    );
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => LobbyScreen(preset: p)));
   }
 
   void _customize(ModePreset? from) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Setup editor for ${from?.name ?? 'a custom game'} — next screen.')),
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => SetupScreen(basePreset: from)),
     );
   }
 
@@ -192,7 +192,7 @@ class _ModeSelectScreenState extends State<ModeSelectScreen> {
       decoration: BoxDecoration(
         color: n.plate,
         borderRadius: BorderRadius.circular(7),
-        border: Border.all(color: Color.alphaBlend(edge.withOpacity(0.55), n.line)),
+        border: Border.all(color: Color.alphaBlend(edge.withValues(alpha: 0.55), n.line)),
       ),
       child: Text(text.toUpperCase(),
           style: TextStyle(color: n.mid, fontWeight: FontWeight.w800, fontSize: 8, letterSpacing: 0.6)),

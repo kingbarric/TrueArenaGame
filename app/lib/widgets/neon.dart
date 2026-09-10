@@ -76,7 +76,7 @@ class NeonCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: edge, width: selected ? 1.5 : 1),
         boxShadow: selected
-            ? [BoxShadow(color: (accent ?? n.cyan).withOpacity(0.35), blurRadius: 22, spreadRadius: -6)]
+            ? [BoxShadow(color: (accent ?? n.cyan).withValues(alpha: 0.35), blurRadius: 22, spreadRadius: -6)]
             : null,
       ),
       child: child,
