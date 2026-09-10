@@ -76,7 +76,7 @@ class NeonStepper extends StatelessWidget {
     final n = context.neon;
     Widget btn(IconData icon, int delta) => InkResponse(
           onTap: () {
-            final next = (value + delta).clamp(min, max);
+            final next = (value + delta).clamp(min, max).toInt();
             if (next != value) onChanged(next);
           },
           radius: 22,

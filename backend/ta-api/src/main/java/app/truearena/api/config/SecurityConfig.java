@@ -24,7 +24,7 @@ public class SecurityConfig {
             "/v3/api-docs/**", "/v3/api-docs.yaml",
             "/swagger-ui/**", "/swagger-ui.html", "/webjars/**",
             "/api/v1/auth/**",
-            "/api/v1/config/twists", "/api/v1/config/validate",
+            "/api/v1/config/presets", "/api/v1/config/twists", "/api/v1/config/validate",
             "/api/v1/dev/**",
     };
 
