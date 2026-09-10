@@ -200,10 +200,19 @@ SPRING_PROFILES_ACTIVE=local \
   - **Done when:** returns correct user; 401 when unauthenticated.
   - **Tests:** IT with a seeded user + minted token.
 
-- [ ] **2.4 Guest token path (for Track B later, built now)**
-  - Scoped token: `roomId` + nickname, no phone; cannot call group/friend endpoints.
-  - **Done when:** guest token authorizes only `rooms/{id}` read + WS connect for that room.
-  - **Tests:** guest token rejected on `/groups`; accepted on its room's WS.
+- [ ] **2.4 Guest token path (device-id identity — for the funnel + Track B)**
+  - `POST /api/v1/guest` with an `X-Device-Id` header → a short-lived, scoped guest JWT
+    bound to that device id; no phone. Cannot call group/friend endpoints; can join one
+    room + connect its WS. A lightweight guest user row (or `guest_session`) holds
+    nothing durable.
+  - **After one game, the guest's data clears** unless they verify — `POST /api/v1/guest/claim`
+    with phone (preferred) or email → OTP → upgrades to a real account and re-parents the
+    just-played session/stats. (Product fact: see the `guest-identity` memory.)
+  - The Flutter app (`app/`) already generates + persists the device id and has the guest
+    entry point; the backend side is not built yet.
+  - **Done when:** guest token authorizes only its room; claim upgrades and keeps history.
+  - **Tests:** guest token rejected on `/groups`; accepted on its room's WS; unclaimed
+    guest data is purged after the session ends; claim links the session to the new account.
 
 ---
 
