@@ -25,7 +25,7 @@ public class SecurityConfig {
             "/swagger-ui/**", "/swagger-ui.html", "/webjars/**",
             "/api/v1/auth/**",
             "/api/v1/config/presets", "/api/v1/config/twists", "/api/v1/config/validate",
-            "/api/v1/dev/**",
+            "/api/v1/dev/**", "/ws/**",
     };
 
     @Bean
