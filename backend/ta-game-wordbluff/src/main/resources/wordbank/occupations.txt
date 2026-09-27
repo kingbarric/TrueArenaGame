@@ -1,0 +1,100 @@
+firefighter
+surgeon
+electrician
+journalist
+architect
+plumber
+librarian
+pilot
+chef
+lawyer
+teacher
+mechanic
+dentist
+farmer
+astronaut
+nurse
+paramedic
+police officer
+detective
+judge
+accountant
+banker
+economist
+scientist
+biologist
+chemist
+physicist
+geologist
+zoologist
+botanist
+veterinarian
+pharmacist
+therapist
+psychologist
+counselor
+social worker
+translator
+interpreter
+editor
+publisher
+photographer
+videographer
+graphic designer
+illustrator
+animator
+sculptor
+painter
+musician
+composer
+choreographer
+dancer
+actor
+stuntman
+makeup artist
+hairdresser
+tailor
+carpenter
+bricklayer
+welder
+blacksmith
+locksmith
+plumber's apprentice
+electrician's apprentice
+construction worker
+crane operator
+surveyor
+urban planner
+real estate agent
+insurance agent
+sales representative
+marketing manager
+project manager
+human resources manager
+recruiter
+receptionist
+secretary
+janitor
+security guard
+lifeguard
+flight attendant
+air traffic controller
+ship captain
+truck driver
+taxi driver
+delivery driver
+postal worker
+librarian assistant
+tour guide
+park ranger
+zookeeper
+beekeeper
+fisherman
+miner
+diplomat
+politician
+soldier
+spy
+referee
+coach
+personal trainer

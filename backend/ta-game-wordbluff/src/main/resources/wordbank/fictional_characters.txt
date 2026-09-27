@@ -1,0 +1,97 @@
+wizard
+vampire
+werewolf
+superhero
+supervillain
+sidekick
+mermaid
+ghost
+ninja
+pirate
+zombie
+alien
+knight
+dragon
+fairy
+robot
+android
+cyborg
+witch
+warlock
+sorcerer
+elf
+dwarf
+orc
+goblin
+troll
+giant
+gnome
+genie
+demon
+angel
+devil
+monster
+beast
+shapeshifter
+time traveler
+secret agent
+double agent
+master thief
+bounty hunter
+gladiator
+samurai
+viking
+barbarian
+outlaw
+bandit
+rebel leader
+chosen one
+prophecy child
+lost prince
+exiled king
+evil queen
+wicked stepmother
+fairy godmother
+talking animal
+sentient object
+imaginary friend
+doppelganger
+clone
+hologram character
+AI companion
+rogue AI
+mad scientist
+evil twin
+long-lost sibling
+secret heir
+undercover cop
+vigilante
+masked hero
+caped crusader
+anti-hero
+tragic hero
+comic relief
+wise mentor
+loyal companion
+treacherous ally
+mysterious stranger
+hooded figure
+oracle
+prophet
+seer
+shaman
+druid
+paladin
+rogue
+assassin
+mercenary
+smuggler
+con artist
+trickster
+jester
+court fool
+storyteller
+narrator
+chosen champion
+last survivor
+final boss

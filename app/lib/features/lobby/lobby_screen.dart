@@ -1,18 +1,27 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/api_client.dart';
 import '../../core/app_state.dart';
+import '../../core/game_socket.dart';
 import '../../core/models.dart';
 import '../../theme/neon_theme.dart';
+import '../../widgets/cyber_agent_sheet.dart';
+import '../../widgets/invite_players_sheet.dart';
 import '../../widgets/neon.dart';
+import '../game/game_screen.dart';
 
 /// The room before the game starts. For a signed-in host this creates a real
-/// ad-hoc room via POST /api/v1/rooms and shows the returned code + roster; the
-/// live roster + ready-check + start come with the WebSocket layer (Phase 4).
+/// ad-hoc room via POST /api/v1/rooms; as soon as a real room exists this
+/// opens the same `/ws/room/{id}` socket the game itself runs on, so the
+/// roster, ready-check and start button are all live (Phase 4). A guest or
+/// example view has no real room to attach to, so it stays a local mock.
 class LobbyScreen extends StatefulWidget {
-  const LobbyScreen({super.key, required this.preset});
+  const LobbyScreen({super.key, required this.preset, this.gameConfig});
   final ModePreset preset;
+  final Map<String, dynamic>? gameConfig;
 
   @override
   State<LobbyScreen> createState() => _LobbyScreenState();
@@ -23,6 +32,12 @@ class _LobbyScreenState extends State<LobbyScreen> {
   bool _example = false;
   String? _error;
   bool _ready = false;
+  bool _addingBot = false;
+
+  GameSocket? _socket;
+  StreamSubscription? _sub;
+  bool _handedOff = false;
+  late AppState _app;
 
   @override
   void initState() {
@@ -30,9 +45,17 @@ class _LobbyScreenState extends State<LobbyScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _open());
   }
 
+  @override
+  void dispose() {
+    _sub?.cancel();
+    if (!_handedOff) _socket?.close();
+    super.dispose();
+  }
+
   Future<void> _open() async {
     final app = AppScope.of(context);
-    if (app.identity != Identity.account) {
+    _app = app;
+    if (app.identity == Identity.anonymous) {
       setState(() {
         _example = true;
         _room = _exampleRoom(app);
@@ -40,9 +63,14 @@ class _LobbyScreenState extends State<LobbyScreen> {
       return;
     }
     try {
-      final res = await app.api.post('/rooms', const <String, dynamic>{}) as Map<String, dynamic>;
+      final res = await app.api.post('/rooms', {
+        'gameType': 'truearena',
+        'gameConfig': widget.gameConfig ?? widget.preset.config,
+      }) as Map<String, dynamic>;
       if (!mounted) return;
-      setState(() => _room = RoomView.fromJson(res));
+      final room = RoomView.fromJson(res);
+      setState(() => _room = room);
+      _connect(app, room.id);
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
@@ -52,6 +80,98 @@ class _LobbyScreenState extends State<LobbyScreen> {
           _room = _exampleRoom(app);
         });
       }
+    }
+  }
+
+  void _connect(AppState app, String roomId) {
+    final socket = GameSocket.connect(app.api, roomId);
+    _socket = socket;
+    _sub = socket.envelopes.listen((env) {
+      switch (env['type']) {
+        case 'SNAPSHOT':
+          final p = (env['payload'] as Map).cast<String, dynamic>();
+          if (p['lobby'] == true) _applyLobbySnapshot(p);
+        case 'EVENT':
+          // Any lobby-membership change — cheapest correct thing is to ask
+          // for a fresh snapshot rather than hand-patch the roster.
+          socket.send('HELLO', {'lastSeq': 0});
+        case 'PHASE':
+          _handOffToGame(app, roomId);
+        case 'ERROR':
+          final msg = (env['payload'] as Map)['message']?.toString();
+          if (msg != null && mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+      }
+    });
+    socket.send('HELLO', {'lastSeq': 0});
+  }
+
+  void _applyLobbySnapshot(Map<String, dynamic> p) {
+    final members = ((p['members'] as List?) ?? const [])
+        .map((e) => RoomMember.fromJson((e as Map).cast<String, dynamic>()))
+        .toList();
+    if (!mounted) return;
+    setState(() {
+      _room = RoomView(
+        id: p['roomId'] as String,
+        code: p['code'] as String,
+        hostId: p['hostId'] as String,
+        status: p['status'] as String? ?? 'lobby',
+        members: members,
+      );
+      final me = _room!.members.where((m) => m.userId == _selfId(_app));
+      if (me.isNotEmpty) _ready = me.first.ready;
+    });
+  }
+
+  void _handOffToGame(AppState app, String roomId) {
+    if (_handedOff || !mounted) return;
+    _handedOff = true;
+    _sub?.cancel();
+    final room = _room!;
+    final nicknames = {for (final m in room.members) m.userId: m.nickname ?? m.userId};
+    Navigator.of(context).pushReplacement(MaterialPageRoute(
+      builder: (_) => GameScreen(
+        socket: _socket!,
+        selfId: _selfId(app),
+        isHost: room.hostId == _selfId(app),
+        nicknames: nicknames,
+      ),
+    ));
+  }
+
+  String _selfId(AppState app) => app.user?.id ?? '';
+
+  Future<void> _invitePlayers(RoomView room) async {
+    final sent = await showInvitePlayersSheet(context, roomId: room.id);
+    if (sent == null || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(sent == 0
+          ? 'No invites sent'
+          : 'Invited $sent ${sent == 1 ? 'friend' : 'friends'} — they\'ll see it in their chat'),
+    ));
+  }
+
+  Future<void> _addBot(RoomView room) async {
+    // Agents are saved per game, so this offers the ones already made and
+    // only asks for a name when there are none — see showCyberAgentPicker.
+    final choice = await showCyberAgentPicker(context, gameType: 'truearena');
+    if (choice == null || !mounted) return;
+    setState(() => _addingBot = true);
+    try {
+      final app = AppScope.of(context);
+      if (choice.isExisting) {
+        await app.api.post('/rooms/${room.id}/bots/existing/${choice.agentId}');
+      } else {
+        await app.api.post('/rooms/${room.id}/bots', {'name': choice.name, 'difficulty': choice.difficulty});
+      }
+      // the bot connects itself over WS right after this and shows up via
+      // the lobby's own SNAPSHOT/EVENT stream — nothing else to do here.
+    } on ApiException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not add the Cyber Agent')));
+    } finally {
+      if (mounted) setState(() => _addingBot = false);
     }
   }
 
@@ -117,7 +237,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                     const SizedBox(height: 4),
                     Text(room.code,
                         style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                            fontSize: 40, letterSpacing: 6, shadows: [Shadow(color: n.cyan.withValues(alpha: 0.4), blurRadius: 30)])),
+                            fontSize: 40, letterSpacing: 6, shadows: [Shadow(color: n.gold.withValues(alpha: 0.4), blurRadius: 30)])),
                     const SizedBox(height: 8),
                     Wrap(spacing: 6, runSpacing: 6, children: [
                       _chip('${p.minPlayers}–${p.maxPlayers} players'),
@@ -135,14 +255,19 @@ class _LobbyScreenState extends State<LobbyScreen> {
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute)),
                 ),
               Expanded(
-                child: ListView(
+                child: GridView.builder(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                  children: [
-                    for (final m in room.members) _memberRow(m, room.hostId),
-                  ],
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    mainAxisSpacing: 18,
+                    crossAxisSpacing: 8,
+                    childAspectRatio: 0.76,
+                  ),
+                  itemCount: room.members.length,
+                  itemBuilder: (context, i) => _memberTile(room.members[i], room.hostId),
                 ),
               ),
-              _bottomBar(room),
+              _bottomBar(room, p),
             ],
           ],
         ),
@@ -150,34 +275,91 @@ class _LobbyScreenState extends State<LobbyScreen> {
     );
   }
 
-  Widget _memberRow(RoomMember m, String hostId) {
+  /// A TikTok-Live-style seat tile: ring-lit avatar, name underneath, and a
+  /// mic badge in the corner. Voice isn't wired up yet, so the mic always
+  /// shows muted — it's reserving the spot, not a real control.
+  Widget _memberTile(RoomMember m, String hostId) {
     final n = context.neon;
     final isHost = m.userId == hostId || (m.userId == 'me' && _example);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: NeonCard(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Row(children: [
-          Avatar(m.nickname ?? '?', size: 32, color: m.connected ? null : n.plate),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(m.nickname ?? m.userId,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: m.connected ? n.ink : n.mute, fontWeight: FontWeight.w700)),
+    final away = !m.connected;
+    final ringColor = away ? kCabinetInk : (m.ready ? n.jade : n.mute);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: ringColor, width: away ? 1.6 : 2.6),
+                boxShadow: !away && m.ready
+                    ? [BoxShadow(color: n.jade.withValues(alpha: 0.38), blurRadius: 16, spreadRadius: -2)]
+                    : null,
+              ),
+              child: Opacity(
+                opacity: away ? 0.4 : 1,
+                child: Avatar(m.nickname ?? '?', size: 60),
+              ),
+            ),
+            if (isHost)
+              Positioned(
+                top: -3,
+                left: -3,
+                child: _badge(n.brand, const Icon(Icons.workspace_premium_rounded, size: 12, color: Colors.white)),
+              ),
+            Positioned(
+              bottom: -2,
+              right: -2,
+              child: m.isBot
+                  ? _badge(n.jade, const Icon(Icons.smart_toy_rounded, size: 13, color: Colors.black))
+                  : _badge(n.plate, Icon(Icons.mic_off_rounded, size: 13, color: n.mute), border: kCabinetInk),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          m.nickname ?? m.userId,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: Theme.of(context)
+              .textTheme
+              .bodySmall
+              ?.copyWith(color: away ? n.mute : n.ink, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          m.isBot ? 'CYBER AGENT' : (away ? 'AWAY' : (m.ready ? 'READY' : 'WAITING')),
+          style: TextStyle(
+            fontSize: 8,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.8,
+            color: away ? n.mute : (m.ready ? n.jade : n.mute),
           ),
-          if (isHost) _tag('HOST', n.magenta),
-          const SizedBox(width: 6),
-          _tag(m.connected ? (m.ready ? 'READY' : 'WAIT') : 'AWAY', m.ready ? n.acid : n.mute),
-        ]),
-      ),
+        ),
+      ],
     );
   }
 
-  Widget _bottomBar(RoomView room) {
+  Widget _badge(Color bg, Widget icon, {Color? border}) => Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: bg,
+          shape: BoxShape.circle,
+          border: Border.all(color: border ?? context.neon.panel, width: 2),
+        ),
+        child: icon,
+      );
+
+  Widget _bottomBar(RoomView room, ModePreset p) {
     final n = context.neon;
     final app = AppScope.of(context);
     final isHost = _example || room.hostId == app.user?.id;
     final readyCount = room.members.where((m) => m.ready).length;
+    final full = room.members.length >= p.maxPlayers;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
       decoration: BoxDecoration(color: n.panel, border: Border(top: BorderSide(color: n.line))),
@@ -187,24 +369,64 @@ class _LobbyScreenState extends State<LobbyScreen> {
           child: Text('$readyCount of ${room.members.length} ready',
               style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute, fontWeight: FontWeight.w700)),
         ),
+        if (isHost && !full && !_example) ...[
+          // Inviting a real friend is the headline action; an agent is the
+          // fallback when nobody's around, so it sits underneath as a small
+          // pill rather than competing as a full-width button.
+          NeonButton('Add a player', onPressed: () => _invitePlayers(room)),
+          const SizedBox(height: 8),
+          Center(
+            child: Bouncy(
+              feel: BouncyFeel.snap,
+              onTap: _addingBot ? null : () => _addBot(room),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: n.plate,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: n.line, width: 1.5),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.smart_toy_rounded, size: 14, color: _addingBot ? n.mute : n.gold),
+                  const SizedBox(width: 6),
+                  Text(_addingBot ? 'Adding…' : 'or add a Cyber Agent',
+                      style: TextStyle(
+                          color: _addingBot ? n.mute : n.mid,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700)),
+                ]),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
         Row(children: [
           Expanded(
             child: NeonButton(
               _ready ? 'Ready ✓' : 'Ready up',
               style: NeonStyle.ghost,
-              onPressed: () => setState(() {
-                _ready = !_ready;
-                if (_example) _room = _exampleRoom(app);
-              }),
+              onPressed: () {
+                final next = !_ready;
+                setState(() => _ready = next);
+                if (_example) {
+                  setState(() => _room = _exampleRoom(app));
+                } else {
+                  _socket?.send('READY_SET', {'ready': next});
+                }
+              },
             ),
           ),
           if (isHost) ...[
             const SizedBox(width: 8),
             Expanded(
               child: NeonButton('Start', onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Start → role reveal comes with the WebSocket layer (Phase 4).')),
-                );
+                if (_example) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Guest games aren\'t connected to the live server yet — sign in with a phone to host a real game.')),
+                  );
+                } else {
+                  _socket?.send('GAME_START');
+                }
               }),
             ),
           ],
@@ -216,20 +438,15 @@ class _LobbyScreenState extends State<LobbyScreen> {
   Widget _chip(String t) {
     final n = context.neon;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
       decoration: BoxDecoration(
         color: n.plate,
-        borderRadius: BorderRadius.circular(7),
-        border: Border.all(color: n.line),
+        borderRadius: BorderRadius.circular(NeonRadius.pill),
+        border: Border.all(color: kCabinetInk, width: 1.6),
       ),
       child: Text(t.toUpperCase(),
           style: TextStyle(color: n.mid, fontWeight: FontWeight.w800, fontSize: 8, letterSpacing: 0.6)),
     );
   }
 
-  Widget _tag(String t, Color c) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-        decoration: BoxDecoration(color: c.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(6)),
-        child: Text(t, style: TextStyle(color: c, fontWeight: FontWeight.w800, fontSize: 8, letterSpacing: 0.8)),
-      );
 }

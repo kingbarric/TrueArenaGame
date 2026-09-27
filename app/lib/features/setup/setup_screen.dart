@@ -9,6 +9,8 @@ import '../../core/models.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/neon.dart';
 import '../../widgets/neon_form.dart';
+import '../lobby/lobby_screen.dart';
+import '../onboarding/guest_gate.dart';
 
 /// The GameConfig editor. Opened only when an admin taps "Customize" (or the Custom
 /// Game card). Starts from a preset (or a plain base), edits in place, and validates
@@ -261,7 +263,7 @@ class _SetupScreenState extends State<SetupScreen> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Text(title.toUpperCase(),
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: n.cyan, letterSpacing: 2, fontWeight: FontWeight.w800)),
+                  color: n.gold, letterSpacing: 2, fontWeight: FontWeight.w800)),
           const SizedBox(height: 10),
           ...children,
         ]),
@@ -291,11 +293,11 @@ class _SetupScreenState extends State<SetupScreen> {
           Row(children: [
             Text('TWISTS',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: n.cyan, letterSpacing: 2, fontWeight: FontWeight.w800)),
+                    color: n.gold, letterSpacing: 2, fontWeight: FontWeight.w800)),
             const Spacer(),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-              decoration: BoxDecoration(color: n.acid, borderRadius: BorderRadius.circular(8)),
+              decoration: BoxDecoration(color: n.jade, borderRadius: BorderRadius.circular(NeonRadius.pill)),
               child: Text('${_twistMap.length} ON',
                   style: TextStyle(color: n.onAccent, fontWeight: FontWeight.w900, fontSize: 9, letterSpacing: 1)),
             ),
@@ -333,7 +335,7 @@ class _SetupScreenState extends State<SetupScreen> {
         if (_errors.isNotEmpty)
           _panel(n.danger, _errors.first + (_errors.length > 1 ? '  (+${_errors.length - 1} more)' : ''))
         else if (_warnings.isNotEmpty)
-          _panel(n.acid, _warnings.first),
+          _panel(n.jade, _warnings.first),
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),
           child: Row(children: [
@@ -356,17 +358,26 @@ class _SetupScreenState extends State<SetupScreen> {
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: c.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(color: c.withValues(alpha: 0.5)),
         ),
         child: Text(text, style: TextStyle(color: context.neon.ink, fontSize: 11, height: 1.4)),
       );
 
-  void _open() {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(_diverged
-          ? 'Custom game validated — save + lobby land in Phase 4/7.6.'
-          : 'Preset validated — the lobby screen lands in Phase 4.'),
+  Future<void> _open() async {
+    if (!await canHostOrPromptToVerify(context) || !mounted) return;
+    final config = _deepCopy(_config);
+    final preset = widget.basePreset ?? ModePreset(
+      id: 'custom',
+      scope: 'user',
+      slug: 'custom',
+      name: 'Custom Game',
+      tag: null,
+      description: null,
+      config: config,
+    );
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => LobbyScreen(preset: preset, gameConfig: config),
     ));
   }
 }
@@ -392,9 +403,9 @@ class _TwistTileState extends State<_TwistTile> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
         decoration: BoxDecoration(
-          color: widget.enabled ? n.magenta.withValues(alpha: 0.1) : n.plate,
-          borderRadius: BorderRadius.circular(11),
-          border: Border.all(color: widget.enabled ? n.magenta : n.line, width: widget.enabled ? 1.5 : 1),
+          color: widget.enabled ? n.brand.withValues(alpha: 0.1) : n.plate,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: widget.enabled ? n.brand : kCabinetInk, width: widget.enabled ? 1.5 : 1.6),
         ),
         child: Column(
           children: [
@@ -420,7 +431,7 @@ class _TwistTileState extends State<_TwistTile> {
                 value: widget.enabled,
                 onChanged: (_) => widget.onToggle(),
                 activeThumbColor: n.onAccent,
-                activeTrackColor: n.magenta,
+                activeTrackColor: n.brand,
               ),
               const SizedBox(width: 4),
             ]),

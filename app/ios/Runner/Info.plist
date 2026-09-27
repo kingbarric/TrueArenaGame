@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Truearena</string>
+	<string>Topskul</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -26,6 +26,30 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Pick a photo to use as your profile icon.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Take a photo to use as your profile icon.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Used for voice chat during Whot, calls with friends, and Word Bluff's spoken guesses.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>Find friends who are already on Topskul, and invite the ones who aren't yet.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Word Bluff uses speech recognition to auto-detect a correct guess while you describe.</string>
+	<!-- Google Sign-In: replace REPLACE_ME with the iOS OAuth client's reversed
+	     client ID (Google Cloud Console → the iOS client → "iOS URL scheme",
+	     literally the client ID with the segments reversed, e.g.
+	     com.googleusercontent.apps.1234-abc). Sign-in silently fails without
+	     this — see docs/DEV_REFERENCE.md. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.26187322342-l8ts2r7ve596qvc9ditdv0l1g09gk8tg</string>
+			</array>
+		</dict>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

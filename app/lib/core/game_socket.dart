@@ -1,0 +1,155 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:math' as math;
+
+import 'package:web_socket_channel/web_socket_channel.dart';
+
+import 'api_client.dart';
+
+/// A room connection that survives short network outages. A reconnect sends
+/// the highest event `seq` this socket has actually seen, so the server can
+/// replay just what was missed instead of resending a full snapshot every
+/// time — see `GameOrchestrator.handleHello` (`lastSeq > 0` branch) for the
+/// server side of this contract. The very first connection (and any
+/// reconnect before an EVENT frame has ever arrived) still gets a full
+/// snapshot, since there's nothing to replay from yet.
+class GameSocket {
+  GameSocket._(this._api, this._roomId, this._spectate, this._baseUrl,
+      this._retryBase);
+
+  final ApiClient _api;
+  final String _roomId;
+  final bool _spectate;
+  final String _baseUrl;
+  final Duration _retryBase;
+  final _controller = StreamController<Map<String, dynamic>>.broadcast();
+  WebSocketChannel? _channel;
+  StreamSubscription? _sub;
+  Timer? _retry;
+  Timer? _heartbeat;
+  DateTime? _lastPong;
+  bool _closed = false;
+  bool _connected = false;
+  int _attempt = 0;
+  int _generation = 0;
+  int _lastSeq = 0;
+
+  Stream<Map<String, dynamic>> get envelopes => _controller.stream;
+  bool get isConnected => _connected && !_closed;
+  int get lastSeq => _lastSeq;
+
+  static GameSocket connect(ApiClient api, String roomId,
+      {bool spectate = false,
+      String baseUrl = ApiClient.base,
+      Duration retryBase = const Duration(seconds: 1)}) {
+    final socket = GameSocket._(api, roomId, spectate, baseUrl, retryBase);
+    socket._open();
+    return socket;
+  }
+
+  Uri get _uri {
+    final base = _baseUrl.replaceFirst('http', 'ws');
+    return Uri.parse('$base/ws/room/$_roomId').replace(queryParameters: {
+      'token': _api.bearer ?? '',
+      if (_spectate) 'spectate': 'true',
+    });
+  }
+
+  void _status(bool connected) {
+    if (!_closed && !_controller.isClosed) {
+      _controller.add({'type': 'CONNECTION', 'payload': {'connected': connected}});
+    }
+  }
+
+  Future<void> _open() async {
+    if (_closed) return;
+    final generation = ++_generation;
+    final channel = WebSocketChannel.connect(_uri);
+    _channel = channel;
+    _sub = channel.stream.listen((raw) {
+      if (_closed || generation != _generation) return;
+      try {
+        final frame = jsonDecode(raw as String) as Map<String, dynamic>;
+        if (frame['type'] == 'PONG') _lastPong = DateTime.now();
+        if (frame['type'] == 'EVENT') {
+          final seq = (frame['payload'] as Map?)?['seq'] as num?;
+          if (seq != null && seq.toInt() > _lastSeq) _lastSeq = seq.toInt();
+        }
+        _controller.add(frame);
+      } catch (_) {
+        // A malformed frame must not terminate the room connection.
+      }
+    }, onError: (_) => _lost(generation), onDone: () => _lost(generation));
+    try {
+      await channel.ready;
+      if (_closed || generation != _generation) return;
+      _connected = true;
+      _attempt = 0;
+      _lastPong = DateTime.now();
+      _status(true);
+      send('HELLO', {'lastSeq': _lastSeq});
+      _heartbeat?.cancel();
+      _heartbeat = Timer.periodic(const Duration(seconds: 10), (_) {
+        if (!_connected) return;
+        if (DateTime.now().difference(_lastPong!) > const Duration(seconds: 30)) {
+          _lost(generation);
+        } else {
+          send('PING');
+        }
+      });
+    } catch (_) {
+      _lost(generation);
+    }
+  }
+
+  void _lost(int generation) {
+    if (_closed || generation != _generation) return;
+    final unauthorized = _channel?.closeCode == 4401;
+    _generation++;
+    _connected = false;
+    _heartbeat?.cancel();
+    _status(false);
+    _sub?.cancel();
+    _channel?.sink.close();
+    final factor = math.min(30, 1 << math.min(_attempt++, 5));
+    _retry?.cancel();
+    _retry = Timer(_retryBase * factor, () async {
+      if (unauthorized) {
+        try {
+          await _api.refreshHandler?.call();
+        } catch (_) {
+          // The next attempt can still succeed after a later sign-in.
+        }
+      }
+      if (!_closed) _open();
+    });
+  }
+
+  /// Actions sent while offline are discarded; replaying a move after a
+  /// reconnect could apply it to a different turn. The fresh snapshot lets
+  /// the player make the decision again against current state.
+  void send(String type, [Map<String, dynamic>? payload]) {
+    if (_closed || !_connected) return;
+    try {
+      _channel?.sink.add(jsonEncode({
+        'v': 1,
+        'type': type,
+        'ts': DateTime.now().millisecondsSinceEpoch,
+        'payload': payload ?? const {},
+      }));
+    } catch (_) {
+      _lost(_generation);
+    }
+  }
+
+  Future<void> close() async {
+    if (_closed) return;
+    _closed = true;
+    _generation++;
+    _retry?.cancel();
+    _heartbeat?.cancel();
+    await _sub?.cancel();
+    await _channel?.sink.close();
+    await _controller.close();
+  }
+}

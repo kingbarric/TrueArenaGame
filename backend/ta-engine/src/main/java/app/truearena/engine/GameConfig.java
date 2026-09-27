@@ -22,7 +22,7 @@ public record GameConfig(
         String voteReveal,            // sequential | all_at_once
         String endgameVeil,           // final_4 | final_5 | final_6 | off
         Map<String, Map<String, Object>> twists
-) {
+) implements GameSettings {
 
     public GameConfig {
         if (twists == null) {

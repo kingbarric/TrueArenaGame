@@ -15,6 +15,7 @@ backend/**/target/
 # Env / secrets
 .env
 *.local.json
+*.local.md
 !.env.example
 
 # Flutter

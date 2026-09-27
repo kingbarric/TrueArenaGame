@@ -52,8 +52,11 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: maven
-      # Build Brief §8 / Plan 11.5. Currently a placeholder suite; fills in at Phase 6.2.
-      - run: ./mvnw -B -ntp -pl ta-contract-tests -am test
+      # Build Brief §8 / Plan 11.5 — FullGameContractIT: 6 real accounts, one ad-hoc room,
+      # 6 real WebSocket connections played to GAME_OVER, secret-data guarantee checked on
+      # every frame every client actually received. @Tag("integration") + Testcontainers
+      # (Postgres + Redis), so this needs failsafe/verify, not plain surefire/test.
+      - run: ./mvnw -B -ntp -pl ta-contract-tests -am verify
 
   flutter:
     runs-on: ubuntu-latest
@@ -79,12 +82,50 @@ jobs:
 
   docker-build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.tags.outputs.image }}
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
-      - name: Build backend image (no push)
+      - name: Compute lowercase image ref (GHCR requires lowercase)
+        id: tags
+        run: echo "image=ghcr.io/${GITHUB_REPOSITORY,,}-backend" >> "$GITHUB_OUTPUT"
+      - name: Log in to GHCR
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build backend image
         uses: docker/build-push-action@v6
         with:
           context: ./backend
-          push: false
-          tags: truearena-backend:ci
+          # Only push on a real push to main — PR builds still verify the
+          # image builds, they just don't publish it anywhere.
+          push: ${{ github.event_name == 'push' }}
+          tags: |
+            ${{ steps.tags.outputs.image }}:${{ github.sha }}
+            ${{ steps.tags.outputs.image }}:latest
+
+  deploy:
+    needs: docker-build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.DEPLOY_HOST != ''
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pull the new image, restart the stack, and smoke-check it
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ vars.DEPLOY_HOST }}
+          username: ${{ vars.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd ${{ vars.DEPLOY_PATH || '~/truearena' }}
+            docker compose -f infra/docker-compose.prod.yml pull
+            docker compose -f infra/docker-compose.prod.yml up -d
+            ./infra/smoke.sh

@@ -6,6 +6,7 @@ import '../../core/models.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/neon.dart';
 import '../lobby/lobby_screen.dart';
+import '../onboarding/guest_gate.dart';
 import '../setup/setup_screen.dart';
 
 /// Presets-first: the five modes launch as-is. "Customize" (an admin choice) opens the
@@ -94,28 +95,29 @@ class _ModeSelectScreenState extends State<ModeSelectScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 20),
       children: [
-        for (final p in _presets!) _card(p),
+        for (final (i, p) in _presets!.indexed) _card(p, mirror: i.isOdd),
         _customCard(n),
       ],
     );
   }
 
-  Widget _card(ModePreset p) {
+  Widget _card(ModePreset p, {bool mirror = false}) {
     final n = context.neon;
     final selected = p.id == _selectedId;
     return Padding(
       padding: const EdgeInsets.only(bottom: 11),
       child: NeonCard(
         selected: selected,
+        mirror: mirror,
         onTap: () => setState(() => _selectedId = p.id),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                if (p.tag != null) _pill(p.tag!, n.acid, n.onAccent),
+                if (p.tag != null) _pill(p.tag!, n.jade, n.onAccent),
                 const Spacer(),
-                if (selected) Icon(Icons.check_circle, color: n.cyan, size: 18),
+                if (selected) Icon(Icons.check_circle, color: n.gold, size: 18),
               ],
             ),
             if (p.tag != null) const SizedBox(height: 8),
@@ -126,9 +128,9 @@ class _ModeSelectScreenState extends State<ModeSelectScreen> {
             ],
             const SizedBox(height: 10),
             Wrap(spacing: 6, runSpacing: 6, children: [
-              _stat('${p.minPlayers}–${p.maxPlayers} players', n.cyan),
-              _stat('${p.traitors} traitors', n.magenta),
-              _stat(p.veilLabel, n.acid),
+              _stat('${p.minPlayers}–${p.maxPlayers} players', n.gold),
+              _stat('${p.traitors} traitors', n.brand),
+              _stat(p.veilLabel, n.jade),
               if (p.twistCount > 0) _stat('${p.twistCount} twist${p.twistCount == 1 ? '' : 's'}', n.mid),
             ]),
           ],
@@ -138,7 +140,7 @@ class _ModeSelectScreenState extends State<ModeSelectScreen> {
   }
 
   Widget _customCard(NeonColors n) => NeonCard(
-        accent: n.acid,
+        accent: n.jade,
         onTap: () => _customize(null),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('Custom Game', style: Theme.of(context).textTheme.titleMedium),
@@ -161,14 +163,16 @@ class _ModeSelectScreenState extends State<ModeSelectScreen> {
           TextButton(
             onPressed: () => _customize(p),
             child: Text('Customize setup →',
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(color: n.cyan, fontSize: 11)),
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(color: n.gold, fontSize: 11)),
           ),
         ],
       ),
     );
   }
 
-  void _openRoom(ModePreset p) {
+  Future<void> _openRoom(ModePreset p) async {
+    if (!await canHostOrPromptToVerify(context)) return;
+    if (!mounted) return;
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => LobbyScreen(preset: p)));
   }
 
@@ -179,8 +183,8 @@ class _ModeSelectScreenState extends State<ModeSelectScreen> {
   }
 
   Widget _pill(String text, Color bg, Color fg) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(5)),
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(NeonRadius.pill)),
         child: Text(text.toUpperCase(),
             style: TextStyle(color: fg, fontWeight: FontWeight.w800, fontSize: 8, letterSpacing: 1.2)),
       );
@@ -188,11 +192,11 @@ class _ModeSelectScreenState extends State<ModeSelectScreen> {
   Widget _stat(String text, Color edge) {
     final n = context.neon;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
       decoration: BoxDecoration(
         color: n.plate,
-        borderRadius: BorderRadius.circular(7),
-        border: Border.all(color: Color.alphaBlend(edge.withValues(alpha: 0.55), n.line)),
+        borderRadius: BorderRadius.circular(NeonRadius.pill),
+        border: Border.all(color: Color.alphaBlend(edge.withValues(alpha: 0.55), kCabinetInk)),
       ),
       child: Text(text.toUpperCase(),
           style: TextStyle(color: n.mid, fontWeight: FontWeight.w800, fontSize: 8, letterSpacing: 0.6)),

@@ -18,6 +18,15 @@ spring:
 
 server:
   port: ${PORT:8080}
+  error:
+    # Without this, Spring drops the reason off every ResponseStatusException
+    # and the client gets a bare status with no body message — so a refusal
+    # we wrote a careful explanation for ("not enough coins to stake 100")
+    # surfaced in the app as a generic "something went wrong". The client
+    # reads `message` (see ApiClient._send, Flutter); this is what puts it
+    # there. Safe to expose: every message here is one we authored in
+    # ApiExceptions, never a stack trace or internal detail.
+    include-message: always
 
 springdoc:
   swagger-ui:
@@ -41,10 +50,25 @@ truearena:
     jwt-secret: ${JWT_SECRET:dev-only-change-me-0000000000000000000000000000}
     access-ttl: 15m
     refresh-ttl: 30d
+    # The Google Cloud "Web" OAuth client ID — see docs/DEV_REFERENCE.md for the
+    # full setup. Blank until set: /auth/google returns 400 rather than pretending
+    # to work. Comma-separate more than one if ever needed (e.g. staging + prod).
+    google-client-id: ${GOOGLE_CLIENT_ID:}
   livekit:
     url: ${LIVEKIT_URL:ws://localhost:7880}
     api-key: ${LIVEKIT_API_KEY:devkey}
     api-secret: ${LIVEKIT_API_SECRET:devsecret_devsecret_devsecret_1234}
+
+# Cyber Agent brains. Both read from the environment only — never paste a
+# key here. Gemini wins when both are present (see BotLlmConfig); with
+# neither set, agents fall back to random legal moves and still play.
+gemini:
+  api:
+    key: ${GEMINI_API_KEY:}
+
+groq:
+  api:
+    key: ${GROQ_API_KEY:}
 
 logging:
   level:

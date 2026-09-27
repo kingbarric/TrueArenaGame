@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/neon_theme.dart';
+import 'neon.dart';
 
 /// Small Night-Market form controls, matching the "Set the Night" prototype.
 
@@ -47,7 +48,7 @@ class NeonSwitchRow extends StatelessWidget {
             value: value,
             onChanged: onChanged,
             activeThumbColor: n.onAccent,
-            activeTrackColor: n.cyan,
+            activeTrackColor: n.gold,
           ),
         ],
       ),
@@ -74,20 +75,20 @@ class NeonStepper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final n = context.neon;
-    Widget btn(IconData icon, int delta) => InkResponse(
+    Widget btn(IconData icon, int delta) => Bouncy(
           onTap: () {
             final next = (value + delta).clamp(min, max).toInt();
             if (next != value) onChanged(next);
           },
-          radius: 22,
+          pressScale: 0.88,
           child: Container(
-            width: 34,
-            height: 34,
+            width: 36,
+            height: 36,
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: n.plate,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: n.line),
+              shape: BoxShape.circle,
+              border: Border.all(color: kCabinetInk, width: 2),
             ),
             child: Icon(icon, size: 18, color: n.ink),
           ),
@@ -127,26 +128,27 @@ class NeonSegmented<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final n = context.neon;
     return Container(
-      padding: const EdgeInsets.all(3),
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: n.plate,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: n.line),
+        borderRadius: BorderRadius.circular(NeonRadius.pill),
+        border: Border.all(color: kCabinetInk, width: 2),
       ),
       child: Row(
         children: [
           for (final o in options)
             Expanded(
-              child: GestureDetector(
+              child: Bouncy(
                 onTap: () => onChanged(o.value),
+                pressScale: 0.94,
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   curve: Curves.easeOutCubic,
                   padding: const EdgeInsets.symmetric(vertical: 9),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    gradient: o.value == value ? LinearGradient(colors: [n.cyan, n.cyan]) : null,
-                    borderRadius: BorderRadius.circular(9),
+                    color: o.value == value ? n.gold : null,
+                    borderRadius: BorderRadius.circular(NeonRadius.pill),
                   ),
                   child: Text(
                     o.label.toUpperCase(),
@@ -176,16 +178,17 @@ class NeonChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final n = context.neon;
-    final a = accent ?? n.cyan;
-    return GestureDetector(
+    final a = accent ?? n.gold;
+    return Bouncy(
       onTap: onTap,
+      pressScale: 0.93,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
         decoration: BoxDecoration(
           color: selected ? a.withValues(alpha: 0.14) : n.plate,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: selected ? a : n.line, width: selected ? 1.5 : 1),
+          borderRadius: BorderRadius.circular(NeonRadius.pill),
+          border: Border.all(color: selected ? a : kCabinetInk, width: selected ? 2 : 1.6),
         ),
         child: Text(
           label.toUpperCase(),
@@ -223,10 +226,10 @@ class NeonSlider extends StatelessWidget {
       children: [
         SliderTheme(
           data: SliderTheme.of(context).copyWith(
-            activeTrackColor: n.cyan,
+            activeTrackColor: n.gold,
             inactiveTrackColor: n.line,
-            thumbColor: n.cyan,
-            overlayColor: n.cyan.withValues(alpha: 0.15),
+            thumbColor: n.gold,
+            overlayColor: n.gold.withValues(alpha: 0.15),
             trackHeight: 5,
           ),
           child: Slider(
@@ -241,8 +244,8 @@ class NeonSlider extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             _tick('$min', n.mute),
-            if (safeLow != null) _tick('$safeLow', n.acid),
-            if (safeHigh != null) _tick('$safeHigh', n.acid),
+            if (safeLow != null) _tick('$safeLow', n.jade),
+            if (safeHigh != null) _tick('$safeHigh', n.jade),
             _tick('$max', n.mute),
           ],
         ),

@@ -1,6 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Word Bluff's voice auto-detect (speech_to_text) — opt-in per docs/DEV_REFERENCE.md. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <!-- "Invite from contacts" (FriendsScreen) — opt-in, requested at the point of use. -->
+    <uses-permission android:name="android.permission.READ_CONTACTS"/>
     <application
-        android:label="truearena"
+        android:label="Topskul"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -40,6 +44,10 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- speech_to_text needs this to find the on-device recognizer on Android 11+. -->
+        <intent>
+            <action android:name="android.speech.RecognitionService"/>
         </intent>
     </queries>
 </manifest>

@@ -1,0 +1,45 @@
+package app.truearena.game.whot;
+
+import app.truearena.engine.GameSettings;
+
+/**
+ * Whot's house rules. Every special is a switch, and every one of them starts
+ * on — they're how the game is normally played, but tables differ and an
+ * argument about whether twos stack is better settled before the deal than
+ * during it.
+ *
+ * @param turnSeconds     how long a player has to play or draw
+ * @param startingHand    cards dealt to each player
+ * @param includeWhot     whether the five wild Whot cards are in the deck at
+ *                        all — plenty of tables leave them out
+ * @param pickTwo         2 makes the next player draw two
+ * @param pickTwoStacking a player facing a 2 may answer with their own,
+ *                        passing the penalty on and adding to it
+ * @param generalMarket   14 makes everyone but the player who dealt it draw one
+ * @param holdOn          1 lets the player take another turn
+ * @param suspension      8 skips the next player
+ */
+public record WhotConfig(
+        int turnSeconds,
+        int startingHand,
+        boolean includeWhot,
+        boolean pickTwo,
+        boolean pickTwoStacking,
+        boolean generalMarket,
+        boolean holdOn,
+        boolean suspension
+) implements GameSettings {
+
+    public WhotConfig {
+        if (turnSeconds < 10 || turnSeconds > 300) {
+            throw new IllegalArgumentException("turnSeconds out of range: " + turnSeconds);
+        }
+        if (startingHand < 3 || startingHand > 12) {
+            throw new IllegalArgumentException("startingHand out of range: " + startingHand);
+        }
+    }
+
+    public static WhotConfig defaults() {
+        return new WhotConfig(60, 5, true, true, true, true, true, true);
+    }
+}

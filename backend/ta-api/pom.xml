@@ -44,7 +44,27 @@
         </dependency>
         <dependency>
             <groupId>app.truearena</groupId>
+            <artifactId>ta-game-wordbluff</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>app.truearena</groupId>
+            <artifactId>ta-game-draughts</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>app.truearena</groupId>
+            <artifactId>ta-game-goosi</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>app.truearena</groupId>
+            <artifactId>ta-game-whot</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>app.truearena</groupId>
             <artifactId>ta-ws</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>app.truearena</groupId>
+            <artifactId>ta-voice</artifactId>
         </dependency>
 
         <dependency>

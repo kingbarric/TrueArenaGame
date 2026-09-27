@@ -1,0 +1,97 @@
+passport
+boarding pass
+suitcase
+backpacking
+road trip
+layover
+customs
+visa
+itinerary
+hostel
+resort
+cruise ship
+sailboat
+ferry
+canoe
+kayak
+speedboat
+yacht
+submarine
+helicopter
+hot air balloon
+glider
+jet
+propeller plane
+cargo plane
+train
+subway
+tram
+trolley
+cable car
+gondola
+bus
+double-decker bus
+taxi
+rickshaw
+scooter
+motorcycle
+bicycle
+tandem bike
+skateboard
+rollerblades
+hiking boots
+walking stick
+compass
+map
+GPS device
+travel guide
+tour operator
+travel agent
+souvenir
+postcard
+travel journal
+jet lag
+time zone
+departure gate
+arrival lounge
+baggage claim
+carry-on
+checked luggage
+security checkpoint
+metal detector
+duty-free shop
+airport lounge
+frequent flyer
+loyalty program
+road sign
+traffic jam
+highway
+toll booth
+rest stop
+gas station
+parking lot
+roundabout
+pedestrian crossing
+bike lane
+carpool
+rideshare
+designated driver
+navigation app
+travel insurance
+vaccination certificate
+border crossing
+immigration officer
+language barrier
+tourist trap
+local cuisine
+cultural exchange
+backpacker hostel
+camping tent
+sleeping bag
+campfire
+road atlas
+scenic route
+detour
+pit stop
+travel companion
+solo traveler

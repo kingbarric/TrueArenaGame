@@ -2,6 +2,7 @@ package app.truearena.room;
 
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -24,5 +25,10 @@ public class RoomRuntimeRegistry {
 
     public void remove(UUID roomId) {
         rooms.remove(roomId);
+    }
+
+    /** Every live runtime on this pod — used for spectator discovery (see {@code RoomService.discoverable}). */
+    public Collection<RoomRuntime> all() {
+        return rooms.values();
     }
 }

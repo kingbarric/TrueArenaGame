@@ -1,0 +1,84 @@
+# Single-instance production stack. Pulled and started by the `deploy` job in
+# .github/workflows/ci.yml via SSH — see that job for the exact command.
+#
+# Required on the deploy host before the first run:
+#   - a `.env` file (or exported shell env) next to this file providing:
+#       BACKEND_IMAGE       e.g. ghcr.io/<owner>/<repo>-backend:latest
+#       DB_PASSWORD, JWT_SECRET, LIVEKIT_API_KEY, LIVEKIT_API_SECRET
+#     (no dev defaults are baked in here on purpose — see docker-compose.yml
+#     for the dev-only version with placeholder secrets)
+#   - `docker login ghcr.io` once, so `docker compose pull` can read the image
+#
+# APP_ENV=production is what backend/ta-api's EnvironmentGuard checks at boot
+# to fail fast if SPRING_PROFILES_ACTIVE is ever accidentally "local" here.
+
+name: truearena-prod
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: truearena
+      POSTGRES_USER: truearena
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U truearena -d truearena"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    command: ["redis-server", "--notify-keyspace-events", "Ex", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  livekit:
+    image: livekit/livekit-server:v1.7.2
+    restart: unless-stopped
+    command: ["--config", "/etc/livekit.yaml"]
+    environment:
+      # Real keys stay out of the mounted config file; LiveKit merges this
+      # env var with the file's port/logging settings.
+      LIVEKIT_KEYS: "${LIVEKIT_API_KEY:?set LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET:?set LIVEKIT_API_SECRET}"
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "50000-50020:50000-50020/udp"
+    volumes:
+      - ./livekit.prod.yaml:/etc/livekit.yaml:ro
+
+  backend:
+    image: ${BACKEND_IMAGE:?set BACKEND_IMAGE, e.g. ghcr.io/<owner>/<repo>-backend:latest}
+    restart: unless-stopped
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    environment:
+      APP_ENV: production
+      PORT: 8080
+      R2DBC_URL: r2dbc:postgresql://postgres:5432/truearena
+      JDBC_URL: jdbc:postgresql://postgres:5432/truearena
+      DB_USERNAME: truearena
+      DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      LIVEKIT_URL: ${LIVEKIT_URL:?set LIVEKIT_URL, e.g. wss://your-domain}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:?set LIVEKIT_API_KEY}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:?set LIVEKIT_API_SECRET}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?set GOOGLE_CLIENT_ID to the Google Web OAuth client ID}
+    ports: ["8080:8080"]
+
+volumes:
+  pgdata:
+  redisdata:

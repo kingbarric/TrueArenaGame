@@ -11,10 +11,11 @@ import java.util.UUID;
 public record GroupRow(
         @Id UUID id,
         String name,
+        @Column("avatar_emoji") String avatarEmoji,
         @Column("created_by") UUID createdBy,
         @Column("created_at") Instant createdAt
 ) {
-    public static GroupRow create(String name, UUID createdBy) {
-        return new GroupRow(null, name, createdBy, null);
+    public static GroupRow create(String name, String avatarEmoji, UUID createdBy) {
+        return new GroupRow(null, name, avatarEmoji, createdBy, null);
     }
 }

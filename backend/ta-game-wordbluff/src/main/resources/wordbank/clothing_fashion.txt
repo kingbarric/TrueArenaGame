@@ -1,0 +1,100 @@
+t-shirt
+sweater
+hoodie
+jacket
+coat
+blazer
+suit
+tuxedo
+gown
+dress
+skirt
+trousers
+jeans
+shorts
+leggings
+overalls
+jumpsuit
+romper
+cardigan
+vest
+turtleneck
+tank top
+crop top
+blouse
+pajamas
+nightgown
+robe
+lingerie
+swimsuit
+bikini
+wetsuit
+raincoat
+windbreaker
+parka
+poncho
+cape
+shawl
+scarf
+bandana
+beanie
+baseball cap
+fedora
+beret
+sun hat
+headband
+hair tie
+wig
+veil
+mask
+sunglasses
+reading glasses
+contact lenses
+earmuffs
+mittens
+gloves
+socks
+stockings
+tights
+high heels
+sneakers
+loafers
+flip-flops
+sandals
+boots
+slippers
+platform shoes
+stilettos
+belt
+suspenders
+tie
+bow tie
+cufflinks
+brooch
+pin
+buckle
+zipper
+button
+pocket
+hem
+seam
+stitch
+fabric
+cotton
+silk
+wool
+leather
+denim
+lace
+velvet
+satin
+polyester
+sequins
+embroidery
+tailoring
+fashion show
+runway model
+designer label
+thrift store
+vintage clothing
+fast fashion

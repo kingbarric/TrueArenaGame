@@ -1,0 +1,97 @@
+pyramid
+skyscraper
+lighthouse
+castle
+colosseum
+bridge
+harbor
+oasis
+temple
+fortress
+boardwalk
+cathedral
+plaza
+summit
+subway
+palace
+monastery
+monument
+memorial
+mausoleum
+aqueduct
+amphitheater
+observatory
+planetarium
+museum
+gallery
+library
+archive
+courthouse
+city hall
+embassy
+consulate
+parliament building
+capitol
+town square
+marketplace
+bazaar
+port
+pier
+marina
+dock
+shipyard
+airport
+runway
+terminal
+train station
+bus depot
+tunnel
+overpass
+viaduct
+dam
+reservoir
+canal
+waterway
+windmill
+watermill
+farmhouse
+barn
+ranch
+vineyard
+orchard
+greenhouse
+botanical garden
+zoo
+aquarium
+theme park
+carnival
+fairground
+stadium
+arena
+racetrack
+golf course
+ski resort
+campsite
+national park
+nature reserve
+wildlife sanctuary
+border crossing
+checkpoint
+refugee camp
+slum
+shantytown
+suburb
+downtown
+skyline
+cul-de-sac
+roundabout
+crosswalk
+sidewalk
+alleyway
+courtyard
+rooftop
+balcony
+terrace
+veranda
+gazebo
+pavilion

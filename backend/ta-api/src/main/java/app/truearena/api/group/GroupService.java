@@ -24,8 +24,8 @@ public class GroupService {
         this.members = members;
     }
 
-    public Mono<GroupView> create(String name, UUID creatorId) {
-        return groups.save(GroupRow.create(name, creatorId))
+    public Mono<GroupView> create(String name, String avatarEmoji, UUID creatorId) {
+        return groups.save(GroupRow.create(name, avatarEmoji, creatorId))
                 .flatMap(g -> members.save(GroupMemberRow.of(g.id(), creatorId, "owner")).thenReturn(g))
                 .map(GroupService::toView);
     }
@@ -63,6 +63,6 @@ public class GroupService {
     }
 
     private static GroupView toView(GroupRow g) {
-        return new GroupView(g.id(), g.name(), g.createdBy(), g.createdAt());
+        return new GroupView(g.id(), g.name(), g.avatarEmoji(), g.createdBy(), g.createdAt());
     }
 }

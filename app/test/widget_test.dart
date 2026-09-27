@@ -16,8 +16,8 @@ void main() {
     await tester.pumpWidget(TrueArenaApp(state: state));
     await tester.pump();
 
-    expect(find.textContaining('TRUE'), findsWidgets);
-    expect(find.text('SIGN IN WITH PHONE'), findsOneWidget);
-    expect(find.text('PLAY AS GUEST'), findsOneWidget);
+    expect(find.textContaining('Top'), findsWidgets);
+    expect(find.text('Sign in with phone'), findsOneWidget);
+    expect(find.text('Play as guest'), findsOneWidget);
   });
 }

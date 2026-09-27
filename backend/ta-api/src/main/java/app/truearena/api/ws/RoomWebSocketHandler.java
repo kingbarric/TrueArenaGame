@@ -38,10 +38,11 @@ public class RoomWebSocketHandler implements WebSocketHandler {
         String path = session.getHandshakeInfo().getUri().getPath();
         String[] segments = path.split("/");
         String roomIdRaw = segments[segments.length - 1];
-        String token = UriComponentsBuilder.fromUri(session.getHandshakeInfo().getUri())
-                .build().getQueryParams().getFirst("token");
+        var query = UriComponentsBuilder.fromUri(session.getHandshakeInfo().getUri()).build().getQueryParams();
+        String token = query.getFirst("token");
+        boolean spectate = "true".equals(query.getFirst("spectate"));
 
-        return orchestrator.authenticate(roomIdRaw, token == null ? "" : token)
+        return orchestrator.authenticate(roomIdRaw, token == null ? "" : token, spectate)
                 .flatMap(auth -> runSession(session, auth))
                 .onErrorResume(e -> {
                     log.debug("WS handshake rejected for {}: {}", path, e.toString());
@@ -52,16 +53,18 @@ public class RoomWebSocketHandler implements WebSocketHandler {
     private Mono<Void> runSession(WebSocketSession session, GameOrchestrator.Authed auth) {
         return orchestrator.ensureRuntime(auth.roomId()).flatMap(rt -> {
             Sinks.Many<Object> personal = Sinks.many().unicast().onBackpressureBuffer();
-            rt.unicast.put(auth.userId(), personal);
+            synchronized (rt) {
+                rt.unicast.put(auth.userId(), personal);
+            }
 
             Flux<WebSocketMessage> outbound = Flux.merge(
-                            rt.bus.asFlux().flatMap(msg -> orchestrator.toEnvelope(rt, msg, auth.userId())),
-                            personal.asFlux().flatMap(msg -> orchestrator.toEnvelope(rt, msg, auth.userId())))
+                            rt.bus.asFlux().flatMap(msg -> orchestrator.toEnvelope(rt, msg, auth.userId(), auth.spectator())),
+                            personal.asFlux().flatMap(msg -> orchestrator.toEnvelope(rt, msg, auth.userId(), auth.spectator())))
                     .map(env -> session.textMessage(writeJson(env)));
 
             Mono<Void> inbound = session.receive()
                     .map(WebSocketMessage::getPayloadAsText)
-                    .concatMap(text -> orchestrator.handleFrame(rt, auth.userId(), text)
+                    .concatMap(text -> orchestrator.handleFrame(rt, auth.userId(), text, auth.spectator())
                             .onErrorResume(e -> {
                                 log.warn("unhandled error processing frame for room {} user {}: {}",
                                         auth.roomId(), auth.userId(), e.toString());
@@ -69,9 +72,23 @@ public class RoomWebSocketHandler implements WebSocketHandler {
                             }))
                     .then();
 
-            return orchestrator.onConnect(rt, auth.userId())
+            Mono<Void> connect = auth.spectator() ? orchestrator.onSpectatorConnect(rt, auth.userId()) : orchestrator.onConnect(rt, auth.userId());
+            Runnable disconnect = () -> {
+                Mono<Void> cleanup;
+                synchronized (rt) {
+                    // A new socket may already have replaced this one. The old
+                    // socket must not disconnect the player or migrate the host.
+                    if (rt.unicast.get(auth.userId()) != personal) return;
+                    cleanup = auth.spectator()
+                            ? orchestrator.onSpectatorDisconnect(rt, auth.userId())
+                            : orchestrator.onDisconnect(rt, auth.userId());
+                }
+                cleanup.subscribe();
+            };
+
+            return connect
                     .then(session.send(outbound).and(inbound))
-                    .doFinally(sig -> orchestrator.onDisconnect(rt, auth.userId()).subscribe());
+                    .doFinally(sig -> disconnect.run());
         });
     }
 

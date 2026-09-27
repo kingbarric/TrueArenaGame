@@ -8,6 +8,7 @@ later web/host-display funnel surface.
 - **Implementation plan (checkboxed, phased):** [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md)
 - **Database schema (canonical):** [docs/DATABASE.md](docs/DATABASE.md)
 - **Game config & twist catalog:** [docs/GAME_CONFIG.md](docs/GAME_CONFIG.md)
+- **Dev reference (seeded test accounts, local ports, reusable tokens, build decisions):** [docs/DEV_REFERENCE.md](docs/DEV_REFERENCE.md)
 
 ## Repository layout
 

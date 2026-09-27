@@ -21,6 +21,10 @@
     <modules>
         <module>ta-engine</module>
         <module>ta-game-truearena</module>
+        <module>ta-game-wordbluff</module>
+        <module>ta-game-draughts</module>
+        <module>ta-game-goosi</module>
+        <module>ta-game-whot</module>
         <module>ta-persistence</module>
         <module>ta-room</module>
         <module>ta-ws</module>
@@ -54,6 +58,26 @@
             <dependency>
                 <groupId>app.truearena</groupId>
                 <artifactId>ta-game-truearena</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>app.truearena</groupId>
+                <artifactId>ta-game-wordbluff</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>app.truearena</groupId>
+                <artifactId>ta-game-draughts</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>app.truearena</groupId>
+                <artifactId>ta-game-goosi</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>app.truearena</groupId>
+                <artifactId>ta-game-whot</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

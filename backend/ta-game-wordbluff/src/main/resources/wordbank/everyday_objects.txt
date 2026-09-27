@@ -1,0 +1,97 @@
+umbrella
+backpack
+toothbrush
+stapler
+flashlight
+blender
+thermostat
+doorknob
+keyboard
+wallet
+mirror
+candle
+calendar
+scissors
+pillow
+blanket
+towel
+pillowcase
+mattress
+alarm clock
+lamp
+light switch
+extension cord
+power outlet
+remote control
+television
+radio
+telephone
+notebook
+pen
+pencil
+eraser
+ruler
+paperclip
+rubber band
+tape
+glue
+envelope
+stamp
+mailbox
+suitcase
+duffel bag
+purse
+briefcase
+sunglasses
+wristwatch
+bracelet
+necklace
+earring
+ring
+belt
+hat
+scarf
+gloves
+socks
+shoes
+boots
+sandals
+raincoat
+apron
+oven mitt
+cutting board
+frying pan
+saucepan
+kettle
+toaster
+microwave
+refrigerator
+dishwasher
+washing machine
+dryer
+vacuum cleaner
+broom
+mop
+bucket
+sponge
+detergent
+trash can
+recycling bin
+lawnmower
+garden hose
+watering can
+shovel
+rake
+ladder
+toolbox
+hammer
+screwdriver
+wrench
+nail
+screw
+bolt
+padlock
+key
+doormat
+welcome sign
+mailbox flag

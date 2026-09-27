@@ -1,8 +1,8 @@
 package app.truearena.room;
 
-import app.truearena.engine.GameConfig;
 import app.truearena.engine.GameEvent;
 import app.truearena.engine.GameModule;
+import app.truearena.engine.GameSettings;
 import app.truearena.engine.GameState;
 import reactor.core.Disposable;
 import reactor.core.publisher.Sinks;
@@ -26,7 +26,7 @@ public final class RoomRuntime {
     private volatile GameState state;
     private volatile Map<String, String> roleByUser = Map.of();
     public volatile UUID gameSessionId;
-    public volatile GameConfig config;
+    public volatile GameSettings config;
 
     /** Fan-out to every connected socket: {@link GameEvent} (filtered per viewer) or {@link LobbyBroadcast} (always public). */
     public final Sinks.Many<Object> bus = Sinks.many().multicast().onBackpressureBuffer();
@@ -36,8 +36,29 @@ public final class RoomRuntime {
 
     public final Set<String> connectedUserIds = ConcurrentHashMap.newKeySet();
 
+    /** Read-only viewers — never in {@link #connectedUserIds}, never gated by room membership. */
+    public final Set<String> spectatorUserIds = ConcurrentHashMap.newKeySet();
+
+    /** Room-level, not game-state — a pause is a transport/UI concern, not something any {@code GameModule} needs to know about. */
+    public volatile boolean paused;
+
+    /** Any player can mute the spectate-channel comments (see {@code GameOrchestrator.handleMuteSpectatorsToggle}). */
+    public volatile boolean spectatorsMuted;
+
     public volatile Disposable timer;
     public volatile String timerForPhase;
+    public volatile int timerForRound;
+
+    /**
+     * When the running phase timer is due to fire (epoch millis), or 0 if no
+     * timer is armed. Kept so a pause can work out how much time was left
+     * and a resume can re-arm for exactly that much, instead of the turn
+     * silently restarting from full — or, worse, expiring while paused.
+     */
+    public volatile long timerDeadlineMs;
+
+    /** Millis left on the clock at the moment of pausing; 0 when not paused. */
+    public volatile long timerRemainingMs;
 
     public RoomRuntime(UUID roomId, String hostUserId) {
         this.roomId = roomId;

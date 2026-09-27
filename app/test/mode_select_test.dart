@@ -74,6 +74,6 @@ void main() {
     expect(find.text('Blood Moon'), findsOneWidget);
     expect(find.text('DEFAULT'), findsOneWidget); // the tag pill
     expect(find.text('Custom Game'), findsOneWidget);
-    expect(find.text('OPEN THE ROOM'), findsOneWidget); // launch bar for the selected preset
+    expect(find.text('Open the room'), findsOneWidget); // launch bar for the selected preset
   });
 }

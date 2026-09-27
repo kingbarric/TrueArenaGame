@@ -63,6 +63,37 @@ class TrueArenaEngineTest {
     }
 
     @Test
+    void traitorsCannotMurderEachOther() {
+        GameConfig config = Presets.CLASSIC_CONSPIRACY.config();
+        GameState night = module.onPhaseElapsed(
+                module.initialState(ids(6), config, RandomSource.seeded(3)), "RoleReveal");
+        TruearenaState state = (TruearenaState) night;
+        String actor = state.aliveTraitors().get(0);
+        String target = state.aliveTraitors().get(1);
+        assertThatThrownBy(() -> module.onPlayerAction(night,
+                PlayerAction.of(actor, "NIGHT_TARGET", Map.of("target", target))))
+                .isInstanceOf(RuleViolation.class)
+                .satisfies(e -> assertThat(((RuleViolation) e).code()).isEqualTo("BAD_TARGET"));
+    }
+
+    @Test
+    void consensusModeDoesNotKillWhenTraitorsDisagreeAtTimeout() {
+        GameState night = module.onPhaseElapsed(
+                module.initialState(ids(9), Presets.THE_LAST_ALIBI.config(), RandomSource.seeded(3)), "RoleReveal");
+        TruearenaState state = (TruearenaState) night;
+        List<String> traitors = state.aliveTraitors();
+        List<String> faithful = state.aliveFaithful();
+        night = module.onPlayerAction(night, PlayerAction.of(traitors.get(0), "NIGHT_TARGET", Map.of("target", faithful.get(0))));
+        night = module.onPlayerAction(night, PlayerAction.of(traitors.get(1), "NIGHT_TARGET", Map.of("target", faithful.get(1))));
+        night = module.onPlayerAction(night, PlayerAction.of(traitors.get(2), "NIGHT_TARGET", Map.of("target", faithful.get(0))));
+        assertThat(night.phase()).isEqualTo("Night");
+        GameState morning = module.onPhaseElapsed(night, "Night");
+        assertThat(((TruearenaState) morning).alive).containsAll(faithful);
+        assertThat(morning.events()).anyMatch(e -> "NO_MURDER".equals(e.type())
+                && "no_consensus".equals(e.payload().get("reason")));
+    }
+
+    @Test
     void replayingAnActionIdIsANoOp() {
         GameState s = driveToVote(Presets.CLASSIC_CONSPIRACY.config(), 6);
         PlayerAction a = PlayerAction.of("p1", "CAST_VOTE", Map.of("target", "p2"));
@@ -104,8 +135,11 @@ class TrueArenaEngineTest {
                 Map.of("hidden_legacy", Map.of("trigger", "before_round_3")));
         // A run where Faithful banish both traitors fast can trigger recruitment; assert the
         // event appears at least once across a spread of seeds and the game still terminates cleanly.
+        // This is a genuinely rare condition with this bot strategy (~3 hits per 200 seeds, first
+        // hit at seed 59) — 40 seeds isn't enough headroom to reliably contain one, so this range
+        // is wide enough to make the assertion deterministic rather than seed-range-dependent.
         boolean sawRecruit = false;
-        for (long seed = 1; seed <= 40 && !sawRecruit; seed++) {
+        for (long seed = 1; seed <= 200 && !sawRecruit; seed++) {
             AutoPlay.Result r = AutoPlay.run(withLegacy, 6, seed);
             assertThat(r.winningSide()).isIn("faithful", "traitors");
             sawRecruit = r.publicEvents().stream().anyMatch(e -> "HIDDEN_LEGACY".equals(e.get("type")));

@@ -31,6 +31,39 @@ class SecretDataGuaranteeTest {
         }
     }
 
+    /**
+     * {@code blackmail}'s intel payload carries another player's true alignment ({@code side})
+     * — the one new twist field with a real per-player view exposure ({@code blackmailIntel}
+     * in {@link TrueArenaModule#visibleStateFor}). Runs the same simulate-and-audit loop with
+     * the twist enabled and checks every viewer, every frame: only the blackmailer ever sees it,
+     * and the broadcast view never does.
+     */
+    @Test
+    void blackmailIntelNeverLeaksToAnyoneButTheBlackmailer() {
+        GameConfig base = Presets.CLASSIC_CONSPIRACY.config();
+        GameConfig withBlackmail = new GameConfig(base.catalogVersion(), base.preset(), base.table(), base.timers(),
+                base.nightKill(), base.revealOnElimination(), base.tieBreak(), base.secondTie(), base.suddenDeathSeconds(),
+                base.afk(), base.voteReveal(), base.endgameVeil(), Map.of("blackmail", Map.of()));
+        for (long seed = 1; seed <= 15; seed++) {
+            List<String> ids = java.util.stream.IntStream.rangeClosed(1, 8).mapToObj(i -> "p" + i).toList();
+            GameState state = module.initialState(ids, withBlackmail, RandomSource.seeded(seed));
+            String blackmailer = ((TruearenaState) state).blackmailer;
+            assertThat(blackmailer).as("seed %d", seed).isNotNull();
+            for (String viewer : ids) {
+                Map<String, Object> pv = module.visibleStateFor(state, viewer).data();
+                if (viewer.equals(blackmailer)) {
+                    assertThat(pv).as("seed %d: blackmailer should see their own intel", seed).containsKey("blackmailIntel");
+                } else {
+                    assertThat(pv).as("seed %d: %s should not see the blackmailer's intel", seed, viewer)
+                            .doesNotContainKey("blackmailIntel");
+                }
+            }
+            assertThat(module.broadcastState(state).data())
+                    .as("seed %d: broadcast should never carry blackmail intel", seed)
+                    .doesNotContainKey("blackmailIntel");
+        }
+    }
+
     private void playAndAudit(GameConfig config, int n, long seed) {
         List<String> ids = java.util.stream.IntStream.rangeClosed(1, n).mapToObj(i -> "p" + i).toList();
         GameState state = module.initialState(ids, config, RandomSource.seeded(seed));

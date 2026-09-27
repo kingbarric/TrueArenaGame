@@ -25,9 +25,12 @@ during a game; these tables are the durable record written at/near session end.
 |---|---|---|
 | id | uuid pk | |
 | display_name | text not null | |
-| avatar_url | text | nullable |
-| phone | text not null **unique** | the auth identity (phone + OTP) |
+| avatar_url | text | nullable — a bare emoji for a preset icon, or a URL once photo upload has storage |
+| phone | text **unique**, nullable | one of two auth identities (phone + OTP) |
+| email | text **unique**, nullable | the other auth identity (email + OTP) |
+| username | text not null **unique** | a real handle; auto-generated at signup if not chosen, editable via `PATCH /me` |
 | created_at | timestamptz | |
+| | | **CHECK** phone IS NOT NULL OR email IS NOT NULL (V5) |
 
 ### `groups`
 | column | type | notes |
@@ -70,6 +73,9 @@ during a game; these tables are the durable record written at/near session end.
 | group_id | uuid → groups.id (**set null**) | null = ad-hoc / web-funnel room |
 | host_id | uuid not null → users.id | migrates on host disconnect |
 | status | text not null default `lobby` | **CHECK** `lobby` \| `in_game` \| `ended` |
+| game_type | text not null default `truearena` | the `GameModule` id. **CHECK** `truearena` \| `wordbluff` \| `draughts` \| `goosi` \| `whot` — each new game widens it in its own migration (V6, V8, V10, V21), so adding one to `RoomService.GAME_TYPES` alone is not enough |
+| stake_coins | bigint not null default 0 | coins each player puts up; **CHECK** ≥ 0. Refunded if the lobby is abandoned |
+| game_config | text | host-chosen rules for this room as JSON, read at start by the game's module (`draughtsConfigFrom` / `goosiConfigFrom` / `whotConfigFrom` in `GameOrchestrator`); null, blank or unreadable = that game's defaults |
 | created_at | timestamptz | |
 | | | index (group_id) |
 
@@ -193,6 +199,15 @@ rollup** (ad-hoc / web-funnel games touch only the lifetime row). Counts only �
 | longest_win_streak | int not null default 0 | |
 | updated_at | timestamptz | |
 | | | **unique NULLS NOT DISTINCT** (group_id, user_id) |
+
+---
+
+## V5 — profile (`V5__profile.sql`)
+
+Makes `phone` optional and adds `email` as the other registration path (`users` table
+above already reflects the final shape); adds the required-unique `username`, backfilled
+for pre-existing rows as `player_<first 8 of id>`. No new tables — this migration only
+`ALTER`s `users`.
 
 ---
 

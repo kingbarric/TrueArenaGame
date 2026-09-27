@@ -34,7 +34,7 @@ public class GroupController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public Mono<GroupView> create(@Valid @RequestBody CreateGroupRequest body) {
-        return CurrentUser.id().flatMap(uid -> groups.create(body.name(), uid));
+        return CurrentUser.id().flatMap(uid -> groups.create(body.name(), body.avatarEmoji(), uid));
     }
 
     @GetMapping

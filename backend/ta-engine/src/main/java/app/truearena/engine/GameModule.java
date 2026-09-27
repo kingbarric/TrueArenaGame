@@ -16,9 +16,9 @@ public interface GameModule {
     String gameType();
 
     /** The ordered phase template for one round loop, used for timers and the WS contract. */
-    List<Phase> definePhases(GameConfig config);
+    List<Phase> definePhases(GameSettings config);
 
-    GameState initialState(List<String> playerIds, GameConfig config, RandomSource rng);
+    GameState initialState(List<String> playerIds, GameSettings config, RandomSource rng);
 
     /** Apply a player/host action. Idempotent on {@link PlayerAction#actionId()}. */
     GameState onPlayerAction(GameState state, PlayerAction action);
@@ -34,4 +34,20 @@ public interface GameModule {
 
     /** Log entries added between {@code prev} and {@code next}. */
     List<GameEvent> drainEvents(GameState prev, GameState next);
+
+    /**
+     * Whether each player holds private state that changes as the game is
+     * played, and so has to be re-sent to them after every action.
+     *
+     * <p>Most games here are played on an open board: everything worth
+     * knowing is in the public broadcast, and a player's own view only
+     * matters when they join or reconnect. A card game is the exception —
+     * your hand changes on your own turn and on everyone else's, and it
+     * can't ride the public frame without showing it to the table. Those
+     * modules return {@code true} and the orchestrator sends each player
+     * their own view alongside the public one.
+     */
+    default boolean hasPrivatePlayerState() {
+        return false;
+    }
 }

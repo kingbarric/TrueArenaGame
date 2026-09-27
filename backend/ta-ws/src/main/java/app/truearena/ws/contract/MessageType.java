@@ -12,6 +12,9 @@ public enum MessageType {
     GAME_START,
     PLAYER_ACTION,
     HOST_CONTROL,
+    CHAT_SEND,
+    PAUSE_TOGGLE,
+    MUTE_SPECTATORS_TOGGLE,
     PING,
     // server → client
     SNAPSHOT,

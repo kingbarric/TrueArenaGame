@@ -1,0 +1,100 @@
+penalty
+marathon
+referee
+offside
+touchdown
+scoreboard
+tournament
+underdog
+timeout
+championship
+doping
+hat-trick
+stadium
+medal
+overtime
+free kick
+corner kick
+goalkeeper
+midfielder
+striker
+defender
+substitute
+injury time
+extra time
+penalty shootout
+yellow card
+red card
+foul
+tackle
+dribble
+pass
+header
+volley
+rebound
+slam dunk
+free throw
+three-pointer
+layup
+foul shot
+alley-oop
+touchdown pass
+field goal
+quarterback
+linebacker
+home run
+strikeout
+pitcher
+batter
+umpire
+inning
+serve
+volley
+backhand
+forehand
+tiebreak
+ace
+double fault
+grand slam
+knockout
+uppercut
+jab
+sparring
+weigh-in
+podium
+finish line
+starting blocks
+relay race
+hurdles
+pole vault
+long jump
+high jump
+javelin
+discus
+shot put
+gymnastics
+balance beam
+vault
+somersault
+figure skating
+ice hockey
+power play
+slap shot
+face-off
+scrum
+try
+conversion
+lineout
+rugby tackle
+cycling
+peloton
+photo finish
+personal best
+world record
+Olympics
+World Cup
+league table
+relegation
+promotion
+draft pick
+salary cap
