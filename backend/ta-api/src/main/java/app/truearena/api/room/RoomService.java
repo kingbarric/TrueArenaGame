@@ -247,11 +247,31 @@ public class RoomService {
         return leaveBotRoom(roomId, callerId, "ludo");
     }
 
+    /** Close an Oware pit when the host leaves only their own Cyber Agent behind. */
+    public Mono<Boolean> leaveBotGoosiRoom(UUID roomId, UUID callerId) {
+        return leaveBotRoom(roomId, callerId, "goosi");
+    }
+
+    /** Close a Word Bluff table when the host leaves only their own Cyber Agents behind. */
+    public Mono<Boolean> leaveBotWordBluffRoom(UUID roomId, UUID callerId) {
+        return leaveBotRoom(roomId, callerId, "wordbluff");
+    }
+
     public Mono<Boolean> leaveLudoRoom(UUID roomId, UUID callerId) {
         return members.findByRoomIdAndUserId(roomId, callerId)
                 .switchIfEmpty(Mono.error(ApiExceptions.forbidden("not a player in this huud")))
                 .then(leaveBotLudoRoom(roomId, callerId))
                 .flatMap(ended -> ended ? Mono.just(true) : games.forfeitLudoRoom(roomId, callerId));
+    }
+
+    private Mono<Boolean> forfeitBotRoomFor(String gameType, UUID roomId, UUID callerId) {
+        return switch (gameType) {
+            case "ludo" -> games.forfeitLudoRoom(roomId, callerId);
+            case "whot" -> games.forfeitBotWhotRoom(roomId, callerId);
+            case "goosi" -> games.forfeitBotGoosiRoom(roomId, callerId);
+            case "wordbluff" -> games.forfeitBotWordBluffRoom(roomId, callerId);
+            default -> Mono.just(false);
+        };
     }
 
     private Mono<Boolean> leaveBotRoom(UUID roomId, UUID callerId, String gameType) {
@@ -277,9 +297,7 @@ public class RoomService {
                                     if (!allOwnedAgents) return Mono.just(false);
                                     Mono<Boolean> end = "lobby".equals(room.status())
                                             ? abandon(roomId, callerId).thenReturn(true)
-                                            : ("ludo".equals(gameType)
-                                                    ? games.forfeitLudoRoom(roomId, callerId)
-                                                    : games.forfeitBotWhotRoom(roomId, callerId))
+                                            : forfeitBotRoomFor(gameType, roomId, callerId)
                                                     .flatMap(forfeited -> forfeited
                                                             && (!"ludo".equals(gameType) || runtimes.find(roomId)
                                                             .map(rt -> rt.state().finished()).orElse(false))

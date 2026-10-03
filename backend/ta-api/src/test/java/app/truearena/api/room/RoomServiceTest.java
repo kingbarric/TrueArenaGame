@@ -438,6 +438,82 @@ class RoomServiceTest {
     }
 
     @Test
+    void leaveBotGoosiRoom_endsTableWithOwnedAgent() {
+        UUID roomId = UUID.randomUUID();
+        UUID hostId = UUID.randomUUID();
+        UUID agentId = UUID.randomUUID();
+        RoomRow room = new RoomRow(roomId, "ABCDEF", null, hostId, "in_game", "goosi", 0, null, Instant.now());
+        when(rooms.findById(roomId)).thenReturn(Mono.just(room));
+        when(members.findByRoomId(roomId)).thenReturn(Flux.just(
+                RoomMemberRow.of(roomId, hostId, null), RoomMemberRow.of(roomId, agentId, "Agent")));
+        when(users.findById(agentId)).thenReturn(Mono.just(new UserRow(agentId, "Agent", null,
+                null, null, "agent", false, null, true, hostId, "all", "easy", null, Instant.now())));
+        when(games.forfeitBotGoosiRoom(roomId, hostId)).thenReturn(Mono.just(true));
+        when(runtimes.find(roomId)).thenReturn(Optional.empty());
+
+        StepVerifier.create(service.leaveBotGoosiRoom(roomId, hostId))
+                .expectNext(true).verifyComplete();
+
+        verify(games).forfeitBotGoosiRoom(roomId, hostId);
+        verify(botRuntimes).stop(agentId);
+    }
+
+    @Test
+    void leaveBotGoosiRoom_keepsTableWithHumanOpponent() {
+        UUID roomId = UUID.randomUUID();
+        UUID hostId = UUID.randomUUID();
+        UUID humanId = UUID.randomUUID();
+        RoomRow room = new RoomRow(roomId, "ABCDEF", null, hostId, "in_game", "goosi", 0, null, Instant.now());
+        when(rooms.findById(roomId)).thenReturn(Mono.just(room));
+        when(members.findByRoomId(roomId)).thenReturn(Flux.just(
+                RoomMemberRow.of(roomId, hostId, null), RoomMemberRow.of(roomId, humanId, null)));
+        when(users.findById(humanId)).thenReturn(Mono.just(realUser(humanId)));
+
+        StepVerifier.create(service.leaveBotGoosiRoom(roomId, hostId))
+                .expectNext(false).verifyComplete();
+
+        verifyNoInteractions(games, botRuntimes);
+    }
+
+    @Test
+    void leaveBotWordBluffRoom_endsTableWithOwnedAgent() {
+        UUID roomId = UUID.randomUUID();
+        UUID hostId = UUID.randomUUID();
+        UUID agentId = UUID.randomUUID();
+        RoomRow room = new RoomRow(roomId, "ABCDEF", null, hostId, "in_game", "wordbluff", 0, null, Instant.now());
+        when(rooms.findById(roomId)).thenReturn(Mono.just(room));
+        when(members.findByRoomId(roomId)).thenReturn(Flux.just(
+                RoomMemberRow.of(roomId, hostId, null), RoomMemberRow.of(roomId, agentId, "Agent")));
+        when(users.findById(agentId)).thenReturn(Mono.just(new UserRow(agentId, "Agent", null,
+                null, null, "agent", false, null, true, hostId, "all", "easy", null, Instant.now())));
+        when(games.forfeitBotWordBluffRoom(roomId, hostId)).thenReturn(Mono.just(true));
+        when(runtimes.find(roomId)).thenReturn(Optional.empty());
+
+        StepVerifier.create(service.leaveBotWordBluffRoom(roomId, hostId))
+                .expectNext(true).verifyComplete();
+
+        verify(games).forfeitBotWordBluffRoom(roomId, hostId);
+        verify(botRuntimes).stop(agentId);
+    }
+
+    @Test
+    void leaveBotWordBluffRoom_keepsTableWithHumanOpponent() {
+        UUID roomId = UUID.randomUUID();
+        UUID hostId = UUID.randomUUID();
+        UUID humanId = UUID.randomUUID();
+        RoomRow room = new RoomRow(roomId, "ABCDEF", null, hostId, "in_game", "wordbluff", 0, null, Instant.now());
+        when(rooms.findById(roomId)).thenReturn(Mono.just(room));
+        when(members.findByRoomId(roomId)).thenReturn(Flux.just(
+                RoomMemberRow.of(roomId, hostId, null), RoomMemberRow.of(roomId, humanId, null)));
+        when(users.findById(humanId)).thenReturn(Mono.just(realUser(humanId)));
+
+        StepVerifier.create(service.leaveBotWordBluffRoom(roomId, hostId))
+                .expectNext(false).verifyComplete();
+
+        verifyNoInteractions(games, botRuntimes);
+    }
+
+    @Test
     void leaveBotLudoRoom_closesThreeSeatTableAfterHostForfeits() {
         UUID roomId = UUID.randomUUID();
         UUID hostId = UUID.randomUUID();

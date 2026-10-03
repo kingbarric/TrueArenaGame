@@ -162,17 +162,20 @@ public class BotService {
         if (roomService == null || roomRuntimes == null) return Mono.empty();
         return rooms.findLiveRoomsForAgent(agentId)
                 .filter(room -> ("draughts".equals(room.gameType()) || "whot".equals(room.gameType())
-                        || "ludo".equals(room.gameType()))
+                        || "ludo".equals(room.gameType()) || "goosi".equals(room.gameType())
+                        || "wordbluff".equals(room.gameType()))
                         && room.hostId().equals(ownerId))
                 .filter(room -> roomRuntimes.find(room.id())
                         .map(rt -> !rt.connectedUserIds.contains(ownerId.toString())).orElse(true))
                 .concatMap(room -> "lobby".equals(room.status())
                         ? roomService.abandon(room.id(), ownerId).thenReturn(true)
-                        : "whot".equals(room.gameType())
-                                ? roomService.leaveBotWhotRoom(room.id(), ownerId)
-                                : "ludo".equals(room.gameType())
-                                        ? roomService.leaveBotLudoRoom(room.id(), ownerId)
-                                        : roomService.leaveBotDraughtsRoom(room.id(), ownerId))
+                        : switch (room.gameType()) {
+                            case "whot" -> roomService.leaveBotWhotRoom(room.id(), ownerId);
+                            case "ludo" -> roomService.leaveBotLudoRoom(room.id(), ownerId);
+                            case "goosi" -> roomService.leaveBotGoosiRoom(room.id(), ownerId);
+                            case "wordbluff" -> roomService.leaveBotWordBluffRoom(room.id(), ownerId);
+                            default -> roomService.leaveBotDraughtsRoom(room.id(), ownerId);
+                        })
                 .then();
     }
 

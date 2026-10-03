@@ -64,6 +64,18 @@ public class RoomController {
         return CurrentUser.id().flatMap(uid -> rooms.leaveLudoRoom(id, uid));
     }
 
+    @PostMapping("/{id}/leave-goosi")
+    @Operation(summary = "End an Oware pit against your Cyber Agent when leaving it")
+    public Mono<Boolean> leaveGoosi(@PathVariable UUID id) {
+        return CurrentUser.id().flatMap(uid -> rooms.leaveBotGoosiRoom(id, uid));
+    }
+
+    @PostMapping("/{id}/leave-wordbluff")
+    @Operation(summary = "End a Word Bluff table containing only your Cyber Agents when leaving it")
+    public Mono<Boolean> leaveWordBluff(@PathVariable UUID id) {
+        return CurrentUser.id().flatMap(uid -> rooms.leaveBotWordBluffRoom(id, uid));
+    }
+
     @PostMapping("/join")
     @Operation(summary = "Join a room by its 6-char code")
     public Mono<RoomView> join(@Valid @RequestBody JoinRoomRequest body) {

@@ -142,6 +142,7 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
 
   bool _actionLocked = false;
   bool _spinning = false;
+  bool _leaving = false;
   int? _secondsLeft;
   bool _musicOn = GameMusic.enabled;
   bool _sfxOn = GameSfx.enabled;
@@ -814,7 +815,8 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
       builder: (ctx) => AlertDialog(
         title: const Text('Leave this game?'),
         content: const Text(
-            'The round carries on without you, and you lose any points still waiting on the review.'),
+            'The round carries on without you, and you lose any points still waiting on the review. '
+            'A table with only your Cyber Agents will end and free them.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
@@ -825,7 +827,26 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
         ],
       ),
     );
-    if (leave == true && mounted) {
+    if (leave == true && mounted && !_leaving) {
+      _leaving = true;
+      final app = AppScope.of(context);
+      try {
+        final endedBotTable = await app.api
+                .post('/rooms/${widget.socket.roomId}/leave-wordbluff') ==
+            true;
+        if (endedBotTable || finished) {
+          await app.clearActiveRoom(widget.socket.roomId);
+        }
+      } catch (_) {
+        _leaving = false;
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Server error. Please try again.')),
+          );
+        }
+        return;
+      }
+      if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const MainShell()), (r) => false);
     }

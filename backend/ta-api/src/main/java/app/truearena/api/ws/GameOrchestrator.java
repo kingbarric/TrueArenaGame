@@ -812,6 +812,38 @@ public class GameOrchestrator {
                 })).orElseGet(() -> Mono.just(false));
     }
 
+    /** End an ordinary Oware pit against a Cyber Agent before its socket closes. */
+    public Mono<Boolean> forfeitBotGoosiRoom(UUID roomId, UUID loser) {
+        return registry.find(roomId)
+                .<Mono<Boolean>>map(rt -> lock.withLock(roomId, LOCK_TTL, () -> {
+                    if (rt.tournament || !rt.started() || rt.state().finished()
+                            || !"goosi".equals(rt.module().gameType())) {
+                        return Mono.just(false);
+                    }
+                    GameRunner.Step step = new GameRunner(rt.module()).apply(rt.state(),
+                            new PlayerAction(UUID.randomUUID().toString(), loser.toString(), "RESIGN", Map.of()));
+                    rt.setState(step.state());
+                    return afterMutation(rt, step.events()).thenReturn(true);
+                }))
+                .orElseGet(() -> Mono.just(false));
+    }
+
+    /** End an ordinary Word Bluff round against a Cyber Agent before its socket closes. */
+    public Mono<Boolean> forfeitBotWordBluffRoom(UUID roomId, UUID loser) {
+        return registry.find(roomId)
+                .<Mono<Boolean>>map(rt -> lock.withLock(roomId, LOCK_TTL, () -> {
+                    if (rt.tournament || !rt.started() || rt.state().finished()
+                            || !"wordbluff".equals(rt.module().gameType())) {
+                        return Mono.just(false);
+                    }
+                    GameRunner.Step step = new GameRunner(rt.module()).apply(rt.state(),
+                            new PlayerAction(UUID.randomUUID().toString(), loser.toString(), "FORFEIT", Map.of()));
+                    rt.setState(step.state());
+                    return afterMutation(rt, step.events()).thenReturn(true);
+                }))
+                .orElseGet(() -> Mono.just(false));
+    }
+
     public Mono<Void> closeTournamentRoom(UUID roomId) {
         return ensureRuntime(roomId).flatMap(rt -> lock.withLock(roomId, LOCK_TTL, () -> {
             rt.paused = true;

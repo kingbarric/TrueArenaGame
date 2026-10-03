@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
+import '../../core/app_state.dart';
 import '../../core/game_socket.dart';
 import '../../theme/neon_theme.dart';
 import '../../core/game_music.dart';
@@ -73,6 +74,7 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
   final List<TableChatLine> feed = [];
   final TextEditingController _chatController = TextEditingController();
   bool _actionLocked = false;
+  bool _leaving = false;
   bool _paused = false;
   bool _spectatorsMuted = false;
   bool _musicOn = GameMusic.enabled;
@@ -756,15 +758,18 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
   final Set<int> _pulsing = {};
 
   Future<void> _confirmExit() async {
+    final hasAgent = widget.agents.isNotEmpty;
     final leave = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: const Color(0xff241708),
         title: const Text('Leave the game?',
             style: TextStyle(color: Color(0xfff0d8a8))),
-        content: const Text(
-            'You can rejoin with the huud code, but you\'ll stop receiving live updates until you do.',
-            style: TextStyle(color: Color(0xffc9b18c))),
+        content: Text(
+            hasAgent
+                ? 'A table with only your Cyber Agent will end and free it. Other tables can be rejoined with the huud code.'
+                : 'You can rejoin with the huud code, but you\'ll stop receiving live updates until you do.',
+            style: const TextStyle(color: Color(0xffc9b18c))),
         actions: [
           TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -775,7 +780,26 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
         ],
       ),
     );
-    if (leave == true && mounted) {
+    if (leave == true && mounted && !_leaving) {
+      _leaving = true;
+      final app = AppScope.of(context);
+      try {
+        final endedBotTable =
+            await app.api.post('/rooms/${widget.socket.roomId}/leave-goosi') ==
+                true;
+        if (endedBotTable || finished) {
+          await app.clearActiveRoom(widget.socket.roomId);
+        }
+      } catch (_) {
+        _leaving = false;
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Server error. Please try again.')),
+          );
+        }
+        return;
+      }
+      if (!mounted) return;
       widget.socket.close();
       Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const MainShell()), (r) => false);
