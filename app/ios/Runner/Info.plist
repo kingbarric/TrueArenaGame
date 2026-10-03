@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Topskul</string>
+	<string>PlayHuud</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>truearena</string>
+	<string>PlayHuud</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -33,16 +33,19 @@
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Used for voice chat during Whot, calls with friends, and Word Bluff's spoken guesses.</string>
 	<key>NSContactsUsageDescription</key>
-	<string>Find friends who are already on Topskul, and invite the ones who aren't yet.</string>
+	<string>Find friends who are already on PlayHuud, and invite the ones who aren't yet.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Word Bluff uses speech recognition to auto-detect a correct guess while you describe.</string>
-	<!-- Google Sign-In: replace REPLACE_ME with the iOS OAuth client's reversed
-	     client ID (Google Cloud Console → the iOS client → "iOS URL scheme",
-	     literally the client ID with the segments reversed, e.g.
-	     com.googleusercontent.apps.1234-abc). Sign-in silently fails without
-	     this — see docs/DEV_REFERENCE.md. -->
+	<!-- Google Sign-In: URL scheme for the configured iOS OAuth client ID.
+	     Keep this in sync with kGoogleIosClientId in google_config.dart. -->
 	<key>CFBundleURLTypes</key>
 	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>playhuud</string>
+			</array>
+		</dict>
 		<dict>
 			<key>CFBundleURLSchemes</key>
 			<array>

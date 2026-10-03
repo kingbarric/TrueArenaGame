@@ -14,6 +14,7 @@ import '../../widgets/neon.dart';
 import '../games/game_select_screen.dart';
 import '../lobby/joined_room_screen.dart';
 import '../onboarding/guest_gate.dart';
+import '../status/victory_status.dart';
 
 class ChatMessage {
   const ChatMessage({
@@ -44,20 +45,28 @@ class ChatMessage {
         roomId: j['roomId'] as String?,
         roomCode: j['roomCode'] as String?,
         gameType: j['gameType'] as String?,
-        createdAt: DateTime.tryParse(j['createdAt']?.toString() ?? '') ?? DateTime.now(),
+        createdAt: DateTime.tryParse(j['createdAt']?.toString() ?? '') ??
+            DateTime.now(),
       );
 }
 
-const _gameNames = {'truearena': 'Traitors', 'wordbluff': 'Word Bluff', 'draughts': 'Draft', 'goosi': 'Goosi'};
+const _gameNames = {
+  'truearena': 'Traitors',
+  'wordbluff': 'Word Bluff',
+  'draughts': 'Draft',
+  'goosi': 'Oware',
+  'ludo': 'Ludo'
+};
 
 /// One DM or group thread. Live push rides `AppState.chatMessages` (the
 /// `/ws/inbox` `NEW_MESSAGE` frame `ChatService` fans out right after every
 /// send — see ta-api) — no polling. A `game_invite` message renders its own
-/// "Join game" button, which actually joins the real room (`POST
+/// "Join game" button, which actually joins the real huud (`POST
 /// /rooms/join` with the invite's code) and hands off to the right game
 /// screen — the same path `JoinRoomScreen` uses.
 class ConversationScreen extends StatefulWidget {
-  const ConversationScreen({super.key, required this.conversationId, required this.title});
+  const ConversationScreen(
+      {super.key, required this.conversationId, required this.title});
   final String conversationId;
   final String title;
 
@@ -70,6 +79,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
   bool _loading = true;
   String? _error;
   bool _joining = false;
+  bool _sending = false;
   final _input = TextEditingController();
   final _scroll = ScrollController();
   StreamSubscription? _chatSub;
@@ -82,6 +92,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
   /// hasn't published a key yet: those stay plaintext (see `E2eCrypto`).
   SecretKey? _secret;
   bool _encrypted = false;
+  String? _otherUserId;
 
   /// Decrypted bodies by message id, so a rebuild doesn't re-run AES for
   /// every bubble on every frame (decryption is async; the render path is
@@ -104,10 +115,13 @@ class _ConversationScreenState extends State<ConversationScreen> {
   Future<void> _setUpEncryption() async {
     final app = AppScope.of(context);
     try {
-      final conv = await app.api.get('/conversations/${widget.conversationId}') as Map<String, dynamic>;
+      final conv = await app.api.get('/conversations/${widget.conversationId}')
+          as Map<String, dynamic>;
       if (conv['type'] != 'dm') return;
       final other = (conv['other'] as Map?)?.cast<String, dynamic>();
-      final secret = await E2eCrypto.sharedSecretWith(other?['publicKey'] as String?);
+      if (mounted) setState(() => _otherUserId = other?['userId'] as String?);
+      final secret =
+          await E2eCrypto.sharedSecretWith(other?['publicKey'] as String?);
       if (secret == null || !mounted) return;
       setState(() {
         _secret = secret;
@@ -125,7 +139,9 @@ class _ConversationScreenState extends State<ConversationScreen> {
     var changed = false;
     for (final m in messages) {
       final body = m.text;
-      if (body == null || _plaintext.containsKey(m.id) || !E2eCrypto.isEncrypted(body)) continue;
+      if (body == null ||
+          _plaintext.containsKey(m.id) ||
+          !E2eCrypto.isEncrypted(body)) continue;
       final clear = await E2eCrypto.decrypt(secret, body);
       _plaintext[m.id] = clear ?? '🔒 Couldn\'t decrypt this message';
       changed = true;
@@ -163,17 +179,24 @@ class _ConversationScreenState extends State<ConversationScreen> {
   /// (each bubble's own entrance fade/slide handles the "arriving" feel)
   /// rather than a full reload, so an open conversation feels instant.
   void _onPush(Map<String, dynamic> data) {
+    if (data['type'] == 'sync') {
+      _load(silent: true);
+      return;
+    }
     if (data['conversationId'] != widget.conversationId) return;
-    final m = ChatMessage.fromJson((data['message'] as Map).cast<String, dynamic>());
+    final m =
+        ChatMessage.fromJson((data['message'] as Map).cast<String, dynamic>());
     if (!mounted || _messages.any((e) => e.id == m.id)) return;
-    final wasAtBottom = !_scroll.hasClients || _scroll.position.pixels >= _scroll.position.maxScrollExtent - 40;
+    final wasAtBottom = !_scroll.hasClients ||
+        _scroll.position.pixels >= _scroll.position.maxScrollExtent - 40;
     setState(() => _messages = [..._messages, m]);
     _decryptPending([m]);
     if (wasAtBottom) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_scroll.hasClients) {
           _scroll.animateTo(_scroll.position.maxScrollExtent,
-              duration: const Duration(milliseconds: 260), curve: Curves.easeOut);
+              duration: const Duration(milliseconds: 260),
+              curve: Curves.easeOut);
         }
       });
     }
@@ -183,26 +206,38 @@ class _ConversationScreenState extends State<ConversationScreen> {
     if (!silent) setState(() => _loading = true);
     final app = AppScope.of(context);
     try {
-      final res = await app.api.get('/conversations/${widget.conversationId}/messages') as Map<String, dynamic>;
+      final res =
+          await app.api.get('/conversations/${widget.conversationId}/messages')
+              as Map<String, dynamic>;
       final list = ((res['messages'] as List?) ?? const [])
           .map((e) => ChatMessage.fromJson((e as Map).cast<String, dynamic>()))
           .toList();
       if (!mounted) return;
-      final wasAtBottom = !_scroll.hasClients || _scroll.position.pixels >= _scroll.position.maxScrollExtent - 40;
+      final wasAtBottom = !_scroll.hasClients ||
+          _scroll.position.pixels >= _scroll.position.maxScrollExtent - 40;
       setState(() {
-        _messages = list;
+        // A live push can arrive while this request is in flight. Keep it
+        // even if the older HTTP snapshot does not contain it yet.
+        final byId = <String, ChatMessage>{
+          for (final message in list) message.id: message,
+          for (final message in _messages) message.id: message,
+        };
+        _messages = byId.values.toList()
+          ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
         _error = null;
       });
-      await _decryptPending(list);
+      await _decryptPending(_messages);
       if (wasAtBottom) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (_scroll.hasClients) _scroll.jumpTo(_scroll.position.maxScrollExtent);
+          if (_scroll.hasClients)
+            _scroll.jumpTo(_scroll.position.maxScrollExtent);
         });
       }
     } on ApiException catch (e) {
       if (mounted && !silent) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted && !silent) setState(() => _error = 'Could not reach the server');
+      if (mounted && !silent)
+        setState(() => _error = 'Could not reach the server');
     } finally {
       if (mounted && !silent) setState(() => _loading = false);
     }
@@ -210,21 +245,36 @@ class _ConversationScreenState extends State<ConversationScreen> {
 
   Future<void> _send() async {
     final text = _input.text.trim();
-    if (text.isEmpty) return;
-    _input.clear();
+    if (text.isEmpty || _sending) return;
+    setState(() => _sending = true);
     final app = AppScope.of(context);
     try {
       // Encrypted before it ever leaves the device when this DM has a shared
       // secret — the server stores and relays an opaque `e2e1:` blob.
       final secret = _secret;
-      final body = secret == null ? text : await E2eCrypto.encrypt(secret, text);
-      // The sender doesn't get their own NEW_MESSAGE push (ChatService only
-      // fans out to the *other* participants), so reload just this once to
-      // pick up our own message — every message after that arrives live.
-      await app.api.post('/conversations/${widget.conversationId}/messages', {'text': body});
-      await _load(silent: true);
+      final body =
+          secret == null ? text : await E2eCrypto.encrypt(secret, text);
+      final response = await app.api.post(
+          '/conversations/${widget.conversationId}/messages', {'text': body});
+      if (!mounted) return;
+      if (_input.text.trim() == text) _input.clear();
+      if (response is Map) {
+        _onPush({'conversationId': widget.conversationId, 'message': response});
+      } else {
+        await _load(silent: true);
+      }
     } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content:
+                Text('Message not sent. Check your connection and retry.')));
+      }
+    } finally {
+      if (mounted) setState(() => _sending = false);
     }
   }
 
@@ -233,12 +283,18 @@ class _ConversationScreenState extends State<ConversationScreen> {
     setState(() => _joining = true);
     final app = AppScope.of(context);
     try {
-      final res = await app.api.post('/rooms/join', {'code': m.roomCode}) as Map<String, dynamic>;
+      final res = await app.api.post('/rooms/join', {'code': m.roomCode})
+          as Map<String, dynamic>;
       if (!mounted) return;
       final room = RoomView.fromJson(res);
-      Navigator.of(context).push(MaterialPageRoute(builder: (_) => JoinedRoomScreen(room: room)));
+      await app.rememberActiveRoom(room.id);
+      if (!mounted) return;
+      Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => JoinedRoomScreen(room: room)));
     } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
     } finally {
       if (mounted) setState(() => _joining = false);
     }
@@ -249,8 +305,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
   /// The "Start game" button: pick a game from a bottom sheet, create the
   /// room, drop a `game_invite` into this thread for the other side, then
   /// carry the host straight into their own lobby for it. The other
-  /// participant sees the same invite the next time their thread polls and
-  /// gets the identical "Join game" button already built into every
+  /// participant sees the invite through the inbox push and gets the
+  /// identical "Join game" button already built into every
   /// `game_invite` bubble — no separate notification path needed.
   Future<void> _startGame() async {
     if (!await canHostOrPromptToVerify(context)) return;
@@ -265,16 +321,24 @@ class _ConversationScreenState extends State<ConversationScreen> {
 
     final app = AppScope.of(context);
     try {
-      final roomRes = await app.api.post('/rooms', {'gameType': picked.id}) as Map<String, dynamic>;
+      final roomRes = await app.api.post('/rooms', {'gameType': picked.id})
+          as Map<String, dynamic>;
       final room = RoomView.fromJson(roomRes);
-      await app.api.post('/conversations/${widget.conversationId}/invites', {'roomId': room.id});
+      await app.rememberActiveRoom(room.id);
+      await app.api.post('/conversations/${widget.conversationId}/invites',
+          {'roomId': room.id});
       await _load(silent: true);
       if (!mounted) return;
-      Navigator.of(context).push(MaterialPageRoute(builder: (_) => JoinedRoomScreen(room: room)));
+      Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => JoinedRoomScreen(room: room)));
     } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not start the game')));
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not start the game')));
     }
   }
 
@@ -285,32 +349,62 @@ class _ConversationScreenState extends State<ConversationScreen> {
     final selfId = _selfId(app);
     return Scaffold(
       appBar: AppBar(
-        title: Row(children: [
-          Flexible(child: Text(widget.title, overflow: TextOverflow.ellipsis)),
-          if (_encrypted) ...[
-            const SizedBox(width: 6),
-            Tooltip(
-              message: 'End-to-end encrypted',
-              child: Icon(Icons.lock_rounded, size: 14, color: n.jade),
+          title: Row(children: [
+            Flexible(
+                child: InkWell(
+                    onTap: _otherUserId == null
+                        ? null
+                        : () => Navigator.of(context).push(MaterialPageRoute(
+                            builder: (_) => StatusScreen(
+                                userId: _otherUserId, title: widget.title))),
+                    child:
+                        Text(widget.title, overflow: TextOverflow.ellipsis))),
+            if (_otherUserId != null)
+              ValueListenableBuilder<Set<String>>(
+                valueListenable: app.onlineFriends,
+                builder: (_, online, __) => online.contains(_otherUserId)
+                    ? Padding(
+                        padding: const EdgeInsets.only(left: 7),
+                        child: Tooltip(
+                          message: 'Online now',
+                          child: Container(
+                              width: 9,
+                              height: 9,
+                              decoration: const BoxDecoration(
+                                  color: Color(0xff4ade80),
+                                  shape: BoxShape.circle)),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+            if (_encrypted) ...[
+              const SizedBox(width: 6),
+              Tooltip(
+                message: 'End-to-end encrypted',
+                child: Icon(Icons.lock_rounded, size: 14, color: n.jade),
+              ),
+            ],
+          ]),
+          actions: [
+            IconButton(
+              tooltip: 'Start a game',
+              icon: Icon(Icons.sports_esports_rounded, color: n.jade),
+              onPressed: _startGame,
             ),
-          ],
-        ]),
-        actions: [
-        IconButton(
-          tooltip: 'Start a game',
-          icon: Icon(Icons.sports_esports_rounded, color: n.jade),
-          onPressed: _startGame,
-        ),
-      ]),
+          ]),
       body: SafeArea(
         child: Column(children: [
           if (_error != null)
-            Padding(padding: const EdgeInsets.all(12), child: Text(_error!, style: TextStyle(color: n.danger))),
+            Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(_error!, style: TextStyle(color: n.danger))),
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
                 : _messages.isEmpty
-                    ? Center(child: Text('No messages yet — say hi 👋', style: TextStyle(color: n.mute)))
+                    ? Center(
+                        child: Text('No messages yet — say hi 👋',
+                            style: TextStyle(color: n.mute)))
                     : ListView.builder(
                         controller: _scroll,
                         padding: const EdgeInsets.all(16),
@@ -321,7 +415,9 @@ class _ConversationScreenState extends State<ConversationScreen> {
                           return _BubbleEntrance(
                             key: ValueKey(m.id),
                             alignEnd: mine,
-                            child: m.kind == 'game_invite' ? _inviteBubble(n, m) : _textBubble(n, m, mine),
+                            child: m.kind == 'game_invite'
+                                ? _inviteBubble(n, m)
+                                : _textBubble(n, m, mine),
                           );
                         },
                       ),
@@ -335,12 +431,20 @@ class _ConversationScreenState extends State<ConversationScreen> {
                   child: TextField(
                     controller: _input,
                     maxLength: 2000,
-                    decoration: const InputDecoration(hintText: 'Message…', counterText: ''),
+                    decoration: const InputDecoration(
+                        hintText: 'Message…', counterText: ''),
                     onSubmitted: (_) => _send(),
                   ),
                 ),
                 const SizedBox(width: 8),
-                IconButton.filled(onPressed: _send, icon: const Icon(Icons.send_rounded)),
+                IconButton.filled(
+                    onPressed: _sending ? null : _send,
+                    icon: _sending
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.send_rounded)),
               ]),
             ),
           ),
@@ -359,7 +463,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
         borderRadius: BorderRadius.circular(16),
         border: mine ? null : Border.all(color: n.line),
       ),
-      child: Text(_displayText(m), style: TextStyle(color: mine ? Colors.white : n.ink)),
+      child: Text(_displayText(m),
+          style: TextStyle(color: mine ? Colors.white : n.ink)),
     );
   }
 
@@ -374,15 +479,22 @@ class _ConversationScreenState extends State<ConversationScreen> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: n.jade.withValues(alpha: 0.5)),
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-        Row(children: [
-          Icon(Icons.sports_esports_rounded, color: n.jade, size: 18),
-          const SizedBox(width: 8),
-          Expanded(child: Text('Invited you to $gameName', style: TextStyle(color: n.ink, fontWeight: FontWeight.w700))),
-        ]),
-        const SizedBox(height: 10),
-        NeonButton(_joining ? 'Joining…' : 'Join game', onPressed: _joining ? null : () => _joinInvite(m)),
-      ]),
+      child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(children: [
+              Icon(Icons.sports_esports_rounded, color: n.jade, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                  child: Text('Invited you to $gameName',
+                      style: TextStyle(
+                          color: n.ink, fontWeight: FontWeight.w700))),
+            ]),
+            const SizedBox(height: 10),
+            NeonButton(_joining ? 'Joining…' : 'Join game',
+                onPressed: _joining ? null : () => _joinInvite(m)),
+          ]),
     );
   }
 }
@@ -398,38 +510,53 @@ class _GameStartSheet extends StatelessWidget {
     final n = context.neon;
     final available = gameCatalog.where((g) => g.available).toList();
     return Container(
-      padding: EdgeInsets.fromLTRB(20, 18, 20, MediaQuery.viewInsetsOf(context).bottom + 28),
+      padding: EdgeInsets.fromLTRB(
+          20, 18, 20, MediaQuery.viewInsetsOf(context).bottom + 28),
       decoration: BoxDecoration(
         color: n.panel.withValues(alpha: 0.9),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Center(
-          child: Container(width: 40, height: 4, decoration: BoxDecoration(color: n.line, borderRadius: BorderRadius.circular(2))),
-        ),
-        const SizedBox(height: 18),
-        Text('START A GAME', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute, letterSpacing: 2)),
-        const SizedBox(height: 4),
-        Text('Whoever you pick shows up right here as a Join button.',
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute)),
-        const SizedBox(height: 18),
-        Wrap(
-          spacing: 18,
-          runSpacing: 18,
+      child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            for (var i = 0; i < available.length; i++)
-              _AnimatedTile(
-                delay: Duration(milliseconds: 70 * i),
-                child: Bouncy(
-                  onTap: () => Navigator.of(context).pop(available[i]),
-                  child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    GameBadge(gameId: available[i].id, size: 68),
-                  ]),
-                ),
-              ),
-          ],
-        ),
-      ]),
+            Center(
+              child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                      color: n.line, borderRadius: BorderRadius.circular(2))),
+            ),
+            const SizedBox(height: 18),
+            Text('START A GAME',
+                style: Theme.of(context)
+                    .textTheme
+                    .labelSmall
+                    ?.copyWith(color: n.mute, letterSpacing: 2)),
+            const SizedBox(height: 4),
+            Text('Whoever you pick shows up right here as a Join button.',
+                style: Theme.of(context)
+                    .textTheme
+                    .labelSmall
+                    ?.copyWith(color: n.mute)),
+            const SizedBox(height: 18),
+            Wrap(
+              spacing: 18,
+              runSpacing: 18,
+              children: [
+                for (var i = 0; i < available.length; i++)
+                  _AnimatedTile(
+                    delay: Duration(milliseconds: 70 * i),
+                    child: Bouncy(
+                      onTap: () => Navigator.of(context).pop(available[i]),
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        GameBadge(gameId: available[i].id, size: 68),
+                      ]),
+                    ),
+                  ),
+              ],
+            ),
+          ]),
     );
   }
 }
@@ -440,7 +567,8 @@ class _GameStartSheet extends StatelessWidget {
 /// into view). Applies to both the initial load and a live `NEW_MESSAGE`
 /// arrival alike — one animation, not a special case for "just arrived".
 class _BubbleEntrance extends StatefulWidget {
-  const _BubbleEntrance({super.key, required this.alignEnd, required this.child});
+  const _BubbleEntrance(
+      {super.key, required this.alignEnd, required this.child});
   final bool alignEnd;
   final Widget child;
 
@@ -448,8 +576,11 @@ class _BubbleEntrance extends StatefulWidget {
   State<_BubbleEntrance> createState() => _BubbleEntranceState();
 }
 
-class _BubbleEntranceState extends State<_BubbleEntrance> with SingleTickerProviderStateMixin {
-  late final _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 240))..forward();
+class _BubbleEntranceState extends State<_BubbleEntrance>
+    with SingleTickerProviderStateMixin {
+  late final _c = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 240))
+    ..forward();
 
   @override
   void dispose() {
@@ -465,7 +596,8 @@ class _BubbleEntranceState extends State<_BubbleEntrance> with SingleTickerProvi
       child: FadeTransition(
         opacity: curved,
         child: SlideTransition(
-          position: Tween(begin: const Offset(0, 0.08), end: Offset.zero).animate(curved),
+          position: Tween(begin: const Offset(0, 0.08), end: Offset.zero)
+              .animate(curved),
           child: widget.child,
         ),
       ),

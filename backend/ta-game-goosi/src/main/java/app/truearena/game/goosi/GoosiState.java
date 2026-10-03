@@ -15,11 +15,9 @@ import java.util.Set;
  * secret — every pit is visible to everyone — so like Draughts there's no
  * player-scoped view to worry about.
  *
- * <p>The board is always exactly 16 pits (index 0-15) arranged in one ring,
- * regardless of player count — see {@link GoosiModule}'s class doc for how
- * 2 vs. 4 players divide it up and what "opposite pit" means. {@link #owner}
- * is fixed for the whole game (pit index -> owning player id); {@code pits}
- * is the live seed count per index.
+ * <p>The board is the Oware Abapa board: twelve houses in one loop, six per
+ * player. Houses 0-5 belong to South and 6-11 to North. {@link #owner} is
+ * fixed for the whole game; {@code pits} is the live seed count per house.
  *
  * <p>{@code phase} doubles as whose turn it is ("TurnP0".."TurnP3") rather
  * than a plain "Turn" plus a separate index field — same reason as Draughts'
@@ -31,8 +29,8 @@ public final class GoosiState implements GameState {
     final String phase;
     final int round;
     final List<String> players;
-    final String[] owner; // length 16, fixed at game start
-    final int[] pits; // length 16, live seed counts
+    final String[] owner; // length 12, fixed at game start
+    final int[] pits; // length 12, live seed counts
     final int[] scores; // parallel to players
     final int turnIndex;
 
@@ -67,16 +65,11 @@ public final class GoosiState implements GameState {
     }
 
     int pitsPerPlayer() {
-        return 16 / players.size();
-    }
-
-    /** The pit directly across the 16-pit ring — same formula for both 2p and 4p layouts. */
-    static int opposite(int pit) {
-        return (pit + 8) % 16;
+        return 6;
     }
 
     boolean hasAnySeeds(String playerId) {
-        for (int i = 0; i < 16; i++) {
+        for (int i = 0; i < 12; i++) {
             if (playerId.equals(owner[i]) && pits[i] > 0) return true;
         }
         return false;
@@ -87,8 +80,8 @@ public final class GoosiState implements GameState {
         String phase;
         int round;
         List<String> players = new ArrayList<>();
-        String[] owner = new String[16];
-        int[] pits = new int[16];
+        String[] owner = new String[12];
+        int[] pits = new int[12];
         int[] scores;
         int turnIndex;
         GoosiConfig config;

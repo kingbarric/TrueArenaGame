@@ -6,7 +6,8 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import 'api_client.dart';
 
 /// One `/ws/inbox` connection — a per-user live channel, independent of any
-/// game room (see `InboxRegistry`, ta-api). Two things ride it today:
+/// game room (see `InboxRegistry`, ta-api). It carries call presence,
+/// game-start notifications, and incoming chat messages.
 /// `CallScreen` tells the server which LiveKit room it just joined/left
 /// (`CALL_JOINED`/`CALL_LEFT`), and `AppState` listens for `GAME_STARTING`
 /// notifications pushed to everyone else on that same call when one of them
@@ -20,6 +21,7 @@ class InboxClient {
   StreamSubscription? _sub;
 
   Stream<Map<String, dynamic>> get envelopes => _controller.stream;
+  Future<void> get ready => _channel.ready;
 
   static InboxClient connect(ApiClient api) {
     final wsBase = ApiClient.base.replaceFirst('http', 'ws');

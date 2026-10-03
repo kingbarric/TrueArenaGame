@@ -38,7 +38,7 @@ class TableChatLine {
 /// [lines] is newest-first; the list is reversed on screen so the newest sits
 /// at the bottom, which also keeps it pinned there as messages arrive without
 /// a scroll controller to manage.
-class TableChatPanel extends StatelessWidget {
+class TableChatPanel extends StatefulWidget {
   const TableChatPanel({
     super.key,
     required this.lines,
@@ -70,6 +70,32 @@ class TableChatPanel extends StatelessWidget {
   final String? disabledHint;
 
   @override
+  State<TableChatPanel> createState() => _TableChatPanelState();
+}
+
+class _TableChatPanelState extends State<TableChatPanel> {
+  bool _expanded = false;
+  late int _lastLineCount;
+
+  @override
+  void initState() {
+    super.initState();
+    _lastLineCount = widget.lines.length;
+  }
+
+  @override
+  void didUpdateWidget(covariant TableChatPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Word Bluff agents put their clues in chat. Bring a new clue into view
+    // even when the player previously collapsed the panel for more board space.
+    if (widget.lines.length > _lastLineCount &&
+        widget.lines.isNotEmpty && widget.lines.first.isAgent) {
+      _expanded = true;
+    }
+    _lastLineCount = widget.lines.length;
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
@@ -86,9 +112,32 @@ class TableChatPanel extends StatelessWidget {
               border: Border.all(color: Colors.white.withValues(alpha: 0.20)),
             ),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-              SizedBox(height: height, child: _messages()),
-              Container(height: 1, color: Colors.white.withValues(alpha: 0.16)),
-              _composer(),
+              InkWell(
+                onTap: () => setState(() => _expanded = !_expanded),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  child: Row(children: [
+                    const Icon(Icons.chat_bubble_outline_rounded, size: 15, color: Colors.white),
+                    const SizedBox(width: 7),
+                    Text('CHAT${widget.lines.isEmpty ? '' : ' · ${widget.lines.length}'}',
+                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800)),
+                    if (!_expanded && widget.lines.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(widget.lines.first.text,
+                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: Colors.white70, fontSize: 10))),
+                    ] else
+                      const Spacer(),
+                    Icon(_expanded ? Icons.keyboard_arrow_down_rounded : Icons.keyboard_arrow_up_rounded,
+                        color: Colors.white, size: 18),
+                  ]),
+                ),
+              ),
+              if (_expanded) ...[
+                SizedBox(height: widget.height, child: _messages()),
+                Container(height: 1, color: Colors.white.withValues(alpha: 0.16)),
+                _composer(),
+              ],
             ]),
           ),
         ),
@@ -97,7 +146,7 @@ class TableChatPanel extends StatelessWidget {
   }
 
   Widget _messages() {
-    if (lines.isEmpty) {
+    if (widget.lines.isEmpty) {
       return Align(
         alignment: Alignment.bottomLeft,
         child: Padding(
@@ -120,8 +169,8 @@ class TableChatPanel extends StatelessWidget {
       child: ListView.builder(
         reverse: true,
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
-        itemCount: lines.length,
-        itemBuilder: (_, i) => _row(lines[i], depth: i),
+        itemCount: widget.lines.length,
+        itemBuilder: (_, i) => _row(widget.lines[i], depth: i),
       ),
     );
   }
@@ -195,7 +244,7 @@ class TableChatPanel extends StatelessWidget {
   }
 
   Widget _composer() {
-    if (!canSend) {
+    if (!widget.canSend) {
       return Padding(
         padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
         child: Row(children: [
@@ -203,13 +252,13 @@ class TableChatPanel extends StatelessWidget {
           const SizedBox(width: 7),
           Expanded(
             child: Text(
-              disabledHint ?? 'You can\'t talk right now.',
+              widget.disabledHint ?? 'You can\'t talk right now.',
               style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 12),
             ),
           ),
           Icon(Icons.remove_red_eye_rounded, size: 13, color: Colors.white.withValues(alpha: 0.5)),
           const SizedBox(width: 4),
-          Text('$spectatorCount',
+          Text('${widget.spectatorCount}',
               style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.7), fontSize: 11, fontWeight: FontWeight.w800)),
         ]),
@@ -220,16 +269,16 @@ class TableChatPanel extends StatelessWidget {
       child: Row(children: [
         Expanded(
           child: TextField(
-            controller: controller,
+            controller: widget.controller,
             textInputAction: TextInputAction.send,
-            onSubmitted: (_) => onSend(),
+            onSubmitted: (_) => widget.onSend(),
             maxLength: 240,
             style: const TextStyle(color: Colors.white, fontSize: 13.5),
             decoration: InputDecoration(
               isDense: true,
               counterText: '',
               border: InputBorder.none,
-              hintText: amSpectator ? 'Add a comment…' : 'Say something…',
+              hintText: widget.amSpectator ? 'Add a comment…' : 'Say something…',
               hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 13.5),
             ),
           ),
@@ -239,13 +288,13 @@ class TableChatPanel extends StatelessWidget {
           child: Row(children: [
             Icon(Icons.remove_red_eye_rounded, size: 13, color: Colors.white.withValues(alpha: 0.6)),
             const SizedBox(width: 4),
-            Text('$spectatorCount',
+            Text('${widget.spectatorCount}',
                 style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.75), fontSize: 11, fontWeight: FontWeight.w800)),
           ]),
         ),
         GestureDetector(
-          onTap: onSend,
+          onTap: widget.onSend,
           child: Container(
             width: 34,
             height: 34,

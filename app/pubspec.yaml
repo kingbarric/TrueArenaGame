@@ -1,7 +1,7 @@
 name: truearena
-description: TrueArena — social deduction party app.
+description: PlayHuud — social party games.
 publish_to: "none"
-version: 0.0.1+1
+version: 1.0.0+2
 
 environment:
   sdk: ">=3.5.0 <4.0.0"
@@ -15,7 +15,9 @@ dependencies:
   google_fonts: ^6.2.1
   web_socket_channel: ^3.0.1
   image_picker: ^1.1.2
+  path_provider: ^2.1.5
   google_sign_in: ^6.2.2
+  sign_in_with_apple: ^8.2.0
   speech_to_text: ^7.5.0
   flutter_svg: ^2.0.10+1
   livekit_client: ^2.3.4
@@ -34,6 +36,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - assets/images/branding/
     - assets/images/game_icons/
     - assets/music/
     - assets/sfx/

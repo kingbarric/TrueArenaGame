@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:truearena/app.dart';
 import 'package:truearena/core/api_client.dart';
 import 'package:truearena/core/app_state.dart';
+import 'package:truearena/widgets/playhuud_logo.dart';
 
 void main() {
   setUp(() {
@@ -16,8 +17,8 @@ void main() {
     await tester.pumpWidget(TrueArenaApp(state: state));
     await tester.pump();
 
-    expect(find.textContaining('Top'), findsWidgets);
-    expect(find.text('Sign in with phone'), findsOneWidget);
+    expect(find.byType(PlayHuudLogo), findsOneWidget);
+    expect(find.text('Continue with email'), findsOneWidget);
     expect(find.text('Play as guest'), findsOneWidget);
   });
 }

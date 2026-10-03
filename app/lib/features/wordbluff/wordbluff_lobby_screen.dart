@@ -63,6 +63,7 @@ class _WordBluffLobbyScreenState extends State<WordBluffLobbyScreen> {
       final res = await app.api.post('/rooms', const <String, dynamic>{'gameType': 'wordbluff'}) as Map<String, dynamic>;
       if (!mounted) return;
       final room = RoomView.fromJson(res);
+      await app.rememberActiveRoom(room.id);
       setState(() => _room = room);
       _connect(app, room.id);
     } on ApiException catch (e) {
@@ -216,7 +217,7 @@ class _WordBluffLobbyScreenState extends State<WordBluffLobbyScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
                 child: NeonCard(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('ROOM CODE', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute, letterSpacing: 2)),
+                    Text('HUUD CODE', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute, letterSpacing: 2)),
                     const SizedBox(height: 4),
                     Text(room.code,
                         style: Theme.of(context).textTheme.displayLarge?.copyWith(
@@ -233,7 +234,7 @@ class _WordBluffLobbyScreenState extends State<WordBluffLobbyScreen> {
               if (_example)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  child: Text('Example roster — sign in to host a real room.',
+                  child: Text('Example roster — sign in to host a real huud.',
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute)),
                 ),
               Expanded(
@@ -257,7 +258,7 @@ class _WordBluffLobbyScreenState extends State<WordBluffLobbyScreen> {
   Widget _memberTile(RoomMember m, String hostId) {
     final n = context.neon;
     final isHost = m.userId == hostId || (m.userId == 'me' && _example);
-    final away = !m.connected;
+    final away = !m.isBot && !m.connected;
     final ringColor = away ? kCabinetInk : (m.ready ? n.jade : n.mute);
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -275,7 +276,9 @@ class _WordBluffLobbyScreenState extends State<WordBluffLobbyScreen> {
                     ? [BoxShadow(color: n.jade.withValues(alpha: 0.38), blurRadius: 16, spreadRadius: -2)]
                     : null,
               ),
-              child: Opacity(opacity: away ? 0.4 : 1, child: Avatar(m.nickname ?? '?', size: 60)),
+              child: Opacity(opacity: away ? 0.4 : 1,
+                  child: OnlineAvatar(m.nickname ?? '?', size: 60,
+                      online: m.isBot || m.connected)),
             ),
             if (isHost)
               Positioned(
@@ -384,7 +387,7 @@ class _WordBluffLobbyScreenState extends State<WordBluffLobbyScreen> {
                     : () {
                         if (_example) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Guest games aren\'t connected to the live server yet — sign in with a phone to host a real game.')),
+                            const SnackBar(content: Text('Add an account to host a game.')),
                           );
                         } else {
                           _socket?.send('GAME_START');

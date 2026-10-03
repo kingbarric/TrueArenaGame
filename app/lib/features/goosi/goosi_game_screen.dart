@@ -11,12 +11,14 @@ import '../../core/game_sfx.dart';
 import '../../widgets/fireworks.dart';
 import '../../widgets/neon.dart';
 import '../../widgets/table_chat.dart';
+import '../../widgets/game_voice_control.dart';
 import '../shell/main_shell.dart';
+import '../status/victory_status.dart';
 import '../onboarding/guest_save_session_card.dart';
 import 'goosi_theme.dart';
 
-/// Goosi — the fourth game type: a 16-pit sowing/capture board (Mancala
-/// family), 2 or 4 players sharing one fixed ring. See `GoosiModule`
+/// Goosi — PlayHuud's Oware Abapa game: twelve houses, two players and the
+/// standard feeding, grand-slam and 2-or-3 capture rules. See `GoosiModule`
 /// (ta-game-goosi) for the full rules; this screen is a thin renderer over
 /// the same SNAPSHOT/PHASE/EVENT-in, PLAYER_ACTION-out contract every other
 /// game uses. Nothing here is secret, so every event is exactly what's
@@ -26,27 +28,43 @@ import 'goosi_theme.dart';
 /// destination to choose) — so a tap on one of your own non-empty pits sows
 /// it immediately, no arm/confirm step needed.
 class GoosiGameScreen extends StatefulWidget {
-  const GoosiGameScreen({super.key, required this.socket, required this.selfId, required this.nicknames});
+  const GoosiGameScreen({
+    super.key,
+    required this.socket,
+    required this.selfId,
+    required this.nicknames,
+    this.roomCode = '',
+    this.avatars = const {},
+    this.agents = const {},
+  });
 
   final GameSocket socket;
   final String selfId;
   final Map<String, String> nicknames;
+  final String roomCode;
+  final Map<String, String> avatars;
+  final Set<String> agents;
 
   @override
   State<GoosiGameScreen> createState() => _GoosiGameScreenState();
 }
 
 class _GoosiGameScreenState extends State<GoosiGameScreen> {
+  static const _bg = Color(0xff180d20);
+  static const _panel = Color(0xff26142d);
+  static const _gold = Color(0xffffcf66);
+  static const _cream = Color(0xffffeee1);
   StreamSubscription? _sub;
   Timer? _ticker;
 
   String phase = 'TurnP0';
   int round = 1;
   List<String> players = [];
-  List<String?> owner = List<String?>.filled(16, null);
-  List<int> pits = List<int>.filled(16, 0);
+  List<String?> owner = List<String?>.filled(12, null);
+  List<int> pits = List<int>.filled(12, 0);
+  List<int> legalPits = [];
   Map<String, int> scores = {};
-  int pitsPerPlayer = 8;
+  int pitsPerPlayer = 6;
   String? winningSide;
   int? _coinsAwarded;
   List<String> winners = [];
@@ -61,10 +79,7 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
   bool _sfxOn = GameSfx.enabled;
   int _spectatorCount = 0;
 
-  bool _micOn = false;
-  bool _micNoticeShown = false;
   GoosiThemeController? _theme;
-  ({int from, List<int> touched})? _lastSow;
 
   /// The sowing currently being played out, and a token that lets a newer
   /// sowing cut an older one short rather than the two interleaving.
@@ -85,7 +100,6 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
   /// Captures in flight from a pit to their owner's store.
   final List<_CaptureFlight> _flights = [];
   int _nextFlightId = 0;
-  bool _replaying = false;
 
   @override
   void initState() {
@@ -109,8 +123,8 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
   void dispose() {
     _sub?.cancel();
     _ticker?.cancel();
-GameMusic.stop();
-        _theme?.removeListener(_onThemeChanged);
+    GameMusic.stop();
+    _theme?.removeListener(_onThemeChanged);
     super.dispose();
   }
 
@@ -124,7 +138,8 @@ GameMusic.stop();
   void _sendChat() {
     final text = _chatController.text.trim();
     if (text.isEmpty) return;
-    widget.socket.send('CHAT_SEND', {'channel': _amSpectator ? 'spectate' : 'table', 'text': text});
+    widget.socket.send('CHAT_SEND',
+        {'channel': _amSpectator ? 'spectate' : 'table', 'text': text});
     _chatController.clear();
   }
 
@@ -135,18 +150,23 @@ GameMusic.stop();
     if (text.isEmpty) return;
     final channel = data['channel']?.toString();
     final from = data['from']?.toString();
-    setState(() => feed.insert(0, TableChatLine(
+    setState(() => feed.insert(
+        0,
+        TableChatLine(
           who: from == null ? 'Cyber Agent' : label(from),
           text: text,
           isAgent: channel == 'agent',
           isSpectator: channel == 'spectate',
         )));
   }
+
   /// Whose turn it is, read off the phase name — "TurnP2", or "GraceP2a"
   /// once that player's clock has run out. A grace phase is still their
   /// turn: the whole point is that they can still play in it.
   int get turnIndex {
-    if (phase.startsWith('TurnP')) return int.tryParse(phase.substring(5)) ?? -1;
+    if (phase.startsWith('TurnP')) {
+      return int.tryParse(phase.substring(5)) ?? -1;
+    }
     if (phase.startsWith('GraceP') && phase.length >= 8) {
       return int.tryParse(phase.substring(6, phase.length - 1)) ?? -1;
     }
@@ -154,7 +174,9 @@ GameMusic.stop();
   }
 
   bool get myTurn =>
-      myIndex >= 0 && myIndex == turnIndex && (phase.startsWith('Turn') || phase.startsWith('Grace'));
+      myIndex >= 0 &&
+      myIndex == turnIndex &&
+      (phase.startsWith('Turn') || phase.startsWith('Grace'));
 
   /// The clock has run out at least once this turn: the room is paused and
   /// somebody has to resume to start the shorter countdown.
@@ -163,7 +185,8 @@ GameMusic.stop();
   /// The last chance — resuming starts a countdown that settles the game.
   bool get _lastChance => _inGrace && phase.endsWith('b');
   bool get finished => phase == 'Results';
-  String label(String id) => widget.nicknames[id] ?? (id.length > 6 ? id.substring(0, 6) : id);
+  String label(String id) =>
+      widget.nicknames[id] ?? (id.length > 6 ? id.substring(0, 6) : id);
 
   void _onEnvelope(Map<String, dynamic> env) {
     switch (env['type']) {
@@ -174,9 +197,13 @@ GameMusic.stop();
       case 'EVENT':
         _applyEvent((env['payload'] as Map).cast<String, dynamic>());
       case 'ERROR':
-        final msg = (env['payload'] as Map)['message']?.toString() ?? 'something went wrong';
+        final msg = (env['payload'] as Map)['message']?.toString() ??
+            'something went wrong';
         _actionLocked = false;
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(msg)));
+        }
     }
   }
 
@@ -185,14 +212,22 @@ GameMusic.stop();
       phase = p['phase'] as String? ?? phase;
       round = p['round'] as int? ?? round;
       final rawPlayers = p['players'] as List?;
-      if (rawPlayers != null) players = rawPlayers.map((e) => e.toString()).toList();
+      if (rawPlayers != null) {
+        players = rawPlayers.map((e) => e.toString()).toList();
+      }
       final rawOwner = p['owner'] as List?;
       if (rawOwner != null) owner = rawOwner.map((e) => e?.toString()).toList();
       final rawPits = p['pits'] as List?;
       if (rawPits != null) pits = rawPits.map((e) => e as int).toList();
+      final rawLegal = p['legalPits'] as List?;
+      if (rawLegal != null) {
+        legalPits = rawLegal.map((e) => (e as num).toInt()).toList();
+      }
       pitsPerPlayer = p['pitsPerPlayer'] as int? ?? pitsPerPlayer;
       final rawScores = p['scores'] as Map?;
-      if (rawScores != null) scores = rawScores.map((k, v) => MapEntry(k.toString(), v as int));
+      if (rawScores != null) {
+        scores = rawScores.map((k, v) => MapEntry(k.toString(), v as int));
+      }
       _paused = p['paused'] as bool? ?? _paused;
       final left = p['secondsLeft'] as int?;
       if (left != null) _secondsLeft = left;
@@ -210,13 +245,21 @@ GameMusic.stop();
     if (phase.startsWith('Turn')) _restartCountdown();
   }
 
-  PopupMenuItem<String> _menuItem(String value, IconData icon, String label) => PopupMenuItem<String>(
+  PopupMenuItem<String> _menuItem(String value, IconData icon, String label) =>
+      PopupMenuItem<String>(
         value: value,
         height: 42,
         child: Row(children: [
           Icon(icon, size: 18, color: const Color(0xffc9b18c)),
           const SizedBox(width: 12),
-          Text(label, style: const TextStyle(color: Color(0xfff0d8a8), fontSize: 13)),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Color(0xfff0d8a8), fontSize: 13),
+            ),
+          ),
         ]),
       );
 
@@ -275,7 +318,8 @@ GameMusic.stop();
 
   void _applyEvent(Map<String, dynamic> payload) {
     final type = payload['type'] as String;
-    final data = ((payload['data'] as Map?) ?? const {}).cast<String, dynamic>();
+    final data =
+        ((payload['data'] as Map?) ?? const {}).cast<String, dynamic>();
     if (type == 'CHAT_MESSAGE') {
       _onChat(data);
       return;
@@ -283,19 +327,27 @@ GameMusic.stop();
     switch (type) {
       case 'TURN_GRACE':
         setState(() => _graceSeconds = data['seconds'] as int? ?? 0);
-        feed.insert(0, TableChatLine.system((data['lastChance'] as bool? ?? false)
-            ? '${label(data['player']?.toString() ?? '')} ran out of time — last chance.'
-            : '${label(data['player']?.toString() ?? '')} ran out of time — paused for them.'));
+        feed.insert(
+            0,
+            TableChatLine.system((data['lastChance'] as bool? ?? false)
+                ? '${label(data['player']?.toString() ?? '')} ran out of time — last chance.'
+                : '${label(data['player']?.toString() ?? '')} ran out of time — paused for them.'));
       case 'TURN_SKIPPED':
-        feed.insert(0, TableChatLine.system(
-            '${label(data['player']?.toString() ?? '')} ran out of chances and lost the turn.'));
+        feed.insert(
+            0,
+            TableChatLine.system(
+                '${label(data['player']?.toString() ?? '')} ran out of chances and lost the turn.'));
       case 'COINS_AWARDED':
         setState(() => _coinsAwarded = data['amount'] as int?);
       case 'SPECTATOR_COUNT':
-        setState(() => _spectatorCount = data['count'] as int? ?? _spectatorCount);
+        setState(
+            () => _spectatorCount = data['count'] as int? ?? _spectatorCount);
       case 'GAME_PAUSED':
         setState(() => _applyPause(true, data));
-        feed.insert(0, TableChatLine.system('${label(data['by']?.toString() ?? '')} paused the game.'));
+        feed.insert(
+            0,
+            TableChatLine.system(
+                '${label(data['by']?.toString() ?? '')} paused the game.'));
       case 'GAME_RESUMED':
         setState(() => _applyPause(false, data));
         feed.insert(0, const TableChatLine.system('Game resumed.'));
@@ -308,7 +360,10 @@ GameMusic.stop();
           players = (data['players'] as List).map((e) => e.toString()).toList();
           owner = (data['owner'] as List).map((e) => e?.toString()).toList();
           pits = (data['pits'] as List).map((e) => e as int).toList();
-          pitsPerPlayer = 16 ~/ players.length;
+          pitsPerPlayer = 6;
+          legalPits = ((data['legalPits'] as List?) ?? const [])
+              .map((e) => (e as num).toInt())
+              .toList();
           turnSeconds = data['turnSeconds'] as int? ?? turnSeconds;
           scores = {for (final pid in players) pid: 0};
         });
@@ -322,53 +377,74 @@ GameMusic.stop();
         final rawLaps = data['laps'] as List?;
         final laps = rawLaps == null
             ? [touched]
-            : rawLaps.map((l) => (l as List).map((e) => e as int).toList()).toList();
-        // Captures happen mid-sowing now (a pit brought to four is taken),
-        // and each one notes the lap and position it fired at so the pit can
-        // empty at the exact moment the fourth seed lands.
-        final captures = <String, int>{};
-        for (final c in (data['captures'] as List?) ?? const []) {
-          final m = (c as Map).cast<String, dynamic>();
-          captures['${m['lap']}:${m['index']}'] = m['pit'] as int;
-        }
-        _lastSow = (from: from, touched: touched);
-        _sowAnimation = _animateSow(from, laps, captures, data['by']?.toString() ?? '');
+            : rawLaps
+                .map((l) => (l as List).map((e) => e as int).toList())
+                .toList();
+        _sowAnimation =
+            _animateSow(from, laps, const {}, data['by']?.toString() ?? '');
       case 'CAPTURED':
-        // The pit is emptied by the sow animation at the moment it reaches
-        // four; all this has to do is bank the score once the seeds have
-        // finished landing.
-        final newScores = (data['scores'] as Map).map((k, v) => MapEntry(k.toString(), v as int));
+        final captured = ((data['pits'] as List?) ?? const [])
+            .map((e) => (e as num).toInt())
+            .toList();
+        final newScores = (data['scores'] as Map)
+            .map((k, v) => MapEntry(k.toString(), v as int));
         () async {
           await _sowAnimation;
           if (!mounted) return;
-          setState(() => scores = newScores);
+          setState(() {
+            for (final pit in captured) {
+              pits[pit] = 0;
+              _flights.add(_CaptureFlight(
+                  id: _nextFlightId++,
+                  pit: pit,
+                  owner: data['by']?.toString() ?? ''));
+            }
+            scores = newScores;
+          });
+          GameSfx.capture();
         }();
-        feed.insert(0, TableChatLine.system(
-            '${label(data['by']?.toString() ?? '')} takes ${data['count']} from pit ${data['pit']}'));
+        feed.insert(
+            0,
+            TableChatLine.system(
+                '${label(data['by']?.toString() ?? '')} captures ${data['count']} seeds'));
+      case 'TURN_STARTED':
+        setState(() {
+          legalPits = ((data['legalPits'] as List?) ?? const [])
+              .map((e) => (e as num).toInt())
+              .toList();
+          _actionLocked = false;
+        });
       case 'GAME_OVER':
         setState(() {
           winningSide = data['winningSide'] as String?;
-          winners = ((data['winners'] as List?) ?? const []).map((e) => e.toString()).toList();
+          winners = ((data['winners'] as List?) ?? const [])
+              .map((e) => e.toString())
+              .toList();
           GameMusic.playOutcome(won: winners.contains(widget.selfId));
-          final newScores = (data['scores'] as Map?)?.map((k, v) => MapEntry(k.toString(), v as int));
+          final newScores = (data['scores'] as Map?)
+              ?.map((k, v) => MapEntry(k.toString(), v as int));
           if (newScores != null) scores = newScores;
         });
         _ticker?.cancel();
-        feed.insert(0, TableChatLine.system(winners.length > 1 ? "It's a tie!" : '${label(winners.isEmpty ? '' : winners.first)} wins!'));
+        feed.insert(
+            0,
+            TableChatLine.system(winners.length > 1
+                ? "It's a tie!"
+                : '${label(winners.isEmpty ? '' : winners.first)} wins!'));
     }
   }
 
   /// Replays the sowing the server just reported, one seed at a time.
   ///
   /// The hand lifts the chosen pit, moves along dropping a seed into each
-  /// one, and — where the server relayed — scoops up the pit it landed on
-  /// and carries on. Any pit brought to four empties into the sower's score
-  /// as it happens.
+  /// one. Captures are reported separately once the final seed lands, so the
+  /// sow remains readable before captured seeds leave the opponent's row.
   ///
   /// Paced to be watchable rather than quick: about a second a seed, easing
   /// to half that once a relay runs long, since a twenty-five seed sowing at
   /// full pace would outstay its welcome.
-  Future<void> _animateSow(int from, List<List<int>> laps, Map<String, int> captures, String sower) async {
+  Future<void> _animateSow(int from, List<List<int>> laps,
+      Map<String, int> captures, String sower) async {
     final token = ++_sowToken;
     if (!mounted) return;
 
@@ -410,7 +486,8 @@ GameMusic.stop();
           if (!mounted || token != _sowToken) return;
           setState(() {
             pits[capturedPit] = 0;
-            _flights.add(_CaptureFlight(id: _nextFlightId++, pit: capturedPit, owner: sower));
+            _flights.add(_CaptureFlight(
+                id: _nextFlightId++, pit: capturedPit, owner: sower));
           });
           GameSfx.capture();
         } else if (lastLap && i == lap.length - 1) {
@@ -449,7 +526,13 @@ GameMusic.stop();
     final trayHeight = box.maxHeight - (strips ? _stripHeight * 2 : 0);
     for (var row = 0; row < order.length; row++) {
       final rowPlayer = players[order[row]];
-      final rowPits = [for (var i = 0; i < 16; i++) if (owner[i] == rowPlayer) i];
+      final rowPits = [
+        for (var i = 0; i < 12; i++)
+          if (owner[i] == rowPlayer) i
+      ];
+      if (rowPlayer != widget.selfId) {
+        rowPits.setAll(0, rowPits.reversed.toList());
+      }
       final at = rowPits.indexOf(pit);
       if (at < 0) continue;
       final rowHeight = trayHeight / order.length;
@@ -462,7 +545,8 @@ GameMusic.stop();
   }
 
   /// The strip a captured stone is heading for — yours below, theirs above.
-  Offset _storeSpot(String playerId, BoxConstraints box, List<int> order, bool strips) {
+  Offset _storeSpot(
+      String playerId, BoxConstraints box, List<int> order, bool strips) {
     if (strips) {
       final mine = myIndex >= 0 && players[myIndex] == playerId;
       return Offset(box.maxWidth * 0.62,
@@ -470,12 +554,14 @@ GameMusic.stop();
     }
     final row = order.indexWhere((idx) => players[idx] == playerId);
     final rowHeight = box.maxHeight / order.length;
-    return Offset(box.maxWidth - 26, (row < 0 ? 0 : row) * rowHeight + rowHeight * 0.18);
+    return Offset(
+        box.maxWidth - 26, (row < 0 ? 0 : row) * rowHeight + rowHeight * 0.18);
   }
 
   /// The hand doing the sowing, sliding between pits so the eye can follow
   /// it, and tinted to whoever's turn it is.
-  Widget _handOverlay(int pit, BoxConstraints box, List<int> order, bool strips) {
+  Widget _handOverlay(
+      int pit, BoxConstraints box, List<int> order, bool strips) {
     final spot = _pitSpot(pit, box, order, strips);
     return AnimatedPositioned(
       duration: _handTravel,
@@ -491,7 +577,8 @@ GameMusic.stop();
     );
   }
 
-  Widget _flightOverlay(_CaptureFlight flight, BoxConstraints box, List<int> order, bool strips) {
+  Widget _flightOverlay(
+      _CaptureFlight flight, BoxConstraints box, List<int> order, bool strips) {
     final from = _pitSpot(flight.pit, box, order, strips);
     final to = _storeSpot(flight.owner, box, order, strips);
     final stone = _theme?.stone ?? goosiStonePalettes.first;
@@ -503,24 +590,29 @@ GameMusic.stop();
       duration: const Duration(milliseconds: 1250),
       curve: Curves.easeInOutCubic,
       onEnd: () {
-        if (mounted) setState(() => _flights.removeWhere((f) => f.id == flight.id));
+        if (mounted) {
+          setState(() => _flights.removeWhere((f) => f.id == flight.id));
+        }
       },
       builder: (context, t, _) {
         return Stack(children: [
           // The four stones leave together but land in sequence, so you can
           // count them out as they arrive.
           for (var i = 0; i < 4; i++)
-            _flyingStone(from, to, ((t - i * 0.10) / 0.70).clamp(0.0, 1.0), stone),
+            _flyingStone(
+                from, to, ((t - i * 0.10) / 0.70).clamp(0.0, 1.0), stone, i),
         ]);
       },
     );
   }
 
-  Widget _flyingStone(Offset from, Offset to, double t, GoosiStonePalette stone) {
+  Widget _flyingStone(
+      Offset from, Offset to, double t, GoosiStonePalette stone, int index) {
     if (t <= 0) return const SizedBox.shrink();
     final x = from.dx + (to.dx - from.dx) * t;
     // A shallow arc reads as a throw rather than a slide.
     final y = from.dy + (to.dy - from.dy) * t - math.sin(t * math.pi) * 22;
+    final colors = _seedColors(stone, index);
     return Positioned(
       left: x - 6,
       top: y - 6,
@@ -531,9 +623,14 @@ GameMusic.stop();
           height: 12,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            gradient: RadialGradient(colors: [stone.top, stone.mid], center: const Alignment(-0.35, -0.45)),
-            border: Border.all(color: stone.rim, width: 1),
-            boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 3, offset: Offset(0, 1))],
+            gradient: RadialGradient(
+                colors: [colors.top, colors.mid],
+                center: const Alignment(-0.35, -0.45)),
+            border: Border.all(color: colors.rim, width: 1),
+            boxShadow: const [
+              BoxShadow(
+                  color: Colors.black54, blurRadius: 3, offset: Offset(0, 1))
+            ],
           ),
         ),
       ),
@@ -548,7 +645,8 @@ GameMusic.stop();
       _togglePause();
       return;
     }
-    final whose = turnIndex >= 0 && turnIndex < players.length ? players[turnIndex] : '';
+    final whose =
+        turnIndex >= 0 && turnIndex < players.length ? players[turnIndex] : '';
     final mine = myIndex >= 0 && myIndex == turnIndex;
     final go = await showDialog<bool>(
       context: context,
@@ -559,8 +657,12 @@ GameMusic.stop();
                 "If you don't, the game is over."
             : 'Resume and ${label(whose)} has $_graceSeconds seconds to sow.'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Not yet')),
-          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Resume')),
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Not yet')),
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Resume')),
         ],
       ),
     );
@@ -572,7 +674,9 @@ GameMusic.stop();
   /// which is what stops a grace being spent by a player who isn't there.
   Widget _pauseOverlay() {
     final mine = myIndex >= 0 && myIndex == turnIndex;
-    final whose = turnIndex >= 0 && turnIndex < players.length ? label(players[turnIndex]) : 'them';
+    final whose = turnIndex >= 0 && turnIndex < players.length
+        ? label(players[turnIndex])
+        : 'them';
     final (icon, title, body) = switch ((_inGrace, _lastChance, mine)) {
       (false, _, _) => (Icons.pause_circle_filled_rounded, 'PAUSED', null),
       (true, true, true) => (
@@ -596,7 +700,8 @@ GameMusic.stop();
           'Waiting for $whose — $_graceSeconds seconds once resumed.',
         ),
     };
-    final accent = _lastChance ? const Color(0xffe0704a) : const Color(0xfff0d8a8);
+    final accent =
+        _lastChance ? const Color(0xffe0704a) : const Color(0xfff0d8a8);
     return ClipRRect(
       borderRadius: BorderRadius.circular(10),
       child: BackdropFilter(
@@ -608,12 +713,17 @@ GameMusic.stop();
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Icon(icon, color: accent, size: 46),
             const SizedBox(height: 10),
-            Text(title, style: TextStyle(color: accent, fontWeight: FontWeight.w800, letterSpacing: 3)),
+            Text(title,
+                style: TextStyle(
+                    color: accent,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 3)),
             if (body != null) ...[
               const SizedBox(height: 8),
               Text(body,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: Color(0xffc9b18c), fontSize: 12, height: 1.35)),
+                  style: const TextStyle(
+                      color: Color(0xffc9b18c), fontSize: 12, height: 1.35)),
             ],
             const SizedBox(height: 14),
             NeonButton('Resume', onPressed: _resumeFromGrace),
@@ -625,7 +735,7 @@ GameMusic.stop();
 
   void _tapPit(int pit) {
     if (!myTurn || _actionLocked || _paused) return;
-    if (owner[pit] != widget.selfId || pits[pit] <= 0) {
+    if (owner[pit] != widget.selfId || !legalPits.contains(pit)) {
       // Somebody else's pit, or an empty one — the board refuses the tap
       // and says so rather than just doing nothing.
       GameSfx.illegal();
@@ -633,38 +743,15 @@ GameMusic.stop();
     }
     GameSfx.select();
     setState(() => _actionLocked = true);
-    widget.socket.send('PLAYER_ACTION', {'action': 'SOW', 'data': {'pit': pit}});
+    widget.socket.send('PLAYER_ACTION', {
+      'action': 'SOW',
+      'data': {'pit': pit}
+    });
   }
 
   void _togglePause() => widget.socket.send('PAUSE_TOGGLE');
 
   void _toggleMuteSpectators() => widget.socket.send('MUTE_SPECTATORS_TOGGLE');
-
-  void _toggleMic() {
-    setState(() => _micOn = !_micOn);
-    if (_micOn && !_micNoticeShown) {
-      _micNoticeShown = true;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Voice chat between players isn\'t connected yet — coming soon.')),
-      );
-    }
-  }
-
-  Future<void> _replayLastSow() async {
-    final mv = _lastSow;
-    if (mv == null || _replaying) return;
-    setState(() => _replaying = true);
-    // A purely visual replay — pulses the touched pits again in sequence
-    // without touching the real seed counts, which are already correct.
-    for (final t in mv.touched) {
-      if (!mounted) return;
-      setState(() => _pulsing.add(t));
-      await Future.delayed(const Duration(milliseconds: 85));
-      if (!mounted) return;
-      setState(() => _pulsing.remove(t));
-    }
-    if (mounted) setState(() => _replaying = false);
-  }
 
   final Set<int> _pulsing = {};
 
@@ -673,18 +760,25 @@ GameMusic.stop();
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: const Color(0xff241708),
-        title: const Text('Leave the game?', style: TextStyle(color: Color(0xfff0d8a8))),
-        content: const Text('You can rejoin with the room code, but you\'ll stop receiving live updates until you do.',
+        title: const Text('Leave the game?',
+            style: TextStyle(color: Color(0xfff0d8a8))),
+        content: const Text(
+            'You can rejoin with the huud code, but you\'ll stop receiving live updates until you do.',
             style: TextStyle(color: Color(0xffc9b18c))),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Stay')),
-          TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Leave')),
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Stay')),
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Leave')),
         ],
       ),
     );
     if (leave == true && mounted) {
       widget.socket.close();
-      Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const MainShell()), (r) => false);
+      Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const MainShell()), (r) => false);
     }
   }
 
@@ -702,27 +796,43 @@ GameMusic.stop();
     return PopScope(
       canPop: finished,
       child: Scaffold(
-        backgroundColor: const Color(0xff1c130a),
+        backgroundColor: _bg,
         appBar: AppBar(
-          title: Text(finished ? 'Results' : 'Round $round'),
+          title: Row(children: [
+            Text(finished ? 'RESULTS' : 'OWARE',
+                style: const TextStyle(fontWeight: FontWeight.w900)),
+            if (!finished && widget.roomCode.isNotEmpty) ...[
+              const SizedBox(width: 12),
+              Flexible(
+                child: Text('HUUD ${widget.roomCode}',
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 11, color: _gold)),
+              ),
+            ],
+          ]),
           automaticallyImplyLeading: finished,
-          backgroundColor: const Color(0xff241708),
-          foregroundColor: const Color(0xfff0d8a8),
+          backgroundColor: _bg,
+          foregroundColor: _cream,
           // Only Pause earns a permanent button — it's the one thing you
           // reach for mid-game. Everything else is a once-a-match setting
           // and lives behind the gear.
           actions: finished
               ? null
               : [
+                  GameVoiceControl(roomId: widget.socket.roomId),
                   IconButton(
                     tooltip: _paused ? 'Resume' : 'Pause',
-                    icon: Icon(_paused ? Icons.play_arrow_rounded : Icons.pause_rounded, size: 22),
+                    icon: Icon(
+                        _paused
+                            ? Icons.play_arrow_rounded
+                            : Icons.pause_rounded,
+                        size: 22),
                     onPressed: _togglePause,
                   ),
                   PopupMenuButton<String>(
                     tooltip: 'Game settings',
                     icon: const Icon(Icons.settings_rounded, size: 20),
-                    color: const Color(0xff241708),
+                    color: _panel,
                     onSelected: (value) {
                       switch (value) {
                         case 'theme':
@@ -738,15 +848,29 @@ GameMusic.stop();
                       }
                     },
                     itemBuilder: (_) => [
-                      if (_theme != null) _menuItem('theme', Icons.palette_outlined, 'Board & stones'),
-                      _menuItem('music', _musicOn ? Icons.music_note_rounded : Icons.music_off_rounded,
+                      if (_theme != null)
+                        _menuItem(
+                            'theme', Icons.palette_outlined, 'Board & stones'),
+                      _menuItem(
+                          'music',
+                          _musicOn
+                              ? Icons.music_note_rounded
+                              : Icons.music_off_rounded,
                           _musicOn ? 'Mute music' : 'Play music'),
-                      _menuItem('sfx', _sfxOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+                      _menuItem(
+                          'sfx',
+                          _sfxOn
+                              ? Icons.volume_up_rounded
+                              : Icons.volume_off_rounded,
                           _sfxOn ? 'Mute game sounds' : 'Play game sounds'),
                       _menuItem(
                         'spectators',
-                        _spectatorsMuted ? Icons.comments_disabled_rounded : Icons.chat_bubble_outline_rounded,
-                        _spectatorsMuted ? 'Let spectators comment' : 'Mute spectator comments',
+                        _spectatorsMuted
+                            ? Icons.comments_disabled_rounded
+                            : Icons.chat_bubble_outline_rounded,
+                        _spectatorsMuted
+                            ? 'Let spectators comment'
+                            : 'Mute spectator comments',
                       ),
                       _menuItem('exit', Icons.logout_rounded, 'Leave'),
                     ],
@@ -762,7 +886,7 @@ GameMusic.stop();
   /// board. The stones land on their owner's own side of the table, and
   /// keeping them out of the middle leaves the full width for the pits —
   /// which is what lets the holes be as large as they are.
-  static const double _stripHeight = 62;
+  static const double _stripHeight = 76;
 
   /// One ink per seat, so the hand that's sowing is identifiably a player's.
   static const List<Color> _seatInks = [
@@ -794,14 +918,15 @@ GameMusic.stop();
     final strips = n == 2 && myIndex >= 0;
 
     return Column(children: [
-      _statusStrip(),
       Expanded(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(2, 2, 2, 2),
           child: LayoutBuilder(
             builder: (context, box) => Stack(children: [
               Column(children: [
-                if (strips) SizedBox(height: _stripHeight, child: _storeStrip(order.first)),
+                if (strips)
+                  SizedBox(
+                      height: _stripHeight, child: _storeStrip(order.first)),
                 Expanded(
                   child: Center(
                     child: _WoodTray(
@@ -809,13 +934,16 @@ GameMusic.stop();
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          for (final idx in order) _playerRow(idx, idx == myIndex, showHeader: !strips),
+                          for (final idx in order)
+                            _playerRow(idx, idx == myIndex,
+                                showHeader: !strips),
                         ],
                       ),
                     ),
                   ),
                 ),
-                if (strips) SizedBox(height: _stripHeight, child: _storeStrip(myIndex)),
+                if (strips)
+                  SizedBox(height: _stripHeight, child: _storeStrip(myIndex)),
               ]),
 
               // The sowing hand, sliding from pit to pit rather than
@@ -829,7 +957,10 @@ GameMusic.stop();
                 Positioned.fill(
                   child: IgnorePointer(
                     child: Stack(
-                      children: [for (final f in _flights) _flightOverlay(f, box, order, strips)],
+                      children: [
+                        for (final f in _flights)
+                          _flightOverlay(f, box, order, strips)
+                      ],
                     ),
                   ),
                 ),
@@ -854,31 +985,87 @@ GameMusic.stop();
   /// waiting on them, and the stones they've taken.
   Widget _storeStrip(int playerIndex) {
     final playerId = players[playerIndex];
-    final stone = _theme?.stone ?? goosiStonePalettes.first;
     final active = playerIndex == turnIndex;
     final isMe = playerIndex == myIndex;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+    final seconds = active ? (_secondsLeft ?? turnSeconds) : turnSeconds;
+    return AnimatedContainer(
+      key: ValueKey('goosi-player-$playerId'),
+      duration: const Duration(milliseconds: 220),
+      margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: _panel,
+        borderRadius: BorderRadius.circular(7),
+        border: Border.all(
+            color: active ? _gold : Colors.white.withValues(alpha: .12),
+            width: active ? 2 : 1),
+        boxShadow: active
+            ? [BoxShadow(color: _gold.withValues(alpha: .24), blurRadius: 10)]
+            : null,
+      ),
       child: Row(children: [
-        _PlayerChip(
-          name: isMe ? 'You' : label(playerId),
-          active: active,
-          ink: _inkFor(playerId),
-          isMe: isMe,
+        ValueListenableBuilder<Set<String>>(
+          valueListenable: widget.socket.onlinePlayers,
+          builder: (_, online, __) => OnlineAvatar(
+            isMe ? 'You' : label(playerId),
+            size: 45,
+            online: online.contains(playerId),
+            imageUrl: widget.avatars[playerId],
+            emoji: widget.agents.contains(playerId) ? '🤖' : null,
+          ),
         ),
-        const SizedBox(width: 10),
-        Expanded(child: _StoreTray(count: scores[playerId] ?? 0, stone: stone)),
+        const SizedBox(width: 11),
+        Expanded(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(isMe ? 'YOU' : label(playerId).toUpperCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      color: _cream,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900)),
+              const SizedBox(height: 2),
+              Text('${scores[playerId] ?? 0} CAPTURED',
+                  style: const TextStyle(
+                      color: _gold, fontSize: 10, fontWeight: FontWeight.w800)),
+            ],
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xff160b1c),
+            borderRadius: BorderRadius.circular(7),
+            border: Border.all(
+                color: active ? _gold : Colors.white.withValues(alpha: .16)),
+          ),
+          child: Text(_clock(seconds),
+              style: const TextStyle(
+                  color: _cream,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                  fontFeatures: [FontFeature.tabularFigures()])),
+        ),
       ]),
     );
   }
+
+  String _clock(int seconds) =>
+      '${(seconds ~/ 60).toString().padLeft(2, '0')}:${(seconds % 60).toString().padLeft(2, '0')}';
 
   Widget _playerRow(int playerIndex, bool isMe, {bool showHeader = true}) {
     final playerId = players[playerIndex];
     final stone = _theme?.stone ?? goosiStonePalettes.first;
     final active = playerIndex == turnIndex;
     final myPits = <int>[];
-    for (var i = 0; i < 16; i++) {
+    for (var i = 0; i < 12; i++) {
       if (owner[i] == playerId) myPits.add(i);
+    }
+    if (!isMe) {
+      myPits.setAll(0, myPits.reversed.toList());
     }
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 6),
@@ -889,12 +1076,16 @@ GameMusic.stop();
           Row(children: [
             Text(isMe ? 'You' : label(playerId),
                 style: TextStyle(
-                    color: active ? const Color(0xffe0a94a) : const Color(0xffc9b18c),
+                    color: active
+                        ? const Color(0xffe0a94a)
+                        : const Color(0xffc9b18c),
                     fontWeight: FontWeight.w800,
                     fontSize: 12)),
             if (active) ...[
               const SizedBox(width: 6),
-              Icon(Icons.circle, size: 6, color: const Color(0xffe0a94a).withValues(alpha: 0.9)),
+              Icon(Icons.circle,
+                  size: 6,
+                  color: const Color(0xffe0a94a).withValues(alpha: 0.9)),
             ],
             const Spacer(),
             _StoreTray(count: scores[playerId] ?? 0, stone: stone),
@@ -906,12 +1097,14 @@ GameMusic.stop();
             for (final pit in myPits)
               Expanded(
                 child: GestureDetector(
+                  key: ValueKey('goosi-pit-$pit'),
                   onTap: isMe ? () => _tapPit(pit) : null,
                   child: _PitBowl(
                     palette: (_theme?.board ?? goosiBoardPalettes.first),
                     stone: stone,
                     seeds: pits[pit],
-                    tappable: isMe && myTurn && !_paused && pits[pit] > 0,
+                    tappable:
+                        isMe && myTurn && !_paused && legalPits.contains(pit),
                     pulsing: _pulsing.contains(pit),
                   ),
                 ),
@@ -922,60 +1115,119 @@ GameMusic.stop();
     );
   }
 
-  Widget _statusStrip() {
-    final danger = (_secondsLeft ?? 99) <= 10;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
-      decoration: const BoxDecoration(color: Color(0xff241708), border: Border(bottom: BorderSide(color: Color(0xff3a2410)))),
-      child: Row(children: [
-        Text(myTurn ? 'YOUR TURN' : 'WAITING…',
-            style: TextStyle(color: myTurn ? const Color(0xffe0a94a) : const Color(0xff9a8163), fontWeight: FontWeight.w800, fontSize: 11, letterSpacing: 0.6)),
-        const Spacer(),
-        if (_secondsLeft != null)
-          Text('$_secondsLeft s',
-              style: TextStyle(color: danger ? const Color(0xffe0704a) : const Color(0xfff0d8a8), fontWeight: FontWeight.w800, fontFeatures: const [FontFeature.tabularFigures()])),
-      ]),
-    );
-  }
-
   Widget _chromeBar() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 4),
-      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-        _chromeButton(icon: _micOn ? Icons.mic_rounded : Icons.mic_off_rounded, active: _micOn, tooltip: _micOn ? 'Mute mic' : 'Turn on mic', onTap: _toggleMic),
-        const SizedBox(width: 22),
-        _chromeButton(
-          icon: Icons.replay_rounded,
-          active: false,
-          disabled: _lastSow == null || _replaying,
-          tooltip: 'Replay last sow',
-          onTap: _replayLastSow,
+    final activeName = turnIndex >= 0 && turnIndex < players.length
+        ? label(players[turnIndex])
+        : 'Waiting';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 6, 8, 5),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Row(children: [
+          Expanded(
+              child: _controlButton(Icons.undo_rounded, 'Request undo',
+                  () => _sendRequest('requests an undo.'))),
+          const SizedBox(width: 5),
+          Expanded(
+              child: _controlButton(Icons.handshake_rounded, 'Offer draw',
+                  () => _sendRequest('offers a draw.'))),
+          const SizedBox(width: 5),
+          Expanded(
+              child: _controlButton(
+                  Icons.help_outline_rounded, 'Rules', _showRules)),
+          const SizedBox(width: 5),
+          Expanded(
+              child:
+                  _controlButton(Icons.flag_rounded, 'Resign', _confirmResign)),
+        ]),
+        const SizedBox(height: 6),
+        Container(
+          height: 34,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: _panel,
+            borderRadius: BorderRadius.circular(7),
+            border: Border.all(color: myTurn ? _gold : const Color(0xff5b3158)),
+          ),
+          child: Text(
+              myTurn ? 'YOUR TURN' : '$activeName TO PLAY'.toUpperCase(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  color: myTurn ? _gold : _cream,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900)),
         ),
       ]),
     );
   }
 
-  Widget _chromeButton({required IconData icon, required bool active, required String tooltip, required VoidCallback onTap, bool disabled = false}) {
-    return Tooltip(
-      message: tooltip,
+  Widget _controlButton(IconData icon, String label, VoidCallback onTap) {
+    return Material(
+      color: _panel,
+      borderRadius: BorderRadius.circular(7),
       child: InkWell(
-        borderRadius: BorderRadius.circular(24),
-        onTap: disabled ? null : onTap,
-        child: Container(
-          width: 46,
-          height: 46,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: active ? const Color(0xffe0a94a) : const Color(0xff241708),
-            border: Border.all(color: active ? const Color(0xffe0a94a) : const Color(0xff5c3a1c), width: 2),
-          ),
-          child: Icon(icon, size: 20, color: disabled ? const Color(0xff5c4a38) : (active ? const Color(0xff241708) : const Color(0xffc9b18c))),
+        borderRadius: BorderRadius.circular(7),
+        onTap: onTap,
+        child: SizedBox(
+          height: 54,
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(icon, size: 19, color: _gold),
+            const SizedBox(height: 3),
+            Text(label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: _cream, fontSize: 8.5)),
+          ]),
         ),
       ),
     );
   }
 
+  void _sendRequest(String message) {
+    widget.socket.send('CHAT_SEND', {'channel': 'table', 'text': message});
+    ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Request sent to your opponent.')));
+  }
+
+  void _showRules() {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Oware rules'),
+        content: const Text(
+            'Choose one of your six houses and sow every seed counter-clockwise. '
+            'If the final seed leaves 2 or 3 seeds in an opponent house, capture '
+            'that house and consecutive 2-or-3 houses behind it. Feed an empty '
+            'opponent row whenever possible. The first player past 24 wins.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Got it')),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmResign() async {
+    final resign = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Resign this game?'),
+        content: const Text('Your opponent will win this HUUD.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Keep playing')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Resign')),
+        ],
+      ),
+    );
+    if (resign == true) {
+      widget.socket.send('PLAYER_ACTION', {'action': 'RESIGN', 'data': {}});
+    }
+  }
 
   /// Seeds taken, and by what margin — how a player would describe the
   /// result rather than just who took it.
@@ -987,13 +1239,18 @@ GameMusic.stop();
         .map((e) => e.value)
         .fold<int>(0, (a, b) => b > a ? b : a);
     final margin = (mine - best).abs();
-    return Wrap(spacing: 8, runSpacing: 8, alignment: WrapAlignment.center, children: [
-      _statChip(Icons.circle_outlined, '$mine ${mine == 1 ? 'seed' : 'seeds'}'),
-      if (margin > 0) _statChip(Icons.trending_up_rounded, 'by $margin'),
-      if (_coinsAwarded != null)
-        _statChip(Icons.monetization_on_rounded,
-            '+$_coinsAwarded ${_coinsAwarded == 1 ? 'coin' : 'coins'}'),
-    ]);
+    return Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        alignment: WrapAlignment.center,
+        children: [
+          _statChip(
+              Icons.circle_outlined, '$mine ${mine == 1 ? 'seed' : 'seeds'}'),
+          if (margin > 0) _statChip(Icons.trending_up_rounded, 'by $margin'),
+          if (_coinsAwarded != null)
+            _statChip(Icons.monetization_on_rounded,
+                '+$_coinsAwarded ${_coinsAwarded == 1 ? 'coin' : 'coins'}'),
+        ]);
   }
 
   Widget _statChip(IconData icon, String label) => Container(
@@ -1007,7 +1264,10 @@ GameMusic.stop();
           Icon(icon, size: 14, color: const Color(0xffe0a94a)),
           const SizedBox(width: 6),
           Text(label,
-              style: const TextStyle(color: Color(0xffe8d2ac), fontSize: 12.5, fontWeight: FontWeight.w700)),
+              style: const TextStyle(
+                  color: Color(0xffe8d2ac),
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700)),
         ]),
       );
 
@@ -1028,27 +1288,52 @@ GameMusic.stop();
               tween: Tween(begin: 0, end: 1),
               duration: const Duration(milliseconds: 760),
               curve: Curves.elasticOut,
-              builder: (_, t, child) => Transform.scale(scale: 0.5 + 0.5 * t, child: child),
-              child: Text(tie ? '🤝' : '🏆', style: const TextStyle(fontSize: 64)),
+              builder: (_, t, child) =>
+                  Transform.scale(scale: 0.5 + 0.5 * t, child: child),
+              child:
+                  Text(tie ? '🤝' : '🏆', style: const TextStyle(fontSize: 64)),
             ),
             const SizedBox(height: 10),
-            Text(tie ? "It's a tie" : '${label(winners.isEmpty ? '' : winners.first)} wins',
-                style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 26, color: const Color(0xffe0a94a))),
+            Text(
+                tie
+                    ? "It's a tie"
+                    : '${label(winners.isEmpty ? '' : winners.first)} wins',
+                style: Theme.of(context)
+                    .textTheme
+                    .displayLarge
+                    ?.copyWith(fontSize: 26, color: const Color(0xffe0a94a))),
             const SizedBox(height: 10),
             for (final pid in players)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Text('${pid == widget.selfId ? 'You' : label(pid)}: ${scores[pid] ?? 0} pts',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: n.mid)),
+                child: Text(
+                    '${pid == widget.selfId ? 'You' : label(pid)}: ${scores[pid] ?? 0} pts',
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodyMedium
+                        ?.copyWith(color: n.mid)),
               ),
             const SizedBox(height: 6),
-            Text(won ? 'You won! 🎉' : (tie ? 'Close one.' : 'Better luck next game.'),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: n.mid)),
+            Text(
+                won
+                    ? 'You won! 🎉'
+                    : (tie ? 'Close one.' : 'Better luck next game.'),
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(color: n.mid)),
             const SizedBox(height: 16),
             _resultStats(),
             const SizedBox(height: 24),
+            if (won && !tie)
+              VictoryShareButton(
+                  roomId: widget.socket.roomId,
+                  gameType: 'goosi',
+                  detail: '${scores[widget.selfId] ?? 0} points'),
             NeonButton('Back to home', onPressed: () {
-              Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const MainShell()), (r) => false);
+              Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const MainShell()),
+                  (r) => false);
             }),
             const GuestSaveSessionCard(),
           ]),
@@ -1058,62 +1343,10 @@ GameMusic.stop();
   }
 }
 
-/// A player at their end of the board: their face, their name, and a green
-/// ring while it's their turn. The ring is the thing — knowing whether the
-/// board is waiting on you or on an agent was the whole problem.
-class _PlayerChip extends StatelessWidget {
-  const _PlayerChip({required this.name, required this.active, required this.ink, required this.isMe});
-
-  final String name;
-  final bool active;
-  final Color ink;
-  final bool isMe;
-
-  static const _turnGreen = Color(0xff4ade80);
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(mainAxisSize: MainAxisSize.min, children: [
-      AnimatedContainer(
-        duration: const Duration(milliseconds: 260),
-        padding: const EdgeInsets.all(2.5),
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: active ? _turnGreen : Colors.white.withValues(alpha: 0.16),
-            width: active ? 2.4 : 1.2,
-          ),
-          boxShadow: active
-              ? [BoxShadow(color: _turnGreen.withValues(alpha: 0.45), blurRadius: 14, spreadRadius: -1)]
-              : null,
-        ),
-        child: Avatar(name, size: 32),
-      ),
-      const SizedBox(height: 4),
-      Text(
-        name,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          color: active ? _turnGreen : ink.withValues(alpha: 0.85),
-          fontSize: 10,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-      const SizedBox(height: 2),
-      Text(
-        active ? (isMe ? 'YOUR TURN' : 'THEIR TURN') : '',
-        maxLines: 1,
-        style: const TextStyle(color: _turnGreen, fontSize: 7, fontWeight: FontWeight.w900, letterSpacing: 0.6),
-      ),
-    ]);
-  }
-}
-
 /// Four stones on their way from a captured pit to a player's store.
 class _CaptureFlight {
-  const _CaptureFlight({required this.id, required this.pit, required this.owner});
+  const _CaptureFlight(
+      {required this.id, required this.pit, required this.owner});
   final int id;
   final int pit;
   final String owner;
@@ -1144,7 +1377,8 @@ class _StoreTray extends StatelessWidget {
       child: Row(children: [
         if (count == 0)
           Text('no stones yet',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.35), fontSize: 11))
+              style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.35), fontSize: 11))
         else ...[
           Expanded(
             child: Wrap(
@@ -1152,29 +1386,41 @@ class _StoreTray extends StatelessWidget {
               runSpacing: 3,
               children: [
                 for (var i = 0; i < drawn; i++)
-                  Container(
-                    width: 13,
-                    height: 13,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                          colors: [stone.top, stone.mid], center: const Alignment(-0.35, -0.45)),
-                      border: Border.all(color: stone.rim, width: 0.9),
-                      boxShadow: const [
-                        BoxShadow(color: Colors.black45, blurRadius: 2, offset: Offset(0, 1)),
-                      ],
-                    ),
-                  ),
+                  Builder(builder: (context) {
+                    final colors = _seedColors(stone, i);
+                    return Container(
+                      width: 13,
+                      height: 13,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                            colors: [colors.top, colors.mid],
+                            center: const Alignment(-0.35, -0.45)),
+                        border: Border.all(color: colors.rim, width: 0.9),
+                        boxShadow: const [
+                          BoxShadow(
+                              color: Colors.black45,
+                              blurRadius: 2,
+                              offset: Offset(0, 1)),
+                        ],
+                      ),
+                    );
+                  }),
                 if (count > _maxDrawn)
                   Text('+${count - _maxDrawn}',
                       style: const TextStyle(
-                          color: Color(0xffe0a94a), fontSize: 11, fontWeight: FontWeight.w800)),
+                          color: Color(0xffe0a94a),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800)),
               ],
             ),
           ),
           const SizedBox(width: 8),
           Text('$count',
-              style: const TextStyle(color: Color(0xffe8d2ac), fontSize: 15, fontWeight: FontWeight.w900)),
+              style: const TextStyle(
+                  color: Color(0xffe8d2ac),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900)),
         ],
       ]),
     );
@@ -1208,7 +1454,10 @@ class _WoodTray extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [palette.frameTop, palette.frameBottom]),
-        boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 20, offset: Offset(0, 10))],
+        boxShadow: const [
+          BoxShadow(
+              color: Colors.black54, blurRadius: 20, offset: Offset(0, 10))
+        ],
         // The worn plank has no frame around it at all; the others do.
         border: palette.organicEdge
             ? null
@@ -1221,7 +1470,8 @@ class _WoodTray extends StatelessWidget {
             child: CustomPaint(
               painter: _WoodGrainPainter(
                 base: palette.tray,
-                grain: Color.lerp(palette.tray, palette.trayGrain, palette.grain)!,
+                grain:
+                    Color.lerp(palette.tray, palette.trayGrain, palette.grain)!,
                 seed: 11,
               ),
             ),
@@ -1281,7 +1531,12 @@ class _HingeLine extends StatelessWidget {
                   end: Alignment.bottomCenter,
                   colors: [Color(0xffa37c46), Color(0xff7c5a30)],
                 ),
-                boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 2, offset: Offset(0, 1))],
+                boxShadow: const [
+                  BoxShadow(
+                      color: Colors.black38,
+                      blurRadius: 2,
+                      offset: Offset(0, 1))
+                ],
               ),
             ),
           ),
@@ -1291,7 +1546,8 @@ class _HingeLine extends StatelessWidget {
               child: Container(
                 width: 6,
                 height: 6,
-                decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xfff0d9a8)),
+                decoration: const BoxDecoration(
+                    shape: BoxShape.circle, color: Color(0xfff0d9a8)),
               ),
             ),
         ]),
@@ -1318,10 +1574,6 @@ class _PitBowl extends StatelessWidget {
   final bool tappable;
   final bool pulsing;
 
-  /// A pit reaching this many seeds is captured, so three is one away — the
-  /// single most useful thing to be able to see on this board.
-  static const _captureAt = 4;
-
   @override
   Widget build(BuildContext context) {
     return AspectRatio(
@@ -1345,60 +1597,81 @@ class _PitBowl extends StatelessWidget {
                 width: tappable ? 2.4 : (palette.ring != null ? 2.4 : 1.6),
               ),
               boxShadow: [
-                const BoxShadow(color: Colors.black45, blurRadius: 6, offset: Offset(0, 3)),
+                const BoxShadow(
+                    color: Colors.black45, blurRadius: 6, offset: Offset(0, 3)),
                 if (palette.ring != null && !tappable)
-                  BoxShadow(color: palette.ring!.withValues(alpha: 0.30), blurRadius: 6, spreadRadius: -1),
-                if (tappable) BoxShadow(color: const Color(0xffe0a94a).withValues(alpha: 0.5), blurRadius: 10, spreadRadius: -1),
+                  BoxShadow(
+                      color: palette.ring!.withValues(alpha: 0.30),
+                      blurRadius: 6,
+                      spreadRadius: -1),
+                if (tappable)
+                  BoxShadow(
+                      color: const Color(0xffe0a94a).withValues(alpha: 0.5),
+                      blurRadius: 10,
+                      spreadRadius: -1),
               ],
-              gradient: RadialGradient(colors: [palette.bowl, Colors.black.withValues(alpha: 0.5)], radius: 0.9),
+              gradient: RadialGradient(
+                  colors: [palette.bowl, Colors.black.withValues(alpha: 0.5)],
+                  radius: 0.9),
             ),
             alignment: Alignment.center,
-            child: Stack(alignment: Alignment.center, clipBehavior: Clip.none, children: [
-              if (seeds > 0)
-                Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: 2,
-                  runSpacing: 2,
-                  children: [
-                    for (var i = 0; i < math.min(seeds, _captureAt); i++)
-                      Container(
-                        width: 13,
-                        height: 13,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: RadialGradient(
-                              colors: [stone.top, stone.mid], center: const Alignment(-0.35, -0.45)),
-                          border: Border.all(color: stone.rim, width: 1),
-                          boxShadow: const [
-                            BoxShadow(color: Colors.black54, blurRadius: 2, offset: Offset(0, 1)),
-                          ],
-                        ),
+            child: Stack(
+                alignment: Alignment.center,
+                clipBehavior: Clip.none,
+                children: [
+                  if (seeds > 0)
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 2,
+                      runSpacing: 2,
+                      children: [
+                        for (var i = 0; i < math.min(seeds, 8); i++)
+                          Builder(builder: (context) {
+                            final colors = _seedColors(stone, i);
+                            return Container(
+                              width: 13,
+                              height: 13,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: RadialGradient(
+                                    colors: [colors.top, colors.mid],
+                                    center: const Alignment(-0.35, -0.45)),
+                                border: Border.all(color: colors.rim, width: 1),
+                                boxShadow: const [
+                                  BoxShadow(
+                                      color: Colors.black54,
+                                      blurRadius: 2,
+                                      offset: Offset(0, 1)),
+                                ],
+                              ),
+                            );
+                          }),
+                      ],
+                    ),
+                  // A small pill hanging off the top rim, clear of the bowl so
+                  // the seeds inside stay visible, and short enough not to reach
+                  // the pit above it. Gold at three — one more and the pit goes.
+                  Align(
+                    alignment: const Alignment(0, -1.14),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 5, vertical: 0.5),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.72),
+                        borderRadius: BorderRadius.circular(7),
+                        border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.14),
+                            width: 0.8),
                       ),
-                  ],
-                ),
-              // A small pill hanging off the top rim, clear of the bowl so
-              // the seeds inside stay visible, and short enough not to reach
-              // the pit above it. Gold at three — one more and the pit goes.
-              Align(
-                alignment: const Alignment(0, -1.14),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 0.5),
-                  decoration: BoxDecoration(
-                    color: seeds == _captureAt - 1
-                        ? const Color(0xffe0a94a)
-                        : Colors.black.withValues(alpha: 0.72),
-                    borderRadius: BorderRadius.circular(7),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.14), width: 0.8),
+                      child: Text('$seeds',
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 10,
+                              height: 1.2)),
+                    ),
                   ),
-                  child: Text('$seeds',
-                      style: TextStyle(
-                          color: seeds == _captureAt - 1 ? const Color(0xff2a1a0a) : Colors.white,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 10,
-                          height: 1.2)),
-                ),
-              ),
-            ]),
+                ]),
           ),
         ),
       ),
@@ -1406,8 +1679,23 @@ class _PitBowl extends StatelessWidget {
   }
 }
 
+typedef _SeedColors = ({Color top, Color mid, Color rim});
+
+_SeedColors _seedColors(GoosiStonePalette stone, int index) {
+  if (stone.id != 'river_stone') {
+    return (top: stone.top, mid: stone.mid, rim: stone.rim);
+  }
+  return const [
+    (top: Color(0xfffffff7), mid: Color(0xffddd5c3), rim: Color(0xff70685a)),
+    (top: Color(0xff4a4d54), mid: Color(0xff111318), rim: Color(0xff050608)),
+    (top: Color(0xff74d09a), mid: Color(0xff20875a), rim: Color(0xff0b422a)),
+    (top: Color(0xff66cce0), mid: Color(0xff177e9b), rim: Color(0xff08465b)),
+  ][index % 4];
+}
+
 class _WoodGrainPainter extends CustomPainter {
-  const _WoodGrainPainter({required this.base, required this.grain, required this.seed});
+  const _WoodGrainPainter(
+      {required this.base, required this.grain, required this.seed});
   final Color base;
   final Color grain;
   final int seed;
@@ -1429,13 +1717,28 @@ class _WoodGrainPainter extends CustomPainter {
         final wobble = (rnd.nextDouble() - 0.5) * size.height * 0.06;
         path.lineTo(x, (y + wobble).clamp(0, size.height));
       }
-      canvas.drawPath(path, Paint()..color = grain.withValues(alpha: alpha)..strokeWidth = thickness..style = PaintingStyle.stroke);
+      canvas.drawPath(
+          path,
+          Paint()
+            ..color = grain.withValues(alpha: alpha)
+            ..strokeWidth = thickness
+            ..style = PaintingStyle.stroke);
     }
-    canvas.drawRect(rect, Paint()..shader = RadialGradient(colors: [Colors.transparent, Colors.black.withValues(alpha: 0.2)], radius: 0.95).createShader(rect));
+    canvas.drawRect(
+        rect,
+        Paint()
+          ..shader = RadialGradient(colors: [
+            Colors.transparent,
+            Colors.black.withValues(alpha: 0.2)
+          ], radius: 0.95)
+              .createShader(rect));
   }
 
   @override
-  bool shouldRepaint(covariant _WoodGrainPainter oldDelegate) => oldDelegate.base != base || oldDelegate.grain != grain || oldDelegate.seed != seed;
+  bool shouldRepaint(covariant _WoodGrainPainter oldDelegate) =>
+      oldDelegate.base != base ||
+      oldDelegate.grain != grain ||
+      oldDelegate.seed != seed;
 }
 
 /// Board wood tone + stone color pickers — per-device cosmetic preference,
@@ -1449,16 +1752,34 @@ class _GoosiThemeSheet extends StatelessWidget {
     return ListenableBuilder(
       listenable: theme,
       builder: (context, _) => Padding(
-        padding: EdgeInsets.fromLTRB(20, 18, 20, MediaQuery.viewInsetsOf(context).bottom + 24),
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('BOARD WOOD', style: TextStyle(color: Color(0xffe0a94a), fontWeight: FontWeight.w800, letterSpacing: 2, fontSize: 12)),
-          const SizedBox(height: 12),
-          Wrap(spacing: 10, runSpacing: 10, children: [for (final p in goosiBoardPalettes) _boardSwatch(p)]),
-          const SizedBox(height: 24),
-          const Text('STONE COLOR', style: TextStyle(color: Color(0xffe0a94a), fontWeight: FontWeight.w800, letterSpacing: 2, fontSize: 12)),
-          const SizedBox(height: 12),
-          Wrap(spacing: 10, runSpacing: 10, children: [for (final p in goosiStonePalettes) _stoneSwatch(p)]),
-        ]),
+        padding: EdgeInsets.fromLTRB(
+            20, 18, 20, MediaQuery.viewInsetsOf(context).bottom + 24),
+        child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('BOARD WOOD',
+                  style: TextStyle(
+                      color: Color(0xffe0a94a),
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 2,
+                      fontSize: 12)),
+              const SizedBox(height: 12),
+              Wrap(spacing: 10, runSpacing: 10, children: [
+                for (final p in goosiBoardPalettes) _boardSwatch(p)
+              ]),
+              const SizedBox(height: 24),
+              const Text('STONE COLOR',
+                  style: TextStyle(
+                      color: Color(0xffe0a94a),
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 2,
+                      fontSize: 12)),
+              const SizedBox(height: 12),
+              Wrap(spacing: 10, runSpacing: 10, children: [
+                for (final p in goosiStonePalettes) _stoneSwatch(p)
+              ]),
+            ]),
       ),
     );
   }
@@ -1473,7 +1794,9 @@ class _GoosiThemeSheet extends StatelessWidget {
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: selected ? const Color(0xffe0a94a) : Colors.white24, width: selected ? 2 : 1),
+          border: Border.all(
+              color: selected ? const Color(0xffe0a94a) : Colors.white24,
+              width: selected ? 2 : 1),
         ),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           ClipRRect(
@@ -1490,7 +1813,9 @@ class _GoosiThemeSheet extends StatelessWidget {
                   color: p.bowl,
                   // The metal collar is the thing that tells the lacquered
                   // and brass boards apart at swatch size.
-                  border: p.ring != null ? Border.all(color: p.ring!, width: 2) : null,
+                  border: p.ring != null
+                      ? Border.all(color: p.ring!, width: 2)
+                      : null,
                 ),
               ),
             ),
@@ -1498,11 +1823,15 @@ class _GoosiThemeSheet extends StatelessWidget {
           const SizedBox(height: 6),
           Text(p.label,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w700)),
+              style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700)),
           const SizedBox(height: 2),
           Text(p.blurb,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white38, fontSize: 8.5, height: 1.25)),
+              style: const TextStyle(
+                  color: Colors.white38, fontSize: 8.5, height: 1.25)),
         ]),
       ),
     );
@@ -1518,7 +1847,9 @@ class _GoosiThemeSheet extends StatelessWidget {
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: selected ? const Color(0xffe0a94a) : Colors.white24, width: selected ? 2 : 1),
+          border: Border.all(
+              color: selected ? const Color(0xffe0a94a) : Colors.white24,
+              width: selected ? 2 : 1),
         ),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Container(
@@ -1535,7 +1866,12 @@ class _GoosiThemeSheet extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          Text(p.label, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w700)),
+          Text(p.label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700)),
         ]),
       ),
     );

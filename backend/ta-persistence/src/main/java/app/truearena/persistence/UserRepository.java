@@ -22,6 +22,12 @@ public interface UserRepository extends ReactiveCrudRepository<UserRow, UUID> {
 
     Mono<Boolean> existsByUsername(String username);
 
+    @Query("SELECT EXISTS (SELECT 1 FROM users WHERE lower(username) = lower(:username))")
+    Mono<Boolean> existsByUsernameIgnoreCase(String username);
+
+    @Query("SELECT EXISTS (SELECT 1 FROM users WHERE lower(username) = lower(:username) AND id <> :userId)")
+    Mono<Boolean> existsByUsernameIgnoreCaseForOtherUser(String username, UUID userId);
+
     /**
      * A player's saved Cyber Agents for one game, oldest first — the list
      * behind "add an agent you already made" (see {@code BotService}). An

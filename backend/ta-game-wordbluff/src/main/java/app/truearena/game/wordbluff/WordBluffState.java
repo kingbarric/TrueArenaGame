@@ -43,6 +43,7 @@ public final class WordBluffState implements GameState {
     final int describerIndexA;
     final int describerIndexB;
     final Category currentCategory; // null = no pending spin this word
+    final boolean clockStarted;
     final String currentWord; // null = not yet revealed (or already resolved)
     final Set<String> usedWords;
     /** This turn's words so far — cleared when the next turn starts. */
@@ -68,6 +69,7 @@ public final class WordBluffState implements GameState {
         this.describerIndexA = d.describerIndexA;
         this.describerIndexB = d.describerIndexB;
         this.currentCategory = d.currentCategory;
+        this.clockStarted = d.clockStarted;
         this.currentWord = d.currentWord;
         this.usedWords = Set.copyOf(d.usedWords);
         this.turnAttempts = List.copyOf(d.turnAttempts);
@@ -123,6 +125,7 @@ public final class WordBluffState implements GameState {
         int describerIndexA;
         int describerIndexB;
         Category currentCategory;
+        boolean clockStarted;
         String currentWord;
         Set<String> usedWords = new LinkedHashSet<>();
         List<Attempt> turnAttempts = new ArrayList<>();
@@ -149,6 +152,7 @@ public final class WordBluffState implements GameState {
             this.describerIndexA = s.describerIndexA;
             this.describerIndexB = s.describerIndexB;
             this.currentCategory = s.currentCategory;
+            this.clockStarted = s.clockStarted;
             this.currentWord = s.currentWord;
             this.usedWords = new LinkedHashSet<>(s.usedWords);
             this.turnAttempts = new ArrayList<>(s.turnAttempts);

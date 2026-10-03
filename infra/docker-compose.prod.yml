@@ -4,7 +4,8 @@
 # Required on the deploy host before the first run:
 #   - a `.env` file (or exported shell env) next to this file providing:
 #       BACKEND_IMAGE       e.g. ghcr.io/<owner>/<repo>-backend:latest
-#       DB_PASSWORD, JWT_SECRET, LIVEKIT_API_KEY, LIVEKIT_API_SECRET
+#       DB_PASSWORD, JWT_SECRET, LIVEKIT_API_KEY, LIVEKIT_API_SECRET,
+#       BREVO_API_KEY (to send email verification codes)
 #     (no dev defaults are baked in here on purpose — see docker-compose.yml
 #     for the dev-only version with placeholder secrets)
 #   - `docker login ghcr.io` once, so `docker compose pull` can read the image
@@ -76,9 +77,33 @@ services:
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:?set LIVEKIT_API_KEY}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:?set LIVEKIT_API_SECRET}
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?set GOOGLE_CLIENT_ID to the Google Web OAuth client ID}
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
+      # Public Web OAuth client ID; override when using a different Google project.
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-26187322342-o2squi475tmt3ubs8k9rh2d2b7pfivgf.apps.googleusercontent.com}
+      # Shared secret for the /notvisible/analytics admin dashboard (X-Admin-Key header).
+      ADMIN_API_KEY: ${ADMIN_API_KEY:?set ADMIN_API_KEY}
     ports: ["8080:8080"]
+
+  # Reverse proxy + automatic Let's Encrypt. Needs DOMAIN set to a real hostname that
+  # resolves to this host (a bare IP can't get a Let's Encrypt cert) — see Caddyfile.prod.
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on: [backend, livekit]
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN to a real hostname that resolves to this host}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8443:8443" # LiveKit signaling over wss:// — see Caddyfile.prod
+    volumes:
+      - ./Caddyfile.prod:/etc/caddy/Caddyfile:ro
+      - ../website:/srv/playhuud:ro
+      - caddy_data:/data
+      - caddy_config:/config
 
 volumes:
   pgdata:
   redisdata:
+  caddy_data:
+  caddy_config:

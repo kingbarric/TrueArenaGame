@@ -44,6 +44,7 @@ public final class DraughtsState implements GameState {
     final List<GameEvent> events;
     final long seq;
     final WinResult win;
+    final String pendingDrawOffer;
 
     private DraughtsState(Draft d) {
         this.phase = d.phase;
@@ -59,6 +60,7 @@ public final class DraughtsState implements GameState {
         this.events = List.copyOf(d.events);
         this.seq = d.seq;
         this.win = d.win;
+        this.pendingDrawOffer = d.pendingDrawOffer;
     }
 
     @Override public String phase() { return phase; }
@@ -112,6 +114,7 @@ public final class DraughtsState implements GameState {
         List<GameEvent> events = new ArrayList<>();
         long seq;
         WinResult win;
+        String pendingDrawOffer;
 
         Draft() {
         }
@@ -130,6 +133,7 @@ public final class DraughtsState implements GameState {
             this.events = new ArrayList<>(s.events);
             this.seq = s.seq;
             this.win = s.win;
+            this.pendingDrawOffer = s.pendingDrawOffer;
         }
 
         DraughtsState build() {

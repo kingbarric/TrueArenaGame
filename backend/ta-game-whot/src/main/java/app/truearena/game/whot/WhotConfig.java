@@ -27,8 +27,25 @@ public record WhotConfig(
         boolean pickTwoStacking,
         boolean generalMarket,
         boolean holdOn,
-        boolean suspension
+        boolean suspension,
+        String mode,
+        String tellRule,
+        int tellMinCards
 ) implements GameSettings {
+
+    public WhotConfig(int turnSeconds, int startingHand, boolean includeWhot,
+                      boolean pickTwo, boolean pickTwoStacking, boolean generalMarket,
+                      boolean holdOn, boolean suspension) {
+        this(turnSeconds, startingHand, includeWhot, pickTwo, pickTwoStacking,
+                generalMarket, holdOn, suspension, "classic", "either", 3);
+    }
+
+    public WhotConfig(int turnSeconds, int startingHand, boolean includeWhot,
+                      boolean pickTwo, boolean pickTwoStacking, boolean generalMarket,
+                      boolean holdOn, boolean suspension, String mode) {
+        this(turnSeconds, startingHand, includeWhot, pickTwo, pickTwoStacking,
+                generalMarket, holdOn, suspension, mode, "either", 3);
+    }
 
     public WhotConfig {
         if (turnSeconds < 10 || turnSeconds > 300) {
@@ -37,9 +54,20 @@ public record WhotConfig(
         if (startingHand < 3 || startingHand > 12) {
             throw new IllegalArgumentException("startingHand out of range: " + startingHand);
         }
+        if (!"classic".equals(mode) && !"tell".equals(mode)) {
+            throw new IllegalArgumentException("unknown Whot mode: " + mode);
+        }
+        if (!"either".equals(tellRule) && !"value".equals(tellRule) && !"shape".equals(tellRule)) {
+            throw new IllegalArgumentException("unknown Tell rule: " + tellRule);
+        }
+        if (tellMinCards < 2 || tellMinCards > 12) {
+            throw new IllegalArgumentException("Tell minimum must be 2 to 12 cards");
+        }
     }
 
+    public boolean tell() { return "tell".equals(mode); }
+
     public static WhotConfig defaults() {
-        return new WhotConfig(60, 5, true, true, true, true, true, true);
+        return new WhotConfig(60, 5, false, true, true, true, true, true);
     }
 }

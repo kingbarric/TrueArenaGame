@@ -15,7 +15,7 @@ class ApiException implements Exception {
 class ApiClient {
   ApiClient({http.Client? client}) : _http = client ?? http.Client();
 
-  static const base = String.fromEnvironment('API_BASE', defaultValue: 'http://localhost:8080');
+  static const base = String.fromEnvironment('API_BASE', defaultValue: 'https://vps-8030ec94.vps.ovh.net');
 
   final http.Client _http;
 

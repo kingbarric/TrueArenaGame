@@ -42,6 +42,7 @@ public final class WordBluffModule implements GameModule {
                 // Untimed on purpose: the review waits for both teams to
                 // sign off rather than running a clock over a disagreement.
                 Phase.untimed("Review"),
+                new Phase("Summary", 6),
                 Phase.untimed("Results")
         );
     }
@@ -89,11 +90,13 @@ public final class WordBluffModule implements GameModule {
 
         switch (action.type()) {
             case "SPIN" -> spin(d, s, action);
+            case "START_TURN_CLOCK" -> startTurnClock(d, s, action);
             case "REVEAL" -> reveal(d, s, action);
             case "MARK_CORRECT", "MARK" -> mark(d, s, action);
             case "SKIP" -> skip(d, s, action);
             case "REVIEW_TOGGLE" -> reviewToggle(d, s, action);
             case "REVIEW_ACCEPT" -> reviewAccept(d, s, action);
+            case "FORFEIT" -> forfeit(d, s, action);
             case "ADVANCE_PHASE" -> advance(d, d.phase);
             default -> throw new RuleViolation("UNKNOWN_ACTION", "no handler for " + action.type());
         }
@@ -126,6 +129,14 @@ public final class WordBluffModule implements GameModule {
         revealNextWord(d, a.actor());
     }
 
+    private void startTurnClock(WordBluffState.Draft d, WordBluffState s, PlayerAction a) {
+        require(d.phase.equals("Turn") && d.currentCategory != null, "WRONG_PHASE", "spin first");
+        require(a.actor().equals(s.currentDescriber()), "NOT_YOUR_TURN", "only the describer starts the clock");
+        require(!d.clockStarted, "ALREADY_STARTED", "the turn clock is already running");
+        d.clockStarted = true;
+        d.emit("TURN_CLOCK_STARTED", Map.of("seconds", d.config.turnSeconds()));
+    }
+
     /**
      * Puts the next word in front of the describer and the team marking
      * them — and nobody else.
@@ -147,6 +158,12 @@ public final class WordBluffModule implements GameModule {
         for (String marker : d.teamA.contains(describer) ? d.teamB : d.teamA) {
             d.emitToPlayer("WORD_REVEALED", payload, marker);
         }
+        // The describer's own teammates never see the word — guessing happens
+        // by voice, not through the app — but their screen still needs to know
+        // a word is live, or it's stuck showing "X is about to describe…" for
+        // the rest of the turn. Carries nothing sensitive, so it's fine as a
+        // public broadcast rather than one more per-player emit.
+        d.emit("WORD_ACTIVE", Map.of());
     }
 
     private void reveal(WordBluffState.Draft d, WordBluffState s, PlayerAction a) {
@@ -261,7 +278,7 @@ public final class WordBluffModule implements GameModule {
                 "correctSoFar", correctCount(d.turnAttempts)));
     }
 
-    /** One accept per team; the second one commits the turn. */
+    /** One accept per team; the second one starts a short score recap. */
     private void reviewAccept(WordBluffState.Draft d, WordBluffState s, PlayerAction a) {
         require(d.phase.equals("Review"), "WRONG_PHASE", "accepting is Review-only");
         String team = s.teamOfPlayer(a.actor());
@@ -271,7 +288,9 @@ public final class WordBluffModule implements GameModule {
         d.reviewAccepted.add(team);
         d.emit("REVIEW_ACCEPTED", Map.of("team", team, "by", a.actor(), "accepted", List.copyOf(d.reviewAccepted)));
         if (d.reviewAccepted.size() >= 2) {
-            commitReview(d);
+            d.phase = "Summary";
+            d.emit("REVIEW_FINALIZED", Map.of("scored", correctCount(d.turnAttempts),
+                    "attempted", d.turnAttempts.size()));
         }
     }
 
@@ -317,6 +336,7 @@ public final class WordBluffModule implements GameModule {
             // than stranding the turn — the timer must never deadlock a game
             // just because one side went quiet.
             case "Review" -> commitReview(d);
+            case "Summary" -> commitReview(d);
             case "Results" -> { /* terminal */ }
             default -> throw new RuleViolation("BAD_PHASE", "cannot advance from " + from);
         }
@@ -324,6 +344,7 @@ public final class WordBluffModule implements GameModule {
 
     private void startTurn(WordBluffState.Draft d) {
         d.currentCategory = null;
+        d.clockStarted = false;
         d.currentWord = null;
         d.turnAttempts.clear();
         d.reviewAccepted.clear();
@@ -396,6 +417,12 @@ public final class WordBluffModule implements GameModule {
                 "rounds", d.round));
     }
 
+    private void forfeit(WordBluffState.Draft d, WordBluffState s, PlayerAction action) {
+        String team = s.teamOfPlayer(action.actor());
+        require(team != null, "NOT_A_PLAYER", "only a player can forfeit");
+        finish(d, s.otherTeam(team));
+    }
+
     // ---------------------------------------------------------------- win + views
 
     @Override
@@ -432,6 +459,7 @@ public final class WordBluffModule implements GameModule {
         m.put("turnTeam", s.turnTeam);
         m.put("describer", s.currentDescriber());
         m.put("hasActiveCategory", s.currentCategory != null);
+        m.put("clockStarted", s.clockStarted);
         if (s.currentCategory != null) {
             m.put("category", s.currentCategory.slug());
         }

@@ -14,10 +14,10 @@ import '../../widgets/neon.dart';
 import '../game/game_screen.dart';
 
 /// The room before the game starts. For a signed-in host this creates a real
-/// ad-hoc room via POST /api/v1/rooms; as soon as a real room exists this
+/// ad-hoc room via POST /api/v1/rooms; as soon as a real huud exists this
 /// opens the same `/ws/room/{id}` socket the game itself runs on, so the
 /// roster, ready-check and start button are all live (Phase 4). A guest or
-/// example view has no real room to attach to, so it stays a local mock.
+/// example view has no real huud to attach to, so it stays a local mock.
 class LobbyScreen extends StatefulWidget {
   const LobbyScreen({super.key, required this.preset, this.gameConfig});
   final ModePreset preset;
@@ -69,6 +69,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
       }) as Map<String, dynamic>;
       if (!mounted) return;
       final room = RoomView.fromJson(res);
+      await app.rememberActiveRoom(room.id);
       setState(() => _room = room);
       _connect(app, room.id);
     } on ApiException catch (e) {
@@ -232,7 +233,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
                 child: NeonCard(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('ROOM CODE',
+                    Text('HUUD CODE',
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute, letterSpacing: 2)),
                     const SizedBox(height: 4),
                     Text(room.code,
@@ -251,7 +252,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
               if (_example)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  child: Text('Example roster — sign in to host a real room.',
+                  child: Text('Example roster — sign in to host a real huud.',
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute)),
                 ),
               Expanded(
@@ -281,7 +282,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
   Widget _memberTile(RoomMember m, String hostId) {
     final n = context.neon;
     final isHost = m.userId == hostId || (m.userId == 'me' && _example);
-    final away = !m.connected;
+    final away = !m.isBot && !m.connected;
     final ringColor = away ? kCabinetInk : (m.ready ? n.jade : n.mute);
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -301,7 +302,8 @@ class _LobbyScreenState extends State<LobbyScreen> {
               ),
               child: Opacity(
                 opacity: away ? 0.4 : 1,
-                child: Avatar(m.nickname ?? '?', size: 60),
+                child: OnlineAvatar(m.nickname ?? '?', size: 60,
+                    online: m.isBot || m.connected),
               ),
             ),
             if (isHost)
@@ -422,7 +424,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
               child: NeonButton('Start', onPressed: () {
                 if (_example) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Guest games aren\'t connected to the live server yet — sign in with a phone to host a real game.')),
+                    const SnackBar(content: Text('Add an account to host a game.')),
                   );
                 } else {
                   _socket?.send('GAME_START');

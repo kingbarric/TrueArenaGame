@@ -1,8 +1,10 @@
 package app.truearena.api.room;
 
 import app.truearena.api.auth.JwtService;
+import app.truearena.api.bot.BotRuntimeRegistry;
 import app.truearena.api.coins.CoinService;
 import app.truearena.api.inbox.InboxRegistry;
+import app.truearena.api.ws.GameOrchestrator;
 import app.truearena.persistence.FriendRepository;
 import app.truearena.persistence.FriendRow;
 import app.truearena.persistence.RoomMemberRepository;
@@ -51,7 +53,10 @@ class RoomServiceTest {
     private final FriendRepository friends = mock(FriendRepository.class);
     private final RoomRuntimeRegistry runtimes = mock(RoomRuntimeRegistry.class);
     private final CoinService coins = mock(CoinService.class);
-    private final RoomService service = new RoomService(rooms, members, users, jwt, inbox, friends, runtimes, coins);
+    private final BotRuntimeRegistry botRuntimes = mock(BotRuntimeRegistry.class);
+    private final GameOrchestrator games = mock(GameOrchestrator.class);
+    private final RoomService service = new RoomService(rooms, members, users, jwt, inbox, friends, runtimes, coins,
+            botRuntimes, games);
 
     private UserRow realUser(UUID id) {
         return new UserRow(id, "Player", null, null, null, "player", false, null, false, null, null, null, null, null);
@@ -209,6 +214,21 @@ class RoomServiceTest {
     }
 
     @Test
+    void join_rejectsAFifthLudoSeat() {
+        UUID roomId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        RoomRow ludo = new RoomRow(roomId, "ABCDEF", null, UUID.randomUUID(),
+                "lobby", "ludo", 0, null, Instant.now());
+        when(rooms.findByCode("ABCDEF")).thenReturn(Mono.just(ludo));
+        when(members.findByRoomIdAndUserId(roomId, userId)).thenReturn(Mono.empty());
+        when(members.countByRoomId(roomId)).thenReturn(Mono.just(4L));
+
+        StepVerifier.create(service.join("abcdef", userId, "nick"))
+                .expectErrorMatches(e -> e instanceof ResponseStatusException rse && rse.getStatusCode().value() == 409)
+                .verify();
+    }
+
+    @Test
     void join_addsAMembershipForANewJoiner() {
         UUID roomId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
@@ -245,6 +265,7 @@ class RoomServiceTest {
         UUID hostId = UUID.randomUUID();
         when(rooms.findById(roomId)).thenReturn(Mono.just(room(roomId, hostId, 0)));
         when(runtimes.find(roomId)).thenReturn(Optional.empty());
+        when(members.findByRoomId(roomId)).thenReturn(Flux.empty());
         when(members.deleteByRoomId(roomId)).thenReturn(Mono.empty());
         when(rooms.deleteById(roomId)).thenReturn(Mono.empty());
 
@@ -260,12 +281,189 @@ class RoomServiceTest {
         when(rooms.findById(roomId)).thenReturn(Mono.just(room(roomId, hostId, 0)));
         RoomRuntime rt = new RoomRuntime(roomId, hostId.toString()); // never .start()ed -> started() == false
         when(runtimes.find(roomId)).thenReturn(Optional.of(rt));
+        when(members.findByRoomId(roomId)).thenReturn(Flux.empty());
         when(members.deleteByRoomId(roomId)).thenReturn(Mono.empty());
         when(rooms.deleteById(roomId)).thenReturn(Mono.empty());
 
         StepVerifier.create(service.abandon(roomId, hostId)).verifyComplete();
 
         verify(rooms).deleteById(roomId);
+    }
+
+    @Test
+    void abandon_releasesAgentsInAnUnstakedLobby() {
+        UUID roomId = UUID.randomUUID();
+        UUID hostId = UUID.randomUUID();
+        UUID agentId = UUID.randomUUID();
+        when(rooms.findById(roomId)).thenReturn(Mono.just(room(roomId, hostId, 0)));
+        when(runtimes.find(roomId)).thenReturn(Optional.empty());
+        when(members.findByRoomId(roomId)).thenReturn(Flux.just(
+                RoomMemberRow.of(roomId, hostId, null), RoomMemberRow.of(roomId, agentId, "Agent")));
+        when(members.deleteByRoomId(roomId)).thenReturn(Mono.empty());
+        when(rooms.deleteById(roomId)).thenReturn(Mono.empty());
+
+        StepVerifier.create(service.abandon(roomId, hostId)).verifyComplete();
+
+        verify(botRuntimes).stop(agentId);
+        verify(runtimes).remove(roomId);
+    }
+
+    @Test
+    void leaveBotDraughtsRoom_forfeitsAndReleasesOwnedAgent() {
+        UUID roomId = UUID.randomUUID();
+        UUID hostId = UUID.randomUUID();
+        UUID agentId = UUID.randomUUID();
+        RoomRow room = new RoomRow(roomId, "ABCDEF", null, hostId, "in_game", "draughts", 0, null, Instant.now());
+        UserRow agent = new UserRow(agentId, "Agent", null, null, null, "agent", false, null,
+                true, hostId, "all", "easy", null, Instant.now());
+        when(rooms.findById(roomId)).thenReturn(Mono.just(room));
+        when(members.findByRoomId(roomId)).thenReturn(Flux.just(
+                RoomMemberRow.of(roomId, hostId, null), RoomMemberRow.of(roomId, agentId, "Agent")));
+        when(users.findById(agentId)).thenReturn(Mono.just(agent));
+        when(games.forfeitBotDraughtsRoom(roomId, hostId)).thenReturn(Mono.just(true));
+        when(runtimes.find(roomId)).thenReturn(Optional.empty());
+
+        StepVerifier.create(service.leaveBotDraughtsRoom(roomId, hostId))
+                .expectNext(true).verifyComplete();
+
+        verify(games).forfeitBotDraughtsRoom(roomId, hostId);
+        verify(botRuntimes).stop(agentId);
+        verify(runtimes).remove(roomId);
+    }
+
+    @Test
+    void leaveBotDraughtsRoom_endsAnOldGameWhoseRuntimeWasLost() {
+        UUID roomId = UUID.randomUUID();
+        UUID hostId = UUID.randomUUID();
+        UUID agentId = UUID.randomUUID();
+        RoomRow room = new RoomRow(roomId, "ABCDEF", null, hostId, "in_game", "draughts", 0, null, Instant.now());
+        UserRow agent = new UserRow(agentId, "Agent", null, null, null, "agent", false, null,
+                true, hostId, "all", "easy", null, Instant.now());
+        when(rooms.findById(roomId)).thenReturn(Mono.just(room));
+        when(members.findByRoomId(roomId)).thenReturn(Flux.just(
+                RoomMemberRow.of(roomId, hostId, null), RoomMemberRow.of(roomId, agentId, "Agent")));
+        when(users.findById(agentId)).thenReturn(Mono.just(agent));
+        when(games.forfeitBotDraughtsRoom(roomId, hostId)).thenReturn(Mono.just(false));
+        when(rooms.save(room.withStatus("ended"))).thenReturn(Mono.just(room.withStatus("ended")));
+        when(runtimes.find(roomId)).thenReturn(Optional.empty());
+
+        StepVerifier.create(service.leaveBotDraughtsRoom(roomId, hostId))
+                .expectNext(true).verifyComplete();
+
+        verify(rooms).save(room.withStatus("ended"));
+        verify(botRuntimes).stop(agentId);
+    }
+
+    @Test
+    void leaveBotDraughtsRoom_keepsHumanMatchAvailableToRejoin() {
+        UUID roomId = UUID.randomUUID();
+        UUID hostId = UUID.randomUUID();
+        UUID opponentId = UUID.randomUUID();
+        RoomRow room = new RoomRow(roomId, "ABCDEF", null, hostId, "in_game", "draughts", 0, null, Instant.now());
+        when(rooms.findById(roomId)).thenReturn(Mono.just(room));
+        when(members.findByRoomId(roomId)).thenReturn(Flux.just(
+                RoomMemberRow.of(roomId, hostId, null), RoomMemberRow.of(roomId, opponentId, null)));
+        when(users.findById(opponentId)).thenReturn(Mono.just(realUser(opponentId)));
+
+        StepVerifier.create(service.leaveBotDraughtsRoom(roomId, hostId))
+                .expectNext(false).verifyComplete();
+
+        verifyNoInteractions(games, botRuntimes);
+    }
+
+    @Test
+    void leaveBotWhotRoom_endsTableWithOnlyOwnedAgents() {
+        UUID roomId = UUID.randomUUID();
+        UUID hostId = UUID.randomUUID();
+        UUID firstAgent = UUID.randomUUID();
+        UUID secondAgent = UUID.randomUUID();
+        RoomRow room = new RoomRow(roomId, "ABCDEF", null, hostId, "in_game", "whot", 0, null, Instant.now());
+        when(rooms.findById(roomId)).thenReturn(Mono.just(room));
+        when(members.findByRoomId(roomId)).thenReturn(Flux.just(
+                RoomMemberRow.of(roomId, hostId, null),
+                RoomMemberRow.of(roomId, firstAgent, "Agent 1"),
+                RoomMemberRow.of(roomId, secondAgent, "Agent 2")));
+        when(users.findById(firstAgent)).thenReturn(Mono.just(new UserRow(firstAgent, "Agent 1", null,
+                null, null, "agent1", false, null, true, hostId, "all", "easy", null, Instant.now())));
+        when(users.findById(secondAgent)).thenReturn(Mono.just(new UserRow(secondAgent, "Agent 2", null,
+                null, null, "agent2", false, null, true, hostId, "all", "easy", null, Instant.now())));
+        when(games.forfeitBotWhotRoom(roomId, hostId)).thenReturn(Mono.just(true));
+        when(runtimes.find(roomId)).thenReturn(Optional.empty());
+
+        StepVerifier.create(service.leaveBotWhotRoom(roomId, hostId))
+                .expectNext(true).verifyComplete();
+
+        verify(games).forfeitBotWhotRoom(roomId, hostId);
+        verify(botRuntimes).stop(firstAgent);
+        verify(botRuntimes).stop(secondAgent);
+    }
+
+    @Test
+    void leaveBotWhotRoom_keepsTableWithHumanOpponent() {
+        UUID roomId = UUID.randomUUID();
+        UUID hostId = UUID.randomUUID();
+        UUID humanId = UUID.randomUUID();
+        RoomRow room = new RoomRow(roomId, "ABCDEF", null, hostId, "in_game", "whot", 0, null, Instant.now());
+        when(rooms.findById(roomId)).thenReturn(Mono.just(room));
+        when(members.findByRoomId(roomId)).thenReturn(Flux.just(
+                RoomMemberRow.of(roomId, hostId, null), RoomMemberRow.of(roomId, humanId, null)));
+        when(users.findById(humanId)).thenReturn(Mono.just(realUser(humanId)));
+
+        StepVerifier.create(service.leaveBotWhotRoom(roomId, hostId))
+                .expectNext(false).verifyComplete();
+
+        verifyNoInteractions(games, botRuntimes);
+    }
+
+    @Test
+    void leaveBotWhotRoom_releasesAgentFromOldRuntimeLostRoom() {
+        UUID roomId = UUID.randomUUID();
+        UUID hostId = UUID.randomUUID();
+        UUID agentId = UUID.randomUUID();
+        RoomRow room = new RoomRow(roomId, "ABCDEF", null, hostId, "in_game", "whot", 0, null, Instant.now());
+        when(rooms.findById(roomId)).thenReturn(Mono.just(room));
+        when(members.findByRoomId(roomId)).thenReturn(Flux.just(
+                RoomMemberRow.of(roomId, hostId, null), RoomMemberRow.of(roomId, agentId, "Agent")));
+        when(users.findById(agentId)).thenReturn(Mono.just(new UserRow(agentId, "Agent", null,
+                null, null, "agent", false, null, true, hostId, "all", "easy", null, Instant.now())));
+        when(games.forfeitBotWhotRoom(roomId, hostId)).thenReturn(Mono.just(false));
+        when(rooms.save(room.withStatus("ended"))).thenReturn(Mono.just(room.withStatus("ended")));
+        when(runtimes.find(roomId)).thenReturn(Optional.empty());
+
+        StepVerifier.create(service.leaveBotWhotRoom(roomId, hostId))
+                .expectNext(true).verifyComplete();
+
+        verify(rooms).save(room.withStatus("ended"));
+        verify(botRuntimes).stop(agentId);
+    }
+
+    @Test
+    void leaveBotLudoRoom_closesThreeSeatTableAfterHostForfeits() {
+        UUID roomId = UUID.randomUUID();
+        UUID hostId = UUID.randomUUID();
+        UUID firstAgent = UUID.randomUUID();
+        UUID secondAgent = UUID.randomUUID();
+        RoomRow room = new RoomRow(roomId, "ABCDEF", null, hostId, "in_game", "ludo", 0, null, Instant.now());
+        when(rooms.findById(roomId)).thenReturn(Mono.just(room));
+        when(members.findByRoomId(roomId)).thenReturn(Flux.just(
+                RoomMemberRow.of(roomId, hostId, null), RoomMemberRow.of(roomId, firstAgent, "A"),
+                RoomMemberRow.of(roomId, secondAgent, "B")));
+        when(users.findById(firstAgent)).thenReturn(Mono.just(new UserRow(firstAgent, "A", null,
+                null, null, "agent-a", false, null, true, hostId, "all", "easy", null, Instant.now())));
+        when(users.findById(secondAgent)).thenReturn(Mono.just(new UserRow(secondAgent, "B", null,
+                null, null, "agent-b", false, null, true, hostId, "all", "easy", null, Instant.now())));
+        when(games.forfeitLudoRoom(roomId, hostId)).thenReturn(Mono.just(true));
+        RoomRuntime runtime = mock(RoomRuntime.class);
+        when(runtime.state()).thenReturn(new app.truearena.game.ludo.LudoModule().initialState(
+                List.of(hostId.toString(), firstAgent.toString(), secondAgent.toString()),
+                app.truearena.game.ludo.LudoConfig.defaults(), app.truearena.engine.RandomSource.seeded(1)));
+        when(runtimes.find(roomId)).thenReturn(Optional.of(runtime));
+        when(rooms.save(room.withStatus("ended"))).thenReturn(Mono.just(room.withStatus("ended")));
+
+        StepVerifier.create(service.leaveBotLudoRoom(roomId, hostId)).expectNext(true).verifyComplete();
+        verify(rooms).save(room.withStatus("ended"));
+        verify(botRuntimes).stop(firstAgent);
+        verify(botRuntimes).stop(secondAgent);
     }
 
     @Test

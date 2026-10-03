@@ -31,6 +31,8 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
 
+import java.util.Base64;
+
 @RestController
 @RequestMapping("/api/v1")
 @Tag(name = "user")
@@ -79,8 +81,10 @@ public class MeController {
         return currentUser().flatMap(u -> {
             Mono<String> nextUsername = body.username() == null || body.username().isBlank()
                     ? Mono.just(u.username())
-                    : (body.username().equals(u.username()) ? Mono.just(u.username()) : usernames.resolve(body.username()));
-            return nextUsername.flatMap(username -> users.save(u.withProfile(username, body.avatarEmoji())));
+                    : (body.username().equals(u.username()) ? Mono.just(u.username()) : usernames.resolveForUser(body.username(), u.id()));
+            String avatar = body.avatarImageData() != null
+                    ? validatedAvatar(body.avatarImageData()) : body.avatarEmoji();
+            return nextUsername.flatMap(username -> users.save(u.withProfile(username, avatar)));
         }).map(this::view);
     }
 
@@ -115,6 +119,26 @@ public class MeController {
 
     private UserView view(UserRow u) {
         return new UserView(u.id(), u.displayName(), u.username(), u.phone(), u.email(), u.avatarUrl(), u.isGuest());
+    }
+
+    private String validatedAvatar(String data) {
+        String[] parts = data.split(",", 2);
+        if (parts.length != 2 || !parts[0].matches("data:image/(jpeg|png|webp);base64")) {
+            throw ApiExceptions.badRequest("profile photo must be a JPEG, PNG or WebP image");
+        }
+        try {
+            byte[] bytes = Base64.getDecoder().decode(parts[1]);
+            if (bytes.length == 0 || bytes.length > 110_000) {
+                throw ApiExceptions.badRequest("profile photo is too large");
+            }
+            boolean jpeg = bytes.length > 2 && (bytes[0] & 0xff) == 0xff && (bytes[1] & 0xff) == 0xd8;
+            boolean png = bytes.length > 7 && bytes[0] == (byte) 0x89 && bytes[1] == 'P' && bytes[2] == 'N' && bytes[3] == 'G';
+            boolean webp = bytes.length > 11 && bytes[0] == 'R' && bytes[1] == 'I' && bytes[8] == 'W' && bytes[9] == 'E';
+            if (!(jpeg || png || webp)) throw ApiExceptions.badRequest("unsupported profile photo");
+        } catch (IllegalArgumentException error) {
+            throw ApiExceptions.badRequest("invalid profile photo");
+        }
+        return data;
     }
 
     private StatsView view(PlayerStatsRow r) {

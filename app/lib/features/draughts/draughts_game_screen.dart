@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/game_socket.dart';
@@ -10,9 +11,12 @@ import '../../core/app_state.dart';
 import '../../core/game_music.dart';
 import '../../core/game_sfx.dart';
 import '../../widgets/fireworks.dart';
+import '../../widgets/how_to_play_dialog.dart';
 import '../../widgets/neon.dart';
 import '../../widgets/table_chat.dart';
+import '../../widgets/game_voice_control.dart';
 import '../shell/main_shell.dart';
+import '../status/victory_status.dart';
 import '../onboarding/guest_save_session_card.dart';
 import 'draughts_rules.dart';
 import 'draughts_theme.dart';
@@ -31,18 +35,24 @@ import 'draughts_theme.dart';
 /// produce a wrong outcome, yet it can refuse a legal tap, which is how a
 /// turn once froze until its timer ran out.
 ///
-/// Interaction model is deliberately two-step: tapping a piece never reveals
-/// its destinations up front. Tapping a legal square *arms* it (a highlight,
-/// nothing sent yet); tapping that same square again commits the move.
-/// Tapping an illegal square is a no-op. A double-tap on a legal square
-/// commits in one gesture, skipping the arm step, for players who already
-/// know their move.
+/// Tapping a piece selects it without marking every possible destination.
+/// Tapping a legal square arms that one square; tapping it again commits.
+/// A double tap or dragging the piece onto a legal square commits a complete
+/// move in one gesture.
 class DraughtsGameScreen extends StatefulWidget {
-  const DraughtsGameScreen({super.key, required this.socket, required this.selfId, required this.nicknames});
+  const DraughtsGameScreen(
+      {super.key,
+      required this.socket,
+      required this.selfId,
+      required this.nicknames,
+      this.championshipId,
+      this.tournamentSpectator = false});
 
   final GameSocket socket;
   final String selfId;
   final Map<String, String> nicknames;
+  final String? championshipId;
+  final bool tournamentSpectator;
 
   @override
   State<DraughtsGameScreen> createState() => _DraughtsGameScreenState();
@@ -56,7 +66,16 @@ class _Piece {
   final int id;
   int square;
   String type;
-  bool capturing = false;
+}
+
+class _CapturedPiece {
+  const _CapturedPiece(this.id, this.square, this.type,
+      {required this.animate});
+  final int id;
+  final int square;
+  final String type;
+  final bool animate;
+  String get side => type.startsWith('A') ? 'A' : 'B';
 }
 
 class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
@@ -65,6 +84,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
 
   StreamSubscription? _sub;
   Timer? _ticker;
+  Timer? _reconnectTicker;
 
   String phase = 'TurnA';
   int round = 1;
@@ -85,13 +105,19 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
   final TextEditingController _chatController = TextEditingController();
 
   int? _selected;
+  int? _dragOrigin;
+  Offset? _dragPosition;
+  String? _dragPieceType;
+
   /// Landing squares chosen but not yet sent, in order — one box for an
   /// ordinary move, the whole jump sequence for a multiple capture.
   List<int> _chain = const [];
   bool _actionLocked = false;
 
   final List<_Piece> _pieces = [];
+  final List<_CapturedPiece> _capturedPieces = [];
   int _nextPieceId = 0;
+  int _nextCapturedId = 0;
 
   bool _micOn = false;
   bool _micNoticeShown = false;
@@ -99,16 +125,21 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
   bool _replaying = false;
 
   bool _paused = false;
+  String? _pendingDrawOffer;
+  String? _awayPlayer;
+  int? _reconnectSeconds;
+
   /// Seconds the current grace period will run for once resumed, from the
   /// server's TURN_GRACE event.
   int _graceSeconds = 0;
   bool _spectatorsMuted = false;
   int _spectatorCount = 0;
   bool _musicOn = GameMusic.enabled;
+  bool _leaving = false;
 
   /// Whether this room forces captures. Off is a house rule the host can
   /// pick when making the room — see DraughtsConfig.
-  bool _mandatoryCapture = true;
+  bool _mandatoryCapture = false;
   bool _sfxOn = GameSfx.enabled;
 
   DraughtsThemeController? _theme;
@@ -136,6 +167,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
     _sub?.cancel();
     widget.socket.close();
     _ticker?.cancel();
+    _reconnectTicker?.cancel();
     _theme?.removeListener(_onThemeChanged);
     _chatController.dispose();
     GameMusic.stop();
@@ -145,9 +177,12 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
   /// The Grace phases ("GraceA1", "GraceA2", ...) are still that side's
   /// turn — the whole point of a grace period is that you can still play in
   /// it. Mirrors `DraughtsState.turnSide` on the server.
-  String get turnSide => (phase.startsWith('TurnA') || phase.startsWith('GraceA')) ? 'A' : 'B';
+  String get turnSide =>
+      (phase.startsWith('TurnA') || phase.startsWith('GraceA')) ? 'A' : 'B';
   String get mySide => widget.selfId == playerA ? 'A' : 'B';
-  bool get myTurn => turnSide == mySide && (phase.startsWith('Turn') || phase.startsWith('Grace'));
+  bool get myTurn =>
+      turnSide == mySide &&
+      (phase.startsWith('Turn') || phase.startsWith('Grace'));
 
   /// True once the clock has run out at least once this turn — the room is
   /// paused and someone has to resume to start the shorter countdown.
@@ -156,7 +191,8 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
   /// The last chance: resuming starts a countdown that forfeits the game.
   bool get _lastChance => phase.endsWith('2') && _inGrace;
   bool get finished => phase == 'Results';
-  String label(String id) => widget.nicknames[id] ?? (id.length > 6 ? id.substring(0, 6) : id);
+  String label(String id) =>
+      widget.nicknames[id] ?? (id.length > 6 ? id.substring(0, 6) : id);
 
   /// How many pieces this turn's capture sequence must take in total, and
   /// how many of them have been taken so far.
@@ -184,10 +220,14 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
   List<int> _destinationsFrom(int from) {
     final server = _serverLegal;
     if (server != null) return server[from] ?? const <int>[];
-    if (_remainingRequired > 0) return legalDestinationsFrom(board, from, _remainingRequired);
+    if (_remainingRequired > 0) {
+      return legalDestinationsFrom(board, from, _remainingRequired);
+    }
     final open = List<int>.of(simpleLandings(board, from));
     // With captures optional, a jump is simply one more move on offer.
-    if (!_mandatoryCapture) open.addAll(captureLandings(board, from).map((l) => l.to));
+    if (!_mandatoryCapture) {
+      open.addAll(captureLandings(board, from).map((l) => l.to));
+    }
     return open;
   }
 
@@ -202,7 +242,8 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
     var b = board;
     var head = origin;
     for (final to in _chain) {
-      final landings = captureLandings(b, head).where((l) => l.to == to).toList();
+      final landings =
+          captureLandings(b, head).where((l) => l.to == to).toList();
       if (landings.isNotEmpty) {
         b = applyCaptureTo(b, head, landings.first);
       } else if (simpleLandings(b, head).contains(to)) {
@@ -249,7 +290,9 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
     // First jump: the server already published exactly what it will accept.
     if (_chain.isEmpty) return _destinationsFrom(head);
     return captureLandings(b, head)
-        .where((l) => 1 + maxCaptureCount(applyCaptureTo(b, head, l), l.to) == _chainRemaining)
+        .where((l) =>
+            1 + maxCaptureCount(applyCaptureTo(b, head, l), l.to) ==
+            _chainRemaining)
         .map((l) => l.to)
         .toList();
   }
@@ -290,11 +333,15 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
       case 'EVENT':
         _applyEvent((env['payload'] as Map).cast<String, dynamic>());
       case 'ERROR':
-        final msg = (env['payload'] as Map)['message']?.toString() ?? 'something went wrong';
+        final msg = (env['payload'] as Map)['message']?.toString() ??
+            'something went wrong';
         _actionLocked = false;
         _selected = null;
         _chain = const [];
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(msg)));
+        }
     }
   }
 
@@ -308,6 +355,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
       if (rawBoard != null) {
         board = rawBoard.map((e) => e as String?).toList();
         _rebuildPiecesFromBoard(); // a fresh snapshot is a hard reset — nothing to animate from
+        _syncCapturedFromBoard();
       }
       activeSquare = p['activeSquare'] as int?;
       // The server publishes the legal destinations it will actually accept.
@@ -318,7 +366,9 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
           ? null
           : {
               for (final e in rawLegal.entries)
-                int.parse(e.key as String): ((e.value as List?) ?? const []).map((v) => v as int).toList(),
+                int.parse(e.key as String): ((e.value as List?) ?? const [])
+                    .map((v) => v as int)
+                    .toList(),
             };
       _turnRequired = requiredCaptureCount(board, turnSide);
       _capturedSoFar = 0;
@@ -328,6 +378,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
       _spectatorsMuted = p['spectatorsMuted'] as bool? ?? _spectatorsMuted;
       _spectatorCount = p['spectatorCount'] as int? ?? _spectatorCount;
       _mandatoryCapture = p['mandatoryCapture'] as bool? ?? _mandatoryCapture;
+      _pendingDrawOffer = p['pendingDrawOffer'] as String?;
     });
   }
 
@@ -339,9 +390,35 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
     }
   }
 
+  void _syncCapturedFromBoard() {
+    // A reconnect supplies only the current board. Restore the missing
+    // pieces to the trays without replaying capture animations.
+    for (final side in ['A', 'B']) {
+      final remaining =
+          board.where((piece) => piece?.startsWith(side) ?? false).length;
+      final missing = (20 - remaining).clamp(0, 20);
+      var shown = _capturedPieces.where((piece) => piece.side == side).length;
+      while (shown < missing) {
+        _capturedPieces.add(_CapturedPiece(_nextCapturedId++, 0, '${side}_MAN',
+            animate: false));
+        shown++;
+      }
+      if (shown > missing) {
+        for (var i = _capturedPieces.length - 1;
+            i >= 0 && shown > missing;
+            i--) {
+          if (_capturedPieces[i].side == side) {
+            _capturedPieces.removeAt(i);
+            shown--;
+          }
+        }
+      }
+    }
+  }
+
   _Piece? _pieceAt(int square) {
     for (final p in _pieces) {
-      if (p.square == square && !p.capturing) return p;
+      if (p.square == square) return p;
     }
     return null;
   }
@@ -401,7 +478,9 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
     if (text.isEmpty) return;
     final channel = data['channel']?.toString();
     final from = data['from']?.toString();
-    setState(() => feed.insert(0, TableChatLine(
+    setState(() => feed.insert(
+        0,
+        TableChatLine(
           who: from == null ? 'Cyber Agent' : label(from),
           text: text,
           isAgent: channel == 'agent',
@@ -417,13 +496,15 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
   void _sendChat() {
     final text = _chatController.text.trim();
     if (text.isEmpty) return;
-    widget.socket.send('CHAT_SEND', {'channel': _amSpectator ? 'spectate' : 'table', 'text': text});
+    widget.socket.send('CHAT_SEND',
+        {'channel': _amSpectator ? 'spectate' : 'table', 'text': text});
     _chatController.clear();
   }
 
   void _applyEvent(Map<String, dynamic> payload) {
     final type = payload['type'] as String;
-    final data = ((payload['data'] as Map?) ?? const {}).cast<String, dynamic>();
+    final data =
+        ((payload['data'] as Map?) ?? const {}).cast<String, dynamic>();
     if (type == 'CHAT_MESSAGE') {
       _onChat(data);
       return;
@@ -442,15 +523,18 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
           playerA = data['playerA'] as String;
           playerB = data['playerB'] as String;
           board = (data['board'] as List).map((e) => e as String?).toList();
+          _capturedPieces.clear();
           turnSeconds = data['turnSeconds'] as int? ?? turnSeconds;
           _rebuildPiecesFromBoard();
           _beginTurnFor(turnSide);
           _restartCountdown();
         case 'PIECE_MOVED':
+          _pendingDrawOffer = null;
           final from = data['from'] as int, to = data['to'] as int;
           board[to] = board[from];
           board[from] = null;
-          _pieceAt(from)?.square = to; // AnimatedPositioned interpolates to the new cell
+          _pieceAt(from)?.square =
+              to; // AnimatedPositioned interpolates to the new cell
           _lastMove = (from: from, to: to);
           _serverLegal = null; // the board has moved on past that snapshot
           GameSfx.move();
@@ -458,20 +542,24 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
           _selected = null;
           _chain = const [];
         case 'PIECE_CAPTURED':
-          final from = data['from'] as int, to = data['to'] as int, captured = data['captured'] as int;
+          _pendingDrawOffer = null;
+          final from = data['from'] as int,
+              to = data['to'] as int,
+              captured = data['captured'] as int;
+          final victim = _pieceAt(captured);
+          final victimType = victim?.type ?? board[captured];
           board[to] = board[from];
           board[from] = null;
           board[captured] = null;
           _pieceAt(from)?.square = to;
           _lastMove = (from: from, to: to);
-          final victim = _pieceAt(captured);
           if (victim != null) {
-            victim.capturing = true; // fades/shrinks out instead of just vanishing
-            final victimId = victim.id;
-            Future.delayed(_captureFadeDuration, () {
-              if (!mounted) return;
-              setState(() => _pieces.removeWhere((p) => p.id == victimId));
-            });
+            _pieces.remove(victim);
+          }
+          if (victimType != null) {
+            _capturedPieces.add(_CapturedPiece(
+                _nextCapturedId++, captured, victimType,
+                animate: true));
           }
           _capturedSoFar++;
           _serverLegal = null; // the board has moved on past that snapshot
@@ -481,7 +569,8 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
           } else {
             GameSfx.captured();
           }
-          activeSquare = to; // may be overridden back to null by a following TURN_STARTED
+          activeSquare =
+              to; // may be overridden back to null by a following TURN_STARTED
           _selected = to;
           _chain = const [];
         case 'PIECE_PROMOTED':
@@ -509,9 +598,35 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
           _piecesB = data['piecesB'] as int?;
           _ticker?.cancel();
           GameMusic.playOutcome(won: winningSide == mySide);
+        case 'DRAW_OFFERED':
+          _pendingDrawOffer = data['by']?.toString();
+        case 'RECONNECT_WAIT':
+          _applyReconnectWait(data);
       }
       final line = _describe(type, data);
       if (line != null) feed.insert(0, TableChatLine.system(line));
+    });
+  }
+
+  void _applyReconnectWait(Map<String, dynamic> data) {
+    _reconnectTicker?.cancel();
+    final missing =
+        (data['missing'] as List?)?.whereType<Map>().toList() ?? const [];
+    if (missing.isEmpty) {
+      _awayPlayer = null;
+      _reconnectSeconds = null;
+      return;
+    }
+    final selected = missing.firstWhere((m) => m['userId'] != widget.selfId,
+        orElse: () => missing.first);
+    _awayPlayer = selected['userId']?.toString();
+    _reconnectSeconds = (selected['secondsLeft'] as num?)?.toInt() ?? 0;
+    _reconnectTicker = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return timer.cancel();
+      setState(() {
+        _reconnectSeconds = (_reconnectSeconds! - 1).clamp(0, 180);
+        if (_reconnectSeconds == 0) timer.cancel();
+      });
     });
   }
 
@@ -528,7 +643,9 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
       case 'PIECE_PROMOTED':
         return '${label(_actorFor(data['side'] as String))} crowns a king!';
       case 'GAME_OVER':
-        return '${label(_actorFor(data['winningSide'] as String))} wins!';
+        return data['winningSide'] == 'draw'
+            ? 'Game drawn. The pairing will replay.'
+            : '${label(_actorFor(data['winningSide'] as String))} wins!';
       case 'GAME_PAUSED':
         return '${label(data['by']?.toString() ?? '')} paused the game.';
       case 'GAME_RESUMED':
@@ -595,7 +712,10 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
     }
 
     final piece = DraughtsPiece.parse(board[square]);
-    if (piece != null && piece.side == mySide && forced == null && _destinationsFrom(square).isNotEmpty) {
+    if (piece != null &&
+        piece.side == mySide &&
+        forced == null &&
+        _destinationsFrom(square).isNotEmpty) {
       GameSfx.select();
       setState(() {
         _selected = square;
@@ -614,7 +734,62 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
     if (_nextSteps().contains(square)) {
       setState(() => _chain = [..._chain, square]);
     }
-    if (_chain.isNotEmpty && _chain.last == square && _chainComplete) _commitChain();
+    if (_chain.isNotEmpty && _chain.last == square && _chainComplete) {
+      _commitChain();
+    }
+  }
+
+  int? _squareAt(Offset position, double cellSize, bool flipped) {
+    if (position.dx < 0 || position.dy < 0 || cellSize <= 0) return null;
+    final col = position.dx ~/ cellSize;
+    final displayRow = position.dy ~/ cellSize;
+    if (col >= 10 || displayRow >= 10) return null;
+    final row = flipped ? displayRow : 9 - displayRow;
+    return isPlayable(row, col) ? squareOf(row, col) : null;
+  }
+
+  void _startDrag(Offset position, double cellSize, bool flipped) {
+    final square = _squareAt(position, cellSize, flipped);
+    if (square == null || !myTurn || _actionLocked || _paused) return;
+    if (_selected != square) _tap(square);
+    if (_selected != square) return;
+    setState(() {
+      _dragOrigin = square;
+      _dragPosition = position;
+      _dragPieceType = board[square];
+    });
+  }
+
+  void _updateDrag(Offset position) {
+    if (_dragOrigin == null) return;
+    setState(() => _dragPosition = position);
+  }
+
+  void _endDrag(double cellSize, bool flipped) {
+    final origin = _dragOrigin;
+    final position = _dragPosition;
+    if (origin == null) return;
+    setState(() {
+      _dragOrigin = null;
+      _dragPosition = null;
+      _dragPieceType = null;
+    });
+    if (position == null) return;
+    final target = _squareAt(position, cellSize, flipped);
+    if (target == null || target == origin || !_nextSteps().contains(target)) {
+      return;
+    }
+    _tap(target);
+    if (_chainComplete) _commitChain();
+  }
+
+  void _cancelDrag() {
+    if (_dragOrigin == null) return;
+    setState(() {
+      _dragOrigin = null;
+      _dragPosition = null;
+      _dragPieceType = null;
+    });
   }
 
   /// Sends the chosen sequence one jump at a time — the wire protocol takes a
@@ -635,7 +810,10 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
       _clearSelection();
     });
     for (final (f, t) in jumps) {
-      widget.socket.send('PLAYER_ACTION', {'action': 'MOVE', 'data': {'from': f, 'to': t}});
+      widget.socket.send('PLAYER_ACTION', {
+        'action': 'MOVE',
+        'data': {'from': f, 'to': t}
+      });
     }
   }
 
@@ -648,7 +826,9 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
     if (_micOn && !_micNoticeShown) {
       _micNoticeShown = true;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Voice chat between players isn\'t connected yet — coming soon.')),
+        const SnackBar(
+            content: Text(
+                'Voice chat between players isn\'t connected yet — coming soon.')),
       );
     }
   }
@@ -678,6 +858,26 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
   /// staring at a frozen opponent who's still moving.
   void _togglePause() => widget.socket.send('PAUSE_TOGGLE');
 
+  void _showHelp() {
+    showHowToPlay(
+      context,
+      emoji: '🔴',
+      title: 'Draughts',
+      tagline: 'Classic checkers — capture your way across the board and crown '
+          'a king when you reach the far row.',
+      steps: [
+        'Tap your piece, then tap a legal box to mark it. Tap that box again or double tap it to move. You can also drag the piece onto a legal box.',
+        'Move a piece diagonally, one square forward, onto an empty square.',
+        _mandatoryCapture
+            ? "If you can jump over an opponent's piece, you must take the capture that wins the most pieces."
+            : "You can jump over an opponent's piece into an empty square, but taking is optional.",
+        'Chain multiple captures in one turn whenever another jump is available afterward.',
+        'Reach the far row and your piece is crowned a king — kings move and capture diagonally in any direction.',
+        'Win by capturing every opposing piece, or by leaving your opponent with no legal move.',
+      ],
+    );
+  }
+
   /// Resuming out of the final grace starts a countdown that ends the game,
   /// so it asks first — accepting and then not playing loses, which is
   /// exactly what the dialog says it will do.
@@ -699,8 +899,12 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
                   "If they don't move in time, the game ends.",
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Not yet')),
-          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Resume')),
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Not yet')),
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Resume')),
         ],
       ),
     );
@@ -712,30 +916,44 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
   /// presses Resume, which is what stops a grace being spent by the player
   /// who isn't there to use it.
   Widget _pauseOverlay() {
-    final (icon, title, body) = switch ((_inGrace, _lastChance, myTurn)) {
-      (false, _, _) => (Icons.pause_circle_filled_rounded, 'PAUSED', null),
-      (true, true, true) => (
-          Icons.warning_amber_rounded,
-          'LAST CHANCE',
-          "Resume and you'll have $_graceSeconds seconds to play, or you lose.",
-        ),
-      (true, true, false) => (
-          Icons.warning_amber_rounded,
-          'LAST CHANCE',
-          '${label(_actorFor(turnSide))} gets $_graceSeconds seconds once resumed.',
-        ),
-      (true, false, true) => (
-          Icons.timer_off_rounded,
-          "TIME'S UP",
-          'Resume for another $_graceSeconds seconds.',
-        ),
-      (true, false, false) => (
-          Icons.timer_off_rounded,
-          "TIME'S UP",
-          'Waiting for ${label(_actorFor(turnSide))} — $_graceSeconds seconds once resumed.',
-        ),
-    };
-    final accent = _lastChance ? const Color(0xffe0704a) : const Color(0xfff0d8a8);
+    final tournament = widget.championshipId != null;
+    final (icon, title, body) = tournament
+        ? (
+            Icons.wifi_off_rounded,
+            'RECONNECT WAIT',
+            _awayPlayer == null
+                ? 'Waiting for both players to connect.'
+                : '${label(_awayPlayer!)} has ${_reconnectSeconds ?? 0} seconds to return.'
+          )
+        : switch ((_inGrace, _lastChance, myTurn)) {
+            (false, _, _) => (
+                Icons.pause_circle_filled_rounded,
+                'PAUSED',
+                null
+              ),
+            (true, true, true) => (
+                Icons.warning_amber_rounded,
+                'LAST CHANCE',
+                "Resume and you'll have $_graceSeconds seconds to play, or you lose.",
+              ),
+            (true, true, false) => (
+                Icons.warning_amber_rounded,
+                'LAST CHANCE',
+                '${label(_actorFor(turnSide))} gets $_graceSeconds seconds once resumed.',
+              ),
+            (true, false, true) => (
+                Icons.timer_off_rounded,
+                "TIME'S UP",
+                'Resume for another $_graceSeconds seconds.',
+              ),
+            (true, false, false) => (
+                Icons.timer_off_rounded,
+                "TIME'S UP",
+                'Waiting for ${label(_actorFor(turnSide))} — $_graceSeconds seconds once resumed.',
+              ),
+          };
+    final accent =
+        _lastChance ? const Color(0xffe0704a) : const Color(0xfff0d8a8);
     return ClipRRect(
       borderRadius: BorderRadius.circular(10),
       child: BackdropFilter(
@@ -747,15 +965,20 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Icon(icon, color: accent, size: 46),
             const SizedBox(height: 10),
-            Text(title, style: TextStyle(color: accent, fontWeight: FontWeight.w800, letterSpacing: 3)),
+            Text(title,
+                style: TextStyle(
+                    color: accent,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 3)),
             if (body != null) ...[
               const SizedBox(height: 8),
               Text(body,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: Color(0xffc9b18c), fontSize: 12, height: 1.35)),
+                  style: const TextStyle(
+                      color: Color(0xffc9b18c), fontSize: 12, height: 1.35)),
             ],
             const SizedBox(height: 14),
-            NeonButton('Resume', onPressed: _resumeFromGrace),
+            if (!tournament) NeonButton('Resume', onPressed: _resumeFromGrace),
           ]),
         ),
       ),
@@ -799,18 +1022,52 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: const Color(0xff241708),
-        title: const Text('Leave the game?', style: TextStyle(color: Color(0xfff0d8a8))),
-        content: const Text('You can rejoin with the room code, but you\'ll stop receiving live updates until you do.',
-            style: TextStyle(color: Color(0xffc9b18c))),
+        title: const Text('Leave the game?',
+            style: TextStyle(color: Color(0xfff0d8a8))),
+        content: Text(
+            widget.championshipId == null
+                ? 'A game against your Cyber Agent will end and free the agent. Other games can be rejoined with the huud code.'
+                : 'You can reopen this pairing from the championship bracket.',
+            style: const TextStyle(color: Color(0xffc9b18c))),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Stay')),
-          TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Leave')),
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Stay')),
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Leave')),
         ],
       ),
     );
-    if (leave == true && mounted) {
+    if (leave == true && mounted && !_leaving) {
+      _leaving = true;
+      final app = AppScope.of(context);
+      if (widget.championshipId == null) {
+        try {
+          final endedBotGame = await app.api
+                  .post('/rooms/${widget.socket.roomId}/leave-draughts') ==
+              true;
+          if (endedBotGame || finished) {
+            await app.clearActiveRoom(widget.socket.roomId);
+          }
+        } catch (_) {
+          _leaving = false;
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Server error. Please try again.')),
+            );
+          }
+          return;
+        }
+      }
+      if (!mounted) return;
       widget.socket.close();
-      Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const MainShell()), (r) => false);
+      if (widget.championshipId != null) {
+        Navigator.of(context).pop();
+      } else {
+        Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const MainShell()), (r) => false);
+      }
     }
   }
 
@@ -819,11 +1076,19 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: const Color(0xff241708),
-        title: const Text('End this game?', style: TextStyle(color: Color(0xfff0d8a8))),
-        content: const Text('Your opponent will be awarded the win. This can\'t be undone.', style: TextStyle(color: Color(0xffc9b18c))),
+        title: const Text('End this game?',
+            style: TextStyle(color: Color(0xfff0d8a8))),
+        content: const Text(
+            'Your opponent will be awarded the win. This can\'t be undone.',
+            style: TextStyle(color: Color(0xffc9b18c))),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Keep playing')),
-          TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('End game', style: TextStyle(color: Color(0xffe0704a)))),
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Keep playing')),
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('End game',
+                  style: TextStyle(color: Color(0xffe0704a)))),
         ],
       ),
     );
@@ -835,12 +1100,12 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: finished,
+      canPop: finished || widget.tournamentSpectator,
       child: Scaffold(
         backgroundColor: const Color(0xff1c130a),
         appBar: AppBar(
           title: Text(finished ? 'Results' : 'Round $round'),
-          automaticallyImplyLeading: finished,
+          automaticallyImplyLeading: finished || widget.tournamentSpectator,
           backgroundColor: const Color(0xff241708),
           foregroundColor: const Color(0xfff0d8a8),
           // Only Pause earns a permanent button — it's the one thing you
@@ -850,17 +1115,26 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
           actions: finished
               ? null
               : [
-                  IconButton(
-                    tooltip: _paused ? 'Resume' : 'Pause',
-                    icon: Icon(_paused ? Icons.play_arrow_rounded : Icons.pause_rounded, size: 22),
-                    onPressed: _togglePause,
-                  ),
+                  if (widget.championshipId == null || !_amSpectator)
+                    GameVoiceControl(roomId: widget.socket.roomId),
+                  if (widget.championshipId == null)
+                    IconButton(
+                      tooltip: _paused ? 'Resume' : 'Pause',
+                      icon: Icon(
+                          _paused
+                              ? Icons.play_arrow_rounded
+                              : Icons.pause_rounded,
+                          size: 22),
+                      onPressed: _togglePause,
+                    ),
                   PopupMenuButton<String>(
                     tooltip: 'Game settings',
                     icon: const Icon(Icons.settings_rounded, size: 20),
                     color: const Color(0xff241708),
                     onSelected: (value) {
                       switch (value) {
+                        case 'help':
+                          _showHelp();
                         case 'theme':
                           _openThemeSheet();
                         case 'music':
@@ -871,29 +1145,56 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
                           _toggleMuteSpectators();
                         case 'forfeit':
                           _confirmForfeit();
+                        case 'offer_draw':
+                          widget.socket.send('PLAYER_ACTION',
+                              {'action': 'OFFER_DRAW', 'data': {}});
+                        case 'accept_draw':
+                          widget.socket.send('PLAYER_ACTION',
+                              {'action': 'ACCEPT_DRAW', 'data': {}});
                         case 'exit':
                           _confirmExit();
                       }
                     },
                     itemBuilder: (_) => [
+                      _menuItem(
+                          'help', Icons.help_outline_rounded, 'How to play'),
                       if (_theme != null)
-                        _menuItem('theme', Icons.palette_outlined, 'Board & piece colours'),
+                        _menuItem('theme', Icons.palette_outlined,
+                            'Board & piece colours'),
                       _menuItem(
                         'music',
-                        _musicOn ? Icons.music_note_rounded : Icons.music_off_rounded,
+                        _musicOn
+                            ? Icons.music_note_rounded
+                            : Icons.music_off_rounded,
                         _musicOn ? 'Mute music' : 'Play music',
                       ),
                       _menuItem(
                         'sfx',
-                        _sfxOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+                        _sfxOn
+                            ? Icons.volume_up_rounded
+                            : Icons.volume_off_rounded,
                         _sfxOn ? 'Mute game sounds' : 'Play game sounds',
                       ),
-                      _menuItem(
-                        'spectators',
-                        _spectatorsMuted ? Icons.comments_disabled_rounded : Icons.chat_bubble_outline_rounded,
-                        _spectatorsMuted ? 'Let spectators comment' : 'Mute spectator comments',
-                      ),
-                      _menuItem('forfeit', Icons.flag_outlined, 'End game'),
+                      if (!_amSpectator)
+                        _menuItem(
+                          'spectators',
+                          _spectatorsMuted
+                              ? Icons.comments_disabled_rounded
+                              : Icons.chat_bubble_outline_rounded,
+                          _spectatorsMuted
+                              ? 'Let spectators comment'
+                              : 'Mute spectator comments',
+                        ),
+                      if (!_amSpectator)
+                        _menuItem('forfeit', Icons.flag_outlined, 'End game'),
+                      if (!_amSpectator && _pendingDrawOffer == null)
+                        _menuItem('offer_draw', Icons.handshake_outlined,
+                            'Offer a draw'),
+                      if (!_amSpectator &&
+                          _pendingDrawOffer != null &&
+                          _pendingDrawOffer != widget.selfId)
+                        _menuItem('accept_draw', Icons.handshake_rounded,
+                            'Accept draw'),
                       _menuItem('exit', Icons.logout_rounded, 'Leave'),
                     ],
                   ),
@@ -912,14 +1213,18 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
               return FadeTransition(
                 opacity: animation,
                 child: ScaleTransition(
-                  scale: Tween<double>(begin: isIncoming ? 0.92 : 1.04, end: 1).animate(animation),
+                  scale: Tween<double>(begin: isIncoming ? 0.92 : 1.04, end: 1)
+                      .animate(animation),
                   child: child,
                 ),
               );
             },
             child: finished
-                ? KeyedSubtree(key: const ValueKey('results'), child: _results(context.neon))
-                : KeyedSubtree(key: const ValueKey('board'), child: _board(context.neon)),
+                ? KeyedSubtree(
+                    key: const ValueKey('results'),
+                    child: _results(context.neon))
+                : KeyedSubtree(
+                    key: const ValueKey('board'), child: _board(context.neon)),
           ),
         ),
       ),
@@ -927,87 +1232,213 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
   }
 
   Widget _board(NeonColors n) {
-    final flipped = mySide == 'B'; // your own pieces always render at the bottom
+    final flipped = mySide == 'B';
     final boardPalette = _theme?.board ?? boardPalettes.first;
     final piecePalette = _theme?.piece ?? piecePalettes.first;
 
     return Column(children: [
       _statusBar(n),
       Expanded(
-        child: Center(
-          child: AspectRatio(
-            aspectRatio: 1,
-            child: Padding(
-              padding: const EdgeInsets.all(4),
-              child: Stack(children: [
-                _WoodFrame(
-                  palette: boardPalette,
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final cellSize = constraints.maxWidth / 10;
-                      return Stack(children: [
-                        GridView.builder(
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 10),
-                          itemCount: 100,
-                          itemBuilder: (context, i) {
-                            final displayRow = i ~/ 10, displayCol = i % 10;
-                            final row = flipped ? displayRow : 9 - displayRow;
-                            final col = displayCol;
-                            if (!isPlayable(row, col)) {
-                              return _PlankCell(palette: boardPalette, dark: false, inert: true);
-                            }
-                            final sq = squareOf(row, col);
-                            final selected = sq == _selected;
-                            final armed = _chain.contains(sq);
-                            final destinations = _selected != null ? _nextSteps() : const <int>[];
-                            final isLegalTarget = destinations.contains(sq);
-                            return GestureDetector(
-                              onTap: () => _tap(sq),
-                              onDoubleTap: () => _doubleTap(sq),
-                              child: _PlankCell(
-                                palette: boardPalette,
-                                dark: (row + col) % 4 == 1,
-                                seed: sq,
-                                selected: selected,
-                                armed: armed,
-                                tappableTarget: isLegalTarget && !armed,
-                              ),
-                            );
-                          },
-                        ),
-                        for (final piece in _pieces)
-                          _AnimatedPieceView(
-                            key: ValueKey(piece.id),
-                            piece: piece,
-                            palette: piecePalette,
-                            cellSize: cellSize,
-                            flipped: flipped,
-                            selected: piece.square == _selected,
-                            moveDuration: _moveDuration,
-                            fadeDuration: _captureFadeDuration,
-                          ),
-                      ]);
-                    },
+        child: LayoutBuilder(builder: (context, constraints) {
+          final trayHeight = math.min(38.0, constraints.maxHeight * 0.09);
+          final boardSide = math.max(
+              1.0,
+              math.min(constraints.maxWidth,
+                  constraints.maxHeight - 2 * trayHeight));
+          final cellSize = math.max(1.0, (boardSide - 28) / 10);
+          final captureSize = cellSize * 0.78;
+          return Center(
+            child: SizedBox(
+              width: boardSide,
+              height: boardSide + 2 * trayHeight,
+              child: Stack(clipBehavior: Clip.none, children: [
+                Positioned(
+                  top: 0,
+                  width: boardSide,
+                  height: trayHeight,
+                  child: _captureTray(
+                      mySide == 'A' ? 'B' : 'A',
+                      _capturedPieces
+                          .where((piece) => piece.side != mySide)
+                          .length,
+                      piecePalette),
+                ),
+                Positioned(
+                  top: trayHeight + boardSide,
+                  width: boardSide,
+                  height: trayHeight,
+                  child: _captureTray(
+                      mySide,
+                      _capturedPieces
+                          .where((piece) => piece.side == mySide)
+                          .length,
+                      piecePalette),
+                ),
+                Positioned(
+                  top: trayHeight,
+                  width: boardSide,
+                  height: boardSide,
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: _boardSurface(boardPalette, piecePalette, flipped),
                   ),
                 ),
-                if (_paused) Positioned.fill(child: _pauseOverlay()),
+                for (final captured in _capturedPieces)
+                  _CapturedPieceFlight(
+                    key: ValueKey('capture-${captured.id}'),
+                    captured: captured,
+                    palette: piecePalette,
+                    size: captureSize,
+                    start: Offset(
+                      14 +
+                          colOf(captured.square) * cellSize +
+                          (cellSize - captureSize) / 2,
+                      trayHeight +
+                          14 +
+                          (flipped
+                                  ? rowOf(captured.square)
+                                  : 9 - rowOf(captured.square)) *
+                              cellSize +
+                          (cellSize - captureSize) / 2,
+                    ),
+                    end: _captureLanding(captured, boardSide, trayHeight),
+                    arcHeight: boardSide * 0.18,
+                  ),
               ]),
             ),
-          ),
-        ),
+          );
+        }),
       ),
-      _chatPanel(n),
+      if (widget.championshipId == null || !_amSpectator) _chatPanel(n),
     ]);
   }
 
-  PopupMenuItem<String> _menuItem(String value, IconData icon, String label) => PopupMenuItem<String>(
+  Offset _captureLanding(
+      _CapturedPiece captured, double boardSide, double trayHeight) {
+    final index = _capturedPieces
+        .takeWhile((piece) => piece.id != captured.id)
+        .where((piece) => piece.side == captured.side)
+        .length;
+    final spread = math.max(1, (boardSide - 68).floor());
+    final x = 48.0 + ((index * 61) % spread);
+    final top = captured.side != mySide;
+    final y = (top ? 4.0 : trayHeight + boardSide + 4.0) + ((index * 7) % 12);
+    return Offset(x, y);
+  }
+
+  Widget _captureTray(String side, int count, PiecePalette palette) {
+    final sideColor = side == 'A' ? palette.aTop : palette.bTop;
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xff241708),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xff5c3a1c), width: 1),
+      ),
+      alignment: Alignment.centerLeft,
+      padding: const EdgeInsets.only(left: 8),
+      child: Text('$side · $count',
+          style: TextStyle(
+              color: sideColor,
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.4)),
+    );
+  }
+
+  Widget _boardSurface(
+      BoardPalette boardPalette, PiecePalette piecePalette, bool flipped) {
+    return Stack(children: [
+      _WoodFrame(
+        palette: boardPalette,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final cellSize = constraints.maxWidth / 10;
+            return GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              dragStartBehavior: DragStartBehavior.down,
+              onPanStart: (details) =>
+                  _startDrag(details.localPosition, cellSize, flipped),
+              onPanUpdate: (details) => _updateDrag(details.localPosition),
+              onPanEnd: (_) => _endDrag(cellSize, flipped),
+              onPanCancel: _cancelDrag,
+              child: Stack(children: [
+                GridView.builder(
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 10),
+                  itemCount: 100,
+                  itemBuilder: (context, i) {
+                    final displayRow = i ~/ 10, displayCol = i % 10;
+                    final row = flipped ? displayRow : 9 - displayRow;
+                    final col = displayCol;
+                    if (!isPlayable(row, col)) {
+                      return _PlankCell(
+                          palette: boardPalette, dark: false, inert: true);
+                    }
+                    final sq = squareOf(row, col);
+                    return GestureDetector(
+                      onTap: () => _tap(sq),
+                      onDoubleTap: () => _doubleTap(sq),
+                      child: _PlankCell(
+                        palette: boardPalette,
+                        dark: (row + col) % 4 == 1,
+                        seed: sq,
+                        selected: sq == _selected,
+                        armed: _chain.contains(sq),
+                      ),
+                    );
+                  },
+                ),
+                for (final piece in _pieces)
+                  _AnimatedPieceView(
+                    key: ValueKey(piece.id),
+                    piece: piece,
+                    palette: piecePalette,
+                    cellSize: cellSize,
+                    flipped: flipped,
+                    selected: piece.square == _selected,
+                    dragging: piece.square == _dragOrigin,
+                    moveDuration: _moveDuration,
+                    fadeDuration: _captureFadeDuration,
+                  ),
+                if (_dragOrigin != null &&
+                    _dragPosition != null &&
+                    _dragPieceType != null)
+                  Positioned(
+                    left: _dragPosition!.dx - cellSize / 2,
+                    top: _dragPosition!.dy - cellSize / 2,
+                    width: cellSize,
+                    height: cellSize,
+                    child: IgnorePointer(
+                      child: Center(
+                        child: _CheckerPiece(
+                          side: _dragPieceType!.startsWith('A') ? 'A' : 'B',
+                          isKing: _dragPieceType!.endsWith('KING'),
+                          glowing: true,
+                          size: cellSize * 0.78,
+                          palette: piecePalette,
+                        ),
+                      ),
+                    ),
+                  ),
+              ]),
+            );
+          },
+        ),
+      ),
+      if (_paused) Positioned.fill(child: _pauseOverlay()),
+    ]);
+  }
+
+  PopupMenuItem<String> _menuItem(String value, IconData icon, String label) =>
+      PopupMenuItem<String>(
         value: value,
         height: 42,
         child: Row(children: [
           Icon(icon, size: 18, color: const Color(0xffc9b18c)),
           const SizedBox(width: 12),
-          Text(label, style: const TextStyle(color: Color(0xfff0d8a8), fontSize: 13)),
+          Text(label,
+              style: const TextStyle(color: Color(0xfff0d8a8), fontSize: 13)),
         ]),
       );
 
@@ -1021,9 +1452,14 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: const Color(0xff241708),
-          border: Border.all(color: danger ? const Color(0xffe0704a) : const Color(0xff5c3a1c), width: 2.4),
+          border: Border.all(
+              color: danger ? const Color(0xffe0704a) : const Color(0xff5c3a1c),
+              width: 2.4),
           boxShadow: [
-            if (danger) BoxShadow(color: const Color(0xffe0704a).withValues(alpha: 0.4), blurRadius: 10),
+            if (danger)
+              BoxShadow(
+                  color: const Color(0xffe0704a).withValues(alpha: 0.4),
+                  blurRadius: 10),
           ],
         ),
         child: Text(
@@ -1038,7 +1474,12 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
     ]);
   }
 
-  Widget _chromeButton({required IconData icon, required bool active, required String tooltip, required VoidCallback onTap, bool disabled = false}) {
+  Widget _chromeButton(
+      {required IconData icon,
+      required bool active,
+      required String tooltip,
+      required VoidCallback onTap,
+      bool disabled = false}) {
     return Tooltip(
       message: tooltip,
       child: InkWell(
@@ -1052,9 +1493,18 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: active ? const Color(0xffe0a94a) : const Color(0xff241708),
-            border: Border.all(color: active ? const Color(0xffe0a94a) : const Color(0xff5c3a1c), width: 2),
+            border: Border.all(
+                color:
+                    active ? const Color(0xffe0a94a) : const Color(0xff5c3a1c),
+                width: 2),
           ),
-          child: Icon(icon, size: 20, color: disabled ? const Color(0xff5c4a38) : (active ? const Color(0xff241708) : const Color(0xffc9b18c))),
+          child: Icon(icon,
+              size: 20,
+              color: disabled
+                  ? const Color(0xff5c4a38)
+                  : (active
+                      ? const Color(0xff241708)
+                      : const Color(0xffc9b18c))),
         ),
       ),
     );
@@ -1076,11 +1526,26 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
         // better off having.
         Column(mainAxisSize: MainAxisSize.min, children: [
           if (required > 0)
-            const Text('MUST CAPTURE', style: TextStyle(color: Color(0xffe0704a), fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 0.6))
+            const Text('MUST CAPTURE',
+                style: TextStyle(
+                    color: Color(0xffe0704a),
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.6))
           else if (myTurn)
-            const Text('YOUR TURN', style: TextStyle(color: Color(0xffe0a94a), fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 0.6))
+            const Text('YOUR TURN',
+                style: TextStyle(
+                    color: Color(0xffe0a94a),
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.6))
           else
-            const Text('OPPONENT IS THINKING…', style: TextStyle(color: Color(0xff9a8163), fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 0.4)),
+            const Text('OPPONENT IS THINKING…',
+                style: TextStyle(
+                    color: Color(0xff9a8163),
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.4)),
           const SizedBox(height: 6),
           Row(mainAxisSize: MainAxisSize.min, children: [
             _chromeButton(
@@ -1119,24 +1584,37 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border: active
-              ? const Border.fromBorderSide(BorderSide(color: Color(0xffe0a94a), width: 2))
+              ? const Border.fromBorderSide(
+                  BorderSide(color: Color(0xffe0a94a), width: 2))
               : Border.all(color: const Color(0xff1c130a), width: 1.4),
-          boxShadow: active ? [BoxShadow(color: const Color(0xffe0a94a).withValues(alpha: 0.45), blurRadius: 10)] : null,
+          boxShadow: active
+              ? [
+                  BoxShadow(
+                      color: const Color(0xffe0a94a).withValues(alpha: 0.45),
+                      blurRadius: 10)
+                ]
+              : null,
         ),
         child: playerId.isEmpty
             ? const SizedBox(width: 34, height: 34)
-            : Avatar(
-                label(playerId),
-                size: 34,
-                // Only our own avatar is on this device to show; everyone
-                // else falls back to initials off their name.
-                emoji: isMe ? app.avatarEmoji : null,
-                imagePath: isMe ? app.avatarImagePath : null,
+            : ValueListenableBuilder<Set<String>>(
+                valueListenable: widget.socket.onlinePlayers,
+                builder: (_, online, __) => OnlineAvatar(
+                  label(playerId),
+                  size: 34,
+                  online: online.contains(playerId),
+                  emoji: isMe ? app.avatarEmoji : null,
+                  imagePath: isMe ? app.avatarImagePath : null,
+                ),
               ),
       ),
       const SizedBox(height: 4),
       Text(playerId.isEmpty ? '…' : label(playerId),
-          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: active ? const Color(0xfff0d8a8) : const Color(0xff9a8163))),
+          style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color:
+                  active ? const Color(0xfff0d8a8) : const Color(0xff9a8163))),
     ]);
   }
 
@@ -1160,7 +1638,9 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
       final margin = (mine - theirs).abs();
       chips.add(_statChip(
         Icons.circle_outlined,
-        won ? '$mine ${mine == 1 ? 'piece' : 'pieces'} left' : '$theirs to $mine',
+        won
+            ? '$mine ${mine == 1 ? 'piece' : 'pieces'} left'
+            : '$theirs to $mine',
       ));
       if (margin > 0) {
         chips.add(_statChip(Icons.trending_up_rounded, 'by $margin'));
@@ -1172,7 +1652,11 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
     }
     if (chips.isEmpty) return const SizedBox.shrink();
 
-    return Wrap(spacing: 8, runSpacing: 8, alignment: WrapAlignment.center, children: chips);
+    return Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        alignment: WrapAlignment.center,
+        children: chips);
   }
 
   Widget _statChip(IconData icon, String label) => Container(
@@ -1186,13 +1670,17 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
           Icon(icon, size: 14, color: const Color(0xffe0a94a)),
           const SizedBox(width: 6),
           Text(label,
-              style: const TextStyle(color: Color(0xffe8d2ac), fontSize: 12.5, fontWeight: FontWeight.w700)),
+              style: const TextStyle(
+                  color: Color(0xffe8d2ac),
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700)),
         ]),
       );
 
   Widget _results(NeonColors n) {
     final won = winningSide == mySide;
-    final accent = winningSide == 'A' ? const Color(0xffc9822f) : const Color(0xffe0a94a);
+    final accent =
+        winningSide == 'A' ? const Color(0xffc9822f) : const Color(0xffe0a94a);
     return Stack(children: [
       // Only a win gets fireworks. Losing to a celebration would be a
       // strange thing to do to somebody.
@@ -1207,20 +1695,45 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
               tween: Tween(begin: 0, end: 1),
               duration: const Duration(milliseconds: 760),
               curve: Curves.elasticOut,
-              builder: (_, t, child) => Transform.scale(scale: 0.5 + 0.5 * t, child: child),
+              builder: (_, t, child) =>
+                  Transform.scale(scale: 0.5 + 0.5 * t, child: child),
               child: const Text('🏆', style: TextStyle(fontSize: 64)),
             ),
             const SizedBox(height: 10),
-            Text('${label(_actorFor(winningSide ?? 'A'))} wins',
-                style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 26, color: accent)),
+            Text(
+                winningSide == 'draw'
+                    ? 'Game drawn'
+                    : '${label(_actorFor(winningSide ?? 'A'))} wins',
+                style: Theme.of(context)
+                    .textTheme
+                    .displayLarge
+                    ?.copyWith(fontSize: 26, color: accent)),
             const SizedBox(height: 6),
-            Text(won ? 'You won! 🎉' : 'Better luck next game.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xffc9b18c))),
+            Text(
+                winningSide == 'draw'
+                    ? 'This pairing will replay.'
+                    : (won ? 'You won! 🎉' : 'Better luck next game.'),
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(color: const Color(0xffc9b18c))),
             const SizedBox(height: 16),
             _resultStats(won),
             const SizedBox(height: 24),
-            NeonButton('Back to home', onPressed: () {
-              Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const MainShell()), (r) => false);
+            if (won)
+              VictoryShareButton(
+                  roomId: widget.socket.roomId, gameType: 'draughts'),
+            NeonButton(
+                widget.championshipId == null
+                    ? 'Back to home'
+                    : 'Back to championship', onPressed: () {
+              if (widget.championshipId != null) {
+                Navigator.of(context).pop();
+              } else {
+                Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => const MainShell()),
+                    (r) => false);
+              }
             }),
             const GuestSaveSessionCard(),
           ]),
@@ -1242,51 +1755,76 @@ class _WoodFrame extends StatelessWidget {
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
-        gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [palette.frameTop, palette.frameBottom]),
-        boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 20, offset: Offset(0, 10))],
+        gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [palette.frameTop, palette.frameBottom]),
+        boxShadow: const [
+          BoxShadow(
+              color: Colors.black54, blurRadius: 20, offset: Offset(0, 10))
+        ],
         border: Border.all(color: const Color(0xff1c1108), width: 3),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(4),
-        child: CustomPaint(painter: _WoodPainter(base: palette.frameTop, grain: Colors.black, seed: 7), child: child),
+        child: CustomPaint(
+            painter: _WoodPainter(
+                base: palette.frameTop, grain: Colors.black, seed: 7),
+            child: child),
       ),
     );
   }
 }
 
 /// A single board square: solid worn-plank color with procedural grain, no
-/// image asset needed. `armed` and `selected`/`tappableTarget` states are
-/// the *only* legal-move feedback — nothing is shown until you've tapped it.
+/// image asset needed. Only the selected piece and the square the player
+/// actually tapped are highlighted; legal destinations remain unmarked.
 class _PlankCell extends StatelessWidget {
-  const _PlankCell({required this.palette, required this.dark, this.seed = 0, this.selected = false, this.armed = false, this.tappableTarget = false, this.inert = false});
+  const _PlankCell(
+      {required this.palette,
+      required this.dark,
+      this.seed = 0,
+      this.selected = false,
+      this.armed = false,
+      this.inert = false});
   final BoardPalette palette;
   final bool dark;
   final int seed;
   final bool selected;
   final bool armed;
-  final bool tappableTarget;
   final bool inert;
 
   @override
   Widget build(BuildContext context) {
     if (inert) return const ColoredBox(color: Color(0xff1c130a));
+    final n = context.neon;
     // Same walnut slab throughout the board — dark squares are an ebonized
     // stain of the identical wood, not a different material, so the whole
     // surface reads as one solid piece rather than two mismatched plank types.
     final base = dark ? palette.darkSquare : palette.lightSquare;
     final grain = dark ? palette.darkGrain : palette.lightGrain;
     return CustomPaint(
-      painter: _WoodPainter(base: base, grain: grain, seed: seed + 1, calm: true),
+      painter:
+          _WoodPainter(base: base, grain: grain, seed: seed + 1, calm: true),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
-        margin: const EdgeInsets.all(1.2),
+        margin: const EdgeInsets.all(1),
         decoration: BoxDecoration(
+          color: selected ? n.gold.withValues(alpha: 0.36) : null,
           border: armed
-              ? Border.all(color: const Color(0xffe0a94a), width: 2.6)
+              ? Border.all(color: n.gold, width: 3.2)
               : selected
-                  ? Border.all(color: const Color(0xfff0d8a8), width: 2)
+                  ? Border.all(color: n.gold, width: 3.2)
                   : null,
-          boxShadow: armed ? [BoxShadow(color: const Color(0xffe0a94a).withValues(alpha: 0.55), blurRadius: 10, spreadRadius: -1)] : null,
+          boxShadow: armed || selected
+              ? [
+                  BoxShadow(
+                    color: n.gold.withValues(alpha: 0.7),
+                    blurRadius: 11,
+                    spreadRadius: -1,
+                  )
+                ]
+              : null,
         ),
       ),
     );
@@ -1305,6 +1843,7 @@ class _AnimatedPieceView extends StatelessWidget {
     required this.cellSize,
     required this.flipped,
     required this.selected,
+    required this.dragging,
     required this.moveDuration,
     required this.fadeDuration,
   });
@@ -1314,6 +1853,7 @@ class _AnimatedPieceView extends StatelessWidget {
   final double cellSize;
   final bool flipped;
   final bool selected;
+  final bool dragging;
   final Duration moveDuration;
   final Duration fadeDuration;
 
@@ -1337,12 +1877,77 @@ class _AnimatedPieceView extends StatelessWidget {
         child: Center(
           child: AnimatedScale(
             duration: fadeDuration,
-            scale: piece.capturing ? 0.15 : (selected ? 1.1 : 1.0),
+            scale: selected ? 1.15 : 1.0,
             curve: Curves.easeOut,
             child: AnimatedOpacity(
-              duration: fadeDuration,
-              opacity: piece.capturing ? 0 : 1,
-              child: _CheckerPiece(side: side, isKing: isKing, glowing: selected, size: cellSize * 0.78, palette: palette),
+              duration: dragging ? Duration.zero : fadeDuration,
+              opacity: dragging ? 0 : 1,
+              child: _CheckerPiece(
+                  side: side,
+                  isKing: isKing,
+                  glowing: selected,
+                  size: cellSize * 0.78,
+                  palette: palette),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A captured checker flies over the wood frame, then stays scattered in
+/// the tray. Reconnected games use the same widget at its resting position.
+class _CapturedPieceFlight extends StatelessWidget {
+  const _CapturedPieceFlight({
+    super.key,
+    required this.captured,
+    required this.palette,
+    required this.size,
+    required this.start,
+    required this.end,
+    required this.arcHeight,
+  });
+
+  final _CapturedPiece captured;
+  final PiecePalette palette;
+  final double size;
+  final Offset start;
+  final Offset end;
+  final double arcHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: Align(
+          alignment: Alignment.topLeft,
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: captured.animate ? 0 : 1, end: 1),
+            duration: captured.animate
+                ? const Duration(milliseconds: 720)
+                : Duration.zero,
+            curve: Curves.easeOutCubic,
+            builder: (context, progress, child) {
+              final position = Offset.lerp(start, end, progress)!;
+              final lift = math.sin(math.pi * progress) * arcHeight;
+              return Transform.translate(
+                offset: Offset(position.dx, position.dy - lift),
+                child: Transform.rotate(
+                  angle: (captured.id.isEven ? 1 : -1) * progress * 0.85,
+                  child: Transform.scale(
+                    scale: 1 - progress * 0.38,
+                    child: child,
+                  ),
+                ),
+              );
+            },
+            child: _CheckerPiece(
+              side: captured.side,
+              isKing: captured.type.endsWith('KING'),
+              glowing: false,
+              size: size,
+              palette: palette,
             ),
           ),
         ),
@@ -1356,7 +1961,12 @@ class _AnimatedPieceView extends StatelessWidget {
 /// `PiecePalette` is active, specifically so a dark piece color can never
 /// blend into a dark board square again (the original bug report).
 class _CheckerPiece extends StatelessWidget {
-  const _CheckerPiece({required this.side, required this.isKing, required this.glowing, required this.size, required this.palette});
+  const _CheckerPiece(
+      {required this.side,
+      required this.isKing,
+      required this.glowing,
+      required this.size,
+      required this.palette});
   final String side;
   final bool isKing;
   final bool glowing;
@@ -1375,13 +1985,24 @@ class _CheckerPiece extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.6), blurRadius: size * 0.2, offset: Offset(0, size * 0.09)),
-          if (glowing) BoxShadow(color: const Color(0xffe0a94a).withValues(alpha: 0.6), blurRadius: size * 0.35, spreadRadius: size * 0.02),
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.6),
+              blurRadius: size * 0.2,
+              offset: Offset(0, size * 0.09)),
+          if (glowing)
+            BoxShadow(
+                color: const Color(0xffe0a94a).withValues(alpha: 0.9),
+                blurRadius: size * 0.42,
+                spreadRadius: size * 0.08),
         ],
         // A near-white halo on every piece, independent of its own palette —
         // this is what keeps a piece separated from the board underneath no
         // matter how dark either one is.
-        border: Border.all(color: Colors.white.withValues(alpha: 0.85), width: size * 0.045),
+        border: Border.all(
+            color: glowing
+                ? const Color(0xffffd879)
+                : Colors.white.withValues(alpha: 0.85),
+            width: size * (glowing ? 0.075 : 0.045)),
       ),
       padding: EdgeInsets.all(size * 0.045),
       child: Container(
@@ -1401,11 +2022,19 @@ class _CheckerPiece extends StatelessWidget {
           height: size * 0.6,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: rim.withValues(alpha: 0.65), width: size * 0.035),
+            border: Border.all(
+                color: rim.withValues(alpha: 0.65), width: size * 0.035),
           ),
           alignment: Alignment.center,
           child: isKing
-              ? Icon(Icons.star_rounded, size: size * 0.4, color: rim, shadows: [Shadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 2)])
+              ? Icon(Icons.star_rounded,
+                  size: size * 0.4,
+                  color: rim,
+                  shadows: [
+                      Shadow(
+                          color: Colors.black.withValues(alpha: 0.4),
+                          blurRadius: 2)
+                    ])
               : null,
         ),
       ),
@@ -1417,10 +2046,15 @@ class _CheckerPiece extends StatelessWidget {
 /// deterministic per `seed` so it doesn't shimmer on rebuild. Cheap stand-in
 /// for a real wood texture with no image asset needed.
 class _WoodPainter extends CustomPainter {
-  const _WoodPainter({required this.base, required this.grain, required this.seed, this.calm = false});
+  const _WoodPainter(
+      {required this.base,
+      required this.grain,
+      required this.seed,
+      this.calm = false});
   final Color base;
   final Color grain;
   final int seed;
+
   /// A calmer, sparser pass for the board squares themselves — a handful of
   /// faint, mostly-straight streaks so the surface reads as one solid slab
   /// rather than a busy pattern; the frame around it keeps the fuller grain.
@@ -1435,12 +2069,14 @@ class _WoodPainter extends CustomPainter {
     for (var i = 0; i < lines; i++) {
       final y = rnd.nextDouble() * size.height;
       final thickness = 0.6 + rnd.nextDouble() * (calm ? 1.2 : 2.0);
-      final alpha = (calm ? 0.03 : 0.05) + rnd.nextDouble() * (calm ? 0.05 : 0.12);
+      final alpha =
+          (calm ? 0.03 : 0.05) + rnd.nextDouble() * (calm ? 0.05 : 0.12);
       final path = Path()..moveTo(0, y);
       const segments = 5;
       for (var s = 1; s <= segments; s++) {
         final x = size.width * s / segments;
-        final wobble = (rnd.nextDouble() - 0.5) * size.height * (calm ? 0.03 : 0.08);
+        final wobble =
+            (rnd.nextDouble() - 0.5) * size.height * (calm ? 0.03 : 0.08);
         path.lineTo(x, (y + wobble).clamp(0, size.height));
       }
       canvas.drawPath(
@@ -1454,13 +2090,20 @@ class _WoodPainter extends CustomPainter {
     canvas.drawRect(
       rect,
       Paint()
-        ..shader = RadialGradient(colors: [Colors.transparent, Colors.black.withValues(alpha: calm ? 0.14 : 0.22)], radius: 0.95).createShader(rect),
+        ..shader = RadialGradient(colors: [
+          Colors.transparent,
+          Colors.black.withValues(alpha: calm ? 0.14 : 0.22)
+        ], radius: 0.95)
+            .createShader(rect),
     );
   }
 
   @override
   bool shouldRepaint(covariant _WoodPainter oldDelegate) =>
-      oldDelegate.base != base || oldDelegate.grain != grain || oldDelegate.seed != seed || oldDelegate.calm != calm;
+      oldDelegate.base != base ||
+      oldDelegate.grain != grain ||
+      oldDelegate.seed != seed ||
+      oldDelegate.calm != calm;
 }
 
 /// Board wood tone + piece color pickers — a per-device cosmetic preference
@@ -1475,20 +2118,34 @@ class _BoardThemeSheet extends StatelessWidget {
     return ListenableBuilder(
       listenable: theme,
       builder: (context, _) => Padding(
-        padding: EdgeInsets.fromLTRB(20, 18, 20, MediaQuery.viewInsetsOf(context).bottom + 24),
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('BOARD WOOD', style: TextStyle(color: Color(0xffe0a94a), fontWeight: FontWeight.w800, letterSpacing: 2, fontSize: 12)),
-          const SizedBox(height: 12),
-          Wrap(spacing: 10, runSpacing: 10, children: [
-            for (final p in boardPalettes) _boardSwatch(context, p),
-          ]),
-          const SizedBox(height: 24),
-          const Text('PIECE COLORS', style: TextStyle(color: Color(0xffe0a94a), fontWeight: FontWeight.w800, letterSpacing: 2, fontSize: 12)),
-          const SizedBox(height: 12),
-          Wrap(spacing: 10, runSpacing: 10, children: [
-            for (final p in piecePalettes) _pieceSwatch(context, p),
-          ]),
-        ]),
+        padding: EdgeInsets.fromLTRB(
+            20, 18, 20, MediaQuery.viewInsetsOf(context).bottom + 24),
+        child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('BOARD WOOD',
+                  style: TextStyle(
+                      color: Color(0xffe0a94a),
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 2,
+                      fontSize: 12)),
+              const SizedBox(height: 12),
+              Wrap(spacing: 10, runSpacing: 10, children: [
+                for (final p in boardPalettes) _boardSwatch(context, p),
+              ]),
+              const SizedBox(height: 24),
+              const Text('PIECE COLORS',
+                  style: TextStyle(
+                      color: Color(0xffe0a94a),
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 2,
+                      fontSize: 12)),
+              const SizedBox(height: 12),
+              Wrap(spacing: 10, runSpacing: 10, children: [
+                for (final p in piecePalettes) _pieceSwatch(context, p),
+              ]),
+            ]),
       ),
     );
   }
@@ -1503,7 +2160,9 @@ class _BoardThemeSheet extends StatelessWidget {
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: selected ? const Color(0xffe0a94a) : Colors.white24, width: selected ? 2 : 1),
+          border: Border.all(
+              color: selected ? const Color(0xffe0a94a) : Colors.white24,
+              width: selected ? 2 : 1),
         ),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           ClipRRect(
@@ -1517,7 +2176,12 @@ class _BoardThemeSheet extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          Text(p.label, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w700)),
+          Text(p.label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700)),
         ]),
       ),
     );
@@ -1533,7 +2197,9 @@ class _BoardThemeSheet extends StatelessWidget {
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: selected ? const Color(0xffe0a94a) : Colors.white24, width: selected ? 2 : 1),
+          border: Border.all(
+              color: selected ? const Color(0xffe0a94a) : Colors.white24,
+              width: selected ? 2 : 1),
         ),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           SizedBox(
@@ -1545,7 +2211,12 @@ class _BoardThemeSheet extends StatelessWidget {
             ]),
           ),
           const SizedBox(height: 6),
-          Text(p.label, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w700)),
+          Text(p.label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700)),
         ]),
       ),
     );

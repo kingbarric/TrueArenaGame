@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../core/app_state.dart';
-import 'phone_screen.dart';
+import 'guest_save_session_card.dart';
 
 /// Guests can browse every screen and join any room, but hosting (creating)
 /// a game needs a real account — see `RoomService.create`'s server-side
 /// enforcement, which this mirrors client-side with a friendlier prompt
 /// instead of just letting the request come back a 403. Call this right at
-/// the moment a guest would actually create a room (tapping "Open the room"
+/// the moment a guest would actually create a room (tapping "Open the huud"
 /// / picking a game to host), not any earlier — they should still be able to
 /// browse mode/game selection freely.
 ///
@@ -23,21 +23,29 @@ Future<bool> canHostOrPromptToVerify(BuildContext context) async {
     builder: (dialogContext) => AlertDialog(
       title: const Text('Register to host a game'),
       content: const Text(
-        'Guests can join any game with a room code, but starting a new one needs a '
-        'phone or email — that way there\'s a way to reach you and hand the room off '
-        'to you if you reconnect.',
+        'Guests can join any game with a huud code, but starting a new one needs '
+        'an account so you can keep the huud when you reconnect.',
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Not now')),
         TextButton(
           onPressed: () => Navigator.pop(dialogContext, true),
-          child: const Text('Verify now'),
+          child: const Text('Choose sign-in'),
         ),
       ],
     ),
   );
   if (verify == true && context.mounted) {
-    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PhoneScreen()));
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => const SafeArea(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: GuestSaveSessionCard(),
+        ),
+      ),
+    );
   }
   return false;
 }
@@ -62,13 +70,22 @@ Future<bool> canUseFriendsOrPromptToVerify(BuildContext context) async {
         TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Not now')),
         TextButton(
           onPressed: () => Navigator.pop(dialogContext, true),
-          child: const Text('Verify now'),
+          child: const Text('Choose sign-in'),
         ),
       ],
     ),
   );
   if (verify == true && context.mounted) {
-    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PhoneScreen()));
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => const SafeArea(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: GuestSaveSessionCard(),
+        ),
+      ),
+    );
   }
   return false;
 }

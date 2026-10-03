@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import '../../core/app_state.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/neon.dart';
-import 'phone_screen.dart';
+import 'email_screen.dart';
 import '../shell/main_shell.dart';
 import '../../core/api_client.dart';
 
@@ -30,15 +31,15 @@ class GuestSaveSessionCard extends StatelessWidget {
           Text('Save this session?', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 6),
           Text(
-            'Verify a phone, email, or Google account to keep today\'s games and host your own next time — '
+            'Add an account to keep today\'s games and host your own next time — '
             'no need to play as a guest again.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(color: n.mid),
           ),
           const SizedBox(height: 12),
           NeonButton(
-            'Verify a phone or email',
+            'Continue with email',
             style: NeonStyle.ghost,
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PhoneScreen())),
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EmailScreen())),
           ),
           const SizedBox(height: 8),
           NeonButton(
@@ -62,6 +63,39 @@ class GuestSaveSessionCard extends StatelessWidget {
               }
             },
           ),
+          if (Theme.of(context).platform == TargetPlatform.iOS) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 50,
+              child: SignInWithAppleButton(
+                onPressed: () async {
+                  try {
+                    await app.signInWithApple();
+                    if (!context.mounted) return;
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (_) => const MainShell()), (route) => false);
+                  } on SignInWithAppleAuthorizationException catch (error) {
+                    if (error.code != AuthorizationErrorCode.canceled && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Apple sign-in failed')));
+                    }
+                  } on ApiException catch (error) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message)));
+                    }
+                  } catch (_) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Apple sign-in failed')));
+                    }
+                  }
+                },
+                style: Theme.of(context).brightness == Brightness.dark
+                    ? SignInWithAppleButtonStyle.white
+                    : SignInWithAppleButtonStyle.black,
+              ),
+            ),
+          ],
         ]),
       ),
     );

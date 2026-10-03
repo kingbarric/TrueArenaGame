@@ -67,4 +67,23 @@ class WhotCallServiceTest {
                 .expectErrorMatches(error -> error instanceof ResponseStatusException ex
                         && ex.getStatusCode().value() == 404).verify();
     }
+
+    @Test
+    void activePlayerGetsSharedGameVoiceAcrossModes() {
+        when(rooms.findById(roomId)).thenReturn(Mono.just(room("wordbluff", "in_game")));
+        when(members.findByRoomIdAndUserId(roomId, playerId))
+                .thenReturn(Mono.just(RoomMemberRow.of(roomId, playerId, "Player")));
+        when(users.findById(playerId)).thenReturn(Mono.just(new UserRow(playerId,
+                "Player", null, null, null, null, false, null, false,
+                null, null, null, null, null)));
+        when(tokens.mintToken("game-" + roomId, playerId.toString(), "Player"))
+                .thenReturn("signed-token");
+        when(tokens.wsUrl()).thenReturn("wss://voice.example.test");
+
+        StepVerifier.create(service.gameCallToken(playerId, roomId))
+                .expectNextMatches(value -> value.roomName().equals("game-" + roomId)
+                        && value.token().equals("signed-token")
+                        && value.livekitUrl().equals("wss://voice.example.test"))
+                .verifyComplete();
+    }
 }

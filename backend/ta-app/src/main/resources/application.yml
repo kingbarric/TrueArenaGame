@@ -46,18 +46,26 @@ management:
         enabled: true
 
 truearena:
+  email:
+    brevo-api-key: ${BREVO_API_KEY:}
+    sender-address: verify@playhuud.com
   auth:
     jwt-secret: ${JWT_SECRET:dev-only-change-me-0000000000000000000000000000}
     access-ttl: 15m
     refresh-ttl: 30d
-    # The Google Cloud "Web" OAuth client ID — see docs/DEV_REFERENCE.md for the
-    # full setup. Blank until set: /auth/google returns 400 rather than pretending
-    # to work. Comma-separate more than one if ever needed (e.g. staging + prod).
-    google-client-id: ${GOOGLE_CLIENT_ID:}
+    # Google Web OAuth client ID; must match the Flutter serverClientId.
+    # Override via GOOGLE_CLIENT_ID for another environment.
+    google-client-id: ${GOOGLE_CLIENT_ID:26187322342-o2squi475tmt3ubs8k9rh2d2b7pfivgf.apps.googleusercontent.com}
+    # Native iOS Sign in with Apple ID-token audience (the app's bundle ID).
+    apple-client-id: ${APPLE_CLIENT_ID:app.truearena.truearena}
   livekit:
     url: ${LIVEKIT_URL:ws://localhost:7880}
     api-key: ${LIVEKIT_API_KEY:devkey}
     api-secret: ${LIVEKIT_API_SECRET:devsecret_devsecret_devsecret_1234}
+  admin:
+    # Shared secret for the /notvisible/analytics dashboard's API calls (X-Admin-Key
+    # header) — see AdminKeyFilter. Blank means every admin request is refused.
+    api-key: ${ADMIN_API_KEY:}
 
 # Cyber Agent brains. Both read from the environment only — never paste a
 # key here. Gemini wins when both are present (see BotLlmConfig); with

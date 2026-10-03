@@ -11,7 +11,7 @@
     </parent>
 
     <artifactId>ta-game-goosi</artifactId>
-    <description>Goosi — the fourth game type: a 16-pit sowing/capture game (Mancala family),
+    <description>Goosi — PlayHuud's Oware Abapa game: twelve houses, two-player sowing and capture,
         2 or 4 players on one fixed 16-pit ring. See docs/DEV_REFERENCE.md.</description>
 
     <dependencies>

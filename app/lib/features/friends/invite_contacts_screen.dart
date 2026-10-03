@@ -46,7 +46,7 @@ class _UnmatchedContact {
 
 /// Reads the device's contact list (with permission), matches phone numbers
 /// against `POST /friends/contacts/match`, and shows two groups: people
-/// already on Topskul (one-tap Add) and everyone else (one-tap share-sheet
+/// already on PlayHuud (one-tap Add) and everyone else (one-tap share-sheet
 /// invite). Phone numbers never leave the device except as the normalized
 /// digit candidates sent to the match endpoint — full contact details
 /// (names, other fields) stay local.
@@ -162,8 +162,8 @@ class _InviteContactsScreenState extends State<InviteContactsScreen> {
 
   void _shareInvite(_UnmatchedContact c) {
     Share.share(
-      'Hey ${c.name.split(' ').first}, come play on Topskul with me! 🎲 https://topskul.app',
-      subject: 'Join me on Topskul',
+      'Hey ${c.name.split(' ').first}, come play on PlayHuud with me! 🎲',
+      subject: 'Join me on PlayHuud',
     );
   }
 
@@ -191,7 +191,7 @@ class _InviteContactsScreenState extends State<InviteContactsScreen> {
               Text('Contacts access is off',
                   style: Theme.of(context).textTheme.titleMedium, textAlign: TextAlign.center),
               const SizedBox(height: 8),
-              Text('Turn it on in Settings to find friends already on Topskul.',
+              Text('Turn it on in Settings to find friends already on PlayHuud.',
                   textAlign: TextAlign.center, style: TextStyle(color: n.mute)),
               const SizedBox(height: 18),
               NeonButton('Open Settings', style: NeonStyle.ghost, expand: false, onPressed: () => openAppSettings()),
@@ -216,7 +216,7 @@ class _InviteContactsScreenState extends State<InviteContactsScreen> {
             if (_matched.isNotEmpty) ...[
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: Text('ON TOPSKUL', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.gold, letterSpacing: 2)),
+                child: Text('ON PLAYHUUD', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.gold, letterSpacing: 2)),
               ),
               for (var i = 0; i < _matched.length; i++)
                 _RowFade(delay: Duration(milliseconds: 30 * i), child: _matchedTile(n, _matched[i])),
@@ -225,7 +225,7 @@ class _InviteContactsScreenState extends State<InviteContactsScreen> {
             if (_unmatched.isNotEmpty) ...[
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: Text('INVITE TO TOPSKUL', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute, letterSpacing: 2)),
+                child: Text('INVITE TO PLAYHUUD', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute, letterSpacing: 2)),
               ),
               for (var i = 0; i < _unmatched.length; i++)
                 _RowFade(delay: Duration(milliseconds: 20 * i), child: _unmatchedTile(n, _unmatched[i])),
@@ -238,7 +238,7 @@ class _InviteContactsScreenState extends State<InviteContactsScreen> {
   Widget _matchedTile(NeonColors n, _MatchedContact c) {
     final sending = _sendingTo.contains(c.userId);
     return CompactListRow(
-      leading: Avatar(c.displayName, size: 32),
+      leading: Avatar(c.displayName, size: 32, imageUrl: c.avatarUrl),
       title: Text(c.displayName, maxLines: 1, overflow: TextOverflow.ellipsis,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
       subtitle: Text('@${c.username}', maxLines: 1, overflow: TextOverflow.ellipsis,

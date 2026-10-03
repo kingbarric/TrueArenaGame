@@ -28,7 +28,8 @@ class GameSfx {
     'select', 'move', 'illegal', 'capture', 'captured', 'king',
     'chain1', 'chain2', 'chain3', 'chain4',
     'seed1', 'seed2', 'seed3', 'seed4', 'scoop', 'settle',
-    'crank', 'wheel_stop',
+    'crank', 'wheel_stop', 'card_play', 'card_draw',
+    'dice_roll',
   ];
 
   static final Map<String, AudioPlayer> _players = {};
@@ -103,6 +104,16 @@ class GameSfx {
 
   /// The wheel settling into the slice it stopped on.
   static void wheelStop() => _play('wheel_stop');
+
+  /// A cup shaking and releasing the dice.
+  static void diceRoll() => _play('dice_roll');
+
+  /// A card laid onto the discard pile — a quick, soft flick, not a thud.
+  static void cardPlay() => _play('card_play');
+
+  /// Going to the market — a softer, slower paper-slide than [cardPlay],
+  /// so the two stay easy to tell apart by ear alone.
+  static void cardDraw() => _play('card_draw');
 
   static void _play(String name) {
     if (!_enabled) return;

@@ -3,15 +3,15 @@ package app.truearena.game.goosi;
 import app.truearena.engine.GameSettings;
 
 /**
- * Goosi's settings — a 16-pit sowing/capture board (2 or 4 players share the
- * same fixed 16 pits, see {@link GoosiModule}), so the only real knob is how
- * many seeds each pit starts with, plus the usual per-turn clock.
+ * Oware Abapa always starts with four seeds in each of twelve houses. The
+ * retained seed field keeps persisted room configuration compatible; only
+ * the turn clock is a meaningful table option.
  */
 public record GoosiConfig(int seedsPerPit, int turnSeconds) implements GameSettings {
 
     public GoosiConfig {
-        if (seedsPerPit < 1 || seedsPerPit > 10) {
-            throw new IllegalArgumentException("seedsPerPit should be a sane number, got " + seedsPerPit);
+        if (seedsPerPit != 4) {
+            throw new IllegalArgumentException("Oware starts with exactly four seeds per house");
         }
         if (turnSeconds < 10 || turnSeconds > 300) {
             throw new IllegalArgumentException("turnSeconds should be a sane number, got " + turnSeconds);

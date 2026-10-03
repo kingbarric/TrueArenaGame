@@ -46,6 +46,24 @@ public class RoomController {
         return CurrentUser.id().flatMap(uid -> rooms.abandon(id, uid));
     }
 
+    @PostMapping("/{id}/leave-draughts")
+    @Operation(summary = "End a Draft game against your Cyber Agent when leaving it")
+    public Mono<Boolean> leaveDraughts(@PathVariable UUID id) {
+        return CurrentUser.id().flatMap(uid -> rooms.leaveBotDraughtsRoom(id, uid));
+    }
+
+    @PostMapping("/{id}/leave-whot")
+    @Operation(summary = "End a Whot table containing only your Cyber Agents when leaving it")
+    public Mono<Boolean> leaveWhot(@PathVariable UUID id) {
+        return CurrentUser.id().flatMap(uid -> rooms.leaveBotWhotRoom(id, uid));
+    }
+
+    @PostMapping("/{id}/leave-ludo")
+    @Operation(summary = "Forfeit a Ludo seat and release owned Cyber Agents when the table closes")
+    public Mono<Boolean> leaveLudo(@PathVariable UUID id) {
+        return CurrentUser.id().flatMap(uid -> rooms.leaveLudoRoom(id, uid));
+    }
+
     @PostMapping("/join")
     @Operation(summary = "Join a room by its 6-char code")
     public Mono<RoomView> join(@Valid @RequestBody JoinRoomRequest body) {
@@ -55,6 +73,12 @@ public class RoomController {
     @GetMapping("/{id}")
     public Mono<RoomView> one(@PathVariable UUID id) {
         return CurrentUser.id().flatMap(uid -> rooms.get(id, uid));
+    }
+
+    @GetMapping("/active")
+    @Operation(summary = "The current player's most recent live room, if any")
+    public Mono<RoomView> active() {
+        return CurrentUser.id().flatMap(rooms::mostRecentActive);
     }
 
     @GetMapping("/discoverable")

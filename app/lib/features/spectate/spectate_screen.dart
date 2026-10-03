@@ -6,6 +6,7 @@ import '../../core/app_state.dart';
 import '../../core/game_socket.dart';
 import '../../theme/neon_theme.dart';
 import '../whot/whot_watch_screen.dart';
+import '../ludo/ludo_watch_screen.dart';
 
 class _Comment {
   const _Comment(this.from, this.text);
@@ -49,7 +50,7 @@ class _SpectateScreenState extends State<SpectateScreen> {
     super.didChangeDependencies();
     if (_started) return;
     _started = true;
-    if (widget.gameType == 'whot') return;
+    if (widget.gameType == 'whot' || widget.gameType == 'ludo') return;
     final app = AppScope.of(context);
     _socket = GameSocket.connect(app.api, widget.roomId, spectate: true);
     _sub = _socket!.envelopes.listen(_onEnvelope);
@@ -184,6 +185,9 @@ class _SpectateScreenState extends State<SpectateScreen> {
   Widget build(BuildContext context) {
     if (widget.gameType == 'whot') {
       return WhotWatchScreen(roomId: widget.roomId);
+    }
+    if (widget.gameType == 'ludo') {
+      return LudoWatchScreen(roomId: widget.roomId);
     }
     final n = context.neon;
     return Scaffold(

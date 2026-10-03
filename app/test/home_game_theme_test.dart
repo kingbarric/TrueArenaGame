@@ -8,6 +8,7 @@ import 'package:http/testing.dart';
 import 'package:truearena/core/api_client.dart';
 import 'package:truearena/core/app_state.dart';
 import 'package:truearena/features/home/home_screen.dart';
+import 'package:truearena/features/goosi/goosi_lobby_screen.dart';
 import 'package:truearena/theme/neon_theme.dart';
 import 'package:truearena/widgets/neon.dart';
 
@@ -53,6 +54,8 @@ void main() {
         'bluff': 'word_bluff.png',
         'draughts': 'draft.png',
         'whot': 'whot.png',
+        'ludo': 'ludo.png',
+        'goosi': 'goosi.png',
       }.entries) {
         final tile = find.byKey(ValueKey('home-game-${entry.key}'));
         final imageFinder = find.descendant(
@@ -65,16 +68,23 @@ void main() {
         expect(tester.getSize(imageFinder).width,
             greaterThan(tester.getSize(tile).width * 0.85));
       }
-      for (final name in ['Traitors', 'Word Bluff', 'Draft', 'Whot']) {
+      for (final name in [
+        'Traitors',
+        'Word Bluff',
+        'Draft',
+        'Whot',
+        'Ludo',
+        'Oware'
+      ]) {
         expect(tester.widget<Text>(find.text(name)).maxLines, 1);
       }
-      expect(tester.getBottomLeft(find.text('Join a room')).dy,
+      expect(tester.getBottomLeft(find.text('Join a huud')).dy,
           lessThan(tester.view.physicalSize.height - 96));
     }
 
     for (final theme in [NeonTheme.nebulaDark, NeonTheme.nebulaLight]) {
       await show(theme);
-      expect(find.byType(NeonCard), findsNWidgets(4));
+      expect(find.byType(NeonCard), findsNWidgets(6));
       final tile = tester.widget<AnimatedContainer>(find
           .descendant(
             of: find.byType(NeonCard).first,
@@ -86,7 +96,7 @@ void main() {
 
     for (final theme in [NeonTheme.supercarDark, NeonTheme.supercarLight]) {
       await show(theme);
-      expect(find.byType(NeonCard), findsNWidgets(4));
+      expect(find.byType(NeonCard), findsNWidgets(6));
       final tile = tester.widget<AnimatedContainer>(find
           .descendant(
             of: find.byType(NeonCard).first,
@@ -100,5 +110,43 @@ void main() {
     tester.view.physicalSize = const Size(375, 667);
     await show(NeonTheme.dark);
     expect(find.byKey(const ValueKey('home-game-whot')), findsOneWidget);
+  });
+
+  testWidgets('Oware home tile opens the Oware lobby', (tester) async {
+    GoogleFonts.config.allowRuntimeFetching = false;
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final api = ApiClient(
+        client: MockClient((_) async => http.Response(
+              jsonEncode({
+                'tier': {
+                  'tier': 'Rookie',
+                  'lifetimeCoins': 0,
+                  'nextTier': 'Rising Star',
+                  'coinsToNextTier': 10,
+                  'tierProgress': 0,
+                }
+              }),
+              200,
+              headers: {'content-type': 'application/json'},
+            )));
+
+    await tester.pumpWidget(AppScope(
+      state: AppState(api),
+      child: MaterialApp(theme: NeonTheme.dark, home: const HomeScreen()),
+    ));
+    await tester.pump();
+    final oware = find.byKey(const ValueKey('home-game-goosi'));
+    await tester.ensureVisible(oware);
+    await tester.tap(oware);
+    // Not pumpAndSettle: GoosiLobbyScreen's WatchingEye keeps a pulsing
+    // AnimationController running forever, which would hang pumpAndSettle.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byType(GoosiLobbyScreen), findsOneWidget);
+    expect(find.text('Oware'), findsWidgets);
   });
 }

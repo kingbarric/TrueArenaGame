@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
 
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'api_client.dart';
 import 'device_id.dart';
@@ -21,7 +25,9 @@ enum VisualTheme { palmWine, nebula, supercar }
 /// and join real rooms and its tokens persist like an account's; the only difference
 /// is it has no phone/email yet, so it's tied to this one device until it verifies
 /// one (which upgrades the *same* id in place — see `startGuest`/`_completeSignIn`).
-class AppState extends ChangeNotifier {
+class AppState extends ChangeNotifier with WidgetsBindingObserver {
+  /// Kept while a new invitee completes sign-in after opening a championship link.
+  String? pendingChampionshipCode;
   AppState(this.api);
 
   final ApiClient api;
@@ -29,6 +35,7 @@ class AppState extends ChangeNotifier {
 
   Identity identity = Identity.anonymous;
   UserView? user;
+  String? activeRoomId;
   ThemeMode themeMode = ThemeMode.system;
   VisualTheme visualTheme = VisualTheme.palmWine;
 
@@ -45,13 +52,15 @@ class AppState extends ChangeNotifier {
   double voiceMatchThreshold = 0.8;
 
   /// Live while signed in — see `InboxClient`. `CallScreen` sends
-  /// `CALL_JOINED`/`CALL_LEFT` on it directly; `AppState` itself only
-  /// listens, for the one thing every screen needs to react to the same
-  /// way: a `GAME_STARTING` notification pops [pendingGameInvite] so the
-  /// app-level banner (see `app.dart`) can show a Join action regardless of
-  /// which screen is on top.
+  /// `CALL_JOINED`/`CALL_LEFT` on it directly. `AppState` routes game-start
+  /// notices to [pendingGameInvite] and incoming DMs to [chatMessages].
   InboxClient? inbox;
+  final ValueNotifier<Set<String>> onlineFriends = ValueNotifier(<String>{});
+  Timer? _presenceTimer;
   StreamSubscription? _inboxSub;
+  Timer? _inboxRetry;
+  int _inboxGeneration = 0;
+  int _inboxRetrySeconds = 1;
   Map<String, dynamic>? pendingGameInvite;
 
   // Broadcast (not single-value like pendingGameInvite) — a chat list screen
@@ -82,10 +91,14 @@ class AppState extends ChangeNotifier {
   }
 
   void _connectInbox() {
+    final generation = ++_inboxGeneration;
+    _inboxRetry?.cancel();
+    _inboxRetry = null;
     _inboxSub?.cancel();
     inbox?.close();
-    inbox = InboxClient.connect(api);
-    _inboxSub = inbox!.envelopes.listen((env) {
+    final client = InboxClient.connect(api);
+    inbox = client;
+    _inboxSub = client.envelopes.listen((env) {
       final payload = (env['payload'] as Map?)?.cast<String, dynamic>();
       if (payload?['type'] == 'GAME_STARTING') {
         pendingGameInvite = (payload!['data'] as Map).cast<String, dynamic>();
@@ -93,6 +106,50 @@ class AppState extends ChangeNotifier {
       } else if (payload?['type'] == 'NEW_MESSAGE') {
         _chatController.add((payload!['data'] as Map).cast<String, dynamic>());
       }
+    }, onDone: () => _scheduleInboxReconnect(generation));
+    client.ready.then((_) {
+      if (generation == _inboxGeneration) {
+        _inboxRetrySeconds = 1;
+        // Reconcile messages sent while this device was offline.
+        _chatController.add({'type': 'sync'});
+      }
+    }).catchError((Object _) {
+      _scheduleInboxReconnect(generation);
+    });
+    _presenceTimer?.cancel();
+    _refreshPresence();
+    _presenceTimer = Timer.periodic(
+        const Duration(seconds: 15), (_) => _refreshPresence());
+  }
+
+  Future<void> _refreshPresence() async {
+    if (api.bearer == null) return;
+    try {
+      final result = await api.get('/friends/online') as List;
+      if (api.bearer != null) {
+        onlineFriends.value = result.map((id) => id.toString()).toSet();
+      }
+    } catch (_) {
+      onlineFriends.value = <String>{};
+    }
+  }
+
+  void _scheduleInboxReconnect(int generation) {
+    if (generation != _inboxGeneration || api.bearer == null || _inboxRetry != null) return;
+    final delay = _inboxRetrySeconds;
+    _inboxRetrySeconds = (_inboxRetrySeconds * 2).clamp(1, 30);
+    _inboxRetry = Timer(Duration(seconds: delay), () async {
+      _inboxRetry = null;
+      if (generation != _inboxGeneration || api.bearer == null) return;
+      try {
+        // Also renew an expired access token before opening the socket.
+        await api.get('/me');
+      } catch (_) {
+        _scheduleInboxReconnect(generation);
+        return;
+      }
+      // A token refresh already calls _connectInbox with the new token.
+      if (generation == _inboxGeneration) _connectInbox();
     });
   }
 
@@ -104,8 +161,47 @@ class AppState extends ChangeNotifier {
   static const _kAvatarImage = 'ta_avatar_image';
   static const _kVoiceMatchEnabled = 'ta_voice_match_enabled';
   static const _kVoiceMatchThreshold = 'ta_voice_match_threshold';
+  static const _kActiveRoom = 'ta_active_room';
+  static const _kActiveRoomUser = 'ta_active_room_user';
+  static const _kActiveRoomSavedAt = 'ta_active_room_saved_at';
+  static const _kCachedUser = 'ta_cached_user';
+  static const _roomResumeWindow = Duration(days: 7);
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshPresence();
+      if (api.bearer != null) _chatController.add({'type': 'sync'});
+    }
+    if (state == AppLifecycleState.paused && activeRoomId != null) {
+      SharedPreferences.getInstance().then((prefs) => prefs.setInt(
+          _kActiveRoomSavedAt, DateTime.now().millisecondsSinceEpoch));
+    }
+  }
+
+  Future<void> rememberActiveRoom(String roomId) async {
+    final userId = user?.id;
+    if (userId == null) return;
+    activeRoomId = roomId;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kActiveRoom, roomId);
+    await prefs.setString(_kActiveRoomUser, userId);
+    await prefs.setInt(_kActiveRoomSavedAt, DateTime.now().millisecondsSinceEpoch);
+    notifyListeners();
+  }
+
+  Future<void> clearActiveRoom([String? roomId]) async {
+    if (roomId != null && activeRoomId != roomId) return;
+    activeRoomId = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kActiveRoom);
+    await prefs.remove(_kActiveRoomUser);
+    await prefs.remove(_kActiveRoomSavedAt);
+    notifyListeners();
+  }
 
   Future<void> bootstrap() async {
+    WidgetsBinding.instance.addObserver(this);
     api.deviceId = await DeviceId.get();
     // Lets ApiClient recover a mid-session 401 on its own (the access token
     // is only good for 15 min) instead of every call site having to special-
@@ -134,14 +230,28 @@ class AppState extends ChangeNotifier {
       api.bearer = access;
       try {
         await _loadMe();
+      } on ApiException catch (error) {
+        if (error.status == 401) {
+          // ApiClient already tried the stored refresh token. A final 401
+          // means the account session is no longer valid.
+          await signOut();
+        } else {
+          _restoreCachedUser(prefs);
+        }
       } catch (_) {
-        // The access token is short-lived (15 min) and expires long before the
-        // refresh token (30 days) — on a normal cold start it's very likely
-        // already expired, so a plain 401 here does NOT mean the session is
-        // over. Only sign out if the refresh itself fails (refresh token
-        // expired/revoked, or the account is gone).
-        if (!await _tryRefresh()) await signOut();
+        // A temporary network outage must not erase a month-long session or
+        // the room the player intends to resume.
+        _restoreCachedUser(prefs);
       }
+    }
+    final savedRoom = prefs.getString(_kActiveRoom);
+    final savedAt = prefs.getInt(_kActiveRoomSavedAt);
+    if (savedRoom != null && user?.id == prefs.getString(_kActiveRoomUser) &&
+        savedAt != null && DateTime.now().difference(
+            DateTime.fromMillisecondsSinceEpoch(savedAt)) <= _roomResumeWindow) {
+      activeRoomId = savedRoom;
+    } else if (savedRoom != null) {
+      await clearActiveRoom();
     }
     notifyListeners();
   }
@@ -169,14 +279,42 @@ class AppState extends ChangeNotifier {
     final me = await api.get('/me') as Map<String, dynamic>;
     user = UserView.fromJson(me);
     identity = user!.isGuest ? Identity.guest : Identity.account;
+    await _cacheUser(user!);
     _connectInbox();
     _ensurePublicKey();
     // Server avatar wins over a stale local pref once we know it (e.g. a
     // fresh reinstall, or a change made from another device).
     final serverIcon = user!.avatarUrl;
-    if (serverIcon != null && !serverIcon.startsWith('http')) {
+    if (serverIcon != null && !serverIcon.startsWith('http') && !serverIcon.startsWith('data:image/')) {
       avatarEmoji = serverIcon;
       avatarImagePath = null;
+    } else if (serverIcon?.startsWith('data:image/') == true) {
+      avatarEmoji = null;
+      avatarImagePath = null;
+    }
+  }
+
+  Future<void> _cacheUser(UserView value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kCachedUser, jsonEncode({
+      'id': value.id,
+      'displayName': value.displayName,
+      'username': value.username,
+      'phone': value.phone,
+      'email': value.email,
+      'avatarUrl': value.avatarUrl,
+      'isGuest': value.isGuest,
+    }));
+  }
+
+  void _restoreCachedUser(SharedPreferences prefs) {
+    final raw = prefs.getString(_kCachedUser);
+    if (raw == null) return;
+    try {
+      user = UserView.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+      identity = user!.isGuest ? Identity.guest : Identity.account;
+    } catch (_) {
+      // Ignore a damaged cache; the server remains the source of truth.
     }
   }
 
@@ -258,12 +396,37 @@ class AppState extends ChangeNotifier {
 
   /// Use an uploaded photo — clears any preset icon.
   Future<void> setAvatarImage(String path) async {
-    avatarImagePath = path;
+    // ImagePicker returns a temporary path on iOS. Keep a private copy so the
+    // chosen photo is still there after the OS clears its cache.
+    final directory = await getApplicationSupportDirectory();
+    final extension = path.split('.').last.toLowerCase();
+    final safeExtension = {'jpg', 'jpeg', 'png', 'heic', 'webp'}.contains(extension)
+        ? extension
+        : 'jpg';
+    final saved = await File(path).copy(
+        '${directory.path}/profile_${DateTime.now().microsecondsSinceEpoch}.$safeExtension');
+    avatarImagePath = saved.path;
     avatarEmoji = null;
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kAvatarImage, path);
+    await prefs.setString(_kAvatarImage, saved.path);
     await prefs.remove(_kAvatarEmoji);
+    if (identity == Identity.account) {
+      final bytes = await saved.readAsBytes();
+      if (bytes.length > 110000) {
+        throw StateError('That photo is too large to sync. Please choose a smaller one.');
+      }
+      final mime = bytes.length > 7 && bytes[0] == 0x89 && bytes[1] == 0x50
+          ? 'png'
+          : bytes.length > 11 && bytes[0] == 0x52 && bytes[8] == 0x57
+              ? 'webp'
+              : 'jpeg';
+      final data = 'data:image/$mime;base64,${base64Encode(bytes)}';
+      final response = await api.patch('/me', {'avatarImageData': data})
+          as Map<String, dynamic>;
+      user = UserView.fromJson(response);
+      notifyListeners();
+    }
   }
 
   Future<void> clearAvatar() async {
@@ -290,6 +453,7 @@ class AppState extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kAccess, tokens.access);
     await prefs.setString(_kRefresh, tokens.refresh);
+    await _cacheUser(tokens.user);
     _connectInbox();
     _ensurePublicKey();
     notifyListeners();
@@ -298,7 +462,7 @@ class AppState extends ChangeNotifier {
   /// Full round trip: native Google account picker → ID token → `/auth/google`
   /// → the same `completeAccountSignIn` every other login path uses. Returns
   /// null if the user cancels the picker (not an error); throws otherwise —
-  /// including [StateError] if GOOGLE_WEB_CLIENT_ID was omitted at build time.
+  /// including [StateError] if the Web client ID is invalid.
   Future<AuthTokens?> signInWithGoogle() async {
     if (!isGoogleSignInConfigured) {
       throw StateError(
@@ -326,6 +490,32 @@ class AppState extends ChangeNotifier {
     return tokens;
   }
 
+  /// Native iOS Apple sheet, with a one-use nonce issued and consumed by our
+  /// backend. The backend verifies Apple's signature before creating a session.
+  Future<AuthTokens> signInWithApple() async {
+    final challenge = await api.post('/auth/apple/challenge', {})
+        as Map<String, dynamic>;
+    final nonce = challenge['nonce'] as String;
+    final credential = await SignInWithApple.getAppleIDCredential(
+      scopes: const [
+        AppleIDAuthorizationScopes.email,
+        AppleIDAuthorizationScopes.fullName,
+      ],
+      nonce: nonce,
+    );
+    final idToken = credential.identityToken;
+    if (idToken == null) {
+      throw StateError('Apple did not return an identity token');
+    }
+    final response = await api.post('/auth/apple', {
+      'idToken': idToken,
+      'nonce': nonce,
+    }) as Map<String, dynamic>;
+    final tokens = AuthTokens.fromJson(response);
+    await completeAccountSignIn(tokens);
+    return tokens;
+  }
+
   /// A real, server-known guest identity (POST /auth/guest) keyed by device id —
   /// can host/join real rooms like any account, just with no phone/email yet.
   /// Relaunching the app on the same device reconnects to this same identity
@@ -347,8 +537,15 @@ class AppState extends ChangeNotifier {
       // The app session can still be cleared if the provider is unavailable.
     }
     api.bearer = null;
+    ++_inboxGeneration;
+    _inboxRetry?.cancel();
+    _inboxRetry = null;
+    _presenceTimer?.cancel();
+    _presenceTimer = null;
+    onlineFriends.value = <String>{};
     user = null;
     identity = Identity.anonymous;
+    await clearActiveRoom();
     pendingGameInvite = null;
     await _inboxSub?.cancel();
     await inbox?.close();
@@ -356,7 +553,16 @@ class AppState extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_kAccess);
     await prefs.remove(_kRefresh);
+    await prefs.remove(_kCachedUser);
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _presenceTimer?.cancel();
+    onlineFriends.dispose();
+    super.dispose();
   }
 }
 

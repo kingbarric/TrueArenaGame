@@ -2,6 +2,7 @@ package app.truearena.api.chat;
 
 import app.truearena.api.chat.ChatDtos.ConversationView;
 import app.truearena.api.chat.ChatDtos.MessagePage;
+import app.truearena.api.chat.ChatDtos.MessageView;
 import app.truearena.api.chat.ChatDtos.SendGameInviteRequest;
 import app.truearena.api.chat.ChatDtos.SendTextRequest;
 import app.truearena.api.support.CurrentUser;
@@ -60,7 +61,7 @@ public class ChatController {
 
     @PostMapping("/conversations/{id}/messages")
     @ResponseStatus(HttpStatus.CREATED)
-    public Mono<Void> sendText(@PathVariable UUID id, @Valid @RequestBody SendTextRequest body) {
+    public Mono<MessageView> sendText(@PathVariable UUID id, @Valid @RequestBody SendTextRequest body) {
         return CurrentUser.id().flatMap(uid -> chat.sendText(uid, id, body.text()));
     }
 

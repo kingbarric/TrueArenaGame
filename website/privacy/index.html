@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy — PlayHuud</title>
+<meta name="description" content="How PlayHuud collects, uses, and protects your information.">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="apple-touch-icon" href="../assets/favicon.png">
+<style>
+  :root{
+    --bg:#16100f; --panel:#241517; --plate:#1d1213; --line:#3a2429;
+    --ink:#f6eae3; --mid:#d6bfb6; --mute:#9c8078;
+    --gold:#d9a441; --brand:#c02b52; --jade:#7fcfa0;
+    --font-display:'Baloo 2',system-ui,sans-serif;
+    --font-body:'Archivo',system-ui,sans-serif;
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);-webkit-font-smoothing:antialiased}
+  a{color:var(--gold)}
+  img{display:block;max-width:100%}
+  .wrap{max-width:760px;margin:0 auto;padding:0 6vw}
+  nav{padding:26px 0 0}
+  nav .row{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;max-width:760px;margin:0 auto;padding:0 6vw}
+  .wordmark-img{height:48px;width:auto}
+  .navlinks a{text-decoration:none;color:var(--mid);font-weight:600;font-size:14px}
+  .navlinks a:hover{color:var(--ink)}
+  main{padding:50px 0 90px}
+  h1{font-family:var(--font-display);font-weight:800;font-size:clamp(32px,5vw,48px);margin:0 0 6px}
+  .updated{color:var(--mute);font-size:13.5px;margin:0 0 40px}
+  h2{font-family:var(--font-display);font-weight:700;font-size:22px;color:var(--gold);margin:40px 0 14px}
+  p,li{color:var(--mid);font-size:15.5px;line-height:1.75}
+  ul{padding-left:22px}
+  li{margin-bottom:8px}
+  strong{color:var(--ink)}
+  .note{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 20px;font-size:14px;color:var(--mute);margin:16px 0}
+  footer{border-top:1px solid var(--line);padding:30px 0;background:var(--plate)}
+  footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+  footer p{color:var(--mute);font-size:13px;margin:0}
+  footer a{color:var(--mute);font-size:13px;text-decoration:none}
+  footer a:hover{color:var(--gold)}
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Archivo:wght@400;500;600;700&display=swap">
+</head>
+<body>
+
+<nav>
+  <div class="row">
+    <a href="../"><img class="wordmark-img" src="../assets/playhuud-wordmark.png" alt="PlayHuud"></a>
+    <div class="navlinks"><a href="../">Back to playhuud.com</a></div>
+  </div>
+</nav>
+
+<main class="wrap">
+  <h1>Privacy Policy</h1>
+  <p class="updated">Last updated: 2 October 2026</p>
+
+  <p>PlayHuud (the "app") is developed and operated by Eric Baridule Barima ("we", "us"). This policy explains what information PlayHuud collects, how it's used, and the choices you have. It covers the PlayHuud app on iOS and Android and the services it talks to at playhuud.com.</p>
+
+  <h2>Account information</h2>
+  <p>To play, you create a PlayHuud account one of these ways:</p>
+  <ul>
+    <li><strong>Google or Apple sign-in</strong> — we receive the basic profile info (name and email address) that Google or Apple shares when you choose to sign in this way.</li>
+    <li><strong>Phone or email verification</strong> — if you verify a phone number or email address, we store it against your account so you can recover access to it.</li>
+    <li><strong>Guest play</strong> — you can also play without creating an account. We identify a guest session by a random identifier generated on your device, with no phone number or email attached, until and unless you choose to verify one.</li>
+  </ul>
+  <p>Beyond that, we store the display name, username, and avatar you set, and a public encryption key your device generates for secure messaging (explained below) — never a private key, which stays on your device.</p>
+
+  <h2>Finding friends from your contacts</h2>
+  <p>If you choose to use "Invite from contacts," PlayHuud asks your device for permission to read your contacts. This is entirely optional and only requested when you tap that feature.</p>
+  <p>When you use it, we send the phone numbers from your contact list (never names) to our server over an encrypted connection, purely to check which of them already have a PlayHuud account. We don't keep a copy of the phone numbers you searched with — we only return the matches. Any contact that isn't a PlayHuud user never leaves your device.</p>
+
+  <h2>Messages and calls</h2>
+  <p>Direct messages between two people are end-to-end encrypted once both of you have exchanged device keys inside the app — meaning the content is unreadable to our servers, which only ever see and store an encrypted blob. Group chat messages, and direct messages sent before that key exchange has happened, are not end-to-end encrypted and are stored on our servers in the same way most messaging apps handle messages, protected by encryption in transit (TLS) and standard access controls.</p>
+  <p>One-to-one voice calls get an additional layer of end-to-end encryption on top of standard call security once a key exchange has happened; group calls are protected by standard transport encryption (DTLS-SRTP) only. All calls run on voice infrastructure we operate ourselves — we don't send your call data to a third-party calling vendor.</p>
+
+  <h2>Microphone use in Word Bluff</h2>
+  <p>Word Bluff's optional voice-detection feature uses your device's own built-in speech recognizer. Your voice audio, and anything it transcribes, is processed entirely on your device and is never sent to our servers — the app only sends a simple "guessed correctly" signal as part of normal gameplay.</p>
+
+  <h2>Coins and the in-game wallet</h2>
+  <p>PlayHuud games use an in-game virtual currency ("coins") that you earn by playing matches. Coins cannot be purchased with real money, and cannot be withdrawn, exchanged, cashed out, or redeemed for real money or anything of monetary value — they exist only inside the app, for gameplay. Some game rooms let players optionally wager coins against each other, with the winner taking the pot; this never involves real money in either direction. We keep a ledger of your coin balance and history tied to your account.</p>
+
+  <h2>Device and diagnostic information</h2>
+  <p>We collect basic technical information needed to run the app reliably, such as your device model and operating system version. We do not use any third-party analytics, advertising, or crash-reporting services — PlayHuud has no ad trackers.</p>
+
+  <h2>How we use your information</h2>
+  <ul>
+    <li>To create and run your account, and to let you play with and message other players.</li>
+    <li>To match you with friends already using PlayHuud, when you choose to use that feature.</li>
+    <li>To operate voice calls and real-time gameplay.</li>
+    <li>To keep the service secure and working as intended.</li>
+  </ul>
+  <p>We do not sell your information, and we do not share it with third parties for their own advertising or marketing purposes.</p>
+
+  <h2>Your choices</h2>
+  <ul>
+    <li>Contacts, microphone, and other device permissions are optional and can be changed any time in your device's app settings.</li>
+    <li>You can ask us to access, correct, or delete your account data by emailing us at the address below.</li>
+  </ul>
+
+  <h2>Children's privacy</h2>
+  <p>PlayHuud is not directed at children under 13, and we don't knowingly collect personal information from children under that age. If you believe a child has provided us with personal information, contact us and we'll remove it.</p>
+
+  <h2>Changes to this policy</h2>
+  <p>We may update this policy as the app changes. We'll update the date at the top of this page when we do.</p>
+
+  <h2>Contact us</h2>
+  <p>Questions about this policy, or requests about your data, can be sent to <a href="mailto:barric3g@gmail.com">barric3g@gmail.com</a>.</p>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>© 2026 PlayHuud.</p>
+    <a href="../">playhuud.com</a>
+  </div>
+</footer>
+</body>
+</html>

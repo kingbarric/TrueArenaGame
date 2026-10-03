@@ -4,11 +4,12 @@
 /// Console steps (OAuth consent screen, Web/iOS/Android client IDs, iOS URL
 /// scheme, Android SHA-1).
 ///
-/// Supply GOOGLE_WEB_CLIENT_ID with --dart-define when building the app.
-/// This one MUST be the **Web application** client ID, not the iOS or Android
-/// one — it's passed as `serverClientId`, which is what makes the ID token's
-/// `aud` match what the backend's `truearena.auth.google-client-id` checks.
-const String kGoogleWebClientId = String.fromEnvironment('GOOGLE_WEB_CLIENT_ID');
+/// The Web application OAuth client ID is the ID token audience for both the
+/// app and backend. Override with GOOGLE_WEB_CLIENT_ID for another environment.
+const String kGoogleWebClientId = String.fromEnvironment(
+  'GOOGLE_WEB_CLIENT_ID',
+  defaultValue: '26187322342-o2squi475tmt3ubs8k9rh2d2b7pfivgf.apps.googleusercontent.com',
+);
 
 /// The **iOS** OAuth client ID — passed as `clientId` (iOS/macOS only; Android
 /// ignores this and relies on the registered SHA-1 instead). Without this,

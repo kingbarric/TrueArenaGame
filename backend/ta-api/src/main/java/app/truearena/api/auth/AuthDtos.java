@@ -32,6 +32,14 @@ public final class AuthDtos {
     public record GoogleSignInRequest(@jakarta.validation.constraints.NotBlank String idToken) {
     }
 
+    public record AppleSignInRequest(
+            @jakarta.validation.constraints.NotBlank String idToken,
+            @jakarta.validation.constraints.NotBlank String nonce) {
+    }
+
+    public record AppleChallenge(String nonce) {
+    }
+
     /** {@code displayName} is optional — falls back to a generic "Player" name. */
     public record GuestSignInRequest(
             @jakarta.validation.constraints.NotBlank String deviceId,
@@ -40,7 +48,8 @@ public final class AuthDtos {
 
     public record ProfileUpdateRequest(
             @Size(min = 3, max = 24) @Pattern(regexp = "[a-zA-Z0-9_]*") String username,
-            String avatarEmoji) {
+            String avatarEmoji,
+            @Size(max = 150_000) String avatarImageData) {
     }
 
     public record UserView(UUID id, String displayName, String username, String phone, String email, String avatarUrl, boolean isGuest) {

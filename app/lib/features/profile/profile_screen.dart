@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../core/app_state.dart';
 import '../../core/models.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/neon.dart';
-import '../onboarding/phone_screen.dart';
+import '../onboarding/guest_save_session_card.dart';
 import '../onboarding/sign_out.dart';
 import '../settings/settings_screen.dart';
 import '../wallet/wallet_screen.dart';
+import '../draughts/championships_screen.dart';
 
 /// Reached from Home by tapping the avatar/name row. Appearance is available
 /// here, with the rest of the device preferences in [SettingsScreen].
@@ -21,11 +23,74 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   StatsView? _stats;
   String? _statsError;
+  bool _pickingPhoto = false;
+  List<Map<String, dynamic>> _championshipBadges = const [];
+
+  Future<void> _choosePhoto(AppState app) async {
+    setState(() => _pickingPhoto = true);
+    try {
+      final picked = await ImagePicker().pickImage(
+          source: ImageSource.gallery,
+          maxWidth: 320,
+          maxHeight: 320,
+          imageQuality: 65);
+      if (picked != null) await app.setAvatarImage(picked.path);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(error is StateError
+                ? error.message : 'Photo saved on this phone, but could not sync it')));
+      }
+    } finally {
+      if (mounted) setState(() => _pickingPhoto = false);
+    }
+  }
+
+  Future<void> _chooseAvatar(AppState app) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: context.neon.panel,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text('PROFILE PICTURE', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 14),
+            NeonButton('Choose from photos', onPressed: () {
+              Navigator.of(sheetContext).pop();
+              _choosePhoto(app);
+            }),
+            const SizedBox(height: 14),
+            Wrap(spacing: 8, runSpacing: 8, alignment: WrapAlignment.center,
+              children: [for (final emoji in kAvatarPresets)
+                InkWell(
+                  onTap: () {
+                    app.setAvatarEmoji(emoji);
+                    Navigator.of(sheetContext).pop();
+                  },
+                  child: Avatar('', size: 44, emoji: emoji),
+                )],
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadStats());
+    WidgetsBinding.instance.addPostFrameCallback((_) { _loadStats(); _loadBadges(); });
+  }
+
+  Future<void> _loadBadges() async {
+    try {
+      final rows = await AppScope.of(context).api.get('/championships/badges/mine') as List;
+      if (mounted) {
+        setState(() => _championshipBadges = rows
+            .map((e) => (e as Map).cast<String, dynamic>()).toList());
+      }
+    } catch (_) { /* Badges do not block the rest of the profile. */ }
   }
 
   Future<void> _loadStats() async {
@@ -85,7 +150,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Center(
               child: Column(
                 children: [
-                  Avatar(name, size: 84, emoji: app.avatarEmoji, imagePath: app.avatarImagePath),
+                  InkWell(
+                    onTap: _pickingPhoto ? null : () => _chooseAvatar(app),
+                    borderRadius: BorderRadius.circular(48),
+                    child: Stack(alignment: Alignment.bottomRight, children: [
+                      Avatar(name, size: 84, emoji: app.avatarEmoji,
+                          imagePath: app.avatarImagePath, imageUrl: user?.avatarUrl),
+                      CircleAvatar(radius: 15, backgroundColor: n.gold,
+                          child: const Icon(Icons.camera_alt_rounded, size: 16, color: Colors.black)),
+                    ]),
+                  ),
+                  const SizedBox(height: 6),
+                  TextButton(onPressed: _pickingPhoto ? null : () => _chooseAvatar(app),
+                      child: Text(_pickingPhoto ? 'Opening photos…' : 'Change profile picture')),
                   const SizedBox(height: 12),
                   Text(name, style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 4),
@@ -128,6 +205,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             const SizedBox(height: 28),
+            if (_championshipBadges.isNotEmpty) ...[
+              Text('CHAMPIONSHIP BADGES', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: n.gold)),
+              const SizedBox(height: 8),
+              ..._championshipBadges.map((badge) => Card(child: ListTile(
+                leading: const Text('🏆', style: TextStyle(fontSize: 25)),
+                title: Text('${badge['name']} Champion'),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => ChampionshipDetailScreen(id: badge['championshipId'] as String))),
+              ))),
+              const SizedBox(height: 16),
+            ],
             Text('APPEARANCE',
                 style: Theme.of(context)
                     .textTheme
@@ -149,20 +237,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Text('MATCH HISTORY', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: n.gold)),
             const SizedBox(height: 12),
             if (isGuest) ...[
-              NeonCard(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Verify a phone or email to keep this session — your games so far carry over, '
-                      'and you can host new games from any device.',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: n.mid)),
-                  const SizedBox(height: 10),
-                  NeonButton(
-                    'Verify now',
-                    style: NeonStyle.ghost,
-                    expand: false,
-                    onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PhoneScreen())),
-                  ),
-                ]),
-              ),
+              const GuestSaveSessionCard(),
               const SizedBox(height: 12),
             ],
             if (_statsError != null)

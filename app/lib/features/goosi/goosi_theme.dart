@@ -59,12 +59,16 @@ class GoosiBoardPalette {
   final double grain;
 }
 
-/// One stone color — round river-stone pieces, not domed checkers, so this
-/// only needs a top/mid/rim triple per set (no per-side pair like Draughts'
-/// `PiecePalette`, since every stone in a Goosi set looks the same — only
-/// the seed *count* per pit matters, not which side it's on).
+/// One seed finish. The default "Market Glass" finish is rendered as the
+/// mixed ivory, onyx, green and turquoise beads from the PlayHuud mockup;
+/// the other entries remain single-colour cosmetic choices.
 class GoosiStonePalette {
-  const GoosiStonePalette({required this.id, required this.label, required this.top, required this.mid, required this.rim});
+  const GoosiStonePalette(
+      {required this.id,
+      required this.label,
+      required this.top,
+      required this.mid,
+      required this.rim});
 
   final String id;
   final String label;
@@ -153,15 +157,42 @@ const List<GoosiBoardPalette> goosiBoardPalettes = [
 ];
 
 const List<GoosiStonePalette> goosiStonePalettes = [
-  GoosiStonePalette(id: 'river_stone', label: 'River Stone', top: Color(0xffe0dccf), mid: Color(0xffa89e88), rim: Color(0xff544c3a)),
-  GoosiStonePalette(id: 'amber', label: 'Amber', top: Color(0xffffcf7a), mid: Color(0xffe0a030), rim: Color(0xff7a4e10)),
-  GoosiStonePalette(id: 'jade', label: 'Jade', top: Color(0xff9de0c0), mid: Color(0xff3ea378), rim: Color(0xff164a34)),
-  GoosiStonePalette(id: 'carnelian', label: 'Carnelian', top: Color(0xffff9d7a), mid: Color(0xffe06848), rim: Color(0xff7a2a18)),
-  GoosiStonePalette(id: 'onyx', label: 'Onyx', top: Color(0xff6a7078), mid: Color(0xff3a3f46), rim: Color(0xff16181c)),
+  GoosiStonePalette(
+      id: 'river_stone',
+      label: 'Market Glass',
+      top: Color(0xfff7f1df),
+      mid: Color(0xffc8bfa9),
+      rim: Color(0xff544c3a)),
+  GoosiStonePalette(
+      id: 'amber',
+      label: 'Amber',
+      top: Color(0xffffcf7a),
+      mid: Color(0xffe0a030),
+      rim: Color(0xff7a4e10)),
+  GoosiStonePalette(
+      id: 'jade',
+      label: 'Jade',
+      top: Color(0xff9de0c0),
+      mid: Color(0xff3ea378),
+      rim: Color(0xff164a34)),
+  GoosiStonePalette(
+      id: 'carnelian',
+      label: 'Carnelian',
+      top: Color(0xffff9d7a),
+      mid: Color(0xffe06848),
+      rim: Color(0xff7a2a18)),
+  GoosiStonePalette(
+      id: 'onyx',
+      label: 'Onyx',
+      top: Color(0xff6a7078),
+      mid: Color(0xff3a3f46),
+      rim: Color(0xff16181c)),
 ];
 
-GoosiBoardPalette goosiBoardById(String id) => goosiBoardPalettes.firstWhere((p) => p.id == id, orElse: () => goosiBoardPalettes.first);
-GoosiStonePalette goosiStoneById(String id) => goosiStonePalettes.firstWhere((p) => p.id == id, orElse: () => goosiStonePalettes.first);
+GoosiBoardPalette goosiBoardById(String id) => goosiBoardPalettes
+    .firstWhere((p) => p.id == id, orElse: () => goosiBoardPalettes.first);
+GoosiStonePalette goosiStoneById(String id) => goosiStonePalettes
+    .firstWhere((p) => p.id == id, orElse: () => goosiStonePalettes.first);
 
 /// Persists the player's board/stone color choice locally — same pattern as
 /// `DraughtsThemeController`, a per-device cosmetic preference.
@@ -181,11 +212,14 @@ class GoosiThemeController extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       return GoosiThemeController._(
-        goosiBoardById(prefs.getString(_boardKey) ?? goosiBoardPalettes.first.id),
-        goosiStoneById(prefs.getString(_stoneKey) ?? goosiStonePalettes.first.id),
+        goosiBoardById(
+            prefs.getString(_boardKey) ?? goosiBoardPalettes.first.id),
+        goosiStoneById(
+            prefs.getString(_stoneKey) ?? goosiStonePalettes.first.id),
       );
     } catch (_) {
-      return GoosiThemeController._(goosiBoardPalettes.first, goosiStonePalettes.first);
+      return GoosiThemeController._(
+          goosiBoardPalettes.first, goosiStonePalettes.first);
     }
   }
 

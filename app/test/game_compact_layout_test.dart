@@ -15,11 +15,15 @@ import 'package:truearena/theme/neon_theme.dart';
 class _Socket implements GameSocket {
   final frames = StreamController<Map<String, dynamic>>.broadcast();
   @override
+  final ValueNotifier<Set<String>> onlinePlayers = ValueNotifier(<String>{});
+  @override
   Stream<Map<String, dynamic>> get envelopes => frames.stream;
   @override
   bool get isConnected => true;
   @override
   int get lastSeq => 0;
+  @override
+  String get roomId => '00000000-0000-0000-0000-000000000001';
   @override
   void send(String type, [Map<String, dynamic>? payload]) {}
   @override

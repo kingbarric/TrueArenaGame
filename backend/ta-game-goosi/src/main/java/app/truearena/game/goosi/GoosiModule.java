@@ -19,38 +19,12 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Goosi — the fourth game type. A 16-pit sowing/capture board in the Mancala
- * family, 2 or 4 players sharing one fixed ring of 16 pits (no separate
- * "store" pits — captured seeds go straight to each player's score):
- *
- * <ul>
- *   <li><b>2 players</b>: pits 0-7 belong to player 0, pits 8-15 to player 1
- *       — the classic two-opposing-rows layout.</li>
- *   <li><b>4 players</b>: pits are split into four arcs of 4 — player k owns
- *       {@code [4k, 4k+3]} — read as four sides of a ring/table, each player
- *       across from the player two seats over.</li>
- * </ul>
- *
- * <p>Sowing always moves in increasing pit index (mod 16), one seed per pit,
- * regardless of player count — for 4 players this naturally sows through
- * every other player's pits on the way around, not just the two rows a 2p
- * game would have. "Opposite pit" for a capture is always {@code (pit+8)%16}
- * — the pit directly across the ring — which is the same formula for both
- * layouts (see {@link GoosiState#opposite}).
- *
- * <p><b>Capture</b>: if your last sown seed lands in a pit that was empty
- * and it's one of your own pits, you capture that seed plus everything in
- * the opposite pit, straight to your score. Landing in an empty pit that
- * isn't yours (or a pit that already had seeds) never captures.
- *
- * <p><b>No extra turns</b> — every sow simply passes to the next player, even
- * on a capture. Deliberately simpler than Kalah's "land in your store, go
- * again" rule, since there's no store here.
- *
- * <p><b>End game</b>: if the player about to move has no seeds anywhere in
- * their own pits, the game ends immediately — every remaining pit's seeds
- * sweep into whichever player owns that pit's own score. Highest score wins;
- * ties are possible and reported as such.
+ * Goosi is PlayHuud's Oware Abapa game: two players, two rows of six houses,
+ * four seeds per house, and scores kept off the sowing loop. A turn lifts one
+ * complete house and sows counter-clockwise, skipping the starting house on
+ * a long lap. A last seed that leaves two or three in the opponent's house
+ * captures that house and consecutive preceding opponent houses containing
+ * two or three. A grand slam is void and feeding is mandatory when possible.
  */
 public final class GoosiModule implements GameModule {
 
@@ -65,7 +39,7 @@ public final class GoosiModule implements GameModule {
     public List<Phase> definePhases(GameSettings settings) {
         GoosiConfig config = (GoosiConfig) settings;
         List<Phase> phases = new ArrayList<>();
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < 2; i++) {
             phases.add(new Phase("TurnP" + i, config.turnSeconds()));
             // Running out of time offers chances rather than playing for you
             // — each waits, paused, until somebody resumes. See onPhaseElapsed.
@@ -82,8 +56,8 @@ public final class GoosiModule implements GameModule {
     public GameState initialState(List<String> playerIds, GameSettings settings, RandomSource rng) {
         GoosiConfig config = (GoosiConfig) settings;
         int n = playerIds.size();
-        if (n != 2 && n != 4) {
-            throw new RuleViolation("NEEDS_TWO_OR_FOUR_PLAYERS", "Goosi is 2 or 4 players — got " + n);
+        if (n != 2) {
+            throw new RuleViolation("NEEDS_TWO_PLAYERS", "Oware needs exactly 2 players — got " + n);
         }
         List<String> shuffled = new ArrayList<>(playerIds);
         rng.shuffle(shuffled);
@@ -92,13 +66,13 @@ public final class GoosiModule implements GameModule {
         d.config = config;
         d.players = shuffled;
         d.scores = new int[n];
-        int pitsPerPlayer = 16 / n;
+        int pitsPerPlayer = 6;
         for (int p = 0; p < n; p++) {
             for (int i = 0; i < pitsPerPlayer; i++) {
                 d.owner[p * pitsPerPlayer + i] = shuffled.get(p);
             }
         }
-        for (int i = 0; i < 16; i++) {
+        for (int i = 0; i < 12; i++) {
             d.pits[i] = config.seedsPerPit();
         }
         d.turnIndex = 0;
@@ -109,6 +83,7 @@ public final class GoosiModule implements GameModule {
                 "players", List.copyOf(shuffled),
                 "pits", pitsSnapshot(d.pits),
                 "owner", ownerSnapshot(d.owner),
+                "legalPits", legalPits(d.pits, d.owner, shuffled.get(0)),
                 "seedsPerPit", config.seedsPerPit(),
                 "turnSeconds", config.turnSeconds()));
         return d.build();
@@ -127,9 +102,17 @@ public final class GoosiModule implements GameModule {
 
         switch (action.type()) {
             case "SOW" -> sowAction(d, s, action);
+            case "RESIGN" -> resign(d, s, action.actor());
             default -> throw new RuleViolation("UNKNOWN_ACTION", "no handler for " + action.type());
         }
         return d.build();
+    }
+
+    private void resign(GoosiState.Draft d, GoosiState s, String actor) {
+        int quitter = s.indexOf(actor);
+        require(quitter >= 0, "NOT_A_PLAYER", "you're not one of the players in this game");
+        forfeit(d, s, quitter);
+        d.emit("PLAYER_RESIGNED", Map.of("player", actor));
     }
 
     /**
@@ -140,11 +123,8 @@ public final class GoosiModule implements GameModule {
      * settles it. Each grace phase waits paused so the time isn't spent
      * while the player is still away.
      *
-     * <p>What "settles it" means depends on the table. Head to head, the
-     * player who ran out forfeits and the other takes it, exactly as in
-     * Draughts. With three or four playing, ending everybody's game because
-     * one person walked away would punish the wrong people — that seat just
-     * loses its turn and play moves on.
+     * <p>Oware is head to head, so the player who runs out forfeits and the
+     * other takes the game, exactly as in Draughts.
      */
     @Override
     public GameState onPhaseElapsed(GameState state, String endedPhase) {
@@ -206,12 +186,6 @@ public final class GoosiModule implements GameModule {
                 "scores", scoresSnapshot(s.players, d.scores)));
     }
 
-    /** Safety valve on relay sowing — see {@link #sow}. Far above any real turn. */
-    private static final int MAX_LAPS = 200;
-
-    /** A pit brought to exactly this many seeds is captured by whoever sowed it. */
-    private static final int CAPTURE_AT = 4;
-
     /** Seconds offered after a turn's clock runs out, once somebody resumes. */
     static final int GRACE_SECONDS = 20;
 
@@ -224,106 +198,130 @@ public final class GoosiModule implements GameModule {
         require(myIndex == s.turnIndex, "NOT_YOUR_TURN", "it's not your turn");
 
         int from = intField(a, "pit");
-        require(from >= 0 && from < 16, "BAD_PIT", "pit out of range");
+        require(from >= 0 && from < 12, "BAD_PIT", "house out of range");
         require(a.actor().equals(s.owner[from]), "NOT_YOUR_PIT", "that pit isn't yours");
         require(s.pits[from] > 0, "EMPTY_PIT", "that pit has no seeds to sow");
+        require(legalPits(s.pits, s.owner, a.actor()).contains(from),
+                "MUST_FEED", "choose a house that feeds your opponent");
 
         sow(d, s, a.actor(), myIndex, from);
     }
 
-    /**
-     * Relay sowing with capture-at-four, the way the game is played.
-     *
-     * <p>You drop the handful one seed per pit. Any pit your seed brings to
-     * exactly four is yours — it's emptied into your score the moment it
-     * happens, on either side of the board, and a long relay can take
-     * several. If the last seed of a pass lands on a pit that still has
-     * seeds in it, you scoop that pit up and keep going; the sowing ends
-     * when a seed lands somewhere that was empty (or that you just
-     * captured, which leaves nothing to pick up).
-     *
-     * <p>Each pass is recorded in {@code laps}, and every capture notes the
-     * lap and position it happened at, so the client can empty the pit at
-     * the exact moment the fourth seed lands rather than afterwards — see
-     * the sow animation in `goosi_game_screen.dart`.
-     */
+    /** One Abapa sow, followed by the backward 2-or-3 capture chain. */
     private void sow(GoosiState.Draft d, GoosiState s, String actor, int myIndex, int from) {
         int seeds = d.pits[from];
         d.pits[from] = 0;
         int cur = from;
-        List<List<Integer>> laps = new ArrayList<>();
         List<Integer> touched = new ArrayList<>();
-        List<Map<String, Object>> captures = new ArrayList<>();
-
-        // A relay can in principle cycle; a cap guarantees a turn always
-        // ends rather than hanging the room's single writer thread.
-        for (int lapNo = 0; lapNo < MAX_LAPS; lapNo++) {
-            List<Integer> lap = new ArrayList<>(seeds);
-            for (int i = 0; i < seeds; i++) {
-                cur = (cur + 1) % 16;
-                d.pits[cur]++;
-                lap.add(cur);
-                touched.add(cur);
-
-                if (d.pits[cur] == CAPTURE_AT) {
-                    int taken = d.pits[cur];
-                    d.pits[cur] = 0;
-                    d.scores[myIndex] += taken;
-                    captures.add(Map.of(
-                            "lap", lapNo, "index", i, "pit", cur, "count", taken,
-                            "scores", scoresSnapshot(d.players, d.scores)));
-                }
-            }
-            laps.add(lap);
-
-            // Nothing left to pick up — either the pit was empty before this
-            // seed, or it just reached four and went to the score.
-            if (d.pits[cur] <= 1) {
-                break;
-            }
-            seeds = d.pits[cur];
-            d.pits[cur] = 0;
+        while (seeds > 0) {
+            cur = (cur + 1) % 12;
+            if (cur == from) continue;
+            d.pits[cur]++;
+            touched.add(cur);
+            seeds--;
         }
 
+        List<Integer> capturedPits = captureChain(d.pits, d.owner, actor, cur);
+        int captured = capturedPits.stream().mapToInt(pit -> d.pits[pit]).sum();
+        int opponentSeeds = 0;
+        for (int i = 0; i < 12; i++) {
+            if (!actor.equals(d.owner[i])) opponentSeeds += d.pits[i];
+        }
+        // Abapa voids a grand slam: the sow stands, but no seed is taken.
+        if (captured == opponentSeeds) {
+            capturedPits = List.of();
+            captured = 0;
+        } else {
+            for (int pit : capturedPits) d.pits[pit] = 0;
+            d.scores[myIndex] += captured;
+        }
         d.emit("SOWN", Map.of(
-                "by", actor, "from", from, "touched", touched, "laps", laps, "captures", captures));
-
-        // Emitted after the sowing so a client animating it can show each
-        // capture at the point it happened, not before the seeds have moved.
-        for (Map<String, Object> capture : captures) {
+                "by", actor, "from", from, "touched", touched,
+                "laps", List.of(touched), "capturedPits", capturedPits));
+        if (!capturedPits.isEmpty()) {
             d.emit("CAPTURED", Map.of(
                     "by", actor,
-                    "pit", capture.get("pit"),
-                    "count", capture.get("count"),
-                    "scores", capture.get("scores")));
+                    "pits", capturedPits,
+                    "count", captured,
+                    "scores", scoresSnapshot(d.players, d.scores)));
         }
 
+        if (d.scores[myIndex] > 24) {
+            finishFromScores(d, s);
+            return;
+        }
         advanceTurn(d, s);
+    }
+
+    private static List<Integer> captureChain(int[] pits, String[] owner, String actor, int last) {
+        if (actor.equals(owner[last]) || (pits[last] != 2 && pits[last] != 3)) return List.of();
+        List<Integer> captured = new ArrayList<>();
+        int pit = last;
+        while (!actor.equals(owner[pit]) && (pits[pit] == 2 || pits[pit] == 3)) {
+            captured.add(pit);
+            pit = (pit + 11) % 12;
+        }
+        return captured;
+    }
+
+    static List<Integer> legalPits(int[] pits, String[] owner, String actor) {
+        List<Integer> nonEmpty = new ArrayList<>();
+        boolean opponentEmpty = true;
+        for (int i = 0; i < 12; i++) {
+            if (actor.equals(owner[i]) && pits[i] > 0) nonEmpty.add(i);
+            if (!actor.equals(owner[i]) && pits[i] > 0) opponentEmpty = false;
+        }
+        if (!opponentEmpty) return nonEmpty;
+        List<Integer> feeding = nonEmpty.stream()
+                .filter(from -> feedsOpponent(pits, owner, actor, from))
+                .toList();
+        // If there is no way to feed an empty opponent row, play is over.
+        // Returning no move lets advanceTurn sweep the remaining seeds and
+        // settle the score instead of allowing a starvation loop.
+        return feeding;
+    }
+
+    private static boolean feedsOpponent(int[] pits, String[] owner, String actor, int from) {
+        int seeds = pits[from];
+        int cur = from;
+        while (seeds > 0) {
+            cur = (cur + 1) % 12;
+            if (cur == from) continue;
+            if (!actor.equals(owner[cur])) return true;
+            seeds--;
+        }
+        return false;
     }
 
     private void advanceTurn(GoosiState.Draft d, GoosiState s) {
         int n = s.players.size();
         int next = (d.turnIndex + 1) % n;
         String nextPlayer = s.players.get(next);
-        if (!hasAnySeeds(d.pits, d.owner, nextPlayer)) {
+        if (legalPits(d.pits, d.owner, nextPlayer).isEmpty()) {
             finish(d, s);
             return;
         }
         d.turnIndex = next;
         d.phase = "TurnP" + next;
         d.round++;
-        d.emit("TURN_STARTED", Map.of("player", nextPlayer));
+        d.emit("TURN_STARTED", Map.of(
+                "player", nextPlayer,
+                "legalPits", legalPits(d.pits, d.owner, nextPlayer)));
     }
 
     private void finish(GoosiState.Draft d, GoosiState s) {
         // Sweep every remaining seed into whichever player owns that pit.
-        for (int i = 0; i < 16; i++) {
+        for (int i = 0; i < 12; i++) {
             if (d.pits[i] > 0) {
                 int idx = s.indexOf(d.owner[i]);
                 d.scores[idx] += d.pits[i];
                 d.pits[i] = 0;
             }
         }
+        finishFromScores(d, s);
+    }
+
+    private void finishFromScores(GoosiState.Draft d, GoosiState s) {
         int n = s.players.size();
         int best = Integer.MIN_VALUE;
         List<String> winners = new ArrayList<>();
@@ -348,20 +346,6 @@ public final class GoosiModule implements GameModule {
         d.emit("GAME_OVER", Map.of(
                 "winningSide", winningSide, "winners", winners,
                 "scores", scoresSnapshot(s.players, d.scores)));
-    }
-
-    private static int firstNonEmptyOwnPit(GoosiState s, String player) {
-        for (int i = 0; i < 16; i++) {
-            if (player.equals(s.owner[i]) && s.pits[i] > 0) return i;
-        }
-        return -1;
-    }
-
-    private static boolean hasAnySeeds(int[] pits, String[] owner, String player) {
-        for (int i = 0; i < 16; i++) {
-            if (player.equals(owner[i]) && pits[i] > 0) return true;
-        }
-        return false;
     }
 
     // ---------------------------------------------------------------- win + views
@@ -392,6 +376,9 @@ public final class GoosiModule implements GameModule {
         m.put("pits", pitsSnapshot(s.pits));
         m.put("owner", ownerSnapshot(s.owner));
         m.put("scores", scoresSnapshot(s.players, s.scores));
+        m.put("legalPits", s.finished()
+                ? List.of()
+                : legalPits(s.pits, s.owner, s.players.get(s.turnIndex)));
         return m;
     }
 

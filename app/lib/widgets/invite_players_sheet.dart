@@ -128,7 +128,7 @@ class _InvitePlayersSheetState extends State<_InvitePlayersSheet> {
           else if (friends.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 20),
-              child: Text('No friends yet — add some from the Friends tab, or share the room code instead.',
+              child: Text('No friends yet — add some from the Friends tab, or share the huud code instead.',
                   style: TextStyle(color: n.mute)),
             )
           else

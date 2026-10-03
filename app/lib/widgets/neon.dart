@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -675,6 +676,17 @@ class Avatar extends StatelessWidget {
         child: Image.file(File(path),
             width: size, height: size, fit: BoxFit.cover),
       );
+    } else if (imageUrl?.startsWith('data:image/') == true) {
+      try {
+        content = ClipOval(child: Image.memory(
+          base64Decode(imageUrl!.split(',').last),
+          width: size, height: size, fit: BoxFit.cover,
+        ));
+      } catch (_) {
+        content = Text(name.isEmpty ? '?' : name.characters.first.toUpperCase(),
+            style: TextStyle(fontWeight: FontWeight.w800,
+                fontSize: size * 0.42, color: n.ink));
+      }
     } else if (imageUrl != null && imageUrl!.isNotEmpty) {
       content = ClipOval(
         child: Image.network(
@@ -710,6 +722,56 @@ class Avatar extends StatelessWidget {
         border: Border.all(color: kCabinetInk, width: 2),
       ),
       child: content,
+    );
+  }
+}
+
+/// A small green dot only while the person has a live app connection.
+class OnlineAvatar extends StatelessWidget {
+  const OnlineAvatar(this.name, {
+    super.key,
+    required this.online,
+    this.size = 32,
+    this.imageUrl,
+    this.imagePath,
+    this.emoji,
+  });
+
+  final String name;
+  final bool online;
+  final double size;
+  final String? imageUrl;
+  final String? imagePath;
+  final String? emoji;
+
+  @override
+  Widget build(BuildContext context) {
+    final n = context.neon;
+    final dotSize = (size * 0.28).clamp(8.0, 16.0);
+    return Semantics(
+      label: online ? '$name, online' : name,
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: Stack(clipBehavior: Clip.none, children: [
+          Avatar(name, size: size, imageUrl: imageUrl,
+              imagePath: imagePath, emoji: emoji),
+          if (online)
+            Positioned(
+              right: -1,
+              bottom: -1,
+              child: Container(
+                width: dotSize,
+                height: dotSize,
+                decoration: BoxDecoration(
+                  color: const Color(0xff4ade80),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: n.panel, width: 2),
+                ),
+              ),
+            ),
+        ]),
+      ),
     );
   }
 }

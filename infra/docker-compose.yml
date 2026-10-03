@@ -65,6 +65,7 @@ services:
       LIVEKIT_API_KEY: devkey
       LIVEKIT_API_SECRET: devsecret_devsecret_devsecret_1234
       JWT_SECRET: dev-only-change-me-0000000000000000000000000000
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
     ports: ["8080:8080"]
 
 volumes:

@@ -46,7 +46,7 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
     final app = AppScope.of(context);
     final code = _codeController.text.trim().toUpperCase();
     if (code.length != 6) {
-      setState(() => _error = 'Room codes are 6 characters');
+      setState(() => _error = 'Huud codes are 6 characters');
       return;
     }
     setState(() {
@@ -60,12 +60,17 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
         if (nickname.isNotEmpty) 'nickname': nickname,
       }) as Map<String, dynamic>;
       final room = RoomView.fromJson(res);
+      await app.rememberActiveRoom(room.id);
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => JoinedRoomScreen(room: room)),
       );
     } on ApiException catch (e) {
-      setState(() => _error = e.message);
+      setState(() => _error = e.status == 404
+          ? 'No huud with that code'
+          : e.message.toLowerCase() == 'room is full'
+              ? 'This huud is full'
+              : e.message);
     } catch (_) {
       setState(() => _error = 'Could not reach the server');
     } finally {
@@ -77,7 +82,7 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
   Widget build(BuildContext context) {
     final n = context.neon;
     return Scaffold(
-      appBar: AppBar(title: const Text('Join a room')),
+      appBar: AppBar(title: const Text('Join a huud')),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -85,7 +90,7 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 12),
-              Text('ROOM CODE', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute, letterSpacing: 2)),
+              Text('HUUD CODE', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute, letterSpacing: 2)),
               const SizedBox(height: 8),
               TextField(
                 controller: _codeController,
@@ -109,7 +114,7 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
                 Text(_error!, style: TextStyle(color: n.danger)),
               ],
               const SizedBox(height: 22),
-              NeonButton(_joining ? 'Joining…' : 'Join room', onPressed: _joining ? null : _join),
+              NeonButton(_joining ? 'Joining…' : 'Join a huud', onPressed: _joining ? null : _join),
             ],
           ),
         ),

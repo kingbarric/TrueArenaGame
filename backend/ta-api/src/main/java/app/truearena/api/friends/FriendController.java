@@ -38,6 +38,11 @@ public class FriendController {
         return CurrentUser.id().flatMapMany(friendService::listFriends);
     }
 
+    @GetMapping("/online")
+    public Flux<UUID> online() {
+        return CurrentUser.id().flatMapMany(friendService::onlineFriends);
+    }
+
     @GetMapping("/requests")
     public Mono<FriendRequestsView> requests() {
         return CurrentUser.id().flatMap(friendService::listRequests);

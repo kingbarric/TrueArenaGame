@@ -75,6 +75,18 @@ public class CallService {
                 .map(self -> tokenFor("whot-" + roomId, self.id(), self.displayName()));
     }
 
+    /** A single voice room per active game, with the same membership check for every mode. */
+    public Mono<CallToken> gameCallToken(UUID selfId, UUID roomId) {
+        return rooms.findById(roomId)
+                .filter(room -> "in_game".equals(room.status()))
+                .switchIfEmpty(Mono.error(ApiExceptions.notFound("no active game")))
+                .then(roomMembers.findByRoomIdAndUserId(roomId, selfId))
+                .switchIfEmpty(Mono.error(ApiExceptions.forbidden("only players can join game voice")))
+                .then(users.findById(selfId))
+                .switchIfEmpty(Mono.error(ApiExceptions.notFound("no such user")))
+                .map(self -> tokenFor("game-" + roomId, self.id(), self.displayName()));
+    }
+
     private CallToken tokenFor(String roomName, UUID participantId, String participantName) {
         String jwt = tokens.mintToken(roomName, participantId.toString(), participantName);
         return new CallToken(roomName, jwt, tokens.wsUrl());

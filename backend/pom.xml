@@ -25,6 +25,7 @@
         <module>ta-game-draughts</module>
         <module>ta-game-goosi</module>
         <module>ta-game-whot</module>
+        <module>ta-game-ludo</module>
         <module>ta-persistence</module>
         <module>ta-room</module>
         <module>ta-ws</module>
@@ -78,6 +79,11 @@
             <dependency>
                 <groupId>app.truearena</groupId>
                 <artifactId>ta-game-whot</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>app.truearena</groupId>
+                <artifactId>ta-game-ludo</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

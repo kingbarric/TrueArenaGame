@@ -158,7 +158,7 @@ class _ModeSelectScreenState extends State<ModeSelectScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          NeonButton('Open the room', onPressed: () => _openRoom(p)),
+          NeonButton('Open the huud', onPressed: () => _openRoom(p)),
           const SizedBox(height: 6),
           TextButton(
             onPressed: () => _customize(p),

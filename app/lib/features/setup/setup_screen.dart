@@ -344,7 +344,7 @@ class _SetupScreenState extends State<SetupScreen> {
           ]),
         ),
         NeonButton(
-          _diverged ? 'Save & open the room' : 'Open the room',
+          _diverged ? 'Save & open the huud' : 'Open the huud',
           style: _diverged ? NeonStyle.danger : NeonStyle.go,
           onPressed: _valid ? _open : null,
         ),

@@ -21,7 +21,7 @@ Future<void> confirmSignOut(BuildContext context, AppState app) async {
           builder: (dialogContext) => AlertDialog(
             title: const Text('Sign out?'),
             content: Text(app.identity == Identity.guest
-                ? 'This device\'s guest session will be cleared — verify a phone or email first if you want to keep it.'
+                ? 'This device\'s guest session will be cleared — add an email first if you want to keep it.'
                 : 'You\'ll need to sign in again to host or join real games.'),
             actions: [
               TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),

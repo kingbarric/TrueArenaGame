@@ -6,12 +6,15 @@ import 'package:flutter/services.dart';
 import 'package:livekit_client/livekit_client.dart' as lk;
 import 'package:permission_handler/permission_handler.dart';
 import '../../core/app_state.dart';
+import '../../core/api_client.dart';
 import '../../core/game_music.dart';
 import '../../core/game_sfx.dart';
 import '../../core/game_socket.dart';
+import '../../widgets/how_to_play_dialog.dart';
 import '../../widgets/neon.dart';
 import '../../widgets/table_chat.dart';
 import '../shell/main_shell.dart';
+import '../status/victory_status.dart';
 import 'whot_lobby_screen.dart';
 import 'whot_card.dart';
 
@@ -41,16 +44,22 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
   Timer? _ticker,
       _ackTimer,
       _flightTimer,
+      _reshuffleTimer,
+      _signalTimer,
       _copyTimer,
       _warningTimer,
       _resultTimer;
   Map<String, dynamic> _state = {};
   List<_CardFlightSpec> _cardFlights = const [];
+  List<_CardFlightSpec> _reshuffleFlights = const [];
+  Map<String, dynamic>? _visibleSignal;
   final _dealSoundTimers = <Timer>[];
   int _flightSerial = 0;
+  int _reshuffleSerial = 0;
   int? _selected;
   int _seconds = 0, _actionSequence = 0;
   bool _pending = false, _disconnected = false;
+  bool _leaving = false;
   bool _roomCopied = false;
   bool _resultStarted = false, _finalSplash = false, _showSummary = false;
   String? _lastCardWarning, _lastPlayedCard;
@@ -65,6 +74,38 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
   bool get _chatMuted => widget.spectating && _state['spectatorsMuted'] == true;
   String _activity = 'Welcome to the table';
   static const _cream = Color(0xffffebc6), _gold = Color(0xffe9b963);
+  static const _tellSymbols = [
+    '🪐',
+    '🌌',
+    '☄️',
+    '🌠',
+    '🌑',
+    '🌒',
+    '🌓',
+    '🌔',
+    '🌕',
+    '🌘',
+    '🌙',
+    '🌚',
+    '🌝',
+    '✨',
+    '🔮',
+    '🧿',
+    '🗝️',
+    '🪬',
+    '🕯️',
+    '🪞',
+    '🪄',
+    '🕳️',
+    '🛸',
+    '👁️',
+    '🗿',
+    '🧬',
+    '🌀',
+    '⚗️',
+    '💠',
+    '🧩',
+  ];
   List<String> get _hand => widget.spectating
       ? const []
       : (_state['yourHand'] as List? ?? []).cast<String>();
@@ -72,7 +113,23 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
       (_state['players'] as List? ?? []).cast<String>();
   Map get _sizes => _state['handSizes'] as Map? ?? {};
   bool get _deal => _state['phase'] == 'Deal';
+  bool get _tell => _state['mode'] == 'tell';
+  bool get _choosingSignals => _tell && _state['phase'] == 'Signals';
+  bool get _activeTellPlayer =>
+      !_tell ||
+      !((_state['qualifiedTeams'] as List? ?? const [])
+              .contains(_state['yourTeam']) ||
+          (_state['eliminatedTeams'] as List? ?? const [])
+              .contains(_state['yourTeam']));
   bool get _finished => _state['phase'] == 'Results';
+  bool get _won =>
+      !widget.spectating &&
+      (_tell
+          ? _state['winnerTeam'] == _state['yourTeam']
+          : _state['winner'] == widget.selfId);
+  String get _winnerLabel => _tell && _state['winnerTeam'] != null
+      ? 'Team ${(_state['winnerTeam'] as num).toInt() + 1}'
+      : _name(_state['winner']);
   bool get _winnerClearedHand {
     final winner = _state['winner'];
     return winner != null && (_sizes[winner] as num?)?.toInt() == 0;
@@ -81,6 +138,7 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
   bool get _paused => _state['paused'] == true;
   bool get _myTurn =>
       !widget.spectating &&
+      _activeTellPlayer &&
       _state['turnPlayer'] == widget.selfId &&
       (_state['phase'] == 'Turn' || _state['phase'] == 'Waiting');
   bool get _canAct =>
@@ -211,6 +269,13 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
         _selected = null;
         if (flights.isNotEmpty) _cardFlights = flights;
       });
+      final snapshotSignal = p['signal'];
+      if (snapshotSignal is Map) {
+        _showSignal(snapshotSignal.cast<String, dynamic>());
+      } else if (_visibleSignal != null) {
+        _signalTimer?.cancel();
+        setState(() => _visibleSignal = null);
+      }
       if (p['phase'] != 'Results') {
         for (final entry in nextSizes.entries) {
           final before = previousSizes[entry.key] as int?;
@@ -262,17 +327,17 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
       setState(() {
         switch (p['type']) {
           case 'CARD_PLAYED':
-            GameSfx.move();
+            GameSfx.cardPlay();
             _lastPlayedCard = d['card']?.toString();
             _activity =
                 '${_name(d['by'])} played ${d['card'].toString().replaceAll('-', ' ')}';
           case 'CARD_DRAWN':
-            GameSfx.move();
+            GameSfx.cardDraw();
             final count = d['count'] as int? ?? 1;
             _activity =
                 '${_name(d['by'])} went to market · drew $count ${count == 1 ? 'card' : 'cards'}';
           case 'GENERAL_MARKET':
-            GameSfx.move();
+            GameSfx.cardDraw();
             _activity = 'General market · everyone else draws one';
           case 'TURN_TIMED_OUT':
             _activity =
@@ -282,6 +347,41 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
           case 'DECK_SHUFFLED':
             GameSfx.scoop();
             _activity = 'The dealer shuffled the deck';
+          case 'MARKET_RESHUFFLED':
+            GameSfx.scoop();
+            _activity = 'Discard reshuffled into the market';
+            _reshuffleFlights = [
+              for (var i = 0; i < 3; i++)
+                _CardFlightSpec(
+                    id: ++_flightSerial,
+                    code: null,
+                    from: const Offset(.66, .5),
+                    to: const Offset(.34, .5),
+                    delayMs: i * 110),
+            ];
+          case 'SIGNAL_DISPLAYED':
+            _activity = '${_name(d['by'])} sent a signal';
+          case 'SIGNAL_CONFIRMED':
+            _activity =
+                'Team ${((d['team'] as num?)?.toInt() ?? 0) + 1} is choosing a signal';
+          case 'SIGNALS_READY':
+            _activity = 'Signals locked · deal the cards';
+          case 'BUZZ_RESOLVED':
+            _activity = d['correct'] == true
+                ? '${_name(d['by'])} buzzed correctly!'
+                : '${_name(d['by'])} buzzed incorrectly';
+            _visibleSignal = null;
+            _signalTimer?.cancel();
+          case 'TEAM_QUALIFIED':
+            _activity =
+                'Team ${((d['team'] as num?)?.toInt() ?? 0) + 1} qualified';
+          case 'TEAM_ELIMINATED':
+            _activity =
+                'Team ${((d['team'] as num?)?.toInt() ?? 0) + 1} eliminated';
+          case 'FINAL_STARTED':
+            _activity = 'Final round · choose a new secret signal';
+            _visibleSignal = null;
+            _signalTimer?.cancel();
           case 'CARDS_DEALT':
             _activity = 'Cards dealt around the table';
           case 'PLAY_BEGAN':
@@ -308,10 +408,21 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
             if (_chat.length > 100) _chat.removeLast();
           case 'GAME_OVER':
             _state['winner'] = d['winner'];
+            if (d['winnerTeam'] != null) _state['winnerTeam'] = d['winnerTeam'];
             _state['phase'] = 'Results';
             if (d['handSizes'] is Map) _state['handSizes'] = d['handSizes'];
         }
       });
+      if (p['type'] == 'SIGNAL_DISPLAYED') _showSignal(d);
+      if (p['type'] == 'MARKET_RESHUFFLED') {
+        _reshuffleTimer?.cancel();
+        final serial = ++_reshuffleSerial;
+        _reshuffleTimer = Timer(const Duration(milliseconds: 1200), () {
+          if (mounted && serial == _reshuffleSerial) {
+            setState(() => _reshuffleFlights = const []);
+          }
+        });
+      }
       if (p['type'] == 'GAME_OVER') _beginResult();
     }
   }
@@ -324,16 +435,34 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
     });
   }
 
+  void _showSignal(Map<String, dynamic> signal) {
+    final id = (signal['id'] as num?)?.toInt();
+    final sentAt = (signal['sentAtMs'] as num?)?.toInt();
+    if (id == null || sentAt == null || _visibleSignal?['id'] == id) return;
+    final remaining = 3000 - DateTime.now().millisecondsSinceEpoch + sentAt;
+    if (remaining <= 0) return;
+    _signalTimer?.cancel();
+    setState(() => _visibleSignal = signal);
+    _signalTimer = Timer(Duration(milliseconds: remaining), () {
+      if (mounted && _visibleSignal?['id'] == id) {
+        setState(() => _visibleSignal = null);
+      }
+    });
+  }
+
   void _beginResult() {
     if (_resultStarted || !mounted) return;
     _resultStarted = true;
     _warningTimer?.cancel();
     _flightTimer?.cancel();
+    _reshuffleTimer?.cancel();
+    _signalTimer?.cancel();
     _cardFlights = const [];
+    _reshuffleFlights = const [];
     if (_winnerClearedHand) GameSfx.capture();
     if (!widget.spectating) {
       if (_winnerClearedHand) unawaited(HapticFeedback.heavyImpact());
-      GameMusic.playOutcome(won: _state['winner'] == widget.selfId);
+      GameMusic.playOutcome(won: _won);
     }
     setState(() {
       _lastCardWarning = null;
@@ -356,12 +485,12 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
                   letterSpacing: 1.5)),
           content: Text(
             widget.spectating
-                ? '${_name(_state['winner'])} wins the game.'
-                : _state['winner'] == widget.selfId
+                ? '$_winnerLabel wins the game.'
+                : _won
                     ? _winnerClearedHand
                         ? 'Victory! You played your last card.'
                         : 'Victory! You won the game.'
-                    : '${_name(_state['winner'])} wins. You have ${_sizes[widget.selfId] ?? _hand.length} cards left.',
+                    : '$_winnerLabel wins. You have ${_sizes[widget.selfId] ?? _hand.length} cards left.',
             style: const TextStyle(color: _cream),
           ),
           actions: [
@@ -528,6 +657,8 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
     _ticker?.cancel();
     _ackTimer?.cancel();
     _flightTimer?.cancel();
+    _reshuffleTimer?.cancel();
+    _signalTimer?.cancel();
     _copyTimer?.cancel();
     _warningTimer?.cancel();
     _resultTimer?.cancel();
@@ -622,8 +753,16 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
       if (!permission.isGranted) {
         throw StateError('Microphone access is needed for Whot voice');
       }
-      final raw = await app.api.post('/calls/whot/${widget.roomId}/token')
-          as Map<String, dynamic>;
+      Map<String, dynamic> raw;
+      try {
+        raw = await app.api.post('/calls/games/${widget.roomId}/token')
+            as Map<String, dynamic>;
+      } on ApiException catch (error) {
+        // Older backend deployments still expose the Whot-specific path.
+        if (error.status != 404) rethrow;
+        raw = await app.api.post('/calls/whot/${widget.roomId}/token')
+            as Map<String, dynamic>;
+      }
       joiningRoom = lk.Room();
       await joiningRoom.connect(
           raw['livekitUrl'] as String, raw['token'] as String);
@@ -645,8 +784,11 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
       if (!mounted) return;
       setState(() => _voiceJoining = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content:
-            Text(e is StateError ? e.message : 'Could not join Whot voice'),
+        content: Text(e is StateError
+            ? e.message
+            : e is ApiException
+                ? 'Whot voice: ${e.message}'
+                : 'Could not connect to the voice server. Please try again.'),
       ));
     }
   }
@@ -663,6 +805,24 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
 
   void _togglePause() => _socket.send('PAUSE_TOGGLE');
 
+  void _showHelp() {
+    showHowToPlay(
+      context,
+      emoji: '🃏',
+      title: 'Whot',
+      tagline: 'Match the shape or number on top of the pile — first to empty '
+          'their hand wins.',
+      steps: const [
+        "On your turn, play a card that matches the top card's shape or number, or play a WHOT card any time.",
+        'Playing a WHOT lets you call a new shape — the next player must match it.',
+        'Watch for specials: 2 makes the next player pick two, 14 sends everyone else to the market, '
+            '1 lets you go again, 8 skips the next player (if this table plays them).',
+        'No playable card? Draw from the market and your turn passes.',
+        'First player to play their last card wins the round.',
+      ],
+    );
+  }
+
   void _toggleMuteSpectators() => _socket.send('MUTE_SPECTATORS_TOGGLE');
 
   Future<void> _confirmExit() async {
@@ -675,7 +835,7 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
         content: Text(
             widget.spectating
                 ? 'You will leave this table and return to the games screen.'
-                : 'You can rejoin with the room code, but live updates stop until you return.',
+                : 'A table with only your Cyber Agents will end and free them. Other tables can be rejoined with the huud code.',
             style: const TextStyle(color: Color(0xffd7bddf))),
         actions: [
           TextButton(
@@ -687,7 +847,27 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
         ],
       ),
     );
-    if (leave == true && mounted) {
+    if (leave == true && mounted && !_leaving) {
+      _leaving = true;
+      if (!widget.spectating) {
+        final app = AppScope.of(context);
+        try {
+          final endedBotTable =
+              await app.api.post('/rooms/${widget.roomId}/leave-whot') == true;
+          if (endedBotTable || _finished) {
+            await app.clearActiveRoom(widget.roomId);
+          }
+        } catch (_) {
+          _leaving = false;
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Server error. Please try again.')),
+            );
+          }
+          return;
+        }
+      }
+      if (!mounted) return;
       _socket.close();
       Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const MainShell()), (_) => false);
@@ -793,7 +973,9 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
     final color = active ? const Color(0xff35e47d) : const Color(0xffffb43d);
     final avatar = widget.avatars[player];
     final isRemoteImage = avatar != null &&
-        (avatar.startsWith('https://') || avatar.startsWith('http://'));
+        (avatar.startsWith('https://') ||
+            avatar.startsWith('http://') ||
+            avatar.startsWith('data:image/'));
     return Tooltip(
       message: _name(player),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -809,10 +991,14 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
                     color: color.withValues(alpha: active ? .75 : .35),
                     blurRadius: active ? 14 : 5)
               ]),
-          child: Avatar(_name(player),
-              size: diameter,
-              emoji: isRemoteImage ? null : avatar,
-              imageUrl: isRemoteImage ? avatar : null),
+          child: ValueListenableBuilder<Set<String>>(
+            valueListenable: _socket.onlinePlayers,
+            builder: (_, online, __) => OnlineAvatar(_name(player),
+                size: diameter,
+                online: online.contains(player),
+                emoji: isRemoteImage ? null : avatar,
+                imageUrl: isRemoteImage ? avatar : null),
+          ),
         ),
         if (showName)
           Container(
@@ -864,19 +1050,31 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
     ]);
   }
 
-  Widget _discardPile(String top, double scale) => Stack(
+  Widget _discardPile(
+          String top, int count, List<String> visible, double scale) =>
+      Stack(
+        key: const ValueKey('whot-discard-pile'),
         alignment: Alignment.center,
         clipBehavior: Clip.none,
         children: [
-          Transform.translate(
-              offset: Offset(-4 * scale, 3 * scale),
-              child: Transform.rotate(
-                  angle: -.06,
-                  child:
-                      WhotCardView(code: null, compact: true, scale: scale))),
-          Transform.translate(
-              offset: Offset(4 * scale, 1 * scale),
-              child: WhotCardView(code: null, compact: true, scale: scale)),
+          if (count >= 3)
+            Transform.translate(
+                offset: Offset(-9 * scale, 6 * scale),
+                child: Transform.rotate(
+                    angle: -.06,
+                    child: WhotCardView(
+                        code: visible.length >= 3
+                            ? visible[visible.length - 3]
+                            : null,
+                        scale: scale))),
+          if (count >= 2)
+            Transform.translate(
+                offset: Offset(7 * scale, 3 * scale),
+                child: WhotCardView(
+                    code: visible.length >= 2
+                        ? visible[visible.length - 2]
+                        : null,
+                    scale: scale)),
           if (top.isNotEmpty)
             AnimatedSwitcher(
                 duration: const Duration(milliseconds: 260),
@@ -886,19 +1084,42 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
                     child: child),
                 child:
                     WhotCardView(key: ValueKey(top), code: top, scale: scale)),
+          if (count == 0)
+            Container(
+              width: 88 * scale,
+              height: 124 * scale,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14 * scale),
+                border:
+                    Border.all(color: _gold.withValues(alpha: .7), width: 2),
+              ),
+            ),
         ],
       );
 
-  Widget _marketPile(double scale) => Stack(
+  Widget _marketPile(int count, double scale) => Stack(
+        key: const ValueKey('whot-market-pile'),
         alignment: Alignment.center,
         children: [
-          Transform.translate(
-              offset: Offset(0, 5 * scale),
-              child: WhotCardView(code: null, scale: scale)),
-          Transform.translate(
-              offset: Offset(0, 2.5 * scale),
-              child: WhotCardView(code: null, scale: scale)),
-          WhotCardView(code: null, scale: scale),
+          if (count >= 3)
+            Transform.translate(
+                offset: Offset(-5 * scale, 8 * scale),
+                child: WhotCardView(code: null, scale: scale)),
+          if (count >= 2)
+            Transform.translate(
+                offset: Offset(4 * scale, 4 * scale),
+                child: WhotCardView(code: null, scale: scale)),
+          if (count > 0) WhotCardView(code: null, scale: scale),
+          if (count == 0)
+            Container(
+              width: 88 * scale,
+              height: 124 * scale,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14 * scale),
+                border:
+                    Border.all(color: _gold.withValues(alpha: .7), width: 2),
+              ),
+            ),
         ],
       );
 
@@ -975,7 +1196,17 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
 
   Widget _cardFlightLayer(Size size) => IgnorePointer(
         child: Stack(children: [
-          for (final flight in _cardFlights)
+          if (_reshuffleFlights.isNotEmpty)
+            Positioned(
+              left: size.width * .35,
+              right: size.width * .35,
+              top: size.height * .36,
+              child: const Text('RESHUFFLING MARKET',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      color: _gold, fontSize: 10, fontWeight: FontWeight.w900)),
+            ),
+          for (final flight in [..._reshuffleFlights, ..._cardFlights])
             TweenAnimationBuilder<double>(
               key: ValueKey(flight.id),
               tween: Tween(begin: 0, end: 1),
@@ -1009,7 +1240,14 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
       );
 
   String _statusText() {
-    if (_finished) return '${_name(_state['winner'])} won!';
+    if (_finished) return '$_winnerLabel won!';
+    if (_choosingSignals) return 'THE TELL · CHOOSE YOUR TEAM SIGNAL';
+    if (_tell && !_activeTellPlayer) {
+      return (_state['qualifiedTeams'] as List? ?? const [])
+              .contains(_state['yourTeam'])
+          ? 'YOUR TEAM QUALIFIED · WAIT FOR THE FINAL'
+          : 'YOUR TEAM IS OUT · WATCH THE TABLE';
+    }
     if (_deal) return 'SHUFFLING · PLAY BEGINS IN $_seconds';
     if (_paused) return 'TABLE PAUSED';
     if (_myTurn) return 'YOUR TURN · DRAG A CARD TO DISCARD';
@@ -1020,6 +1258,12 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
         builder: (context, box) {
           final compact = box.maxHeight < 370;
           final cardScale = compact ? .72 : .82;
+          final marketCount = (_state['marketLeft'] as num?)?.toInt() ?? 0;
+          final discardCount = (_state['discardCount'] as num?)?.toInt() ??
+              (top.isEmpty ? 0 : 1);
+          final discardCards = (_state['discardCards'] as List? ?? const [])
+              .map((card) => card.toString())
+              .toList();
           final handHeight = widget.spectating ? 0.0 : (compact ? 92.0 : 112.0);
           final handBottom = compact ? 37.0 : 43.0;
           return Container(
@@ -1065,9 +1309,12 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
                         width: compact ? 104 : 122,
                         child:
                             Column(mainAxisSize: MainAxisSize.min, children: [
-                          _marketPile(cardScale),
+                          _marketPile(marketCount, cardScale),
                           const SizedBox(height: 5),
-                          Text(debt > 0 ? 'MARKET · PICK $debt' : 'MARKET',
+                          Text(
+                              debt > 0
+                                  ? 'MARKET · PICK $debt'
+                                  : 'MARKET · $marketCount',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -1093,7 +1340,8 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
                           curve: Curves.easeOutBack,
                           child:
                               Column(mainAxisSize: MainAxisSize.min, children: [
-                            _discardPile(top, cardScale),
+                            _discardPile(
+                                top, discardCount, discardCards, cardScale),
                             const SizedBox(height: 5),
                             Text(
                                 top.isEmpty
@@ -1136,6 +1384,151 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
         },
       );
 
+  Widget _signalSetupView() {
+    if (widget.spectating || !_activeTellPlayer) {
+      return const Center(
+        child: Text('Teams are choosing private signals',
+            style: TextStyle(color: _cream, fontSize: 18)),
+      );
+    }
+    final team = (_state['yourTeam'] as num?)?.toInt();
+    final teams = _state['teams'] as List? ?? const [];
+    final members = team != null && team >= 0 && team < teams.length
+        ? (teams[team] as List).map((id) => id.toString()).toList()
+        : <String>[];
+    final partner = members.where((id) => id != widget.selfId).firstOrNull;
+    final selected = _state['yourSignal']?.toString() ?? '';
+    final confirmed = _state['yourSignalConfirmed'] == true;
+    return Container(
+      key: const ValueKey('whot-tell-signal-setup'),
+      padding: const EdgeInsets.all(18),
+      color: const Color(0xff100916),
+      child: ListView(children: [
+        Text('TEAM ${(team ?? 0) + 1} · ${_name(partner)} & YOU',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+                color: _gold, fontSize: 18, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 8),
+        Text(
+            selected.isEmpty
+                ? 'Choose a secret symbol. Your teammate will see it privately and tap to confirm.'
+                : confirmed
+                    ? 'You chose $selected. Waiting for your teammate to confirm.'
+                    : 'Your teammate chose $selected. Tap it to confirm, or choose another.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: _cream, fontSize: 12)),
+        const SizedBox(height: 18),
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final symbol in _tellSymbols)
+              SizedBox(
+                width: 50,
+                height: 50,
+                child: OutlinedButton(
+                  key: ValueKey('whot-choose-$symbol'),
+                  onPressed: _canAct && _activeTellPlayer
+                      ? () => _action('CHOOSE_SIGNAL', {'symbol': symbol})
+                      : null,
+                  style: OutlinedButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    backgroundColor: symbol == selected
+                        ? _gold.withValues(alpha: .24)
+                        : const Color(0xff21112a),
+                    side:
+                        BorderSide(color: symbol == selected ? _gold : _cream),
+                  ),
+                  child: Text(symbol, style: const TextStyle(fontSize: 25)),
+                ),
+              ),
+          ],
+        ),
+      ]),
+    );
+  }
+
+  Widget _signalTray() => SizedBox(
+        key: const ValueKey('whot-tell-signal-tray'),
+        height: 69,
+        child: Column(children: [
+          const Text('SEND A SIGNAL OR DECOY',
+              style: TextStyle(
+                  color: _gold, fontSize: 10, fontWeight: FontWeight.w900)),
+          Expanded(
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              itemCount: _tellSymbols.length,
+              separatorBuilder: (context, index) => const SizedBox(width: 5),
+              itemBuilder: (context, index) {
+                final symbol = _tellSymbols[index];
+                return IconButton.filledTonal(
+                  key: ValueKey('whot-send-$symbol'),
+                  tooltip: 'Send $symbol',
+                  onPressed: _canAct
+                      ? () => _action('SIGNAL', {'symbol': symbol})
+                      : null,
+                  icon: Text(symbol, style: const TextStyle(fontSize: 23)),
+                );
+              },
+            ),
+          ),
+        ]),
+      );
+
+  Widget _signalCard() {
+    final signal = _visibleSignal!;
+    final sender = signal['by']?.toString();
+    final myTeam = (_state['yourTeam'] as num?)?.toInt();
+    final teams = _state['teams'] as List? ?? const [];
+    final partner = myTeam != null &&
+        myTeam >= 0 &&
+        myTeam < teams.length &&
+        (teams[myTeam] as List).contains(sender);
+    final canBuzz = !widget.spectating &&
+        sender != widget.selfId &&
+        _activeTellPlayer &&
+        _canAct;
+    final id = (signal['id'] as num).toInt();
+    return Center(
+      child: Material(
+        key: const ValueKey('whot-tell-signal-card'),
+        color: const Color(0xf321122a),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
+          side: const BorderSide(color: _gold, width: 2),
+        ),
+        elevation: 16,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(22),
+          onTap: canBuzz ? () => _action('BUZZ', {'signalId': id}) : null,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 17),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Text('${_name(sender)} → ${signal['symbol']}',
+                  style: const TextStyle(
+                      color: _cream,
+                      fontSize: 30,
+                      fontWeight: FontWeight.w900)),
+              const SizedBox(height: 8),
+              Text(
+                canBuzz
+                    ? partner
+                        ? 'TAP TO BUZZ'
+                        : 'TAP TO INTERCEPT'
+                    : 'SIGNAL SENT',
+                style: const TextStyle(
+                    color: _gold, fontSize: 12, fontWeight: FontWeight.w900),
+              ),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _friendlyBuild(BuildContext context) {
     final top = _state['topCard'] as String? ?? '';
     final debt = _state['pendingPick'] as int? ?? 0;
@@ -1160,7 +1553,7 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: const Color(0xff50345d))),
             child: Row(children: [
-              const Text('ROOM',
+              const Text('HUUD',
                   style: TextStyle(
                       color: _gold,
                       fontSize: 10,
@@ -1233,6 +1626,8 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
             color: const Color(0xff21112a),
             onSelected: (value) {
               switch (value) {
+                case 'help':
+                  _showHelp();
                 case 'pause':
                   _togglePause();
                 case 'music':
@@ -1250,6 +1645,7 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
               }
             },
             itemBuilder: (_) => [
+              _menuItem('help', Icons.help_outline_rounded, 'How to play'),
               if (!widget.spectating && !_finished)
                 _menuItem(
                     'pause',
@@ -1321,120 +1717,141 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
                   ]),
                 ),
                 Expanded(
-                  child: Stack(children: [
-                    Positioned.fill(
-                      child: _paused
-                          ? ClipRect(
-                              child: ImageFiltered(
-                                key: const ValueKey('whot-paused-table-blur'),
-                                imageFilter:
-                                    ui.ImageFilter.blur(sigmaX: 7, sigmaY: 7),
-                                child: _tableBoard(top, debt),
+                  child: _choosingSignals
+                      ? _signalSetupView()
+                      : Stack(children: [
+                          Positioned.fill(
+                            child: _paused
+                                ? ClipRect(
+                                    child: ImageFiltered(
+                                      key: const ValueKey(
+                                          'whot-paused-table-blur'),
+                                      imageFilter: ui.ImageFilter.blur(
+                                          sigmaX: 7, sigmaY: 7),
+                                      child: _tableBoard(top, debt),
+                                    ),
+                                  )
+                                : _tableBoard(top, debt),
+                          ),
+                          if (_paused)
+                            Positioned.fill(
+                              child: Container(
+                                key:
+                                    const ValueKey('whot-paused-table-overlay'),
+                                margin: const EdgeInsets.fromLTRB(5, 3, 5, 3),
+                                decoration: BoxDecoration(
+                                  color: const Color(0x74100916),
+                                  borderRadius: BorderRadius.circular(42),
+                                ),
+                                alignment: Alignment.center,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 18, vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xdd21112a),
+                                    borderRadius: BorderRadius.circular(18),
+                                    border: Border.all(color: _gold),
+                                    boxShadow: const [
+                                      BoxShadow(
+                                          color: Color(0x99000000),
+                                          blurRadius: 18,
+                                          offset: Offset(0, 6)),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.pause_rounded,
+                                              color: _gold, size: 24),
+                                          SizedBox(width: 8),
+                                          Text('GAME PAUSED',
+                                              style: TextStyle(
+                                                  color: _cream,
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w900,
+                                                  letterSpacing: 1)),
+                                        ],
+                                      ),
+                                      if (!widget.spectating) ...[
+                                        const SizedBox(height: 12),
+                                        FilledButton.icon(
+                                          key: const ValueKey(
+                                              'whot-resume-button'),
+                                          onPressed: _disconnected
+                                              ? null
+                                              : _togglePause,
+                                          icon: const Icon(
+                                              Icons.play_arrow_rounded),
+                                          label: const Text('Resume game'),
+                                        ),
+                                      ] else ...[
+                                        const SizedBox(height: 8),
+                                        const Text(
+                                            'Waiting for a player to resume',
+                                            style: TextStyle(
+                                                color: _cream, fontSize: 11)),
+                                      ],
+                                    ],
+                                  ),
+                                ),
                               ),
-                            )
-                          : _tableBoard(top, debt),
-                    ),
-                    if (_paused)
-                      Positioned.fill(
-                        child: Container(
-                          key: const ValueKey('whot-paused-table-overlay'),
-                          margin: const EdgeInsets.fromLTRB(5, 3, 5, 3),
-                          decoration: BoxDecoration(
-                            color: const Color(0x74100916),
-                            borderRadius: BorderRadius.circular(42),
-                          ),
-                          alignment: Alignment.center,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 18, vertical: 12),
-                            decoration: BoxDecoration(
-                              color: const Color(0xdd21112a),
-                              borderRadius: BorderRadius.circular(18),
-                              border: Border.all(color: _gold),
-                              boxShadow: const [
-                                BoxShadow(
-                                    color: Color(0x99000000),
-                                    blurRadius: 18,
-                                    offset: Offset(0, 6)),
-                              ],
                             ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.pause_rounded,
-                                        color: _gold, size: 24),
-                                    SizedBox(width: 8),
-                                    Text('GAME PAUSED',
-                                        style: TextStyle(
-                                            color: _cream,
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w900,
-                                            letterSpacing: 1)),
-                                  ],
-                                ),
-                                if (!widget.spectating) ...[
-                                  const SizedBox(height: 12),
-                                  FilledButton.icon(
-                                    key: const ValueKey('whot-resume-button'),
-                                    onPressed:
-                                        _disconnected ? null : _togglePause,
-                                    icon: const Icon(Icons.play_arrow_rounded),
-                                    label: const Text('Resume game'),
-                                  ),
-                                ] else ...[
-                                  const SizedBox(height: 8),
-                                  const Text('Waiting for a player to resume',
-                                      style: TextStyle(
-                                          color: _cream, fontSize: 11)),
-                                ],
-                              ],
+                          Positioned(
+                            top: 70,
+                            left: 12,
+                            right: 12,
+                            child: IgnorePointer(
+                              child: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 350),
+                                child: _lastCardWarning == null || _finalSplash
+                                    ? const SizedBox.shrink(
+                                        key: ValueKey('no-warning'))
+                                    : Center(
+                                        key: ValueKey(_lastCardWarning),
+                                        child: Container(
+                                          key: const ValueKey(
+                                              'whot-last-card-warning'),
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 18, vertical: 11),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xe82b1227),
+                                            borderRadius:
+                                                BorderRadius.circular(18),
+                                            border: Border.all(
+                                                color: _gold, width: 2),
+                                          ),
+                                          child: Text(
+                                            '${_name(_lastCardWarning)} · LAST CARD!',
+                                            textAlign: TextAlign.center,
+                                            style: const TextStyle(
+                                                color: _cream,
+                                                fontSize: 19,
+                                                fontWeight: FontWeight.w900,
+                                                letterSpacing: .5),
+                                          ),
+                                        ),
+                                      ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                    Positioned(
-                      top: 70,
-                      left: 12,
-                      right: 12,
-                      child: IgnorePointer(
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 350),
-                          child: _lastCardWarning == null || _finalSplash
-                              ? const SizedBox.shrink(
-                                  key: ValueKey('no-warning'))
-                              : Center(
-                                  key: ValueKey(_lastCardWarning),
-                                  child: Container(
-                                    key: const ValueKey(
-                                        'whot-last-card-warning'),
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 18, vertical: 11),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xe82b1227),
-                                      borderRadius: BorderRadius.circular(18),
-                                      border:
-                                          Border.all(color: _gold, width: 2),
-                                    ),
-                                    child: Text(
-                                      '${_name(_lastCardWarning)} · LAST CARD!',
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(
-                                          color: _cream,
-                                          fontSize: 19,
-                                          fontWeight: FontWeight.w900,
-                                          letterSpacing: .5),
-                                    ),
-                                  ),
-                                ),
-                        ),
-                      ),
-                    ),
-                    if (_finalSplash) Positioned.fill(child: _finishSplash()),
-                  ]),
+                          if (_visibleSignal != null && !_paused)
+                            Positioned(
+                                left: 18,
+                                right: 18,
+                                top: 82,
+                                child: _signalCard()),
+                          if (_finalSplash)
+                            Positioned.fill(child: _finishSplash()),
+                        ]),
                 ),
+                if (_tell &&
+                    !widget.spectating &&
+                    _activeTellPlayer &&
+                    (_state['phase'] == 'Turn' || _state['phase'] == 'Waiting'))
+                  _signalTray(),
                 if (!widget.spectating && (_deal || _finished || _disconnected))
                   SizedBox(
                       height: 42,
@@ -1470,19 +1887,17 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
                             ],
                           ])),
                 const SizedBox(height: 7),
-                SizedBox(
-                    height: 126,
-                    child: TableChatPanel(
-                        lines: _chat,
-                        controller: _chatController,
-                        onSend: _sendChat,
-                        spectatorCount: _state['spectatorCount'] as int? ?? 0,
-                        amSpectator: widget.spectating,
-                        height: 58,
-                        canSend: !_disconnected && !_chatMuted,
-                        disabledHint: _chatMuted
-                            ? 'Spectator chat is muted'
-                            : 'Reconnect to comment')),
+                TableChatPanel(
+                    lines: _chat,
+                    controller: _chatController,
+                    onSend: _sendChat,
+                    spectatorCount: _state['spectatorCount'] as int? ?? 0,
+                    amSpectator: widget.spectating,
+                    height: 58,
+                    canSend: !_disconnected && !_chatMuted,
+                    disabledHint: _chatMuted
+                        ? 'Spectator chat is muted'
+                        : 'Reconnect to comment'),
               ]),
       ),
     );
@@ -1539,8 +1954,7 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
       );
 
   Widget _resultSummary() {
-    final winner = _state['winner']?.toString();
-    final won = winner == widget.selfId && !widget.spectating;
+    final won = _won;
     final others = _players.where((player) => player != widget.selfId);
     return Scaffold(
       key: const ValueKey('whot-result-summary'),
@@ -1567,7 +1981,7 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
                           fontWeight: FontWeight.w900,
                           letterSpacing: 1.5)),
                   const SizedBox(height: 6),
-                  Text('${_name(winner)} won Whot',
+                  Text('$_winnerLabel won Whot',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                           color: _gold,
@@ -1589,7 +2003,7 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
                                   fontWeight: FontWeight.w900,
                                   letterSpacing: 1.2)),
                           const SizedBox(height: 12),
-                          _summaryLine('Winner', _name(winner)),
+                          _summaryLine('Winner', _winnerLabel),
                           if (!widget.spectating)
                             _summaryLine('Your cards left',
                                 '${_sizes[widget.selfId] ?? _hand.length}'),
@@ -1614,6 +2028,11 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 22),
             child: Column(children: [
+              if (won)
+                VictoryShareButton(
+                    roomId: widget.roomId,
+                    gameType: 'whot',
+                    detail: '$_winnerLabel won Whot'),
               if (!widget.spectating) ...[
                 NeonButton('Play again',
                     onPressed: () => Navigator.of(context).pushReplacement(

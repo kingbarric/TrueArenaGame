@@ -82,7 +82,7 @@ public class InboxWebSocketHandler implements WebSocketHandler {
                 .then();
 
         return session.send(out).and(inbound)
-                .doFinally(sig -> registry.disconnect(userId));
+                .doFinally(sig -> registry.disconnect(userId, outbound));
     }
 
     @SuppressWarnings("unchecked")

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:flutter/foundation.dart';
 
 import 'api_client.dart';
 
@@ -23,6 +24,8 @@ class GameSocket {
   final String _baseUrl;
   final Duration _retryBase;
   final _controller = StreamController<Map<String, dynamic>>.broadcast();
+  final ValueNotifier<Set<String>> onlinePlayers = ValueNotifier(<String>{});
+  final _agentIds = <String>{};
   WebSocketChannel? _channel;
   StreamSubscription? _sub;
   Timer? _retry;
@@ -37,14 +40,33 @@ class GameSocket {
   Stream<Map<String, dynamic>> get envelopes => _controller.stream;
   bool get isConnected => _connected && !_closed;
   int get lastSeq => _lastSeq;
+  String get roomId => _roomId;
 
   static GameSocket connect(ApiClient api, String roomId,
       {bool spectate = false,
       String baseUrl = ApiClient.base,
       Duration retryBase = const Duration(seconds: 1)}) {
     final socket = GameSocket._(api, roomId, spectate, baseUrl, retryBase);
+    socket._loadAgentIds();
     socket._open();
     return socket;
+  }
+
+  /// A saved Cyber Agent is always available, including while its room
+  /// socket reconnects. Room details supply the roster when we reopen
+  /// directly into a running game instead of passing through its lobby.
+  Future<void> _loadAgentIds() async {
+    try {
+      final room = await _api.get('/rooms/$_roomId') as Map;
+      if (_closed) return;
+      _agentIds.addAll((room['members'] as List? ?? const [])
+          .whereType<Map>()
+          .where((member) => member['isBot'] == true)
+          .map((member) => member['userId'].toString()));
+      onlinePlayers.value = {...onlinePlayers.value, ..._agentIds};
+    } catch (_) {
+      // A lobby snapshot may still provide the roster over the socket.
+    }
   }
 
   Uri get _uri {
@@ -70,6 +92,7 @@ class GameSocket {
       if (_closed || generation != _generation) return;
       try {
         final frame = jsonDecode(raw as String) as Map<String, dynamic>;
+        _updatePresence(frame);
         if (frame['type'] == 'PONG') _lastPong = DateTime.now();
         if (frame['type'] == 'EVENT') {
           final seq = (frame['payload'] as Map?)?['seq'] as num?;
@@ -102,11 +125,47 @@ class GameSocket {
     }
   }
 
+  void _updatePresence(Map<String, dynamic> frame) {
+    final payload = (frame['payload'] as Map?)?.cast<String, dynamic>();
+    if (frame['type'] == 'SNAPSHOT' && payload != null) {
+      if (payload['members'] is List) {
+        _agentIds.addAll((payload['members'] as List)
+            .whereType<Map>()
+            .where((member) => member['isBot'] == true)
+            .map((member) => member['userId'].toString()));
+      }
+      final ids = payload['connectedPlayers'] as List?;
+      if (ids != null) {
+        onlinePlayers.value = {...ids.map((id) => id.toString()), ..._agentIds};
+      } else if (payload['members'] is List) {
+        onlinePlayers.value = (payload['members'] as List)
+            .whereType<Map>()
+            .where((member) => member['connectionStatus'] == 'connected' || member['isBot'] == true)
+            .map((member) => member['userId'].toString())
+            .toSet();
+      }
+    } else if (frame['type'] == 'EVENT' && payload != null) {
+      final type = payload['type'];
+      if (type != 'MEMBER_CONNECTED' && type != 'MEMBER_DISCONNECTED') return;
+      final data = payload['data'] as Map?;
+      final id = data?['userId']?.toString();
+      if (id == null) return;
+      final next = {...onlinePlayers.value};
+      if (type == 'MEMBER_CONNECTED') {
+        next.add(id);
+      } else {
+        if (!_agentIds.contains(id)) next.remove(id);
+      }
+      onlinePlayers.value = next;
+    }
+  }
+
   void _lost(int generation) {
     if (_closed || generation != _generation) return;
     final unauthorized = _channel?.closeCode == 4401;
     _generation++;
     _connected = false;
+    onlinePlayers.value = {..._agentIds};
     _heartbeat?.cancel();
     _status(false);
     _sub?.cancel();
@@ -151,5 +210,6 @@ class GameSocket {
     await _sub?.cancel();
     await _channel?.sink.close();
     await _controller.close();
+    onlinePlayers.dispose();
   }
 }

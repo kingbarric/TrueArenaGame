@@ -10,28 +10,37 @@ import '../../widgets/neon.dart';
 import '../games/game_select_screen.dart';
 import '../groups/groups_screen.dart';
 import 'conversation_screen.dart';
+import '../status/victory_status.dart';
 
 class _ConversationSummary {
   const _ConversationSummary({
     required this.id,
     required this.type,
     this.otherName,
+    this.otherUserId,
+    this.otherAvatarUrl,
     this.otherUsername,
     this.groupName,
     this.lastMessageText,
+    this.lastMessageAt,
     this.lastMessageIsInvite = false,
   });
 
   final String id;
   final String type; // 'dm' | 'group'
   final String? otherName;
+  final String? otherUserId;
+  final String? otherAvatarUrl;
   final String? otherUsername;
   final String? groupName;
   final String? lastMessageText;
+  final DateTime? lastMessageAt;
   final bool lastMessageIsInvite;
 
   String get title => type == 'dm' ? (otherName ?? otherUsername ?? 'Direct message') : (groupName ?? 'Group chat');
-  String get preview => lastMessageIsInvite ? '🎮 Game invite' : (lastMessageText ?? 'No messages yet');
+  String get preview => lastMessageIsInvite ? '🎮 Game invite'
+      : (lastMessageText?.startsWith('e2e1:') == true ? '🔒 Encrypted message'
+          : (lastMessageText ?? 'No messages yet'));
 
   factory _ConversationSummary.fromJson(Map<String, dynamic> j) {
     final other = j['other'] as Map?;
@@ -40,9 +49,12 @@ class _ConversationSummary {
       id: j['id'] as String,
       type: j['type'] as String,
       otherName: other?['displayName'] as String?,
+      otherUserId: other?['userId'] as String?,
+      otherAvatarUrl: other?['avatarUrl'] as String?,
       otherUsername: other?['username'] as String?,
       groupName: j['groupName'] as String?,
       lastMessageText: last?['text'] as String?,
+      lastMessageAt: DateTime.tryParse(last?['createdAt']?.toString() ?? ''),
       lastMessageIsInvite: last?['kind'] == 'game_invite',
     );
   }
@@ -93,7 +105,11 @@ class _ChatListScreenState extends State<ChatListScreen> {
     try {
       final res = await app.api.get('/conversations') as List;
       if (!mounted) return;
-      setState(() => _conversations = res.map((e) => _ConversationSummary.fromJson((e as Map).cast<String, dynamic>())).toList());
+      final conversations = res.map((e) => _ConversationSummary.fromJson(
+          (e as Map).cast<String, dynamic>())).toList()
+        ..sort((a, b) => (b.lastMessageAt ?? DateTime(1970))
+            .compareTo(a.lastMessageAt ?? DateTime(1970)));
+      setState(() => _conversations = conversations);
     } on ApiException catch (e) {
       if (mounted && !silent) setState(() => _error = e.message);
     } catch (_) {
@@ -108,6 +124,9 @@ class _ChatListScreenState extends State<ChatListScreen> {
     final n = context.neon;
     return Scaffold(
       appBar: AppBar(title: const Text('Chats'), actions: [
+        IconButton(tooltip: 'Victory statuses', icon: const Icon(Icons.auto_stories_rounded),
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => const StatusScreen()))),
         IconButton(
           tooltip: 'Groups',
           icon: const Icon(Icons.groups_rounded),
@@ -158,7 +177,15 @@ class _ChatListScreenState extends State<ChatListScreen> {
                                     builder: (_) => ConversationScreen(conversationId: c.id, title: c.title),
                                   )).then((_) => _load());
                                 },
-                                leading: Avatar(c.title, size: 32),
+                                leading: c.otherUserId == null
+                                    ? Avatar(c.title, size: 32)
+                                    : ValueListenableBuilder<Set<String>>(
+                                        valueListenable: AppScope.of(context).onlineFriends,
+                                        builder: (_, online, __) => OnlineAvatar(c.title,
+                                            size: 32,
+                                            imageUrl: c.otherAvatarUrl,
+                                            online: online.contains(c.otherUserId)),
+                                      ),
                                 title: Text(c.title, maxLines: 1, overflow: TextOverflow.ellipsis,
                                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
                                 subtitle: Text(c.preview, maxLines: 1, overflow: TextOverflow.ellipsis,

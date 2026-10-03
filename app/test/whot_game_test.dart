@@ -23,6 +23,8 @@ import 'package:truearena/widgets/neon.dart';
 import 'package:truearena/widgets/table_chat.dart';
 
 class TestSocket implements GameSocket {
+  @override
+  final ValueNotifier<Set<String>> onlinePlayers = ValueNotifier(<String>{});
   final controller = StreamController<Map<String, dynamic>>.broadcast();
   final sent = <Map<String, dynamic>>[];
   @override
@@ -31,6 +33,8 @@ class TestSocket implements GameSocket {
   bool get isConnected => true;
   @override
   int get lastSeq => 0;
+  @override
+  String get roomId => '00000000-0000-0000-0000-000000000001';
   @override
   void send(String type, [Map<String, dynamic>? payload]) =>
       sent.add({'type': type, ...?payload});
@@ -49,6 +53,7 @@ class TestSocket implements GameSocket {
           'activeShape': 'circle',
           'handSizes': {'me': 3, 'other': 5},
           'marketLeft': 40,
+          'discardCount': 3,
           'secondsLeft': 45,
           'pendingPick': 0,
           'rules': {'pickTwo': true, 'pickTwoStacking': true},
@@ -415,6 +420,48 @@ void main() {
     expect(faceDown, findsNWidgets(before));
     await tester.pumpWidget(const SizedBox());
   });
+  testWidgets('market and discard stacks reflect counts and animate recycling',
+      (tester) async {
+    final socket = await open(tester, state: {
+      'marketLeft': 1,
+      'discardCount': 4,
+      'discardCards': ['square-4', 'triangle-7', 'circle-7'],
+    });
+    final market = find.byKey(const ValueKey('whot-market-pile'));
+    final discard = find.byKey(const ValueKey('whot-discard-pile'));
+    expect(find.descendant(of: market, matching: find.byType(WhotCardView)),
+        findsOneWidget);
+    expect(find.descendant(of: discard, matching: find.byType(WhotCardView)),
+        findsNWidgets(3));
+    expect(
+        find.descendant(
+            of: discard,
+            matching: find.byWidgetPredicate(
+                (w) => w is WhotCardView && w.code == 'triangle-7')),
+        findsOneWidget);
+
+    socket.snapshot({
+      'marketLeft': 3,
+      'discardCount': 1,
+      'discardCards': ['circle-7'],
+    });
+    socket.controller.add({
+      'type': 'EVENT',
+      'payload': {
+        'type': 'MARKET_RESHUFFLED',
+        'data': {'marketLeft': 3}
+      }
+    });
+    await tester.pump();
+    expect(find.descendant(of: market, matching: find.byType(WhotCardView)),
+        findsNWidgets(3));
+    expect(find.descendant(of: discard, matching: find.byType(WhotCardView)),
+        findsOneWidget);
+    expect(find.text('RESHUFFLING MARKET'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 1250));
+    expect(find.text('RESHUFFLING MARKET'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+  });
   testWidgets('an opponent card travels to discard before becoming the top',
       (tester) async {
     final socket = await open(tester);
@@ -482,10 +529,11 @@ void main() {
         state: state,
         child:
             MaterialApp(theme: NeonTheme.dark, home: const WhotLobbyScreen())));
-    expect(find.byType(ListView), findsNothing);
-    await tap(tester, find.text('Include Whot cards'));
+    expect(find.byType(ListView), findsOneWidget);
+    // Include Whot cards now defaults to off, so this assertion already holds
+    // without tapping it — only toggle the switch we're actually testing here.
     await tap(tester, find.text('Stack twos'));
-    await tap(tester, find.text('Create room'));
+    await tap(tester, find.text('Open a huud'));
     await tester.pumpAndSettle();
     expect(request?['gameType'], 'whot');
     expect(request?['gameConfig'], containsPair('pickTwoStacking', false));
@@ -493,10 +541,100 @@ void main() {
     expect(request?['gameConfig'], containsPair('startingHand', 5));
     expect(request?['gameConfig'], containsPair('turnSeconds', 60));
     expect(find.text('Local server unavailable'), findsWidgets);
-    expect(find.text('Create room'), findsOneWidget);
+    expect(find.text('Open a huud'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
     state.dispose();
   });
+  testWidgets('The Tell offers 30 symbols and sends a private choice',
+      (tester) async {
+    final socket = await open(tester, state: {
+      'mode': 'tell',
+      'phase': 'Signals',
+      'players': ['me', 'other', 'p2', 'p3'],
+      'teams': [
+        ['me', 'other'],
+        ['p2', 'p3']
+      ],
+      'yourTeam': 0,
+    });
+    expect(
+        find.byKey(const ValueKey('whot-tell-signal-setup')), findsOneWidget);
+    expect(find.byKey(const ValueKey('whot-choose-🪐')), findsOneWidget);
+    expect(find.byType(OutlinedButton), findsNWidgets(30));
+    await tap(tester, find.byKey(const ValueKey('whot-choose-🪐')));
+    expect(socket.sent.last['type'], 'PLAYER_ACTION');
+    expect(socket.sent.last['action'], 'CHOOSE_SIGNAL');
+    expect((socket.sent.last['data'] as Map)['symbol'], '🪐');
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('The Tell lobby sends its matching rule and minimum',
+      (tester) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    Map<String, dynamic>? request;
+    final client = MockClient((r) async {
+      request = jsonDecode(r.body) as Map<String, dynamic>;
+      return http.Response('{"message":"Unavailable"}', 503);
+    });
+    final state = AppState(ApiClient(client: client));
+    await tester.pumpWidget(AppScope(
+        state: state,
+        child:
+            MaterialApp(theme: NeonTheme.dark, home: const WhotLobbyScreen())));
+    await tap(tester, find.text('The Tell'));
+    expect(find.byKey(const ValueKey('whot-tell-rule')), findsOneWidget);
+    expect(find.text('MINIMUM TELL'), findsOneWidget);
+    await tap(tester, find.text('Open a huud'));
+    await tester.pumpAndSettle();
+    expect(request?['gameConfig'], containsPair('mode', 'tell'));
+    expect(request?['gameConfig'], containsPair('tellRule', 'either'));
+    expect(request?['gameConfig'], containsPair('tellMinCards', 3));
+    await tester.pumpWidget(const SizedBox());
+    state.dispose();
+  });
+
+  testWidgets('a public signal can be tapped to buzz and fades after 3 seconds',
+      (tester) async {
+    final socket = await open(tester, state: {
+      'mode': 'tell',
+      'players': ['me', 'other', 'p2', 'p3'],
+      'teams': [
+        ['me', 'other'],
+        ['p2', 'p3']
+      ],
+      'yourTeam': 0,
+      'yourSignal': '🪐',
+    });
+    socket.snapshot({
+      'mode': 'tell',
+      'players': ['me', 'other', 'p2', 'p3'],
+      'teams': [
+        ['me', 'other'],
+        ['p2', 'p3']
+      ],
+      'yourTeam': 0,
+      'signal': {
+        'id': 7,
+        'by': 'other',
+        'symbol': '🪐',
+        'sentAtMs': DateTime.now().millisecondsSinceEpoch,
+      }
+    });
+    await tester.pump();
+    expect(find.text('Alex → 🪐'), findsOneWidget);
+    expect(find.text('TAP TO BUZZ'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('whot-tell-signal-card')),
+        warnIfMissed: false);
+    expect(socket.sent.last['action'], 'BUZZ');
+    expect((socket.sent.last['data'] as Map)['signalId'], 7);
+    await tester.pump(const Duration(seconds: 3));
+    expect(find.byKey(const ValueKey('whot-tell-signal-card')), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   test('pick-two debt cannot be answered with a wild or when stacking is off',
       () {
     final state = {

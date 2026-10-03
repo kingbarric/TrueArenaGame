@@ -1,12 +1,15 @@
 package app.truearena.api.room;
 
 import app.truearena.api.auth.JwtService;
+import app.truearena.api.bot.BotRuntimeRegistry;
+import app.truearena.api.championship.ChampionshipService;
 import app.truearena.api.coins.CoinService;
 import app.truearena.api.inbox.InboxRegistry;
 import app.truearena.api.room.RoomDtos.DiscoverableRoomView;
 import app.truearena.api.room.RoomDtos.RoomMemberView;
 import app.truearena.api.room.RoomDtos.RoomView;
 import app.truearena.api.support.ApiExceptions;
+import app.truearena.api.ws.GameOrchestrator;
 import app.truearena.persistence.FriendRepository;
 import app.truearena.persistence.FriendRow;
 import app.truearena.persistence.RoomMemberRepository;
@@ -17,6 +20,7 @@ import app.truearena.persistence.UserRepository;
 import app.truearena.room.RoomRuntime;
 import app.truearena.room.RoomRuntimeRegistry;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -41,9 +45,14 @@ public class RoomService {
     private final FriendRepository friends;
     private final RoomRuntimeRegistry runtimes;
     private final CoinService coins;
+    private final BotRuntimeRegistry botRuntimes;
+    private final GameOrchestrator games;
+    @Autowired(required = false)
+    private ChampionshipService championships;
 
     public RoomService(RoomRepository rooms, RoomMemberRepository members, UserRepository users, JwtService jwt,
-                        InboxRegistry inbox, FriendRepository friends, RoomRuntimeRegistry runtimes, CoinService coins) {
+                        InboxRegistry inbox, FriendRepository friends, RoomRuntimeRegistry runtimes, CoinService coins,
+                        BotRuntimeRegistry botRuntimes, GameOrchestrator games) {
         this.friends = friends;
         this.runtimes = runtimes;
         this.rooms = rooms;
@@ -52,9 +61,11 @@ public class RoomService {
         this.jwt = jwt;
         this.inbox = inbox;
         this.coins = coins;
+        this.botRuntimes = botRuntimes;
+        this.games = games;
     }
 
-    private static final java.util.Set<String> GAME_TYPES = java.util.Set.of("truearena", "wordbluff", "draughts", "goosi", "whot");
+    private static final java.util.Set<String> GAME_TYPES = java.util.Set.of("truearena", "wordbluff", "draughts", "goosi", "whot", "ludo");
 
     /** A guest can join any room, but hosting (creating) one needs a real
      * account — otherwise there's no way to reach them again if the app is
@@ -139,16 +150,19 @@ public class RoomService {
 
     public Mono<RoomView> join(String code, UUID userId, String nickname) {
         return rooms.findByCode(code.toUpperCase())
-                .switchIfEmpty(Mono.error(ApiExceptions.notFound("no room with that code")))
-                .flatMap(room -> members.findByRoomIdAndUserId(room.id(), userId)
+                .switchIfEmpty(Mono.error(ApiExceptions.notFound("no huud with that code")))
+                .flatMap(room -> (championships == null ? Mono.just(false) : championships.isTournamentRoom(room.id()))
+                        .flatMap(tournament -> tournament
+                                ? Mono.error(ApiExceptions.forbidden("join the championship invitation instead"))
+                                : members.findByRoomIdAndUserId(room.id(), userId)
                         .flatMap(existing -> view(room, userId))
                         .switchIfEmpty(members.countByRoomId(room.id())
-                                .flatMap(count -> count >= MAX_PLAYERS
-                                        ? Mono.error(ApiExceptions.conflict("room is full"))
+                                .flatMap(count -> count >= ("ludo".equals(room.gameType()) ? 4 : MAX_PLAYERS)
+                                        ? Mono.error(ApiExceptions.conflict("huud is full"))
                                         : members.save(RoomMemberRow.of(room.id(), userId, nickname))
                                         .thenReturn(room)
                                         .flatMap(r -> escrowStake(r, userId))
-                                        .then(view(room, userId)))));
+                                        .then(view(room, userId))))));
     }
 
     /**
@@ -161,16 +175,126 @@ public class RoomService {
      */
     public Mono<Void> abandon(UUID roomId, UUID callerId) {
         return rooms.findById(roomId)
-                .switchIfEmpty(Mono.error(ApiExceptions.notFound("room not found")))
-                .flatMap(room -> {
+                .switchIfEmpty(Mono.error(ApiExceptions.notFound("huud not found")))
+                .flatMap(room -> (championships == null ? Mono.just(false) : championships.isTournamentRoom(roomId))
+                        .flatMap(tournament -> {
+                    if (tournament) return Mono.error(ApiExceptions.forbidden("championship matches cannot be abandoned"));
                     if (!room.hostId().equals(callerId)) {
-                        return Mono.error(ApiExceptions.forbidden("only the host can abandon this room"));
+                        return Mono.error(ApiExceptions.forbidden("only the host can abandon this huud"));
                     }
                     boolean started = runtimes.find(roomId).map(RoomRuntime::started).orElse(false);
                     if (started) {
                         return Mono.error(ApiExceptions.conflict("the game has already started — forfeit instead"));
                     }
-                    return refundStakes(room).then(members.deleteByRoomId(roomId)).then(rooms.deleteById(roomId));
+                    return members.findByRoomId(roomId).map(RoomMemberRow::userId).collectList()
+                            .flatMap(ids -> refundStakes(room)
+                                    .then(members.deleteByRoomId(roomId))
+                                    .then(rooms.deleteById(roomId))
+                                    .doOnSuccess(ignored -> {
+                                        ids.forEach(botRuntimes::stop);
+                                        runtimes.find(roomId).ifPresent(RoomRuntime::cancelTimer);
+                                        runtimes.remove(roomId);
+                                    }));
+                }));
+    }
+
+    /** Leaving a private Draft game against one's own agent ends that room and releases the agent. */
+    public Mono<Boolean> leaveBotDraughtsRoom(UUID roomId, UUID callerId) {
+        return rooms.findById(roomId)
+                .switchIfEmpty(Mono.error(ApiExceptions.notFound("huud not found")))
+                .flatMap(room -> {
+                    if (!"draughts".equals(room.gameType()) || !room.hostId().equals(callerId)
+                            || "ended".equals(room.status())) {
+                        return Mono.just(false);
+                    }
+                    return (championships == null ? Mono.just(false) : championships.isTournamentRoom(roomId))
+                            .flatMap(tournament -> tournament ? Mono.just(false)
+                                    : members.findByRoomId(roomId).collectList().flatMap(roster -> {
+                                        if (roster.size() != 2 || roster.stream().noneMatch(m -> m.userId().equals(callerId))) {
+                                            return Mono.just(false);
+                                        }
+                                        UUID opponentId = roster.stream().filter(m -> !m.userId().equals(callerId))
+                                                .findFirst().orElseThrow().userId();
+                                        return users.findById(opponentId).flatMap(opponent -> {
+                                            if (!opponent.isBot() || !callerId.equals(opponent.ownerUserId())) {
+                                                return Mono.just(false);
+                                            }
+                                            Mono<Boolean> end = "lobby".equals(room.status())
+                                                    ? abandon(roomId, callerId).thenReturn(true)
+                                                    : games.forfeitBotDraughtsRoom(roomId, callerId)
+                                                            .flatMap(forfeited -> forfeited ? Mono.just(true)
+                                                                    : refundStakes(room)
+                                                                            .then(rooms.save(room.withStatus("ended")))
+                                                                            .thenReturn(true));
+                                            return end.doOnSuccess(ended -> {
+                                                if (ended) {
+                                                    botRuntimes.stop(opponentId);
+                                                    runtimes.find(roomId).ifPresent(RoomRuntime::cancelTimer);
+                                                    runtimes.remove(roomId);
+                                                }
+                                            });
+                                        });
+                                    }));
+                });
+    }
+
+    /** Close a Whot table when the host leaves only their own Cyber Agents behind. */
+    public Mono<Boolean> leaveBotWhotRoom(UUID roomId, UUID callerId) {
+        return leaveBotRoom(roomId, callerId, "whot");
+    }
+
+    public Mono<Boolean> leaveBotLudoRoom(UUID roomId, UUID callerId) {
+        return leaveBotRoom(roomId, callerId, "ludo");
+    }
+
+    public Mono<Boolean> leaveLudoRoom(UUID roomId, UUID callerId) {
+        return members.findByRoomIdAndUserId(roomId, callerId)
+                .switchIfEmpty(Mono.error(ApiExceptions.forbidden("not a player in this huud")))
+                .then(leaveBotLudoRoom(roomId, callerId))
+                .flatMap(ended -> ended ? Mono.just(true) : games.forfeitLudoRoom(roomId, callerId));
+    }
+
+    private Mono<Boolean> leaveBotRoom(UUID roomId, UUID callerId, String gameType) {
+        return rooms.findById(roomId)
+                .switchIfEmpty(Mono.error(ApiExceptions.notFound("huud not found")))
+                .flatMap(room -> {
+                    if (!gameType.equals(room.gameType()) || !room.hostId().equals(callerId)
+                            || "ended".equals(room.status())) {
+                        return Mono.just(false);
+                    }
+                    return members.findByRoomId(roomId).collectList().flatMap(roster -> {
+                        if (roster.size() < 2 || roster.stream().noneMatch(m -> m.userId().equals(callerId))) {
+                            return Mono.just(false);
+                        }
+                        var agentIds = roster.stream().map(RoomMemberRow::userId)
+                                .filter(id -> !id.equals(callerId)).toList();
+                        return Flux.fromIterable(agentIds)
+                                .concatMap(id -> users.findById(id)
+                                        .map(user -> user.isBot() && callerId.equals(user.ownerUserId()))
+                                        .defaultIfEmpty(false))
+                                .all(Boolean::booleanValue)
+                                .flatMap(allOwnedAgents -> {
+                                    if (!allOwnedAgents) return Mono.just(false);
+                                    Mono<Boolean> end = "lobby".equals(room.status())
+                                            ? abandon(roomId, callerId).thenReturn(true)
+                                            : ("ludo".equals(gameType)
+                                                    ? games.forfeitLudoRoom(roomId, callerId)
+                                                    : games.forfeitBotWhotRoom(roomId, callerId))
+                                                    .flatMap(forfeited -> forfeited
+                                                            && (!"ludo".equals(gameType) || runtimes.find(roomId)
+                                                            .map(rt -> rt.state().finished()).orElse(false))
+                                                            ? Mono.just(true) : refundStakes(room)
+                                                                    .then(rooms.save(room.withStatus("ended")))
+                                                                    .thenReturn(true));
+                                    return end.doOnSuccess(ended -> {
+                                        if (ended) {
+                                            agentIds.forEach(botRuntimes::stop);
+                                            runtimes.find(roomId).ifPresent(RoomRuntime::cancelTimer);
+                                            runtimes.remove(roomId);
+                                        }
+                                    });
+                                });
+                    });
                 });
     }
 
@@ -206,7 +330,9 @@ public class RoomService {
                     return Flux.fromIterable(runtimes.all())
                             .filter(RoomRuntime::started)
                             .filter(rt -> hosts.contains(UUID.fromString(rt.hostUserId)))
-                            .concatMap(this::discoverableView);
+                            .concatMap(rt -> championships == null ? discoverableView(rt)
+                                    : championships.spectatorAllowed(rt.roomId, selfId)
+                                            .flatMapMany(allowed -> allowed ? discoverableView(rt) : Flux.empty()));
                 });
     }
 
@@ -221,7 +347,17 @@ public class RoomService {
 
     public Mono<RoomView> get(UUID roomId, UUID userId) {
         return rooms.findById(roomId)
-                .switchIfEmpty(Mono.error(ApiExceptions.notFound("room not found")))
+                .switchIfEmpty(Mono.error(ApiExceptions.notFound("huud not found")))
+                .flatMap(room -> (championships == null ? Mono.just(true)
+                        : championships.spectatorAllowed(roomId, userId))
+                        .flatMap(allowed -> allowed ? view(room, userId)
+                                : Mono.error(ApiExceptions.forbidden("private championship match"))));
+    }
+
+    /** Recover a player's latest live room after reinstall or an older client. */
+    public Mono<RoomView> mostRecentActive(UUID userId) {
+        return rooms.findRecentActiveForUser(userId)
+                .next()
                 .flatMap(room -> view(room, userId));
     }
 
@@ -244,7 +380,7 @@ public class RoomService {
         return rooms.findByCode(candidate)
                 .flatMap(existing -> attemptsLeft > 0
                         ? allocateCode(attemptsLeft - 1)
-                        : Mono.<String>error(ApiExceptions.conflict("could not allocate a room code")))
+                        : Mono.<String>error(ApiExceptions.conflict("could not allocate a huud code")))
                 .switchIfEmpty(Mono.just(candidate));
     }
 

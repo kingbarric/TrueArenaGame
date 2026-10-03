@@ -2,6 +2,8 @@ package app.truearena.api.auth;
 
 import app.truearena.api.coins.CoinService;
 import app.truearena.api.auth.AuthDtos.GoogleSignInRequest;
+import app.truearena.api.auth.AuthDtos.AppleChallenge;
+import app.truearena.api.auth.AuthDtos.AppleSignInRequest;
 import app.truearena.api.auth.AuthDtos.GuestSignInRequest;
 import app.truearena.api.auth.AuthDtos.OtpRequest;
 import app.truearena.api.auth.AuthDtos.OtpVerify;
@@ -13,6 +15,11 @@ import app.truearena.api.support.CurrentUser;
 import app.truearena.persistence.UserRow;
 import app.truearena.persistence.UserRepository;
 import app.truearena.persistence.GoogleAccountRepository;
+import app.truearena.persistence.AppleAccountRepository;
+import app.truearena.persistence.LoginEventRepository;
+import app.truearena.persistence.LoginEventRow;
+import app.truearena.persistence.IssueEventRepository;
+import app.truearena.persistence.IssueEventRow;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -24,6 +31,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
+
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -37,10 +46,16 @@ public class AuthController {
     private final UsernameGenerator usernames;
     private final GoogleAuthService google;
     private final GoogleAccountRepository googleAccounts;
+    private final AppleAuthService apple;
+    private final AppleAccountRepository appleAccounts;
     private final CoinService coins;
+    private final LoginEventRepository loginEvents;
+    private final IssueEventRepository issueEvents;
 
     public AuthController(OtpService otp, JwtService jwt, UserRepository users, UsernameGenerator usernames,
-                          GoogleAuthService google, GoogleAccountRepository googleAccounts, CoinService coins) {
+                          GoogleAuthService google, GoogleAccountRepository googleAccounts,
+                          AppleAuthService apple, AppleAccountRepository appleAccounts, CoinService coins,
+                          LoginEventRepository loginEvents, IssueEventRepository issueEvents) {
         this.coins = coins;
         this.otp = otp;
         this.jwt = jwt;
@@ -48,11 +63,15 @@ public class AuthController {
         this.usernames = usernames;
         this.google = google;
         this.googleAccounts = googleAccounts;
+        this.apple = apple;
+        this.appleAccounts = appleAccounts;
+        this.loginEvents = loginEvents;
+        this.issueEvents = issueEvents;
     }
 
     @PostMapping("/otp/request")
     @ResponseStatus(HttpStatus.ACCEPTED)
-    @Operation(summary = "Send an OTP code to a phone number or email (logged to the console by the dev stub)")
+    @Operation(summary = "Send an OTP code by email, or use the local phone stub")
     public Mono<Void> requestOtp(@Valid @RequestBody OtpRequest body) {
         boolean hasPhone = body.phone() != null && !body.phone().isBlank();
         boolean hasEmail = body.email() != null && !body.email().isBlank();
@@ -74,10 +93,12 @@ public class AuthController {
         String phone = hasPhone ? body.phone() : null;
         String email = hasEmail ? body.email() : null;
         String identifier = hasPhone ? body.phone() : body.email();
+        String method = hasPhone ? "phone" : "email";
         return otp.verify(identifier, body.code())
                 .flatMap(ok -> {
                     if (!ok) {
-                        return Mono.error(ApiExceptions.unauthorized("invalid or expired code"));
+                        return recordIssue(null, "OTP_FAILED", method)
+                                .then(Mono.error(ApiExceptions.unauthorized("invalid or expired code")));
                     }
                     // A guest calling this with their own guest bearer token upgrades that
                     // same account in place (same id, same room membership/stats) instead of
@@ -87,8 +108,10 @@ public class AuthController {
                             .flatMap(users::findById)
                             .filter(UserRow::isGuest)
                             .flatMap(guest -> upgradeGuest(guest, phone, email))
+                            .flatMap(u -> recordLogin(u, method))
                             .map(u -> tokensFor(u, false))
                             .switchIfEmpty(Mono.defer(() -> upsertUser(phone, email, null)
+                                    .flatMap(r -> recordLogin(r.user(), method).map(u -> new Upserted(u, r.created())))
                                     .map(r -> tokensFor(r.user(), r.created()))));
                 });
     }
@@ -106,6 +129,7 @@ public class AuthController {
                             .flatMap(username -> users.save(UserRow.newGuest(body.deviceId(), name, username)))
                             .flatMap(this::grantWelcomeCoins);
                 }))
+                .flatMap(u -> recordLogin(u, "guest"))
                 .map(u -> tokensFor(u, false));
     }
 
@@ -117,6 +141,7 @@ public class AuthController {
                         .flatMap(link -> users.findById(link.userId())
                                 .map(user -> new Upserted(user, false)))
                         .switchIfEmpty(Mono.defer(() -> registerGoogle(identity))))
+                .flatMap(r -> recordLogin(r.user(), "google").map(u -> new Upserted(u, r.created())))
                 .map(r -> tokensFor(r.user(), r.created()));
     }
 
@@ -136,6 +161,47 @@ public class AuthController {
                                 identity.subject(), result.user().id())).thenReturn(result)));
     }
 
+    @PostMapping("/apple/challenge")
+    @Operation(summary = "Start a short-lived Sign in with Apple challenge")
+    public Mono<AppleChallenge> appleChallenge() {
+        return apple.challenge().map(AppleChallenge::new);
+    }
+
+    @PostMapping("/apple")
+    @Operation(summary = "Sign in with a verified native iOS Apple identity token")
+    public Mono<TokenResponse> signInWithApple(@Valid @RequestBody AppleSignInRequest body) {
+        return apple.verify(body.idToken(), body.nonce())
+                .flatMap(identity -> appleAccounts.findById(identity.subject())
+                        .flatMap(link -> users.findById(link.userId())
+                                .map(user -> new Upserted(user, false)))
+                        .switchIfEmpty(Mono.defer(() -> registerApple(identity))))
+                .flatMap(r -> recordLogin(r.user(), "apple").map(u -> new Upserted(u, r.created())))
+                .map(r -> tokensFor(r.user(), r.created()));
+    }
+
+    private Mono<Upserted> registerApple(AppleAuthService.AppleIdentity identity) {
+        String email = identity.email();
+        Mono<Upserted> existingEmail = email == null ? Mono.empty()
+                : users.findByEmail(email).map(user -> new Upserted(user, false));
+        return existingEmail
+                .switchIfEmpty(Mono.defer(() -> {
+                    if (email == null) {
+                        return Mono.error(ApiExceptions.unauthorized("Apple did not provide an email for this new account"));
+                    }
+                    return CurrentUser.id()
+                            .flatMap(users::findById)
+                            .filter(UserRow::isGuest)
+                            .flatMap(guest -> users.save(guest.upgraded(null, email))
+                                    .map(user -> new Upserted(user, false)))
+                            .switchIfEmpty(Mono.defer(() -> upsertUser(null, email, null)));
+                }))
+                .flatMap(result -> appleAccounts.findByUserId(result.user().id())
+                        .flatMap(link -> Mono.<Upserted>error(ApiExceptions.conflict(
+                                "this account is linked to another Apple account")))
+                        .switchIfEmpty(Mono.defer(() -> appleAccounts.link(
+                                identity.subject(), result.user().id()).thenReturn(result))));
+    }
+
     @PostMapping("/refresh")
     @Operation(summary = "Exchange a refresh token for a fresh pair")
     public Mono<TokenResponse> refresh(@Valid @RequestBody RefreshRequest body) {
@@ -143,7 +209,18 @@ public class AuthController {
                 .onErrorMap(e -> ApiExceptions.unauthorized("invalid refresh token"))
                 .flatMap(users::findById)
                 .switchIfEmpty(Mono.error(ApiExceptions.unauthorized("unknown user")))
+                .flatMap(u -> recordLogin(u, "refresh"))
                 .map(u -> tokensFor(u, false));
+    }
+
+    /** Best-effort: a login-tracking write must never fail or block a sign-in. */
+    private Mono<UserRow> recordLogin(UserRow u, String method) {
+        return loginEvents.save(LoginEventRow.of(u.id(), method)).thenReturn(u).onErrorReturn(u);
+    }
+
+    /** Best-effort: an issue-tracking write must never fail or block the caller's response. */
+    private Mono<Void> recordIssue(UUID userId, String type, String detail) {
+        return issueEvents.save(IssueEventRow.of(userId, type, detail)).then().onErrorResume(e -> Mono.empty());
     }
 
     /** Attaches a verified phone/email to a guest's own row — same id, same room

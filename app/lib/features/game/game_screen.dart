@@ -7,11 +7,14 @@ import '../../core/game_music.dart';
 import '../../core/game_sfx.dart';
 import '../../core/game_socket.dart';
 import '../../theme/neon_theme.dart';
+import '../../widgets/how_to_play_dialog.dart';
 import '../../widgets/motif.dart';
 import '../../widgets/neon.dart';
 import '../../widgets/table_chat.dart';
+import '../../widgets/game_voice_control.dart';
 import '../../widgets/neon_form.dart';
 import '../shell/main_shell.dart';
+import '../status/victory_status.dart';
 import '../onboarding/guest_save_session_card.dart';
 
 /// The actual game loop — role reveal through results — driven entirely by
@@ -105,6 +108,23 @@ class _GameScreenState extends State<GameScreen> {
               style: const TextStyle(color: Color(0xfff0d8a8), fontSize: 13)),
         ]),
       );
+
+  void _showHelp() {
+    showHowToPlay(
+      context,
+      emoji: '🎭',
+      title: 'Traitors',
+      tagline: 'A hidden-role social deduction game — Traitors secretly work '
+          'against the Faithful majority.',
+      steps: const [
+        'Each round opens at night — Traitors secretly choose someone to eliminate while everyone else sleeps.',
+        'By morning, discuss openly at the round table — work out who the Traitors are (or bluff, if you are one).',
+        'Everyone votes for who they suspect; the most-voted player is put to the test before being banished.',
+        'Traitors win once they equal or outnumber the remaining Faithful; Faithful win by banishing every Traitor first.',
+        "Some tables play with twists — extra powers and rules — check the lobby's game settings before you start.",
+      ],
+    );
+  }
 
   Future<void> _toggleMusic() async {
     final next = !_musicOn;
@@ -539,12 +559,15 @@ class _GameScreenState extends State<GameScreen> {
           title: Text(finished ? 'Results' : 'Round $round'),
           automaticallyImplyLeading: finished,
           actions: [
+            if (!finished) GameVoiceControl(roomId: widget.socket.roomId),
             PopupMenuButton<String>(
               tooltip: 'Game settings',
               icon: const Icon(Icons.settings_rounded, size: 20),
               color: const Color(0xff241708),
               onSelected: (value) {
                 switch (value) {
+                  case 'help':
+                    _showHelp();
                   case 'music':
                     _toggleMusic();
                   case 'sfx':
@@ -554,6 +577,7 @@ class _GameScreenState extends State<GameScreen> {
                 }
               },
               itemBuilder: (_) => [
+                _menuItem('help', Icons.help_outline_rounded, 'How to play'),
                 _menuItem(
                     'music',
                     _musicOn
@@ -1011,6 +1035,8 @@ class _GameScreenState extends State<GameScreen> {
             ]),
       ],
       const SizedBox(height: 28),
+      if (won) VictoryShareButton(roomId: widget.socket.roomId,
+          gameType: 'truearena', detail: 'The ${winningSide == 'traitors' ? 'Traitors' : 'Faithful'} win'),
       NeonButton('Back to home', onPressed: () {
         Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(builder: (_) => const MainShell()), (r) => false);
@@ -1092,7 +1118,11 @@ class _GameScreenState extends State<GameScreen> {
                                     ]
                                   : null,
                             ),
-                            child: Avatar(label(id), size: 58),
+                            child: ValueListenableBuilder<Set<String>>(
+                              valueListenable: widget.socket.onlinePlayers,
+                              builder: (_, online, __) => OnlineAvatar(label(id),
+                                  size: 58, online: online.contains(id)),
+                            ),
                           ),
                           const SizedBox(height: 6),
                           Text(label(id),
@@ -1156,7 +1186,11 @@ class _GameScreenState extends State<GameScreen> {
                                 ]
                               : null,
                         ),
-                        child: Avatar(label(id), size: 42),
+                        child: ValueListenableBuilder<Set<String>>(
+                          valueListenable: widget.socket.onlinePlayers,
+                          builder: (_, online, __) => OnlineAvatar(label(id),
+                              size: 42, online: online.contains(id)),
+                        ),
                       ),
                       if (!isAlive)
                         const Icon(Icons.close_rounded,

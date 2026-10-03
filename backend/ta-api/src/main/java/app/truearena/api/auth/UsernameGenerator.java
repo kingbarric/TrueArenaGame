@@ -28,7 +28,7 @@ public class UsernameGenerator {
     /** {@code requested}, if given and free; otherwise a fresh random handle. */
     public Mono<String> resolve(String requested) {
         if (requested != null && !requested.isBlank()) {
-            return users.existsByUsername(requested)
+            return users.existsByUsernameIgnoreCase(requested)
                     .flatMap(taken -> taken
                             ? Mono.error(app.truearena.api.support.ApiExceptions.conflict("username already taken"))
                             : Mono.just(requested));
@@ -36,10 +36,18 @@ public class UsernameGenerator {
         return generateUnused(1);
     }
 
+    /** Validate a profile change without treating the player's own handle as taken. */
+    public Mono<String> resolveForUser(String requested, java.util.UUID userId) {
+        return users.existsByUsernameIgnoreCaseForOtherUser(requested, userId)
+                .flatMap(taken -> taken
+                        ? Mono.error(app.truearena.api.support.ApiExceptions.conflict("username already taken"))
+                        : Mono.just(requested));
+    }
+
     private Mono<String> generateUnused(int attempt) {
         String candidate = ADJECTIVES[RNG.nextInt(ADJECTIVES.length)] + "_"
                 + NOUNS[RNG.nextInt(NOUNS.length)] + RNG.nextInt(10_000);
-        return users.existsByUsername(candidate)
+        return users.existsByUsernameIgnoreCase(candidate)
                 .flatMap(taken -> {
                     if (!taken) {
                         return Mono.just(candidate);

@@ -62,7 +62,10 @@ class WhotModuleTest {
 
     @Test
     void aSingleDeckIsFiftyFourCardsWithTheWhots() {
-        List<WhotCard> deck = WhotModule.singleDeck(WhotConfig.defaults());
+        // includeWhot defaults to false now (plenty of tables leave them out) —
+        // explicitly opt in, since this test is specifically about the with-Whots count.
+        WhotConfig withWhot = new WhotConfig(60, 5, true, true, true, true, true, true);
+        List<WhotCard> deck = WhotModule.singleDeck(withWhot);
         assertThat(deck).hasSize(54);
         assertThat(deck.stream().filter(WhotCard::isWhot)).hasSize(5);
     }
@@ -84,7 +87,7 @@ class WhotModuleTest {
 
     @Test
     void aBigTableGetsMoreThanOneDeck() {
-        WhotConfig c = WhotConfig.defaults();
+        WhotConfig c = new WhotConfig(60, 5, true, true, true, true, true, true);
         assertThat(WhotModule.buildDeck(c, 4)).hasSize(54);
         // Twenty players at five cards each is most of two decks before
         // anybody draws, so more get shuffled in.
@@ -178,6 +181,40 @@ class WhotModuleTest {
         GameState s = dealAndStart(fresh(4), 5);
         assertThat(s.phase()).isEqualTo("Turn");
         assertThat((List<WhotCard>) field(s, "pile")).isNotEmpty();
+    }
+
+    @Test
+    void marketDrawsStayInOrderUntilTheLastCardThenShuffleDiscard() {
+        WhotState.Draft d = new WhotState.Draft((WhotState) dealAndStart(fresh(2), 5));
+        WhotCard first = WhotCard.parse("circle-3");
+        WhotCard last = WhotCard.parse("star-7");
+        WhotCard playedA = WhotCard.parse("square-4");
+        WhotCard playedB = WhotCard.parse("triangle-5");
+        WhotCard top = WhotCard.parse("cross-8");
+        d.market = new ArrayList<>(List.of(first, last));
+        d.pile = new ArrayList<>(List.of(playedA, playedB, top));
+        d.turnIndex = 0;
+        WhotState before = d.build();
+
+        WhotState afterFirst = (WhotState) act(before, "p0", "DRAW", Map.of());
+        assertThat(afterFirst.handOf("p0")).contains(last);
+        assertThat(afterFirst.market).containsExactly(first);
+        assertThat(afterFirst.events.stream().filter(e -> e.type().equals("MARKET_RESHUFFLED")))
+                .isEmpty();
+
+        WhotState afterLast = (WhotState) act(afterFirst, "p1", "DRAW", Map.of());
+        assertThat(afterLast.handOf("p1")).contains(first);
+        assertThat(afterLast.market).containsExactlyInAnyOrder(playedA, playedB);
+        assertThat(afterLast.pile).containsExactly(top);
+        assertThat(afterLast.events.stream().filter(e -> e.type().equals("MARKET_RESHUFFLED")))
+                .hasSize(1);
+        assertThat(module.broadcastState(afterLast).data())
+                .containsEntry("marketLeft", 2).containsEntry("discardCount", 1)
+                .containsEntry("discardCards", List.of(top.code()));
+
+        WhotState afterRecycleDraw = (WhotState) act(afterLast, "p0", "DRAW", Map.of());
+        assertThat(afterRecycleDraw.market).hasSize(1);
+        assertThat(afterRecycleDraw.pile).containsExactly(top);
     }
 
     @Test

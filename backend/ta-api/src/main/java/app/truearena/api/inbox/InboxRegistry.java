@@ -33,9 +33,17 @@ public class InboxRegistry {
         sockets.put(userId, sink);
     }
 
-    public void disconnect(UUID userId) {
-        sockets.remove(userId);
-        leaveCall(userId);
+    public void disconnect(UUID userId, Sinks.Many<Object> sink) {
+        // A reconnect can replace this user's socket before the old session
+        // finishes closing. Only the session still registered may clear it.
+        if (sockets.remove(userId, sink)) {
+            leaveCall(userId);
+        }
+    }
+
+    /** True while this user has a live app inbox socket on this pod. */
+    public boolean isOnline(UUID userId) {
+        return sockets.containsKey(userId);
     }
 
     public void joinCall(UUID userId, String callRoomName) {

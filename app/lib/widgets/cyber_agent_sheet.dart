@@ -22,24 +22,45 @@ class AgentChoice {
   bool get isExisting => agentId != null;
 }
 
-/// One saved agent, as `GET /agents?gameType=` returns it.
+/// One saved agent in the shared, cross-game roster.
 class SavedAgent {
   SavedAgent(this.id, this.displayName, this.difficulty);
 
-  factory SavedAgent.fromJson(Map<String, dynamic> j) =>
-      SavedAgent(j['userId'] as String, j['displayName'] as String, j['difficulty'] as String? ?? 'medium');
+  factory SavedAgent.fromJson(Map<String, dynamic> j) => SavedAgent(
+      j['userId'] as String,
+      j['displayName'] as String,
+      j['difficulty'] as String? ?? 'medium');
 
   final String id;
   String displayName;
   final String difficulty;
 }
 
-const _difficultyLabels = {'easy': 'Amateur', 'medium': 'Pro', 'hard': 'Legend'};
+const _difficultyLabels = {
+  'easy': 'Amateur',
+  'medium': 'Pro',
+  'hard': 'Legend'
+};
+const _maxCyberAgents = 5;
+
+String _nextCyberName(Iterable<SavedAgent> agents) {
+  var highest = 0;
+  final numbered = RegExp(r'^cyber(\d+)$', caseSensitive: false);
+  for (final agent in agents) {
+    final match = numbered.firstMatch(agent.displayName.trim());
+    if (match != null) {
+      final number = int.tryParse(match.group(1)!);
+      if (number != null && number > highest) highest = number;
+    }
+  }
+  return 'cyber${highest + 1}';
+}
 
 /// The entry point every lobby uses. Agents are kept between games, so the
 /// common case is picking one you already made — the naming form only comes
 /// up on its own when you have none for this game yet.
-Future<AgentChoice?> showCyberAgentPicker(BuildContext context, {required String gameType}) async {
+Future<AgentChoice?> showCyberAgentPicker(BuildContext context,
+    {required String gameType}) async {
   final app = AppScope.of(context);
   List<SavedAgent> saved = const [];
   try {
@@ -65,12 +86,19 @@ Future<AgentChoice?> showCyberAgentPicker(BuildContext context, {required String
 /// The "name it and set its level" form. Shown on its own when the player
 /// has no agents for this game, and reachable from the picker's
 /// "Create another" when they do.
-Future<AgentChoice?> showAddCyberAgentSheet(BuildContext context) {
+Future<AgentChoice?> showAddCyberAgentSheet(BuildContext context,
+    {Iterable<SavedAgent> existing = const []}) {
+  if (existing.length >= _maxCyberAgents) {
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Text('You can have up to 5 Cyber Agents. Reuse or delete one.'),
+    ));
+    return Future.value(null);
+  }
   return showModalBottomSheet<AgentChoice>(
     context: context,
     isScrollControlled: true,
     backgroundColor: context.neon.panel.withValues(alpha: 0.92),
-    builder: (_) => const AddCyberAgentSheet(),
+    builder: (_) => AddCyberAgentSheet(defaultName: _nextCyberName(existing)),
   );
 }
 
@@ -90,11 +118,14 @@ class _PickAgentSheetState extends State<_PickAgentSheet> {
     final name = await showRenameAgentDialog(context, agent.displayName);
     if (name == null || !mounted) return;
     try {
-      await AppScope.of(context).api.patch('/agents/${agent.id}', {'name': name});
+      await AppScope.of(context)
+          .api
+          .patch('/agents/${agent.id}', {'name': name});
       setState(() => agent.displayName = name);
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not rename that agent')));
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not rename that agent')));
       }
     }
   }
@@ -107,10 +138,15 @@ class _PickAgentSheetState extends State<_PickAgentSheet> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Delete ${agent.displayName}?'),
-        content: const Text('This agent is gone for good. You can always make a new one.'),
+        content: const Text(
+            'This agent is gone for good. You can always make a new one.'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Keep')),
-          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Delete')),
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Keep')),
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Delete')),
         ],
       ),
     );
@@ -120,12 +156,18 @@ class _PickAgentSheetState extends State<_PickAgentSheet> {
       if (!mounted) return;
       setState(() => _agents.removeWhere((a) => a.id == agent.id));
       // Nothing left to pick from — fall through to making one.
-      if (_agents.isEmpty && mounted) Navigator.of(context).pop(await showAddCyberAgentSheet(context));
+      if (_agents.isEmpty && mounted) {
+        Navigator.of(context).pop(await showAddCyberAgentSheet(context));
+      }
     } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not delete that agent')));
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not delete that agent')));
       }
     }
   }
@@ -140,25 +182,29 @@ class _PickAgentSheetState extends State<_PickAgentSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('YOUR CYBER AGENTS', style: t.labelLarge?.copyWith(color: n.gold)),
+          Text('YOUR CYBER AGENTS',
+              style: t.labelLarge?.copyWith(color: n.gold)),
+          Text('${_agents.length}/$_maxCyberAgents saved agents',
+              style: t.labelSmall?.copyWith(color: n.mute)),
           const SizedBox(height: 12),
           for (final agent in _agents)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundColor: n.brand.withValues(alpha: 0.18),
-                    child: Icon(Icons.smart_toy_outlined, size: 18, color: n.brand),
-                  ),
+                  OnlineAvatar(agent.displayName,
+                      size: 36, emoji: '🤖', online: true),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(agent.displayName, style: t.bodyLarge, overflow: TextOverflow.ellipsis),
-                        Text(_difficultyLabels[agent.difficulty] ?? agent.difficulty,
+                        Text(agent.displayName,
+                            style: t.bodyLarge,
+                            overflow: TextOverflow.ellipsis),
+                        Text(
+                            _difficultyLabels[agent.difficulty] ??
+                                agent.difficulty,
                             style: t.labelSmall?.copyWith(color: n.mute)),
                       ],
                     ),
@@ -170,26 +216,35 @@ class _PickAgentSheetState extends State<_PickAgentSheet> {
                   ),
                   IconButton(
                     tooltip: 'Delete',
-                    icon: Icon(Icons.delete_outline_rounded, size: 18, color: n.mute),
+                    icon: Icon(Icons.delete_outline_rounded,
+                        size: 18, color: n.mute),
                     onPressed: () => _delete(agent),
                   ),
                   NeonButton(
                     'Add',
                     expand: false,
-                    onPressed: () => Navigator.of(context).pop(AgentChoice.existing(agent.id)),
+                    onPressed: () => Navigator.of(context)
+                        .pop(AgentChoice.existing(agent.id)),
                   ),
                 ],
               ),
             ),
           const SizedBox(height: 10),
-          TextButton.icon(
-            icon: const Icon(Icons.add, size: 18),
-            label: const Text('Create another agent'),
-            onPressed: () async {
-              final created = await showAddCyberAgentSheet(context);
-              if (created != null && context.mounted) Navigator.of(context).pop(created);
-            },
-          ),
+          if (_agents.length < _maxCyberAgents)
+            TextButton.icon(
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Create another agent'),
+              onPressed: () async {
+                final created =
+                    await showAddCyberAgentSheet(context, existing: _agents);
+                if (created != null && context.mounted) {
+                  Navigator.of(context).pop(created);
+                }
+              },
+            )
+          else
+            Text('Maximum reached. Reuse or delete an agent to make another.',
+                style: t.labelSmall?.copyWith(color: n.mute)),
         ],
       ),
     );
@@ -200,7 +255,8 @@ class _PickAgentSheetState extends State<_PickAgentSheet> {
 /// Used by the picker and by the friends list, where a player's agents show
 /// up alongside their friends.
 Future<String?> showRenameAgentDialog(BuildContext context, String current) {
-  return showDialog<String>(context: context, builder: (_) => _RenameDialog(current: current));
+  return showDialog<String>(
+      context: context, builder: (_) => _RenameDialog(current: current));
 }
 
 class _RenameDialog extends StatefulWidget {
@@ -230,10 +286,13 @@ class _RenameDialogState extends State<_RenameDialog> {
         autofocus: true,
         maxLength: 24,
         textCapitalization: TextCapitalization.words,
-        decoration: const InputDecoration(hintText: 'Agent name', counterText: ''),
+        decoration:
+            const InputDecoration(hintText: 'Agent name', counterText: ''),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+        TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel')),
         TextButton(
           onPressed: () {
             final name = _controller.text.trim();
@@ -250,14 +309,15 @@ class _RenameDialogState extends State<_RenameDialog> {
 /// Amateur/Pro/Legend over the plain easy/medium/hard the backend expects
 /// (see `Difficulty` in ta-api).
 class AddCyberAgentSheet extends StatefulWidget {
-  const AddCyberAgentSheet({super.key});
+  const AddCyberAgentSheet({super.key, required this.defaultName});
+  final String defaultName;
 
   @override
   State<AddCyberAgentSheet> createState() => _AddCyberAgentSheetState();
 }
 
 class _AddCyberAgentSheetState extends State<AddCyberAgentSheet> {
-  final _controller = TextEditingController(text: 'Cyber Agent');
+  late final _controller = TextEditingController(text: widget.defaultName);
   String _difficulty = 'medium';
 
   @override
@@ -270,22 +330,32 @@ class _AddCyberAgentSheetState extends State<AddCyberAgentSheet> {
   Widget build(BuildContext context) {
     final n = context.neon;
     return Padding(
-      padding: EdgeInsets.fromLTRB(22, 20, 22, MediaQuery.viewInsetsOf(context).bottom + 24),
+      padding: EdgeInsets.fromLTRB(
+          22, 20, 22, MediaQuery.viewInsetsOf(context).bottom + 24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('ADD A CYBER AGENT', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: n.gold)),
+          Text('ADD A CYBER AGENT',
+              style: Theme.of(context)
+                  .textTheme
+                  .labelLarge
+                  ?.copyWith(color: n.gold)),
           const SizedBox(height: 12),
           TextField(
             controller: _controller,
             autofocus: true,
             maxLength: 24,
             textCapitalization: TextCapitalization.words,
-            decoration: const InputDecoration(hintText: 'Agent name', counterText: ''),
+            decoration:
+                const InputDecoration(hintText: 'Agent name', counterText: ''),
           ),
           const SizedBox(height: 16),
-          Text('DIFFICULTY', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute, letterSpacing: 2)),
+          Text('DIFFICULTY',
+              style: Theme.of(context)
+                  .textTheme
+                  .labelSmall
+                  ?.copyWith(color: n.mute, letterSpacing: 2)),
           const SizedBox(height: 8),
           NeonSegmented<String>(
             options: const [
@@ -299,7 +369,8 @@ class _AddCyberAgentSheetState extends State<AddCyberAgentSheet> {
           const SizedBox(height: 18),
           NeonButton('Add Cyber Agent', onPressed: () {
             final name = _controller.text.trim();
-            Navigator.of(context).pop(AgentChoice.create(name.isEmpty ? 'Cyber Agent' : name, _difficulty));
+            Navigator.of(context).pop(AgentChoice.create(
+                name.isEmpty ? widget.defaultName : name, _difficulty));
           }),
         ],
       ),

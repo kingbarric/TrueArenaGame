@@ -60,6 +60,10 @@
         </dependency>
         <dependency>
             <groupId>app.truearena</groupId>
+            <artifactId>ta-game-ludo</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>app.truearena</groupId>
             <artifactId>ta-ws</artifactId>
         </dependency>
         <dependency>

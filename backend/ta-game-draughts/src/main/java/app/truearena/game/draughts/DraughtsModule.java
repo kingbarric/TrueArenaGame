@@ -99,6 +99,8 @@ public final class DraughtsModule implements GameModule {
         switch (action.type()) {
             case "MOVE" -> move(d, s, action);
             case "FORFEIT" -> forfeit(d, s, action);
+            case "OFFER_DRAW" -> offerDraw(d, s, action);
+            case "ACCEPT_DRAW" -> acceptDraw(d, s, action);
             default -> throw new RuleViolation("UNKNOWN_ACTION", "no handler for " + action.type());
         }
         return d.build();
@@ -159,6 +161,7 @@ public final class DraughtsModule implements GameModule {
     static final int FINAL_GRACE_SECONDS = 5;
 
     private void move(DraughtsState.Draft d, DraughtsState s, PlayerAction a) {
+        d.pendingDrawOffer = null;
         String side = s.sideOf(a.actor());
         require(side != null, "NOT_A_PLAYER", "you're not one of the two players in this game");
         require(side.equals(s.turnSide()), "NOT_YOUR_TURN", "it's not your turn");
@@ -190,6 +193,22 @@ public final class DraughtsModule implements GameModule {
         String side = s.sideOf(a.actor());
         require(side != null, "NOT_A_PLAYER", "you're not one of the two players in this game");
         finish(d, opposite(side));
+    }
+
+    private void offerDraw(DraughtsState.Draft d, DraughtsState s, PlayerAction a) {
+        require(s.sideOf(a.actor()) != null, "NOT_A_PLAYER", "only a player can offer a draw");
+        require(s.pendingDrawOffer == null, "DRAW_ALREADY_OFFERED", "a draw offer is already pending");
+        d.pendingDrawOffer = a.actor();
+        d.emit("DRAW_OFFERED", Map.of("by", a.actor()));
+    }
+
+    private void acceptDraw(DraughtsState.Draft d, DraughtsState s, PlayerAction a) {
+        require(s.sideOf(a.actor()) != null && s.pendingDrawOffer != null
+                && !s.pendingDrawOffer.equals(a.actor()), "NO_DRAW_OFFER", "the other player has not offered a draw");
+        d.win = new WinResult("draw", Map.of(d.playerA, "tied", d.playerB, "tied"));
+        d.phase = "Results";
+        d.pendingDrawOffer = null;
+        d.emit("GAME_OVER", Map.of("winningSide", "draw"));
     }
 
     private void captureMove(DraughtsState.Draft d, String side, int from, int to, int requiredTotal) {
@@ -335,6 +354,7 @@ public final class DraughtsModule implements GameModule {
         m.put("activeSquare", s.activeSquare);
         m.put("mustCapture", s.requiredCaptureCount > 0);
         m.put("mandatoryCapture", s.config.mandatoryCapture());
+        m.put("pendingDrawOffer", s.pendingDrawOffer);
         // Server-computed legal destinations per square, keyed by square as a
         // string (JSON object keys must be strings) — so the client never has
         // to reimplement flying-king or mandatory-maximum-capture logic just

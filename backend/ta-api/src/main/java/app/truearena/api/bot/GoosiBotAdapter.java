@@ -21,8 +21,8 @@ public final class GoosiBotAdapter implements GameBotAdapter {
     private static final SecureRandom RNG = new SecureRandom();
     private static final Pattern PIT_JSON = Pattern.compile("\"pit\"\\s*:\\s*(\\d+)");
 
-    private final int[] pits = new int[16];
-    private final String[] owner = new String[16];
+    private final int[] pits = new int[12];
+    private final String[] owner = new String[12];
     private final List<String> players = new ArrayList<>();
     private String phase = "TurnP0";
     private boolean finished;
@@ -77,13 +77,13 @@ public final class GoosiBotAdapter implements GameBotAdapter {
     }
 
     private void applyOwnerSnapshot(List<Object> raw) {
-        for (int i = 0; i < 16 && i < raw.size(); i++) {
+        for (int i = 0; i < 12 && i < raw.size(); i++) {
             owner[i] = raw.get(i) == null ? null : String.valueOf(raw.get(i));
         }
     }
 
     private void applyPitsSnapshot(List<Object> raw) {
-        for (int i = 0; i < 16 && i < raw.size(); i++) {
+        for (int i = 0; i < 12 && i < raw.size(); i++) {
             pits[i] = intOf(raw.get(i));
         }
     }
@@ -107,12 +107,16 @@ public final class GoosiBotAdapter implements GameBotAdapter {
                 if (touchedRaw instanceof List<?> touched) {
                     for (Object o : touched) pits[intOf(o)]++;
                 }
+                Object capturedRaw = data.get("capturedPits");
+                if (capturedRaw instanceof List<?> captured) {
+                    for (Object o : captured) pits[intOf(o)] = 0;
+                }
             }
             case "CAPTURED" -> {
-                int pit = intOf(data.get("pit"));
-                int opp = intOf(data.get("opposite"));
-                pits[pit] = 0;
-                pits[opp] = 0;
+                Object capturedRaw = data.get("pits");
+                if (capturedRaw instanceof List<?> captured) {
+                    for (Object o : captured) pits[intOf(o)] = 0;
+                }
             }
             case "GAME_OVER" -> finished = true;
             default -> { /* TURN_STARTED carries nothing this bot needs beyond the PHASE frame */ }
@@ -124,32 +128,50 @@ public final class GoosiBotAdapter implements GameBotAdapter {
     }
 
     private List<Integer> legalPits(String botUserId) {
-        List<Integer> out = new ArrayList<>();
-        for (int i = 0; i < 16; i++) {
-            if (botUserId.equals(owner[i]) && pits[i] > 0) out.add(i);
+        List<Integer> own = new ArrayList<>();
+        boolean opponentEmpty = true;
+        for (int i = 0; i < 12; i++) {
+            if (botUserId.equals(owner[i]) && pits[i] > 0) own.add(i);
+            if (!botUserId.equals(owner[i]) && pits[i] > 0) opponentEmpty = false;
         }
-        return out;
+        if (!opponentEmpty) return own;
+        List<Integer> feeding = new ArrayList<>();
+        for (int from : own) {
+            int seeds = pits[from];
+            int cur = from;
+            while (seeds > 0) {
+                cur = (cur + 1) % 12;
+                if (cur == from) continue;
+                if (!botUserId.equals(owner[cur])) {
+                    feeding.add(from);
+                    break;
+                }
+                seeds--;
+            }
+        }
+        return feeding;
     }
 
     private BotPrompt buildPrompt(String botUserId, Difficulty difficulty) {
         List<Integer> legal = legalPits(botUserId);
         StringBuilder board = new StringBuilder();
-        for (int i = 0; i < 16; i++) {
+        for (int i = 0; i < 12; i++) {
             board.append(i).append(':').append(pits[i]).append(owner[i].equals(botUserId) ? "(you) " : " ");
         }
         String system = """
-                You are playing Goosi, a 16-pit sowing/capture board game (Mancala family). \
-                Sowing a pit drops one seed into each following pit going around the ring. \
-                If your very last seed lands in one of your own pits that was empty, you \
-                capture that seed plus everything in the opposite pit (index+8 mod 16).
+                You are playing Oware Abapa: twelve houses, six per player. \
+                Sow every seed counter-clockwise, skipping the starting house on a long lap. \
+                If the last seed leaves two or three in an opponent house, capture it and \
+                preceding opponent houses that also contain two or three. Feed an empty \
+                opponent row whenever possible; a grand slam captures nothing.
                 %s
                 Reply with ONLY a JSON object of the exact shape {"pit": <index>} naming one \
                 of your legal pits — no other text.""".formatted(
                 switch (difficulty) {
                     case EASY -> "Play a reasonable pit.";
-                    case MEDIUM -> "Prefer moves that land your last seed in one of your own empty pits — that's a capture.";
-                    case HARD -> "Think ahead: prioritize captures, avoid leaving a pit at a count that lets the opponent "
-                            + "capture it next turn, and try to keep seeds moving toward your own side.";
+                    case MEDIUM -> "Prefer legal captures of two or three seeds while preserving future feeding moves.";
+                    case HARD -> "Think ahead: prioritize capture chains, avoid giving the opponent a two-or-three capture, "
+                            + "and manage feeding without making a void grand slam.";
                 });
         String user = "Board: " + board + ". Your legal pits: " + legal;
         return new BotPrompt(system, user);

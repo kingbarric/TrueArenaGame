@@ -6,6 +6,8 @@ import app.truearena.persistence.GoogleAccountRepository;
 import app.truearena.persistence.GoogleAccountRow;
 import app.truearena.persistence.UserRepository;
 import app.truearena.persistence.UserRow;
+import app.truearena.persistence.LoginEventRepository;
+import app.truearena.persistence.IssueEventRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
@@ -33,12 +35,17 @@ class GoogleSignInTest {
     private final GoogleAuthService google = mock(GoogleAuthService.class);
     private final GoogleAccountRepository links = mock(GoogleAccountRepository.class);
     private final CoinService coins = mock(CoinService.class);
-    private final AuthController controller = new AuthController(otp, jwt, users, usernames, google, links, coins);
+    private final LoginEventRepository loginEvents = mock(LoginEventRepository.class);
+    private final IssueEventRepository issueEvents = mock(IssueEventRepository.class);
+    private final AuthController controller = new AuthController(otp, jwt, users, usernames, google, links,
+            mock(AppleAuthService.class), mock(app.truearena.persistence.AppleAccountRepository.class), coins,
+            loginEvents, issueEvents);
 
     private void token(String subject, String email) {
         when(google.verify("token")).thenReturn(Mono.just(new GoogleAuthService.GoogleIdentity(subject, email, "Google Name")));
         when(jwt.issueAccess(any(UUID.class))).thenReturn("access");
         when(jwt.issueRefresh(any(UUID.class))).thenReturn("refresh");
+        when(loginEvents.save(any())).thenReturn(Mono.empty());
     }
 
     @Test

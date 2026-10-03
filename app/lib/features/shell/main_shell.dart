@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../widgets/playground_nav_pill.dart';
 import '../chat/chat_list_screen.dart';
@@ -30,6 +31,18 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   late int _index = widget.initialIndex;
+  static const _tabKey = 'ta_main_tab';
+
+  @override
+  void initState() {
+    super.initState();
+    SharedPreferences.getInstance().then((prefs) {
+      final saved = prefs.getInt(_tabKey);
+      if (mounted && saved != null && saved >= 0 && saved < 5) {
+        setState(() => _index = saved);
+      }
+    });
+  }
 
   /// Built lazily and kept alive — a tab the user never opens costs nothing,
   /// and one they've opened doesn't reload every time they come back.
@@ -59,6 +72,8 @@ class _MainShellState extends State<MainShell> {
     if (_tabs[i].needsAccount && !await canUseFriendsOrPromptToVerify(context)) return;
     if (!mounted) return;
     setState(() => _index = i);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_tabKey, i);
   }
 
   @override

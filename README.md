@@ -1,7 +1,11 @@
-# TrueArena
+# PlayHuud
 
-Social deduction party platform. Native app (Flutter) + reactive Java backend, with a
+Social party game platform. Native app (Flutter) + reactive Java backend, with a
 later web/host-display funnel surface.
+
+Player-facing game rooms are called **huuds**. Existing `truearena` package,
+bundle, API, and database identifiers remain internal so installed apps and
+configured Google and Apple sign-in clients continue to match.
 
 - **Vision, scope, game spec:** the Build Brief (source of truth for product decisions).
 - **Architecture:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
@@ -64,3 +68,5 @@ flutter pub get
 flutter run --dart-define=API_BASE=http://localhost:8080
 flutter test
 ```
+
+747295ed2b8736a4f6453e12692f333c10c535b7fa924277b1b98f9efd550e13

@@ -1,0 +1,34 @@
+# Reverse proxy + automatic Let's Encrypt for the single-instance prod stack.
+# Caddy requests/renews the cert on its own — no manual certbot steps, no cron job.
+# Both site blocks share one certificate (Caddy caches per-hostname, not per-port).
+
+{$DOMAIN} {
+	reverse_proxy backend:8080
+}
+
+# LiveKit signaling over wss:// on a dedicated port (voice media itself is UDP/SRTP,
+# already encrypted at the media layer — this just secures the WebSocket handshake).
+{$DOMAIN}:8443 {
+	reverse_proxy livekit:7880
+}
+
+# Marketing site (website/index.html in the repo) — static, except the admin
+# analytics page's own API calls, which this proxies straight to the backend so
+# the browser stays same-origin (no CORS needed just for this one internal page).
+playhuud.com {
+	encode gzip
+
+	@admin_api path /api/v1/admin/*
+	reverse_proxy @admin_api backend:8080
+	@championship_preview path /api/v1/championships/invite/*/preview
+	reverse_proxy @championship_preview backend:8080
+	@championship_invite path /championships/*
+	rewrite @championship_invite /championships/index.html
+
+	root * /srv/playhuud
+	file_server
+}
+
+www.playhuud.com {
+	redir https://playhuud.com{uri} permanent
+}

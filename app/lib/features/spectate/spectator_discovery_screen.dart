@@ -7,10 +7,22 @@ import '../../widgets/compact_list_row.dart';
 import '../../widgets/neon.dart';
 import 'spectate_screen.dart';
 
-const _gameNames = {'truearena': 'Traitors', 'wordbluff': 'Word Bluff', 'draughts': 'Draft', 'goosi': 'Goosi', 'whot': 'Whot'};
+const _gameNames = {
+  'truearena': 'Traitors',
+  'wordbluff': 'Word Bluff',
+  'draughts': 'Draft',
+  'goosi': 'Oware',
+  'whot': 'Whot',
+  'ludo': 'Ludo'
+};
 
 class DiscoverableRoom {
-  const DiscoverableRoom({required this.roomId, required this.code, required this.gameType, required this.hostName, required this.connectedCount});
+  const DiscoverableRoom(
+      {required this.roomId,
+      required this.code,
+      required this.gameType,
+      required this.hostName,
+      required this.connectedCount});
   final String roomId;
   final String code;
   final String gameType;
@@ -34,7 +46,8 @@ class SpectatorDiscoveryScreen extends StatefulWidget {
   const SpectatorDiscoveryScreen({super.key});
 
   @override
-  State<SpectatorDiscoveryScreen> createState() => _SpectatorDiscoveryScreenState();
+  State<SpectatorDiscoveryScreen> createState() =>
+      _SpectatorDiscoveryScreenState();
 }
 
 class _SpectatorDiscoveryScreenState extends State<SpectatorDiscoveryScreen> {
@@ -49,12 +62,18 @@ class _SpectatorDiscoveryScreenState extends State<SpectatorDiscoveryScreen> {
   }
 
   Future<void> _load() async {
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     final app = AppScope.of(context);
     try {
       final res = await app.api.get('/rooms/discoverable') as List;
       if (!mounted) return;
-      setState(() => _rooms = res.map((e) => DiscoverableRoom.fromJson((e as Map).cast<String, dynamic>())).toList());
+      setState(() => _rooms = res
+          .map((e) =>
+              DiscoverableRoom.fromJson((e as Map).cast<String, dynamic>()))
+          .toList());
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
@@ -81,8 +100,11 @@ class _SpectatorDiscoveryScreenState extends State<SpectatorDiscoveryScreen> {
                           child: NeonCard(
                             accent: n.danger,
                             child: Row(children: [
-                              Expanded(child: Text(_error!, style: TextStyle(color: n.mid))),
-                              TextButton(onPressed: _load, child: const Text('Retry')),
+                              Expanded(
+                                  child: Text(_error!,
+                                      style: TextStyle(color: n.mid))),
+                              TextButton(
+                                  onPressed: _load, child: const Text('Retry')),
                             ]),
                           ),
                         ),
@@ -92,17 +114,21 @@ class _SpectatorDiscoveryScreenState extends State<SpectatorDiscoveryScreen> {
                             Padding(
                               padding: const EdgeInsets.all(32),
                               child: Column(children: [
-                                Icon(Icons.visibility_outlined, size: 40, color: n.mute),
+                                Icon(Icons.visibility_outlined,
+                                    size: 40, color: n.mute),
                                 const SizedBox(height: 12),
                                 Text('No friends are playing right now.',
-                                    textAlign: TextAlign.center, style: TextStyle(color: n.mute)),
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(color: n.mute)),
                               ]),
                             ),
                           ])
                         : ListView.builder(
                             padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
                             itemCount: _rooms!.length,
-                            itemBuilder: (context, i) => _RoomTile(room: _rooms![i], delay: Duration(milliseconds: 40 * i)),
+                            itemBuilder: (context, i) => _RoomTile(
+                                room: _rooms![i],
+                                delay: Duration(milliseconds: 40 * i)),
                           ),
               ),
       ),
@@ -143,24 +169,45 @@ class _RoomTileState extends State<_RoomTile> {
         duration: const Duration(milliseconds: 220),
         child: CompactListRow(
           onTap: () => Navigator.of(context).push(MaterialPageRoute(
-            builder: (_) => SpectateScreen(roomId: room.roomId, gameType: room.gameType, title: '${room.hostName}\'s ${_gameNames[room.gameType] ?? room.gameType}'),
+            builder: (_) => SpectateScreen(
+                roomId: room.roomId,
+                gameType: room.gameType,
+                title:
+                    '${room.hostName}\'s ${_gameNames[room.gameType] ?? room.gameType}'),
           )),
           leading: Stack(alignment: Alignment.bottomRight, children: [
             Avatar(room.hostName, size: 32),
-            Container(width: 10, height: 10,
-              decoration: BoxDecoration(color: n.danger, shape: BoxShape.circle,
-                border: Border.all(color: n.panel, width: 2))),
+            Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                    color: n.danger,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: n.panel, width: 2))),
           ]),
-          title: Text('${room.hostName}\'s ${_gameNames[room.gameType] ?? room.gameType}',
-              maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+          title: Text(
+              '${room.hostName}\'s ${_gameNames[room.gameType] ?? room.gameType}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(fontWeight: FontWeight.w700)),
           subtitle: Text('${room.connectedCount} playing',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute)),
-          trailing: IconButton(tooltip: 'Watch game',
+              style: Theme.of(context)
+                  .textTheme
+                  .labelSmall
+                  ?.copyWith(color: n.mute)),
+          trailing: IconButton(
+              tooltip: 'Watch game',
               icon: Icon(Icons.visibility_rounded, color: n.gold),
               onPressed: () => Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => SpectateScreen(roomId: room.roomId, gameType: room.gameType, title: '${room.hostName}\'s ${_gameNames[room.gameType] ?? room.gameType}'),
-              ))),
+                    builder: (_) => SpectateScreen(
+                        roomId: room.roomId,
+                        gameType: room.gameType,
+                        title:
+                            '${room.hostName}\'s ${_gameNames[room.gameType] ?? room.gameType}'),
+                  ))),
         ),
       ),
     );

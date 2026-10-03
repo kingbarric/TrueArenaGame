@@ -12,6 +12,7 @@ import '../draughts/draughts_game_screen.dart';
 import '../game/game_screen.dart';
 import '../goosi/goosi_game_screen.dart';
 import '../whot/whot_game_screen.dart';
+import '../ludo/ludo_game_screen.dart';
 import '../wordbluff/wordbluff_game_screen.dart';
 
 /// The lobby for a room this device *joined* rather than created — same live
@@ -43,6 +44,12 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _app = AppScope.of(context);
+  }
+
+  @override
   void dispose() {
     _sub?.cancel();
     if (!_handedOff) _socket?.close();
@@ -58,7 +65,9 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
         case 'SNAPSHOT':
           final p = (env['payload'] as Map).cast<String, dynamic>();
           if (p['lobby'] == true) _applyLobbySnapshot(p);
-          if (p['lobby'] == false && _room.gameType == 'whot') _handOffToGame();
+          if (p['lobby'] == false &&
+              (_room.gameType == 'whot' || _room.gameType == 'ludo'))
+            _handOffToGame();
         case 'EVENT':
           socket.send('HELLO', {'lastSeq': 0});
         case 'PHASE':
@@ -124,8 +133,28 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
                   else if (m.isBot)
                     m.userId: '🤖'
               }),
+        'ludo' => LudoGameScreen(
+              socket: _socket!,
+              selfId: selfId,
+              roomCode: _room.code,
+              nicknames: nicknames,
+              agents: {
+                for (final m in _room.members)
+                  if (m.isBot) m.userId
+              }),
         'goosi' => GoosiGameScreen(
-            socket: _socket!, selfId: selfId, nicknames: nicknames),
+              socket: _socket!,
+              selfId: selfId,
+              roomCode: _room.code,
+              nicknames: nicknames,
+              avatars: {
+                for (final m in _room.members)
+                  if (m.avatarUrl?.isNotEmpty == true) m.userId: m.avatarUrl!,
+              },
+              agents: {
+                for (final m in _room.members)
+                  if (m.isBot) m.userId,
+              }),
         _ => GameScreen(
             socket: _socket!,
             selfId: selfId,
@@ -145,7 +174,7 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
         title: Text(switch (_room.gameType) {
           'wordbluff' => 'Word Bluff',
           'draughts' => 'Draft',
-          'goosi' => 'Goosi',
+          'goosi' => 'Oware',
           'whot' => 'Whot',
           _ => 'Traitors',
         }),
@@ -172,7 +201,7 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('ROOM CODE',
+                      Text('HUUD CODE',
                           style: Theme.of(context)
                               .textTheme
                               .labelSmall
@@ -191,6 +220,17 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
                                     blurRadius: 30)
                               ])),
                     ]),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text("WHO'S IN THE HUUD?",
+                    style: Theme.of(context)
+                        .textTheme
+                        .labelLarge
+                        ?.copyWith(color: n.gold)),
               ),
             ),
             Expanded(
@@ -217,7 +257,7 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
   Widget _memberTile(RoomMember m, String hostId) {
     final n = context.neon;
     final isHost = m.userId == hostId;
-    final away = !m.connected;
+    final away = !m.isBot && !m.connected;
     final ringColor = away ? kCabinetInk : (m.ready ? n.jade : n.mute);
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -242,7 +282,10 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
               ),
               child: Opacity(
                   opacity: away ? 0.4 : 1,
-                  child: Avatar(m.nickname ?? '?', size: 60)),
+                  child: OnlineAvatar(m.nickname ?? '?',
+                      size: 60,
+                      imageUrl: m.avatarUrl,
+                      online: m.isBot || m.connected)),
             ),
             if (isHost)
               Positioned(

@@ -11,7 +11,7 @@ import 'package:google_fonts/google_fonts.dart';
 const Color kCabinetInk = Color(0xFF1E1012);
 
 /// Palm Wine — deep maroon brand on a wine-black ground, with gold as the
-/// carrying secondary. Chosen over four other colorways (see the "Topskul
+/// carrying secondary. Chosen over four other colorways (see the "PlayHuud
 /// Colorways" board) because nothing else in social or gaming owns maroon.
 ///
 /// Two rules this palette exists to enforce:

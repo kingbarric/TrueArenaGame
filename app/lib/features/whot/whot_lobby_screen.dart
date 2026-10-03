@@ -19,6 +19,7 @@ class WhotLobbyScreen extends StatefulWidget {
 
 class _WhotLobbyScreenState extends State<WhotLobbyScreen> {
   RoomView? _room;
+  AppState? _app;
   GameSocket? _socket;
   StreamSubscription? _sub;
   bool _busy = false,
@@ -27,8 +28,11 @@ class _WhotLobbyScreenState extends State<WhotLobbyScreen> {
       _addingBot = false;
   String? _error;
   int _hand = 5, _seconds = 60;
+  String _mode = 'classic';
+  String _tellRule = 'either';
+  int _tellMinCards = 3;
   final _rules = <String, bool>{
-    'includeWhot': true,
+    'includeWhot': false,
     'pickTwo': true,
     'pickTwoStacking': true,
     'generalMarket': true,
@@ -47,7 +51,17 @@ class _WhotLobbyScreenState extends State<WhotLobbyScreen> {
   @override
   void dispose() {
     _sub?.cancel();
-    if (!_handedOff) _socket?.close();
+    if (!_handedOff) {
+      _socket?.close();
+      final room = _room;
+      final app = _app;
+      if (room != null && app != null && room.hostId == app.user?.id) {
+        unawaited(app.api
+            .delete('/rooms/${room.id}')
+            .then((_) => app.clearActiveRoom(room.id))
+            .catchError((_) {}));
+      }
+    }
     super.dispose();
   }
 
@@ -58,9 +72,13 @@ class _WhotLobbyScreenState extends State<WhotLobbyScreen> {
     });
     try {
       final app = AppScope.of(context);
+      _app = app;
       final raw = await app.api.post('/rooms', {
         'gameType': 'whot',
         'gameConfig': {
+          'mode': _mode,
+          'tellRule': _tellRule,
+          'tellMinCards': _tellMinCards,
           'startingHand': _hand,
           'turnSeconds': _seconds,
           ..._rules
@@ -69,6 +87,7 @@ class _WhotLobbyScreenState extends State<WhotLobbyScreen> {
       if (!mounted) return;
       setState(() =>
           _room = RoomView.fromJson((raw as Map).cast<String, dynamic>()));
+      await app.rememberActiveRoom(_room!.id);
       _connect();
     } on ApiException catch (e) {
       _showCreateError(e.message);
@@ -127,7 +146,7 @@ class _WhotLobbyScreenState extends State<WhotLobbyScreen> {
       if (mounted && !_handedOff) {
         setState(() {
           _connected = false;
-          _error = 'Connection lost. Reconnect to the room.';
+          _error = 'Connection lost. Reconnect to the huud.';
         });
       }
     });
@@ -270,90 +289,141 @@ class _WhotLobbyScreenState extends State<WhotLobbyScreen> {
         padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
         child:
             Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text('Create a Whot table',
-              style: Theme.of(context)
-                  .textTheme
-                  .headlineSmall
-                  ?.copyWith(fontWeight: FontWeight.w900)),
-          const SizedBox(height: 2),
-          const Text('2–20 players · Choose the rules and create your room.',
-              style: TextStyle(fontSize: 12)),
-          if (_error != null)
-            Padding(
-                padding: const EdgeInsets.only(top: 5),
-                child: Text(_error!,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style:
-                        TextStyle(color: context.neon.danger, fontSize: 11))),
-          const SizedBox(height: 9),
-          Row(children: [
-            Expanded(
-                child: _compactSelector(
-                    label: 'CARDS EACH',
-                    value: _hand,
-                    values: [for (var i = 3; i <= 12; i++) i],
-                    display: (value) => '$value cards',
-                    onChanged: _busy
-                        ? null
-                        : (value) => setState(() => _hand = value))),
-            const SizedBox(width: 8),
-            Expanded(
-                child: _compactSelector(
-                    label: 'TURN TIME',
-                    value: _seconds,
-                    values: const [60, 90],
-                    display: (value) => '$value sec',
-                    onChanged: _busy
-                        ? null
-                        : (value) => setState(() => _seconds = value))),
-          ]),
-          const SizedBox(height: 8),
-          Material(
-            color: Colors.white.withValues(alpha: .05),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-                side: BorderSide(color: Colors.white.withValues(alpha: .12))),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(10, 3, 10, 8),
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SwitchListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        visualDensity:
-                            const VisualDensity(horizontal: -3, vertical: -3),
-                        title: const Text('Include Whot cards',
-                            style: TextStyle(fontWeight: FontWeight.w800)),
-                        subtitle: const Text(
-                            'Wild 20 cards can call a new shape',
-                            style: TextStyle(fontSize: 10)),
-                        value: _rules['includeWhot']!,
+          Expanded(
+            child: ListView(children: [
+              Text('Create a Whot table',
+                  style: Theme.of(context)
+                      .textTheme
+                      .headlineSmall
+                      ?.copyWith(fontWeight: FontWeight.w900)),
+              const SizedBox(height: 2),
+              Text(
+                  _mode == 'classic'
+                      ? 'Classic · 2–20 players · Everyone plays for themselves.'
+                      : 'The Tell · 4, 6, or 8 players · Teams of two.',
+                  style: const TextStyle(fontSize: 12)),
+              if (_error != null)
+                Padding(
+                    padding: const EdgeInsets.only(top: 5),
+                    child: Text(_error!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            color: context.neon.danger, fontSize: 11))),
+              const SizedBox(height: 9),
+              SegmentedButton<String>(
+                key: const ValueKey('whot-mode-select'),
+                segments: const [
+                  ButtonSegment(value: 'classic', label: Text('Classic')),
+                  ButtonSegment(value: 'tell', label: Text('The Tell')),
+                ],
+                selected: {_mode},
+                onSelectionChanged: _busy
+                    ? null
+                    : (selection) => setState(() => _mode = selection.first),
+              ),
+              const SizedBox(height: 9),
+              Row(children: [
+                Expanded(
+                    child: _compactSelector(
+                        label: 'CARDS EACH',
+                        value: _hand,
+                        values: [for (var i = 3; i <= 12; i++) i],
+                        display: (value) => '$value cards',
                         onChanged: _busy
                             ? null
-                            : (value) =>
-                                setState(() => _rules['includeWhot'] = value)),
-                    const Divider(height: 8),
-                    const Text('SPECIAL CARD RULES',
-                        style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1)),
-                    const SizedBox(height: 5),
-                    LayoutBuilder(builder: (context, constraints) {
-                      final width = (constraints.maxWidth - 6) / 2;
-                      return Wrap(spacing: 6, runSpacing: 5, children: [
-                        for (final rule
-                            in _rules.keys.where((key) => key != 'includeWhot'))
-                          _ruleToggle(rule, width),
-                      ]);
-                    }),
-                  ]),
-            ),
+                            : (value) => setState(() => _hand = value))),
+                const SizedBox(width: 8),
+                Expanded(
+                    child: _compactSelector(
+                        label: 'TURN TIME',
+                        value: _seconds,
+                        values: const [60, 90],
+                        display: (value) => '$value sec',
+                        onChanged: _busy
+                            ? null
+                            : (value) => setState(() => _seconds = value))),
+              ]),
+              const SizedBox(height: 8),
+              if (_mode == 'tell') ...[
+                DropdownButtonFormField<String>(
+                  key: const ValueKey('whot-tell-rule'),
+                  initialValue: _tellRule,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                      labelText: 'TELL MATCH', isDense: true),
+                  items: const [
+                    DropdownMenuItem(value: 'either', child: Text('Either')),
+                    DropdownMenuItem(value: 'value', child: Text('Same value')),
+                    DropdownMenuItem(value: 'shape', child: Text('Same shape')),
+                  ],
+                  onChanged: _busy
+                      ? null
+                      : (value) => setState(() => _tellRule = value!),
+                ),
+                const SizedBox(height: 8),
+                _compactSelector(
+                  label: 'MINIMUM TELL',
+                  value: _tellMinCards,
+                  values: [for (var i = 2; i <= 12; i++) i],
+                  display: (value) => '$value cards',
+                  onChanged: _busy
+                      ? null
+                      : (value) => setState(() => _tellMinCards = value),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                    'Every card left in your hand must match the Tell rule.',
+                    style: TextStyle(fontSize: 11)),
+                const SizedBox(height: 8),
+              ],
+              Material(
+                color: Colors.white.withValues(alpha: .05),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    side:
+                        BorderSide(color: Colors.white.withValues(alpha: .12))),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 3, 10, 8),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SwitchListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            visualDensity: const VisualDensity(
+                                horizontal: -3, vertical: -3),
+                            title: const Text('Include Whot cards',
+                                style: TextStyle(fontWeight: FontWeight.w800)),
+                            subtitle: const Text(
+                                'Wild 20 cards can call a new shape',
+                                style: TextStyle(fontSize: 10)),
+                            value: _rules['includeWhot']!,
+                            onChanged: _busy
+                                ? null
+                                : (value) => setState(
+                                    () => _rules['includeWhot'] = value)),
+                        const Divider(height: 8),
+                        const Text('SPECIAL CARD RULES',
+                            style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1)),
+                        const SizedBox(height: 5),
+                        LayoutBuilder(builder: (context, constraints) {
+                          final width = (constraints.maxWidth - 6) / 2;
+                          return Wrap(spacing: 6, runSpacing: 5, children: [
+                            for (final rule in _rules.keys
+                                .where((key) => key != 'includeWhot'))
+                              _ruleToggle(rule, width),
+                          ]);
+                        }),
+                      ]),
+                ),
+              ),
+            ]),
           ),
-          const Spacer(),
-          NeonButton(_busy ? 'Creating room…' : 'Create room',
+          NeonButton(_busy ? 'Opening huud…' : 'Open a huud',
               onPressed: _busy ? null : _create),
         ]),
       );
@@ -376,39 +446,42 @@ class _WhotLobbyScreenState extends State<WhotLobbyScreen> {
               child: Text(room.code,
                   style: Theme.of(context).textTheme.headlineLarge)),
           IconButton(
-              tooltip: 'Copy room code',
+              tooltip: 'Copy huud code',
               icon: const Icon(Icons.copy),
               onPressed: () async {
                 await Clipboard.setData(ClipboardData(text: room.code));
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Room code copied')));
+                      const SnackBar(content: Text('Huud code copied')));
                 }
               })
         ]),
         Text(
-            '$count of 20 seats · ${room.members.where((m) => m.ready).length} ready'),
+            '$count of ${_mode == 'tell' ? 8 : 20} seats · ${room.members.where((m) => m.ready).length} ready'),
       ])),
       const SizedBox(height: 12),
       for (final member in room.members)
         ListTile(
             dense: true,
             contentPadding: EdgeInsets.zero,
-            leading: Avatar(member.nickname ?? '?',
+            leading: OnlineAvatar(member.nickname ?? '?',
                 size: 36,
-                emoji: member.avatarUrl?.startsWith('http') == true
+                online: member.isBot || member.connected,
+                emoji: member.avatarUrl?.startsWith('http') == true ||
+                        member.avatarUrl?.startsWith('data:image/') == true
                     ? null
                     : (member.avatarUrl?.isNotEmpty == true
                         ? member.avatarUrl
                         : member.isBot
                             ? '🤖'
                             : null),
-                imageUrl: member.avatarUrl?.startsWith('http') == true
+                imageUrl: member.avatarUrl?.startsWith('http') == true ||
+                        member.avatarUrl?.startsWith('data:image/') == true
                     ? member.avatarUrl
                     : null),
             title: Text(member.nickname ?? member.userId),
             subtitle: Text(member.userId == room.hostId ? 'Host' : 'Player'),
-            trailing: Text(!member.connected
+            trailing: Text(!member.isBot && !member.connected
                 ? 'Away'
                 : member.ready
                     ? 'Ready ✓'
@@ -416,12 +489,12 @@ class _WhotLobbyScreenState extends State<WhotLobbyScreen> {
       const SizedBox(height: 12),
       if (!_connected) NeonButton('Reconnect', onPressed: _connect),
       if (_connected) ...[
-        if (count < 20)
+        if (count < (_mode == 'tell' ? 8 : 20))
           NeonButton('Invite friends',
               style: NeonStyle.ghost,
               onPressed: () =>
                   showInvitePlayersSheet(context, roomId: room.id)),
-        if (count < 20) ...[
+        if (_mode == 'classic' && count < 20) ...[
           const SizedBox(height: 8),
           NeonButton(_addingBot ? 'Adding Cyber Agent…' : 'Add Cyber Agent',
               style: NeonStyle.ghost, onPressed: _addingBot ? null : _addBot),
@@ -434,13 +507,17 @@ class _WhotLobbyScreenState extends State<WhotLobbyScreen> {
         const SizedBox(height: 8),
         if (room.hostId == self)
           NeonButton('Start game',
-              onPressed: count >= 2 && count <= 20
+              onPressed: (_mode == 'tell'
+                      ? const [4, 6, 8].contains(count)
+                      : count >= 2 && count <= 20)
                   ? () => _socket!.send('GAME_START')
                   : null),
-        if (count < 2)
-          const Padding(
-              padding: EdgeInsets.only(top: 10),
-              child: Text('Invite at least one more player to start.')),
+        if (count < (_mode == 'tell' ? 4 : 2))
+          Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Text(_mode == 'tell'
+                  ? 'Invite players until you have 4, 6, or 8.'
+                  : 'Invite at least one more player to start.')),
       ],
     ]);
   }
@@ -451,7 +528,7 @@ class _WhotLobbyScreenState extends State<WhotLobbyScreen> {
     return Scaffold(
       appBar: AppBar(
           title:
-              Text(room == null ? 'Whot · Create room' : 'Whot · Your room')),
+              Text(room == null ? 'Whot · Open a huud' : 'Whot · Your huud')),
       body: SafeArea(
           child: room == null
               ? _initialSettings(context)

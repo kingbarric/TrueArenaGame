@@ -79,7 +79,7 @@ public class ChatService {
         return users.findById(friendId)
                 .filter(UserRow::isBot)
                 .flatMap(bot -> Mono.<UUID>error(ApiExceptions.badRequest(
-                        "Cyber Agents can't be messaged — add one to a room with the agent button instead")))
+                        "Cyber Agents can't be messaged — add one to a huud with the agent button instead")))
                 .switchIfEmpty(Mono.defer(() -> openDmWithPerson(selfId, low, high)));
     }
 
@@ -162,7 +162,7 @@ public class ChatService {
 
     // ---------------------------------------------------------------- sending
 
-    public Mono<Void> sendText(UUID selfId, UUID conversationId, String text) {
+    public Mono<MessageView> sendText(UUID selfId, UUID conversationId, String text) {
         String trimmed = text == null ? "" : text.strip();
         if (trimmed.isEmpty()) {
             return Mono.error(ApiExceptions.badRequest("message can't be empty"));
@@ -171,16 +171,15 @@ public class ChatService {
         return requireParticipant(selfId, conversationId)
                 .then(messages.save(MessageRow.text(conversationId, selfId, clipped)))
                 .flatMap(this::toMessageView)
-                .doOnNext(view -> pushNewMessage(conversationId, selfId, view))
-                .then();
+                .doOnNext(view -> pushNewMessage(conversationId, selfId, view));
     }
 
     public Mono<Void> sendGameInvite(UUID selfId, UUID conversationId, UUID roomId) {
         return requireParticipant(selfId, conversationId)
                 .then(roomMembers.findByRoomIdAndUserId(roomId, selfId))
-                .switchIfEmpty(Mono.error(ApiExceptions.forbidden("you're not in that room")))
+                .switchIfEmpty(Mono.error(ApiExceptions.forbidden("you're not in that huud")))
                 .then(rooms.findById(roomId))
-                .switchIfEmpty(Mono.error(ApiExceptions.notFound("no such room")))
+                .switchIfEmpty(Mono.error(ApiExceptions.notFound("no such huud")))
                 .flatMap(room -> messages.save(MessageRow.gameInvite(conversationId, selfId, roomId, room.code())))
                 .flatMap(this::toMessageView)
                 .doOnNext(view -> pushNewMessage(conversationId, selfId, view))

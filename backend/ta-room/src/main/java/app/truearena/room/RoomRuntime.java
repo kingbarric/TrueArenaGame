@@ -41,6 +41,8 @@ public final class RoomRuntime {
 
     /** Room-level, not game-state — a pause is a transport/UI concern, not something any {@code GameModule} needs to know about. */
     public volatile boolean paused;
+    /** Tournament clocks are controlled by reconnect policy, not a player's pause button. */
+    public volatile boolean tournament;
 
     /** Any player can mute the spectate-channel comments (see {@code GameOrchestrator.handleMuteSpectatorsToggle}). */
     public volatile boolean spectatorsMuted;

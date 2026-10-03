@@ -27,7 +27,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _picking = true);
     try {
       final picked = await ImagePicker().pickImage(
-          source: ImageSource.gallery, maxWidth: 640, maxHeight: 640);
+          source: ImageSource.gallery, maxWidth: 320, maxHeight: 320,
+          imageQuality: 65);
       if (picked != null) await app.setAvatarImage(picked.path);
     } catch (_) {
       if (mounted) {
@@ -58,7 +59,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Avatar(name,
                       size: 84,
                       emoji: app.avatarEmoji,
-                      imagePath: app.avatarImagePath),
+                      imagePath: app.avatarImagePath,
+                      imageUrl: app.user?.avatarUrl),
                   const SizedBox(height: 10),
                   Text(name, style: Theme.of(context).textTheme.titleMedium),
                   if (app.user?.phone != null)

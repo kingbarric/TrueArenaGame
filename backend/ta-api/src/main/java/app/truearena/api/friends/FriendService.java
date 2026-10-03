@@ -5,6 +5,7 @@ import app.truearena.api.friends.FriendDtos.FriendRequestView;
 import app.truearena.api.friends.FriendDtos.FriendRequestsView;
 import app.truearena.api.friends.FriendDtos.FriendUserView;
 import app.truearena.api.support.ApiExceptions;
+import app.truearena.api.inbox.InboxRegistry;
 import app.truearena.persistence.FriendRepository;
 import app.truearena.persistence.FriendRow;
 import app.truearena.persistence.UserRepository;
@@ -23,10 +24,12 @@ public class FriendService {
 
     private final FriendRepository friends;
     private final UserRepository users;
+    private final InboxRegistry inbox;
 
-    public FriendService(FriendRepository friends, UserRepository users) {
+    public FriendService(FriendRepository friends, UserRepository users, InboxRegistry inbox) {
         this.friends = friends;
         this.users = users;
+        this.inbox = inbox;
     }
 
     /**
@@ -114,6 +117,15 @@ public class FriendService {
                 .flatMap(row -> users.findById(row.otherUser(selfId)))
                 .map(FriendService::toView);
         return people.concatWith(users.findAgentsOf(selfId).map(FriendService::toView));
+    }
+
+    /** Connected accepted friends and the viewer's own always-available Cyber Agents. */
+    public Flux<UUID> onlineFriends(UUID selfId) {
+        Flux<UUID> people = friends.findByLowUserIdOrHighUserId(selfId, selfId)
+                .filter(row -> FriendRow.ACCEPTED.equals(row.status()))
+                .map(row -> row.otherUser(selfId))
+                .filter(inbox::isOnline);
+        return people.concatWith(users.findAgentsOf(selfId).map(UserRow::id));
     }
 
     /**

@@ -19,6 +19,7 @@ public class GameBotAdapterFactory {
             case "truearena" -> new TrueArenaBotAdapter();
             case "wordbluff" -> new WordBluffBotAdapter();
             case "whot" -> new WhotBotAdapter();
+            case "ludo" -> new LudoBotAdapter();
             default -> null;
         };
     }

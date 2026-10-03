@@ -252,8 +252,10 @@ class WordBluffEngineTest {
         WordBluffState s = (WordBluffState) state;
         state = module.onPhaseElapsed(state, "Turn");
         WordBluffState reviewing = (WordBluffState) state;
-        return module.onPlayerAction(
+        GameState summary = module.onPlayerAction(
                 module.onPlayerAction(state, PlayerAction.of(reviewing.teamA.get(0), "REVIEW_ACCEPT", java.util.Map.of())),
                 PlayerAction.of(reviewing.teamB.get(0), "REVIEW_ACCEPT", java.util.Map.of()));
+        assertThat(summary.phase()).isEqualTo("Summary");
+        return module.onPhaseElapsed(summary, "Summary");
     }
 }

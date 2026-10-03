@@ -18,11 +18,8 @@ import 'draughts_game_screen.dart';
 /// The room before a Draughts game starts. Same shape as
 /// `WordBluffLobbyScreen`/`LobbyScreen`, but Draughts is exactly 1v1 rather
 /// than "at least N" — `DraughtsModule.initialState` rejects anything but
-/// exactly 2 players (`NEEDS_TWO_PLAYERS`), so Start stays disabled until
-/// precisely two are in the room. A third join isn't blocked at the room
-/// level (the generic 16-player room cap doesn't know about per-game
-/// limits) — the host would just see that error if they tried to start with
-/// one too many; a known, documented gap rather than a silent one.
+/// exactly 2 players (`NEEDS_TWO_PLAYERS`). The Start action explains that
+/// requirement when the host taps it with an incomplete or oversized roster.
 class DraughtsLobbyScreen extends StatefulWidget {
   const DraughtsLobbyScreen({super.key});
 
@@ -53,11 +50,10 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
     _sub?.cancel();
     if (!_handedOff) {
       _socket?.close();
-      // Never started from here — if we staked coins into it, refund them
-      // rather than leaving them stuck in an abandoned lobby. Best-effort:
-      // fires and forgets, since there's no UI left to show a failure to.
+      // An unstarted room must be removed even when it is unstaked. Otherwise
+      // its Cyber Agent remains attached to an active room and cannot be reused.
       final room = _room;
-      if (room != null && room.stakeCoins > 0 && room.hostId == _selfId(_app)) {
+      if (room != null && room.hostId == _selfId(_app)) {
         _app.api.delete('/rooms/${room.id}').catchError((_) {});
       }
     }
@@ -78,10 +74,12 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
     try {
       final wallet = await app.fetchWallet();
       if (!mounted) return;
-      final picked = await showStakePicker(context, currentBalance: wallet.balance);
+      final picked =
+          await showStakePicker(context, currentBalance: wallet.balance);
       if (!mounted) return;
       if (picked == null) {
-        Navigator.of(context).pop(); // dismissed the picker — back out of the lobby entirely
+        Navigator.of(context)
+            .pop(); // dismissed the picker — back out of the lobby entirely
         return;
       }
       stake = picked;
@@ -90,17 +88,18 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
       // host an unstaked room rather than blocking on it.
     }
     try {
-      // House rules are settled before the first move rather than argued
-      // about mid-game. Dismissing the sheet keeps the standard rules.
-      final mandatoryCapture = await showDraughtsRulesSheet(context) ?? true;
+      // House rules are settled before the first move. Optional captures are
+      // the casual default, including when the sheet is dismissed.
+      final mandatoryCapture = await showDraughtsRulesSheet(context) ?? false;
       if (!mounted) return;
       final res = await app.api.post('/rooms', {
         'gameType': 'draughts',
         if (stake > 0) 'stake': stake,
-        if (!mandatoryCapture) 'gameConfig': {'mandatoryCapture': false},
+        'gameConfig': {'mandatoryCapture': mandatoryCapture},
       }) as Map<String, dynamic>;
       if (!mounted) return;
       final room = RoomView.fromJson(res);
+      await app.rememberActiveRoom(room.id);
       setState(() => _room = room);
       _connect(app, room.id);
     } on ApiException catch (e) {
@@ -126,8 +125,11 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
         case 'EVENT':
           final ep = (env['payload'] as Map).cast<String, dynamic>();
           if (ep['type'] == 'SPECTATOR_COUNT') {
-            final data = ((ep['data'] as Map?) ?? const {}).cast<String, dynamic>();
-            if (mounted) setState(() => _spectatorCount = data['count'] as int? ?? _spectatorCount);
+            final data =
+                ((ep['data'] as Map?) ?? const {}).cast<String, dynamic>();
+            if (mounted)
+              setState(() =>
+                  _spectatorCount = data['count'] as int? ?? _spectatorCount);
           }
           // Anything else that happened in the room: re-ask for the roster.
           socket.send('HELLO', {'lastSeq': 0});
@@ -135,7 +137,9 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
           _handOffToGame(app, roomId);
         case 'ERROR':
           final msg = (env['payload'] as Map)['message']?.toString();
-          if (msg != null && mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+          if (msg != null && mounted)
+            ScaffoldMessenger.of(context)
+                .showSnackBar(SnackBar(content: Text(msg)));
       }
     });
     socket.send('HELLO', {'lastSeq': 0});
@@ -157,7 +161,8 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
         hostId: p['hostId'] as String,
         status: p['status'] as String? ?? 'lobby',
         members: members,
-        stakeCoins: _room?.stakeCoins ?? 0, // not carried on the WS snapshot — keep whatever the REST create/join response gave us
+        stakeCoins: _room?.stakeCoins ??
+            0, // not carried on the WS snapshot — keep whatever the REST create/join response gave us
       );
       _spectatorCount = p['spectatorCount'] as int? ?? _spectatorCount;
       final me = _room!.members.where((m) => m.userId == _selfId(_app));
@@ -170,9 +175,12 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
     _handedOff = true;
     _sub?.cancel();
     final room = _room!;
-    final nicknames = {for (final m in room.members) m.userId: m.nickname ?? m.userId};
+    final nicknames = {
+      for (final m in room.members) m.userId: m.nickname ?? m.userId
+    };
     Navigator.of(context).pushReplacement(MaterialPageRoute(
-      builder: (_) => DraughtsGameScreen(socket: _socket!, selfId: _selfId(app), nicknames: nicknames),
+      builder: (_) => DraughtsGameScreen(
+          socket: _socket!, selfId: _selfId(app), nicknames: nicknames),
     ));
   }
 
@@ -199,17 +207,48 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
       if (choice.isExisting) {
         await app.api.post('/rooms/${room.id}/bots/existing/${choice.agentId}');
       } else {
-        await app.api.post('/rooms/${room.id}/bots', {'name': choice.name, 'difficulty': choice.difficulty});
+        await app.api.post('/rooms/${room.id}/bots',
+            {'name': choice.name, 'difficulty': choice.difficulty});
       }
       // the bot connects itself over WS right after this and shows up via
       // the lobby's own SNAPSHOT/EVENT stream — nothing else to do here.
     } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not add the Cyber Agent')));
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not add the Cyber Agent')));
     } finally {
       if (mounted) setState(() => _addingBot = false);
     }
+  }
+
+  void _start(RoomView room) {
+    final count = room.members.length;
+    if (count != 2) {
+      final message = count < 2
+          ? 'Draft needs one opponent. Add a player or a Cyber Agent before starting.'
+          : 'Draft is one on one. Remove the extra players before starting.';
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
+      return;
+    }
+    if (_example) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Add an account to host a game.')),
+      );
+      return;
+    }
+    if (_socket == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Still connecting to the huud. Try again.')),
+      );
+      return;
+    }
+    _socket!.send('GAME_START');
   }
 
   RoomView _exampleRoom(AppState app) {
@@ -221,7 +260,8 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
       status: 'lobby',
       members: [
         RoomMember(userId: 'me', nickname: me, ready: _ready, connected: true),
-        const RoomMember(userId: 'p2', nickname: 'Ronan', ready: true, connected: true),
+        const RoomMember(
+            userId: 'p2', nickname: 'Ronan', ready: true, connected: true),
       ],
     );
   }
@@ -242,7 +282,8 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
               icon: const Icon(Icons.copy_all_outlined, size: 18),
               onPressed: () {
                 Clipboard.setData(ClipboardData(text: room.code));
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Copied ${room.code}')));
+                ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Copied ${room.code}')));
               },
             ),
         ],
@@ -250,45 +291,78 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const MarqueeBar('10x10 · 20 pieces  •  flying kings  •  mandatory maximum capture'),
+            const MarqueeBar(
+                '10x10 · 20 pieces  •  flying kings  •  choose your capture rule'),
             if (_error != null)
-              Padding(padding: const EdgeInsets.all(16), child: Text(_error!, style: TextStyle(color: n.danger))),
-            if (room == null && _error == null) const Expanded(child: Center(child: CircularProgressIndicator())),
+              Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(_error!, style: TextStyle(color: n.danger))),
+            if (room == null && _error == null)
+              const Expanded(child: Center(child: CircularProgressIndicator())),
             if (room != null) ...[
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
                 child: NeonCard(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('ROOM CODE', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute, letterSpacing: 2)),
-                    const SizedBox(height: 4),
-                    Text(room.code,
-                        style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                            fontSize: 40, letterSpacing: 6, shadows: [Shadow(color: n.gold.withValues(alpha: 0.4), blurRadius: 30)])),
-                    const SizedBox(height: 8),
-                    Wrap(spacing: 6, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
-                      // Lights up only when somebody is actually watching.
-                      WatchingEye(count: _spectatorCount),
-                      _chip(n, '1v1'),
-                      _chip(n, 'international rules'),
-                      if (room.stakeCoins > 0) _chip(n, '🪙 ${room.stakeCoins} stake · ${room.stakeCoins * 2} pot'),
-                    ]),
-                  ]),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('HUUD CODE',
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelSmall
+                                ?.copyWith(color: n.mute, letterSpacing: 2)),
+                        const SizedBox(height: 4),
+                        Text(room.code,
+                            style: Theme.of(context)
+                                .textTheme
+                                .displayLarge
+                                ?.copyWith(
+                                    fontSize: 40,
+                                    letterSpacing: 6,
+                                    shadows: [
+                                  Shadow(
+                                      color: n.gold.withValues(alpha: 0.4),
+                                      blurRadius: 30)
+                                ])),
+                        const SizedBox(height: 8),
+                        Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              // Lights up only when somebody is actually watching.
+                              WatchingEye(count: _spectatorCount),
+                              _chip(n, '1v1'),
+                              _chip(n, 'international rules'),
+                              if (room.stakeCoins > 0)
+                                _chip(n,
+                                    '🪙 ${room.stakeCoins} stake · ${room.stakeCoins * 2} pot'),
+                            ]),
+                      ]),
                 ),
               ),
               if (_example)
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  child: Text('Example roster — sign in to host a real room.',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  child: Text('Example roster — sign in to host a real huud.',
+                      style: Theme.of(context)
+                          .textTheme
+                          .labelSmall
+                          ?.copyWith(color: n.mute)),
                 ),
               Expanded(
                 child: GridView.builder(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3, mainAxisSpacing: 18, crossAxisSpacing: 8, childAspectRatio: 0.76,
+                    crossAxisCount: 3,
+                    mainAxisSpacing: 18,
+                    crossAxisSpacing: 8,
+                    childAspectRatio: 0.76,
                   ),
                   itemCount: room.members.length,
-                  itemBuilder: (context, i) => _memberTile(room.members[i], room.hostId),
+                  itemBuilder: (context, i) =>
+                      _memberTile(room.members[i], room.hostId),
                 ),
               ),
               _bottomBar(room, exact),
@@ -302,7 +376,7 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
   Widget _memberTile(RoomMember m, String hostId) {
     final n = context.neon;
     final isHost = m.userId == hostId || (m.userId == 'me' && _example);
-    final away = !m.connected;
+    final away = !m.isBot && !m.connected;
     final ringColor = away ? kCabinetInk : (m.ready ? n.jade : n.mute);
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -317,32 +391,57 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
                 shape: BoxShape.circle,
                 border: Border.all(color: ringColor, width: away ? 1.6 : 2.6),
                 boxShadow: !away && m.ready
-                    ? [BoxShadow(color: n.jade.withValues(alpha: 0.38), blurRadius: 16, spreadRadius: -2)]
+                    ? [
+                        BoxShadow(
+                            color: n.jade.withValues(alpha: 0.38),
+                            blurRadius: 16,
+                            spreadRadius: -2)
+                      ]
                     : null,
               ),
-              child: Opacity(opacity: away ? 0.4 : 1, child: Avatar(m.nickname ?? '?', size: 60)),
+              child: Opacity(
+                  opacity: away ? 0.4 : 1,
+                  child: OnlineAvatar(m.nickname ?? '?',
+                      size: 60, online: m.isBot || m.connected)),
             ),
             if (isHost)
               Positioned(
                 top: -3,
                 left: -3,
-                child: _badge(n, n.brand, const Icon(Icons.workspace_premium_rounded, size: 12, color: Colors.white)),
+                child: _badge(
+                    n,
+                    n.brand,
+                    const Icon(Icons.workspace_premium_rounded,
+                        size: 12, color: Colors.white)),
               ),
             if (m.isBot)
               Positioned(
                 bottom: -2,
                 right: -2,
-                child: _badge(n, n.jade, const Icon(Icons.smart_toy_rounded, size: 13, color: Colors.black)),
+                child: _badge(
+                    n,
+                    n.jade,
+                    const Icon(Icons.smart_toy_rounded,
+                        size: 13, color: Colors.black)),
               ),
           ],
         ),
         const SizedBox(height: 8),
         Text(m.nickname ?? m.userId,
-            maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: away ? n.mute : n.ink, fontWeight: FontWeight.w700)),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: away ? n.mute : n.ink, fontWeight: FontWeight.w700)),
         const SizedBox(height: 2),
-        Text(m.isBot ? 'CYBER AGENT' : (away ? 'AWAY' : (m.ready ? 'READY' : 'WAITING')),
-            style: TextStyle(fontSize: 8, fontWeight: FontWeight.w800, letterSpacing: 0.8,
+        Text(
+            m.isBot
+                ? 'CYBER AGENT'
+                : (away ? 'AWAY' : (m.ready ? 'READY' : 'WAITING')),
+            style: TextStyle(
+                fontSize: 8,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.8,
                 color: away ? n.mute : (m.ready ? n.jade : n.mute))),
       ],
     );
@@ -350,7 +449,10 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
 
   Widget _badge(NeonColors n, Color bg, Widget icon) => Container(
         padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(color: bg, shape: BoxShape.circle, border: Border.all(color: n.panel, width: 2)),
+        decoration: BoxDecoration(
+            color: bg,
+            shape: BoxShape.circle,
+            border: Border.all(color: n.panel, width: 2)),
         child: icon,
       );
 
@@ -361,38 +463,48 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
     final readyCount = room.members.where((m) => m.ready).length;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-      decoration: BoxDecoration(color: n.panel, border: Border(top: BorderSide(color: n.line))),
+      decoration: BoxDecoration(
+          color: n.panel, border: Border(top: BorderSide(color: n.line))),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Padding(
           padding: const EdgeInsets.only(bottom: 6),
           child: Text(
-            exact ? '$readyCount of ${room.members.length} ready' : 'Waiting for exactly one opponent',
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute, fontWeight: FontWeight.w700),
+            exact
+                ? '$readyCount of ${room.members.length} ready'
+                : 'Waiting for exactly one opponent',
+            style: Theme.of(context)
+                .textTheme
+                .labelSmall
+                ?.copyWith(color: n.mute, fontWeight: FontWeight.w700),
           ),
         ),
         if (isHost && !exact && !_example) ...[
           // Inviting a real friend is the headline action; an agent is the
           // fallback when nobody's around, so it sits underneath as a small
           // pill rather than competing as a full-width button.
-          NeonButton('Add a player', onPressed: () => _invitePlayers(room)),
+          NeonButton('Add a player',
+              style: NeonStyle.ghost, onPressed: () => _invitePlayers(room)),
           const SizedBox(height: 8),
           Center(
             child: Bouncy(
               feel: BouncyFeel.snap,
               onTap: _addingBot ? null : () => _addBot(room),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
-                  color: n.plate,
+                  color: n.jade.withValues(alpha: 0.16),
                   borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: n.line, width: 1.5),
+                  border: Border.all(
+                      color: n.jade.withValues(alpha: 0.75), width: 1.5),
                 ),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.smart_toy_rounded, size: 14, color: _addingBot ? n.mute : n.gold),
+                  Icon(Icons.smart_toy_rounded,
+                      size: 14, color: _addingBot ? n.mute : n.jade),
                   const SizedBox(width: 6),
                   Text(_addingBot ? 'Adding…' : 'or add a Cyber Agent',
                       style: TextStyle(
-                          color: _addingBot ? n.mute : n.mid,
+                          color: _addingBot ? n.mute : n.jade,
                           fontSize: 12,
                           fontWeight: FontWeight.w700)),
                 ]),
@@ -405,7 +517,7 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
           Expanded(
             child: NeonButton(
               _ready ? 'Ready ✓' : 'Ready up',
-              style: NeonStyle.ghost,
+              style: NeonStyle.gold,
               onPressed: () {
                 final next = !_ready;
                 setState(() => _ready = next);
@@ -422,17 +534,7 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
             Expanded(
               child: NeonButton(
                 'Start',
-                onPressed: !exact
-                    ? null
-                    : () {
-                        if (_example) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Guest games aren\'t connected to the live server yet — sign in with a phone to host a real game.')),
-                          );
-                        } else {
-                          _socket?.send('GAME_START');
-                        }
-                      },
+                onPressed: () => _start(room),
               ),
             ),
           ],
@@ -443,15 +545,22 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
 
   Widget _chip(NeonColors n, String t) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-        decoration: BoxDecoration(color: n.plate, borderRadius: BorderRadius.circular(NeonRadius.pill), border: Border.all(color: kCabinetInk, width: 1.6)),
-        child: Text(t.toUpperCase(), style: TextStyle(color: n.mid, fontWeight: FontWeight.w800, fontSize: 8, letterSpacing: 0.6)),
+        decoration: BoxDecoration(
+            color: n.plate,
+            borderRadius: BorderRadius.circular(NeonRadius.pill),
+            border: Border.all(color: kCabinetInk, width: 1.6)),
+        child: Text(t.toUpperCase(),
+            style: TextStyle(
+                color: n.mid,
+                fontWeight: FontWeight.w800,
+                fontSize: 8,
+                letterSpacing: 0.6)),
       );
 }
 
-
 /// The house rules a Draughts host picks before the room exists. Returns the
 /// chosen mandatory-capture setting, or null if the host backed out (which
-/// the caller treats as "play it the standard way").
+/// the caller treats as optional captures).
 Future<bool?> showDraughtsRulesSheet(BuildContext context) {
   return showModalBottomSheet<bool>(
     context: context,
@@ -469,9 +578,7 @@ class _DraughtsRulesSheet extends StatefulWidget {
 }
 
 class _DraughtsRulesSheetState extends State<_DraughtsRulesSheet> {
-  // On is how international draughts is actually played, so that's the
-  // default; off is the friendlier casual game.
-  bool _mandatoryCapture = true;
+  bool _mandatoryCapture = false;
 
   @override
   Widget build(BuildContext context) {
@@ -485,23 +592,27 @@ class _DraughtsRulesSheetState extends State<_DraughtsRulesSheet> {
         children: [
           Text('HOUSE RULES', style: t.labelLarge?.copyWith(color: n.gold)),
           const SizedBox(height: 4),
-          Text('Set before the game starts — everyone at the table plays by these.',
+          Text(
+              'Set before the game starts — everyone at the table plays by these.',
               style: t.bodySmall?.copyWith(color: n.mid)),
           const SizedBox(height: 16),
           NeonCard(
             child: Column(children: [
               Row(children: [
                 Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('Captures are compulsory', style: t.bodyMedium),
-                    const SizedBox(height: 2),
-                    Text(
-                      _mandatoryCapture
-                          ? 'If you can take, you must — and you must take the most pieces available.'
-                          : 'Taking is optional. A jump you start still has to be played out.',
-                      style: t.labelSmall?.copyWith(color: n.mute, height: 1.3),
-                    ),
-                  ]),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Captures are compulsory', style: t.bodyMedium),
+                        const SizedBox(height: 2),
+                        Text(
+                          _mandatoryCapture
+                              ? 'If you can take, you must — and you must take the most pieces available.'
+                              : 'Taking is optional. A jump you start still has to be played out.',
+                          style: t.labelSmall
+                              ?.copyWith(color: n.mute, height: 1.3),
+                        ),
+                      ]),
                 ),
                 Switch(
                   value: _mandatoryCapture,
@@ -511,7 +622,8 @@ class _DraughtsRulesSheetState extends State<_DraughtsRulesSheet> {
             ]),
           ),
           const SizedBox(height: 18),
-          NeonButton('Start the room', onPressed: () => Navigator.of(context).pop(_mandatoryCapture)),
+          NeonButton('Start the huud',
+              onPressed: () => Navigator.of(context).pop(_mandatoryCapture)),
         ],
       ),
     );

@@ -20,6 +20,7 @@ class GameBadge extends StatelessWidget {
     'draughts': Color(0xff3a2408),
     'goosi': Color(0xff0e2e1c),
     'whot': Color(0xff52202b),
+    'ludo': Color(0xff351639),
   };
 
   static const _ring = {
@@ -28,21 +29,25 @@ class GameBadge extends StatelessWidget {
     'draughts': Color(0xffffd24d),
     'goosi': Color(0xff5eead4),
     'whot': Color(0xffe9b963),
+    'ludo': Color(0xffffcf66),
   };
 
   static const _names = {
     'truearena': 'TRAITORS',
     'bluff': 'WORD BLUFF',
     'draughts': 'DRAFT',
-    'goosi': 'GOOSI',
+    'goosi': 'OWARE',
     'whot': 'WHOT',
+    'ludo': 'LUDO',
   };
 
   static const _artwork = {
     'truearena': 'assets/images/game_icons/traitors.png',
     'bluff': 'assets/images/game_icons/word_bluff.png',
     'draughts': 'assets/images/game_icons/draft.png',
+    'goosi': 'assets/images/game_icons/goosi.png',
     'whot': 'assets/images/game_icons/whot.png',
+    'ludo': 'assets/images/game_icons/ludo.png',
   };
 
   static String? artworkFor(String gameId) => _artwork[gameId];

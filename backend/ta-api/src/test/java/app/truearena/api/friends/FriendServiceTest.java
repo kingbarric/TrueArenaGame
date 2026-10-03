@@ -4,10 +4,12 @@ import app.truearena.persistence.FriendRepository;
 import app.truearena.persistence.FriendRow;
 import app.truearena.persistence.UserRepository;
 import app.truearena.persistence.UserRow;
+import app.truearena.api.inbox.InboxRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 import java.util.UUID;
@@ -23,6 +25,7 @@ class FriendServiceTest {
 
     private FriendRepository friends;
     private UserRepository users;
+    private InboxRegistry inbox;
     private FriendService service;
 
     private final UUID alice = UUID.randomUUID();
@@ -32,11 +35,40 @@ class FriendServiceTest {
     void setUp() {
         friends = mock(FriendRepository.class);
         users = mock(UserRepository.class);
-        service = new FriendService(friends, users);
+        inbox = mock(InboxRegistry.class);
+        service = new FriendService(friends, users, inbox);
     }
 
     private UserRow userRow(UUID id, String username) {
         return new UserRow(id, "Name", null, null, null, username, false, null, false, null, null, null, null, null);
+    }
+
+    @Test
+    void onlineListOnlyDisclosesConnectedAcceptedFriends() {
+        UUID pendingId = UUID.randomUUID();
+        when(friends.findByLowUserIdOrHighUserId(alice, alice)).thenReturn(Flux.just(
+                FriendRow.requested(alice, bob).accepted(),
+                FriendRow.requested(alice, pendingId)));
+        when(inbox.isOnline(bob)).thenReturn(true);
+        when(inbox.isOnline(pendingId)).thenReturn(true);
+        when(users.findAgentsOf(alice)).thenReturn(Flux.empty());
+
+        StepVerifier.create(service.onlineFriends(alice))
+                .expectNext(bob)
+                .verifyComplete();
+    }
+
+    @Test
+    void ownedAgentAlwaysAppearsOnline() {
+        UUID agentId = UUID.randomUUID();
+        UserRow agent = new UserRow(agentId, "Cyber1", null, null, null, "cyber1",
+                false, null, true, alice, null, null, null, null);
+        when(friends.findByLowUserIdOrHighUserId(alice, alice)).thenReturn(Flux.empty());
+        when(users.findAgentsOf(alice)).thenReturn(Flux.just(agent));
+
+        StepVerifier.create(service.onlineFriends(alice))
+                .expectNext(agentId)
+                .verifyComplete();
     }
 
     @Test

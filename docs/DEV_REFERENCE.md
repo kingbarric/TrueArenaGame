@@ -53,11 +53,19 @@ build-cache (`docker builder prune -f`, `docker image prune -f`) and
 
 ## 2. Auth: phone or email, dev OTP bypass
 
-Registration (V5, 2026-09-13) accepts **either** phone **or** email — exactly one is
-required per request, both verified with the same 6-digit OTP flow. Real SMS/email is
-never sent locally — `SmsSender`/`EmailSender` just log the code to the backend
-console, and in the `local` Spring profile **`000000` always verifies, for any
-phone or email**.
+Registration accepts **either** phone **or** email — exactly one is required per
+request, both verified with the same 6-digit OTP flow. Email codes are sent
+through Brevo when `BREVO_API_KEY` is set, from `verify@playhuud.com`.
+Without that key, the `local` profile logs the code to the backend console;
+other profiles return an error instead of pretending an email was sent.
+SMS remains a local stub. In the `local` profile, **`000000` always verifies
+for any phone or email**.
+
+The Brevo domain ownership code is a DNS TXT record for `playhuud.com`, not
+an API key. Brevo also requires DKIM and DMARC records for domain
+authentication. Keep `BREVO_API_KEY` in the backend environment or deployment
+secrets, never in a tracked file. The production Compose service passes it
+through when present.
 
 ```bash
 curl -X POST localhost:8080/api/v1/auth/otp/request -H 'content-type: application/json' \
@@ -80,12 +88,13 @@ see §5. `GET /api/v1/me/stats` returns the lifetime rollup (`games_played`, `wi
 
 ---
 
-## 2a. Auth: Google Sign-In — needs setup before it works at all
+## 2a. Auth: Google Sign-In
 
 Unlike phone/email, there's no dev bypass for this one — it calls Google for real.
-**Requires Google Cloud credentials**; the app reads `GOOGLE_WEB_CLIENT_ID` at
-build time and the backend reads `GOOGLE_CLIENT_ID` at runtime. The backend
-returns 400 until its value is set. To turn it on:
+The Google Web OAuth client ID is configured as the default in both the app and
+backend. `GOOGLE_WEB_CLIENT_ID` (Flutter build time) and `GOOGLE_CLIENT_ID`
+(backend runtime) can override it for another Google project. The client
+secret is not used by this ID-token flow.
 
 1. **Google Cloud Console** → a project → *APIs & Services* → *OAuth consent screen*
    (External is fine for testing) → *Credentials* → *Create Credentials* →
@@ -97,13 +106,12 @@ returns 400 until its value is set. To turn it on:
      keystore's SHA-1** (`keytool -list -v -keystore ~/.android/debug.keystore
      -alias androiddebugkey -storepass android -keypass android`) and, separately,
      your release keystore's SHA-1 once you have one.
-2. **Backend**: set `GOOGLE_CLIENT_ID` (env var backing
-   `truearena.auth.google-client-id`) to the **Web** client ID from step 1.
-3. **App**: pass that same Web client ID with
-   `--dart-define=GOOGLE_WEB_CLIENT_ID=<web-client-id>` when building or running
-   Flutter (it's used as `serverClientId`, which is what
-   makes the ID token's `aud` match what the backend checks — the iOS/Android
-   client IDs never appear in app code, only in platform config).
+2. **Backend**: `GOOGLE_CLIENT_ID` defaults to the Web client ID from step 1.
+   If you override it, use the same ID in the Flutter build.
+3. **App**: `GOOGLE_WEB_CLIENT_ID` defaults to that same Web client ID and is
+   passed as `serverClientId`. It makes the ID token's `aud` match what the
+   backend checks. To override it, build with
+   `--dart-define=GOOGLE_WEB_CLIENT_ID=<web-client-id>`.
 4. **iOS only**: `ios/Runner/Info.plist` already has the URL scheme for the
    configured iOS OAuth client. If that client changes, update the scheme and
    `kGoogleIosClientId` together.
@@ -113,13 +121,11 @@ returns 400 until its value is set. To turn it on:
    matched server-side by package name + SHA-1, unlike iOS) — it just needs to
    exist in Cloud Console. Created: `26187322342-qmmsvj1ctfthu31bks1iqno5ulnpn8n5.apps.googleusercontent.com`.
 
-**Progress so far**: iOS client ID done — `ios/Runner/Info.plist`'s URL scheme and
-`kGoogleIosClientId` (`app/lib/core/google_config.dart`) are both set to
-`26187322342-l8ts2r7ve596qvc9ditdv0l1g09gk8tg`. Android client created (SHA-1
-registered, ID noted above, no code change needed for it). **Still missing: the
-Web application client ID** — until that's created and supplied to both
-the Flutter build and the backend's `GOOGLE_CLIENT_ID`, sign-in cannot work on
-any platform (it's the one the backend actually checks the token against).
+**Configured clients**: iOS client ID is in `google_config.dart` and its reversed
+URL scheme is in `ios/Runner/Info.plist`. Android has a registered client with
+the package name and debug SHA-1. The Web client ID
+`26187322342-o2squi475tmt3ubs8k9rh2d2b7pfivgf.apps.googleusercontent.com` is the default in Flutter, the backend, and the production Compose
+configuration. Release Android builds need their signing SHA-1 registered too.
 
 On first sign-in, a verified Google email can reuse an existing account with
 that email. A signed-in guest with an unclaimed email is upgraded in place,
@@ -140,11 +146,34 @@ pin in `pubspec.yaml`, which forces Flutter back onto the CocoaPods path. If a
 future `google_sign_in` upgrade removes the need for this, drop the override rather
 than leaving it stale.
 
-**Unverified**: everything above compiles, and both sides correctly refuse to
-pretend to work when unconfigured (backend 400s, `AppState.signInWithGoogle` throws
-a clear `StateError`) — but the actual OAuth round trip has not been exercised
-end-to-end, since that needs real Google Cloud credentials this environment can't
-create. Test it for real once you've done steps 1–4 above.
+The Google OAuth round trip was exercised against the local backend and iOS
+simulator with the configured clients on 2026-09-27.
+
+## 2b. Auth: Sign in with Apple
+
+The iOS app offers the native Apple sign-in sheet. The app first obtains a
+five-minute, one-use challenge from `POST /auth/apple/challenge`, passes it as
+Apple's nonce, and sends Apple's ID token to `POST /auth/apple`. The backend
+checks Apple's signature, issuer, audience (`app.truearena.truearena`), expiry,
+and nonce before issuing the app's normal session tokens. It links subsequent
+logins by Apple's stable subject, so the user can hide or change their email.
+
+Before a live sign-in, enable **Sign in with Apple** for the App ID with bundle
+identifier `app.truearena.truearena` in Apple Developer → Certificates,
+Identifiers & Profiles → Identifiers. Refresh the Xcode signing profile after
+enabling it. `Runner.entitlements` already declares the capability for all
+three build configurations. The backend audience defaults to the bundle ID;
+set `APPLE_CLIENT_ID` only if the bundle ID changes.
+
+The Apple button is shown on iOS only. Android keeps Google, email, and guest
+sign-in. Android Apple login would require a separate web Services ID and
+callback flow and is not configured here. Phone/SMS has been removed from the
+app's sign-in screens for now. The backend phone OTP endpoints remain available
+for future use. Email OTP still needs a delivery provider for production;
+the current sender logs codes in development.
+
+The Apple token validation and iOS simulator build are tested locally. A live
+Apple account login still requires the Developer capability and a signed app.
 
 ---
 
@@ -656,6 +685,20 @@ The server sends each player an authoritative private snapshot after every actio
 The UI never reconstructs a hand from public events. Turn timers are keyed by phase
 and round; hold-on increments the round even when the same player plays again.
 This prevents the first timer expiration from leaving subsequent turns untimed.
+
+Whot's market is a fixed shuffled stack: each draw takes the next stored card.
+When the last card is drawn, the server shuffles the discard cards into a new
+market, keeps the current top discard in play, and emits `MARKET_RESHUFFLED`.
+Snapshots expose market/discard counts and the last three face-up discard cards
+for the table's stack display; they never expose the market order.
+
+Whot offers two modes, **Classic** (individual play) and **The Tell** (teams
+on the same Whot engine). The Tell supports 4, 6, or 8 human players, 30
+private signal choices, three-second public signals with tap-to-buzz, and
+server-ordered qualification and finals. The host configures Same Value,
+Same Shape, or Either for Tell matching and a 2–12 card minimum (default 3).
+The server redeals any initial hand that already satisfies the Tell rule.
+See [WHOT_THE_TELL.md](WHOT_THE_TELL.md).
 
 Verification:
 

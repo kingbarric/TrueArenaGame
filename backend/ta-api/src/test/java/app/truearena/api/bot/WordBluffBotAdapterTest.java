@@ -52,11 +52,14 @@ class WordBluffBotAdapterTest {
     }
 
     @Test
-    void revealsAfterSpinning() {
+    void startsClockAfterSpinningThenReveals() {
         WordBluffBotAdapter adapter = new WordBluffBotAdapter();
         adapter.onFrame("EVENT", eventEnvelope("TURN_STARTED", Map.of("team", "A", "describer", BOT, "round", 1)), BOT, Difficulty.MEDIUM);
         Optional<GameBotAdapter.BotPrompt> prompt = adapter.onFrame(
                 "EVENT", eventEnvelope("CATEGORY_LANDED", Map.of("category", "animals", "categoryName", "Animals")), BOT, Difficulty.MEDIUM);
+        assertThat(prompt).isPresent();
+        assertThat(adapter.parseAction("anything", BOT).get().type()).isEqualTo("START_TURN_CLOCK");
+        prompt = adapter.onFrame("EVENT", eventEnvelope("TURN_CLOCK_STARTED", Map.of("seconds", 60)), BOT, Difficulty.MEDIUM);
         assertThat(prompt).isPresent();
         assertThat(adapter.parseAction("anything", BOT).get().type()).isEqualTo("REVEAL");
     }
@@ -66,6 +69,7 @@ class WordBluffBotAdapterTest {
         WordBluffBotAdapter adapter = new WordBluffBotAdapter();
         adapter.onFrame("EVENT", eventEnvelope("TURN_STARTED", Map.of("team", "A", "describer", BOT, "round", 1)), BOT, Difficulty.MEDIUM);
         adapter.onFrame("EVENT", eventEnvelope("CATEGORY_LANDED", Map.of("category", "animals", "categoryName", "Animals")), BOT, Difficulty.MEDIUM);
+        adapter.onFrame("EVENT", eventEnvelope("TURN_CLOCK_STARTED", Map.of("seconds", 60)), BOT, Difficulty.MEDIUM);
         Optional<GameBotAdapter.BotPrompt> prompt = adapter.onFrame(
                 "EVENT", eventEnvelope("WORD_REVEALED", Map.of("word", "elephant", "category", "animals")), BOT, Difficulty.MEDIUM);
         assertThat(prompt).isPresent();
@@ -84,6 +88,7 @@ class WordBluffBotAdapterTest {
         WordBluffBotAdapter adapter = new WordBluffBotAdapter();
         adapter.onFrame("EVENT", eventEnvelope("TURN_STARTED", Map.of("team", "A", "describer", BOT, "round", 1)), BOT, Difficulty.MEDIUM);
         adapter.onFrame("EVENT", eventEnvelope("CATEGORY_LANDED", Map.of("category", "animals", "categoryName", "Animals")), BOT, Difficulty.MEDIUM);
+        adapter.onFrame("EVENT", eventEnvelope("TURN_CLOCK_STARTED", Map.of("seconds", 60)), BOT, Difficulty.MEDIUM);
         adapter.onFrame("EVENT", eventEnvelope("WORD_REVEALED", Map.of("word", "elephant", "category", "animals")), BOT, Difficulty.MEDIUM);
         Optional<GameBotAdapter.BotPrompt> prompt = adapter.onFrame(
                 "EVENT", eventEnvelope("WORD_RESOLVED", Map.of("result", "skipped", "word", "elephant",

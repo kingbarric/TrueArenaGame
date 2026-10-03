@@ -14,8 +14,11 @@ import '../../widgets/motif.dart';
 import '../../core/game_sfx.dart';
 import '../../widgets/neon.dart';
 import '../../widgets/table_chat.dart';
+import '../../widgets/game_voice_control.dart';
 import '../shell/main_shell.dart';
+import '../../widgets/how_to_play_dialog.dart';
 import '../onboarding/guest_save_session_card.dart';
+import '../status/victory_status.dart';
 
 /// The 20 wheel categories, in the exact order the backend's `Category` enum
 /// declares them (`ta-game-wordbluff/.../Category.java`) — the wheel's slice
@@ -88,6 +91,23 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
   int _lastSlice = 0;
   DateTime _lastCrank = DateTime.fromMillisecondsSinceEpoch(0);
 
+  /// The category the wheel has already animated to and announced this turn.
+  /// A SNAPSHOT can legitimately arrive more than once mid-turn (a reconnect,
+  /// or this screen's own initial HELLO racing the socket's), and it always
+  /// carries the turn's still-active category — without this guard, each one
+  /// would restart the wheel spin and re-arm the announce timer, which is
+  /// exactly what left players stuck on "X is describing…" indefinitely
+  /// while the actual game moved on underneath.
+  String? _settledCategory;
+
+  /// The hand-crank below the wheel: press and hold to wind it up, release to
+  /// let it go. 0 (just pressed) to 1 (fully wound, ~1.4s), redrawn every
+  /// frame while held so the dial visibly fills.
+  double _chargeLevel = 0;
+  DateTime? _chargeStart;
+  Timer? _chargeTicker;
+  static const _fullChargeMs = 1400;
+
   /// True while the landed category is being announced, before the words
   /// come up — step three of the turn.
   bool _announcing = false;
@@ -123,6 +143,9 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
   bool _actionLocked = false;
   bool _spinning = false;
   int? _secondsLeft;
+  bool _musicOn = GameMusic.enabled;
+  bool _sfxOn = GameSfx.enabled;
+  bool _spectatorsMuted = false;
 
   // ---------------------------------------------------------------- voice auto-detect
   //
@@ -153,6 +176,7 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
     widget.socket.close();
     _ticker?.cancel();
     _announceTimer?.cancel();
+    _chargeTicker?.cancel();
     _wheelController.dispose();
     GameMusic.stop();
     _speech.stop();
@@ -295,6 +319,7 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
       targetScore = p['targetScore'] as int? ?? targetScore;
       turnSeconds = p['turnSeconds'] as int? ?? turnSeconds;
       _spectatorCount = p['spectatorCount'] as int? ?? _spectatorCount;
+      _spectatorsMuted = p['spectatorsMuted'] as bool? ?? _spectatorsMuted;
       attempts = ((p['attempts'] as List?) ?? const [])
           .map((e) => (e as Map).cast<String, dynamic>())
           .toList();
@@ -303,12 +328,12 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
           ((p['reviewAccepted'] as List?) ?? const []).cast<String>();
       winningTeam = p['winningTeam'] as String? ?? winningTeam;
       yourWord = p['yourWord'] as String?;
-      if (hasActiveCategory && category != null) {
+      if (hasActiveCategory && category != null && category != _settledCategory) {
         categoryName = _nameOf(category!);
         _settleWheel(category!);
       }
     });
-    if (phase == 'Turn' && serverSecondsLeft != null) {
+    if (phase == 'Turn' && p['clockStarted'] == true && serverSecondsLeft != null) {
       _resumeCountdownFrom(serverSecondsLeft);
     }
     _syncVoiceListening();
@@ -316,7 +341,8 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
 
   void _applyPhase(Map<String, dynamic> p) {
     final next = p['phase'] as String;
-    final wasWaitingForNextTurn = phase == 'Review' && next == 'Turn';
+    final wasWaitingForNextTurn =
+        (phase == 'Review' || phase == 'Summary') && next == 'Turn';
     setState(() {
       phase = next;
       round = p['round'] as int? ?? round;
@@ -371,6 +397,10 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
       switch (type) {
         case 'SPECTATOR_COUNT':
           _spectatorCount = data['count'] as int? ?? _spectatorCount;
+        case 'SPECTATORS_MUTED':
+          _spectatorsMuted = true;
+        case 'SPECTATORS_UNMUTED':
+          _spectatorsMuted = false;
         case 'GAME_STARTED':
           teamA = (data['teamA'] as List).cast<String>();
           teamB = (data['teamB'] as List).cast<String>();
@@ -390,17 +420,35 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
           yourWord = null;
           lastResolved = null;
           _spinning = false;
-          // The only place the clock goes back to the full turn length.
-          _restartCountdown();
+          _settledCategory = null;
+          // The server starts this clock when the wheel selects a category.
+          _ticker?.cancel();
+          _secondsLeft = null;
         case 'CATEGORY_LANDED':
           category = data['category'] as String?;
           categoryName = data['categoryName'] as String?;
           hasActiveCategory = true;
           if (category != null) _settleWheel(category!);
+        case 'TURN_CLOCK_STARTED':
+          // A word can only be revealed/resolved (and the clock only starts)
+          // once the announce beat is over — a stray late CATEGORY_LANDED
+          // replay (e.g. a snapshot racing an event right after a reconnect)
+          // must not leave the screen stuck showing "X is describing…" while
+          // the game has already moved on underneath it.
+          _clearAnnouncing();
+          _restartCountdown();
         case 'WORD_REVEALED':
+          _clearAnnouncing();
           yourWord = data['word'] as String?;
           hasActiveWord = true;
+        case 'WORD_ACTIVE':
+          // The describer's own teammates never get WORD_REVEALED (no word
+          // to hide from them, but no word to show them either) — this is
+          // the only signal telling their screen a word actually went live.
+          _clearAnnouncing();
+          hasActiveWord = true;
         case 'WORD_RESOLVED':
+          _clearAnnouncing();
           lastResolved = data['result'] as String?;
           hasActiveWord = false;
           proposedScore = data['correctSoFar'] as int? ?? proposedScore;
@@ -489,6 +537,7 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
   void _settleWheel(String slug) {
     final idx = _kCategories.indexWhere((c) => c.$1 == slug);
     if (idx < 0) return;
+    _settledCategory = slug;
     final sliceAngle = 2 * math.pi / _kCategories.length;
 
     // Where this slice has to end up under the fixed pointer at the top.
@@ -518,9 +567,22 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
         });
         _announceTimer?.cancel();
         _announceTimer = Timer(const Duration(milliseconds: 2200), () {
-          if (mounted) setState(() => _announcing = false);
+          if (!mounted) return;
+          setState(() => _announcing = false);
+          if (amDescriber && phase == 'Turn' && _secondsLeft == null) {
+            _sendAction('START_TURN_CLOCK');
+          }
         });
       });
+  }
+
+  /// Ends the announce beat immediately, whatever triggered it — called from
+  /// every event that can only happen after it (see the call sites), always
+  /// from inside `_applyEvent`'s own `setState`, so this just mutates the
+  /// field rather than wrapping another `setState` around it.
+  void _clearAnnouncing() {
+    _announceTimer?.cancel();
+    _announcing = false;
   }
 
   /// A flick on the wheel. The harder it's thrown, the longer it runs —
@@ -529,6 +591,47 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
     if (_actionLocked || _spinning || !amDescriber) return;
     _spinPower = (velocity.abs() / 3500).clamp(0.15, 1.0);
     _sendAction('SPIN');
+  }
+
+  /// Starts winding the crank up. Ticks its own clock (rather than riding
+  /// the animation controller, which isn't running yet) so the dial fills
+  /// smoothly while a finger is just sitting there holding it down.
+  void _startCrank() {
+    if (_actionLocked || _spinning || !amDescriber) return;
+    _chargeStart = DateTime.now();
+    _chargeTicker?.cancel();
+    _chargeTicker = Timer.periodic(const Duration(milliseconds: 16), (t) {
+      final start = _chargeStart;
+      if (start == null) {
+        t.cancel();
+        return;
+      }
+      final elapsed = DateTime.now().difference(start).inMilliseconds;
+      final level = (elapsed / _fullChargeMs).clamp(0.0, 1.0);
+      setState(() => _chargeLevel = level);
+      if (level >= 1.0) t.cancel();
+    });
+    setState(() => _chargeLevel = 0.001); // gives the dial an immediate nudge on press
+  }
+
+  /// Lets go — how long it was held becomes the spin's power, same scale a
+  /// hard flick would give it.
+  void _releaseCrank() {
+    _chargeTicker?.cancel();
+    final start = _chargeStart;
+    _chargeStart = null;
+    if (start == null) return;
+    final heldMs = DateTime.now().difference(start).inMilliseconds;
+    setState(() => _chargeLevel = 0);
+    if (_actionLocked || _spinning || !amDescriber) return;
+    final level = (heldMs / _fullChargeMs).clamp(0.0, 1.0);
+    _spinWithPower(500 + level * 3000);
+  }
+
+  void _cancelCrank() {
+    _chargeTicker?.cancel();
+    _chargeStart = null;
+    if (mounted) setState(() => _chargeLevel = 0);
   }
 
   void _sendAction(String action, [Map<String, dynamic>? data]) {
@@ -551,6 +654,7 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
   }
 
   void _toggleAttempt(int index) {
+    if (phase != 'Review') return;
     if (!widget.socket.isConnected) return;
     widget.socket.send('PLAYER_ACTION', {
       'action': 'REVIEW_TOGGLE',
@@ -559,9 +663,56 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
   }
 
   void _acceptReview() {
+    if (phase != 'Review') return;
     if (!widget.socket.isConnected) return;
     widget.socket.send('PLAYER_ACTION', {'action': 'REVIEW_ACCEPT'});
   }
+
+  void _showHelp() {
+    showHowToPlay(
+      context,
+      emoji: '🎡',
+      title: 'Word Bluff',
+      tagline: 'Two teams take turns describing words without saying them — '
+          'guess fast before the clock runs out.',
+      steps: const [
+        "When it's your turn, hold the crank to spin the wheel — the longer you hold, the harder it spins.",
+        'The wheel picks a category and your first word appears — describe it out loud without saying the word itself.',
+        'Your teammates shout their guesses; the other team decides if your partner got it right or wrong.',
+        'Stuck on a word? Skip it — it moves straight to the next one.',
+        "When the clock runs out, everyone reviews the round's calls together before the score locks in.",
+        'First team to reach the target score wins.',
+      ],
+    );
+  }
+
+  Future<void> _toggleMusic() async {
+    final next = !_musicOn;
+    await GameMusic.setEnabled(next);
+    if (mounted) setState(() => _musicOn = next);
+  }
+
+  Future<void> _toggleSfx() async {
+    final next = !_sfxOn;
+    await GameSfx.setEnabled(next);
+    if (mounted) setState(() => _sfxOn = next);
+  }
+
+  void _toggleMuteSpectators() {
+    if (!widget.socket.isConnected) return;
+    widget.socket.send('MUTE_SPECTATORS_TOGGLE');
+  }
+
+  PopupMenuItem<String> _menuItem(NeonColors n, String value, IconData icon, String label) =>
+      PopupMenuItem<String>(
+        value: value,
+        height: 42,
+        child: Row(children: [
+          Icon(icon, size: 18, color: n.gold),
+          const SizedBox(width: 12),
+          Text(label, style: TextStyle(color: n.ink, fontSize: 13)),
+        ]),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -575,10 +726,47 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
           // and has no clock, so a table that stops responding used to
           // leave no way out at all.
           actions: [
-            IconButton(
-              tooltip: 'Leave game',
-              icon: const Icon(Icons.logout_rounded, size: 20),
-              onPressed: _confirmExit,
+            if (!finished && !_amSpectator)
+              GameVoiceControl(roomId: widget.socket.roomId),
+            PopupMenuButton<String>(
+              tooltip: 'Game settings',
+              icon: const Icon(Icons.settings_rounded),
+              onSelected: (value) {
+                switch (value) {
+                  case 'help':
+                    _showHelp();
+                  case 'music':
+                    _toggleMusic();
+                  case 'sfx':
+                    _toggleSfx();
+                  case 'spectators':
+                    _toggleMuteSpectators();
+                  case 'forfeit':
+                    _confirmForfeit();
+                  case 'leave':
+                    _confirmExit();
+                }
+              },
+              itemBuilder: (_) => [
+                _menuItem(context.neon, 'help', Icons.help_outline_rounded, 'How to play'),
+                _menuItem(context.neon, 'music',
+                    _musicOn ? Icons.music_note_rounded : Icons.music_off_rounded,
+                    _musicOn ? 'Mute music' : 'Play music'),
+                _menuItem(context.neon, 'sfx',
+                    _sfxOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+                    _sfxOn ? 'Mute game sounds' : 'Play game sounds'),
+                if (!_amSpectator)
+                  _menuItem(
+                      context.neon,
+                      'spectators',
+                      _spectatorsMuted
+                          ? Icons.comments_disabled_rounded
+                          : Icons.chat_bubble_outline_rounded,
+                      _spectatorsMuted ? 'Let spectators comment' : 'Mute spectator comments'),
+                if (!finished && !_amSpectator)
+                  _menuItem(context.neon, 'forfeit', Icons.flag_outlined, 'End game · forfeit'),
+                _menuItem(context.neon, 'leave', Icons.logout_rounded, 'Leave game'),
+              ],
             ),
           ],
         ),
@@ -643,10 +831,26 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
     }
   }
 
+  Future<void> _confirmForfeit() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('End the game?'),
+        content: const Text('Your team forfeits and the other team wins.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Keep playing')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Forfeit')),
+        ],
+      ),
+    );
+    if (confirmed == true && widget.socket.isConnected) _sendAction('FORFEIT');
+  }
+
   Widget _phaseBody(NeonColors n) {
     return switch (phase) {
       'Turn' => _turn(n),
       'Review' => _review(n),
+      'Summary' => _review(n),
       'Results' => _results(n),
       _ => const Center(child: CircularProgressIndicator()),
     };
@@ -791,8 +995,12 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
                           ]
                         : null,
                   ),
-                  child:
-                      Avatar(id == widget.selfId ? 'You' : label(id), size: 18),
+                  child: ValueListenableBuilder<Set<String>>(
+                    valueListenable: widget.socket.onlinePlayers,
+                    builder: (_, online, __) => OnlineAvatar(
+                        id == widget.selfId ? 'You' : label(id),
+                        size: 18, online: online.contains(id)),
+                  ),
                 ),
                 const SizedBox(width: 6),
                 Expanded(
@@ -823,7 +1031,7 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
     return LayoutBuilder(builder: (context, box) {
       final compact = box.maxHeight < 300;
       final wheelSize = math
-          .min(box.maxWidth - 24, compact ? 156.0 : box.maxHeight - 120)
+          .min(box.maxWidth - 8, box.maxHeight - (compact ? 72 : 96))
           .clamp(96.0, 560.0);
       return SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
@@ -844,7 +1052,7 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
               mine
                   ? (_spinning
                       ? 'Round it goes…'
-                      : 'Flick the wheel — the harder you throw it, the longer it spins')
+                      : 'Hold the crank — the longer you hold, the harder it spins. Or just flick the wheel.')
                   : (onMyTeam
                       ? 'Get ready to guess!'
                       : "It's the other team's turn."),
@@ -856,13 +1064,8 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
           const SizedBox(height: 8),
           SizedBox(height: wheelSize, child: Center(child: _wheel(n))),
           if (mine) ...[
-            const SizedBox(height: 8),
-            NeonButton(
-              _spinning ? 'Spinning…' : 'Spin',
-              onPressed: (_actionLocked || _spinning)
-                  ? null
-                  : () => _spinWithPower(700),
-            ),
+            const SizedBox(height: 10),
+            _crankControl(n),
           ],
         ]),
       );
@@ -919,6 +1122,65 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
           ),
         );
       },
+    );
+  }
+
+  /// The hand-crank: hold it down to wind the dial up, let go to spin. A
+  /// tap-and-release barely charges it (a gentle nudge); holding the full
+  /// ~1.4 seconds sends the wheel round as hard as a good flick would.
+  Widget _crankControl(NeonColors n) {
+    final charging = _chargeStart != null;
+    final label = _spinning
+        ? 'Spinning…'
+        : charging
+            ? (_chargeLevel >= 1.0 ? 'Full power — let go!' : 'Winding up…')
+            : 'Hold to spin';
+    return GestureDetector(
+      onTapDown: (_) => _startCrank(),
+      onTapUp: (_) => _releaseCrank(),
+      onTapCancel: _cancelCrank,
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        SizedBox(
+          width: 84,
+          height: 84,
+          child: Stack(alignment: Alignment.center, children: [
+            SizedBox(
+              width: 84,
+              height: 84,
+              child: CircularProgressIndicator(
+                value: _spinning ? null : (charging ? _chargeLevel : 0),
+                strokeWidth: 5,
+                backgroundColor: n.line,
+                valueColor: AlwaysStoppedAnimation(
+                    Color.lerp(n.gold, n.brand, charging ? _chargeLevel : 0) ?? n.gold),
+              ),
+            ),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 120),
+              width: 60 + (charging ? _chargeLevel * 6 : 0),
+              height: 60 + (charging ? _chargeLevel * 6 : 0),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: n.plate,
+                border: Border.all(color: n.gold, width: 1.4),
+              ),
+              child: Transform.rotate(
+                // The gear winds with the charge — a visible sign the hold is
+                // registering, not just a static icon sitting there.
+                angle: (charging ? _chargeLevel : 0) * math.pi,
+                child: Icon(Icons.settings_rounded,
+                    color: n.gold, size: 30),
+              ),
+            ),
+          ]),
+        ),
+        const SizedBox(height: 8),
+        Text(label,
+            style: Theme.of(context)
+                .textTheme
+                .labelSmall
+                ?.copyWith(color: n.mid, fontWeight: FontWeight.w700)),
+      ]),
     );
   }
 
@@ -1198,7 +1460,9 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
                 .bodyMedium
                 ?.copyWith(color: n.gold, fontWeight: FontWeight.w800)),
         const SizedBox(height: 4),
-        Text('Tap any word to change the call. Both teams must agree.',
+        Text(phase == 'Summary'
+            ? 'Round complete. Next turn starts shortly.'
+            : 'Tap any word to change the call. Both teams must agree.',
             textAlign: TextAlign.center,
             style: Theme.of(context)
                 .textTheme
@@ -1221,7 +1485,9 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
           _acceptChip(n, 'B', reviewAccepted.contains('B')),
         ]),
         const SizedBox(height: 16),
-        if (iAccepted)
+        if (phase == 'Summary')
+          const SizedBox.shrink()
+        else if (iAccepted)
           Text('Waiting for the other team…',
               textAlign: TextAlign.center,
               style: Theme.of(context)
@@ -1320,6 +1586,8 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
             active: winningTeam == 'B', accent: n.brand),
       ]),
       const SizedBox(height: 28),
+      if (won) VictoryShareButton(roomId: widget.socket.roomId,
+          gameType: 'wordbluff', detail: 'Team $winningTeam wins'),
       NeonButton('Back to home', onPressed: () {
         Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(builder: (_) => const MainShell()), (r) => false);
@@ -1405,6 +1673,22 @@ class _WheelPainter extends CustomPainter {
   final Color line;
   final Color ink;
 
+  String _shortLabel(String slug, String full) => switch (slug) {
+    'current_affairs' => 'News',
+    'movies_tv' => 'Film/TV',
+    'food_drink' => 'Food',
+    'occupations' => 'Jobs',
+    'famous_faces' => 'Famous',
+    'places_landmarks' => 'Places',
+    'emotions_actions' => 'Actions',
+    'fictional_characters' => 'Fiction',
+    'everyday_objects' => 'Objects',
+    'school_education' => 'School',
+    'travel_transport' => 'Travel',
+    'clothing_fashion' => 'Fashion',
+    _ => full,
+  };
+
   @override
   void paint(Canvas canvas, Size size) {
     final center = size.center(Offset.zero);
@@ -1445,9 +1729,9 @@ class _WheelPainter extends CustomPainter {
 
       final name = TextPainter(
         text: TextSpan(
-          text: categories[i].$2,
+          text: _shortLabel(categories[i].$1, categories[i].$2),
           style: TextStyle(
-            fontSize: radius * 0.055,
+            fontSize: (radius * 0.075).clamp(10.0, 15.0),
             fontWeight: FontWeight.w800,
             color: ink,
             height: 1.05,

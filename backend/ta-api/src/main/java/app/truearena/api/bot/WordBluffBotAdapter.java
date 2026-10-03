@@ -49,6 +49,8 @@ public final class WordBluffBotAdapter implements GameBotAdapter {
     private final Set<String> acceptedTeams = new HashSet<>();
     private boolean reviewAcceptSent;
     private boolean hasCategory;
+    private boolean clockStarted;
+    private boolean clockStartSent;
     private boolean hasWord;
 
     /// The word in hand and the category it came from. Only ever set from
@@ -100,6 +102,11 @@ public final class WordBluffBotAdapter implements GameBotAdapter {
                             + "Reply with anything — spinning takes no decision.",
                     "stage=SPIN"));
         }
+        if (!clockStarted) {
+            return clockStartSent ? Optional.empty() : Optional.of(new BotPrompt(
+                    "You are a Cyber Agent ready to begin your Word Bluff turn. Reply with anything.",
+                    "stage=START_TURN_CLOCK"));
+        }
         if (!hasWord) {
             return Optional.of(new BotPrompt(
                     "You are a Cyber Agent waiting on the next word in Word Bluff. "
@@ -137,6 +144,8 @@ public final class WordBluffBotAdapter implements GameBotAdapter {
         if (d != null) describer = String.valueOf(d);
         Object hc = p.get("hasActiveCategory");
         if (hc != null) hasCategory = Boolean.TRUE.equals(hc);
+        Object cs = p.get("clockStarted");
+        if (cs != null) clockStarted = Boolean.TRUE.equals(cs);
         Object hw = p.get("hasActiveWord");
         if (hw != null) hasWord = Boolean.TRUE.equals(hw);
     }
@@ -180,6 +189,8 @@ public final class WordBluffBotAdapter implements GameBotAdapter {
             case "TURN_STARTED" -> {
                 describer = String.valueOf(data.get("describer"));
                 hasCategory = false;
+                clockStarted = false;
+                clockStartSent = false;
                 hasWord = false;
                 word = null;
                 describedWord = null;
@@ -191,6 +202,7 @@ public final class WordBluffBotAdapter implements GameBotAdapter {
                 Object c = data.get("categoryName");
                 if (c != null) category = String.valueOf(c);
             }
+            case "TURN_CLOCK_STARTED" -> clockStarted = true;
             case "WORD_REVEALED" -> {
                 hasWord = true;
                 Object w = data.get("word");
@@ -218,7 +230,9 @@ public final class WordBluffBotAdapter implements GameBotAdapter {
         if (!"Turn".equals(phase) || !botUserId.equals(describer)) {
             return Optional.empty();
         }
-        String type = hasWord ? "SKIP" : hasCategory ? "REVEAL" : "SPIN";
+        String type = !hasCategory ? "SPIN" : !clockStarted ? "START_TURN_CLOCK"
+                : hasWord ? "SKIP" : "REVEAL";
+        if ("START_TURN_CLOCK".equals(type)) clockStartSent = true;
         return Optional.of(PlayerAction.of(botUserId, type, Map.of()));
     }
 

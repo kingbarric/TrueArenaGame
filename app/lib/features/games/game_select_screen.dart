@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/game_badge.dart';
 import '../../widgets/neon.dart';
-import '../draughts/draughts_lobby_screen.dart';
+import '../draughts/draughts_mode_screen.dart';
+import '../goosi/goosi_lobby_screen.dart';
 import '../whot/whot_lobby_screen.dart';
+import '../ludo/ludo_lobby_screen.dart';
 import '../modes/mode_select_screen.dart';
 import '../onboarding/guest_gate.dart';
 import '../wordbluff/wordbluff_lobby_screen.dart';
@@ -58,6 +60,20 @@ const List<GameCatalogEntry> gameCatalog = [
     tagline: '2–20 players · shapes & numbers · shed your hand',
     available: true,
   ),
+  GameCatalogEntry(
+    id: 'ludo',
+    name: 'Ludo',
+    emoji: '🎲',
+    tagline: '2–4 players · two dice · Cyber Agents',
+    available: true,
+  ),
+  GameCatalogEntry(
+    id: 'goosi',
+    name: 'Oware',
+    emoji: '🫘',
+    tagline: '2 players · 12 houses · capture & sow',
+    available: true,
+  ),
 ];
 
 /// The grid shown from Home's "New game" — pick a game first, then (for
@@ -88,13 +104,19 @@ class GameSelectScreen extends StatelessWidget {
               accent: g.available ? n.brand : null,
               onTap: () async {
                 if (!g.available) {
-                  ScaffoldMessenger.of(context)
-                      .showSnackBar(SnackBar(content: Text('${g.name} is coming soon')));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${g.name} is coming soon')));
                   return;
                 }
-                if (g.id == 'bluff' || g.id == 'draughts' || g.id == 'whot') {
-                  // These lobbies create the room the moment they open (no
-                  // separate mode-select step to gate at like Traitors has), so
+                if (g.id == 'draughts') {
+                  Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const DraughtsModeScreen(),
+                  ));
+                } else if (g.id == 'bluff' ||
+                    g.id == 'whot' ||
+                    g.id == 'ludo' ||
+                    g.id == 'goosi') {
+                  // These lobbies create the room the moment they open, so
                   // the guest check has to happen right here, before pushing it.
                   if (!await canHostOrPromptToVerify(context)) return;
                   if (!context.mounted) return;
@@ -102,11 +124,13 @@ class GameSelectScreen extends StatelessWidget {
                     builder: (_) => switch (g.id) {
                       'bluff' => const WordBluffLobbyScreen(),
                       'whot' => const WhotLobbyScreen(),
-                      _ => const DraughtsLobbyScreen(),
+                      'goosi' => const GoosiLobbyScreen(),
+                      _ => const LudoLobbyScreen(),
                     },
                   ));
                 } else {
-                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ModeSelectScreen()));
+                  Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => const ModeSelectScreen()));
                 }
               },
               child: Column(

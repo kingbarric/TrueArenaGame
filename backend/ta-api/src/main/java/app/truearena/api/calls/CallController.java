@@ -36,4 +36,9 @@ public class CallController {
     public Mono<CallToken> whotToken(@PathVariable UUID roomId) {
         return CurrentUser.id().flatMap(uid -> calls.whotCallToken(uid, roomId));
     }
+
+    @PostMapping("/games/{roomId}/token")
+    public Mono<CallToken> gameToken(@PathVariable UUID roomId) {
+        return CurrentUser.id().flatMap(uid -> calls.gameCallToken(uid, roomId));
+    }
 }

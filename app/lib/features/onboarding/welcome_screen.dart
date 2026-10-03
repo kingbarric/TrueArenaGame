@@ -1,14 +1,16 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import '../../core/api_client.dart';
 import '../../core/app_state.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/motif.dart';
 import '../../widgets/neon.dart';
+import '../../widgets/playhuud_logo.dart';
 import '../shell/main_shell.dart';
-import 'phone_screen.dart';
+import 'email_screen.dart';
 import 'username_setup_screen.dart';
 
 class WelcomeScreen extends StatefulWidget {
@@ -20,6 +22,7 @@ class WelcomeScreen extends StatefulWidget {
 
 class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProviderStateMixin {
   bool _googleBusy = false;
+  bool _appleBusy = false;
   late final AnimationController _intro =
       AnimationController(vsync: this, duration: const Duration(milliseconds: 900))..forward();
 
@@ -64,7 +67,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
           SafeArea(
             child: Column(
               children: [
-                const MarqueeBar('🎭 Traitors and Faithful  •  five modes, launch-ready  •  bring your friends'),
+                const MarqueeBar('PlayHuud  •  party games  •  bring your friends'),
                 Align(
                   alignment: Alignment.centerRight,
                   child: _ThemeToggle(app: app),
@@ -81,24 +84,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
                         FittedBox(
                           fit: BoxFit.scaleDown,
                           alignment: Alignment.centerLeft,
-                          child: Text.rich(
-                            TextSpan(
-                              style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 58, height: 0.92),
-                              children: [
-                                TextSpan(
-                                  text: 'Top',
-                                  style: TextStyle(
-                                      shadows: [Shadow(color: n.gold.withValues(alpha: 0.4), blurRadius: 34)]),
-                                ),
-                                TextSpan(
-                                  text: 'skul',
-                                  style: TextStyle(
-                                    color: n.brand,
-                                    shadows: [Shadow(color: n.brand.withValues(alpha: 0.45), blurRadius: 34)],
-                                  ),
-                                ),
-                              ],
-                            ),
+                          child: PlayHuudLogo(
+                            width: MediaQuery.sizeOf(context).width - 44,
+                            height: 92,
                           ),
                         ),
                       ),
@@ -106,7 +94,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
                       FadeTransition(
                         opacity: subtitle,
                         child: Text(
-                          'A social-deduction party game. Pick a mode, open the room, and find the Traitors before they take the castle. 🕵️',
+                          'Your place for party games. Pick a game, open a huud, and bring your people.',
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: n.mid),
                         ),
                       ),
@@ -121,18 +109,33 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
                     buttonsFade,
                     Column(
                       children: [
-                        NeonButton('Sign in with phone',
+                        NeonButton('Continue with email',
                             style: NeonStyle.go,
                             onPressed: () => Navigator.of(context)
-                                .push(MaterialPageRoute(builder: (_) => const PhoneScreen()))),
+                                .push(MaterialPageRoute(builder: (_) => const EmailScreen()))),
                         const SizedBox(height: 10),
                         NeonButton(_googleBusy ? 'Connecting…' : 'Continue with Google',
                             style: NeonStyle.gold, onPressed: _googleBusy ? null : () => _google(context)),
+                        if (Theme.of(context).platform == TargetPlatform.iOS) ...[
+                          const SizedBox(height: 10),
+                          IgnorePointer(
+                            ignoring: _appleBusy,
+                            child: SizedBox(
+                              height: 50,
+                              child: SignInWithAppleButton(
+                                onPressed: () => _apple(context),
+                                style: Theme.of(context).brightness == Brightness.dark
+                                    ? SignInWithAppleButtonStyle.white
+                                    : SignInWithAppleButtonStyle.black,
+                              ),
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 10),
                         NeonButton('Play as guest',
                             style: NeonStyle.ghost, onPressed: () => _guest(context)),
                         const SizedBox(height: 12),
-                        Text('Play right away on this device. Verify a phone or email later to play from anywhere.',
+                        Text('Play right away on this device. Add an account later to keep your games.',
                             textAlign: TextAlign.center,
                             style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute)),
                       ],
@@ -170,6 +173,31 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
       }
     } finally {
       if (mounted) setState(() => _googleBusy = false);
+    }
+  }
+
+  Future<void> _apple(BuildContext context) async {
+    setState(() => _appleBusy = true);
+    final app = AppScope.of(context);
+    try {
+      final tokens = await app.signInWithApple();
+      if (!context.mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => tokens.newAccount ? const UsernameSetupScreen() : const MainShell()),
+        (route) => false,
+      );
+    } on SignInWithAppleAuthorizationException catch (e) {
+      if (e.code != AuthorizationErrorCode.canceled && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Apple sign-in failed')));
+      }
+    } on ApiException catch (e) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Apple sign-in failed')));
+      }
+    } finally {
+      if (mounted) setState(() => _appleBusy = false);
     }
   }
 

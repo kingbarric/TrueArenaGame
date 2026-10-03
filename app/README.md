@@ -1,4 +1,4 @@
-# TrueArena app (Flutter)
+# PlayHuud app (Flutter)
 
 Neon Night-Market UI (reference: `design/set-the-night.html`), light + dark.
 

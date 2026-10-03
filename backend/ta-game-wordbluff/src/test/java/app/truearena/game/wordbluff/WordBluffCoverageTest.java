@@ -99,10 +99,11 @@ class WordBluffCoverageTest {
     void definePhasesMatchesConfiguredTurnLengthAndUntimedRest() {
         WordBluffConfig cfg = new WordBluffConfig(30, 42);
         List<app.truearena.engine.Phase> phases = module.definePhases(cfg);
-        assertThat(phases).extracting(app.truearena.engine.Phase::name).containsExactly("Turn", "Review", "Results");
+        assertThat(phases).extracting(app.truearena.engine.Phase::name).containsExactly("Turn", "Review", "Summary", "Results");
         assertThat(phases.get(0).timerSeconds()).isEqualTo(42);
         assertThat(phases.get(1).timerSeconds()).isEqualTo(0);
-        assertThat(phases.get(2).timerSeconds()).isEqualTo(0);
+        assertThat(phases.get(2).timerSeconds()).isEqualTo(6);
+        assertThat(phases.get(3).timerSeconds()).isEqualTo(0);
     }
 
     @Test
@@ -525,6 +526,8 @@ class WordBluffCoverageTest {
                 Map.of("id", UUID.randomUUID().toString())));
         state = module.onPlayerAction(state, PlayerAction.of(review.teamB.get(0), "REVIEW_ACCEPT",
                 Map.of("id", UUID.randomUUID().toString())));
+        assertThat(state.phase()).isEqualTo("Summary");
+        state = module.onPhaseElapsed(state, "Summary");
         return (WordBluffState) state;
     }
 

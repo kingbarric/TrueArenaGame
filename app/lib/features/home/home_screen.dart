@@ -1,19 +1,24 @@
 import 'package:flutter/material.dart';
 
 import '../../core/app_state.dart';
+import '../../core/models.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/coin_tier_badge.dart';
 import '../../widgets/game_badge.dart';
 import '../../widgets/motif.dart';
 import '../../widgets/neon.dart';
-import '../draughts/draughts_lobby_screen.dart';
+import '../../widgets/playhuud_logo.dart';
+import '../draughts/draughts_mode_screen.dart';
 import '../games/game_select_screen.dart';
+import '../goosi/goosi_lobby_screen.dart';
 import '../lobby/join_room_screen.dart';
+import '../lobby/joined_room_screen.dart';
 import '../modes/mode_select_screen.dart';
 import '../onboarding/guest_gate.dart';
 import '../profile/profile_screen.dart';
 import '../wordbluff/wordbluff_lobby_screen.dart';
 import '../whot/whot_lobby_screen.dart';
+import '../ludo/ludo_lobby_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -73,7 +78,8 @@ class HomeScreen extends StatelessWidget {
                   Avatar(name,
                       size: 40,
                       emoji: app.avatarEmoji,
-                      imagePath: app.avatarImagePath),
+                      imagePath: app.avatarImagePath,
+                      imageUrl: app.user?.avatarUrl),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -104,12 +110,22 @@ class HomeScreen extends StatelessWidget {
                       ],
                     ),
                   ),
+                  const PlayHuudLogo(width: 112, height: 38),
+                  const SizedBox(width: 4),
                   Icon(Icons.chevron_right, color: n.mute, size: 20),
                 ],
               ),
             ),
           ),
-            const SizedBox(height: 24),
+          if (app.activeRoomId != null) ...[
+            const SizedBox(height: 18),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 22),
+              child: NeonButton('Resume your huud',
+                  onPressed: () => _resumeGame(context, app)),
+            ),
+          ],
+          const SizedBox(height: 24),
           // The badge row *is* the picker — there used to be a "New game"
           // button here too, which opened a screen listing these same four
           // games and pushed these same lobbies. Two doors to one room. The
@@ -118,48 +134,37 @@ class HomeScreen extends StatelessWidget {
           // the picker for screens that aren't Home, e.g. Chats and Friends.)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 22),
-              child: Text('START A GAME',
-                  style: Theme.of(context)
-                      .textTheme
-                      .displayLarge
-                      ?.copyWith(fontSize: 34, height: 1)),
+            child: Text('START A GAME',
+                style: Theme.of(context)
+                    .textTheme
+                    .displayLarge
+                    ?.copyWith(fontSize: 34, height: 1)),
           ),
           const SizedBox(height: 6),
           Padding(
             padding: const EdgeInsets.fromLTRB(22, 0, 22, 10),
-            child: Text('Pick one to open a room',
+            child: Text('Pick one to open a huud',
                 style: Theme.of(context)
                     .textTheme
                     .labelSmall
                     ?.copyWith(color: n.mute)),
           ),
-          // Keep all four game artworks visible in a 2x2 grid.
+          // Three compact columns keep the join action in view as the catalog grows.
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 22),
-            child: Column(
-              children: [
-                for (var i = 0; i < gameCatalog.length; i += 2) ...[
-                  if (i > 0) const SizedBox(height: 12),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: _gameTile(context, n, gameCatalog[i])),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: i + 1 < gameCatalog.length
-                            ? _gameTile(context, n, gameCatalog[i + 1])
-                            : const SizedBox.shrink(),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
-            ),
+            child: LayoutBuilder(builder: (context, constraints) {
+              final columns = constraints.maxWidth >= 330 ? 3 : 2;
+              final tileWidth = (constraints.maxWidth - (columns - 1) * 10) / columns;
+              return Wrap(spacing: 10, runSpacing: 10, children: [
+                for (final game in gameCatalog)
+                  SizedBox(width: tileWidth, child: _gameTile(context, n, game)),
+              ]);
+            }),
           ),
           const SizedBox(height: 14),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 22),
-            child: NeonButton('Join a room', style: NeonStyle.ghost,
+            child: NeonButton('Join a huud', style: NeonStyle.ghost,
                 onPressed: () {
               Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const JoinRoomScreen()));
@@ -177,7 +182,7 @@ class HomeScreen extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                        'Verify a phone number to keep your stats after this game.',
+                        'Add an account to keep your stats after this game.',
                         style: Theme.of(context)
                             .textTheme
                             .bodySmall
@@ -191,6 +196,32 @@ class HomeScreen extends StatelessWidget {
         ],
       ),
     ));
+  }
+
+  Future<void> _resumeGame(BuildContext context, AppState app) async {
+    final roomId = app.activeRoomId;
+    if (roomId == null) return;
+    try {
+      final raw = await app.api.get('/rooms/$roomId') as Map<String, dynamic>;
+      final room = RoomView.fromJson(raw);
+      if ((room.status != 'lobby' && room.status != 'in_game') ||
+          !room.members.any((member) => member.userId == app.user?.id)) {
+        await app.clearActiveRoom(roomId);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('That huud has ended.')));
+        }
+        return;
+      }
+      if (!context.mounted) return;
+      Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => JoinedRoomScreen(room: room)));
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Could not reconnect to your huud. Try again.')));
+      }
+    }
   }
 
   /// Home gives the game art the full tile width and keeps the name below it.
@@ -229,7 +260,7 @@ class HomeScreen extends StatelessWidget {
       onTap: () => _openGame(context, g),
       child: cabinet
           ? Container(
-              padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
+              padding: const EdgeInsets.fromLTRB(4, 7, 4, 8),
               decoration: BoxDecoration(
                 color: n.panel,
                 borderRadius: BorderRadius.circular(22),
@@ -245,7 +276,7 @@ class HomeScreen extends StatelessWidget {
             )
           : NeonCard(
               glass: false,
-              padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
+              padding: const EdgeInsets.fromLTRB(4, 7, 4, 8),
               child: content,
             ),
     );
@@ -260,14 +291,22 @@ class HomeScreen extends StatelessWidget {
           .showSnackBar(SnackBar(content: Text('${g.name} is coming soon')));
       return;
     }
-    if (g.id == 'bluff' || g.id == 'draughts' || g.id == 'whot') {
+    if (g.id == 'draughts') {
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => const DraughtsModeScreen(),
+      ));
+    } else if (g.id == 'bluff' ||
+        g.id == 'whot' ||
+        g.id == 'ludo' ||
+        g.id == 'goosi') {
       if (!await canHostOrPromptToVerify(context)) return;
       if (!context.mounted) return;
       Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => switch (g.id) {
           'bluff' => const WordBluffLobbyScreen(),
           'whot' => const WhotLobbyScreen(),
-          _ => const DraughtsLobbyScreen(),
+          'goosi' => const GoosiLobbyScreen(),
+          _ => const LudoLobbyScreen(),
         },
       ));
     } else {

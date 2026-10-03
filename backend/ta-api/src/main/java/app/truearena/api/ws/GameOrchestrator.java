@@ -1,6 +1,7 @@
 package app.truearena.api.ws;
 
 import app.truearena.api.auth.JwtService;
+import app.truearena.api.championship.ChampionshipService;
 import app.truearena.engine.GameConfig;
 import app.truearena.engine.GameEvent;
 import app.truearena.engine.GameModule;
@@ -18,6 +19,8 @@ import app.truearena.game.goosi.GoosiConfig;
 import app.truearena.game.goosi.GoosiModule;
 import app.truearena.game.whot.WhotConfig;
 import app.truearena.game.whot.WhotModule;
+import app.truearena.game.ludo.LudoConfig;
+import app.truearena.game.ludo.LudoModule;
 import app.truearena.game.truearena.ConfigValidator;
 import app.truearena.game.truearena.Presets;
 import app.truearena.game.truearena.TrueArenaModule;
@@ -52,6 +55,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Autowired;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -90,6 +94,8 @@ public class GameOrchestrator {
     private final JwtService jwt;
     private final ObjectMapper mapper;
     private final app.truearena.api.coins.CoinService coins;
+    @Autowired(required = false)
+    private ChampionshipService championships;
 
     public GameOrchestrator(RoomRuntimeRegistry registry, RoomLock lock, RoomEventLog eventLog,
                             RoomRepository rooms, RoomMemberRepository members,
@@ -132,7 +138,10 @@ public class GameOrchestrator {
                 })
                 .onErrorMap(e -> new SecurityException("bad token"));
         if (spectate) {
-            return parsed;
+            return parsed.flatMap(a -> championships == null ? Mono.just(a)
+                    : championships.spectatorAllowed(a.roomId(), UUID.fromString(a.userId()))
+                    .flatMap(allowed -> allowed ? Mono.just(a)
+                            : Mono.error(new SecurityException("private championship match"))));
         }
         return parsed.flatMap(a -> members.findByRoomIdAndUserId(a.roomId(), UUID.fromString(a.userId()))
                 .map(m -> a)
@@ -150,6 +159,8 @@ public class GameOrchestrator {
     public Mono<Void> onConnect(RoomRuntime rt, String userId) {
         rt.connectedUserIds.add(userId);
         return setConnection(rt.roomId, userId, "connected")
+                .then(championships == null ? Mono.empty()
+                        : championships.connection(rt.roomId, UUID.fromString(userId), true))
                 .then(broadcastLobby(rt, "MEMBER_CONNECTED", Map.of("userId", userId)));
     }
 
@@ -165,6 +176,19 @@ public class GameOrchestrator {
                             && userId.equals(rt.hostUserId))
                     .flatMap(ignored -> migrateHost(rt)).then()
                 : Mono.empty();
+        if (championships != null) {
+            Mono<Void> freeze = rt.tournament ? lock.withLock(rt.roomId, LOCK_TTL, () -> {
+                if (rt.started() && !rt.paused && !rt.state().finished()) {
+                    rt.paused = true;
+                    freezeTimer(rt);
+                }
+                return Mono.empty();
+            }) : Mono.empty();
+            return freeze.then(rt.tournament ? persistTournamentClock(rt.roomId) : Mono.empty())
+                    .then(disconnect).then(championships.isTournamentRoom(rt.roomId).flatMap(tournament ->
+                    tournament ? championships.connection(rt.roomId, UUID.fromString(userId), false)
+                            : migrate)).then(broadcastLobby(rt, "MEMBER_DISCONNECTED", Map.of("userId", userId)));
+        }
         return disconnect.then(migrate).then(broadcastLobby(rt, "MEMBER_DISCONNECTED", Map.of("userId", userId)));
     }
 
@@ -236,11 +260,13 @@ public class GameOrchestrator {
                 && in.type() != MessageType.CHAT_SEND) {
             return tellError(rt, userId, "SPECTATOR_READ_ONLY", "spectators can watch and comment, but cannot control the game");
         }
+        if (spectator && rt.tournament && in.type() == MessageType.CHAT_SEND)
+            return tellError(rt, userId, "SPECTATOR_READ_ONLY", "championship matches are read-only for viewers");
         try {
             return switch (in.type()) {
                 case HELLO -> handleHello(rt, userId, in);
                 case READY_SET -> handleReady(rt, userId, in);
-                case GAME_START -> handleGameStart(rt, userId);
+                case GAME_START -> handleGameStart(rt, userId, in.payload());
                 case PLAYER_ACTION -> handlePlayerAction(rt, userId, in);
                 case CHAT_SEND -> handleChat(rt, userId, in, spectator);
                 case PAUSE_TOGGLE -> handlePauseToggle(rt, userId);
@@ -262,6 +288,13 @@ public class GameOrchestrator {
         long lastSeq = numberOf(in.payload().get("lastSeq"));
         if (!rt.started()) {
             return sendLobbySnapshot(rt, userId);
+        }
+        if (rt.tournament) {
+            sendSnapshot(rt, userId);
+            sendPhase(rt, userId);
+            return championships.reconnectStatus(rt.roomId)
+                    .doOnNext(status -> rt.tellUser(userId, Envelope.of(MessageType.EVENT,
+                            Map.of("type", "RECONNECT_WAIT", "data", status)))).then();
         }
         if (lastSeq > 0) {
             return eventLog.replayAfter(rt.roomId, lastSeq)
@@ -352,6 +385,7 @@ public class GameOrchestrator {
         view.put("secondsLeft", secondsLeft(rt));
         view.put("spectatorCount", rt.spectatorUserIds.size());
         view.put("spectatorsMuted", rt.spectatorsMuted);
+        view.put("connectedPlayers", List.copyOf(rt.connectedUserIds));
         return view;
     }
 
@@ -439,6 +473,16 @@ public class GameOrchestrator {
      * it; either connected player can.
      */
     private Mono<Void> handlePauseToggle(RoomRuntime rt, String userId) {
+        if (rt.tournament) return tellError(rt, userId, "TOURNAMENT_CLOCK", "the tournament controls the game clock");
+        if (championships != null) {
+            return championships.isTournamentRoom(rt.roomId).flatMap(tournament -> tournament
+                    ? tellError(rt, userId, "TOURNAMENT_CLOCK", "the tournament controls the game clock")
+                    : togglePause(rt, userId));
+        }
+        return togglePause(rt, userId);
+    }
+
+    private Mono<Void> togglePause(RoomRuntime rt, String userId) {
         if (!rt.started()) {
             return tellError(rt, userId, "NOT_STARTED", "the game hasn't started yet");
         }
@@ -476,12 +520,21 @@ public class GameOrchestrator {
 
     // ---------------------------------------------------------------- game start / actions
 
-    private Mono<Void> handleGameStart(RoomRuntime rt, String userId) {
+    private Mono<Void> handleGameStart(RoomRuntime rt, String userId, Map<String, Object> options) {
+        if (championships != null) {
+            return championships.isTournamentRoom(rt.roomId).flatMap(tournament -> tournament
+                    ? tellError(rt, userId, "TOURNAMENT_START", "the championship starts this match automatically")
+                    : startOrdinaryGame(rt, userId, options));
+        }
+        return startOrdinaryGame(rt, userId, options);
+    }
+
+    private Mono<Void> startOrdinaryGame(RoomRuntime rt, String userId, Map<String, Object> options) {
         if (!userId.equals(rt.hostUserId)) {
             return tellError(rt, userId, "NOT_HOST", "only the host can start the game");
         }
         if (rt.started()) {
-            return tellError(rt, userId, "ALREADY_STARTED", "this room's game is already running");
+            return tellError(rt, userId, "ALREADY_STARTED", "this huud's game is already running");
         }
         return lock.withLock(rt.roomId, LOCK_TTL, () -> rooms.findById(rt.roomId)
                 .switchIfEmpty(Mono.error(new IllegalStateException("room not found")))
@@ -494,6 +547,7 @@ public class GameOrchestrator {
                         case "draughts" -> startDraughts(rt, userId, playerIds);
                         case "goosi" -> startGoosi(rt, userId, playerIds);
                         case "whot" -> startWhot(rt, userId, playerIds);
+                        case "ludo" -> startLudo(rt, userId, playerIds, options);
                         default -> startTrueArena(rt, userId, playerIds, t.getT1().gameConfig());
                     };
                 }));
@@ -574,9 +628,9 @@ public class GameOrchestrator {
             Map<?, ?> raw = mapper.readValue(json, Map.class);
             DraughtsConfig defaults = DraughtsConfig.defaults();
             int turnSeconds = raw.get("turnSeconds") instanceof Number n ? n.intValue() : defaults.turnSeconds();
-            // Only an explicit false turns the rule off — an absent key means
-            // "as the game is normally played".
-            boolean mandatory = !Boolean.FALSE.equals(raw.get("mandatoryCapture"));
+            // Missing rules use the casual default. An explicit true keeps
+            // compulsory captures available for hosts who choose them.
+            boolean mandatory = Boolean.TRUE.equals(raw.get("mandatoryCapture"));
             return new DraughtsConfig(turnSeconds, mandatory);
         } catch (Exception e) {
             log.warn("unreadable draughts config, using defaults: {}", e.toString());
@@ -603,6 +657,167 @@ public class GameOrchestrator {
                     return updateRoomStatus(rt.roomId, "in_game")
                             .then(afterMutation(rt, state.events()));
                 });
+    }
+
+    /** Starts a bracket pairing with its phase clock suspended until both players connect. */
+    public Mono<Void> startTournamentRoom(UUID roomId) {
+        return ensureRuntime(roomId).flatMap(rt -> lock.withLock(roomId, LOCK_TTL, () -> {
+            if (rt.started()) return Mono.empty();
+            rt.tournament = true;
+            rt.paused = true;
+            return members.findByRoomId(roomId).map(m -> m.userId().toString()).sort().collectList()
+                    .flatMap(players -> {
+                        if (players.size() != 2)
+                            return Mono.error(new IllegalStateException("tournament pairing must have two players"));
+                        return sessions.findFirstByRoomIdOrderByStartedAtDesc(roomId)
+                                .flatMap(session -> restoreTournamentRoom(rt, players, session).thenReturn(true))
+                                .defaultIfEmpty(false)
+                                .flatMap(restored -> restored ? Mono.empty()
+                                        : startDraughtsWith(rt, rt.hostUserId, players, DraughtsConfig.defaults()));
+                    });
+        }));
+    }
+
+    private Mono<Void> restoreTournamentRoom(RoomRuntime rt, List<String> players, GameSessionRow session) {
+        DraughtsModule module = new DraughtsModule();
+        DraughtsConfig cfg = draughtsConfigFrom(session.config().asString());
+        return championships.savedActions(session.id()).collectList().flatMap(actions -> Mono.fromCallable(() -> {
+            GameState state = module.initialState(players, cfg, RandomSource.seeded(session.rngSeed()));
+            GameRunner runner = new GameRunner(module);
+            for (var action : actions) {
+                if ("__ELAPSE".equals(action.type())) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> data = mapper.readValue(action.payload(), Map.class);
+                    state = runner.elapse(state, String.valueOf(data.get("phase"))).state();
+                } else {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> data = mapper.readValue(action.payload(), Map.class);
+                    state = runner.apply(state, new PlayerAction(action.actionId(), action.actor().toString(),
+                            action.type(), data)).state();
+                }
+            }
+            rt.config = cfg;
+            rt.start(module, state, session.id());
+            rescheduleTimer(rt);
+            return state;
+        }).flatMap(state -> championships.savedClock(rt.roomId)
+                .doOnNext(clock -> {
+                    if (clock.phase().equals(state.phase()) && !state.finished())
+                        rt.timerRemainingMs = Math.max(1000, clock.remainingMs());
+                }).thenReturn(state)).doOnNext(state -> {
+            for (String connected : rt.connectedUserIds) sendSnapshot(rt, connected);
+            for (String spectator : rt.spectatorUserIds) sendSnapshot(rt, spectator);
+            broadcastPhase(rt);
+        }).flatMap(state -> {
+            if (!state.finished()) return Mono.empty();
+            return resultRows.findByGameSessionId(session.id()).hasElement()
+                    .flatMap(saved -> saved
+                            ? championships.gameFinished(rt.roomId, session.id(),
+                                    module.checkWinCondition(state).orElseThrow().perPlayerOutcome())
+                            : finishGame(rt));
+        }));
+    }
+
+    /** Reconnect policy is decided by the tournament service, never by the client. */
+    public Mono<Void> setTournamentPaused(UUID roomId, boolean pause) {
+        return ensureRuntime(roomId).flatMap(rt -> lock.withLock(roomId, LOCK_TTL, () -> {
+            if (!rt.started() || rt.state().finished() || rt.paused == pause) return Mono.empty();
+            rt.paused = pause;
+            if (pause) freezeTimer(rt); else thawTimer(rt);
+            rt.bus.tryEmitNext(new LobbyBroadcast(pause ? "GAME_PAUSED" : "GAME_RESUMED",
+                    Map.of("reason", "reconnect", "secondsLeft", secondsLeft(rt))));
+            return persistTournamentClock(roomId);
+        }));
+    }
+
+    public Mono<Void> persistTournamentClock(UUID roomId) {
+        return registry.find(roomId).map(rt -> {
+            if (!rt.tournament || !rt.started() || rt.state().finished()) return Mono.<Void>empty();
+            long remaining = rt.paused ? rt.timerRemainingMs
+                    : Math.max(0, rt.timerDeadlineMs - System.currentTimeMillis());
+            return championships.recordClock(roomId, rt.state().phase(), remaining);
+        }).orElseGet(Mono::empty);
+    }
+
+    public Mono<Void> forfeitTournamentRoom(UUID roomId, UUID loser) {
+        return ensureRuntime(roomId).flatMap(rt -> lock.withLock(roomId, LOCK_TTL, () -> {
+            if (!rt.started() || rt.state().finished())
+                return Mono.empty();
+            String opponent = rt.module().broadcastState(rt.state()).data().get("playerA").toString().equals(loser.toString())
+                    ? rt.module().broadcastState(rt.state()).data().get("playerB").toString()
+                    : rt.module().broadcastState(rt.state()).data().get("playerA").toString();
+            if (!rt.connectedUserIds.contains(opponent)) return Mono.empty();
+            return championships.forfeitAllowed(roomId, loser).flatMap(allowed -> {
+                if (!allowed) return Mono.empty();
+                String actionId = UUID.randomUUID().toString();
+                GameRunner.Step step = new GameRunner(rt.module()).apply(rt.state(),
+                        new PlayerAction(actionId, loser.toString(), "FORFEIT", Map.of()));
+                return championships.recordAction(roomId, rt.gameSessionId, actionId, loser, "FORFEIT", "{}")
+                        .then(Mono.defer(() -> {
+                            rt.setState(step.state());
+                            return afterMutation(rt, step.events());
+                        }));
+            });
+        }));
+    }
+
+    /** End an ordinary Draft match against a Cyber Agent before its socket closes. */
+    public Mono<Boolean> forfeitBotDraughtsRoom(UUID roomId, UUID loser) {
+        return registry.find(roomId)
+                .<Mono<Boolean>>map(rt -> lock.withLock(roomId, LOCK_TTL, () -> {
+                    if (rt.tournament || !rt.started() || rt.state().finished()
+                            || !"draughts".equals(rt.module().gameType())) {
+                        return Mono.just(false);
+                    }
+                    GameRunner.Step step = new GameRunner(rt.module()).apply(rt.state(),
+                            new PlayerAction(UUID.randomUUID().toString(), loser.toString(), "FORFEIT", Map.of()));
+                    rt.setState(step.state());
+                    return afterMutation(rt, step.events()).thenReturn(true);
+                }))
+                .orElseGet(() -> Mono.just(false));
+    }
+
+    /** Settle an ordinary Whot table whose only remaining opponents are the host's agents. */
+    public Mono<Boolean> forfeitBotWhotRoom(UUID roomId, UUID loser) {
+        return registry.find(roomId)
+                .<Mono<Boolean>>map(rt -> lock.withLock(roomId, LOCK_TTL, () -> {
+                    if (rt.tournament || !rt.started() || rt.state().finished()
+                            || !"whot".equals(rt.module().gameType())) {
+                        return Mono.just(false);
+                    }
+                    GameRunner.Step step = new GameRunner(rt.module()).apply(rt.state(),
+                            new PlayerAction(UUID.randomUUID().toString(), loser.toString(), "FORFEIT", Map.of()));
+                    if (!step.state().finished()) return Mono.just(false);
+                    rt.setState(step.state());
+                    return afterMutation(rt, step.events()).thenReturn(true);
+                }))
+                .orElseGet(() -> Mono.just(false));
+    }
+
+    /** Forfeit a Ludo seat even when it is another player's turn. */
+    public Mono<Boolean> forfeitLudoRoom(UUID roomId, UUID loser) {
+        return registry.find(roomId)
+                .<Mono<Boolean>>map(rt -> lock.withLock(roomId, LOCK_TTL, () -> {
+                    if (!rt.started() || rt.state().finished() || !"ludo".equals(rt.module().gameType())) {
+                        return Mono.just(false);
+                    }
+                    try {
+                        GameRunner.Step step = new GameRunner(rt.module()).apply(rt.state(),
+                                new PlayerAction(UUID.randomUUID().toString(), loser.toString(), "FORFEIT", Map.of()));
+                        rt.setState(step.state());
+                        return afterMutation(rt, step.events()).thenReturn(true);
+                    } catch (RuleViolation ignored) {
+                        return Mono.just(false);
+                    }
+                })).orElseGet(() -> Mono.just(false));
+    }
+
+    public Mono<Void> closeTournamentRoom(UUID roomId) {
+        return ensureRuntime(roomId).flatMap(rt -> lock.withLock(roomId, LOCK_TTL, () -> {
+            rt.paused = true;
+            rt.cancelTimer();
+            return updateRoomStatus(roomId, "ended");
+        }));
     }
 
     private Mono<Void> startGoosi(RoomRuntime rt, String userId, List<String> playerIds) {
@@ -660,6 +875,48 @@ public class GameOrchestrator {
                 .flatMap(cfg -> startWhotWith(rt, userId, playerIds, cfg));
     }
 
+    private Mono<Void> startLudo(RoomRuntime rt, String userId, List<String> playerIds,
+                                 Map<String, Object> options) {
+        Object requested = options.get("twoPlayerPieces");
+        if (playerIds.size() == 2 && requested != null
+                && (!(requested instanceof Number n) || (n.doubleValue() != 4 && n.doubleValue() != 8))) {
+            return tellError(rt, userId, "BAD_CONFIG", "choose four or eight Ludo pieces");
+        }
+        return rooms.findById(rt.roomId).map(room -> {
+            Map<?, ?> raw;
+            try {
+                raw = room.gameConfig() == null ? Map.of() : mapper.readValue(room.gameConfig(), Map.class);
+            } catch (Exception e) {
+                raw = Map.of();
+            }
+            int storedPieces = raw.get("twoPlayerPieces") instanceof Number n ? n.intValue() : 4;
+            int chosenPieces = playerIds.size() == 2
+                    ? requested instanceof Number n ? n.intValue() : storedPieces
+                    : 4;
+            int turnSeconds = raw.get("turnSeconds") instanceof Number n ? n.intValue() : 60;
+            try {
+                return new LudoConfig(turnSeconds, chosenPieces);
+            } catch (IllegalArgumentException e) {
+                return new LudoConfig(60, requested instanceof Number n ? n.intValue() : 4);
+            }
+        }).defaultIfEmpty(LudoConfig.defaults()).flatMap(cfg -> {
+            LudoModule module = new LudoModule();
+            long seed = ThreadLocalRandom.current().nextLong();
+            GameState state;
+            try {
+                state = module.initialState(playerIds, cfg, RandomSource.seeded(seed));
+            } catch (RuleViolation violation) {
+                return tellError(rt, userId, violation.code(), violation.getMessage());
+            }
+            return sessions.save(GameSessionRow.start(rt.roomId, module.gameType(), writeJson(cfg), 1, seed))
+                    .flatMap(session -> {
+                        rt.config = cfg;
+                        rt.start(module, state, session.id());
+                        return updateRoomStatus(rt.roomId, "in_game").then(afterMutation(rt, state.events()));
+                    });
+        });
+    }
+
     /**
      * Host-chosen Whot options. Every special card is a switch here because
      * tables genuinely disagree about them — whether a 2 can be stacked back,
@@ -681,7 +938,10 @@ public class GameOrchestrator {
                     raw.get("pickTwoStacking") instanceof Boolean b ? b : d.pickTwoStacking(),
                     raw.get("generalMarket") instanceof Boolean b ? b : d.generalMarket(),
                     raw.get("holdOn") instanceof Boolean b ? b : d.holdOn(),
-                    raw.get("suspension") instanceof Boolean b ? b : d.suspension());
+                    raw.get("suspension") instanceof Boolean b ? b : d.suspension(),
+                    raw.get("mode") instanceof String mode ? mode : d.mode(),
+                    raw.get("tellRule") instanceof String rule ? rule : d.tellRule(),
+                    raw.get("tellMinCards") instanceof Number minimum ? minimum.intValue() : d.tellMinCards());
         } catch (Exception e) {
             log.warn("unreadable whot config, using defaults: {}", e.toString());
             return WhotConfig.defaults();
@@ -689,6 +949,18 @@ public class GameOrchestrator {
     }
 
     private Mono<Void> startWhotWith(RoomRuntime rt, String userId, List<String> playerIds, WhotConfig cfg) {
+        if (cfg.tell()) {
+            return Flux.fromIterable(playerIds)
+                    .concatMap(id -> users.findById(UUID.fromString(id)))
+                    .any(UserRow::isBot)
+                    .flatMap(hasBot -> hasBot
+                            ? tellError(rt, userId, "TELL_NEEDS_PLAYERS", "The Tell needs human teammates for private signals")
+                            : startWhotGame(rt, userId, playerIds, cfg));
+        }
+        return startWhotGame(rt, userId, playerIds, cfg);
+    }
+
+    private Mono<Void> startWhotGame(RoomRuntime rt, String userId, List<String> playerIds, WhotConfig cfg) {
         WhotModule module = new WhotModule();
         long seed = ThreadLocalRandom.current().nextLong();
         GameState state;
@@ -712,7 +984,13 @@ public class GameOrchestrator {
 
     private Mono<Void> handlePlayerAction(RoomRuntime rt, String userId, Envelope in) {
         if (!rt.started()) {
-            return tellError(rt, userId, "NOT_STARTED", "this room hasn't started a game yet");
+            return tellError(rt, userId, "NOT_STARTED", "this huud hasn't started a game yet");
+        }
+        if (rt.state().finished()) {
+            return tellError(rt, userId, "ALREADY_FINISHED", "this game has ended");
+        }
+        if (rt.tournament && rt.paused) {
+            return tellError(rt, userId, "MATCH_PAUSED", "waiting for both players to reconnect");
         }
         String action = String.valueOf(in.payload().get("action"));
         @SuppressWarnings("unchecked")
@@ -734,8 +1012,13 @@ public class GameOrchestrator {
             } catch (RuleViolation rv) {
                 return tellError(rt, userId, rv.code(), rv.getMessage());
             }
-            rt.setState(step.state());
-            return afterMutation(rt, step.events());
+            Mono<Void> persist = championships == null ? Mono.empty()
+                    : championships.recordAction(rt.roomId, rt.gameSessionId, actionId,
+                            UUID.fromString(userId), action, writeJson(data));
+            return persist.then(Mono.defer(() -> {
+                rt.setState(step.state());
+                return afterMutation(rt, step.events());
+            }));
         });
     }
 
@@ -751,8 +1034,14 @@ public class GameOrchestrator {
             }
             GameRunner runner = new GameRunner(rt.module());
             GameRunner.Step step = runner.elapse(rt.state(), expectedPhase);
-            rt.setState(step.state());
-            return afterMutation(rt, step.events());
+            String actionId = UUID.randomUUID().toString();
+            Mono<Void> persist = championships == null ? Mono.empty()
+                    : championships.recordAction(rt.roomId, rt.gameSessionId, actionId,
+                            null, "__ELAPSE", writeJson(Map.of("phase", expectedPhase)));
+            return persist.then(Mono.defer(() -> {
+                rt.setState(step.state());
+                return afterMutation(rt, step.events());
+            }));
         }).subscribe(v -> { }, e -> log.warn("timer elapse failed for room {}: {}", rt.roomId, e.toString()));
     }
 
@@ -768,7 +1057,8 @@ public class GameOrchestrator {
         broadcastPrivateState(rt);
         broadcastSpectatorState(rt);
         Mono<Void> finish = rt.state().finished() ? finishGame(rt) : Mono.empty();
-        return appendAndBroadcast.then(finish);
+        Mono<Void> clock = rt.tournament ? persistTournamentClock(rt.roomId) : Mono.empty();
+        return appendAndBroadcast.then(clock).then(finish);
     }
 
     @SuppressWarnings("unchecked")
@@ -821,6 +1111,14 @@ public class GameOrchestrator {
 
     private void rescheduleTimer(RoomRuntime rt) {
         String phase = rt.state().phase();
+        // Word Bluff's describer needs the full turn after a category is
+        // chosen. Waiting in the lobby or looking at an unspun wheel must
+        // not consume the 60-second describing clock.
+        if ("wordbluff".equals(rt.module().gameType()) && "Turn".equals(phase)
+                && !Boolean.TRUE.equals(rt.module().broadcastState(rt.state()).data().get("clockStarted"))) {
+            rt.cancelTimer();
+            return;
+        }
         if (phase.equals(rt.timerForPhase) && rt.state().round() == rt.timerForRound) {
             return;
         }
@@ -838,7 +1136,7 @@ public class GameOrchestrator {
         // A phase that starts paused suspends the room the moment it's
         // entered — the clock below is banked rather than started, and only
         // a player resuming releases it. See Phase.awaitingResume.
-        if (definition != null && definition.startsPaused() && !rt.paused) {
+        if (definition != null && definition.startsPaused() && !rt.paused && !rt.tournament) {
             rt.paused = true;
             rt.bus.tryEmitNext(new LobbyBroadcast("GAME_PAUSED",
                     Map.of("reason", "grace", "phase", phase, "secondsLeft", secs)));
@@ -866,12 +1164,20 @@ public class GameOrchestrator {
     private Mono<Void> finishGame(RoomRuntime rt) {
         var win = rt.module().checkWinCondition(rt.state()).orElse(null);
         Mono<Void> saveResult = win == null ? Mono.empty()
-                : resultRows.save(GameResultRow.of(rt.gameSessionId, win.winningSide(), writeJson(win.perPlayerOutcome()))).then();
-        Mono<Void> flushEvents = eventLog.replayAfter(rt.roomId, 0)
-                .index()
-                .concatMap(t -> Mono.fromCallable(() -> mapper.readValue(t.getT2(), GameEvent.class))
-                        .flatMap(ge -> eventRows.save(GameEventRow.of(rt.gameSessionId, ge.seq(), ge.type(),
-                                writeJson(ge.payload()), ge.visibility().scope(), ge.visibility().key()))))
+                : (rt.tournament ? resultRows.findByGameSessionId(rt.gameSessionId).hasElement()
+                        .flatMap(exists -> exists ? Mono.empty()
+                                : resultRows.save(GameResultRow.of(rt.gameSessionId, win.winningSide(),
+                                        writeJson(win.perPlayerOutcome()))).then())
+                        : resultRows.save(GameResultRow.of(rt.gameSessionId, win.winningSide(),
+                                writeJson(win.perPlayerOutcome()))).then());
+        Flux<GameEvent> gameEvents = rt.tournament ? Flux.fromIterable(rt.state().events())
+                : eventLog.replayAfter(rt.roomId, 0)
+                    .flatMap(json -> Mono.fromCallable(() -> mapper.readValue(json, GameEvent.class)));
+        Mono<Void> flushEvents = gameEvents
+                .concatMap(ge -> (rt.tournament ? eventRows.findByGameSessionIdAndSeq(rt.gameSessionId, ge.seq()).hasElement()
+                        : Mono.just(false)).flatMap(exists -> exists ? Mono.empty()
+                        : eventRows.save(GameEventRow.of(rt.gameSessionId, ge.seq(), ge.type(),
+                                writeJson(ge.payload()), ge.visibility().scope(), ge.visibility().key())).then()))
                 .then();
         Mono<Void> endSession = sessions.findById(rt.gameSessionId)
                 .flatMap(s -> sessions.save(new GameSessionRow(s.id(), s.roomId(), s.gameType(), s.config(), s.configPresetId(),
@@ -882,14 +1188,17 @@ public class GameOrchestrator {
         Mono<Void> coinRewards = win == null ? Mono.empty() : awardCoins(rt, win.perPlayerOutcome());
         Mono<Void> stakePayout = win == null ? Mono.empty()
                 : rooms.findById(rt.roomId).flatMap(room -> payoutStake(room, win.perPlayerOutcome())).then();
-        return saveResult.then(flushEvents).then(endSession).then(endRoom).then(stats).then(coinRewards).then(stakePayout);
+        Mono<Void> tournament = championships == null || win == null ? Mono.empty()
+                : championships.gameFinished(rt.roomId, rt.gameSessionId, win.perPlayerOutcome());
+        return saveResult.then(flushEvents).then(endSession).then(endRoom).then(stats).then(coinRewards)
+                .then(stakePayout).then(tournament);
     }
 
     /**
      * The staked pot (stake × player count) splits evenly among winners —
      * "won" and "tied" both count as a winner here (a module reports "tied"
-     * for a genuine joint win, e.g. Goosi's shared high score; Draughts has
-     * no draw outcome, so its pot always goes to the one winner). A no-op
+     * for a genuine joint win, e.g. Goosi's shared high score or an agreed
+     * Draughts draw). A no-op
      * for an unstaked room ({@code stakeCoins == 0}), and never blocks or
      * undoes the participation-coin rewards above if it fails.
      */

@@ -16,7 +16,9 @@ backend/**/target/
 .env
 *.local.json
 *.local.md
+*.local
 !.env.example
+infra/keys/
 
 # Flutter
 app/.dart_tool/
@@ -34,3 +36,7 @@ app/lib/core/contract/generated/
 
 # Claude local settings
 .claude/settings.local.json
+
+# Built release artifacts — regenerated per release, served straight to the
+# VPS via rsync (see infra/deploy-access.local.md), never committed.
+website/downloads/

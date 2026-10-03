@@ -6,6 +6,7 @@ import 'core/models.dart';
 import 'features/shell/main_shell.dart';
 import 'features/lobby/joined_room_screen.dart';
 import 'features/onboarding/welcome_screen.dart';
+import 'features/draughts/championships_screen.dart';
 import 'theme/neon_theme.dart';
 import 'widgets/neon.dart';
 
@@ -25,7 +26,7 @@ class TrueArenaApp extends StatelessWidget {
         builder: (context, _) {
           return MaterialApp(
             navigatorKey: navigatorKey,
-            title: 'Topskul',
+            title: 'PlayHuud',
             debugShowCheckedModeBanner: false,
             theme: switch (state.visualTheme) {
               VisualTheme.palmWine => NeonTheme.light,
@@ -39,8 +40,17 @@ class TrueArenaApp extends StatelessWidget {
             },
             themeMode: state.themeMode,
             home: state.identity != Identity.anonymous
-                ? const MainShell()
+                ? _ResumeGate(state: state)
                 : const WelcomeScreen(),
+            onGenerateRoute: (settings) {
+              final match = RegExp(r'^/championships/([A-HJ-NP-Z2-9]{8})$', caseSensitive: false)
+                  .firstMatch(settings.name ?? '');
+              if (match == null) return null;
+              final code = match.group(1)!.toUpperCase();
+              state.pendingChampionshipCode = code;
+              return MaterialPageRoute(builder: (_) => state.identity == Identity.anonymous
+                  ? const WelcomeScreen() : ChampionshipsScreen(inviteCode: code));
+            },
             builder: (context, child) {
               final content = _GameInviteOverlay(
                   state: state, child: child ?? const SizedBox.shrink());
@@ -81,8 +91,9 @@ class _GameInviteOverlayState extends State<_GameInviteOverlay> {
     'truearena': 'Traitors',
     'wordbluff': 'Word Bluff',
     'draughts': 'Draft',
-    'goosi': 'Goosi',
-    'whot': 'Whot'
+    'goosi': 'Oware',
+    'whot': 'Whot',
+    'ludo': 'Ludo',
   };
 
   Future<void> _join(Map<String, dynamic> invite) async {
@@ -92,6 +103,7 @@ class _GameInviteOverlayState extends State<_GameInviteOverlay> {
           '/rooms/join', {'code': invite['roomCode']}) as Map<String, dynamic>;
       widget.state.dismissGameInvite();
       final room = RoomView.fromJson(res);
+      await widget.state.rememberActiveRoom(room.id);
       TrueArenaApp.navigatorKey.currentState?.push(
           MaterialPageRoute(builder: (_) => JoinedRoomScreen(room: room)));
     } on ApiException catch (e) {
@@ -182,5 +194,102 @@ class _GameInviteOverlayState extends State<_GameInviteOverlay> {
         ),
       ),
     ]);
+  }
+}
+
+/// Restore the last live room after a process restart. The server decides
+/// whether it is still active; the saved room ID only tells us where to ask.
+class _ResumeGate extends StatefulWidget {
+  const _ResumeGate({required this.state});
+  final AppState state;
+
+  @override
+  State<_ResumeGate> createState() => _ResumeGateState();
+}
+
+class _ResumeGateState extends State<_ResumeGate> {
+  bool _checking = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _restore());
+  }
+
+  Future<void> _restore() async {
+    var roomId = widget.state.activeRoomId;
+    try {
+      if (roomId == null) {
+        // An older build may have a live game but no saved room ID yet.
+        final recovered = await widget.state.api.get('/rooms/active')
+            .timeout(const Duration(seconds: 5));
+        if (recovered is! Map) {
+          if (mounted) setState(() => _checking = false);
+          return;
+        }
+        roomId = recovered['id'] as String?;
+        if (roomId == null) {
+          if (mounted) setState(() => _checking = false);
+          return;
+        }
+      }
+      final raw = await widget.state.api.get('/rooms/$roomId') as Map<String, dynamic>;
+      final room = RoomView.fromJson(raw);
+      final isMember = room.members.any((member) => member.userId == widget.state.user?.id);
+      if (!isMember || (room.status != 'lobby' && room.status != 'in_game')) {
+        await widget.state.clearActiveRoom(roomId);
+        if (mounted) setState(() => _checking = false);
+        return;
+      }
+      await widget.state.rememberActiveRoom(room.id);
+      if (!mounted) return;
+      setState(() => _checking = false);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => JoinedRoomScreen(room: room)));
+        }
+      });
+    } on ApiException catch (error) {
+      if (error.status == 403 || error.status == 404) {
+        await widget.state.clearActiveRoom(roomId);
+        if (mounted) setState(() => _checking = false);
+      } else if (mounted) {
+        setState(() {
+          if (roomId == null) {
+            _checking = false;
+          } else {
+            _error = 'Could not check your game. Try again.';
+          }
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          if (roomId == null) {
+            _checking = false;
+          } else {
+            _error = 'Could not connect to your game. Try again.';
+          }
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_checking) return const MainShell();
+    return Scaffold(body: Center(child: _error == null
+        ? const CircularProgressIndicator()
+        : Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(_error!),
+            TextButton(onPressed: () {
+              setState(() => _error = null);
+              _restore();
+            }, child: const Text('Retry')),
+            TextButton(onPressed: () => setState(() => _checking = false),
+                child: const Text('Go to home')),
+          ])));
   }
 }

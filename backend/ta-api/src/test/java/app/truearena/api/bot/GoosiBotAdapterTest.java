@@ -19,16 +19,16 @@ class GoosiBotAdapterTest {
     private static final String PLAYER_A = "alice";
     private static final String BOT = "bot-1";
 
-    private List<Object> owner16(String a, String b) {
+    private List<Object> owners(String a, String b) {
         List<Object> out = new ArrayList<>();
-        for (int i = 0; i < 8; i++) out.add(a);
-        for (int i = 8; i < 16; i++) out.add(b);
+        for (int i = 0; i < 6; i++) out.add(a);
+        for (int i = 6; i < 12; i++) out.add(b);
         return out;
     }
 
-    private List<Object> pits16(int value) {
+    private List<Object> pits(int value) {
         List<Object> out = new ArrayList<>();
-        for (int i = 0; i < 16; i++) out.add(value);
+        for (int i = 0; i < 12; i++) out.add(value);
         return out;
     }
 
@@ -39,8 +39,9 @@ class GoosiBotAdapterTest {
     private GoosiBotAdapter gameStarted() {
         GoosiBotAdapter adapter = new GoosiBotAdapter();
         adapter.onFrame("EVENT", eventEnvelope("GAME_STARTED", Map.of(
-                "players", List.of(PLAYER_A, BOT), "owner", owner16(PLAYER_A, BOT),
-                "pits", pits16(4), "seedsPerPit", 4, "turnSeconds", 45)), BOT, Difficulty.MEDIUM);
+                "players", List.of(PLAYER_A, BOT), "owner", owners(PLAYER_A, BOT),
+                "pits", pits(4), "seedsPerPit", 4, "turnSeconds", 45,
+                "legalPits", List.of(0, 1, 2, 3, 4, 5))), BOT, Difficulty.MEDIUM);
         return adapter;
     }
 
@@ -125,7 +126,32 @@ class GoosiBotAdapterTest {
         Optional<PlayerAction> action = adapter.fallbackAction(BOT);
         assertThat(action).isPresent();
         int pit = (int) action.get().data().get("pit");
-        assertThat(pit).isBetween(8, 15); // bot owns 8-15
+        assertThat(pit).isBetween(6, 11); // bot owns the second row
+    }
+
+    @Test
+    void fallbackFeedsAnEmptyOpponentRowWhenPossible() {
+        GoosiBotAdapter adapter = new GoosiBotAdapter();
+        adapter.onFrame("EVENT", eventEnvelope("GAME_STARTED", Map.of(
+                "players", List.of(PLAYER_A, BOT), "owner", owners(PLAYER_A, BOT),
+                "pits", List.of(0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 6),
+                "seedsPerPit", 4, "turnSeconds", 45)), BOT, Difficulty.MEDIUM);
+
+        Optional<PlayerAction> action = adapter.fallbackAction(BOT);
+
+        assertThat(action).isPresent();
+        assertThat(action.get().data()).containsEntry("pit", 11);
+    }
+
+    @Test
+    void fallbackStopsWhenAnEmptyOpponentCannotBeFed() {
+        GoosiBotAdapter adapter = new GoosiBotAdapter();
+        adapter.onFrame("EVENT", eventEnvelope("GAME_STARTED", Map.of(
+                "players", List.of(PLAYER_A, BOT), "owner", owners(PLAYER_A, BOT),
+                "pits", List.of(0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0),
+                "seedsPerPit", 4, "turnSeconds", 45)), BOT, Difficulty.MEDIUM);
+
+        assertThat(adapter.fallbackAction(BOT)).isEmpty();
     }
 
     @Test
