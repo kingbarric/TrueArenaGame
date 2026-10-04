@@ -119,8 +119,6 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
   int _nextPieceId = 0;
   int _nextCapturedId = 0;
 
-  bool _micOn = false;
-  bool _micNoticeShown = false;
   ({int from, int to})? _lastMove;
   bool _replaying = false;
 
@@ -824,22 +822,6 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
     }
   }
 
-  /// Mic control lives outside the board, next to the timer and replay
-  /// button. Real player-to-player audio isn't wired up yet (see the class
-  /// doc) — same honest placeholder every other mic badge in this app uses
-  /// today — so this only flips the local icon and says so once per session.
-  void _toggleMic() {
-    setState(() => _micOn = !_micOn);
-    if (_micOn && !_micNoticeShown) {
-      _micNoticeShown = true;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text(
-                'Voice chat between players isn\'t connected yet — coming soon.')),
-      );
-    }
-  }
-
   /// Slides the last-moved piece back to where it came from, then forward
   /// again to where it landed — a quick instant replay of the most recent
   /// move, using the same animated slide a live move uses.
@@ -1349,8 +1331,8 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
                 _controlButton(Icons.help_outline_rounded, 'Rules', _showHelp)),
         const SizedBox(width: 5),
         Expanded(
-            child: _controlButton(
-                Icons.flag_rounded, 'Resign', _confirmForfeit)),
+            child:
+                _controlButton(Icons.flag_rounded, 'Resign', _confirmForfeit)),
       ]),
     );
   }
@@ -1370,7 +1352,8 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
             Text(label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Color(0xfff0d8a8), fontSize: 8.5)),
+                style:
+                    const TextStyle(color: Color(0xfff0d8a8), fontSize: 8.5)),
           ]),
         ),
       ),
@@ -1380,15 +1363,16 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
   /// Draughts has no real undo — like Macala's, this is a nudge to your
   /// opponent, not an action the server will act on.
   void _requestUndo() {
-    widget.socket.send(
-        'CHAT_SEND', {'channel': 'table', 'text': 'requests an undo.'});
+    widget.socket
+        .send('CHAT_SEND', {'channel': 'table', 'text': 'requests an undo.'});
     ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Request sent to your opponent.')));
   }
 
   void _offerOrAcceptDraw(bool pendingFromOpponent, bool offeredByMe) {
     if (pendingFromOpponent) {
-      widget.socket.send('PLAYER_ACTION', {'action': 'ACCEPT_DRAW', 'data': {}});
+      widget.socket
+          .send('PLAYER_ACTION', {'action': 'ACCEPT_DRAW', 'data': {}});
       return;
     }
     if (offeredByMe) {
@@ -1612,9 +1596,8 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
       child: Row(children: [
         _sideChip('A', playerA),
         const Spacer(),
-        // Mic, clock and replay sit here rather than on a rail of their own
-        // below the board — that rail cost a strip of height the board is
-        // better off having.
+        // Clock and replay sit here rather than on a rail of their own below
+        // the board. Voice is the single real control in the app bar.
         Column(mainAxisSize: MainAxisSize.min, children: [
           if (required > 0)
             const Text('MUST CAPTURE',
@@ -1639,13 +1622,6 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
                     letterSpacing: 0.4)),
           const SizedBox(height: 6),
           Row(mainAxisSize: MainAxisSize.min, children: [
-            _chromeButton(
-              icon: _micOn ? Icons.mic_rounded : Icons.mic_off_rounded,
-              active: _micOn,
-              tooltip: _micOn ? 'Mute mic' : 'Turn on mic',
-              onTap: _toggleMic,
-            ),
-            const SizedBox(width: 12),
             _timerDial(),
             const SizedBox(width: 12),
             _chromeButton(

@@ -769,7 +769,6 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
       joiningRoom = lk.Room();
       await joiningRoom.connect(
           raw['livekitUrl'] as String, raw['token'] as String);
-      await joiningRoom.localParticipant?.setMicrophoneEnabled(true);
       if (!mounted) {
         await joiningRoom.disconnect();
         joiningRoom.dispose();
@@ -777,13 +776,41 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
       }
       _voiceRoom = joiningRoom;
       joiningRoom.addListener(_onVoiceChanged);
+      final connectedRoom = joiningRoom;
+      joiningRoom = null;
+      var microphoneOn = false;
+      for (var attempt = 0; attempt < 2 && !microphoneOn; attempt++) {
+        try {
+          await connectedRoom.localParticipant?.setMicrophoneEnabled(true);
+          microphoneOn =
+              connectedRoom.localParticipant?.isMicrophoneEnabled() ?? false;
+        } catch (error, stack) {
+          if (attempt == 0) {
+            await Future<void>.delayed(const Duration(milliseconds: 350));
+          } else {
+            debugPrint('Whot voice microphone failed: $error\n$stack');
+          }
+        }
+      }
+      if (!mounted) {
+        await connectedRoom.disconnect();
+        connectedRoom.dispose();
+        return;
+      }
       setState(() => _voiceJoining = false);
       _onVoiceChanged();
+      if (!microphoneOn) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content:
+              Text('Voice connected. Tap the microphone again to turn it on.'),
+        ));
+      }
     } catch (e) {
       if (joiningRoom != null) {
         await joiningRoom.disconnect();
         joiningRoom.dispose();
       }
+      debugPrint('Whot voice connection failed: $e');
       if (!mounted) return;
       setState(() => _voiceJoining = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(

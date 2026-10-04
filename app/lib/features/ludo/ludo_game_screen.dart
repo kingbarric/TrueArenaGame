@@ -10,6 +10,8 @@ import '../../core/game_music.dart';
 import '../../core/game_sfx.dart';
 import '../../core/game_socket.dart';
 import '../../core/app_state.dart';
+import '../../widgets/copyable_huud_code.dart';
+import '../../widgets/game_voice_control.dart';
 import '../../widgets/how_to_play_dialog.dart';
 import '../../widgets/table_chat.dart';
 
@@ -588,11 +590,16 @@ class _LudoGameScreenState extends State<LudoGameScreen>
               const Text('LUDO', style: TextStyle(fontWeight: FontWeight.w900)),
               const SizedBox(width: 12),
               Flexible(
-                  child: Text('HUUD ${widget.roomCode}',
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 11, color: _gold)))
+                  child: CopyableHuudCode(
+                code: widget.roomCode,
+                child: Text('HUUD ${widget.roomCode}',
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 11, color: _gold)),
+              ))
             ]),
             actions: [
+              if (!widget.spectating && !_finished)
+                GameVoiceControl(roomId: widget.socket.roomId),
               IconButton(
                   tooltip: GameSfx.enabled
                       ? 'Mute sound effects'

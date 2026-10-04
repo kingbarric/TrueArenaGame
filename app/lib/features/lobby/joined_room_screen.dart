@@ -8,6 +8,7 @@ import '../../core/game_socket.dart';
 import '../../core/models.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/neon.dart';
+import '../../widgets/copyable_huud_code.dart';
 import '../draughts/draughts_game_screen.dart';
 import '../game/game_screen.dart';
 import '../goosi/goosi_game_screen.dart';
@@ -62,12 +63,21 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
     _socket = socket;
     _sub = socket.envelopes.listen((env) {
       switch (env['type']) {
+        case 'CONNECTION':
+          // A resume already knows from GET /rooms/{id} that the match is in
+          // progress. Hand the live socket to the game immediately, before its
+          // HELLO response arrives, so the game screen receives the first
+          // snapshot itself instead of briefly rendering an empty board.
+          final payload = (env['payload'] as Map?)?.cast<String, dynamic>();
+          if (payload?['connected'] == true && _room.status == 'in_game') {
+            _handOffToGame();
+          }
         case 'SNAPSHOT':
           final p = (env['payload'] as Map).cast<String, dynamic>();
           if (p['lobby'] == true) _applyLobbySnapshot(p);
-          if (p['lobby'] == false &&
-              (_room.gameType == 'whot' || _room.gameType == 'ludo'))
+          if (p['lobby'] == false) {
             _handOffToGame();
+          }
         case 'EVENT':
           socket.send('HELLO', {'lastSeq': 0});
         case 'PHASE':
@@ -207,18 +217,21 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
                               .labelSmall
                               ?.copyWith(color: n.mute, letterSpacing: 2)),
                       const SizedBox(height: 4),
-                      Text(_room.code,
-                          style: Theme.of(context)
-                              .textTheme
-                              .displayLarge
-                              ?.copyWith(
-                                  fontSize: 40,
-                                  letterSpacing: 6,
-                                  shadows: [
-                                Shadow(
-                                    color: n.gold.withValues(alpha: 0.4),
-                                    blurRadius: 30)
-                              ])),
+                      CopyableHuudCode(
+                        code: _room.code,
+                        child: Text(_room.code,
+                            style: Theme.of(context)
+                                .textTheme
+                                .displayLarge
+                                ?.copyWith(
+                                    fontSize: 40,
+                                    letterSpacing: 6,
+                                    shadows: [
+                                  Shadow(
+                                      color: n.gold.withValues(alpha: 0.4),
+                                      blurRadius: 30)
+                                ])),
+                      ),
                     ]),
               ),
             ),

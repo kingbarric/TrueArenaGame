@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -92,6 +93,28 @@ void main() {
     await tester.pump();
     return socket;
   }
+
+  testWidgets('tapping the huud code copies it and confirms', (tester) async {
+    String? copiedText;
+    tester.binding.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') {
+        copiedText = (call.arguments as Map)['text'] as String?;
+      }
+      return null;
+    });
+    addTearDown(() => tester.binding.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, null));
+    await open(tester);
+
+    await tester.tap(find.byKey(const ValueKey('copy-huud-code-7K3M')));
+    await tester.pump();
+
+    expect(copiedText, '7K3M');
+    expect(find.text('Copied'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpWidget(const SizedBox());
+  });
 
   testWidgets('two dice can move two different pieces in sequence',
       (tester) async {

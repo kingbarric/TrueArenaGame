@@ -7,6 +7,7 @@ import '../../core/game_socket.dart';
 import '../../core/models.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/invite_players_sheet.dart';
+import '../../widgets/copyable_huud_code.dart';
 import '../../widgets/cyber_agent_sheet.dart';
 import '../../widgets/neon.dart';
 import 'whot_game_screen.dart';
@@ -187,7 +188,10 @@ class _WhotLobbyScreenState extends State<WhotLobbyScreen> {
     // could have ended, or been replaced by a different one, while the
     // picker sheet was open.
     final current = _room;
-    if (choice == null || !mounted || current == null || current.id != room.id) {
+    if (choice == null ||
+        !mounted ||
+        current == null ||
+        current.id != room.id) {
       return;
     }
     setState(() => _addingBot = true);
@@ -447,8 +451,11 @@ class _WhotLobbyScreenState extends State<WhotLobbyScreen> {
         const Text('INVITE CODE'),
         Row(children: [
           Expanded(
-              child: Text(room.code,
-                  style: Theme.of(context).textTheme.headlineLarge)),
+              child: CopyableHuudCode(
+            code: room.code,
+            child: Text(room.code,
+                style: Theme.of(context).textTheme.headlineLarge),
+          )),
           IconButton(
               tooltip: 'Copy huud code',
               icon: const Icon(Icons.copy),

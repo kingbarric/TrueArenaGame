@@ -15,8 +15,8 @@ import 'api_client.dart';
 /// reconnect before an EVENT frame has ever arrived) still gets a full
 /// snapshot, since there's nothing to replay from yet.
 class GameSocket {
-  GameSocket._(this._api, this._roomId, this._spectate, this._baseUrl,
-      this._retryBase);
+  GameSocket._(
+      this._api, this._roomId, this._spectate, this._baseUrl, this._retryBase);
 
   final ApiClient _api;
   final String _roomId;
@@ -36,8 +36,23 @@ class GameSocket {
   int _attempt = 0;
   int _generation = 0;
   int _lastSeq = 0;
+  Map<String, dynamic>? _latestGameSnapshot;
 
-  Stream<Map<String, dynamic>> get envelopes => _controller.stream;
+  /// New game screens can attach after the lobby has already received the
+  /// first authoritative game snapshot. Replay that one frame to late
+  /// subscribers so the board never waits blank for a second network round
+  /// trip. Lobby snapshots are deliberately not cached: replaying one after a
+  /// game starts would make the game screen think the match disappeared.
+  Stream<Map<String, dynamic>> get envelopes => Stream.multi((listener) {
+        final sub = _controller.stream.listen(
+          listener.add,
+          onError: listener.addError,
+          onDone: listener.close,
+        );
+        final snapshot = _latestGameSnapshot;
+        if (snapshot != null) listener.add(snapshot);
+        listener.onCancel = sub.cancel;
+      }, isBroadcast: true);
   bool get isConnected => _connected && !_closed;
   int get lastSeq => _lastSeq;
   String get roomId => _roomId;
@@ -78,7 +93,10 @@ class GameSocket {
 
   void _status(bool connected) {
     if (!_closed && !_controller.isClosed) {
-      _controller.add({'type': 'CONNECTION', 'payload': {'connected': connected}});
+      _controller.add({
+        'type': 'CONNECTION',
+        'payload': {'connected': connected}
+      });
     }
   }
 
@@ -97,6 +115,10 @@ class GameSocket {
           final seq = (frame['payload'] as Map?)?['seq'] as num?;
           if (seq != null && seq.toInt() > _lastSeq) _lastSeq = seq.toInt();
         }
+        if (frame['type'] == 'SNAPSHOT' &&
+            (frame['payload'] as Map?)?['lobby'] == false) {
+          _latestGameSnapshot = frame;
+        }
         _controller.add(frame);
       } catch (_) {
         // A malformed frame must not terminate the room connection.
@@ -113,7 +135,8 @@ class GameSocket {
       _heartbeat?.cancel();
       _heartbeat = Timer.periodic(const Duration(seconds: 10), (_) {
         if (!_connected) return;
-        if (DateTime.now().difference(_lastPong!) > const Duration(seconds: 30)) {
+        if (DateTime.now().difference(_lastPong!) >
+            const Duration(seconds: 30)) {
           _lost(generation);
         } else {
           send('PING');
@@ -139,7 +162,9 @@ class GameSocket {
       } else if (payload['members'] is List) {
         onlinePlayers.value = (payload['members'] as List)
             .whereType<Map>()
-            .where((member) => member['connectionStatus'] == 'connected' || member['isBot'] == true)
+            .where((member) =>
+                member['connectionStatus'] == 'connected' ||
+                member['isBot'] == true)
             .map((member) => member['userId'].toString())
             .toSet();
       }

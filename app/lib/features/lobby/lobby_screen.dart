@@ -9,6 +9,7 @@ import '../../core/game_socket.dart';
 import '../../core/models.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/cyber_agent_sheet.dart';
+import '../../widgets/copyable_huud_code.dart';
 import '../../widgets/invite_players_sheet.dart';
 import '../../widgets/neon.dart';
 import '../game/game_screen.dart';
@@ -251,18 +252,21 @@ class _LobbyScreenState extends State<LobbyScreen> {
                                 .labelSmall
                                 ?.copyWith(color: n.mute, letterSpacing: 2)),
                         const SizedBox(height: 4),
-                        Text(room.code,
-                            style: Theme.of(context)
-                                .textTheme
-                                .displayLarge
-                                ?.copyWith(
-                                    fontSize: 40,
-                                    letterSpacing: 6,
-                                    shadows: [
-                                  Shadow(
-                                      color: n.gold.withValues(alpha: 0.4),
-                                      blurRadius: 30)
-                                ])),
+                        CopyableHuudCode(
+                          code: room.code,
+                          child: Text(room.code,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .displayLarge
+                                  ?.copyWith(
+                                      fontSize: 40,
+                                      letterSpacing: 6,
+                                      shadows: [
+                                    Shadow(
+                                        color: n.gold.withValues(alpha: 0.4),
+                                        blurRadius: 30)
+                                  ])),
+                        ),
                         const SizedBox(height: 8),
                         Wrap(spacing: 6, runSpacing: 6, children: [
                           _chip('${p.minPlayers}–${p.maxPlayers} players'),

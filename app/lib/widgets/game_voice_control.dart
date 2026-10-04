@@ -19,6 +19,22 @@ class _GameVoiceControlState extends State<GameVoiceControl> {
   bool _joining = false;
   bool _muted = false;
 
+  Future<bool> _enableMicrophone(livekit.Room room) async {
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        await room.localParticipant?.setMicrophoneEnabled(true);
+        return room.localParticipant?.isMicrophoneEnabled() ?? false;
+      } catch (error, stack) {
+        if (attempt == 0) {
+          await Future<void>.delayed(const Duration(milliseconds: 350));
+          continue;
+        }
+        debugPrint('Game voice microphone failed: $error\n$stack');
+      }
+    }
+    return false;
+  }
+
   @override
   void dispose() {
     final room = _room;
@@ -46,24 +62,42 @@ class _GameVoiceControlState extends State<GameVoiceControl> {
     livekit.Room? joining;
     try {
       if (!(await Permission.microphone.request()).isGranted) {
-        _message('Allow microphone access in iPhone Settings to use game voice');
+        _message(
+            'Allow microphone access in iPhone Settings to use game voice');
         return;
       }
-      final response = await api
-          .post('/calls/games/${widget.roomId}/token') as Map<String, dynamic>;
+      final response = await api.post('/calls/games/${widget.roomId}/token')
+          as Map<String, dynamic>;
       joining = livekit.Room();
-      await joining.connect(response['livekitUrl'] as String, response['token'] as String);
-      await joining.localParticipant?.setMicrophoneEnabled(true);
+      await joining.connect(
+          response['livekitUrl'] as String, response['token'] as String);
       if (!mounted) return;
-      setState(() {
-        _room = joining;
-        _muted = false;
-      });
+
+      // Connecting and publishing the microphone are separate operations.
+      // Keep a successful voice connection alive if iOS needs the user to tap
+      // once more before it can publish audio; previously that publish error
+      // fell into the outer catch and immediately disconnected the room.
+      final connectedRoom = joining;
+      _room = connectedRoom;
       joining = null;
+      final microphoneOn = await _enableMicrophone(connectedRoom);
+      if (!mounted) {
+        await connectedRoom.disconnect();
+        connectedRoom.dispose();
+        return;
+      }
+      setState(() {
+        _muted = !microphoneOn;
+      });
+      if (!microphoneOn) {
+        _message('Voice connected. Tap the microphone again to turn it on.');
+      }
     } on ApiException catch (error) {
       _message('Game voice: ${error.message}');
-    } catch (_) {
-      _message('Could not connect game voice. Check your connection and try again.');
+    } catch (error, stack) {
+      debugPrint('Game voice connection failed: $error\n$stack');
+      _message(
+          'Could not connect game voice. Check your connection and try again.');
     } finally {
       if (joining != null) {
         await joining.disconnect();
@@ -82,17 +116,27 @@ class _GameVoiceControlState extends State<GameVoiceControl> {
   }
 
   void _message(String text) {
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Row(mainAxisSize: MainAxisSize.min, children: [
       IconButton(
-        tooltip: _joining ? 'Connecting to game voice' : _room == null
-            ? 'Join game voice' : _muted ? 'Unmute microphone' : 'Mute microphone',
-        icon: Icon(_room == null ? Icons.mic_none_rounded
-            : _muted ? Icons.mic_off_rounded : Icons.mic_rounded),
+        tooltip: _joining
+            ? 'Connecting to game voice'
+            : _room == null
+                ? 'Join game voice'
+                : _muted
+                    ? 'Unmute microphone'
+                    : 'Mute microphone',
+        icon: Icon(_room == null
+            ? Icons.mic_none_rounded
+            : _muted
+                ? Icons.mic_off_rounded
+                : Icons.mic_rounded),
         onPressed: _joining ? null : _toggle,
       ),
       if (_room != null)

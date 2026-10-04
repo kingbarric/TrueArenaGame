@@ -13,6 +13,7 @@ import '../../widgets/fireworks.dart';
 import '../../widgets/neon.dart';
 import '../../widgets/table_chat.dart';
 import '../../widgets/game_voice_control.dart';
+import '../../widgets/copyable_huud_code.dart';
 import '../shell/main_shell.dart';
 import '../status/victory_status.dart';
 import '../onboarding/guest_save_session_card.dart';
@@ -872,9 +873,12 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
             if (!finished && widget.roomCode.isNotEmpty) ...[
               const SizedBox(width: 12),
               Flexible(
-                child: Text('HUUD ${widget.roomCode}',
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 11, color: _gold)),
+                child: CopyableHuudCode(
+                  code: widget.roomCode,
+                  child: Text('HUUD ${widget.roomCode}',
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 11, color: _gold)),
+                ),
               ),
             ],
           ]),
