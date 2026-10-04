@@ -76,7 +76,7 @@ class PushNotifications {
       onDidReceiveNotificationResponse: (response) {
         final payload = response.payload;
         if (payload == null) return;
-        _open((jsonDecode(payload) as Map).cast<String, dynamic>());
+        open((jsonDecode(payload) as Map).cast<String, dynamic>());
       },
     );
   }
@@ -158,7 +158,7 @@ class PushNotifications {
 
   /// The app was backgrounded, not killed — the navigator is already live,
   /// so this jumps straight there instead of stashing anything.
-  void _openNow(RemoteMessage message) => _open(message.data);
+  void _openNow(RemoteMessage message) => open(message.data);
 
   void _stashPending(Map<String, dynamic> data) {
     final type = data['type'];
@@ -170,7 +170,10 @@ class PushNotifications {
     // BROADCAST: no deep link — the app just opens normally.
   }
 
-  static Future<void> _open(Map<String, dynamic> data) async {
+  /// Routes a push/local-notification payload to its destination screen —
+  /// shared by the tap handlers above and the Notifications page, which
+  /// re-sends the same `data` a tapped history row originally carried.
+  static Future<void> open(Map<String, dynamic> data) async {
     final type = data['type'];
     if (type == 'NEW_MESSAGE' || type == 'GAME_INVITE') {
       final conversationId = data['conversationId'] as String?;

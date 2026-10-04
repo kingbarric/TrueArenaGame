@@ -3,6 +3,8 @@ package app.truearena.api.push;
 import app.truearena.api.inbox.InboxRegistry;
 import app.truearena.persistence.DeviceTokenRepository;
 import app.truearena.persistence.DeviceTokenRow;
+import app.truearena.persistence.UserNotificationRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.env.Environment;
 import org.springframework.web.server.ResponseStatusException;
@@ -30,9 +32,11 @@ import static org.mockito.Mockito.when;
 class PushNotificationServiceTest {
 
     private final DeviceTokenRepository tokens = mock(DeviceTokenRepository.class);
+    private final UserNotificationRepository history = mock(UserNotificationRepository.class);
     private final InboxRegistry inbox = mock(InboxRegistry.class);
     private final Environment environment = mock(Environment.class);
-    private final PushNotificationService service = new PushNotificationService(tokens, inbox, environment);
+    private final PushNotificationService service =
+            new PushNotificationService(tokens, history, inbox, new ObjectMapper(), environment);
 
     @Test
     void registerToken_rejectsAnUnknownPlatform() {

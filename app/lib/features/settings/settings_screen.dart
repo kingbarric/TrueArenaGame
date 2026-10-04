@@ -6,6 +6,7 @@ import '../../core/game_music.dart';
 import '../../core/game_sfx.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/neon.dart';
+import '../notifications/notifications_screen.dart';
 import '../onboarding/sign_out.dart';
 
 /// Reached by tapping the profile row on Home. Everything here is a
@@ -73,6 +74,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 22),
+            Text('NOTIFICATIONS',
+                style: Theme.of(context)
+                    .textTheme
+                    .labelLarge
+                    ?.copyWith(color: n.gold)),
+            const SizedBox(height: 12),
+            NeonCard(
+              onTap: () => Navigator.of(context)
+                  .push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
+              child: Row(children: [
+                Icon(Icons.notifications_outlined, color: n.mid),
+                const SizedBox(width: 12),
+                Expanded(
+                    child: Text('Notifications',
+                        style: Theme.of(context).textTheme.bodyMedium)),
+                Icon(Icons.chevron_right, color: n.mute, size: 20),
+              ]),
+            ),
+            const SizedBox(height: 28),
             Text('PROFILE ICON',
                 style: Theme.of(context)
                     .textTheme

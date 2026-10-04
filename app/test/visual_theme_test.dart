@@ -29,8 +29,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(state.visualTheme, VisualTheme.palmWine);
-    await tester.scrollUntilVisible(find.text('Nebula'), 250,
-        scrollable: find.byType(Scrollable).first);
+    await tester.ensureVisible(find.text('Nebula'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Nebula'));
     await tester.pumpAndSettle();
     expect(state.visualTheme, VisualTheme.nebula);

@@ -4,6 +4,9 @@ import app.truearena.api.support.ApiExceptions;
 import app.truearena.api.inbox.InboxRegistry;
 import app.truearena.persistence.DeviceTokenRepository;
 import app.truearena.persistence.DeviceTokenRow;
+import app.truearena.persistence.UserNotificationRepository;
+import app.truearena.persistence.UserNotificationRow;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.MessagingErrorCode;
@@ -43,15 +46,20 @@ public class PushNotificationService {
     private static final int MAX_TOKENS_PER_SEND = 500;
 
     private final DeviceTokenRepository tokens;
+    private final UserNotificationRepository history;
     private final InboxRegistry inbox;
+    private final ObjectMapper mapper;
     private final boolean local;
 
     @Autowired(required = false)
     private FirebaseMessaging messaging;
 
-    public PushNotificationService(DeviceTokenRepository tokens, InboxRegistry inbox, Environment environment) {
+    public PushNotificationService(DeviceTokenRepository tokens, UserNotificationRepository history,
+            InboxRegistry inbox, ObjectMapper mapper, Environment environment) {
         this.tokens = tokens;
+        this.history = history;
         this.inbox = inbox;
+        this.mapper = mapper;
         this.local = environment.acceptsProfiles(Profiles.of("local"));
     }
 
@@ -112,6 +120,7 @@ public class PushNotificationService {
 
     private boolean sendTo(List<DeviceTokenRow> rows, String title, String body, Map<String, String> data) {
         if (rows.isEmpty()) return true;
+        recordHistory(rows, title, body, data);
         if (messaging == null) {
             if (local) {
                 log.info("[PUSH-STUB] would send \"{}\" / \"{}\" to {} device(s)", title, body, rows.size());
@@ -151,5 +160,26 @@ public class PushNotificationService {
             }
         }
         return allBatchesAttempted;
+    }
+
+    /**
+     * One row per recipient, regardless of whether the device push itself
+     * succeeds — this feeds the in-app Notifications page, which is "you
+     * were notified of X" rather than "a device received X". Best-effort
+     * and fire-and-forget, same as everything else in this class: a
+     * history write failing must never affect whether the push is sent.
+     */
+    private void recordHistory(List<DeviceTokenRow> rows, String title, String body, Map<String, String> data) {
+        String type = data.getOrDefault("type", "GENERIC");
+        String dataJson;
+        try {
+            dataJson = mapper.writeValueAsString(data);
+        } catch (Exception e) {
+            dataJson = "{}";
+        }
+        String finalDataJson = dataJson;
+        rows.stream().map(DeviceTokenRow::userId).distinct().forEach(userId ->
+                history.save(UserNotificationRow.of(userId, type, title, body, finalDataJson))
+                        .subscribe(null, e -> log.warn("failed to record notification history: {}", e.toString())));
     }
 }
