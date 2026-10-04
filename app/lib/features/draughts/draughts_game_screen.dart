@@ -150,7 +150,14 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
     _sub = widget.socket.envelopes.listen(_onEnvelope);
     GameMusic.start(GameMusic.moodFor('draughts'));
     GameSfx.warmUp();
-    widget.socket.send('HELLO', {'lastSeq': widget.socket.lastSeq});
+    // Always 0, not widget.socket.lastSeq: this is this screen's very first
+    // listener on the socket, and by hand-off time the socket may already
+    // have seen events from the lobby-transition screen's own listener —
+    // forcing 0 guarantees the server's HELLO handler takes the full-
+    // snapshot branch instead of a replay-only one that can reply with
+    // nothing to replay and no board at all (the "board with no pieces
+    // until you leave and reopen" bug).
+    widget.socket.send('HELLO', {'lastSeq': 0});
     DraughtsThemeController.load().then((t) {
       if (!mounted) return;
       t.addListener(_onThemeChanged);
@@ -1252,14 +1259,18 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
               width: boardSide,
               height: boardSide + 2 * trayHeight,
               child: Stack(clipBehavior: Clip.none, children: [
+                // Top strip is the far tray (your opponent's) — it holds the
+                // count of your own men they've taken. Bottom is yours — the
+                // men you've captured from them, matching where those pieces
+                // actually fly to in _captureLanding.
                 Positioned(
                   top: 0,
                   width: boardSide,
                   height: trayHeight,
                   child: _captureTray(
-                      mySide == 'A' ? 'B' : 'A',
+                      mySide,
                       _capturedPieces
-                          .where((piece) => piece.side != mySide)
+                          .where((piece) => piece.side == mySide)
                           .length,
                       piecePalette),
                 ),
@@ -1268,9 +1279,9 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
                   width: boardSide,
                   height: trayHeight,
                   child: _captureTray(
-                      mySide,
+                      mySide == 'A' ? 'B' : 'A',
                       _capturedPieces
-                          .where((piece) => piece.side == mySide)
+                          .where((piece) => piece.side != mySide)
                           .length,
                       piecePalette),
                 ),
@@ -1309,8 +1320,85 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
           );
         }),
       ),
+      if (!_amSpectator) _actionBar(),
       if (widget.championshipId == null || !_amSpectator) _chatPanel(n),
     ]);
+  }
+
+  /// The same four-button row Macala gives its players — a request, an
+  /// offer, the rules, and a way out, always in reach below the board.
+  Widget _actionBar() {
+    final pendingFromOpponent =
+        _pendingDrawOffer != null && _pendingDrawOffer != widget.selfId;
+    final offeredByMe = _pendingDrawOffer == widget.selfId;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 0, 8, 6),
+      child: Row(children: [
+        Expanded(
+            child: _controlButton(
+                Icons.undo_rounded, 'Request undo', _requestUndo)),
+        const SizedBox(width: 5),
+        Expanded(
+            child: _controlButton(
+                Icons.handshake_rounded,
+                pendingFromOpponent ? 'Accept draw' : 'Offer draw',
+                () => _offerOrAcceptDraw(pendingFromOpponent, offeredByMe))),
+        const SizedBox(width: 5),
+        Expanded(
+            child:
+                _controlButton(Icons.help_outline_rounded, 'Rules', _showHelp)),
+        const SizedBox(width: 5),
+        Expanded(
+            child: _controlButton(
+                Icons.flag_rounded, 'Resign', _confirmForfeit)),
+      ]),
+    );
+  }
+
+  Widget _controlButton(IconData icon, String label, VoidCallback onTap) {
+    return Material(
+      color: const Color(0xff241708),
+      borderRadius: BorderRadius.circular(7),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(7),
+        onTap: onTap,
+        child: SizedBox(
+          height: 54,
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(icon, size: 19, color: const Color(0xffe0a94a)),
+            const SizedBox(height: 3),
+            Text(label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Color(0xfff0d8a8), fontSize: 8.5)),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  /// Draughts has no real undo — like Macala's, this is a nudge to your
+  /// opponent, not an action the server will act on.
+  void _requestUndo() {
+    widget.socket.send(
+        'CHAT_SEND', {'channel': 'table', 'text': 'requests an undo.'});
+    ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Request sent to your opponent.')));
+  }
+
+  void _offerOrAcceptDraw(bool pendingFromOpponent, bool offeredByMe) {
+    if (pendingFromOpponent) {
+      widget.socket.send('PLAYER_ACTION', {'action': 'ACCEPT_DRAW', 'data': {}});
+      return;
+    }
+    if (offeredByMe) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Waiting for your opponent to respond.')));
+      return;
+    }
+    widget.socket.send('PLAYER_ACTION', {'action': 'OFFER_DRAW', 'data': {}});
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Draw offered.')));
   }
 
   Offset _captureLanding(
@@ -1321,7 +1409,10 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
         .length;
     final spread = math.max(1, (boardSide - 68).floor());
     final x = 48.0 + ((index * 61) % spread);
-    final top = captured.side != mySide;
+    // A piece you captured is a trophy — it lands on *your* side (the tray
+    // nearest you), not your opponent's. Only a piece they took off you
+    // flies to their side instead.
+    final top = captured.side == mySide;
     final y = (top ? 4.0 : trayHeight + boardSide + 4.0) + ((index * 7) % 12);
     return Offset(x, y);
   }

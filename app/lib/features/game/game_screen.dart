@@ -168,7 +168,10 @@ class _GameScreenState extends State<GameScreen> {
     super.initState();
     _sub = widget.socket.envelopes.listen(_onEnvelope);
     GameMusic.start(GameMusic.moodFor('truearena'));
-    widget.socket.send('HELLO', {'lastSeq': widget.socket.lastSeq});
+    // Always 0 — see the comment on the equivalent call in
+    // draughts_game_screen.dart: reusing widget.socket.lastSeq here can
+    // make the server skip sending a full snapshot entirely.
+    widget.socket.send('HELLO', {'lastSeq': 0});
     _loadTimers();
   }
 

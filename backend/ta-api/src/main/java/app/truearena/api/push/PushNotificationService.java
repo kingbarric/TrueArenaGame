@@ -100,6 +100,7 @@ public class PushNotificationService {
     public Mono<Boolean> sendToAll(String title, String body) {
         return tokens.findAll()
                 .collectList()
+                .doOnError(e -> log.warn("sendToAll: looking up device tokens failed: {}", e.toString()))
                 // sendTo() makes a blocking Firebase Admin SDK call — without this,
                 // it runs on a WebFlux event-loop thread, and on a small box that can
                 // starve the very thread needed to write the result back afterward,

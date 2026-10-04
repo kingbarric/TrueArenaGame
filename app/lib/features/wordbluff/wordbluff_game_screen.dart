@@ -167,7 +167,10 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
     GameSfx.warmUp();
     _sub = widget.socket.envelopes.listen(_onEnvelope);
     GameMusic.start(GameMusic.moodFor('wordbluff'));
-    widget.socket.send('HELLO', {'lastSeq': widget.socket.lastSeq});
+    // Always 0 — see the comment on the equivalent call in
+    // draughts_game_screen.dart: reusing widget.socket.lastSeq here can
+    // make the server skip sending a full snapshot entirely.
+    widget.socket.send('HELLO', {'lastSeq': 0});
     WidgetsBinding.instance.addPostFrameCallback((_) => _syncVoiceListening());
   }
 

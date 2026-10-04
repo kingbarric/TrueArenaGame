@@ -173,7 +173,10 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
         });
       }
     });
-    _socket.send('HELLO', {'lastSeq': _socket.lastSeq});
+    // Always 0 — see the comment on the equivalent call in
+    // draughts_game_screen.dart: reusing _socket.lastSeq here can make the
+    // server skip sending a full snapshot entirely.
+    _socket.send('HELLO', {'lastSeq': 0});
   }
 
   void _receive(Map<String, dynamic> env) {

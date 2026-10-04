@@ -47,21 +47,18 @@ public class BroadcastSchedulerService {
      * to return, not for the fire-and-forget reactive chain inside
      * {@code PushNotificationService} to finish, so without an atomic claim
      * two overlapping ticks could both see the same row as "pending" and
-     * send it twice. A claim that affects 0 rows means another tick already
-     * has it — this one just skips it.
+     * send it twice. An empty claim means another tick already has it —
+     * this one just skips it.
      */
     private Mono<Void> claimAndSend(BroadcastNotificationRow b) {
-        return broadcasts.claim(b.id()).flatMap(claimed -> {
-            if (claimed == 0) return Mono.empty();
-            return push.sendToAll(b.title(), b.body())
-                    .flatMap(delivered -> broadcasts.save(delivered
-                            ? b.withStatus(BroadcastNotificationRow.SENT, Instant.now())
-                            : b.withStatus(BroadcastNotificationRow.FAILED, null)))
-                    .onErrorResume(e -> {
-                        log.warn("broadcast {} send failed: {}", b.id(), e.toString());
-                        return broadcasts.save(b.withStatus(BroadcastNotificationRow.FAILED, null));
-                    })
-                    .then();
-        });
+        return broadcasts.claim(b.id()).flatMap(claimed -> push.sendToAll(b.title(), b.body())
+                .flatMap(delivered -> broadcasts.save(delivered
+                        ? b.withStatus(BroadcastNotificationRow.SENT, Instant.now())
+                        : b.withStatus(BroadcastNotificationRow.FAILED, null)))
+                .onErrorResume(e -> {
+                    log.warn("broadcast {} send failed: {}", b.id(), e.toString());
+                    return broadcasts.save(b.withStatus(BroadcastNotificationRow.FAILED, null));
+                })
+                .then());
     }
 }

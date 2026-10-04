@@ -16,14 +16,20 @@ public interface BroadcastNotificationRepository extends ReactiveCrudRepository<
 
     /**
      * Atomically flips pending -> sending and reports whether this caller
-     * actually won the claim (1) or someone else already had it (0) — the
-     * WHERE clause and the row count come from one statement, same no-race
-     * pattern as {@code UserRepository.adjustCoins}. Needed because
-     * {@code @Scheduled(fixedDelay=...)} only waits for the *method* to
-     * return, not for a fire-and-forget reactive chain inside it to finish —
-     * so two ticks can otherwise both see the same row as still "pending".
+     * actually won the claim: a value means yes, empty means someone else
+     * already had it — the WHERE clause and the result come from one
+     * statement, same no-race pattern as {@code UserRepository.adjustCoins}.
+     * Needs {@code RETURNING} (unlike a plain UPDATE) because Spring Data
+     * R2DBC maps a query's return type from actual result *rows*, not the
+     * driver's separate rows-updated count — without it this always
+     * resolves empty, even when the UPDATE itself affected a row, which
+     * silently skipped every send (the "stuck in sending forever" bug).
+     * Needed because {@code @Scheduled(fixedDelay=...)} only waits for the
+     * *method* to return, not for a fire-and-forget reactive chain inside
+     * it to finish — so two ticks can otherwise both see the same row as
+     * still "pending".
      */
-    @Query("UPDATE broadcast_notifications SET status = 'sending' WHERE id = :id AND status = 'pending'")
+    @Query("UPDATE broadcast_notifications SET status = 'sending' WHERE id = :id AND status = 'pending' RETURNING 1")
     Mono<Long> claim(UUID id);
 
     /**

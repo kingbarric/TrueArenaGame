@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -69,8 +70,10 @@ class GameSfx {
   /// Picking a piece up.
   static void select() => _play('select');
 
-  /// Putting one down.
-  static void move() => _play('move');
+  /// Putting one down. Pitched up or down a little each time so a run of
+  /// moves reads as a sequence of distinct taps rather than one sound
+  /// looping — real drops never land quite the same way twice.
+  static void move() => _play('move', speed: 0.85 + _rng.nextDouble() * 0.3);
 
   /// A tap the board won't accept.
   static void illegal() => _play('illegal');
@@ -115,12 +118,17 @@ class GameSfx {
   /// so the two stay easy to tell apart by ear alone.
   static void cardDraw() => _play('card_draw');
 
-  static void _play(String name) {
+  static final _rng = Random();
+
+  static void _play(String name, {double? speed}) {
     if (!_enabled) return;
     final player = _players[name];
     if (player == null) return;
     // Rewind first so a repeated tap retriggers instead of being ignored,
     // and never await play() — it completes when the sound *finishes*.
-    unawaited(player.seek(Duration.zero).then((_) => player.play()).catchError((_) {}));
+    final ready = speed == null
+        ? player.seek(Duration.zero)
+        : player.setSpeed(speed).then((_) => player.seek(Duration.zero));
+    unawaited(ready.then((_) => player.play()).catchError((_) {}));
   }
 }
