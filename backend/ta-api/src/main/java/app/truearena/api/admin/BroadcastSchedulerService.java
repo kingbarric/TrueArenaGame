@@ -32,9 +32,12 @@ public class BroadcastSchedulerService {
 
     @Scheduled(fixedDelay = 15000)
     public void tick() {
-        broadcasts.findDue()
-                .concatMap(this::claimAndSend)
-                .then()
+        broadcasts.failStuckSending()
+                .onErrorResume(e -> {
+                    log.warn("broadcast stuck-sending sweep failed: {}", e.toString());
+                    return Mono.just(0L);
+                })
+                .then(broadcasts.findDue().concatMap(this::claimAndSend).then())
                 .subscribe(null, e -> log.warn("broadcast scheduler tick failed: {}", e.toString()));
     }
 

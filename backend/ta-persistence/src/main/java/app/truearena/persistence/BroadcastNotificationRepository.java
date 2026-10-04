@@ -26,5 +26,18 @@ public interface BroadcastNotificationRepository extends ReactiveCrudRepository<
     @Query("UPDATE broadcast_notifications SET status = 'sending' WHERE id = :id AND status = 'pending'")
     Mono<Long> claim(UUID id);
 
+    /**
+     * Self-healing for a claimed row whose send never finished — a crash or
+     * restart mid-send (or the blocking-call-on-the-wrong-thread bug this
+     * once hit) leaves a row parked at "sending" forever otherwise, since
+     * {@link #findDue()} only ever looks at "pending". Anything stuck for
+     * more than a couple of minutes (sends normally resolve in well under
+     * one) is marked failed so the admin can just re-send rather than it
+     * silently blocking that broadcast forever.
+     */
+    @Query("UPDATE broadcast_notifications SET status = 'failed' "
+            + "WHERE status = 'sending' AND created_at <= now() - interval '2 minutes'")
+    Mono<Long> failStuckSending();
+
     Flux<BroadcastNotificationRow> findTop50ByOrderByCreatedAtDesc();
 }

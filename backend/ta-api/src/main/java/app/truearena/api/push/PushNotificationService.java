@@ -100,6 +100,12 @@ public class PushNotificationService {
     public Mono<Boolean> sendToAll(String title, String body) {
         return tokens.findAll()
                 .collectList()
+                // sendTo() makes a blocking Firebase Admin SDK call — without this,
+                // it runs on a WebFlux event-loop thread, and on a small box that can
+                // starve the very thread needed to write the result back afterward,
+                // hanging the whole broadcast at "sending" forever instead of either
+                // succeeding or failing. See sendToUsers(), which already does this.
+                .publishOn(Schedulers.boundedElastic())
                 .map(rows -> sendTo(rows, title, body, Map.of("type", "BROADCAST")));
     }
 
