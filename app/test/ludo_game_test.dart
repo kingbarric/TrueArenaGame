@@ -250,6 +250,31 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('finished opponents occupy separate colored center wedges',
+      (tester) async {
+    final socket = await open(tester, size: const Size(320, 568));
+    socket.snapshot(players: [
+      'me',
+      'friend'
+    ], seats: [
+      0,
+      2
+    ], pieces: {
+      'me': [56, 56, -1, -1],
+      'friend': [56, -1, -1, -1],
+    });
+    await tester.pumpAndSettle();
+
+    final mine = tester.getCenter(find.byKey(const ValueKey('me:0')));
+    final mineSecond = tester.getCenter(find.byKey(const ValueKey('me:1')));
+    final opponent = tester.getCenter(find.byKey(const ValueKey('friend:0')));
+    expect(mine, isNot(mineSecond));
+    expect(mine, isNot(opponent));
+    expect(mine.dy, lessThan(opponent.dy));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('opponent dice remain visible and fade until the turn ends',
       (tester) async {
     final socket = await open(tester, size: const Size(320, 568));

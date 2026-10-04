@@ -90,6 +90,30 @@ class LudoModuleTest {
         assertThat(result.pieces().get("green").get(0)).isEqualTo(47);
     }
 
+    @Test void oppositeTwoPlayerSeatsCaptureWithFourOrEightPieces() {
+        LudoState four = start(2);
+        Map<String, List<Integer>> pieces = new LinkedHashMap<>(four.pieces());
+        // Red progress 14 and the opposite seat's progress 40 are both absolute square 14.
+        pieces.put("red", List.of(11, -1, -1, -1));
+        pieces.put("green", List.of(40, -1, -1, -1));
+        LudoState captured = act(state(four, pieces, List.of(3)), "red", "MOVE",
+                Map.of("die", 3, "token", 0));
+        assertThat(captured.pieces().get("green")).containsOnly(-1);
+        assertThat(captured.events().get(captured.events().size() - 2).payload().get("captured"))
+                .isEqualTo(List.of("green:0"));
+
+        LudoState eight = (LudoState) module.initialState(List.of("red", "green"),
+                new LudoConfig(60, 8), RandomSource.seeded(41));
+        pieces = new LinkedHashMap<>(eight.pieces());
+        pieces.put("red", List.of(-1, -1, -1, -1, -1, -1, -1, 11));
+        pieces.put("green", List.of(-1, -1, -1, -1, -1, -1, -1, 40));
+        captured = act(state(eight, pieces, List.of(3)), "red", "MOVE",
+                Map.of("die", 3, "token", 7));
+        assertThat(captured.pieces().get("green")).containsOnly(-1);
+        assertThat(captured.events().get(captured.events().size() - 2).payload().get("captured"))
+                .isEqualTo(List.of("green:7"));
+    }
+
     @Test void homeNeedsExactRollAndTimeoutSkipsRemainingDice() {
         Map<String, List<Integer>> pieces = new LinkedHashMap<>(start(2).pieces());
         pieces.put("red", List.of(54, 56, 56, 56));

@@ -859,6 +859,8 @@ class _LudoGameScreenState extends State<LudoGameScreen>
   Widget _token(String player, int seat, int token, int progress, double cell) {
     final pieceCount = (_state['pieceCount'] as num?)?.toInt() ?? 4;
     final (row, col) = _position(seat, token, progress, pieceCount);
+    final pieceScale = progress == 56 ? (pieceCount == 8 ? .32 : .46) : .78;
+    final pieceInset = (1 - pieceScale) / 2;
     final active = _myTurn &&
         player == widget.selfId &&
         _legal.any((m) => m['token'] == token);
@@ -866,10 +868,10 @@ class _LudoGameScreenState extends State<LudoGameScreen>
       key: ValueKey('$player:$token'),
       duration: const Duration(milliseconds: 420),
       curve: Curves.easeInOut,
-      left: (col + .11) * cell,
-      top: (row + .11) * cell,
-      width: cell * .78,
-      height: cell * .78,
+      left: (col + pieceInset) * cell,
+      top: (row + pieceInset) * cell,
+      width: cell * pieceScale,
+      height: cell * pieceScale,
       child: GestureDetector(
           onTap: () => _tapToken(player, token),
           child: Container(
@@ -929,7 +931,24 @@ class _LudoGameScreenState extends State<LudoGameScreen>
       final c = seat == 0 || seat == 3 ? 1.65 : 10.65;
       return (r + (token ~/ 2) * 2.05, c + (token % 2) * 2.05);
     }
-    if (progress == 56) return (7, 7);
+    if (progress == 56) {
+      final columns = pieceCount == 8 ? 4 : 2;
+      final across = token % columns;
+      final deep = token ~/ columns;
+      final spreadAcross = pieceCount == 8 ? .42 : .50;
+      final spreadDeep = pieceCount == 8 ? .34 : .46;
+      final cross = (across - (columns - 1) / 2) * spreadAcross;
+      final inward = (deep - .5) * spreadDeep;
+
+      // Keep completed pieces inside their own colored center wedge. Sharing
+      // one center coordinate made a legitimate finish look like a missed capture.
+      return switch (seat) {
+        0 => (6.15 + inward, 7.0 + cross),
+        1 => (7.0 + cross, 7.85 - inward),
+        2 => (7.85 - inward, 7.0 - cross),
+        _ => (7.0 - cross, 6.15 + inward),
+      };
+    }
     if (progress >= 51) {
       final step = progress - 50;
       return switch (seat) {
