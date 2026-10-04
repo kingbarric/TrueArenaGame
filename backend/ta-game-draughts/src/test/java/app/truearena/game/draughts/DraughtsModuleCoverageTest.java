@@ -311,4 +311,34 @@ class DraughtsModuleCoverageTest {
             assertThat(s.board[sq]).isEqualTo(Piece.A_MAN);
         }
     }
+
+    // ---------------------------------------------------------------- playersToAct (push turn reminders)
+
+    @Test
+    void playersToActIsWhoeverIsOnTurn() {
+        GameState s = fresh(1);
+        assertThat(module.playersToAct(s)).containsExactly(P1); // A moves first
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void playersToActSwitchesAfterAMove() {
+        DraughtsState s = (DraughtsState) fresh(1);
+        Map<String, Object> legal = (Map<String, Object>) module.broadcastState(s).data().get("legalMoves");
+        Map.Entry<String, Object> anyMove = legal.entrySet().iterator().next();
+        int from = Integer.parseInt(anyMove.getKey());
+        int to = (int) ((List<Integer>) anyMove.getValue()).get(0);
+        GameState afterMove = module.onPlayerAction(s, move(P1, from, to));
+        assertThat(module.playersToAct(afterMove)).containsExactly(P2);
+    }
+
+    @Test
+    void playersToActIsEmptyOnceFinished() {
+        DraughtsState s = customState(Map.of(
+                Board.squareOf(3, 4), Piece.A_MAN,
+                Board.squareOf(4, 5), Piece.B_MAN
+        ), DraughtsState.SIDE_A);
+        DraughtsState finished = (DraughtsState) module.onPlayerAction(s, move(s.playerA, Board.squareOf(3, 4), Board.squareOf(5, 6)));
+        assertThat(module.playersToAct(finished)).isEmpty();
+    }
 }

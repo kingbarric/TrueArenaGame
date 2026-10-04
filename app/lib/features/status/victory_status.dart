@@ -14,7 +14,7 @@ const gameStatusNames = {
   'ludo': 'Ludo',
   'wordbluff': 'Word Bluff',
   'draughts': 'Draft',
-  'goosi': 'Oware',
+  'goosi': 'Macala',
   'truearena': 'Traitors',
 };
 

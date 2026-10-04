@@ -4,6 +4,7 @@ import app.truearena.api.chat.ChatDtos.ConversationView;
 import app.truearena.api.chat.ChatDtos.MessageView;
 import app.truearena.api.friends.FriendDtos.FriendUserView;
 import app.truearena.api.inbox.InboxRegistry;
+import app.truearena.api.push.PushNotificationService;
 import app.truearena.api.support.ApiExceptions;
 import app.truearena.persistence.ConversationRepository;
 import app.truearena.persistence.ConversationRow;
@@ -52,10 +53,12 @@ public class ChatService {
     private final RoomMemberRepository roomMembers;
     private final UserRepository users;
     private final InboxRegistry inbox;
+    private final PushNotificationService push;
 
     public ChatService(ConversationRepository conversations, MessageRepository messages, FriendRepository friends,
                         GroupMemberRepository groupMembers, GroupRepository groups, RoomRepository rooms,
-                        RoomMemberRepository roomMembers, UserRepository users, InboxRegistry inbox) {
+                        RoomMemberRepository roomMembers, UserRepository users, InboxRegistry inbox,
+                        PushNotificationService push) {
         this.conversations = conversations;
         this.messages = messages;
         this.friends = friends;
@@ -65,6 +68,7 @@ public class ChatService {
         this.roomMembers = roomMembers;
         this.users = users;
         this.inbox = inbox;
+        this.push = push;
     }
 
     // ---------------------------------------------------------------- opening a conversation
@@ -186,14 +190,31 @@ public class ChatService {
                 .then();
     }
 
-    /** Fire-and-forget push to every other participant — never blocks the send, never fails it. */
+    /**
+     * Fire-and-forget push to every other participant — never blocks the
+     * send, never fails it. Everyone gets the live inbox frame if they're
+     * connected; anyone who isn't also gets an OS push (see
+     * {@link PushNotificationService#sendToUserIfOffline}).
+     */
     private void pushNewMessage(UUID conversationId, UUID senderId, MessageView view) {
-        participantIds(conversationId, senderId)
-                .doOnNext(recipient -> inbox.notify(recipient, Map.of(
-                        "type", "NEW_MESSAGE",
-                        "data", Map.of(
-                                "conversationId", conversationId.toString(),
-                                "message", view))))
+        boolean isInvite = MessageRow.GAME_INVITE.equals(view.kind());
+        Map<String, String> data = new java.util.HashMap<>(Map.of(
+                "type", isInvite ? "GAME_INVITE" : "NEW_MESSAGE",
+                "conversationId", conversationId.toString()));
+        if (view.roomId() != null) data.put("roomId", view.roomId().toString());
+        if (view.roomCode() != null) data.put("roomCode", view.roomCode());
+
+        users.findById(senderId).map(UserRow::displayName).defaultIfEmpty("Someone")
+                .flatMapMany(senderName -> participantIds(conversationId, senderId)
+                        .doOnNext(recipient -> {
+                            inbox.notify(recipient, Map.of(
+                                    "type", "NEW_MESSAGE",
+                                    "data", Map.of(
+                                            "conversationId", conversationId.toString(),
+                                            "message", view)));
+                            push.sendToUserIfOffline(recipient, senderName,
+                                    isInvite ? senderName + " sent you a game invite" : view.text(), data);
+                        }))
                 .subscribe();
     }
 

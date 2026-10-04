@@ -26,6 +26,11 @@ import java.util.UUID;
  *       ({@code {"roomName": "..."}}), sent by {@code CallScreen} when it
  *       connects to / leaves a LiveKit room — how the server learns who's
  *       currently on a call together.</li>
+ *   <li>Client → server: {@code APP_FOREGROUND}/{@code APP_BACKGROUND}
+ *       (no payload), sent by {@code AppState} on app lifecycle changes —
+ *       the socket itself often survives backgrounding for a while, so this
+ *       is how {@code InboxRegistry.isOnline} stays accurate for push
+ *       gating even while the socket is still technically connected.</li>
  *   <li>Server → client: {@code GAME_STARTING} frames, pushed to everyone
  *       on a call when one of them creates a room (see
  *       {@code RoomService.create}) — the "someone spun up a game, here's a
@@ -95,6 +100,8 @@ public class InboxWebSocketHandler implements WebSocketHandler {
                 registry.joinCall(userId, roomName);
             }
             case "CALL_LEFT" -> registry.leaveCall(userId);
+            case "APP_FOREGROUND" -> registry.setForeground(userId, true);
+            case "APP_BACKGROUND" -> registry.setForeground(userId, false);
             default -> log.debug("inbox: no handler for frame type {}", type);
         }
     }

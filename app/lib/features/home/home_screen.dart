@@ -154,10 +154,12 @@ class HomeScreen extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 22),
             child: LayoutBuilder(builder: (context, constraints) {
               final columns = constraints.maxWidth >= 330 ? 3 : 2;
-              final tileWidth = (constraints.maxWidth - (columns - 1) * 10) / columns;
+              final tileWidth =
+                  (constraints.maxWidth - (columns - 1) * 10) / columns;
               return Wrap(spacing: 10, runSpacing: 10, children: [
                 for (final game in gameCatalog)
-                  SizedBox(width: tileWidth, child: _gameTile(context, n, game)),
+                  SizedBox(
+                      width: tileWidth, child: _gameTile(context, n, game)),
               ]);
             }),
           ),

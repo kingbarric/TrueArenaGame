@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>com.apple.developer.applesignin</key>
+	<array>
+		<string>Default</string>
+	</array>
+	<!-- Release is what TestFlight/App Store archives build with, and those
+	     need the production APNs environment — Debug/Profile use
+	     Runner.entitlements (development) instead; see that file's comment. -->
+	<key>aps-environment</key>
+	<string>production</string>
+</dict>
+</plist>

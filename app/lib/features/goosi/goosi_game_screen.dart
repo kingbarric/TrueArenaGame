@@ -88,9 +88,16 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
   Future<void>? _sowAnimation;
   int _sowToken = 0;
 
+  /// Render keys keep the hand and capture flights anchored to the board the
+  /// player can actually see. The tray is vertically centred, so calculating
+  /// pit positions from the available screen height made the top hand float.
+  final GlobalKey _boardStackKey = GlobalKey();
+  final List<GlobalKey> _pitKeys = List.generate(12, (_) => GlobalKey());
+
   /// The pit the sowing hand is over right now, if a sowing is playing.
   int? _handPit;
   Color _handInk = const Color(0xffffd89a);
+  bool _handPressed = false;
 
   /// Seconds the current grace period runs once resumed.
   int _graceSeconds = 0;
@@ -395,11 +402,13 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
           if (!mounted) return;
           setState(() {
             for (final pit in captured) {
+              final capturedCount = pits[pit];
               pits[pit] = 0;
               _flights.add(_CaptureFlight(
                   id: _nextFlightId++,
                   pit: pit,
-                  owner: data['by']?.toString() ?? ''));
+                  owner: data['by']?.toString() ?? '',
+                  count: capturedCount));
             }
             scores = newScores;
           });
@@ -451,19 +460,22 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
     if (!mounted) return;
 
     final drops = laps.fold<int>(0, (n, lap) => n + lap.length);
-    final interval = drops > 8 ? 650 : 1100;
+    final interval = drops > 8 ? 420 : 560;
     // The hand sets off first and the seed lands as it arrives, so the two
     // read as one movement. Animating them in parallel had the seed appear
     // while the hand was still travelling.
-    _handTravel = Duration(milliseconds: (interval * 0.62).round());
+    _handTravel = Duration(milliseconds: (interval * 0.78).round());
     final dwell = Duration(milliseconds: interval - _handTravel.inMilliseconds);
 
     setState(() {
       pits[from] = 0; // the hand lifts the pit
       _handPit = from;
       _handInk = _inkFor(sower);
+      _handPressed = true;
     });
     GameSfx.scoop();
+    await Future.delayed(const Duration(milliseconds: 160));
+    if (!mounted || token != _sowToken) return;
 
     for (var lapIndex = 0; lapIndex < laps.length; lapIndex++) {
       final lap = laps[lapIndex];
@@ -472,13 +484,17 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
       for (var i = 0; i < lap.length; i++) {
         final pit = lap[i];
         // 1. the hand sets off for the next pit
-        setState(() => _handPit = pit);
+        setState(() {
+          _handPressed = false;
+          _handPit = pit;
+        });
         await Future.delayed(_handTravel);
         if (!mounted || token != _sowToken) return;
         // 2. it arrives, and the seed drops
         setState(() {
           pits[pit] = pits[pit] + 1;
           _pulsing.add(pit);
+          _handPressed = true;
         });
 
         final capturedPit = captures['$lapIndex:$i'];
@@ -489,7 +505,7 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
           setState(() {
             pits[capturedPit] = 0;
             _flights.add(_CaptureFlight(
-                id: _nextFlightId++, pit: capturedPit, owner: sower));
+                id: _nextFlightId++, pit: capturedPit, owner: sower, count: 4));
           });
           GameSfx.capture();
         } else if (lastLap && i == lap.length - 1) {
@@ -510,20 +526,31 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
       if (!lastLap) {
         // The last seed landed on a pit that still had seeds, so the hand
         // takes the whole pit and keeps going.
-        await Future.delayed(const Duration(milliseconds: 460));
+        await Future.delayed(const Duration(milliseconds: 220));
         if (!mounted || token != _sowToken) return;
         setState(() => pits[lap.last] = 0);
         GameSfx.scoop();
       }
     }
 
-    await Future.delayed(const Duration(milliseconds: 260));
+    await Future.delayed(const Duration(milliseconds: 180));
     if (mounted && token == _sowToken) setState(() => _handPit = null);
   }
 
   /// Where a pit sits, in the coordinates of the whole board area — the
   /// strips included, since captured stones fly out to them.
   Offset _pitSpot(int pit, BoxConstraints box, List<int> order, bool strips) {
+    final stackBox = _boardStackKey.currentContext?.findRenderObject();
+    final pitBox = _pitKeys[pit].currentContext?.findRenderObject();
+    if (stackBox is RenderBox &&
+        pitBox is RenderBox &&
+        stackBox.attached &&
+        pitBox.attached) {
+      final globalCenter =
+          pitBox.localToGlobal(pitBox.size.center(Offset.zero));
+      return stackBox.globalToLocal(globalCenter);
+    }
+
     final top = strips ? _stripHeight : 0.0;
     final trayHeight = box.maxHeight - (strips ? _stripHeight * 2 : 0);
     for (var row = 0; row < order.length; row++) {
@@ -565,16 +592,30 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
   Widget _handOverlay(
       int pit, BoxConstraints box, List<int> order, bool strips) {
     final spot = _pitSpot(pit, box, order, strips);
+    final rowPlayer = pit < owner.length ? owner[pit] : null;
+    final row =
+        order.indexWhere((playerIndex) => players[playerIndex] == rowPlayer);
+    final reachesFromTop = row >= 0 && row < order.length / 2;
     return AnimatedPositioned(
       duration: _handTravel,
-      curve: Curves.easeInOut,
-      left: spot.dx - 14,
-      top: spot.dy - 40,
+      curve: Curves.easeInOutCubic,
+      left: spot.dx - 18,
+      // Both hands now overlap the bowl. The far player's hand comes down
+      // from above; the near player's reaches up from below.
+      top: spot.dy + (reachesFromTop ? -28 : -8),
       child: IgnorePointer(
-        child: Icon(Icons.back_hand_rounded,
-            size: 28,
-            color: _handInk,
-            shadows: const [Shadow(color: Colors.black87, blurRadius: 8)]),
+        child: AnimatedScale(
+          duration: const Duration(milliseconds: 120),
+          curve: Curves.easeOutCubic,
+          scale: _handPressed ? 0.88 : 1,
+          child: Transform.rotate(
+            angle: reachesFromTop ? math.pi : 0,
+            child: Icon(Icons.back_hand_rounded,
+                size: 36,
+                color: _handInk,
+                shadows: const [Shadow(color: Colors.black87, blurRadius: 8)]),
+          ),
+        ),
       ),
     );
   }
@@ -598,9 +639,9 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
       },
       builder: (context, t, _) {
         return Stack(children: [
-          // The four stones leave together but land in sequence, so you can
-          // count them out as they arrive.
-          for (var i = 0; i < 4; i++)
+          // The captured stones leave together but land in sequence, so you
+          // can count the same two or three stones the rule just awarded.
+          for (var i = 0; i < flight.count; i++)
             _flyingStone(
                 from, to, ((t - i * 0.10) / 0.70).clamp(0.0, 1.0), stone, i),
         ]);
@@ -823,7 +864,7 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
         backgroundColor: _bg,
         appBar: AppBar(
           title: Row(children: [
-            Text(finished ? 'RESULTS' : 'OWARE',
+            Text(finished ? 'RESULTS' : 'MACALA',
                 style: const TextStyle(fontWeight: FontWeight.w900)),
             if (!finished && widget.roomCode.isNotEmpty) ...[
               const SizedBox(width: 12),
@@ -946,7 +987,7 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(2, 2, 2, 2),
           child: LayoutBuilder(
-            builder: (context, box) => Stack(children: [
+            builder: (context, box) => Stack(key: _boardStackKey, children: [
               Column(children: [
                 if (strips)
                   SizedBox(
@@ -1053,11 +1094,20 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
                       fontWeight: FontWeight.w900)),
               const SizedBox(height: 2),
               Text('${scores[playerId] ?? 0} CAPTURED',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                       color: _gold, fontSize: 10, fontWeight: FontWeight.w800)),
             ],
           ),
         ),
+        const SizedBox(width: 8),
+        _CapturedSeedsPile(
+          key: ValueKey('macala-captured-$playerId'),
+          count: scores[playerId] ?? 0,
+          stone: _theme?.stone ?? goosiStonePalettes.first,
+        ),
+        const SizedBox(width: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
@@ -1123,13 +1173,16 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
                 child: GestureDetector(
                   key: ValueKey('goosi-pit-$pit'),
                   onTap: isMe ? () => _tapPit(pit) : null,
-                  child: _PitBowl(
-                    palette: (_theme?.board ?? goosiBoardPalettes.first),
-                    stone: stone,
-                    seeds: pits[pit],
-                    tappable:
-                        isMe && myTurn && !_paused && legalPits.contains(pit),
-                    pulsing: _pulsing.contains(pit),
+                  child: SizedBox(
+                    key: _pitKeys[pit],
+                    child: _PitBowl(
+                      palette: (_theme?.board ?? goosiBoardPalettes.first),
+                      stone: stone,
+                      seeds: pits[pit],
+                      tappable:
+                          isMe && myTurn && !_paused && legalPits.contains(pit),
+                      pulsing: _pulsing.contains(pit),
+                    ),
                   ),
                 ),
               ),
@@ -1217,7 +1270,7 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Oware rules'),
+        title: const Text('Macala rules'),
         content: const Text(
             'Choose one of your six houses and sow every seed counter-clockwise. '
             'If the final seed leaves 2 or 3 seeds in an opponent house, capture '
@@ -1370,10 +1423,97 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
 /// Four stones on their way from a captured pit to a player's store.
 class _CaptureFlight {
   const _CaptureFlight(
-      {required this.id, required this.pit, required this.owner});
+      {required this.id,
+      required this.pit,
+      required this.owner,
+      required this.count});
   final int id;
   final int pit;
   final String owner;
+  final int count;
+}
+
+/// A shallow well outside the board that keeps captured seeds visible. The
+/// exact score remains beside the player's name; this pile makes captures
+/// feel physical and gives the flight animation somewhere real to land.
+class _CapturedSeedsPile extends StatelessWidget {
+  const _CapturedSeedsPile(
+      {super.key, required this.count, required this.stone});
+
+  final int count;
+  final GoosiStonePalette stone;
+
+  @override
+  Widget build(BuildContext context) {
+    final drawn = math.min(count, 15);
+    return Container(
+      width: 72,
+      height: 44,
+      decoration: BoxDecoration(
+        color: const Color(0xff120916),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+        boxShadow: const [
+          BoxShadow(color: Colors.black54, blurRadius: 5, offset: Offset(0, 2)),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(22),
+        child: Stack(children: [
+          for (var i = 0; i < drawn; i++)
+            Positioned(
+              left: 7 + (i % 6) * 9.5 + (i ~/ 6) * 2,
+              top: 7 + (i ~/ 6) * 9.5 + (i.isOdd ? 2 : 0),
+              child: _CapturedSeed(stone: stone, index: i),
+            ),
+          if (count == 0)
+            const Center(
+              child: Text('EMPTY',
+                  style: TextStyle(
+                      color: Colors.white24,
+                      fontSize: 8,
+                      fontWeight: FontWeight.w800)),
+            ),
+          if (count > drawn)
+            Positioned(
+              right: 4,
+              bottom: 3,
+              child: Text('+${count - drawn}',
+                  style: const TextStyle(
+                      color: Color(0xffffcf66),
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900)),
+            ),
+        ]),
+      ),
+    );
+  }
+}
+
+class _CapturedSeed extends StatelessWidget {
+  const _CapturedSeed({required this.stone, required this.index});
+
+  final GoosiStonePalette stone;
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = _seedColors(stone, index);
+    return Container(
+      width: 13,
+      height: 13,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+            colors: [colors.top, colors.mid],
+            center: const Alignment(-0.35, -0.45)),
+        border: Border.all(color: colors.rim, width: 0.8),
+        boxShadow: const [
+          BoxShadow(color: Colors.black54, blurRadius: 2, offset: Offset(0, 1)),
+        ],
+      ),
+    );
+  }
 }
 
 /// A player's captured stones, shown as stones rather than a bare number —

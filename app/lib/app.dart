@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'core/api_client.dart';
 import 'core/app_state.dart';
 import 'core/models.dart';
+import 'core/push_notifications.dart';
 import 'features/shell/main_shell.dart';
 import 'features/lobby/joined_room_screen.dart';
 import 'features/onboarding/welcome_screen.dart';
@@ -91,7 +92,7 @@ class _GameInviteOverlayState extends State<_GameInviteOverlay> {
     'truearena': 'Traitors',
     'wordbluff': 'Word Bluff',
     'draughts': 'Draft',
-    'goosi': 'Oware',
+    'goosi': 'Macala',
     'whot': 'Whot',
     'ludo': 'Ludo',
   };
@@ -218,6 +219,24 @@ class _ResumeGateState extends State<_ResumeGate> {
   }
 
   Future<void> _restore() async {
+    // A cold-start notification tap (see PushNotifications) wins over the
+    // ordinary "resume whatever game I was last in" flow below — the player
+    // tapped something specific, that's where they meant to go.
+    final pendingConversation = widget.state.pendingConversationId;
+    if (pendingConversation != null) {
+      widget.state.pendingConversationId = null;
+      if (mounted) setState(() => _checking = false);
+      await PushNotifications.openConversation(pendingConversation);
+      return;
+    }
+    final pendingRoom = widget.state.pendingRoomId;
+    if (pendingRoom != null) {
+      widget.state.pendingRoomId = null;
+      if (mounted) setState(() => _checking = false);
+      await PushNotifications.openRoom(pendingRoom);
+      return;
+    }
+
     var roomId = widget.state.activeRoomId;
     try {
       if (roomId == null) {

@@ -356,6 +356,13 @@ public final class GoosiModule implements GameModule {
     }
 
     @Override
+    public java.util.Set<String> playersToAct(GameState state) {
+        GoosiState s = (GoosiState) state;
+        if (s.finished()) return java.util.Set.of();
+        return java.util.Set.of(s.players.get(s.turnIndex));
+    }
+
+    @Override
     public PlayerVisibleState visibleStateFor(GameState state, String playerId) {
         return new PlayerVisibleState(commonView((GoosiState) state));
     }

@@ -214,6 +214,12 @@ public final class LudoModule implements GameModule {
         return s.finished() ? Optional.of(s.winResult()) : Optional.empty();
     }
 
+    @Override public java.util.Set<String> playersToAct(GameState state) {
+        LudoState s = (LudoState) state;
+        if (s.finished() || s.eliminated().contains(s.turnPlayer())) return java.util.Set.of();
+        return java.util.Set.of(s.turnPlayer());
+    }
+
     @Override public PlayerVisibleState visibleStateFor(GameState state, String playerId) {
         return new PlayerVisibleState(view((LudoState) state));
     }

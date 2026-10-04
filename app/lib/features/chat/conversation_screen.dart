@@ -54,7 +54,7 @@ const _gameNames = {
   'truearena': 'Traitors',
   'wordbluff': 'Word Bluff',
   'draughts': 'Draft',
-  'goosi': 'Oware',
+  'goosi': 'Macala',
   'ludo': 'Ludo'
 };
 

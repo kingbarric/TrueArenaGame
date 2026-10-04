@@ -1,0 +1,285 @@
+<title>PlayHuud Broadcasts</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#16100f; --panel:#241517; --plate:#1d1213; --line:#3a2429;
+    --ink:#f6eae3; --mid:#d6bfb6; --mute:#9c8078;
+    --gold:#d9a441; --brand:#c02b52; --jade:#7fcfa0;
+    --on-accent:#1b0e10;
+    --font-display:'Baloo 2',system-ui,sans-serif;
+    --font-body:'Archivo',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{
+    background:var(--bg); color:var(--ink); font-family:var(--font-body);
+    margin:0; padding:0 20px 60px; min-height:100vh;
+  }
+  h1,h2{font-family:var(--font-display); margin:0; text-wrap:balance}
+  ::selection{background:var(--brand); color:var(--ink)}
+
+  /* ---------- gate ---------- */
+  #gate{min-height:100vh; display:flex; align-items:center; justify-content:center}
+  #gate .card{
+    background:var(--panel); border:1px solid var(--line); border-radius:16px;
+    padding:36px 40px; width:min(360px,90vw); text-align:center;
+  }
+  #gate h1{font-size:22px; margin-bottom:6px}
+  #gate p{color:var(--mute); font-size:13px; margin:0 0 20px}
+  #gate input{
+    width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--line);
+    background:var(--plate); color:var(--ink); font-family:var(--font-body); font-size:14px;
+    margin-bottom:12px; letter-spacing:1px;
+  }
+  #gate input:focus{outline:2px solid var(--gold)}
+  #gate button, .btn{
+    padding:12px 14px; border-radius:10px; border:none; cursor:pointer;
+    background:var(--gold); color:var(--on-accent); font-family:var(--font-body); font-weight:700;
+    font-size:14px;
+  }
+  #gate button{width:100%}
+  #gate .err{color:var(--brand); font-size:13px; min-height:18px; margin-top:8px}
+
+  /* ---------- layout ---------- */
+  #dash{max-width:720px; margin:0 auto; display:none}
+  header.top{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:28px 0 18px; position:sticky; top:0; background:var(--bg); z-index:5;
+    border-bottom:1px solid var(--line);
+  }
+  header.top .brand{display:flex; align-items:center; gap:10px}
+  header.top .brand .dot{width:10px; height:10px; border-radius:50%; background:var(--jade)}
+  header.top h1{font-size:20px}
+  .iconbtn{
+    background:var(--panel); border:1px solid var(--line); color:var(--mid);
+    border-radius:8px; padding:8px 14px; font-family:var(--font-body); font-size:13px;
+    cursor:pointer;
+  }
+  .iconbtn:hover{border-color:var(--gold); color:var(--ink)}
+
+  section{margin-top:28px}
+  section > h2{font-size:15px; text-transform:uppercase; letter-spacing:.06em; color:var(--mute); margin-bottom:14px}
+
+  /* ---------- composer ---------- */
+  .composer{
+    background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:20px;
+    display:flex; flex-direction:column; gap:12px;
+  }
+  .composer label{font-size:12px; color:var(--mute); margin-bottom:-6px}
+  .composer input[type=text], .composer textarea, .composer input[type=datetime-local]{
+    width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--line);
+    background:var(--plate); color:var(--ink); font-family:var(--font-body); font-size:14px;
+  }
+  .composer textarea{resize:vertical; min-height:70px}
+  .composer input:focus, .composer textarea:focus{outline:2px solid var(--gold)}
+  .composer .row{display:flex; gap:12px; align-items:flex-end}
+  .composer .row > div{flex:1}
+  .composer .hint{font-size:12px; color:var(--mute)}
+  .composer .err{color:var(--brand); font-size:13px; min-height:16px}
+  .composer .ok{color:var(--jade); font-size:13px; min-height:16px}
+
+  /* ---------- list ---------- */
+  .bcast{
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:14px 16px; margin-bottom:10px; display:flex; align-items:center; gap:12px;
+  }
+  .bcast .body{flex:1; min-width:0}
+  .bcast .title{font-weight:700; margin-bottom:2px}
+  .bcast .text{color:var(--mid); font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .bcast .meta{color:var(--mute); font-size:12px; margin-top:4px}
+  .pill{
+    font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em;
+    padding:3px 9px; border-radius:999px; flex:none;
+  }
+  .pill.pending{background:rgba(217,164,65,.18); color:var(--gold)}
+  .pill.sent{background:rgba(127,207,160,.18); color:var(--jade)}
+  .pill.failed{background:rgba(192,43,82,.18); color:var(--brand)}
+  .cancelbtn{
+    background:transparent; border:1px solid var(--line); color:var(--mute);
+    border-radius:8px; padding:6px 10px; font-size:12px; cursor:pointer; flex:none;
+  }
+  .cancelbtn:hover{border-color:var(--brand); color:var(--brand)}
+  .empty{color:var(--mute); font-size:13px; padding:20px 0; text-align:center}
+</style>
+
+<div id="gate">
+  <div class="card">
+    <h1>PlayHuud Broadcasts</h1>
+    <p>Internal push-notification composer. Enter the admin key to continue.</p>
+    <input id="keyInput" type="password" placeholder="Admin key" autocomplete="off">
+    <button id="unlockBtn">Unlock</button>
+    <div class="err" id="gateErr"></div>
+  </div>
+</div>
+
+<div id="dash">
+  <header class="top">
+    <div class="brand">
+      <span class="dot"></span>
+      <h1>PlayHuud Broadcasts</h1>
+    </div>
+    <div class="actions">
+      <button class="iconbtn" id="refreshBtn">Refresh</button>
+      <button class="iconbtn" id="lockBtn">Lock</button>
+    </div>
+  </header>
+
+  <section>
+    <h2>New broadcast</h2>
+    <div class="composer">
+      <label for="titleInput">Title</label>
+      <input id="titleInput" type="text" maxlength="80" placeholder="Want to have fun with friends tonight?">
+      <label for="bodyInput">Body</label>
+      <textarea id="bodyInput" maxlength="240" placeholder="Jump into a huud and challenge someone right now."></textarea>
+      <div class="row">
+        <div>
+          <label for="whenInput">Send time (leave blank for right now)</label>
+          <input id="whenInput" type="datetime-local">
+        </div>
+        <div>
+          <label for="byInput">Your name (optional, for the list below)</label>
+          <input id="byInput" type="text" maxlength="40" placeholder="e.g. Eric">
+        </div>
+      </div>
+      <div class="hint">Sends to every registered device once — every signed-in user, online or not.</div>
+      <button class="btn" id="sendBtn">Create broadcast</button>
+      <div class="err" id="composeErr"></div>
+      <div class="ok" id="composeOk"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Recent</h2>
+    <div id="list"></div>
+  </section>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var KEY_STORAGE = "playhuud_admin_key";
+
+  function esc(s){
+    return (s==null?"":String(s)).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+  function fmtDate(iso){
+    if(!iso) return "now";
+    var d = new Date(iso);
+    return d.toLocaleDateString(undefined,{month:"short",day:"numeric"}) + " " +
+           d.toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit"});
+  }
+
+  function getKey(){ try { return localStorage.getItem(KEY_STORAGE) || ""; } catch(e){ return ""; } }
+  function setKey(k){ try { localStorage.setItem(KEY_STORAGE, k); } catch(e){} }
+  function clearKey(){ try { localStorage.removeItem(KEY_STORAGE); } catch(e){} }
+
+  function api(path, options){
+    options = options || {};
+    var headers = Object.assign({ "X-Admin-Key": getKey() }, options.headers || {});
+    return fetch(path, Object.assign({}, options, { headers: headers })).then(function(res){
+      if(res.status === 401){
+        clearKey();
+        showGate("Key rejected — try again.");
+        throw new Error("unauthorized");
+      }
+      if(!res.ok) return res.text().then(function(t){ throw new Error(t || ("request failed: " + res.status)); });
+      return res.status === 204 ? null : res.json();
+    });
+  }
+
+  function showGate(err){
+    document.getElementById("dash").style.display = "none";
+    document.getElementById("gate").style.display = "flex";
+    document.getElementById("gateErr").textContent = err || "";
+  }
+  function showDash(){
+    document.getElementById("gate").style.display = "none";
+    document.getElementById("dash").style.display = "block";
+  }
+
+  function unlock(){
+    var k = document.getElementById("keyInput").value.trim();
+    if(!k){ document.getElementById("gateErr").textContent = "Enter a key."; return; }
+    setKey(k);
+    document.getElementById("gateErr").textContent = "";
+    boot();
+  }
+
+  document.getElementById("unlockBtn").addEventListener("click", unlock);
+  document.getElementById("keyInput").addEventListener("keydown", function(e){ if(e.key==="Enter") unlock(); });
+  document.getElementById("lockBtn").addEventListener("click", function(){ clearKey(); showGate(""); });
+  document.getElementById("refreshBtn").addEventListener("click", loadList);
+
+  function renderList(items){
+    var el = document.getElementById("list");
+    if(!items || !items.length){ el.innerHTML = '<div class="empty">No broadcasts yet.</div>'; return; }
+    el.innerHTML = items.map(function(b){
+      var cancel = b.status === "pending"
+        ? '<button class="cancelbtn" data-id="' + esc(b.id) + '">Cancel</button>' : "";
+      return '<div class="bcast">' +
+        '<div class="body">' +
+          '<div class="title">' + esc(b.title) + '</div>' +
+          '<div class="text">' + esc(b.body) + '</div>' +
+          '<div class="meta">' +
+            (b.status === "pending" ? "sends " + esc(fmtDate(b.scheduledFor)) : "sent " + esc(fmtDate(b.sentAt))) +
+            (b.createdByAdmin ? " · by " + esc(b.createdByAdmin) : "") +
+          '</div>' +
+        '</div>' +
+        '<span class="pill ' + esc(b.status) + '">' + esc(b.status) + '</span>' +
+        cancel +
+      '</div>';
+    }).join("");
+    el.querySelectorAll(".cancelbtn").forEach(function(btn){
+      btn.addEventListener("click", function(){ cancelBroadcast(btn.getAttribute("data-id")); });
+    });
+  }
+
+  function loadList(){
+    api("/api/v1/admin/broadcasts").then(renderList).catch(function(){});
+  }
+
+  function cancelBroadcast(id){
+    api("/api/v1/admin/broadcasts/" + encodeURIComponent(id), { method: "DELETE" })
+      .then(loadList).catch(function(e){ alert(e.message || "cancel failed"); });
+  }
+
+  document.getElementById("sendBtn").addEventListener("click", function(){
+    var title = document.getElementById("titleInput").value.trim();
+    var body = document.getElementById("bodyInput").value.trim();
+    var when = document.getElementById("whenInput").value;
+    var by = document.getElementById("byInput").value.trim();
+    var errEl = document.getElementById("composeErr");
+    var okEl = document.getElementById("composeOk");
+    errEl.textContent = ""; okEl.textContent = "";
+    if(!title || !body){ errEl.textContent = "Title and body are both required."; return; }
+
+    api("/api/v1/admin/broadcasts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: title, body: body,
+        createdByAdmin: by || null,
+        scheduledFor: when ? new Date(when).toISOString() : null
+      })
+    }).then(function(){
+      okEl.textContent = when ? "Scheduled." : "Sending shortly.";
+      document.getElementById("titleInput").value = "";
+      document.getElementById("bodyInput").value = "";
+      document.getElementById("whenInput").value = "";
+      loadList();
+    }).catch(function(e){ errEl.textContent = e.message || "Could not create broadcast."; });
+  });
+
+  function boot(){
+    if(!getKey()){ showGate(""); return; }
+    showDash();
+    loadList();
+  }
+
+  boot();
+})();
+</script>

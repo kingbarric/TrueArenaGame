@@ -6,6 +6,7 @@
 #       BACKEND_IMAGE       e.g. ghcr.io/<owner>/<repo>-backend:latest
 #       DB_PASSWORD, JWT_SECRET, LIVEKIT_API_KEY, LIVEKIT_API_SECRET,
 #       BREVO_API_KEY (to send email verification codes)
+#       FIREBASE_CREDENTIALS_BASE64 (to send push notifications)
 #     (no dev defaults are baked in here on purpose — see docker-compose.yml
 #     for the dev-only version with placeholder secrets)
 #   - `docker login ghcr.io` once, so `docker compose pull` can read the image
@@ -78,6 +79,7 @@ services:
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:?set LIVEKIT_API_SECRET}
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
       BREVO_API_KEY: ${BREVO_API_KEY:-}
+      FIREBASE_CREDENTIALS_BASE64: ${FIREBASE_CREDENTIALS_BASE64:-}
       # Public Web OAuth client ID; override when using a different Google project.
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-26187322342-o2squi475tmt3ubs8k9rh2d2b7pfivgf.apps.googleusercontent.com}
       # Shared secret for the /notvisible/analytics admin dashboard (X-Admin-Key header).

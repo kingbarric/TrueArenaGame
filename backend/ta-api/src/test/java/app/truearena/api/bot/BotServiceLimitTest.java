@@ -3,6 +3,7 @@ package app.truearena.api.bot;
 import app.truearena.api.auth.JwtService;
 import app.truearena.api.auth.UsernameGenerator;
 import app.truearena.api.coins.CoinService;
+import app.truearena.api.room.RoomService;
 import app.truearena.persistence.RoomMemberRepository;
 import app.truearena.persistence.RoomRepository;
 import app.truearena.persistence.RoomRow;
@@ -28,8 +29,32 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.springframework.test.util.ReflectionTestUtils;
 
 class BotServiceLimitTest {
+
+    @Test
+    void reusingAgentClosesPreviousOwnedHuudEvenIfPresenceWasStale() {
+        UUID hostId = UUID.randomUUID();
+        UUID agentId = UUID.randomUUID();
+        UUID oldRoomId = UUID.randomUUID();
+        RoomRepository rooms = mock(RoomRepository.class);
+        RoomService roomService = mock(RoomService.class);
+        BotService service = new BotService(rooms, mock(RoomMemberRepository.class), mock(UserRepository.class),
+                mock(UsernameGenerator.class), mock(JwtService.class), new ObjectMapper(),
+                mock(GameBotAdapterFactory.class), mock(LlmMovePicker.class), mock(BotRuntimeRegistry.class),
+                mock(CoinService.class), mock(RoomLock.class));
+        ReflectionTestUtils.setField(service, "roomService", roomService);
+        RoomRow oldRoom = new RoomRow(oldRoomId, "OLDHU", null, hostId,
+                "in_game", "goosi", 0, null, Instant.now());
+        when(rooms.findLiveRoomsForAgent(agentId)).thenReturn(Flux.just(oldRoom));
+        when(roomService.leaveBotGoosiRoom(oldRoomId, hostId)).thenReturn(Mono.just(true));
+
+        StepVerifier.create(service.releaseAbandonedAgentRooms(agentId, hostId))
+                .verifyComplete();
+
+        verify(roomService).leaveBotGoosiRoom(oldRoomId, hostId);
+    }
 
     @Test
     @SuppressWarnings("unchecked")

@@ -174,7 +174,7 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
         title: Text(switch (_room.gameType) {
           'wordbluff' => 'Word Bluff',
           'draughts' => 'Draft',
-          'goosi' => 'Oware',
+          'goosi' => 'Macala',
           'whot' => 'Whot',
           _ => 'Traitors',
         }),

@@ -2,6 +2,7 @@ package app.truearena.engine;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * A pluggable rule set. Pure and framework-free (Build Brief §8). All state transitions
@@ -49,5 +50,15 @@ public interface GameModule {
      */
     default boolean hasPrivatePlayerState() {
         return false;
+    }
+
+    /**
+     * Player ids who need to act right now, for an OS push reminder to
+     * whoever isn't actively watching the room socket. Empty when the game
+     * isn't waiting on a specific human (lobby, a results/terminal phase, or
+     * a phase driven purely by a timer/host with no player input needed).
+     */
+    default Set<String> playersToAct(GameState state) {
+        return Set.of();
     }
 }

@@ -2,8 +2,18 @@ import java.util.Properties
 
 plugins {
     id("com.android.application")
+    // The google-services plugin hard-fails the build if google-services.json
+    // doesn't exist yet, so it's applied conditionally below instead of listed
+    // here — this file won't exist until Firebase push setup is done (see the
+    // push notifications plan / push_notifications.dart), and Android builds
+    // must keep working until then.
+    id("com.google.gms.google-services") apply false
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
 }
 
 val keystoreProperties = Properties()

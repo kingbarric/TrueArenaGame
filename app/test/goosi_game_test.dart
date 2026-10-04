@@ -42,6 +42,7 @@ class _Socket implements GameSocket {
     String phase = 'TurnP0',
     List<int> pits = const [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
     List<int> legalPits = const [0, 1, 2, 3, 4, 5],
+    Map<String, int> scores = const {'me': 0, 'opponent': 0},
     bool paused = false,
   }) {
     frames.add({
@@ -57,10 +58,17 @@ class _Socket implements GameSocket {
         'pits': pits,
         'pitsPerPlayer': 6,
         'legalPits': legalPits,
-        'scores': {'me': 0, 'opponent': 0},
+        'scores': scores,
         'paused': paused,
         'secondsLeft': 38,
       },
+    });
+  }
+
+  void event(String type, Map<String, dynamic> data) {
+    frames.add({
+      'type': 'EVENT',
+      'payload': {'type': type, 'data': data},
     });
   }
 }
@@ -91,13 +99,13 @@ void main() {
     return socket;
   }
 
-  testWidgets('renders the sketched two-row Oware table and attached players',
+  testWidgets('renders the two-row Macala table and attached players',
       (tester) async {
     final socket = await open(tester);
     socket.snapshot();
     await tester.pump();
 
-    expect(find.text('OWARE'), findsOneWidget);
+    expect(find.text('MACALA'), findsOneWidget);
     expect(find.text('HUUD 7K3M'), findsOneWidget);
     expect(find.byKey(const ValueKey('goosi-player-me')), findsOneWidget);
     expect(find.byKey(const ValueKey('goosi-player-opponent')), findsOneWidget);
@@ -107,6 +115,49 @@ void main() {
     expect(find.byKey(const ValueKey('goosi-pit-11')), findsOneWidget);
     expect(find.text('YOUR TURN'), findsOneWidget);
 
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('captured seeds remain visible outside both sides of the board',
+      (tester) async {
+    final socket = await open(tester);
+    socket.snapshot(scores: const {'me': 8, 'opponent': 5});
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('macala-captured-me')), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('macala-captured-opponent')), findsOneWidget);
+    expect(find.text('8 CAPTURED'), findsOneWidget);
+    expect(find.text('5 CAPTURED'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('opponent hand reaches and overlaps the top board pit',
+      (tester) async {
+    final socket = await open(tester);
+    socket.snapshot(phase: 'TurnP1');
+    await tester.pump();
+
+    socket.event('SOWN', {
+      'from': 11,
+      'touched': [10],
+      'laps': [
+        [10]
+      ],
+      'by': 'opponent',
+    });
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 160));
+    await tester.pump(const Duration(milliseconds: 450));
+
+    final hand = find.byIcon(Icons.back_hand_rounded);
+    final destination = find.byKey(const ValueKey('goosi-pit-10'));
+    expect(hand, findsOneWidget);
+    expect(tester.getRect(hand).overlaps(tester.getRect(destination)), isTrue);
+
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpWidget(const SizedBox());
   });
 
@@ -167,7 +218,7 @@ void main() {
     await tester.tap(find.text('Board & stones'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Oware Classic'), findsOneWidget);
+    expect(find.text('Macala Classic'), findsOneWidget);
     expect(find.text('The Folding Set'), findsOneWidget);
     expect(find.text('Riverstone Slab'), findsOneWidget);
     expect(find.text('Palm Wine Lacquer'), findsOneWidget);

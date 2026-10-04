@@ -83,11 +83,11 @@ class GoosiStonePalette {
 /// five stains.
 ///
 /// The first entry is the default for anyone who hasn't chosen (see
-/// [GoosiThemeController.load]) — Oware Classic, the carved block.
+/// [GoosiThemeController.load]) — Macala Classic, the carved block.
 const List<GoosiBoardPalette> goosiBoardPalettes = [
   GoosiBoardPalette(
     id: 'oware',
-    label: 'Oware Classic',
+    label: 'Macala Classic',
     blurb: 'Heirloom · hand-cut',
     tray: Color(0xff7a4a24),
     trayGrain: Color(0xff4a2c13),

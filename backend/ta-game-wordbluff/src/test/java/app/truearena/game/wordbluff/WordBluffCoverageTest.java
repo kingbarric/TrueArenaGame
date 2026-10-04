@@ -547,4 +547,23 @@ class WordBluffCoverageTest {
         return s.events().stream().filter(e -> e.type().equals(type)).reduce((a, b) -> b)
                 .orElseThrow(() -> new AssertionError("no " + type + " event found"));
     }
+
+    // ---------------------------------------------------------------- playersToAct (push turn reminders)
+
+    @Test
+    void playersToActDuringTurnIsJustTheDescriber() {
+        WordBluffState s = (WordBluffState) fresh(4, 1);
+        assertThat(module.playersToAct(s)).containsExactly(s.currentDescriber());
+    }
+
+    @Test
+    void playersToActDuringReviewIsBothTeamsUntilTheyAccept() {
+        WordBluffState s = (WordBluffState) fresh(4, 1);
+        WordBluffState review = (WordBluffState) module.onPhaseElapsed(s, "Turn");
+        assertThat(module.playersToAct(review)).containsExactlyInAnyOrderElementsOf(allPlayers(review));
+
+        WordBluffState afterA = (WordBluffState) module.onPlayerAction(review,
+                PlayerAction.of(review.teamA.get(0), "REVIEW_ACCEPT", Map.of()));
+        assertThat(module.playersToAct(afterA)).containsExactlyInAnyOrderElementsOf(review.teamB);
+    }
 }

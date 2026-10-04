@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "400009459089",
+    "project_id": "playhuud",
+    "storage_bucket": "playhuud.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:400009459089:android:c7efafd36984374c53d630",
+        "android_client_info": {
+          "package_name": "app.truearena.truearena"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBQVUHEH2Hiw4OWOI0hre8iOy6fcqP3LDg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

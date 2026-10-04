@@ -8,6 +8,7 @@ import app.truearena.engine.GameModule;
 import app.truearena.engine.GameRunner;
 import app.truearena.engine.GameState;
 import app.truearena.api.bot.Difficulty;
+import app.truearena.api.bot.BotRuntimeRegistry;
 import app.truearena.api.coins.CoinService;
 import app.truearena.engine.Phase;
 import app.truearena.engine.PlayerAction;
@@ -65,6 +66,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -96,6 +98,10 @@ public class GameOrchestrator {
     private final app.truearena.api.coins.CoinService coins;
     @Autowired(required = false)
     private ChampionshipService championships;
+    @Autowired(required = false)
+    private BotRuntimeRegistry botRuntimes;
+    @Autowired(required = false)
+    private app.truearena.api.push.PushNotificationService push;
 
     public GameOrchestrator(RoomRuntimeRegistry registry, RoomLock lock, RoomEventLog eventLog,
                             RoomRepository rooms, RoomMemberRepository members,
@@ -167,6 +173,14 @@ public class GameOrchestrator {
     public Mono<Void> onDisconnect(RoomRuntime rt, String userId) {
         rt.connectedUserIds.remove(userId);
         rt.unicast.remove(userId);
+        // Nothing about the game state changes on a disconnect, so
+        // pushTurnReminders' own dedupe (keyed on the set of players-to-act
+        // changing) would never fire here on its own — but if it's already
+        // this player's turn, they just went from "watching the board" to
+        // "not watching it" and should get the reminder now, not next move.
+        if (push != null && rt.started() && rt.module().playersToAct(rt.state()).contains(userId)) {
+            pushToWhoeverIsOffline(rt, Set.of(userId));
+        }
         Mono<Void> disconnect = setConnection(rt.roomId, userId, "disconnected");
         // Mobile networks often drop a socket for a few seconds. Give its host
         // time to reconnect before transferring control to another player.
@@ -1088,9 +1102,46 @@ public class GameOrchestrator {
         broadcastPhase(rt);
         broadcastPrivateState(rt);
         broadcastSpectatorState(rt);
+        pushTurnReminders(rt);
         Mono<Void> finish = rt.state().finished() ? finishGame(rt) : Mono.empty();
         Mono<Void> clock = rt.tournament ? persistTournamentClock(rt.roomId) : Mono.empty();
         return appendAndBroadcast.then(clock).then(finish);
+    }
+
+    /**
+     * Pushes an OS notification to whichever player(s) newly need to act but
+     * aren't actively connected to this room's socket — skips anyone
+     * {@code rt.connectedUserIds} already has (they're staring at the
+     * board), and only pushes to players added to the waiting set since the
+     * last check, not the whole set every time. That distinction matters for
+     * a multi-actor phase like TrueArena's Vote: each vote cast shrinks
+     * {@code playersToAct} without emptying it, and re-pushing the whole
+     * remaining set on every single vote would spam everyone still waiting.
+     * Deliberately checks room-socket presence here, not
+     * {@link app.truearena.api.inbox.InboxRegistry} — someone could have the
+     * app open on the Chats tab, not watching this board, and should still
+     * get the reminder.
+     */
+    private void pushTurnReminders(RoomRuntime rt) {
+        if (push == null || !rt.started()) return;
+        Set<String> toAct = rt.module().playersToAct(rt.state());
+        if (toAct.equals(rt.lastNotifiedTurnFor)) return;
+        Set<String> newlyWaiting = new java.util.HashSet<>(toAct);
+        newlyWaiting.removeAll(rt.lastNotifiedTurnFor);
+        rt.lastNotifiedTurnFor = toAct;
+        pushToWhoeverIsOffline(rt, newlyWaiting);
+    }
+
+    private void pushToWhoeverIsOffline(RoomRuntime rt, Set<String> candidates) {
+        if (push == null || candidates.isEmpty()) return;
+        Set<UUID> offline = candidates.stream()
+                .filter(id -> !rt.connectedUserIds.contains(id))
+                .map(UUID::fromString)
+                .collect(java.util.stream.Collectors.toSet());
+        if (!offline.isEmpty()) {
+            push.sendToUsers(offline, "Your turn", "It's your turn in " + rt.module().gameType(),
+                    Map.of("type", "YOUR_TURN", "roomId", rt.roomId.toString(), "gameType", rt.module().gameType()));
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -1223,7 +1274,23 @@ public class GameOrchestrator {
         Mono<Void> tournament = championships == null || win == null ? Mono.empty()
                 : championships.gameFinished(rt.roomId, rt.gameSessionId, win.perPlayerOutcome());
         return saveResult.then(flushEvents).then(endSession).then(endRoom).then(stats).then(coinRewards)
-                .then(stakePayout).then(tournament);
+                .then(stakePayout).then(tournament).then(releaseAgents(rt.roomId));
+    }
+
+    /**
+     * A saved Cyber Agent belongs to its owner, not to a completed room. Stop
+     * its old socket and remove only its room membership once results are
+     * persisted, so it is immediately selectable in the next huud.
+     */
+    private Mono<Void> releaseAgents(UUID roomId) {
+        return members.findByRoomId(roomId)
+                .concatMap(member -> users.findById(member.userId())
+                        .filter(UserRow::isBot)
+                        .flatMap(agent -> {
+                            if (botRuntimes != null) botRuntimes.stop(agent.id());
+                            return members.deleteByRoomIdAndUserId(roomId, agent.id());
+                        }))
+                .then();
     }
 
     /**

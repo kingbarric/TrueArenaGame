@@ -725,6 +725,16 @@ public final class WhotModule implements GameModule {
         return Optional.ofNullable(((WhotState) state).win);
     }
 
+    @Override
+    public java.util.Set<String> playersToAct(GameState state) {
+        WhotState s = (WhotState) state;
+        // The optional "call GAME" signal (signalConfirmed) is a voluntary,
+        // anytime declaration, not a gate on whose turn it is to play a card
+        // — currentPlayer() alone is the one actually blocking progress.
+        if (s.finished()) return java.util.Set.of();
+        return java.util.Set.of(s.currentPlayer());
+    }
+
     /** Your own hand, plus everything on the table. Never anyone else's cards. */
     @Override
     public PlayerVisibleState visibleStateFor(GameState state, String playerId) {

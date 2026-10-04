@@ -69,7 +69,7 @@ const List<GameCatalogEntry> gameCatalog = [
   ),
   GameCatalogEntry(
     id: 'goosi',
-    name: 'Oware',
+    name: 'Macala',
     emoji: '🫘',
     tagline: '2 players · 12 houses · capture & sow',
     available: true,

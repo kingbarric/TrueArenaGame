@@ -1,12 +1,17 @@
 package app.truearena.api.ws;
 
 import app.truearena.api.coins.CoinService;
+import app.truearena.api.bot.BotRuntimeRegistry;
+import app.truearena.persistence.RoomMemberRepository;
+import app.truearena.persistence.RoomMemberRow;
 import app.truearena.persistence.RoomRow;
 import app.truearena.persistence.UserRepository;
 import app.truearena.persistence.UserRow;
 import app.truearena.room.RoomRuntime;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Flux;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.lang.reflect.Method;
 import java.util.LinkedHashMap;
@@ -31,8 +36,9 @@ import static org.mockito.Mockito.when;
 class GameOrchestratorPayoutTest {
 
     private final UserRepository users = mock(UserRepository.class);
+    private final RoomMemberRepository members = mock(RoomMemberRepository.class);
     private final CoinService coins = mock(CoinService.class);
-    private final GameOrchestrator server = new GameOrchestrator(null, null, null, null, null,
+    private final GameOrchestrator server = new GameOrchestrator(null, null, null, null, members,
             null, null, null, null, null, users, null, null, coins);
 
     private UserRow human(UUID id) {
@@ -57,8 +63,36 @@ class GameOrchestratorPayoutTest {
         ((Mono<Void>) m.invoke(server, rt, outcome)).block();
     }
 
+    @SuppressWarnings("unchecked")
+    private void invokeReleaseAgents(UUID roomId) throws Exception {
+        Method m = GameOrchestrator.class.getDeclaredMethod("releaseAgents", UUID.class);
+        m.setAccessible(true);
+        ((Mono<Void>) m.invoke(server, roomId)).block();
+    }
+
     private RoomRow stakedRoom(UUID host, long stake) {
         return new RoomRow(UUID.randomUUID(), "123456", null, host, "ended", "truearena", stake, null, null);
+    }
+
+    @Test
+    void completedGameStopsAndDetachesItsAgents() throws Exception {
+        UUID roomId = UUID.randomUUID();
+        UUID humanId = UUID.randomUUID();
+        UUID agentId = UUID.randomUUID();
+        BotRuntimeRegistry botRuntimes = mock(BotRuntimeRegistry.class);
+        ReflectionTestUtils.setField(server, "botRuntimes", botRuntimes);
+        when(members.findByRoomId(roomId)).thenReturn(Flux.just(
+                RoomMemberRow.of(roomId, humanId, null),
+                RoomMemberRow.of(roomId, agentId, "Agent")));
+        when(users.findById(humanId)).thenReturn(Mono.just(human(humanId)));
+        when(users.findById(agentId)).thenReturn(Mono.just(bot(agentId, "medium")));
+        when(members.deleteByRoomIdAndUserId(roomId, agentId)).thenReturn(Mono.empty());
+
+        invokeReleaseAgents(roomId);
+
+        verify(botRuntimes).stop(agentId);
+        verify(members).deleteByRoomIdAndUserId(roomId, agentId);
+        verify(members, never()).deleteByRoomIdAndUserId(roomId, humanId);
     }
 
     // ---------------------------------------------------------------- payoutStake

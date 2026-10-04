@@ -4,10 +4,15 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <!-- "Invite from contacts" (FriendsScreen) — opt-in, requested at the point of use. -->
     <uses-permission android:name="android.permission.READ_CONTACTS"/>
+    <!-- Push notifications (API 33+) — opt-in, requested at the point of use; see push_notifications.dart. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
         android:label="PlayHuud"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="playhuud_default" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

@@ -168,4 +168,36 @@ class TrueArenaEngineTest {
         assertThat(s.phase()).isEqualTo("Vote");
         return s;
     }
+
+    // ---------------------------------------------------------------- playersToAct (push turn reminders)
+
+    @Test
+    void playersToActDuringRoleRevealIsEmpty_hostPaced() {
+        GameState s = module.initialState(ids(6), Presets.CLASSIC_CONSPIRACY.config(), RandomSource.seeded(3));
+        assertThat(s.phase()).isEqualTo("RoleReveal");
+        assertThat(module.playersToAct(s)).isEmpty();
+    }
+
+    @Test
+    void playersToActDuringNightIsEveryLivingTraitor() {
+        GameState s = module.initialState(ids(6), Presets.CLASSIC_CONSPIRACY.config(), RandomSource.seeded(3));
+        s = module.onPhaseElapsed(s, "RoleReveal"); // → Night
+        TruearenaState ts = (TruearenaState) s;
+        assertThat(module.playersToAct(s)).containsExactlyInAnyOrderElementsOf(ts.aliveTraitors());
+    }
+
+    @Test
+    void playersToActDuringVoteIsEveryoneWhoHasNotLockedAVote() {
+        GameState s = driveToVote(Presets.CLASSIC_CONSPIRACY.config(), 6);
+        TruearenaState ts = (TruearenaState) s;
+        assertThat(module.playersToAct(s)).containsExactlyInAnyOrderElementsOf(ts.alive);
+
+        GameState afterOneVote = module.onPlayerAction(s,
+                PlayerAction.of(ts.alive.iterator().next(), "CAST_VOTE", Map.of("target", ts.alive.stream()
+                        .filter(id -> !id.equals(ts.alive.iterator().next())).findFirst().orElseThrow())));
+        TruearenaState afterTs = (TruearenaState) afterOneVote;
+        assertThat(module.playersToAct(afterOneVote)).doesNotContain(ts.alive.iterator().next())
+                .containsExactlyInAnyOrderElementsOf(afterTs.alive.stream()
+                        .filter(id -> !afterTs.voteLocked.contains(id)).toList());
+    }
 }

@@ -48,7 +48,10 @@ class ApiClient {
   Future<dynamic> patch(String path, [Map<String, dynamic>? body]) =>
       _send(() => _http.patch(_uri(path), headers: _headers(), body: jsonEncode(body ?? const {})));
 
-  Future<dynamic> delete(String path) => _send(() => _http.delete(_uri(path), headers: _headers(json: false)));
+  Future<dynamic> delete(String path, [Map<String, dynamic>? body]) => _send(() => _http.delete(
+      _uri(path),
+      headers: _headers(json: body != null),
+      body: body == null ? null : jsonEncode(body)));
 
   Future<dynamic> _send(Future<http.Response> Function() call, {bool allowRefresh = true}) async {
     final res = await call();

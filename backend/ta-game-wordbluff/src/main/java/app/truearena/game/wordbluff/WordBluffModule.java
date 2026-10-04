@@ -431,6 +431,23 @@ public final class WordBluffModule implements GameModule {
     }
 
     @Override
+    public java.util.Set<String> playersToAct(GameState state) {
+        WordBluffState s = (WordBluffState) state;
+        if (s.finished()) return java.util.Set.of();
+        if ("Turn".equals(s.phase())) return java.util.Set.of(s.currentDescriber());
+        if ("Review".equals(s.phase())) {
+            // Any member of a not-yet-accepted team can accept on its behalf
+            // (see WordBluffModule.reviewAccept) — so everyone on that team
+            // is a valid "needs to act" target, not just one designated player.
+            java.util.Set<String> toAct = new java.util.LinkedHashSet<>();
+            if (!s.reviewAccepted.contains(WordBluffState.TEAM_A)) toAct.addAll(s.teamOf(WordBluffState.TEAM_A));
+            if (!s.reviewAccepted.contains(WordBluffState.TEAM_B)) toAct.addAll(s.teamOf(WordBluffState.TEAM_B));
+            return toAct;
+        }
+        return java.util.Set.of(); // Summary is a brief timed recap, no player action needed
+    }
+
+    @Override
     public PlayerVisibleState visibleStateFor(GameState state, String playerId) {
         WordBluffState s = (WordBluffState) state;
         Map<String, Object> m = commonView(s);

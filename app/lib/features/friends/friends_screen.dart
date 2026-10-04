@@ -412,7 +412,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
 
   static const _gameLabels = {
     'draughts': 'Draft',
-    'goosi': 'Oware',
+    'goosi': 'Macala',
     'wordbluff': 'Word Bluff',
     'truearena': 'Traitors',
   };

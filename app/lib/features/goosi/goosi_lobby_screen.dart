@@ -252,7 +252,7 @@ class _GoosiLobbyScreenState extends State<GoosiLobbyScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Oware'),
+        title: const Text('Macala'),
         actions: [
           if (room != null)
             IconButton(

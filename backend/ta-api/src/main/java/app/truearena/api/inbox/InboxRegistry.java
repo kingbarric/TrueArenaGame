@@ -24,6 +24,17 @@ public class InboxRegistry {
 
     private final Map<UUID, Sinks.Many<Object>> sockets = new ConcurrentHashMap<>();
 
+    /**
+     * Who currently has the app backgrounded, even though their inbox socket
+     * is still open — most platforms don't tear the socket down the instant
+     * the app leaves the foreground. The client tells us via an
+     * {@code APP_BACKGROUND}/{@code APP_FOREGROUND} frame (see
+     * {@code InboxWebSocketHandler}); only {@link #isOnline} reads this, and
+     * nothing else keys off it, so this is safe to be exactly as coarse as a
+     * push-notification gate needs and no more.
+     */
+    private final Set<UUID> backgrounded = ConcurrentHashMap.newKeySet();
+
     /** callRoomName -> the user ids currently on that call. */
     private final Map<String, Set<UUID>> callMembers = new ConcurrentHashMap<>();
     /** The reverse index — which call (if any) a user is currently on, for O(1) lookup from a room-creator's id. */
@@ -31,6 +42,7 @@ public class InboxRegistry {
 
     public void connect(UUID userId, Sinks.Many<Object> sink) {
         sockets.put(userId, sink);
+        backgrounded.remove(userId); // a fresh connection is always made in the foreground
     }
 
     public void disconnect(UUID userId, Sinks.Many<Object> sink) {
@@ -38,12 +50,26 @@ public class InboxRegistry {
         // finishes closing. Only the session still registered may clear it.
         if (sockets.remove(userId, sink)) {
             leaveCall(userId);
+            backgrounded.remove(userId); // don't leak stale state into a later, unrelated connection
         }
     }
 
-    /** True while this user has a live app inbox socket on this pod. */
+    public void setForeground(UUID userId, boolean foreground) {
+        if (foreground) {
+            backgrounded.remove(userId);
+        } else {
+            backgrounded.add(userId);
+        }
+    }
+
+    /**
+     * True while this user has a live, foregrounded app inbox socket on this
+     * pod — i.e. would actually see a push right now without one. Used
+     * exclusively by {@code PushNotificationService} to decide whether an
+     * in-app live frame is enough on its own or an OS push is also needed.
+     */
     public boolean isOnline(UUID userId) {
-        return sockets.containsKey(userId);
+        return sockets.containsKey(userId) && !backgrounded.contains(userId);
     }
 
     public void joinCall(UUID userId, String callRoomName) {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -31,6 +32,21 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   AppState(this.api);
 
   final ApiClient api;
+
+  /// Set by `main.dart` once `PushNotifications.init` resolves, so `AppState`
+  /// can trigger the permission prompt/token registration (and its reverse on
+  /// sign-out) without importing push_notifications.dart itself.
+  VoidCallback? onSignedIn;
+  // Awaited before the bearer token is cleared below, since unregistering
+  // this device's push token needs to make one last authenticated call.
+  Future<void> Function()? onSignedOut;
+
+  /// Set from a cold-start notification tap (see `PushNotifications`) when
+  /// the widget tree isn't ready yet — consumed once by `_ResumeGate` in
+  /// app.dart, same "stash it, consume it once the app is actually up"
+  /// shape as [pendingChampionshipCode].
+  String? pendingConversationId;
+  String? pendingRoomId;
   GoogleSignIn? _googleClient;
 
   Identity identity = Identity.anonymous;
@@ -118,8 +134,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     });
     _presenceTimer?.cancel();
     _refreshPresence();
-    _presenceTimer = Timer.periodic(
-        const Duration(seconds: 15), (_) => _refreshPresence());
+    _presenceTimer =
+        Timer.periodic(const Duration(seconds: 15), (_) => _refreshPresence());
   }
 
   Future<void> _refreshPresence() async {
@@ -135,7 +151,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void _scheduleInboxReconnect(int generation) {
-    if (generation != _inboxGeneration || api.bearer == null || _inboxRetry != null) return;
+    if (generation != _inboxGeneration ||
+        api.bearer == null ||
+        _inboxRetry != null) {
+      return;
+    }
     final delay = _inboxRetrySeconds;
     _inboxRetrySeconds = (_inboxRetrySeconds * 2).clamp(1, 30);
     _inboxRetry = Timer(Duration(seconds: delay), () async {
@@ -166,16 +186,67 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   static const _kActiveRoomSavedAt = 'ta_active_room_saved_at';
   static const _kCachedUser = 'ta_cached_user';
   static const _roomResumeWindow = Duration(days: 7);
+  static const _secure = FlutterSecureStorage(
+    iOptions: IOSOptions(
+      accessibility: KeychainAccessibility.first_unlock_this_device,
+    ),
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+  );
+
+  Future<String?> _readSessionSecret(
+      String key, SharedPreferences prefs) async {
+    try {
+      final secureValue = await _secure.read(key: key);
+      if (secureValue != null && secureValue.isNotEmpty) return secureValue;
+      final legacyValue = prefs.getString(key);
+      if (legacyValue != null && legacyValue.isNotEmpty) {
+        await _secure.write(key: key, value: legacyValue);
+        await prefs.remove(key);
+      }
+      return legacyValue;
+    } catch (_) {
+      // Widget tests and unsupported platforms may not provide the secure
+      // storage plugin. Retain the legacy store as a functional fallback.
+      return prefs.getString(key);
+    }
+  }
+
+  Future<void> _writeSessionSecret(
+      String key, String value, SharedPreferences prefs) async {
+    try {
+      await _secure.write(key: key, value: value);
+      await prefs.remove(key);
+    } catch (_) {
+      await prefs.setString(key, value);
+    }
+  }
+
+  Future<void> _deleteSessionSecret(String key, SharedPreferences prefs) async {
+    try {
+      await _secure.delete(key: key);
+    } catch (_) {
+      // Still clear the fallback below.
+    }
+    await prefs.remove(key);
+  }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _refreshPresence();
       if (api.bearer != null) _chatController.add({'type': 'sync'});
+      inbox?.send('APP_FOREGROUND');
     }
-    if (state == AppLifecycleState.paused && activeRoomId != null) {
-      SharedPreferences.getInstance().then((prefs) => prefs.setInt(
-          _kActiveRoomSavedAt, DateTime.now().millisecondsSinceEpoch));
+    if (state == AppLifecycleState.paused) {
+      // The inbox socket itself usually survives backgrounding for a while —
+      // this is just the "don't count me as actively looking" signal, so
+      // PushNotificationService.sendToUserIfOffline still sends an OS push
+      // instead of assuming the live in-app frame was enough.
+      inbox?.send('APP_BACKGROUND');
+      if (activeRoomId != null) {
+        SharedPreferences.getInstance().then((prefs) => prefs.setInt(
+            _kActiveRoomSavedAt, DateTime.now().millisecondsSinceEpoch));
+      }
     }
   }
 
@@ -186,7 +257,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kActiveRoom, roomId);
     await prefs.setString(_kActiveRoomUser, userId);
-    await prefs.setInt(_kActiveRoomSavedAt, DateTime.now().millisecondsSinceEpoch);
+    await prefs.setInt(
+        _kActiveRoomSavedAt, DateTime.now().millisecondsSinceEpoch);
     notifyListeners();
   }
 
@@ -225,7 +297,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     avatarImagePath = prefs.getString(_kAvatarImage);
     voiceMatchEnabled = prefs.getBool(_kVoiceMatchEnabled) ?? false;
     voiceMatchThreshold = prefs.getDouble(_kVoiceMatchThreshold) ?? 0.8;
-    final access = prefs.getString(_kAccess);
+    final access = await _readSessionSecret(_kAccess, prefs);
     if (access != null && access.isNotEmpty) {
       api.bearer = access;
       try {
@@ -246,9 +318,12 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     }
     final savedRoom = prefs.getString(_kActiveRoom);
     final savedAt = prefs.getInt(_kActiveRoomSavedAt);
-    if (savedRoom != null && user?.id == prefs.getString(_kActiveRoomUser) &&
-        savedAt != null && DateTime.now().difference(
-            DateTime.fromMillisecondsSinceEpoch(savedAt)) <= _roomResumeWindow) {
+    if (savedRoom != null &&
+        user?.id == prefs.getString(_kActiveRoomUser) &&
+        savedAt != null &&
+        DateTime.now()
+                .difference(DateTime.fromMillisecondsSinceEpoch(savedAt)) <=
+            _roomResumeWindow) {
       activeRoomId = savedRoom;
     } else if (savedRoom != null) {
       await clearActiveRoom();
@@ -262,7 +337,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   /// `api.refreshHandler = _tryRefresh` and `ApiClient._send`).
   Future<bool> _tryRefresh() async {
     final prefs = await SharedPreferences.getInstance();
-    final refreshToken = prefs.getString(_kRefresh);
+    final refreshToken = await _readSessionSecret(_kRefresh, prefs);
     if (refreshToken == null || refreshToken.isEmpty) return false;
     try {
       final res =
@@ -282,10 +357,13 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     await _cacheUser(user!);
     _connectInbox();
     _ensurePublicKey();
+    onSignedIn?.call();
     // Server avatar wins over a stale local pref once we know it (e.g. a
     // fresh reinstall, or a change made from another device).
     final serverIcon = user!.avatarUrl;
-    if (serverIcon != null && !serverIcon.startsWith('http') && !serverIcon.startsWith('data:image/')) {
+    if (serverIcon != null &&
+        !serverIcon.startsWith('http') &&
+        !serverIcon.startsWith('data:image/')) {
       avatarEmoji = serverIcon;
       avatarImagePath = null;
     } else if (serverIcon?.startsWith('data:image/') == true) {
@@ -296,15 +374,17 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> _cacheUser(UserView value) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kCachedUser, jsonEncode({
-      'id': value.id,
-      'displayName': value.displayName,
-      'username': value.username,
-      'phone': value.phone,
-      'email': value.email,
-      'avatarUrl': value.avatarUrl,
-      'isGuest': value.isGuest,
-    }));
+    await prefs.setString(
+        _kCachedUser,
+        jsonEncode({
+          'id': value.id,
+          'displayName': value.displayName,
+          'username': value.username,
+          'phone': value.phone,
+          'email': value.email,
+          'avatarUrl': value.avatarUrl,
+          'isGuest': value.isGuest,
+        }));
   }
 
   void _restoreCachedUser(SharedPreferences prefs) {
@@ -400,9 +480,10 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     // chosen photo is still there after the OS clears its cache.
     final directory = await getApplicationSupportDirectory();
     final extension = path.split('.').last.toLowerCase();
-    final safeExtension = {'jpg', 'jpeg', 'png', 'heic', 'webp'}.contains(extension)
-        ? extension
-        : 'jpg';
+    final safeExtension =
+        {'jpg', 'jpeg', 'png', 'heic', 'webp'}.contains(extension)
+            ? extension
+            : 'jpg';
     final saved = await File(path).copy(
         '${directory.path}/profile_${DateTime.now().microsecondsSinceEpoch}.$safeExtension');
     avatarImagePath = saved.path;
@@ -414,7 +495,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     if (identity == Identity.account) {
       final bytes = await saved.readAsBytes();
       if (bytes.length > 110000) {
-        throw StateError('That photo is too large to sync. Please choose a smaller one.');
+        throw StateError(
+            'That photo is too large to sync. Please choose a smaller one.');
       }
       final mime = bytes.length > 7 && bytes[0] == 0x89 && bytes[1] == 0x50
           ? 'png'
@@ -451,11 +533,12 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     user = tokens.user;
     identity = tokens.user.isGuest ? Identity.guest : Identity.account;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kAccess, tokens.access);
-    await prefs.setString(_kRefresh, tokens.refresh);
+    await _writeSessionSecret(_kAccess, tokens.access, prefs);
+    await _writeSessionSecret(_kRefresh, tokens.refresh, prefs);
     await _cacheUser(tokens.user);
     _connectInbox();
     _ensurePublicKey();
+    onSignedIn?.call();
     notifyListeners();
   }
 
@@ -493,8 +576,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   /// Native iOS Apple sheet, with a one-use nonce issued and consumed by our
   /// backend. The backend verifies Apple's signature before creating a session.
   Future<AuthTokens> signInWithApple() async {
-    final challenge = await api.post('/auth/apple/challenge', {})
-        as Map<String, dynamic>;
+    final challenge =
+        await api.post('/auth/apple/challenge', {}) as Map<String, dynamic>;
     final nonce = challenge['nonce'] as String;
     final credential = await SignInWithApple.getAppleIDCredential(
       scopes: const [
@@ -531,6 +614,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> signOut() async {
+    if (onSignedOut != null) await onSignedOut!(); // before api.bearer is cleared below
     try {
       await _googleClient?.signOut();
     } catch (_) {
@@ -551,8 +635,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     await inbox?.close();
     inbox = null;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_kAccess);
-    await prefs.remove(_kRefresh);
+    await _deleteSessionSecret(_kAccess, prefs);
+    await _deleteSessionSecret(_kRefresh, prefs);
     await prefs.remove(_kCachedUser);
     notifyListeners();
   }

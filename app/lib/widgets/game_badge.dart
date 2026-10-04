@@ -36,7 +36,7 @@ class GameBadge extends StatelessWidget {
     'truearena': 'TRAITORS',
     'bluff': 'WORD BLUFF',
     'draughts': 'DRAFT',
-    'goosi': 'OWARE',
+    'goosi': 'MACALA',
     'whot': 'WHOT',
     'ludo': 'LUDO',
   };

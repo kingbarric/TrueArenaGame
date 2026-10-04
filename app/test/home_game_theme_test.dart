@@ -74,7 +74,7 @@ void main() {
         'Draft',
         'Whot',
         'Ludo',
-        'Oware'
+        'Macala'
       ]) {
         expect(tester.widget<Text>(find.text(name)).maxLines, 1);
       }
@@ -112,7 +112,7 @@ void main() {
     expect(find.byKey(const ValueKey('home-game-whot')), findsOneWidget);
   });
 
-  testWidgets('Oware home tile opens the Oware lobby', (tester) async {
+  testWidgets('Macala home tile opens the Macala lobby', (tester) async {
     GoogleFonts.config.allowRuntimeFetching = false;
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
@@ -147,6 +147,6 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.byType(GoosiLobbyScreen), findsOneWidget);
-    expect(find.text('Oware'), findsWidgets);
+    expect(find.text('Macala'), findsWidgets);
   });
 }

@@ -286,4 +286,12 @@ class WhotModuleTest {
         assertThat(spectator).doesNotContainKey("yourHand");
         assertThat(spectator).doesNotContainKey("hands");
     }
+
+    // ---------------------------------------------------------------- playersToAct (push turn reminders)
+
+    @Test
+    void playersToActIsWhoeverIsOnTurn() {
+        WhotState s = (WhotState) fresh(3);
+        assertThat(module.playersToAct(s)).containsExactly(s.currentPlayer());
+    }
 }

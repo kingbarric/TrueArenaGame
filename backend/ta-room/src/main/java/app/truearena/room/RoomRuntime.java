@@ -62,6 +62,14 @@ public final class RoomRuntime {
     /** Millis left on the clock at the moment of pausing; 0 when not paused. */
     public volatile long timerRemainingMs;
 
+    /**
+     * The last set of player ids a turn-reminder push was sent for, so
+     * repeated sub-events while the same player is still on turn (e.g. a
+     * capture chain) don't re-notify every time. Reset whenever the set of
+     * players-to-act actually changes — see {@code GameOrchestrator.pushTurnReminders}.
+     */
+    public volatile Set<String> lastNotifiedTurnFor = Set.of();
+
     public RoomRuntime(UUID roomId, String hostUserId) {
         this.roomId = roomId;
         this.hostUserId = hostUserId;

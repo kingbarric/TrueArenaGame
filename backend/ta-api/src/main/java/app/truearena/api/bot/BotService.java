@@ -13,7 +13,6 @@ import app.truearena.persistence.RoomRepository;
 import app.truearena.persistence.RoomRow;
 import app.truearena.persistence.UserRepository;
 import app.truearena.persistence.UserRow;
-import app.truearena.room.RoomRuntimeRegistry;
 import app.truearena.room.RoomLock;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
@@ -51,8 +50,6 @@ public class BotService {
     private ChampionshipService championships;
     @Autowired(required = false)
     private RoomService roomService;
-    @Autowired(required = false)
-    private RoomRuntimeRegistry roomRuntimes;
 
     /** A soft throttle so a room can't be filled with free bots without limit — see docs/DEV_REFERENCE.md. */
     private static final long BOT_COST = 20;
@@ -140,33 +137,41 @@ public class BotService {
                             if (adapters.create(room.gameType()) == null) {
                                 return Mono.error(ApiExceptions.badRequest("bots don't support " + room.gameType() + " yet"));
                             }
-                            return members.countByRoomId(roomId).flatMap(seats ->
-                                    "ludo".equals(room.gameType()) && seats >= 4
-                                            ? Mono.error(ApiExceptions.conflict("Ludo has four seats"))
-                                            : members.findByRoomIdAndUserId(roomId, agentId)
-                                    .flatMap(existing -> Mono.<BotAddedView>error(
-                                            ApiExceptions.conflict("that agent is already in this huud")))
-                                    .switchIfEmpty(Mono.defer(() ->
-                                            releaseAbandonedAgentRooms(agentId, requesterId)
-                                                    .then(members.countLiveRoomsFor(agentId)).flatMap(live -> live > 0
-                                                    ? Mono.error(ApiExceptions.conflict("that agent is already in another active huud"))
-                                                    : members.save(RoomMemberRow.of(roomId, agentId, agent.displayName()))
-                                                            .doOnSuccess(m -> startRuntime(room, agent,
-                                                                    Difficulty.parse(agent.botDifficulty())))
-                                                            .thenReturn(toView(agent))))));
+                            return members.countByRoomId(roomId).flatMap(seats -> {
+                                if ("ludo".equals(room.gameType()) && seats >= 4) {
+                                    return Mono.error(ApiExceptions.conflict("Ludo has four seats"));
+                                }
+                                return agentLock.withLock(requesterId, Duration.ofSeconds(30),
+                                        () -> attachExistingAgent(room, requesterId, agent));
+                            });
                         }));
     }
 
+    private Mono<BotAddedView> attachExistingAgent(RoomRow room, UUID requesterId, UserRow agent) {
+        UUID roomId = room.id();
+        UUID agentId = agent.id();
+        return members.findByRoomIdAndUserId(roomId, agentId)
+                .flatMap(existing -> Mono.<BotAddedView>error(
+                        ApiExceptions.conflict("that agent is already in this huud")))
+                .switchIfEmpty(Mono.defer(() -> releaseAbandonedAgentRooms(agentId, requesterId)
+                        .then(members.countLiveRoomsFor(agentId))
+                        .flatMap(live -> live > 0
+                                ? Mono.error(ApiExceptions.conflict(
+                                        "that agent is playing with other people and cannot leave yet"))
+                                : members.save(RoomMemberRow.of(roomId, agentId, agent.displayName()))
+                                        .doOnSuccess(m -> startRuntime(room, agent,
+                                                Difficulty.parse(agent.botDifficulty())))
+                                        .thenReturn(toView(agent)))));
+    }
+
     /** Recover rooms left behind by older clients before checking whether an agent is busy. */
-    private Mono<Void> releaseAbandonedAgentRooms(UUID agentId, UUID ownerId) {
-        if (roomService == null || roomRuntimes == null) return Mono.empty();
+    Mono<Void> releaseAbandonedAgentRooms(UUID agentId, UUID ownerId) {
+        if (roomService == null) return Mono.empty();
         return rooms.findLiveRoomsForAgent(agentId)
                 .filter(room -> ("draughts".equals(room.gameType()) || "whot".equals(room.gameType())
                         || "ludo".equals(room.gameType()) || "goosi".equals(room.gameType())
                         || "wordbluff".equals(room.gameType()))
                         && room.hostId().equals(ownerId))
-                .filter(room -> roomRuntimes.find(room.id())
-                        .map(rt -> !rt.connectedUserIds.contains(ownerId.toString())).orElse(true))
                 .concatMap(room -> "lobby".equals(room.status())
                         ? roomService.abandon(room.id(), ownerId).thenReturn(true)
                         : switch (room.gameType()) {

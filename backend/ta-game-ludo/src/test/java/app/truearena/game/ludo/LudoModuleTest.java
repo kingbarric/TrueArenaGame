@@ -228,4 +228,19 @@ class LudoModuleTest {
         LudoState elapsed = (LudoState) module.onPhaseElapsed(after, "Turn");
         assertThat(elapsed.turnPlayer()).isEqualTo("green");
     }
+
+    // ---------------------------------------------------------------- playersToAct (push turn reminders)
+
+    @Test void playersToActIsWhoeverIsOnTurn() {
+        LudoState base = start(4);
+        assertThat(module.playersToAct(base)).containsExactly("red");
+    }
+
+    @Test void playersToActIsEmptyOnceFinished() {
+        LudoState base = start(4);
+        LudoState won = new LudoState(base.phase(), base.round(), base.players(), base.pieces(),
+                base.turnIndex(), base.dice(), base.rollCount(), base.bonusRolls(), base.seed(),
+                "red", base.eliminated(), base.actionIds(), base.events(), base.config());
+        assertThat(module.playersToAct(won)).isEmpty();
+    }
 }

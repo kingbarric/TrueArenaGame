@@ -66,6 +66,11 @@ truearena:
     # Shared secret for the /notvisible/analytics dashboard's API calls (X-Admin-Key
     # header) — see AdminKeyFilter. Blank means every admin request is refused.
     api-key: ${ADMIN_API_KEY:}
+  push:
+    # Base64 of the Firebase service-account JSON (Firebase console → Project
+    # settings → Service accounts → Generate new private key). Blank means
+    # push notifications are disabled — see FirebaseConfig/PushNotificationService.
+    firebase-credentials-base64: ${FIREBASE_CREDENTIALS_BASE64:}
 
 # Cyber Agent brains. Both read from the environment only — never paste a
 # key here. Gemini wins when both are present (see BotLlmConfig); with

@@ -6,5 +6,10 @@
 	<array>
 		<string>Default</string>
 	</array>
+	<!-- Xcode's own "Push Notifications" capability toggle (Signing & Capabilities)
+	     is what should set this correctly against a real provisioning profile —
+	     this value is a stand-in for local/simulator builds in the meantime. -->
+	<key>aps-environment</key>
+	<string>development</string>
 </dict>
 </plist>

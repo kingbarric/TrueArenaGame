@@ -193,4 +193,21 @@ class GoosiModuleTest {
         assertThat(result.finished()).isTrue();
         assertThat(module.checkWinCondition(result)).isPresent();
     }
+
+    // ---------------------------------------------------------------- playersToAct (push turn reminders)
+
+    @Test
+    void playersToActIsWhoeverIsOnTurn() {
+        assertThat(module.playersToAct(start())).containsExactly("south");
+        assertThat(module.playersToAct(position(new int[12], 0, 0, 1))).containsExactly("north");
+    }
+
+    @Test
+    void playersToActIsEmptyOnceFinished() {
+        GoosiState state = start();
+        GoosiState graceA = (GoosiState) module.onPhaseElapsed(state, "TurnP0");
+        GoosiState graceB = (GoosiState) module.onPhaseElapsed(graceA, "GraceP0a");
+        GoosiState result = (GoosiState) module.onPhaseElapsed(graceB, "GraceP0b");
+        assertThat(module.playersToAct(result)).isEmpty();
+    }
 }

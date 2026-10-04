@@ -333,6 +333,15 @@ public final class DraughtsModule implements GameModule {
     }
 
     @Override
+    public java.util.Set<String> playersToAct(GameState state) {
+        DraughtsState s = (DraughtsState) state;
+        // Grace phases are still that side's turn to come back and play —
+        // same "waiting on them" signal as a normal turn.
+        if (s.finished()) return java.util.Set.of();
+        return java.util.Set.of(s.playerOf(s.turnSide()));
+    }
+
+    @Override
     public PlayerVisibleState visibleStateFor(GameState state, String playerId) {
         return new PlayerVisibleState(commonView((DraughtsState) state));
     }

@@ -804,6 +804,29 @@ public final class TrueArenaModule implements GameModule {
         return Optional.ofNullable(((TruearenaState) state).win);
     }
 
+    /**
+     * The clearest, least-ambiguous cases only — Night (every living Traitor
+     * must act) and Vote/Revote (every living player who hasn't locked a
+     * vote yet) and Defense (the accused). The remaining phases
+     * (RoleReveal/MorningReveal/RoundTable/SuddenDeath/HostDecision/
+     * HostAssignVotes/VoteReview/Elimination/WinCheck) are host-paced,
+     * purely informational, or not yet worth a push reminder (free
+     * discussion, a sudden-death tiebreak) — left empty rather than guessed
+     * at, per the plan's "do this one last, with its own care" note.
+     */
+    @Override
+    public java.util.Set<String> playersToAct(GameState state) {
+        TruearenaState s = (TruearenaState) state;
+        if (s.finished()) return java.util.Set.of();
+        return switch (s.phase()) {
+            case "Night" -> s.alive.stream().filter(s::isTraitor).collect(java.util.stream.Collectors.toSet());
+            case "Vote", "Revote" -> s.alive.stream().filter(id -> !s.voteLocked.contains(id))
+                    .collect(java.util.stream.Collectors.toSet());
+            case "Defense" -> s.accused == null ? java.util.Set.of() : java.util.Set.of(s.accused);
+            default -> java.util.Set.of();
+        };
+    }
+
     @Override
     public PlayerVisibleState visibleStateFor(GameState state, String playerId) {
         TruearenaState s = (TruearenaState) state;
