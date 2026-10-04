@@ -58,11 +58,11 @@ void main() {
     expect(find.text('Match won'), findsOneWidget);
     expect(find.text('Match played'), findsOneWidget);
     expect(find.text('Match tied'), findsOneWidget);
-    expect(find.text('Cyber Agent hired'), findsOneWidget);
+    expect(find.text('Cyber Agent added'), findsOneWidget);
     final firstTop = tester.getTopLeft(find.text('Match won')).dy;
     final secondTop = tester.getTopLeft(find.text('Match played')).dy;
     expect(secondTop - firstTop, lessThan(45));
-    expect(tester.getTopLeft(find.text('Cyber Agent hired')).dy, lessThan(568));
+    expect(tester.getTopLeft(find.text('Cyber Agent added')).dy, lessThan(568));
     expect(tester.takeException(), isNull);
   });
 }

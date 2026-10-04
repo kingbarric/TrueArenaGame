@@ -18,11 +18,11 @@ public record UserRow(
         @Column("is_guest") boolean isGuest,
         @Column("device_id") String deviceId,
         @Column("is_bot") boolean isBot,
-        /** For bots only: the player who created this agent and can re-hire it. */
+        /** Legacy saved-agent owner. System-pool agents leave this null. */
         @Column("owner_user_id") UUID ownerUserId,
-        /** For bots only: which game this agent was made for. */
+        /** Legacy game assignment, or "system_pool" for reusable identities. */
         @Column("bot_game_type") String botGameType,
-        /** For bots only: "easy" | "medium" | "hard". */
+        /** Legacy default. Active pool-agent difficulty lives on room_members. */
         @Column("bot_difficulty") String botDifficulty,
         @Column("public_key") String publicKey,
         @Column("created_at") Instant createdAt
@@ -35,19 +35,14 @@ public record UserRow(
         return new UserRow(null, displayName, null, null, null, username, true, deviceId, false, null, null, null, null, null);
     }
 
-    /**
-     * A bot never signs in and has no device — it's identified purely by its
-     * user id. It belongs to the player who created it and remembers which
-     * game and difficulty it was made for, so it can be re-hired into a
-     * later room instead of being recreated from scratch.
-     */
+    /** Legacy constructor retained for old saved-agent rows and pool test fixtures. */
     public static UserRow newBot(String displayName, String username, UUID ownerUserId,
                                  String gameType, String difficulty) {
         return new UserRow(null, displayName, null, null, null, username, false, null, true,
                 ownerUserId, gameType, difficulty, null, null);
     }
 
-    /** Renames a saved Cyber Agent — see {@code BotService.rename}. */
+    /** Legacy saved-agent helper retained while old rows remain readable. */
     public UserRow renamed(String newDisplayName) {
         return new UserRow(id, newDisplayName, avatarUrl, phone, email, username, isGuest, deviceId, isBot,
                 ownerUserId, botGameType, botDifficulty, publicKey, createdAt);

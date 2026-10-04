@@ -9,7 +9,8 @@ import '../theme/neon_theme.dart';
 /// badge reads as a permanent status symbol, not a fluctuating wallet
 /// number — parsed straight out of `GET /me/wallet`'s `tier` object.
 class CoinTierInfo {
-  const CoinTierInfo(this.tier, this.lifetimeCoins, this.nextTier, this.coinsToNextTier, this.progress);
+  const CoinTierInfo(this.tier, this.lifetimeCoins, this.nextTier,
+      this.coinsToNextTier, this.progress);
 
   final String tier;
   final int lifetimeCoins;
@@ -48,14 +49,16 @@ const Map<String, Color> _tierColors = {
 Color tierColor(String tier) => _tierColors[tier] ?? _tierColors['Rookie']!;
 
 class WalletTransaction {
-  const WalletTransaction(this.delta, this.balanceAfter, this.reason, this.createdAt);
+  const WalletTransaction(
+      this.delta, this.balanceAfter, this.reason, this.createdAt);
 
   final int delta;
   final int balanceAfter;
   final String reason;
   final DateTime createdAt;
 
-  factory WalletTransaction.fromJson(Map<String, dynamic> j) => WalletTransaction(
+  factory WalletTransaction.fromJson(Map<String, dynamic> j) =>
+      WalletTransaction(
         (j['delta'] as num).toInt(),
         (j['balanceAfter'] as num).toInt(),
         j['reason'] as String,
@@ -63,14 +66,13 @@ class WalletTransaction {
       );
 }
 
-// Mirrors CoinService's reason constants — a human label + icon per reason
-// so the ledger reads as a story ("won a match", "hired a Cyber Agent")
-// rather than raw enum strings.
+// Mirrors CoinService's reason constants. `bot_added` is retained so ledger
+// entries created before system-pool agents still have a human label.
 const Map<String, String> _reasonLabels = {
   'match_win': 'Match won',
   'match_loss': 'Match played',
   'match_tie': 'Match tied',
-  'bot_added': 'Cyber Agent hired',
+  'bot_added': 'Cyber Agent added',
 };
 
 const Map<String, IconData> _reasonIcons = {
@@ -81,7 +83,8 @@ const Map<String, IconData> _reasonIcons = {
 };
 
 String reasonLabel(String reason) => _reasonLabels[reason] ?? reason;
-IconData reasonIcon(String reason) => _reasonIcons[reason] ?? Icons.swap_horiz_rounded;
+IconData reasonIcon(String reason) =>
+    _reasonIcons[reason] ?? Icons.swap_horiz_rounded;
 
 class WalletInfo {
   const WalletInfo(this.balance, this.tier, this.recent);
@@ -94,7 +97,8 @@ class WalletInfo {
         (j['balance'] as num).toInt(),
         CoinTierInfo.fromWallet(j),
         ((j['recent'] as List?) ?? const [])
-            .map((e) => WalletTransaction.fromJson((e as Map).cast<String, dynamic>()))
+            .map((e) =>
+                WalletTransaction.fromJson((e as Map).cast<String, dynamic>()))
             .toList(),
       );
 }

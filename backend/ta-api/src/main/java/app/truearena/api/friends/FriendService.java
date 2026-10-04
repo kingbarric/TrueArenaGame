@@ -105,27 +105,20 @@ public class FriendService {
                 .flatMap(row -> friends.deleteById(row.id()));
     }
 
-    /**
-     * Friends, followed by the viewer's own Cyber Agents. An agent is a
-     * player you can add to a room like any other, so it belongs in the
-     * same list — but it's nobody else's friend, so it's appended here
-     * rather than stored as a friend row.
-     */
+    /** Human friends only. Cyber Agents now come from the shared system pool. */
     public Flux<FriendUserView> listFriends(UUID selfId) {
-        Flux<FriendUserView> people = friends.findByLowUserIdOrHighUserId(selfId, selfId)
+        return friends.findByLowUserIdOrHighUserId(selfId, selfId)
                 .filter(row -> FriendRow.ACCEPTED.equals(row.status()))
                 .flatMap(row -> users.findById(row.otherUser(selfId)))
                 .map(FriendService::toView);
-        return people.concatWith(users.findAgentsOf(selfId).map(FriendService::toView));
     }
 
-    /** Connected accepted friends and the viewer's own always-available Cyber Agents. */
+    /** Connected accepted human friends. */
     public Flux<UUID> onlineFriends(UUID selfId) {
-        Flux<UUID> people = friends.findByLowUserIdOrHighUserId(selfId, selfId)
+        return friends.findByLowUserIdOrHighUserId(selfId, selfId)
                 .filter(row -> FriendRow.ACCEPTED.equals(row.status()))
                 .map(row -> row.otherUser(selfId))
                 .filter(inbox::isOnline);
-        return people.concatWith(users.findAgentsOf(selfId).map(UserRow::id));
     }
 
     /**

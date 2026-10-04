@@ -21,8 +21,7 @@ import java.util.UUID;
  * coin_transactions} row — never just the balance alone.
  *
  * <p>Covers earning (match participation/win rewards, wired into {@code
- * GameOrchestrator.finishGame}), one cost (adding a Cyber Agent, wired into
- * {@code BotService.addBot}), and match-stake escrow/payout/refund (wired
+ * GameOrchestrator.finishGame}) and match-stake escrow/payout/refund (wired
  * into {@code RoomService.create}/{@code join}/{@code abandon} and {@code
  * GameOrchestrator.payoutStake}). Cosmetic-unlock purchases are still the
  * natural next step, not built yet.
@@ -33,10 +32,13 @@ public class CoinService {
     /**
      * What a match pays out.
      *
-     * <p>Beating a person is worth far more than beating a Cyber Agent, and
-     * deliberately so: an agent is always available, so paying the same for
-     * both would make grinding the easiest bot the fastest way to earn, and
-     * the whole point of the coins is to get people playing each other.
+     * <p>Only a match against another person pays anything at all. Cyber
+     * Agents are a free, always-available shared pool now (see
+     * {@code BotService}) — if beating or even just finishing against one
+     * paid out, grinding the nearest free agent would be a zero-cost, zero-
+     * risk coin faucet instead of the point of this ledger, which is to get
+     * people playing each other. {@code GameOrchestrator.awardCoins} is where
+     * this is enforced — a human opponent is required for any payout.
      *
      * <p>Losing never costs coins. The balance is earned-only and can't be
      * bought, so a player who runs dry has no way back in — and being unable
@@ -47,27 +49,12 @@ public class CoinService {
     public static final long LOSS_VS_PERSON = 10;
     public static final long TIE_VS_PERSON = 15;
 
-    /** Wins against an agent, by how hard it plays. */
-    public static final long WIN_VS_AMATEUR = 3;
-    public static final long WIN_VS_PRO = 5;
-    public static final long WIN_VS_LEGEND = 7;
-
-    /** A consolation for finishing a game against an agent, win or lose. */
-    public static final long LOSS_VS_AGENT = 1;
-
     public static final String REASON_MATCH_WIN = "match_win";
     public static final String REASON_MATCH_LOSS = "match_loss";
     public static final String REASON_MATCH_TIE = "match_tie";
-    public static final String REASON_BOT_ADDED = "bot_added";
     public static final String REASON_WELCOME = "welcome_grant";
 
-    /**
-     * What a brand-new account starts with. Without it the economy
-     * deadlocks: a Cyber Agent costs {@code BotService.BOT_COST}, Draughts
-     * and Goosi need two players, and coins are only earned by *finishing* a
-     * match — so a player with nobody around could neither hire an opponent
-     * nor earn their way to one. Enough for a few agents or a small stake.
-     */
+    /** What a brand-new account starts with, enough to join a small staked game. */
     public static final long WELCOME_GRANT = 120;
     public static final String REASON_MATCH_STAKE_ESCROW = "match_stake_escrow";
     public static final String REASON_MATCH_STAKE_PAYOUT = "match_stake_payout";

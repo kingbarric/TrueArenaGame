@@ -15,9 +15,14 @@ public record RoomMemberRow(
         String nickname,
         @Column("connection_status") String connectionStatus,
         @Column("ready_state") boolean readyState,
+        @Column("bot_difficulty") String botDifficulty,
         @Column("joined_at") Instant joinedAt
 ) {
     public static RoomMemberRow of(UUID roomId, UUID userId, String nickname) {
-        return new RoomMemberRow(null, roomId, userId, nickname, "connected", false, null);
+        return new RoomMemberRow(null, roomId, userId, nickname, "connected", false, null, null);
+    }
+
+    public static RoomMemberRow bot(UUID roomId, UUID userId, String nickname, String difficulty) {
+        return new RoomMemberRow(null, roomId, userId, nickname, "connected", false, difficulty, null);
     }
 }

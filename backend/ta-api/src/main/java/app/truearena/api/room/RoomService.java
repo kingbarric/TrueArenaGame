@@ -191,14 +191,14 @@ public class RoomService {
                                     .then(members.deleteByRoomId(roomId))
                                     .then(rooms.deleteById(roomId))
                                     .doOnSuccess(ignored -> {
-                                        ids.forEach(botRuntimes::stop);
+                                        botRuntimes.stopRoom(roomId);
                                         runtimes.find(roomId).ifPresent(RoomRuntime::cancelTimer);
                                         runtimes.remove(roomId);
                                     }));
                 }));
     }
 
-    /** Leaving a private Draft game against one's own agent ends that room and releases the agent. */
+    /** Leaving a private Draft game against a system agent ends that room. */
     public Mono<Boolean> leaveBotDraughtsRoom(UUID roomId, UUID callerId) {
         return rooms.findById(roomId)
                 .switchIfEmpty(Mono.error(ApiExceptions.notFound("huud not found")))
@@ -216,7 +216,7 @@ public class RoomService {
                                         UUID opponentId = roster.stream().filter(m -> !m.userId().equals(callerId))
                                                 .findFirst().orElseThrow().userId();
                                         return users.findById(opponentId).flatMap(opponent -> {
-                                            if (!opponent.isBot() || !callerId.equals(opponent.ownerUserId())) {
+                                            if (!opponent.isBot()) {
                                                 return Mono.just(false);
                                             }
                                             Mono<Boolean> end = "lobby".equals(room.status())
@@ -228,7 +228,7 @@ public class RoomService {
                                                                             .thenReturn(true));
                                             return end.doOnSuccess(ended -> {
                                                 if (ended) {
-                                                    botRuntimes.stop(opponentId);
+                                                    botRuntimes.stopRoom(roomId);
                                                     runtimes.find(roomId).ifPresent(RoomRuntime::cancelTimer);
                                                     runtimes.remove(roomId);
                                                 }
@@ -238,7 +238,7 @@ public class RoomService {
                 });
     }
 
-    /** Close a Whot table when the host leaves only their own Cyber Agents behind. */
+    /** Close a Whot table when the host leaves only Cyber Agents behind. */
     public Mono<Boolean> leaveBotWhotRoom(UUID roomId, UUID callerId) {
         return leaveBotRoom(roomId, callerId, "whot");
     }
@@ -247,12 +247,12 @@ public class RoomService {
         return leaveBotRoom(roomId, callerId, "ludo");
     }
 
-    /** Close an Oware pit when the host leaves only their own Cyber Agent behind. */
+    /** Close an Oware pit when the host leaves only Cyber Agents behind. */
     public Mono<Boolean> leaveBotGoosiRoom(UUID roomId, UUID callerId) {
         return leaveBotRoom(roomId, callerId, "goosi");
     }
 
-    /** Close a Word Bluff table when the host leaves only their own Cyber Agents behind. */
+    /** Close a Word Bluff table when the host leaves only Cyber Agents behind. */
     public Mono<Boolean> leaveBotWordBluffRoom(UUID roomId, UUID callerId) {
         return leaveBotRoom(roomId, callerId, "wordbluff");
     }
@@ -290,11 +290,11 @@ public class RoomService {
                                 .filter(id -> !id.equals(callerId)).toList();
                         return Flux.fromIterable(agentIds)
                                 .concatMap(id -> users.findById(id)
-                                        .map(user -> user.isBot() && callerId.equals(user.ownerUserId()))
+                                        .map(user -> user.isBot())
                                         .defaultIfEmpty(false))
                                 .all(Boolean::booleanValue)
-                                .flatMap(allOwnedAgents -> {
-                                    if (!allOwnedAgents) return Mono.just(false);
+                                .flatMap(allAgents -> {
+                                    if (!allAgents) return Mono.just(false);
                                     Mono<Boolean> end = "lobby".equals(room.status())
                                             ? abandon(roomId, callerId).thenReturn(true)
                                             : forfeitBotRoomFor(gameType, roomId, callerId)
@@ -306,7 +306,7 @@ public class RoomService {
                                                                     .thenReturn(true));
                                     return end.doOnSuccess(ended -> {
                                         if (ended) {
-                                            agentIds.forEach(botRuntimes::stop);
+                                            botRuntimes.stopRoom(roomId);
                                             runtimes.find(roomId).ifPresent(RoomRuntime::cancelTimer);
                                             runtimes.remove(roomId);
                                         }

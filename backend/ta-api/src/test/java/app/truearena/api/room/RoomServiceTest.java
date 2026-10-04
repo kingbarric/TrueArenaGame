@@ -304,7 +304,7 @@ class RoomServiceTest {
 
         StepVerifier.create(service.abandon(roomId, hostId)).verifyComplete();
 
-        verify(botRuntimes).stop(agentId);
+        verify(botRuntimes).stopRoom(roomId);
         verify(runtimes).remove(roomId);
     }
 
@@ -327,7 +327,7 @@ class RoomServiceTest {
                 .expectNext(true).verifyComplete();
 
         verify(games).forfeitBotDraughtsRoom(roomId, hostId);
-        verify(botRuntimes).stop(agentId);
+        verify(botRuntimes).stopRoom(roomId);
         verify(runtimes).remove(roomId);
     }
 
@@ -351,7 +351,7 @@ class RoomServiceTest {
                 .expectNext(true).verifyComplete();
 
         verify(rooms).save(room.withStatus("ended"));
-        verify(botRuntimes).stop(agentId);
+        verify(botRuntimes).stopRoom(roomId);
     }
 
     @Test
@@ -394,8 +394,7 @@ class RoomServiceTest {
                 .expectNext(true).verifyComplete();
 
         verify(games).forfeitBotWhotRoom(roomId, hostId);
-        verify(botRuntimes).stop(firstAgent);
-        verify(botRuntimes).stop(secondAgent);
+        verify(botRuntimes).stopRoom(roomId);
     }
 
     @Test
@@ -434,7 +433,7 @@ class RoomServiceTest {
                 .expectNext(true).verifyComplete();
 
         verify(rooms).save(room.withStatus("ended"));
-        verify(botRuntimes).stop(agentId);
+        verify(botRuntimes).stopRoom(roomId);
     }
 
     @Test
@@ -455,7 +454,7 @@ class RoomServiceTest {
                 .expectNext(true).verifyComplete();
 
         verify(games).forfeitBotGoosiRoom(roomId, hostId);
-        verify(botRuntimes).stop(agentId);
+        verify(botRuntimes).stopRoom(roomId);
     }
 
     @Test
@@ -493,7 +492,7 @@ class RoomServiceTest {
                 .expectNext(true).verifyComplete();
 
         verify(games).forfeitBotWordBluffRoom(roomId, hostId);
-        verify(botRuntimes).stop(agentId);
+        verify(botRuntimes).stopRoom(roomId);
     }
 
     @Test
@@ -538,8 +537,7 @@ class RoomServiceTest {
 
         StepVerifier.create(service.leaveBotLudoRoom(roomId, hostId)).expectNext(true).verifyComplete();
         verify(rooms).save(room.withStatus("ended"));
-        verify(botRuntimes).stop(firstAgent);
-        verify(botRuntimes).stop(secondAgent);
+        verify(botRuntimes).stopRoom(roomId);
     }
 
     @Test

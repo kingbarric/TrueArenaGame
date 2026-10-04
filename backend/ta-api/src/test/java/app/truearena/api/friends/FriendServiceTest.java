@@ -17,6 +17,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -51,24 +52,19 @@ class FriendServiceTest {
                 FriendRow.requested(alice, pendingId)));
         when(inbox.isOnline(bob)).thenReturn(true);
         when(inbox.isOnline(pendingId)).thenReturn(true);
-        when(users.findAgentsOf(alice)).thenReturn(Flux.empty());
-
         StepVerifier.create(service.onlineFriends(alice))
                 .expectNext(bob)
                 .verifyComplete();
     }
 
     @Test
-    void ownedAgentAlwaysAppearsOnline() {
-        UUID agentId = UUID.randomUUID();
-        UserRow agent = new UserRow(agentId, "Cyber1", null, null, null, "cyber1",
-                false, null, true, alice, null, null, null, null);
+    void onlineFriendsDoesNotReadTheLegacyAgentInventory() {
         when(friends.findByLowUserIdOrHighUserId(alice, alice)).thenReturn(Flux.empty());
-        when(users.findAgentsOf(alice)).thenReturn(Flux.just(agent));
 
         StepVerifier.create(service.onlineFriends(alice))
-                .expectNext(agentId)
                 .verifyComplete();
+
+        verify(users, never()).findAgentsOf(alice);
     }
 
     @Test

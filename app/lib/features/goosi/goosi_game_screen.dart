@@ -808,7 +808,7 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
             style: TextStyle(color: Color(0xfff0d8a8))),
         content: Text(
             hasAgent
-                ? 'A table with only your Cyber Agent will end and free it. Other tables can be rejoined with the huud code.'
+                ? 'A table with only a system Cyber Agent will end. Other tables can be rejoined with the huud code.'
                 : 'You can rejoin with the huud code, but you\'ll stop receiving live updates until you do.',
             style: const TextStyle(color: Color(0xffc9b18c))),
         actions: [

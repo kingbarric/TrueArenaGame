@@ -200,19 +200,14 @@ class _GoosiLobbyScreenState extends State<GoosiLobbyScreen> {
   }
 
   Future<void> _addBot(RoomView room) async {
-    // Agents are saved per game, so this offers the ones already made and
-    // only asks for a name when there are none — see showCyberAgentPicker.
-    final choice = await showCyberAgentPicker(context, gameType: 'goosi');
+    final choice = await showCyberAgentPicker(context,
+        defaultName: 'Cyber ${room.members.where((m) => m.isBot).length + 1}');
     if (choice == null || !mounted) return;
     setState(() => _addingBot = true);
     try {
       final app = AppScope.of(context);
-      if (choice.isExisting) {
-        await app.api.post('/rooms/${room.id}/bots/existing/${choice.agentId}');
-      } else {
-        await app.api.post('/rooms/${room.id}/bots',
-            {'name': choice.name, 'difficulty': choice.difficulty});
-      }
+      await app.api.post('/rooms/${room.id}/bots',
+          {'name': choice.name, 'difficulty': choice.difficulty});
     } on ApiException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)

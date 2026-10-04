@@ -90,7 +90,7 @@ class GameOrchestratorPayoutTest {
 
         invokeReleaseAgents(roomId);
 
-        verify(botRuntimes).stop(agentId);
+        verify(botRuntimes).stop(roomId, agentId);
         verify(members).deleteByRoomIdAndUserId(roomId, agentId);
         verify(members, never()).deleteByRoomIdAndUserId(roomId, humanId);
     }
@@ -149,7 +149,10 @@ class GameOrchestratorPayoutTest {
     // ---------------------------------------------------------------- awardCoins
 
     @Test
-    void awardCoins_hardestBotDifficultyAtTheTableSetsTheAgentRate() throws Exception {
+    void awardCoins_paysNothingAgainstAnAgentRegardlessOfDifficultyOrOutcome() throws Exception {
+        // Cyber Agents are a free, always-available shared pool now — a payout
+        // here, win or lose, would make grinding the nearest free agent a
+        // zero-cost way to mint coins. See CoinService's class doc.
         UUID player = UUID.randomUUID();
         UUID easyBot = UUID.randomUUID();
         UUID hardBot = UUID.randomUUID();
@@ -157,14 +160,11 @@ class GameOrchestratorPayoutTest {
         when(users.findById(player)).thenReturn(Mono.just(human(player)));
         when(users.findById(easyBot)).thenReturn(Mono.just(bot(easyBot, "easy")));
         when(users.findById(hardBot)).thenReturn(Mono.just(bot(hardBot, "hard")));
-        when(coins.credit(eq(player), anyLong(), any(), any())).thenReturn(Mono.just(0L));
 
         Map<String, String> outcome = Map.of(player.toString(), "won", easyBot.toString(), "lost", hardBot.toString(), "lost");
         invokeAwardCoins(rt, outcome);
 
-        verify(coins).credit(player, CoinService.WIN_VS_LEGEND, CoinService.REASON_MATCH_WIN, null);
-        verify(coins, never()).credit(eq(easyBot), anyLong(), any(), any());
-        verify(coins, never()).credit(eq(hardBot), anyLong(), any(), any());
+        verifyNoInteractions(coins);
     }
 
     @Test
@@ -172,6 +172,7 @@ class GameOrchestratorPayoutTest {
         UUID winner = UUID.randomUUID();
         UUID loser = UUID.randomUUID();
         RoomRuntime rt = new RoomRuntime(UUID.randomUUID(), winner.toString());
+        when(members.findByRoomId(rt.roomId)).thenReturn(Flux.empty());
         when(users.findById(winner)).thenReturn(Mono.just(human(winner)));
         when(users.findById(loser)).thenReturn(Mono.just(human(loser)));
         when(coins.credit(any(), anyLong(), any(), any())).thenReturn(Mono.just(0L));
@@ -187,6 +188,7 @@ class GameOrchestratorPayoutTest {
         UUID player = UUID.randomUUID();
         UUID botId = UUID.randomUUID();
         RoomRuntime rt = new RoomRuntime(UUID.randomUUID(), player.toString());
+        when(members.findByRoomId(rt.roomId)).thenReturn(Flux.empty());
         when(users.findById(player)).thenReturn(Mono.just(human(player)));
         when(users.findById(botId)).thenReturn(Mono.just(bot(botId, "medium")));
         when(coins.credit(any(), anyLong(), any(), any())).thenReturn(Mono.just(0L));

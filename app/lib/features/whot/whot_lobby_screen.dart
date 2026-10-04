@@ -179,20 +179,24 @@ class _WhotLobbyScreenState extends State<WhotLobbyScreen> {
   }
 
   Future<void> _addBot() async {
-    final choice = await showCyberAgentPicker(context, gameType: 'whot');
-    if (choice == null || !mounted || _room == null) return;
+    final room = _room;
+    if (room == null) return;
+    final choice = await showCyberAgentPicker(context,
+        defaultName: 'Cyber ${room.members.where((m) => m.isBot).length + 1}');
+    // Re-read _room rather than trusting the pre-await snapshot — the room
+    // could have ended, or been replaced by a different one, while the
+    // picker sheet was open.
+    final current = _room;
+    if (choice == null || !mounted || current == null || current.id != room.id) {
+      return;
+    }
     setState(() => _addingBot = true);
     try {
       final app = AppScope.of(context);
-      if (choice.isExisting) {
-        await app.api
-            .post('/rooms/${_room!.id}/bots/existing/${choice.agentId}');
-      } else {
-        await app.api.post('/rooms/${_room!.id}/bots', {
-          'name': choice.name,
-          'difficulty': choice.difficulty,
-        });
-      }
+      await app.api.post('/rooms/${current.id}/bots', {
+        'name': choice.name,
+        'difficulty': choice.difficulty,
+      });
       _socket?.send('HELLO', {'lastSeq': 0});
     } on ApiException catch (e) {
       if (mounted) {

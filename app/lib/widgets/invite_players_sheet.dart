@@ -16,7 +16,8 @@ import 'neon.dart';
 /// tomorrow, unlike a notification they swiped away.
 ///
 /// Returns the number of invites actually sent.
-Future<int?> showInvitePlayersSheet(BuildContext context, {required String roomId}) {
+Future<int?> showInvitePlayersSheet(BuildContext context,
+    {required String roomId}) {
   return showModalBottomSheet<int>(
     context: context,
     isScrollControlled: true,
@@ -53,10 +54,6 @@ class _InvitePlayersSheetState extends State<_InvitePlayersSheet> {
       if (!mounted) return;
       setState(() => _friends = res
           .map((e) => FriendUser.fromJson((e as Map).cast<String, dynamic>()))
-          // `/friends` also carries your own Cyber Agents, because they show
-          // in the friends list — but an agent has no inbox to invite to.
-          // You add one with the Cyber Agent button instead.
-          .where((f) => !f.isAgent)
           .toList());
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
@@ -73,8 +70,10 @@ class _InvitePlayersSheetState extends State<_InvitePlayersSheet> {
     String? firstFailure;
     for (final friendId in _picked) {
       try {
-        final conv = await app.api.post('/conversations/dm/$friendId') as Map<String, dynamic>;
-        await app.api.post('/conversations/${conv['conversationId']}/invites', {'roomId': widget.roomId});
+        final conv = await app.api.post('/conversations/dm/$friendId')
+            as Map<String, dynamic>;
+        await app.api.post('/conversations/${conv['conversationId']}/invites',
+            {'roomId': widget.roomId});
         sent++;
       } on ApiException catch (e) {
         // One friend failing (blocked, unfriended mid-flight) shouldn't sink
@@ -102,67 +101,84 @@ class _InvitePlayersSheetState extends State<_InvitePlayersSheet> {
     final friends = _friends;
     return NeonGlass(
       child: Padding(
-        padding: EdgeInsets.fromLTRB(20, 18, 20, MediaQuery.viewInsetsOf(context).bottom + 26),
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Center(
-            child: Container(width: 40, height: 4,
-                decoration: BoxDecoration(color: n.line, borderRadius: BorderRadius.circular(2))),
-          ),
-          const SizedBox(height: 18),
-          Text('ADD A PLAYER',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute, letterSpacing: 2)),
-          const SizedBox(height: 4),
-          Text('They get an invite in their chat with a Join button.',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute)),
-          const SizedBox(height: 16),
-          if (_error != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: Text(_error!, style: TextStyle(color: n.danger)),
-            )
-          else if (friends == null)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 28),
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else if (friends.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 20),
-              child: Text('No friends yet — add some from the Friends tab, or share the huud code instead.',
-                  style: TextStyle(color: n.mute)),
-            )
-          else
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 300),
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: friends.length,
-                itemBuilder: (context, i) {
-                  final f = friends[i];
-                  final on = _picked.contains(f.userId);
-                  return CheckboxListTile(
-                    value: on,
-                    onChanged: _sending
-                        ? null
-                        : (_) => setState(() => on ? _picked.remove(f.userId) : _picked.add(f.userId)),
-                    title: Text(f.displayName),
-                    subtitle: Text('@${f.username}', style: TextStyle(color: n.mute)),
-                    controlAffinity: ListTileControlAffinity.leading,
-                    contentPadding: EdgeInsets.zero,
-                  );
-                },
+        padding: EdgeInsets.fromLTRB(
+            20, 18, 20, MediaQuery.viewInsetsOf(context).bottom + 26),
+        child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                        color: n.line, borderRadius: BorderRadius.circular(2))),
               ),
-            ),
-          const SizedBox(height: 14),
-          NeonButton(
-            _sending
-                ? 'Inviting…'
-                : _picked.isEmpty
-                    ? 'Pick someone to invite'
-                    : 'Invite ${_picked.length} ${_picked.length == 1 ? 'friend' : 'friends'}',
-            onPressed: (_sending || _picked.isEmpty) ? null : _invite,
-          ),
-        ]),
+              const SizedBox(height: 18),
+              Text('ADD A PLAYER',
+                  style: Theme.of(context)
+                      .textTheme
+                      .labelSmall
+                      ?.copyWith(color: n.mute, letterSpacing: 2)),
+              const SizedBox(height: 4),
+              Text('They get an invite in their chat with a Join button.',
+                  style: Theme.of(context)
+                      .textTheme
+                      .labelSmall
+                      ?.copyWith(color: n.mute)),
+              const SizedBox(height: 16),
+              if (_error != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Text(_error!, style: TextStyle(color: n.danger)),
+                )
+              else if (friends == null)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 28),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (friends.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  child: Text(
+                      'No friends yet — add some from the Friends tab, or share the huud code instead.',
+                      style: TextStyle(color: n.mute)),
+                )
+              else
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 300),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: friends.length,
+                    itemBuilder: (context, i) {
+                      final f = friends[i];
+                      final on = _picked.contains(f.userId);
+                      return CheckboxListTile(
+                        value: on,
+                        onChanged: _sending
+                            ? null
+                            : (_) => setState(() => on
+                                ? _picked.remove(f.userId)
+                                : _picked.add(f.userId)),
+                        title: Text(f.displayName),
+                        subtitle: Text('@${f.username}',
+                            style: TextStyle(color: n.mute)),
+                        controlAffinity: ListTileControlAffinity.leading,
+                        contentPadding: EdgeInsets.zero,
+                      );
+                    },
+                  ),
+                ),
+              const SizedBox(height: 14),
+              NeonButton(
+                _sending
+                    ? 'Inviting…'
+                    : _picked.isEmpty
+                        ? 'Pick someone to invite'
+                        : 'Invite ${_picked.length} ${_picked.length == 1 ? 'friend' : 'friends'}',
+                onPressed: (_sending || _picked.isEmpty) ? null : _invite,
+              ),
+            ]),
       ),
     );
   }

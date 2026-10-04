@@ -175,17 +175,22 @@ class _LudoLobbyScreenState extends State<LudoLobbyScreen> {
   }
 
   Future<void> _addAgent() async {
-    final choice = await showCyberAgentPicker(context, gameType: 'ludo');
-    if (choice == null || !mounted || _room == null) return;
+    final room = _room;
+    if (room == null) return;
+    final choice = await showCyberAgentPicker(context,
+        defaultName: 'Cyber ${room.members.where((m) => m.isBot).length + 1}');
+    // Re-read _room rather than trusting the pre-await snapshot — the room
+    // could have ended, or been replaced by a different one, while the
+    // picker sheet was open.
+    final current = _room;
+    if (choice == null || !mounted || current == null || current.id != room.id) {
+      return;
+    }
     setState(() => _busy = true);
     try {
       final api = AppScope.of(context).api;
-      if (choice.isExisting) {
-        await api.post('/rooms/${_room!.id}/bots/existing/${choice.agentId}');
-      } else {
-        await api.post('/rooms/${_room!.id}/bots',
-            {'name': choice.name, 'difficulty': choice.difficulty});
-      }
+      await api.post('/rooms/${current.id}/bots',
+          {'name': choice.name, 'difficulty': choice.difficulty});
       _socket?.send('HELLO', {'lastSeq': 0});
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);

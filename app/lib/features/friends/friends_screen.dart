@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../core/api_client.dart';
 import '../../core/app_state.dart';
 import '../../theme/neon_theme.dart';
-import '../../widgets/cyber_agent_sheet.dart';
 import '../../widgets/compact_list_row.dart';
 import '../../widgets/neon.dart';
 import '../calls/call_screen.dart';
@@ -19,8 +18,6 @@ class FriendUser {
     required this.username,
     this.avatarUrl,
     this.publicKey,
-    this.agentGameType,
-    this.agentDifficulty,
   });
   final String userId;
   final String displayName;
@@ -31,22 +28,12 @@ class FriendUser {
   /// makes a DM call end-to-end encrypted (see `E2eCrypto`, `CallScreen`).
   final String? publicKey;
 
-  /// Set only on the viewer's own Cyber Agents — they're listed here
-  /// because an agent is a player you can add to a room, but they can't be
-  /// messaged, called or unfriended (see `_agentTile`).
-  final String? agentGameType;
-  final String? agentDifficulty;
-
-  bool get isAgent => agentGameType != null;
-
   factory FriendUser.fromJson(Map<String, dynamic> j) => FriendUser(
         userId: j['userId'] as String,
         displayName: j['displayName'] as String? ?? '',
         username: j['username'] as String? ?? '',
         avatarUrl: j['avatarUrl'] as String?,
         publicKey: j['publicKey'] as String?,
-        agentGameType: j['agentGameType'] as String?,
-        agentDifficulty: j['agentDifficulty'] as String?,
       );
 }
 
@@ -410,55 +397,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
     );
   }
 
-  static const _gameLabels = {
-    'draughts': 'Draft',
-    'goosi': 'Macala',
-    'wordbluff': 'Word Bluff',
-    'truearena': 'Traitors',
-  };
-
-  Future<void> _renameAgent(FriendUser agent) async {
-    final name = await showRenameAgentDialog(context, agent.displayName);
-    if (name == null || !mounted) return;
-    try {
-      await AppScope.of(context)
-          .api
-          .patch('/agents/${agent.userId}', {'name': name});
-      await _load();
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not rename that agent')));
-      }
-    }
-  }
-
-  Widget _agentTile(NeonColors n, FriendUser f) {
-    final game = _gameLabels[f.agentGameType] ?? f.agentGameType!;
-    return CompactListRow(
-      leading: OnlineAvatar(f.displayName,
-          size: 32, imageUrl: f.avatarUrl, emoji: '🤖', online: true),
-      title: Text(f.displayName,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context)
-              .textTheme
-              .bodyMedium
-              ?.copyWith(fontWeight: FontWeight.w700)),
-      subtitle: Text('Cyber Agent · $game',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style:
-              Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute)),
-      trailing: IconButton(
-          icon: Icon(Icons.edit_outlined, color: n.gold, size: 20),
-          tooltip: 'Rename',
-          onPressed: () => _renameAgent(f)),
-    );
-  }
-
   Widget _friendTile(NeonColors n, FriendUser f) {
-    if (f.isAgent) return _agentTile(n, f);
     return CompactListRow(
       onTap: () => Navigator.of(context).push(MaterialPageRoute(
           builder: (_) =>

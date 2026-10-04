@@ -1026,7 +1026,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
             style: TextStyle(color: Color(0xfff0d8a8))),
         content: Text(
             widget.championshipId == null
-                ? 'A game against your Cyber Agent will end and free the agent. Other games can be rejoined with the huud code.'
+                ? 'A game against a system Cyber Agent will end. Other games can be rejoined with the huud code.'
                 : 'You can reopen this pairing from the championship bracket.',
             style: const TextStyle(color: Color(0xffc9b18c))),
         actions: [

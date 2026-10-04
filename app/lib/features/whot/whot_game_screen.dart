@@ -835,7 +835,7 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
         content: Text(
             widget.spectating
                 ? 'You will leave this table and return to the games screen.'
-                : 'A table with only your Cyber Agents will end and free them. Other tables can be rejoined with the huud code.',
+                : 'A table with only system Cyber Agents will end. Other tables can be rejoined with the huud code.',
             style: const TextStyle(color: Color(0xffd7bddf))),
         actions: [
           TextButton(

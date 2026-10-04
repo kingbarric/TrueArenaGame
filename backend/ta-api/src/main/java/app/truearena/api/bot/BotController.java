@@ -38,7 +38,7 @@ public class BotController {
 
     @PostMapping("/existing/{agentId}")
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "Re-hire an agent the caller already created (host-only, lobby-only)")
+    @Operation(summary = "Legacy client bridge: copy a saved agent's settings into a pool seat")
     public Mono<BotAddedView> addExisting(@PathVariable UUID roomId, @PathVariable UUID agentId) {
         return CurrentUser.id().flatMap(hostId -> bots.addExistingAgent(roomId, hostId, agentId));
     }

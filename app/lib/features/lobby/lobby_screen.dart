@@ -100,7 +100,9 @@ class _LobbyScreenState extends State<LobbyScreen> {
           _handOffToGame(app, roomId);
         case 'ERROR':
           final msg = (env['payload'] as Map)['message']?.toString();
-          if (msg != null && mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+          if (msg != null && mounted)
+            ScaffoldMessenger.of(context)
+                .showSnackBar(SnackBar(content: Text(msg)));
       }
     });
     socket.send('HELLO', {'lastSeq': 0});
@@ -129,7 +131,9 @@ class _LobbyScreenState extends State<LobbyScreen> {
     _handedOff = true;
     _sub?.cancel();
     final room = _room!;
-    final nicknames = {for (final m in room.members) m.userId: m.nickname ?? m.userId};
+    final nicknames = {
+      for (final m in room.members) m.userId: m.nickname ?? m.userId
+    };
     Navigator.of(context).pushReplacement(MaterialPageRoute(
       builder: (_) => GameScreen(
         socket: _socket!,
@@ -153,24 +157,24 @@ class _LobbyScreenState extends State<LobbyScreen> {
   }
 
   Future<void> _addBot(RoomView room) async {
-    // Agents are saved per game, so this offers the ones already made and
-    // only asks for a name when there are none — see showCyberAgentPicker.
-    final choice = await showCyberAgentPicker(context, gameType: 'truearena');
+    final choice = await showCyberAgentPicker(context,
+        defaultName: 'Cyber ${room.members.where((m) => m.isBot).length + 1}');
     if (choice == null || !mounted) return;
     setState(() => _addingBot = true);
     try {
       final app = AppScope.of(context);
-      if (choice.isExisting) {
-        await app.api.post('/rooms/${room.id}/bots/existing/${choice.agentId}');
-      } else {
-        await app.api.post('/rooms/${room.id}/bots', {'name': choice.name, 'difficulty': choice.difficulty});
-      }
+      await app.api.post('/rooms/${room.id}/bots',
+          {'name': choice.name, 'difficulty': choice.difficulty});
       // the bot connects itself over WS right after this and shows up via
       // the lobby's own SNAPSHOT/EVENT stream — nothing else to do here.
     } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not add the Cyber Agent')));
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not add the Cyber Agent')));
     } finally {
       if (mounted) setState(() => _addingBot = false);
     }
@@ -185,11 +189,16 @@ class _LobbyScreenState extends State<LobbyScreen> {
       status: 'lobby',
       members: [
         RoomMember(userId: 'me', nickname: me, ready: _ready, connected: true),
-        const RoomMember(userId: 'p2', nickname: 'Ronan', ready: true, connected: true),
-        const RoomMember(userId: 'p3', nickname: 'Priya', ready: true, connected: true),
-        const RoomMember(userId: 'p4', nickname: 'Dex', ready: false, connected: true),
-        const RoomMember(userId: 'p5', nickname: 'Ana', ready: true, connected: true),
-        const RoomMember(userId: 'p6', nickname: 'Otis', ready: false, connected: false),
+        const RoomMember(
+            userId: 'p2', nickname: 'Ronan', ready: true, connected: true),
+        const RoomMember(
+            userId: 'p3', nickname: 'Priya', ready: true, connected: true),
+        const RoomMember(
+            userId: 'p4', nickname: 'Dex', ready: false, connected: true),
+        const RoomMember(
+            userId: 'p5', nickname: 'Ana', ready: true, connected: true),
+        const RoomMember(
+            userId: 'p6', nickname: 'Otis', ready: false, connected: false),
       ],
     );
   }
@@ -220,7 +229,8 @@ class _LobbyScreenState extends State<LobbyScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const MarqueeBar('waiting on the table  •  host sets the rules  •  tap to ready up'),
+            const MarqueeBar(
+                'waiting on the table  •  host sets the rules  •  tap to ready up'),
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.all(16),
@@ -232,28 +242,48 @@ class _LobbyScreenState extends State<LobbyScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
                 child: NeonCard(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('HUUD CODE',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute, letterSpacing: 2)),
-                    const SizedBox(height: 4),
-                    Text(room.code,
-                        style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                            fontSize: 40, letterSpacing: 6, shadows: [Shadow(color: n.gold.withValues(alpha: 0.4), blurRadius: 30)])),
-                    const SizedBox(height: 8),
-                    Wrap(spacing: 6, runSpacing: 6, children: [
-                      _chip('${p.minPlayers}–${p.maxPlayers} players'),
-                      _chip('${p.traitors} traitors'),
-                      _chip(p.veilLabel),
-                      if (p.twistCount > 0) _chip('${p.twistCount} twist${p.twistCount == 1 ? '' : 's'}'),
-                    ]),
-                  ]),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('HUUD CODE',
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelSmall
+                                ?.copyWith(color: n.mute, letterSpacing: 2)),
+                        const SizedBox(height: 4),
+                        Text(room.code,
+                            style: Theme.of(context)
+                                .textTheme
+                                .displayLarge
+                                ?.copyWith(
+                                    fontSize: 40,
+                                    letterSpacing: 6,
+                                    shadows: [
+                                  Shadow(
+                                      color: n.gold.withValues(alpha: 0.4),
+                                      blurRadius: 30)
+                                ])),
+                        const SizedBox(height: 8),
+                        Wrap(spacing: 6, runSpacing: 6, children: [
+                          _chip('${p.minPlayers}–${p.maxPlayers} players'),
+                          _chip('${p.traitors} traitors'),
+                          _chip(p.veilLabel),
+                          if (p.twistCount > 0)
+                            _chip(
+                                '${p.twistCount} twist${p.twistCount == 1 ? '' : 's'}'),
+                        ]),
+                      ]),
                 ),
               ),
               if (_example)
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                   child: Text('Example roster — sign in to host a real huud.',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute)),
+                      style: Theme.of(context)
+                          .textTheme
+                          .labelSmall
+                          ?.copyWith(color: n.mute)),
                 ),
               Expanded(
                 child: GridView.builder(
@@ -265,7 +295,8 @@ class _LobbyScreenState extends State<LobbyScreen> {
                     childAspectRatio: 0.76,
                   ),
                   itemCount: room.members.length,
-                  itemBuilder: (context, i) => _memberTile(room.members[i], room.hostId),
+                  itemBuilder: (context, i) =>
+                      _memberTile(room.members[i], room.hostId),
                 ),
               ),
               _bottomBar(room, p),
@@ -297,27 +328,40 @@ class _LobbyScreenState extends State<LobbyScreen> {
                 shape: BoxShape.circle,
                 border: Border.all(color: ringColor, width: away ? 1.6 : 2.6),
                 boxShadow: !away && m.ready
-                    ? [BoxShadow(color: n.jade.withValues(alpha: 0.38), blurRadius: 16, spreadRadius: -2)]
+                    ? [
+                        BoxShadow(
+                            color: n.jade.withValues(alpha: 0.38),
+                            blurRadius: 16,
+                            spreadRadius: -2)
+                      ]
                     : null,
               ),
               child: Opacity(
                 opacity: away ? 0.4 : 1,
-                child: OnlineAvatar(m.nickname ?? '?', size: 60,
-                    online: m.isBot || m.connected),
+                child: OnlineAvatar(m.nickname ?? '?',
+                    size: 60, online: m.isBot || m.connected),
               ),
             ),
             if (isHost)
               Positioned(
                 top: -3,
                 left: -3,
-                child: _badge(n.brand, const Icon(Icons.workspace_premium_rounded, size: 12, color: Colors.white)),
+                child: _badge(
+                    n.brand,
+                    const Icon(Icons.workspace_premium_rounded,
+                        size: 12, color: Colors.white)),
               ),
             Positioned(
               bottom: -2,
               right: -2,
               child: m.isBot
-                  ? _badge(n.jade, const Icon(Icons.smart_toy_rounded, size: 13, color: Colors.black))
-                  : _badge(n.plate, Icon(Icons.mic_off_rounded, size: 13, color: n.mute), border: kCabinetInk),
+                  ? _badge(
+                      n.jade,
+                      const Icon(Icons.smart_toy_rounded,
+                          size: 13, color: Colors.black))
+                  : _badge(n.plate,
+                      Icon(Icons.mic_off_rounded, size: 13, color: n.mute),
+                      border: kCabinetInk),
             ),
           ],
         ),
@@ -327,14 +371,14 @@ class _LobbyScreenState extends State<LobbyScreen> {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.center,
-          style: Theme.of(context)
-              .textTheme
-              .bodySmall
-              ?.copyWith(color: away ? n.mute : n.ink, fontWeight: FontWeight.w700),
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: away ? n.mute : n.ink, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 2),
         Text(
-          m.isBot ? 'CYBER AGENT' : (away ? 'AWAY' : (m.ready ? 'READY' : 'WAITING')),
+          m.isBot
+              ? 'CYBER AGENT'
+              : (away ? 'AWAY' : (m.ready ? 'READY' : 'WAITING')),
           style: TextStyle(
             fontSize: 8,
             fontWeight: FontWeight.w800,
@@ -364,12 +408,16 @@ class _LobbyScreenState extends State<LobbyScreen> {
     final full = room.members.length >= p.maxPlayers;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-      decoration: BoxDecoration(color: n.panel, border: Border(top: BorderSide(color: n.line))),
+      decoration: BoxDecoration(
+          color: n.panel, border: Border(top: BorderSide(color: n.line))),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Padding(
           padding: const EdgeInsets.only(bottom: 6),
           child: Text('$readyCount of ${room.members.length} ready',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute, fontWeight: FontWeight.w700)),
+              style: Theme.of(context)
+                  .textTheme
+                  .labelSmall
+                  ?.copyWith(color: n.mute, fontWeight: FontWeight.w700)),
         ),
         if (isHost && !full && !_example) ...[
           // Inviting a real friend is the headline action; an agent is the
@@ -382,14 +430,16 @@ class _LobbyScreenState extends State<LobbyScreen> {
               feel: BouncyFeel.snap,
               onTap: _addingBot ? null : () => _addBot(room),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
                   color: n.plate,
                   borderRadius: BorderRadius.circular(999),
                   border: Border.all(color: n.line, width: 1.5),
                 ),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.smart_toy_rounded, size: 14, color: _addingBot ? n.mute : n.gold),
+                  Icon(Icons.smart_toy_rounded,
+                      size: 14, color: _addingBot ? n.mute : n.gold),
                   const SizedBox(width: 6),
                   Text(_addingBot ? 'Adding…' : 'or add a Cyber Agent',
                       style: TextStyle(
@@ -424,7 +474,8 @@ class _LobbyScreenState extends State<LobbyScreen> {
               child: NeonButton('Start', onPressed: () {
                 if (_example) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Add an account to host a game.')),
+                    const SnackBar(
+                        content: Text('Add an account to host a game.')),
                   );
                 } else {
                   _socket?.send('GAME_START');
@@ -447,8 +498,11 @@ class _LobbyScreenState extends State<LobbyScreen> {
         border: Border.all(color: kCabinetInk, width: 1.6),
       ),
       child: Text(t.toUpperCase(),
-          style: TextStyle(color: n.mid, fontWeight: FontWeight.w800, fontSize: 8, letterSpacing: 0.6)),
+          style: TextStyle(
+              color: n.mid,
+              fontWeight: FontWeight.w800,
+              fontSize: 8,
+              letterSpacing: 0.6)),
     );
   }
-
 }

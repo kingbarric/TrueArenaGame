@@ -47,31 +47,31 @@ public class RoomController {
     }
 
     @PostMapping("/{id}/leave-draughts")
-    @Operation(summary = "End a Draft game against your Cyber Agent when leaving it")
+    @Operation(summary = "End a Draft game against a system Cyber Agent when leaving it")
     public Mono<Boolean> leaveDraughts(@PathVariable UUID id) {
         return CurrentUser.id().flatMap(uid -> rooms.leaveBotDraughtsRoom(id, uid));
     }
 
     @PostMapping("/{id}/leave-whot")
-    @Operation(summary = "End a Whot table containing only your Cyber Agents when leaving it")
+    @Operation(summary = "End a Whot table containing only system Cyber Agents when leaving it")
     public Mono<Boolean> leaveWhot(@PathVariable UUID id) {
         return CurrentUser.id().flatMap(uid -> rooms.leaveBotWhotRoom(id, uid));
     }
 
     @PostMapping("/{id}/leave-ludo")
-    @Operation(summary = "Forfeit a Ludo seat and release owned Cyber Agents when the table closes")
+    @Operation(summary = "Forfeit a Ludo seat and stop that table's Cyber Agent runtimes")
     public Mono<Boolean> leaveLudo(@PathVariable UUID id) {
         return CurrentUser.id().flatMap(uid -> rooms.leaveLudoRoom(id, uid));
     }
 
     @PostMapping("/{id}/leave-goosi")
-    @Operation(summary = "End an Oware pit against your Cyber Agent when leaving it")
+    @Operation(summary = "End an Oware pit against a system Cyber Agent when leaving it")
     public Mono<Boolean> leaveGoosi(@PathVariable UUID id) {
         return CurrentUser.id().flatMap(uid -> rooms.leaveBotGoosiRoom(id, uid));
     }
 
     @PostMapping("/{id}/leave-wordbluff")
-    @Operation(summary = "End a Word Bluff table containing only your Cyber Agents when leaving it")
+    @Operation(summary = "End a Word Bluff table containing only system Cyber Agents when leaving it")
     public Mono<Boolean> leaveWordBluff(@PathVariable UUID id) {
         return CurrentUser.id().flatMap(uid -> rooms.leaveBotWordBluffRoom(id, uid));
     }

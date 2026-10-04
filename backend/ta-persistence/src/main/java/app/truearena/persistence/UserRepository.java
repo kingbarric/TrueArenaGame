@@ -28,19 +28,25 @@ public interface UserRepository extends ReactiveCrudRepository<UserRow, UUID> {
     @Query("SELECT EXISTS (SELECT 1 FROM users WHERE lower(username) = lower(:username) AND id <> :userId)")
     Mono<Boolean> existsByUsernameIgnoreCaseForOtherUser(String username, UUID userId);
 
-    /**
-     * A player's saved Cyber Agents for one game, oldest first — the list
-     * behind "add an agent you already made" (see {@code BotService}). An
-     * agent is just a bot {@code users} row that remembers who created it,
-     * so there's no separate roster table to keep in sync.
-     */
+    /** Legacy saved-agent lookup retained for rolling-client compatibility. */
     @Query("SELECT * FROM users WHERE is_bot AND owner_user_id = :ownerId AND bot_game_type = :gameType "
             + "ORDER BY created_at")
     Flux<UserRow> findAgentsOf(UUID ownerId, String gameType);
 
-    /** Every agent a player owns, across all games — used to show them in the friends list. */
+    /** Legacy saved-agent lookup retained while pre-pool rows exist. */
     @Query("SELECT * FROM users WHERE is_bot AND owner_user_id = :ownerId ORDER BY created_at")
     Flux<UserRow> findAgentsOf(UUID ownerId);
+
+    /**
+     * Picks a reusable system identity that is not already seated in this
+     * room. The same identity may be used in other rooms at the same time;
+     * room-scoped name, difficulty and runtime state keep those games isolated.
+     */
+    @Query("SELECT u.* FROM users u WHERE u.is_bot AND u.owner_user_id IS NULL "
+            + "AND u.bot_game_type = 'system_pool' "
+            + "AND NOT EXISTS (SELECT 1 FROM room_members m WHERE m.room_id = :roomId AND m.user_id = u.id) "
+            + "ORDER BY u.username LIMIT 1")
+    Mono<UserRow> findSystemAgentForRoom(UUID roomId);
 
     @Query("SELECT coins FROM users WHERE id = :userId")
     Mono<Long> coinsOf(UUID userId);

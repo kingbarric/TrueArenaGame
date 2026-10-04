@@ -329,12 +329,16 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
           ((p['reviewAccepted'] as List?) ?? const []).cast<String>();
       winningTeam = p['winningTeam'] as String? ?? winningTeam;
       yourWord = p['yourWord'] as String?;
-      if (hasActiveCategory && category != null && category != _settledCategory) {
+      if (hasActiveCategory &&
+          category != null &&
+          category != _settledCategory) {
         categoryName = _nameOf(category!);
         _settleWheel(category!);
       }
     });
-    if (phase == 'Turn' && p['clockStarted'] == true && serverSecondsLeft != null) {
+    if (phase == 'Turn' &&
+        p['clockStarted'] == true &&
+        serverSecondsLeft != null) {
       _resumeCountdownFrom(serverSecondsLeft);
     }
     _syncVoiceListening();
@@ -612,7 +616,8 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
       setState(() => _chargeLevel = level);
       if (level >= 1.0) t.cancel();
     });
-    setState(() => _chargeLevel = 0.001); // gives the dial an immediate nudge on press
+    setState(() =>
+        _chargeLevel = 0.001); // gives the dial an immediate nudge on press
   }
 
   /// Lets go — how long it was held becomes the spin's power, same scale a
@@ -704,7 +709,8 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
     widget.socket.send('MUTE_SPECTATORS_TOGGLE');
   }
 
-  PopupMenuItem<String> _menuItem(NeonColors n, String value, IconData icon, String label) =>
+  PopupMenuItem<String> _menuItem(
+          NeonColors n, String value, IconData icon, String label) =>
       PopupMenuItem<String>(
         value: value,
         height: 42,
@@ -749,11 +755,18 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
                 }
               },
               itemBuilder: (_) => [
-                _menuItem(context.neon, 'help', Icons.help_outline_rounded, 'How to play'),
-                _menuItem(context.neon, 'music',
-                    _musicOn ? Icons.music_note_rounded : Icons.music_off_rounded,
+                _menuItem(context.neon, 'help', Icons.help_outline_rounded,
+                    'How to play'),
+                _menuItem(
+                    context.neon,
+                    'music',
+                    _musicOn
+                        ? Icons.music_note_rounded
+                        : Icons.music_off_rounded,
                     _musicOn ? 'Mute music' : 'Play music'),
-                _menuItem(context.neon, 'sfx',
+                _menuItem(
+                    context.neon,
+                    'sfx',
                     _sfxOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
                     _sfxOn ? 'Mute game sounds' : 'Play game sounds'),
                 if (!_amSpectator)
@@ -763,10 +776,14 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
                       _spectatorsMuted
                           ? Icons.comments_disabled_rounded
                           : Icons.chat_bubble_outline_rounded,
-                      _spectatorsMuted ? 'Let spectators comment' : 'Mute spectator comments'),
+                      _spectatorsMuted
+                          ? 'Let spectators comment'
+                          : 'Mute spectator comments'),
                 if (!finished && !_amSpectator)
-                  _menuItem(context.neon, 'forfeit', Icons.flag_outlined, 'End game · forfeit'),
-                _menuItem(context.neon, 'leave', Icons.logout_rounded, 'Leave game'),
+                  _menuItem(context.neon, 'forfeit', Icons.flag_outlined,
+                      'End game · forfeit'),
+                _menuItem(
+                    context.neon, 'leave', Icons.logout_rounded, 'Leave game'),
               ],
             ),
           ],
@@ -816,7 +833,7 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
         title: const Text('Leave this game?'),
         content: const Text(
             'The round carries on without you, and you lose any points still waiting on the review. '
-            'A table with only your Cyber Agents will end and free them.'),
+            'A table with only system Cyber Agents will end.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
@@ -859,8 +876,12 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
         title: const Text('End the game?'),
         content: const Text('Your team forfeits and the other team wins.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Keep playing')),
-          TextButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Forfeit')),
+          TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Keep playing')),
+          TextButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Forfeit')),
         ],
       ),
     );
@@ -1020,7 +1041,8 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
                     valueListenable: widget.socket.onlinePlayers,
                     builder: (_, online, __) => OnlineAvatar(
                         id == widget.selfId ? 'You' : label(id),
-                        size: 18, online: online.contains(id)),
+                        size: 18,
+                        online: online.contains(id)),
                   ),
                 ),
                 const SizedBox(width: 6),
@@ -1173,7 +1195,8 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
                 strokeWidth: 5,
                 backgroundColor: n.line,
                 valueColor: AlwaysStoppedAnimation(
-                    Color.lerp(n.gold, n.brand, charging ? _chargeLevel : 0) ?? n.gold),
+                    Color.lerp(n.gold, n.brand, charging ? _chargeLevel : 0) ??
+                        n.gold),
               ),
             ),
             AnimatedContainer(
@@ -1189,8 +1212,7 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
                 // The gear winds with the charge — a visible sign the hold is
                 // registering, not just a static icon sitting there.
                 angle: (charging ? _chargeLevel : 0) * math.pi,
-                child: Icon(Icons.settings_rounded,
-                    color: n.gold, size: 30),
+                child: Icon(Icons.settings_rounded, color: n.gold, size: 30),
               ),
             ),
           ]),
@@ -1481,9 +1503,10 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
                 .bodyMedium
                 ?.copyWith(color: n.gold, fontWeight: FontWeight.w800)),
         const SizedBox(height: 4),
-        Text(phase == 'Summary'
-            ? 'Round complete. Next turn starts shortly.'
-            : 'Tap any word to change the call. Both teams must agree.',
+        Text(
+            phase == 'Summary'
+                ? 'Round complete. Next turn starts shortly.'
+                : 'Tap any word to change the call. Both teams must agree.',
             textAlign: TextAlign.center,
             style: Theme.of(context)
                 .textTheme
@@ -1607,8 +1630,11 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
             active: winningTeam == 'B', accent: n.brand),
       ]),
       const SizedBox(height: 28),
-      if (won) VictoryShareButton(roomId: widget.socket.roomId,
-          gameType: 'wordbluff', detail: 'Team $winningTeam wins'),
+      if (won)
+        VictoryShareButton(
+            roomId: widget.socket.roomId,
+            gameType: 'wordbluff',
+            detail: 'Team $winningTeam wins'),
       NeonButton('Back to home', onPressed: () {
         Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(builder: (_) => const MainShell()), (r) => false);
@@ -1695,20 +1721,20 @@ class _WheelPainter extends CustomPainter {
   final Color ink;
 
   String _shortLabel(String slug, String full) => switch (slug) {
-    'current_affairs' => 'News',
-    'movies_tv' => 'Film/TV',
-    'food_drink' => 'Food',
-    'occupations' => 'Jobs',
-    'famous_faces' => 'Famous',
-    'places_landmarks' => 'Places',
-    'emotions_actions' => 'Actions',
-    'fictional_characters' => 'Fiction',
-    'everyday_objects' => 'Objects',
-    'school_education' => 'School',
-    'travel_transport' => 'Travel',
-    'clothing_fashion' => 'Fashion',
-    _ => full,
-  };
+        'current_affairs' => 'News',
+        'movies_tv' => 'Film/TV',
+        'food_drink' => 'Food',
+        'occupations' => 'Jobs',
+        'famous_faces' => 'Famous',
+        'places_landmarks' => 'Places',
+        'emotions_actions' => 'Actions',
+        'fictional_characters' => 'Fiction',
+        'everyday_objects' => 'Objects',
+        'school_education' => 'School',
+        'travel_transport' => 'Travel',
+        'clothing_fashion' => 'Fashion',
+        _ => full,
+      };
 
   @override
   void paint(Canvas canvas, Size size) {

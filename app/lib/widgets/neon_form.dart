@@ -28,7 +28,11 @@ class FieldLabel extends StatelessWidget {
 }
 
 class NeonSwitchRow extends StatelessWidget {
-  const NeonSwitchRow({super.key, required this.label, required this.value, required this.onChanged});
+  const NeonSwitchRow(
+      {super.key,
+      required this.label,
+      required this.value,
+      required this.onChanged});
   final String label;
   final bool value;
   final ValueChanged<bool> onChanged;
@@ -42,7 +46,10 @@ class NeonSwitchRow extends StatelessWidget {
         children: [
           Expanded(
             child: Text(label,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: n.mid)),
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(color: n.mid)),
           ),
           Switch(
             value: value,
@@ -102,7 +109,10 @@ class NeonStepper extends StatelessWidget {
           child: Text(
             format?.call(value) ?? '$value',
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(fontWeight: FontWeight.w900),
           ),
         ),
         const SizedBox(width: 10),
@@ -119,7 +129,11 @@ class SegOption<T> {
 }
 
 class NeonSegmented<T> extends StatelessWidget {
-  const NeonSegmented({super.key, required this.options, required this.value, required this.onChanged});
+  const NeonSegmented(
+      {super.key,
+      required this.options,
+      required this.value,
+      required this.onChanged});
   final List<SegOption<T>> options;
   final T value;
   final ValueChanged<T> onChanged;
@@ -139,6 +153,7 @@ class NeonSegmented<T> extends StatelessWidget {
           for (final o in options)
             Expanded(
               child: Bouncy(
+                key: ValueKey('segment-${o.value}'),
                 onTap: () => onChanged(o.value),
                 pressScale: 0.94,
                 child: AnimatedContainer(
@@ -169,7 +184,12 @@ class NeonSegmented<T> extends StatelessWidget {
 }
 
 class NeonChip extends StatelessWidget {
-  const NeonChip({super.key, required this.label, required this.selected, required this.onTap, this.accent});
+  const NeonChip(
+      {super.key,
+      required this.label,
+      required this.selected,
+      required this.onTap,
+      this.accent});
   final String label;
   final bool selected;
   final VoidCallback onTap;
@@ -188,7 +208,8 @@ class NeonChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected ? a.withValues(alpha: 0.14) : n.plate,
           borderRadius: BorderRadius.circular(NeonRadius.pill),
-          border: Border.all(color: selected ? a : kCabinetInk, width: selected ? 2 : 1.6),
+          border: Border.all(
+              color: selected ? a : kCabinetInk, width: selected ? 2 : 1.6),
         ),
         child: Text(
           label.toUpperCase(),
@@ -254,5 +275,9 @@ class NeonSlider extends StatelessWidget {
   }
 
   Widget _tick(String t, Color c) => Text(t,
-      style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700, letterSpacing: 1, color: c));
+      style: TextStyle(
+          fontSize: 8,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1,
+          color: c));
 }

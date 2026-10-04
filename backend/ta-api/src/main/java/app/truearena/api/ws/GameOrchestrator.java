@@ -7,7 +7,6 @@ import app.truearena.engine.GameEvent;
 import app.truearena.engine.GameModule;
 import app.truearena.engine.GameRunner;
 import app.truearena.engine.GameState;
-import app.truearena.api.bot.Difficulty;
 import app.truearena.api.bot.BotRuntimeRegistry;
 import app.truearena.api.coins.CoinService;
 import app.truearena.engine.Phase;
@@ -247,7 +246,8 @@ public class GameOrchestrator {
 
     private Mono<Void> setConnection(UUID roomId, String userId, String status) {
         return members.findByRoomIdAndUserId(roomId, UUID.fromString(userId))
-                .flatMap(m -> members.save(new RoomMemberRow(m.id(), m.roomId(), m.userId(), m.nickname(), status, m.readyState(), m.joinedAt())))
+                .flatMap(m -> members.save(new RoomMemberRow(m.id(), m.roomId(), m.userId(), m.nickname(),
+                        status, m.readyState(), m.botDifficulty(), m.joinedAt())))
                 .then();
     }
 
@@ -413,7 +413,8 @@ public class GameOrchestrator {
     private Mono<Void> handleReady(RoomRuntime rt, String userId, Envelope in) {
         boolean ready = Boolean.TRUE.equals(in.payload().get("ready"));
         return members.findByRoomIdAndUserId(rt.roomId, UUID.fromString(userId))
-                .flatMap(m -> members.save(new RoomMemberRow(m.id(), m.roomId(), m.userId(), m.nickname(), m.connectionStatus(), ready, m.joinedAt())))
+                .flatMap(m -> members.save(new RoomMemberRow(m.id(), m.roomId(), m.userId(), m.nickname(),
+                        m.connectionStatus(), ready, m.botDifficulty(), m.joinedAt())))
                 .then(broadcastLobby(rt, "READY_CHANGED", Map.of("userId", userId, "ready", ready)));
     }
 
@@ -1278,16 +1279,15 @@ public class GameOrchestrator {
     }
 
     /**
-     * A saved Cyber Agent belongs to its owner, not to a completed room. Stop
-     * its old socket and remove only its room membership once results are
-     * persisted, so it is immediately selectable in the next huud.
+     * Stop this room's agent sockets and release its pool memberships. Other
+     * rooms using the same system identities are deliberately unaffected.
      */
     private Mono<Void> releaseAgents(UUID roomId) {
         return members.findByRoomId(roomId)
                 .concatMap(member -> users.findById(member.userId())
                         .filter(UserRow::isBot)
                         .flatMap(agent -> {
-                            if (botRuntimes != null) botRuntimes.stop(agent.id());
+                            if (botRuntimes != null) botRuntimes.stop(roomId, agent.id());
                             return members.deleteByRoomIdAndUserId(roomId, agent.id());
                         }))
                 .then();
@@ -1347,13 +1347,18 @@ public class GameOrchestrator {
      * never blocks the others.
      */
     /**
-     * Pays out at the end of a match. What a result is worth depends on who
-     * you were playing: see the constants on {@link CoinService}. Agents are
-     * never paid — they have nothing to spend it on, and a bot's balance
-     * would only muddy the ledger.
+     * Pays out at the end of a match — but only a match against another
+     * person. Cyber Agents are a free, always-available shared pool (see
+     * {@code BotService}), so a match against one pays nothing at all, win
+     * or lose: any positive payout there would make grinding the nearest
+     * free agent a zero-cost, zero-risk way to mint coins. See the class
+     * doc on {@link CoinService}. Agents themselves are never paid either —
+     * they have nothing to spend it on, and a bot's balance would only
+     * muddy the ledger.
      *
-     * <p>Each player is told what they earned so the results screen can show
-     * it, rather than the number quietly changing in their wallet.
+     * <p>Each player is told what they earned (zero, against an agent) so
+     * the results screen can show it, rather than the number quietly
+     * changing — or conspicuously not changing — in their wallet.
      */
     private Mono<Void> awardCoins(RoomRuntime rt, Map<String, String> perPlayerOutcome) {
         List<UUID> ids = perPlayerOutcome.keySet().stream()
@@ -1367,27 +1372,21 @@ public class GameOrchestrator {
                 .concatMap(users::findById)
                 .collectList()
                 .flatMapMany(rows -> {
-                    // The hardest agent at the table sets the rate, so adding
-                    // an easy bot alongside a Legend can't cheapen the win.
-                    long agentWin = rows.stream()
-                            .filter(UserRow::isBot)
-                            .mapToLong(b -> switch (Difficulty.parse(b.botDifficulty())) {
-                                case EASY -> CoinService.WIN_VS_AMATEUR;
-                                case MEDIUM -> CoinService.WIN_VS_PRO;
-                                case HARD -> CoinService.WIN_VS_LEGEND;
-                            })
-                            .max()
-                            .orElse(-1);
-                    boolean vsAgent = agentWin >= 0;
-
+                    boolean vsAgent = rows.stream().anyMatch(UserRow::isBot);
                     return Flux.fromIterable(rows)
                             .filter(u -> !u.isBot())
                             .concatMap(u -> {
+                                if (vsAgent) {
+                                    rt.tellUser(u.id().toString(), Envelope.of(MessageType.EVENT, Map.of(
+                                            "type", "COINS_AWARDED",
+                                            "data", Map.of("amount", 0L, "vsAgent", true))));
+                                    return Mono.<Void>empty();
+                                }
                                 String outcome = perPlayerOutcome.getOrDefault(u.id().toString(), "lost");
                                 long amount = switch (outcome) {
-                                    case "won" -> vsAgent ? agentWin : CoinService.WIN_VS_PERSON;
-                                    case "tied" -> vsAgent ? agentWin : CoinService.TIE_VS_PERSON;
-                                    default -> vsAgent ? CoinService.LOSS_VS_AGENT : CoinService.LOSS_VS_PERSON;
+                                    case "won" -> CoinService.WIN_VS_PERSON;
+                                    case "tied" -> CoinService.TIE_VS_PERSON;
+                                    default -> CoinService.LOSS_VS_PERSON;
                                 };
                                 String reason = switch (outcome) {
                                     case "won" -> CoinService.REASON_MATCH_WIN;
@@ -1398,7 +1397,7 @@ public class GameOrchestrator {
                                         .doOnSuccess(balance -> rt.tellUser(u.id().toString(),
                                                 Envelope.of(MessageType.EVENT, Map.of(
                                                         "type", "COINS_AWARDED",
-                                                        "data", Map.of("amount", amount, "vsAgent", vsAgent)))))
+                                                        "data", Map.of("amount", amount, "vsAgent", false)))))
                                         .onErrorResume(err -> {
                                             log.warn("coin reward failed for user {}: {}", u.id(), err.toString());
                                             return Mono.empty();

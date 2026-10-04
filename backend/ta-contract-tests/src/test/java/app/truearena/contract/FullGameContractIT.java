@@ -4,6 +4,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.SpringBootConfiguration;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpEntity;
@@ -51,11 +55,19 @@ import static org.assertj.core.api.Assertions.assertThat;
  * replay (a real {@code lastSeq} skips the full snapshot) and host migration (disconnect
  * the host, a connected human takes over within the 10s grace).
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(classes = FullGameContractIT.TestApplication.class,
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("local") // enables the OTP dev-bypass code this test signs up with
 @Tag("integration")
 @Testcontainers
 class FullGameContractIT {
+
+    @SpringBootConfiguration
+    @EnableAutoConfiguration
+    @EnableScheduling
+    @ComponentScan("app.truearena")
+    static class TestApplication {
+    }
 
     @Container
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16");

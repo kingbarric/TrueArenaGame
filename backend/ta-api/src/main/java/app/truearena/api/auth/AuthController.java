@@ -254,12 +254,9 @@ public class AuthController {
     }
 
     /**
-     * Seeds a brand-new account with {@link CoinService#WELCOME_GRANT} so it
-     * can actually hire a Cyber Agent and play (see the constant's note on
-     * why starting at zero deadlocks). Goes through the ledger like every
-     * other balance change rather than defaulting the column, so the coins
-     * have a traceable origin. Best-effort: a failed grant must never block
-     * someone from signing up.
+     * Seeds a brand-new account with {@link CoinService#WELCOME_GRANT} for
+     * staked play. The ledger keeps the grant traceable; failure never blocks
+     * signup.
      */
     private Mono<UserRow> grantWelcomeCoins(UserRow u) {
         return coins.credit(u.id(), CoinService.WELCOME_GRANT, CoinService.REASON_WELCOME, null)

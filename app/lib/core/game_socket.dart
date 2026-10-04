@@ -52,9 +52,8 @@ class GameSocket {
     return socket;
   }
 
-  /// A saved Cyber Agent is always available, including while its room
-  /// socket reconnects. Room details supply the roster when we reopen
-  /// directly into a running game instead of passing through its lobby.
+  /// Room details identify system agents while a socket reconnects, including
+  /// when the app reopens directly into a running game without its lobby.
   Future<void> _loadAgentIds() async {
     try {
       final room = await _api.get('/rooms/$_roomId') as Map;

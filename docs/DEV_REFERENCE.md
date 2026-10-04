@@ -583,18 +583,20 @@ cover both copies.
 
 ### AI agents ("bots")
 
-A bot is a real `users` row (`is_bot`, migration V9) and a real
-`room_members` row — added via `POST /rooms/{id}/bots` (host-only,
-lobby-only; `BotService`), it gets its own JWT and its `BotRuntime` connects
-to `/ws/room/{id}` **exactly like the Flutter app does** — same envelope
-contract, zero `GameOrchestrator` changes needed for bots to exist at all.
-That's what makes the system "generic": `BotRuntime` (`ta-api`) knows
-nothing about any game's rules; it just relays inbound frames to a
-`GameBotAdapter` and sends back whatever `PlayerAction` comes out.
+A bot uses one of the reusable system `users` rows seeded by migration V30
+and gets a room-local `room_members` row. `POST /rooms/{id}/bots` is
+host-only and lobby-only; the request supplies the name and difficulty for
+that Huud. There is no player-owned inventory to create, rename, delete, or
+lock. The same pool identity may serve simultaneous rooms because membership
+preferences and `BotRuntimeRegistry` keys are scoped by `(roomId, botId)`.
+Each runtime gets its own JWT and connects to `/ws/room/{id}` **exactly like
+the Flutter app does**. `BotRuntime` knows nothing about any game's rules; it
+relays inbound frames to a `GameBotAdapter` and sends back the resulting
+`PlayerAction`.
 
 - **Per-game adapter, not a shared one.** `GameBotAdapter` is a small,
   *stateful* interface (`onFrame`/`parseAction`/`fallbackAction`) — one fresh
-  instance per bot session (`GameBotAdapterFactory`), since it has to track
+  instance per room seat (`GameBotAdapterFactory`), since it has to track
   state itself from raw events (no different from the Flutter client's own
   state-tracking). All three games have an adapter now:
   - `DraughtsBotAdapter` reuses the **real** `ta-game-draughts`
@@ -651,20 +653,19 @@ nothing about any game's rules; it just relays inbound frames to a
   `ERROR` frame; `BotRuntime` catches that specifically and immediately
   tries `fallbackAction` once more so a bad model response can never stall
   the game.
-- **v1 simplifications, documented rather than silent**: a bot's `BotRuntime`
+- **Runtime lifecycle**: a bot's `BotRuntime`
   doesn't survive a server restart (no reconnect-on-crash — same in-memory,
   single-pod scope as `RoomRuntime`/`RoomRuntimeRegistry`, see §7); a bot
   never signs in and has no phone/email (`users.is_bot` widens the same
-  contact-method CHECK guest accounts use); removing a bot
-  (`DELETE /rooms/{id}/bots/{botId}`) stops its runtime and deletes its
-  membership row, but doesn't delete the `users` row itself (harmless —
-  same "orphaned identity" shape a departed guest leaves behind).
-- **Flutter**: every game's lobby (`LobbyScreen`, `WordBluffLobbyScreen`,
-  `DraughtsLobbyScreen`) shares one `AddCyberAgentSheet`
+  contact-method CHECK guest accounts use). Removing a bot or ending/exiting
+  its table stops only that room's runtime and deletes the membership; the
+  reusable system identity remains available to every room.
+- **Flutter**: every supported game's lobby shares one `AddCyberAgentSheet`
   (`widgets/cyber_agent_sheet.dart`) — an "Add a Cyber Agent" button
   (host-only, hidden once the room is full or in example/guest mode) opens a
   name + difficulty (Amateur/Pro/Legend) sheet, then `POST`s straight to the
-  bot endpoint. As many bots as there are open seats can be added this way —
+  bot endpoint. It does not fetch or manage a saved roster. As many bots as
+  there are open seats can be added this way —
   Draughts caps at exactly two players so the button disappears once full;
   TrueArena/Word Bluff allow adding one at a time up to the room's player
   cap. A bot shows up in the roster like any other member (already ready,
@@ -679,7 +680,8 @@ an unstaked room; friends join through the existing room-code or invitation flow
 The game table supports 2–20 players, a private scrolling hand, dealer shuffle/deal/
 start controls, matching-card selection, wild-card shape choice, pick-two penalties,
 turn countdowns, pause/resume, reconnection, and a winner restored from snapshots.
-Cyber Agents are not offered for Whot.
+Cyber Agents are available for Whot Classic. The Tell remains human-only
+because its private signal agreement and real-time calls require people.
 
 The server sends each player an authoritative private snapshot after every action.
 The UI never reconstructs a hand from public events. Turn timers are keyed by phase

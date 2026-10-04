@@ -19,12 +19,7 @@ import reactor.core.publisher.Mono;
 
 import java.util.UUID;
 
-/**
- * A player's own Cyber Agents, independent of any room. Creating one is
- * still done from a lobby ({@code POST /rooms/{id}/bots}) because that's
- * where the coin fee and the seat belong; this is the roster that lets the
- * lobby offer an agent you already made instead of asking for a name again.
- */
+/** Compatibility surface for app versions that still request a saved-agent roster. */
 @RestController
 @RequestMapping("/api/v1/agents")
 @Tag(name = "bots", description = "AI agents that join a room as a real player — see docs/DEV_REFERENCE.md.")
@@ -37,19 +32,19 @@ public class AgentController {
     }
 
     @GetMapping
-    @Operation(summary = "The caller's saved agents for a game")
+    @Operation(summary = "Deprecated: returns an empty saved-agent roster")
     public Flux<BotAddedView> list(@RequestParam String gameType) {
         return CurrentUser.id().flatMapMany(userId -> bots.listAgents(userId, gameType));
     }
 
     @DeleteMapping("/{agentId}")
-    @Operation(summary = "Retire one of the caller's agents for good")
+    @Operation(summary = "Deprecated: saved Cyber Agents are no longer managed")
     public Mono<Void> delete(@PathVariable UUID agentId) {
         return CurrentUser.id().flatMap(userId -> bots.deleteAgent(agentId, userId));
     }
 
     @PatchMapping("/{agentId}")
-    @Operation(summary = "Rename one of the caller's agents")
+    @Operation(summary = "Deprecated: names are selected when adding an agent to a Huud")
     public Mono<BotAddedView> rename(@PathVariable UUID agentId, @Valid @RequestBody RenameAgentRequest body) {
         return CurrentUser.id().flatMap(userId -> bots.rename(agentId, userId, body.name()));
     }
