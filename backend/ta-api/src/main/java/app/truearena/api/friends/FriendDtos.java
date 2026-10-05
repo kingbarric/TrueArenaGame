@@ -53,4 +53,14 @@ public final class FriendDtos {
             String matchedPhone, UUID userId, String displayName, String username, String avatarUrl,
             boolean isFriend, boolean requestPending) {
     }
+
+    /**
+     * One search-as-you-type result — {@code requestPending} covers both
+     * directions (we asked them, or they asked us) so the client can show
+     * the right button (Add / Requested / Accept / Friends) without a
+     * second round trip per row.
+     */
+    public record UserSearchResultView(UUID userId, String displayName, String username, String avatarUrl,
+                                       boolean isFriend, boolean requestPending) {
+    }
 }

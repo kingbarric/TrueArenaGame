@@ -195,6 +195,9 @@ class WhotSpecialsTest {
         assertThat(sizes.get("a")).as("the player who dealt it draws nothing").isEqualTo(1);
         assertThat(sizes.get("b")).isEqualTo(2);
         assertThat(sizes.get("c")).isEqualTo(2);
+        assertThat(turnOf(after)).as("the player who dealt it continues, not whoever went to market")
+                .isEqualTo("a");
+        assertThat(after.round()).as("a fresh turn clock, like hold on").isEqualTo(s.round() + 1);
     }
 
     @Test

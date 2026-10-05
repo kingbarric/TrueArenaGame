@@ -17,6 +17,7 @@ import app.truearena.persistence.RoomMemberRow;
 import app.truearena.persistence.RoomRepository;
 import app.truearena.persistence.RoomRow;
 import app.truearena.persistence.UserRepository;
+import app.truearena.persistence.UserRow;
 import app.truearena.room.RoomRuntime;
 import app.truearena.room.RoomRuntimeRegistry;
 import org.springframework.stereotype.Service;
@@ -91,7 +92,7 @@ public class RoomService {
                         : allocateCode(5)
                                 .flatMap(code -> rooms.save(RoomRow.create(code, groupId, hostId, type, stakeCoins,
                                         writeConfig(gameConfig))))
-                                .flatMap(room -> members.save(RoomMemberRow.of(room.id(), hostId, null)).thenReturn(room))
+                                .flatMap(room -> members.save(RoomMemberRow.of(room.id(), hostId, host.username())).thenReturn(room))
                                 .flatMap(room -> escrowStake(room, hostId))
                                 .doOnNext(room -> notifyCallCompanions(room, host.displayName()))
                                 .flatMap(room -> view(room, hostId)));
@@ -159,10 +160,21 @@ public class RoomService {
                         .switchIfEmpty(members.countByRoomId(room.id())
                                 .flatMap(count -> count >= ("ludo".equals(room.gameType()) ? 4 : MAX_PLAYERS)
                                         ? Mono.error(ApiExceptions.conflict("huud is full"))
-                                        : members.save(RoomMemberRow.of(room.id(), userId, nickname))
+                                        : resolvedNickname(userId, nickname)
+                                        .flatMap(resolved -> members.save(RoomMemberRow.of(room.id(), userId, resolved)))
                                         .thenReturn(room)
                                         .flatMap(r -> escrowStake(r, userId))
                                         .then(view(room, userId))))));
+    }
+
+    /** A room member's display name defaults to their username, not their
+     * full real name — a huud code is sometimes shared outside your circle
+     * of friends, and a username is the handle you'd want strangers to see. */
+    private Mono<String> resolvedNickname(UUID userId, String nickname) {
+        if (nickname != null && !nickname.isBlank()) {
+            return Mono.just(nickname);
+        }
+        return users.findById(userId).map(UserRow::username).defaultIfEmpty("player");
     }
 
     /**

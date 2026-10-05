@@ -5,6 +5,7 @@ import app.truearena.api.friends.FriendDtos.ContactMatchView;
 import app.truearena.api.friends.FriendDtos.FriendRequestsView;
 import app.truearena.api.friends.FriendDtos.FriendUserView;
 import app.truearena.api.friends.FriendDtos.SendFriendRequestBody;
+import app.truearena.api.friends.FriendDtos.UserSearchResultView;
 import app.truearena.api.support.CurrentUser;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
@@ -74,6 +76,18 @@ public class FriendController {
     @PostMapping("/requests/{id}/decline")
     public Mono<Void> decline(@PathVariable UUID id) {
         return CurrentUser.id().flatMap(uid -> friendService.decline(id, uid));
+    }
+
+    /** The sender retracting their own still-pending request. */
+    @PostMapping("/requests/{id}/cancel")
+    public Mono<Void> cancel(@PathVariable UUID id) {
+        return CurrentUser.id().flatMap(uid -> friendService.cancel(id, uid));
+    }
+
+    /** Search-as-you-type by username or real name — top 10 matches, each flagged with friend/request status. */
+    @GetMapping("/search")
+    public Flux<UserSearchResultView> search(@RequestParam String q) {
+        return CurrentUser.id().flatMapMany(uid -> friendService.search(uid, q));
     }
 
     @DeleteMapping("/{userId}")

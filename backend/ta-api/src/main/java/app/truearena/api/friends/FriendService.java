@@ -88,12 +88,28 @@ public class FriendService {
                 });
     }
 
+    /** Only the recipient declines — the sender retracts their own request with {@link #cancel} instead. */
     public Mono<Void> decline(UUID friendRowId, UUID actingUserId) {
         return friends.findById(friendRowId)
                 .switchIfEmpty(Mono.error(ApiExceptions.notFound("no such request")))
                 .flatMap(row -> {
                     if (!involves(row, actingUserId)) {
                         return Mono.error(ApiExceptions.forbidden("not your request"));
+                    }
+                    if (row.requestedBy().equals(actingUserId)) {
+                        return Mono.error(ApiExceptions.forbidden("you sent this request — cancel it instead"));
+                    }
+                    return friends.deleteById(friendRowId);
+                });
+    }
+
+    /** Only the sender cancels — the recipient rejects it with {@link #decline} instead. */
+    public Mono<Void> cancel(UUID friendRowId, UUID actingUserId) {
+        return friends.findById(friendRowId)
+                .switchIfEmpty(Mono.error(ApiExceptions.notFound("no such request")))
+                .flatMap(row -> {
+                    if (!row.requestedBy().equals(actingUserId)) {
+                        return Mono.error(ApiExceptions.forbidden("only the sender can cancel this request"));
                     }
                     return friends.deleteById(friendRowId);
                 });
@@ -111,6 +127,29 @@ public class FriendService {
                 .filter(row -> FriendRow.ACCEPTED.equals(row.status()))
                 .flatMap(row -> users.findById(row.otherUser(selfId)))
                 .map(FriendService::toView);
+    }
+
+    /**
+     * Search-as-you-type by username or real name — top 10, ranked by the
+     * repository query (exact/prefix username first), annotated with
+     * friend/request status the same way {@link #matchContacts} is, so the
+     * client can show the right button per row without a second round trip.
+     */
+    public Flux<FriendDtos.UserSearchResultView> search(UUID selfId, String query) {
+        String q = query == null ? "" : query.trim();
+        if (q.isEmpty()) {
+            return Flux.empty();
+        }
+        return users.searchByUsernameOrDisplayName(q, selfId)
+                .concatMap(u -> pairOf(selfId, u.id())
+                        .map(row -> toSearchResult(u, FriendRow.ACCEPTED.equals(row.status()),
+                                FriendRow.PENDING.equals(row.status())))
+                        .defaultIfEmpty(toSearchResult(u, false, false)));
+    }
+
+    private static FriendDtos.UserSearchResultView toSearchResult(UserRow u, boolean isFriend, boolean requestPending) {
+        return new FriendDtos.UserSearchResultView(u.id(), u.displayName(), u.username(), u.avatarUrl(),
+                isFriend, requestPending);
     }
 
     /** Connected accepted human friends. */
@@ -154,10 +193,17 @@ public class FriendService {
     public Mono<FriendRequestsView> listRequests(UUID selfId) {
         return friends.findByLowUserIdOrHighUserId(selfId, selfId)
                 .filter(row -> FriendRow.PENDING.equals(row.status()))
-                .flatMap(row -> users.findById(row.requestedBy())
-                        .map(requester -> new PendingRow(
-                                row.requestedBy().equals(selfId),
-                                new FriendRequestView(row.id(), toView(requester), row.createdAt()))))
+                .flatMap(row -> {
+                    boolean requestedByMe = row.requestedBy().equals(selfId);
+                    // Incoming: show who sent it. Outgoing: show who it was
+                    // sent to — otherwise an outgoing entry would resolve to
+                    // the viewer's own profile and be useless to display.
+                    UUID otherUserId = requestedByMe ? row.otherUser(selfId) : row.requestedBy();
+                    return users.findById(otherUserId)
+                            .map(other -> new PendingRow(
+                                    requestedByMe,
+                                    new FriendRequestView(row.id(), toView(other), row.createdAt())));
+                })
                 .collectList()
                 .map(rows -> new FriendRequestsView(
                         rows.stream().filter(r -> !r.requestedByMe()).map(PendingRow::view).toList(),

@@ -29,6 +29,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -168,6 +169,25 @@ class RoomServiceTest {
         verify(rooms).deleteById(roomId);
     }
 
+    @Test
+    void create_setsTheHostsNicknameToTheirUsername() {
+        UUID hostId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        when(users.findById(hostId)).thenReturn(Mono.just(realUser(hostId)));
+        when(rooms.findByCode(anyString())).thenReturn(Mono.empty());
+        stubRoomSave(roomId);
+        when(members.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(members.findByRoomId(roomId)).thenReturn(Flux.empty());
+        when(inbox.callCompanionsOf(hostId)).thenReturn(Set.of());
+        when(jwt.issueAccess(hostId)).thenReturn("token");
+
+        StepVerifier.create(service.create(hostId, null, "truearena", null, null))
+                .expectNextMatches(v -> v.id().equals(roomId))
+                .verifyComplete();
+
+        verify(members).save(argThat(m -> m.nickname().equals("player")));
+    }
+
     // ---------------------------------------------------------------- join
 
     @Test
@@ -244,6 +264,44 @@ class RoomServiceTest {
                 .verifyComplete();
 
         verify(members).save(any());
+    }
+
+    @Test
+    void join_usesTheGivenNicknameRatherThanLookingUpTheUser() {
+        UUID roomId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        when(rooms.findByCode("ABCDEF")).thenReturn(Mono.just(room(roomId, UUID.randomUUID(), 0)));
+        when(members.findByRoomIdAndUserId(roomId, userId)).thenReturn(Mono.empty());
+        when(members.countByRoomId(roomId)).thenReturn(Mono.just(1L));
+        when(members.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(members.findByRoomId(roomId)).thenReturn(Flux.empty());
+        when(jwt.issueAccess(userId)).thenReturn("token");
+
+        StepVerifier.create(service.join("abcdef", userId, "Chosen Nick"))
+                .expectNextMatches(v -> v.id().equals(roomId))
+                .verifyComplete();
+
+        verify(members).save(argThat(m -> m.nickname().equals("Chosen Nick")));
+        verifyNoInteractions(users);
+    }
+
+    @Test
+    void join_defaultsTheNicknameToTheUsersUsernameWhenNoneGiven() {
+        UUID roomId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        when(rooms.findByCode("ABCDEF")).thenReturn(Mono.just(room(roomId, UUID.randomUUID(), 0)));
+        when(members.findByRoomIdAndUserId(roomId, userId)).thenReturn(Mono.empty());
+        when(members.countByRoomId(roomId)).thenReturn(Mono.just(1L));
+        when(users.findById(userId)).thenReturn(Mono.just(realUser(userId)));
+        when(members.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(members.findByRoomId(roomId)).thenReturn(Flux.empty());
+        when(jwt.issueAccess(userId)).thenReturn("token");
+
+        StepVerifier.create(service.join("abcdef", userId, null))
+                .expectNextMatches(v -> v.id().equals(roomId))
+                .verifyComplete();
+
+        verify(members).save(argThat(m -> m.nickname().equals("player")));
     }
 
     // ---------------------------------------------------------------- abandon

@@ -196,4 +196,97 @@ class FriendServiceTest {
                 .expectErrorMatches(e -> e instanceof ResponseStatusException rse && rse.getStatusCode().value() == 403)
                 .verify();
     }
+
+    @Test
+    void theSenderCannotDeclineTheirOwnRequest() {
+        FriendRow row = FriendRow.requested(alice, bob);
+        UUID rowId = UUID.randomUUID();
+        FriendRow withId = new FriendRow(rowId, row.lowUserId(), row.highUserId(), row.status(), row.requestedBy(), null);
+        when(friends.findById(rowId)).thenReturn(Mono.just(withId));
+
+        StepVerifier.create(service.decline(rowId, alice))
+                .expectErrorMatches(e -> e instanceof ResponseStatusException rse && rse.getStatusCode().value() == 403)
+                .verify();
+    }
+
+    @Test
+    void theSenderCanCancelTheirOwnRequest() {
+        FriendRow row = FriendRow.requested(alice, bob);
+        UUID rowId = UUID.randomUUID();
+        FriendRow withId = new FriendRow(rowId, row.lowUserId(), row.highUserId(), row.status(), row.requestedBy(), null);
+        when(friends.findById(rowId)).thenReturn(Mono.just(withId));
+        when(friends.deleteById(rowId)).thenReturn(Mono.empty());
+
+        StepVerifier.create(service.cancel(rowId, alice)).verifyComplete();
+        verify(friends).deleteById(rowId);
+    }
+
+    @Test
+    void theRecipientCannotCancelSomeoneElsesRequest() {
+        FriendRow row = FriendRow.requested(alice, bob);
+        UUID rowId = UUID.randomUUID();
+        FriendRow withId = new FriendRow(rowId, row.lowUserId(), row.highUserId(), row.status(), row.requestedBy(), null);
+        when(friends.findById(rowId)).thenReturn(Mono.just(withId));
+
+        StepVerifier.create(service.cancel(rowId, bob))
+                .expectErrorMatches(e -> e instanceof ResponseStatusException rse && rse.getStatusCode().value() == 403)
+                .verify();
+    }
+
+    @Test
+    void outgoingRequestsShowTheRecipientNotTheViewersOwnProfile() {
+        UUID rowId = UUID.randomUUID();
+        FriendRow pending = FriendRow.requested(alice, bob);
+        FriendRow withId = new FriendRow(rowId, pending.lowUserId(), pending.highUserId(), pending.status(),
+                pending.requestedBy(), java.time.Instant.now());
+        when(friends.findByLowUserIdOrHighUserId(alice, alice)).thenReturn(Flux.just(withId));
+        when(users.findById(bob)).thenReturn(Mono.just(userRow(bob, "bob_handle")));
+
+        StepVerifier.create(service.listRequests(alice))
+                .assertNext(view -> {
+                    assertThat(view.incoming()).isEmpty();
+                    assertThat(view.outgoing()).hasSize(1);
+                    assertThat(view.outgoing().get(0).from().userId()).isEqualTo(bob);
+                    assertThat(view.outgoing().get(0).from().username()).isEqualTo("bob_handle");
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void searchExcludesTheSearcherAndFlagsExistingFriendsAndPendingRequests() {
+        UUID friendId = UUID.randomUUID();
+        UUID pendingId = UUID.randomUUID();
+        UUID strangerId = UUID.randomUUID();
+        when(users.searchByUsernameOrDisplayName("bo", alice)).thenReturn(
+                Flux.just(userRow(friendId, "bob"), userRow(pendingId, "bobby"), userRow(strangerId, "bosun")));
+        when(friends.findByLowUserIdAndHighUserId(any(), any())).thenReturn(Mono.empty());
+        FriendRow friendRow = new FriendRow(UUID.randomUUID(), FriendRow.lowerOf(alice, friendId),
+                FriendRow.lowerOf(alice, friendId).equals(alice) ? friendId : alice, FriendRow.ACCEPTED, alice, null);
+        FriendRow pendingRow = new FriendRow(UUID.randomUUID(), FriendRow.lowerOf(alice, pendingId),
+                FriendRow.lowerOf(alice, pendingId).equals(alice) ? pendingId : alice, FriendRow.PENDING, alice, null);
+        when(friends.findByLowUserIdAndHighUserId(FriendRow.lowerOf(alice, friendId),
+                FriendRow.lowerOf(alice, friendId).equals(alice) ? friendId : alice)).thenReturn(Mono.just(friendRow));
+        when(friends.findByLowUserIdAndHighUserId(FriendRow.lowerOf(alice, pendingId),
+                FriendRow.lowerOf(alice, pendingId).equals(alice) ? pendingId : alice)).thenReturn(Mono.just(pendingRow));
+
+        StepVerifier.create(service.search(alice, "bo").collectList())
+                .assertNext(results -> {
+                    assertThat(results).hasSize(3);
+                    assertThat(results.stream().filter(r -> r.userId().equals(friendId)).findFirst().get().isFriend())
+                            .isTrue();
+                    assertThat(results.stream().filter(r -> r.userId().equals(pendingId)).findFirst().get()
+                            .requestPending()).isTrue();
+                    assertThat(results.stream().filter(r -> r.userId().equals(strangerId)).findFirst().get()
+                            .isFriend()).isFalse();
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void searchWithABlankQueryReturnsNothingWithoutHittingTheDatabase() {
+        StepVerifier.create(service.search(alice, "  ").collectList())
+                .assertNext(results -> assertThat(results).isEmpty())
+                .verifyComplete();
+        verify(users, never()).searchByUsernameOrDisplayName(any(), any());
+    }
 }
