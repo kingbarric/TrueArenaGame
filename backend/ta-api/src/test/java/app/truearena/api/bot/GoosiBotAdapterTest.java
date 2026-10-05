@@ -82,15 +82,23 @@ class GoosiBotAdapterTest {
     }
 
     @Test
-    void tracksPitMutationsFromSownEvents() {
+    void tracksRelayAndCapturesFromTheAuthoritativeFinalBoard() {
         GoosiBotAdapter adapter = gameStarted();
-        // alice sows pit 0 (4 seeds) -> touches 1,2,3,4
-        adapter.onFrame("EVENT", eventEnvelope("SOWN", Map.of("by", PLAYER_A, "from", 0, "touched", List.of(1, 2, 3, 4))), BOT, Difficulty.MEDIUM);
+        adapter.onFrame("EVENT", eventEnvelope("SOWN", Map.of(
+                "by", PLAYER_A, "from", 0,
+                "laps", List.of(List.of(1, 2), List.of(3, 4)),
+                "captures", Map.of("0:0", 1),
+                "finalPits", List.of(0, 0, 0, 1, 1, 4, 3, 4, 4, 4, 4, 4))),
+                BOT, Difficulty.MEDIUM);
+        adapter.onFrame("EVENT", eventEnvelope("CAPTURED", Map.of(
+                "pits", List.of(6), "count", 4, "duringSow", true)),
+                BOT, Difficulty.MEDIUM);
         adapter.onFrame("PHASE", Map.of("phase", "TurnP1", "round", 2), BOT, Difficulty.MEDIUM);
         Optional<GameBotAdapter.BotPrompt> prompt = adapter.onFrame(
                 "EVENT", eventEnvelope("TURN_STARTED", Map.of("player", BOT)), BOT, Difficulty.MEDIUM);
         assertThat(prompt).isPresent();
-        assertThat(prompt.get().userPrompt()).contains("0:0"); // pit 0 emptied by the sow
+        assertThat(prompt.get().userPrompt()).contains("0:0", "6:3");
+        assertThat(prompt.get().systemPrompt()).contains("exactly four");
     }
 
     @Test
@@ -130,7 +138,7 @@ class GoosiBotAdapterTest {
     }
 
     @Test
-    void fallbackFeedsAnEmptyOpponentRowWhenPossible() {
+    void fallbackMayUseAnyOwnedNonEmptyHouse() {
         GoosiBotAdapter adapter = new GoosiBotAdapter();
         adapter.onFrame("EVENT", eventEnvelope("GAME_STARTED", Map.of(
                 "players", List.of(PLAYER_A, BOT), "owner", owners(PLAYER_A, BOT),
@@ -140,18 +148,40 @@ class GoosiBotAdapterTest {
         Optional<PlayerAction> action = adapter.fallbackAction(BOT);
 
         assertThat(action).isPresent();
-        assertThat(action.get().data()).containsEntry("pit", 11);
+        assertThat((int) action.get().data().get("pit")).isBetween(6, 11);
     }
 
     @Test
-    void fallbackStopsWhenAnEmptyOpponentCannotBeFed() {
+    void owareBotUsesMandatoryFeedingAndOwarePrompt() {
+        GoosiBotAdapter adapter = new GoosiBotAdapter();
+        adapter.onFrame("EVENT", eventEnvelope("GAME_STARTED", Map.of(
+                "players", List.of(PLAYER_A, BOT), "owner", owners(PLAYER_A, BOT),
+                "pits", List.of(0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 6),
+                "mode", "oware", "seedsPerPit", 4, "turnSeconds", 45)),
+                BOT, Difficulty.HARD);
+        adapter.onFrame("PHASE", Map.of("phase", "TurnP1", "round", 2),
+                BOT, Difficulty.HARD);
+
+        Optional<GameBotAdapter.BotPrompt> prompt = adapter.onFrame(
+                "EVENT", eventEnvelope("TURN_STARTED", Map.of("player", BOT)),
+                BOT, Difficulty.HARD);
+
+        assertThat(prompt).isPresent();
+        assertThat(prompt.get().userPrompt()).contains("[11]");
+        assertThat(prompt.get().systemPrompt()).contains("two or three", "grand slam");
+        assertThat(adapter.parseAction("{\"pit\": 6}", BOT)).isEmpty();
+        assertThat(adapter.parseAction("{\"pit\": 11}", BOT)).isPresent();
+    }
+
+    @Test
+    void fallbackStillMovesWhenOpponentRowIsEmpty() {
         GoosiBotAdapter adapter = new GoosiBotAdapter();
         adapter.onFrame("EVENT", eventEnvelope("GAME_STARTED", Map.of(
                 "players", List.of(PLAYER_A, BOT), "owner", owners(PLAYER_A, BOT),
                 "pits", List.of(0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0),
                 "seedsPerPit", 4, "turnSeconds", 45)), BOT, Difficulty.MEDIUM);
 
-        assertThat(adapter.fallbackAction(BOT)).isEmpty();
+        assertThat(adapter.fallbackAction(BOT)).isPresent();
     }
 
     @Test

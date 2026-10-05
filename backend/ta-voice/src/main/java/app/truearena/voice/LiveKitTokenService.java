@@ -30,6 +30,11 @@ public class LiveKitTokenService {
 
     /** A one-hour token is plenty for a voice call — nobody's staying on one longer than that unnoticed. */
     public String mintToken(String roomName, String participantId, String participantName) {
+        return mintToken(roomName, participantId, participantName, true);
+    }
+
+    /** Spectator tokens stay listen-only even if reused after a player removes them. */
+    public String mintToken(String roomName, String participantId, String participantName, boolean canPublish) {
         AccessToken token = new AccessToken(props.apiKey(), props.apiSecret());
         token.setIdentity(participantId);
         token.setName(participantName);
@@ -37,7 +42,7 @@ public class LiveKitTokenService {
         token.addGrants(
                 new RoomJoin(true),
                 new RoomName(roomName),
-                new CanPublish(true),
+                new CanPublish(canPublish),
                 new CanSubscribe(true)
         );
         return token.toJwt();

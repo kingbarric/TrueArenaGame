@@ -15,7 +15,7 @@ import java.util.Set;
  * secret — every pit is visible to everyone — so like Draughts there's no
  * player-scoped view to worry about.
  *
- * <p>The board is the Oware Abapa board: twelve houses in one loop, six per
+ * <p>The board has twelve houses in one loop, six per
  * player. Houses 0-5 belong to South and 6-11 to North. {@link #owner} is
  * fixed for the whole game; {@code pits} is the live seed count per house.
  *

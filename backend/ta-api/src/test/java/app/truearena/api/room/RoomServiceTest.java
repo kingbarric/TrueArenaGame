@@ -16,6 +16,7 @@ import app.truearena.persistence.UserRow;
 import app.truearena.room.RoomRuntime;
 import app.truearena.room.RoomRuntimeRegistry;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -79,6 +80,46 @@ class RoomServiceTest {
         });
     }
 
+    @Test
+    void watchByCodeReturnsActiveRoomWithoutAddingAPlayerSeat() {
+        UUID roomId = UUID.randomUUID();
+        UUID hostId = UUID.randomUUID();
+        UUID viewerId = UUID.randomUUID();
+        RoomRow active = new RoomRow(roomId, "ABCDEF", null, hostId,
+                "in_game", "draughts", 0, null, Instant.now());
+        when(rooms.findByCode("ABCDEF")).thenReturn(Mono.just(active));
+        when(members.findByRoomId(roomId))
+                .thenReturn(Flux.just(RoomMemberRow.of(roomId, hostId, "Host")));
+        when(users.findById(hostId)).thenReturn(Mono.just(realUser(hostId)));
+        when(jwt.issueAccess(viewerId)).thenReturn("viewer-token");
+
+        StepVerifier.create(service.watch("abcdef", viewerId))
+                .expectNextMatches(view -> view.id().equals(roomId)
+                        && view.members().size() == 1)
+                .verifyComplete();
+
+        verify(members, never()).save(any());
+        verifyNoInteractions(coins);
+    }
+
+    @Test
+    void newPlayerCannotTakeASeatAfterGameStarts() {
+        UUID roomId = UUID.randomUUID();
+        UUID hostId = UUID.randomUUID();
+        UUID viewerId = UUID.randomUUID();
+        RoomRow active = new RoomRow(roomId, "ABCDEF", null, hostId,
+                "in_game", "draughts", 0, null, Instant.now());
+        when(rooms.findByCode("ABCDEF")).thenReturn(Mono.just(active));
+        when(members.findByRoomIdAndUserId(roomId, viewerId))
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(service.join("ABCDEF", viewerId, "Viewer"))
+                .expectErrorMatches(error -> error instanceof ResponseStatusException ex
+                        && ex.getStatusCode().value() == 409)
+                .verify();
+        verify(members, never()).save(any());
+    }
+
     // ---------------------------------------------------------------- create
 
     @Test
@@ -130,6 +171,28 @@ class RoomServiceTest {
                 .verifyComplete();
 
         verify(rooms, times(2)).findByCode(anyString());
+    }
+
+    @Test
+    void create_persistsTheChosenMacalaMode() {
+        UUID hostId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        when(users.findById(hostId)).thenReturn(Mono.just(realUser(hostId)));
+        when(rooms.findByCode(anyString())).thenReturn(Mono.empty());
+        stubRoomSave(roomId);
+        when(members.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(members.findByRoomId(roomId)).thenReturn(Flux.empty());
+        when(inbox.callCompanionsOf(hostId)).thenReturn(Set.of());
+        when(jwt.issueAccess(hostId)).thenReturn("token");
+
+        StepVerifier.create(service.create(hostId, null, "goosi", null,
+                        java.util.Map.of("mode", "oware")))
+                .expectNextMatches(v -> v.id().equals(roomId))
+                .verifyComplete();
+
+        ArgumentCaptor<RoomRow> saved = ArgumentCaptor.forClass(RoomRow.class);
+        verify(rooms).save(saved.capture());
+        assertThat(saved.getValue().gameConfig()).isEqualTo("{\"mode\":\"oware\"}");
     }
 
     @Test

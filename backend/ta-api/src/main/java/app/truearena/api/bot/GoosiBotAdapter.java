@@ -25,6 +25,7 @@ public final class GoosiBotAdapter implements GameBotAdapter {
     private final String[] owner = new String[12];
     private final List<String> players = new ArrayList<>();
     private String phase = "TurnP0";
+    private String mode = "relay";
     private boolean finished;
 
     @Override
@@ -65,6 +66,8 @@ public final class GoosiBotAdapter implements GameBotAdapter {
     private void applySnapshot(Map<String, Object> p) {
         Object ph = p.get("phase");
         if (ph != null) phase = String.valueOf(ph);
+        Object rawMode = p.get("mode");
+        if (rawMode != null) mode = String.valueOf(rawMode);
         Object pl = p.get("players");
         if (pl instanceof List<?> list) {
             players.clear();
@@ -92,6 +95,8 @@ public final class GoosiBotAdapter implements GameBotAdapter {
     private void applyEvent(Map<String, Object> data, String type) {
         switch (type) {
             case "GAME_STARTED" -> {
+                Object rawMode = data.get("mode");
+                if (rawMode != null) mode = String.valueOf(rawMode);
                 players.clear();
                 Object pl = data.get("players");
                 if (pl instanceof List<?> list) for (Object o : list) players.add(String.valueOf(o));
@@ -101,6 +106,11 @@ public final class GoosiBotAdapter implements GameBotAdapter {
                 if (rawPits instanceof List<?> list) applyPitsSnapshot((List<Object>) list);
             }
             case "SOWN" -> {
+                Object finalPits = data.get("finalPits");
+                if (finalPits instanceof List<?> finalBoard) {
+                    applyPitsSnapshot((List<Object>) finalBoard);
+                    break;
+                }
                 int from = intOf(data.get("from"));
                 Object touchedRaw = data.get("touched");
                 pits[from] = 0;
@@ -113,6 +123,7 @@ public final class GoosiBotAdapter implements GameBotAdapter {
                 }
             }
             case "CAPTURED" -> {
+                if (Boolean.TRUE.equals(data.get("duringSow"))) break;
                 Object capturedRaw = data.get("pits");
                 if (capturedRaw instanceof List<?> captured) {
                     for (Object o : captured) pits[intOf(o)] = 0;
@@ -134,7 +145,7 @@ public final class GoosiBotAdapter implements GameBotAdapter {
             if (botUserId.equals(owner[i]) && pits[i] > 0) own.add(i);
             if (!botUserId.equals(owner[i]) && pits[i] > 0) opponentEmpty = false;
         }
-        if (!opponentEmpty) return own;
+        if (!"oware".equals(mode) || !opponentEmpty) return own;
         List<Integer> feeding = new ArrayList<>();
         for (int from : own) {
             int seeds = pits[from];
@@ -158,20 +169,27 @@ public final class GoosiBotAdapter implements GameBotAdapter {
         for (int i = 0; i < 12; i++) {
             board.append(i).append(':').append(pits[i]).append(owner[i].equals(botUserId) ? "(you) " : " ");
         }
+        String rules = "oware".equals(mode)
+                ? "Sow once counter-clockwise, skipping the starting house on a full lap. "
+                    + "Capture a final opponent house containing two or three, then preceding "
+                    + "opponent houses with two or three. Feed an empty opponent row when possible; "
+                    + "a grand slam captures nothing."
+                : "Sow counter-clockwise. Collect any house completed to exactly four, on either side. "
+                    + "If the last seed lands in an occupied house, pick it up and relay until the "
+                    + "last seed reaches an empty or collected house.";
         String system = """
-                You are playing Oware Abapa: twelve houses, six per player. \
-                Sow every seed counter-clockwise, skipping the starting house on a long lap. \
-                If the last seed leaves two or three in an opponent house, capture it and \
-                preceding opponent houses that also contain two or three. Feed an empty \
-                opponent row whenever possible; a grand slam captures nothing.
+                You are playing PlayHuud Macala: twelve houses, six per player. %s
                 %s
                 Reply with ONLY a JSON object of the exact shape {"pit": <index>} naming one \
-                of your legal pits — no other text.""".formatted(
+                of your legal pits — no other text.""".formatted(rules,
                 switch (difficulty) {
                     case EASY -> "Play a reasonable pit.";
-                    case MEDIUM -> "Prefer legal captures of two or three seeds while preserving future feeding moves.";
-                    case HARD -> "Think ahead: prioritize capture chains, avoid giving the opponent a two-or-three capture, "
-                            + "and manage feeding without making a void grand slam.";
+                    case MEDIUM -> "oware".equals(mode)
+                            ? "Prefer legal captures of two or three seeds while preserving feeding moves."
+                            : "Prefer moves that make a house reach exactly four and collect its seeds.";
+                    case HARD -> "oware".equals(mode)
+                            ? "Think ahead about capture chains, feeding, and avoiding grand slams."
+                            : "Think through each relay and every four-seed capture, including on your own side.";
                 });
         String user = "Board: " + board + ". Your legal pits: " + legal;
         return new BotPrompt(system, user);

@@ -40,6 +40,7 @@ class _Socket implements GameSocket {
 
   void snapshot({
     String phase = 'TurnP0',
+    String mode = 'relay',
     List<int> pits = const [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
     List<int> legalPits = const [0, 1, 2, 3, 4, 5],
     Map<String, int> scores = const {'me': 0, 'opponent': 0},
@@ -49,6 +50,7 @@ class _Socket implements GameSocket {
       'type': 'SNAPSHOT',
       'payload': {
         'phase': phase,
+        'mode': mode,
         'round': 1,
         'players': ['me', 'opponent'],
         'owner': [
@@ -80,7 +82,7 @@ void main() {
   });
 
   Future<_Socket> open(WidgetTester tester,
-      {Size size = const Size(390, 844)}) async {
+      {Size size = const Size(390, 844), bool spectating = false}) async {
     await tester.binding.setSurfaceSize(size);
     final socket = _Socket();
     await tester.pumpWidget(AppScope(
@@ -89,7 +91,8 @@ void main() {
         theme: NeonTheme.dark,
         home: GoosiGameScreen(
           socket: socket,
-          selfId: 'me',
+          selfId: spectating ? 'viewer' : 'me',
+          spectating: spectating,
           roomCode: '7K3M',
           nicknames: const {'me': 'Eric', 'opponent': 'Ama'},
         ),
@@ -115,6 +118,244 @@ void main() {
     expect(find.byKey(const ValueKey('goosi-pit-11')), findsOneWidget);
     expect(find.text('YOUR TURN'), findsOneWidget);
 
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('Oware mode is visibly labelled and uses Oware rules',
+      (tester) async {
+    final socket = await open(tester);
+    socket.snapshot(mode: 'oware');
+    await tester.pump();
+
+    expect(find.text('MACALA'), findsOneWidget);
+    expect(find.text('OWARE ABAPA'), findsOneWidget);
+    await tester.tap(find.text('Rules'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Oware Abapa:'), findsOneWidget);
+    expect(find.textContaining('2 or 3 seeds'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('Oware capture leaves the board after its single sow',
+      (tester) async {
+    final socket = await open(tester);
+    socket.snapshot(
+      mode: 'oware',
+      pits: const [0, 0, 0, 0, 0, 1, 1, 5, 0, 0, 0, 0],
+      legalPits: const [5],
+    );
+    await tester.pump();
+
+    socket.event('SOWN', {
+      'by': 'me',
+      'from': 5,
+      'touched': [6],
+      'laps': [
+        [6]
+      ],
+      'capturedPits': [6],
+    });
+    socket.event('CAPTURED', {
+      'by': 'me',
+      'pits': [6],
+      'count': 2,
+      'scores': {'me': 2, 'opponent': 0},
+    });
+    for (var i = 0; i < 14; i++) {
+      await tester.pump(const Duration(milliseconds: 250));
+    }
+
+    expect(
+        find.descendant(
+            of: find.byKey(const ValueKey('goosi-pit-6')),
+            matching: find.text('0')),
+        findsOneWidget);
+    expect(find.text('2 CAPTURED'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('spectator sees both player rows and cannot sow', (tester) async {
+    final socket = await open(tester, spectating: true);
+    socket.snapshot();
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('goosi-player-me')), findsOneWidget);
+    expect(find.byKey(const ValueKey('goosi-player-opponent')), findsOneWidget);
+    expect(find.byKey(const ValueKey('goosi-pit-0')), findsOneWidget);
+    expect(find.byKey(const ValueKey('goosi-pit-11')), findsOneWidget);
+    expect(find.byTooltip('Pause'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('goosi-pit-0')));
+    expect(socket.sent.where((frame) => frame['type'] == 'PLAYER_ACTION'), isEmpty);
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('four-seed capture leaves the hole during the sow animation',
+      (tester) async {
+    final socket = await open(tester);
+    socket.snapshot(
+      pits: const [0, 0, 0, 0, 0, 1, 3, 1, 0, 0, 0, 0],
+      legalPits: const [5],
+    );
+    await tester.pump();
+
+    socket.event('SOWN', {
+      'by': 'me',
+      'from': 5,
+      'touched': [6],
+      'laps': [
+        [6]
+      ],
+      'captures': {'0:0': 6},
+      'finalPits': [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
+      'scores': {'me': 4, 'opponent': 0},
+    });
+    socket.event('CAPTURED', {
+      'by': 'me',
+      'pits': [6],
+      'count': 4,
+      'duringSow': true,
+      'scores': {'me': 4, 'opponent': 0},
+    });
+    for (var i = 0; i < 14; i++) {
+      await tester.pump(const Duration(milliseconds: 250));
+    }
+
+    expect(
+        find.descendant(
+            of: find.byKey(const ValueKey('goosi-pit-6')),
+            matching: find.text('0')),
+        findsOneWidget);
+    expect(find.text('4 CAPTURED'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('last seed in an occupied hole is picked up and relayed',
+      (tester) async {
+    final socket = await open(tester);
+    socket.snapshot(
+      pits: const [2, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0],
+      legalPits: const [0],
+    );
+    await tester.pump();
+
+    socket.event('SOWN', {
+      'by': 'me',
+      'from': 0,
+      'touched': [1, 2, 3, 4],
+      'laps': [
+        [1, 2],
+        [3, 4]
+      ],
+      'captures': <String, int>{},
+      'finalPits': [0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0],
+    });
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 250));
+    }
+
+    for (final pit in [0, 2]) {
+      expect(
+          find.descendant(
+              of: find.byKey(ValueKey('goosi-pit-$pit')),
+              matching: find.text('0')),
+          findsOneWidget);
+    }
+    for (final pit in [1, 3, 4]) {
+      expect(
+          find.descendant(
+              of: find.byKey(ValueKey('goosi-pit-$pit')),
+              matching: find.text('1')),
+          findsOneWidget);
+    }
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('a new sow supersedes a still-running relay animation',
+      (tester) async {
+    final socket = await open(tester);
+    socket.snapshot(
+      pits: const [2, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0],
+      legalPits: const [0],
+    );
+    await tester.pump();
+
+    socket.event('SOWN', {
+      'by': 'me',
+      'from': 0,
+      'touched': [1, 2, 3, 4],
+      'laps': [
+        [1, 2],
+        [3, 4]
+      ],
+      'captures': <String, int>{},
+      'finalPits': [0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0],
+      'scores': {'me': 0, 'opponent': 0},
+    });
+    await tester.pump(const Duration(milliseconds: 200));
+    socket.event('SOWN', {
+      'by': 'opponent',
+      'from': 6,
+      'touched': [7],
+      'laps': [
+        [7]
+      ],
+      'captures': <String, int>{},
+      'finalPits': [0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0],
+      'scores': {'me': 0, 'opponent': 0},
+    });
+    for (var i = 0; i < 16; i++) {
+      await tester.pump(const Duration(milliseconds: 250));
+    }
+
+    expect(
+        find.descendant(
+            of: find.byKey(const ValueKey('goosi-pit-4')),
+            matching: find.text('1')),
+        findsOneWidget);
+    expect(
+        find.descendant(
+            of: find.byKey(const ValueKey('goosi-pit-7')),
+            matching: find.text('1')),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('game-over scores survive the final sow animation',
+      (tester) async {
+    final socket = await open(tester);
+    socket.snapshot(
+      pits: const [0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0],
+      legalPits: const [5],
+    );
+    await tester.pump();
+    socket.event('SOWN', {
+      'by': 'me',
+      'from': 5,
+      'touched': [6],
+      'laps': [
+        [6]
+      ],
+      'captures': <String, int>{},
+      'finalPits': [0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0],
+      'scores': {'me': 4, 'opponent': 3},
+    });
+    socket.event('GAME_OVER', {
+      'winningSide': 'me',
+      'winners': ['me'],
+      'scores': {'me': 9, 'opponent': 3},
+    });
+    for (var i = 0; i < 14; i++) {
+      await tester.pump(const Duration(milliseconds: 250));
+    }
+
+    expect(find.text('9 CAPTURED'), findsOneWidget);
+    expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });
 

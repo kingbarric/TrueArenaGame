@@ -562,7 +562,14 @@ class _GameScreenState extends State<GameScreen> {
           title: Text(finished ? 'Results' : 'Round $round'),
           automaticallyImplyLeading: finished,
           actions: [
-            if (!finished) GameVoiceControl(roomId: widget.socket.roomId),
+            if (!finished)
+              GameVoiceControl(
+                roomId: widget.socket.roomId,
+                socket: widget.socket,
+                selfId: widget.selfId,
+                nicknames: widget.nicknames,
+                spectating: _amSpectator,
+              ),
             PopupMenuButton<String>(
               tooltip: 'Game settings',
               icon: const Icon(Icons.settings_rounded, size: 20),

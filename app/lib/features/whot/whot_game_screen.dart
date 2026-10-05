@@ -3,16 +3,14 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:livekit_client/livekit_client.dart' as lk;
-import 'package:permission_handler/permission_handler.dart';
 import '../../core/app_state.dart';
-import '../../core/api_client.dart';
 import '../../core/game_music.dart';
 import '../../core/game_sfx.dart';
 import '../../core/game_socket.dart';
 import '../../widgets/how_to_play_dialog.dart';
 import '../../widgets/neon.dart';
 import '../../widgets/table_chat.dart';
+import '../../widgets/game_voice_control.dart';
 import '../shell/main_shell.dart';
 import '../status/victory_status.dart';
 import 'whot_lobby_screen.dart';
@@ -65,9 +63,6 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
   String? _lastCardWarning, _lastPlayedCard;
   bool _musicOn = GameMusic.enabled;
   bool _sfxOn = GameSfx.enabled;
-  lk.Room? _voiceRoom;
-  bool _voiceJoining = false, _micMuted = false;
-  int _voiceParticipants = 0;
   String? _error;
   final _chatController = TextEditingController();
   final _chat = <TableChatLine>[];
@@ -669,12 +664,6 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
       timer.cancel();
     }
     GameMusic.stop();
-    final voiceRoom = _voiceRoom;
-    if (voiceRoom != null) {
-      voiceRoom.removeListener(_onVoiceChanged);
-      voiceRoom.disconnect();
-      voiceRoom.dispose();
-    }
     _socket.close();
     super.dispose();
   }
@@ -722,115 +711,6 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
       GameMusic.setEnabled(next),
       GameSfx.setEnabled(next),
     ]);
-  }
-
-  void _onVoiceChanged() {
-    if (!mounted) return;
-    setState(() {
-      _voiceParticipants = (_voiceRoom?.remoteParticipants.length ?? 0) + 1;
-      _micMuted =
-          !(_voiceRoom?.localParticipant?.isMicrophoneEnabled() ?? false);
-    });
-  }
-
-  Future<void> _toggleVoice() async {
-    final room = _voiceRoom;
-    if (room != null) {
-      try {
-        await room.localParticipant?.setMicrophoneEnabled(_micMuted);
-        _onVoiceChanged();
-      } catch (_) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('Could not change microphone state')));
-        }
-      }
-      return;
-    }
-
-    setState(() => _voiceJoining = true);
-    final app = AppScope.of(context);
-    lk.Room? joiningRoom;
-    try {
-      final permission = await Permission.microphone.request();
-      if (!permission.isGranted) {
-        throw StateError('Microphone access is needed for Whot voice');
-      }
-      Map<String, dynamic> raw;
-      try {
-        raw = await app.api.post('/calls/games/${widget.roomId}/token')
-            as Map<String, dynamic>;
-      } on ApiException catch (error) {
-        // Older backend deployments still expose the Whot-specific path.
-        if (error.status != 404) rethrow;
-        raw = await app.api.post('/calls/whot/${widget.roomId}/token')
-            as Map<String, dynamic>;
-      }
-      joiningRoom = lk.Room();
-      await joiningRoom.connect(
-          raw['livekitUrl'] as String, raw['token'] as String);
-      if (!mounted) {
-        await joiningRoom.disconnect();
-        joiningRoom.dispose();
-        return;
-      }
-      _voiceRoom = joiningRoom;
-      joiningRoom.addListener(_onVoiceChanged);
-      final connectedRoom = joiningRoom;
-      joiningRoom = null;
-      var microphoneOn = false;
-      for (var attempt = 0; attempt < 2 && !microphoneOn; attempt++) {
-        try {
-          await connectedRoom.localParticipant?.setMicrophoneEnabled(true);
-          microphoneOn =
-              connectedRoom.localParticipant?.isMicrophoneEnabled() ?? false;
-        } catch (error, stack) {
-          if (attempt == 0) {
-            await Future<void>.delayed(const Duration(milliseconds: 350));
-          } else {
-            debugPrint('Whot voice microphone failed: $error\n$stack');
-          }
-        }
-      }
-      if (!mounted) {
-        await connectedRoom.disconnect();
-        connectedRoom.dispose();
-        return;
-      }
-      setState(() => _voiceJoining = false);
-      _onVoiceChanged();
-      if (!microphoneOn) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content:
-              Text('Voice connected. Tap the microphone again to turn it on.'),
-        ));
-      }
-    } catch (e) {
-      if (joiningRoom != null) {
-        await joiningRoom.disconnect();
-        joiningRoom.dispose();
-      }
-      debugPrint('Whot voice connection failed: $e');
-      if (!mounted) return;
-      setState(() => _voiceJoining = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(e is StateError
-            ? e.message
-            : e is ApiException
-                ? 'Whot voice: ${e.message}'
-                : 'Could not connect to the voice server. Please try again.'),
-      ));
-    }
-  }
-
-  Future<void> _leaveVoice() async {
-    final room = _voiceRoom;
-    if (room == null) return;
-    room.removeListener(_onVoiceChanged);
-    _voiceRoom = null;
-    if (mounted) setState(() => _voiceParticipants = 0);
-    await room.disconnect();
-    room.dispose();
   }
 
   void _togglePause() => _socket.send('PAUSE_TOGGLE');
@@ -1630,26 +1510,14 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
                 : Icons.volume_off_rounded),
             onPressed: _toggleAudio,
           ),
-          if (!widget.spectating)
-            IconButton(
-              key: const ValueKey('whot-voice-toggle'),
-              tooltip: _voiceJoining
-                  ? 'Connecting to voice'
-                  : _voiceRoom == null
-                      ? 'Join Whot voice'
-                      : _micMuted
-                          ? 'Unmute microphone'
-                          : 'Mute microphone · $_voiceParticipants in voice',
-              icon: Icon(
-                _voiceRoom == null
-                    ? Icons.mic_none_rounded
-                    : _micMuted
-                        ? Icons.mic_off_rounded
-                        : Icons.mic_rounded,
-                color: _voiceRoom == null ? _cream : const Color(0xff52f597),
-              ),
-              onPressed: _voiceJoining ? null : _toggleVoice,
-            ),
+          GameVoiceControl(
+            key: const ValueKey('whot-voice-toggle'),
+            roomId: widget.roomId,
+            socket: _socket,
+            selfId: widget.selfId,
+            nicknames: widget.nicknames,
+            spectating: widget.spectating,
+          ),
           PopupMenuButton<String>(
             tooltip: 'Game settings',
             icon: const Icon(Icons.settings_rounded, size: 21),
@@ -1664,8 +1532,6 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
                   _toggleMusic();
                 case 'sfx':
                   _toggleSfx();
-                case 'leaveVoice':
-                  _leaveVoice();
                 case 'spectators':
                   _toggleMuteSpectators();
                 case 'forfeit':
@@ -1689,8 +1555,6 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
                   'sfx',
                   _sfxOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
                   _sfxOn ? 'Mute game sounds' : 'Play game sounds'),
-              if (_voiceRoom != null)
-                _menuItem('leaveVoice', Icons.call_end_rounded, 'Leave voice'),
               if (!widget.spectating)
                 _menuItem(
                     'spectators',

@@ -7,6 +7,8 @@ import '../../core/game_socket.dart';
 import '../../theme/neon_theme.dart';
 import '../whot/whot_watch_screen.dart';
 import '../ludo/ludo_watch_screen.dart';
+import '../../widgets/game_voice_control.dart';
+import 'board_game_watch_screen.dart';
 
 class _Comment {
   const _Comment(this.from, this.text);
@@ -50,7 +52,10 @@ class _SpectateScreenState extends State<SpectateScreen> {
     super.didChangeDependencies();
     if (_started) return;
     _started = true;
-    if (widget.gameType == 'whot' || widget.gameType == 'ludo') return;
+    if (const {'whot', 'ludo', 'draughts', 'goosi', 'wordbluff'}
+        .contains(widget.gameType)) {
+      return;
+    }
     final app = AppScope.of(context);
     _socket = GameSocket.connect(app.api, widget.roomId, spectate: true);
     _sub = _socket!.envelopes.listen(_onEnvelope);
@@ -189,9 +194,23 @@ class _SpectateScreenState extends State<SpectateScreen> {
     if (widget.gameType == 'ludo') {
       return LudoWatchScreen(roomId: widget.roomId);
     }
+    if (const {'draughts', 'goosi', 'wordbluff'}.contains(widget.gameType)) {
+      return BoardGameWatchScreen(roomId: widget.roomId);
+    }
     final n = context.neon;
     return Scaffold(
-      appBar: AppBar(title: Text(widget.title)),
+      appBar: AppBar(
+        title: Text(widget.title),
+        actions: [
+          if (_socket != null)
+            GameVoiceControl(
+              roomId: widget.roomId,
+              socket: _socket!,
+              selfId: AppScope.of(context).user?.id ?? '',
+              spectating: true,
+            ),
+        ],
+      ),
       body: SafeArea(
         child: Column(children: [
           Padding(

@@ -20,6 +20,7 @@ import '../status/victory_status.dart';
 import '../onboarding/guest_save_session_card.dart';
 import 'draughts_rules.dart';
 import 'draughts_theme.dart';
+import 'draughts_var.dart';
 
 /// International (10x10, 20-piece) Draughts — driven by the same
 /// SNAPSHOT/PHASE/EVENT-in, PLAYER_ACTION-out contract as the other two
@@ -46,13 +47,15 @@ class DraughtsGameScreen extends StatefulWidget {
       required this.selfId,
       required this.nicknames,
       this.championshipId,
-      this.tournamentSpectator = false});
+      this.tournamentSpectator = false,
+      this.spectating = false});
 
   final GameSocket socket;
   final String selfId;
   final Map<String, String> nicknames;
   final String? championshipId;
   final bool tournamentSpectator;
+  final bool spectating;
 
   @override
   State<DraughtsGameScreen> createState() => _DraughtsGameScreenState();
@@ -119,8 +122,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
   int _nextPieceId = 0;
   int _nextCapturedId = 0;
 
-  ({int from, int to})? _lastMove;
-  bool _replaying = false;
+  final DraughtsVarRecorder _var = DraughtsVarRecorder();
 
   bool _paused = false;
   String? _pendingDrawOffer;
@@ -186,6 +188,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
       (phase.startsWith('TurnA') || phase.startsWith('GraceA')) ? 'A' : 'B';
   String get mySide => widget.selfId == playerA ? 'A' : 'B';
   bool get myTurn =>
+      !_amSpectator &&
       turnSide == mySide &&
       (phase.startsWith('Turn') || phase.startsWith('Grace'));
 
@@ -358,6 +361,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
       playerB = p['playerB'] as String? ?? playerB;
       final rawBoard = p['board'] as List?;
       if (rawBoard != null) {
+        _var.reset();
         board = rawBoard.map((e) => e as String?).toList();
         _rebuildPiecesFromBoard(); // a fresh snapshot is a hard reset — nothing to animate from
         _syncCapturedFromBoard();
@@ -496,7 +500,8 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
   /// Spectators talk on the muteable `spectate` channel; players talk on
   /// `table`. Same box either way — the split only exists so muting
   /// spectators doesn't also silence the two people playing.
-  bool get _amSpectator => widget.selfId != playerA && widget.selfId != playerB;
+  bool get _amSpectator =>
+      widget.spectating || (widget.selfId != playerA && widget.selfId != playerB);
 
   void _sendChat() {
     final text = _chatController.text.trim();
@@ -525,6 +530,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
         case 'SPECTATORS_UNMUTED':
           _spectatorsMuted = false;
         case 'GAME_STARTED':
+          _var.reset();
           playerA = data['playerA'] as String;
           playerB = data['playerB'] as String;
           board = (data['board'] as List).map((e) => e as String?).toList();
@@ -536,11 +542,11 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
         case 'PIECE_MOVED':
           _pendingDrawOffer = null;
           final from = data['from'] as int, to = data['to'] as int;
+          _var.move(board, data['side'] as String, from, to);
           board[to] = board[from];
           board[from] = null;
           _pieceAt(from)?.square =
               to; // AnimatedPositioned interpolates to the new cell
-          _lastMove = (from: from, to: to);
           _serverLegal = null; // the board has moved on past that snapshot
           GameSfx.move();
           activeSquare = null;
@@ -551,13 +557,14 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
           final from = data['from'] as int,
               to = data['to'] as int,
               captured = data['captured'] as int;
+          _var.move(board, data['side'] as String, from, to,
+              captured: captured);
           final victim = _pieceAt(captured);
           final victimType = victim?.type ?? board[captured];
           board[to] = board[from];
           board[from] = null;
           board[captured] = null;
           _pieceAt(from)?.square = to;
-          _lastMove = (from: from, to: to);
           if (victim != null) {
             _pieces.remove(victim);
           }
@@ -580,11 +587,13 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
           _chain = const [];
         case 'PIECE_PROMOTED':
           final sq = data['square'] as int, side = data['side'] as String;
+          _var.promote(sq);
           GameSfx.king();
           board[sq] = '${side}_KING';
           final p = _pieceAt(sq);
           if (p != null) p.type = '${side}_KING';
         case 'TURN_STARTED':
+          _var.complete();
           _beginTurnFor(data['side'] as String? ?? turnSide);
           activeSquare = null;
           _selected = null;
@@ -598,6 +607,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
         case 'COINS_AWARDED':
           _coinsAwarded = data['amount'] as int?;
         case 'GAME_OVER':
+          _var.complete();
           winningSide = data['winningSide'] as String?;
           _piecesA = data['piecesA'] as int?;
           _piecesB = data['piecesB'] as int?;
@@ -822,23 +832,21 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
     }
   }
 
-  /// Slides the last-moved piece back to where it came from, then forward
-  /// again to where it landed — a quick instant replay of the most recent
-  /// move, using the same animated slide a live move uses.
-  Future<void> _replayLastMove() async {
-    final mv = _lastMove;
-    if (mv == null || _replaying) return;
-    final piece = _pieceAt(mv.to);
-    if (piece == null) return;
-    setState(() {
-      _replaying = true;
-      piece.square = mv.from;
-    });
-    await Future.delayed(_moveDuration + const Duration(milliseconds: 140));
-    if (!mounted) return;
-    setState(() => piece.square = mv.to);
-    await Future.delayed(_moveDuration);
-    if (mounted) setState(() => _replaying = false);
+  void _openVar() {
+    final turn = _var.lastCompleted;
+    if (turn == null || (!_amSpectator && turn.side == mySide)) return;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xff241708),
+      builder: (_) => _VarReplaySheet(
+        turn: turn,
+        boardPalette: _theme?.board ?? boardPalettes.first,
+        piecePalette: _theme?.piece ?? piecePalettes.first,
+        flipped: mySide == 'B',
+        playerName: label(_actorFor(turn.side)),
+      ),
+    );
   }
 
   /// Pausing blurs the board for *both* players (and any spectators) — it's
@@ -1007,6 +1015,10 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
   }
 
   Future<void> _confirmExit() async {
+    if (widget.spectating) {
+      Navigator.of(context).pop();
+      return;
+    }
     final leave = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
@@ -1089,12 +1101,13 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: finished || widget.tournamentSpectator,
+      canPop: finished || widget.tournamentSpectator || widget.spectating,
       child: Scaffold(
         backgroundColor: const Color(0xff1c130a),
         appBar: AppBar(
           title: Text(finished ? 'Results' : 'Round $round'),
-          automaticallyImplyLeading: finished || widget.tournamentSpectator,
+          automaticallyImplyLeading:
+              finished || widget.tournamentSpectator || widget.spectating,
           backgroundColor: const Color(0xff241708),
           foregroundColor: const Color(0xfff0d8a8),
           // Only Pause earns a permanent button — it's the one thing you
@@ -1105,8 +1118,14 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
               ? null
               : [
                   if (widget.championshipId == null || !_amSpectator)
-                    GameVoiceControl(roomId: widget.socket.roomId),
-                  if (widget.championshipId == null)
+                    GameVoiceControl(
+                      roomId: widget.socket.roomId,
+                      socket: widget.socket,
+                      selfId: widget.selfId,
+                      nicknames: widget.nicknames,
+                      spectating: _amSpectator,
+                    ),
+                  if (widget.championshipId == null && !_amSpectator)
                     IconButton(
                       tooltip: _paused ? 'Resume' : 'Pause',
                       icon: Icon(
@@ -1549,42 +1568,6 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
     ]);
   }
 
-  Widget _chromeButton(
-      {required IconData icon,
-      required bool active,
-      required String tooltip,
-      required VoidCallback onTap,
-      bool disabled = false}) {
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(24),
-        onTap: disabled ? null : onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          width: 40,
-          height: 40,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: active ? const Color(0xffe0a94a) : const Color(0xff241708),
-            border: Border.all(
-                color:
-                    active ? const Color(0xffe0a94a) : const Color(0xff5c3a1c),
-                width: 2),
-          ),
-          child: Icon(icon,
-              size: 20,
-              color: disabled
-                  ? const Color(0xff5c4a38)
-                  : (active
-                      ? const Color(0xff241708)
-                      : const Color(0xffc9b18c))),
-        ),
-      ),
-    );
-  }
-
   Widget _statusBar(NeonColors n) {
     final required = _remainingRequired;
     return Container(
@@ -1624,12 +1607,18 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
           Row(mainAxisSize: MainAxisSize.min, children: [
             _timerDial(),
             const SizedBox(width: 12),
-            _chromeButton(
-              icon: Icons.replay_rounded,
-              active: false,
-              disabled: _lastMove == null || _replaying,
-              tooltip: 'Replay last move',
-              onTap: _replayLastMove,
+            SizedBox(
+              width: 44,
+              height: 40,
+              child: TextButton(
+                onPressed: _var.lastCompleted == null ||
+                        (!_amSpectator && _var.lastCompleted!.side == mySide)
+                    ? null
+                    : _openVar,
+                style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                child: const Text('VAR',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
+              ),
             ),
           ]),
         ]),
@@ -1892,6 +1881,214 @@ class _PlankCell extends StatelessWidget {
                   )
                 ]
               : null,
+        ),
+      ),
+    );
+  }
+}
+
+class _VarReplaySheet extends StatefulWidget {
+  const _VarReplaySheet({
+    required this.turn,
+    required this.boardPalette,
+    required this.piecePalette,
+    required this.flipped,
+    required this.playerName,
+  });
+
+  final DraughtsVarTurn turn;
+  final BoardPalette boardPalette;
+  final PiecePalette piecePalette;
+  final bool flipped;
+  final String playerName;
+
+  @override
+  State<_VarReplaySheet> createState() => _VarReplaySheetState();
+}
+
+class _VarReplaySheetState extends State<_VarReplaySheet> {
+  final List<_Piece> _pieces = [];
+  int _step = 0;
+  int _playToken = 0;
+  bool _playing = false;
+  bool _paused = false;
+  double _speed = 1;
+
+  @override
+  void initState() {
+    super.initState();
+    _reset();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _play());
+  }
+
+  @override
+  void dispose() {
+    _playToken++;
+    super.dispose();
+  }
+
+  void _reset() {
+    _playToken++;
+    _pieces.clear();
+    for (var square = 0; square < widget.turn.before.length; square++) {
+      final type = widget.turn.before[square];
+      if (type != null) _pieces.add(_Piece(square, square, type));
+    }
+    _step = 0;
+    _playing = false;
+    _paused = false;
+  }
+
+  Future<void> _play() async {
+    if (_playing) {
+      setState(_reset);
+    }
+    if (_step == widget.turn.steps.length) {
+      setState(_reset);
+    }
+    final token = ++_playToken;
+    setState(() {
+      _playing = true;
+      _paused = false;
+    });
+    while (mounted && token == _playToken && _step < widget.turn.steps.length) {
+      if (_paused) {
+        await Future<void>.delayed(const Duration(milliseconds: 80));
+        continue;
+      }
+      final move = widget.turn.steps[_step];
+      final piece = _pieces.where((p) => p.square == move.from).firstOrNull;
+      if (piece == null) break;
+      setState(() => piece.square = move.to);
+      await Future<void>.delayed(Duration(milliseconds: (560 / _speed).round()));
+      if (!mounted || token != _playToken) return;
+      setState(() {
+        if (move.captured != null) {
+          _pieces.removeWhere((p) => p.square == move.captured);
+        }
+        if (move.promoted) piece.type = '${widget.turn.side}_KING';
+        _step++;
+      });
+      await Future<void>.delayed(Duration(milliseconds: (180 / _speed).round()));
+    }
+    if (mounted && token == _playToken) setState(() => _playing = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: SizedBox(
+        height: MediaQuery.sizeOf(context).height * 0.76,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 18),
+          child: Column(children: [
+            Row(children: [
+              const Text('VAR REPLAY',
+                  style: TextStyle(
+                      color: Color(0xffe0a94a),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900)),
+              const Spacer(),
+              IconButton(
+                tooltip: 'Close replay',
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close_rounded),
+              ),
+            ]),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text('${widget.playerName} · step $_step of ${widget.turn.steps.length}',
+                  style: const TextStyle(color: Color(0xffc9b18c), fontSize: 12)),
+            ),
+            const SizedBox(height: 14),
+            Expanded(
+              child: LayoutBuilder(builder: (context, limits) {
+                final side = math.min(limits.maxWidth, limits.maxHeight);
+                return Center(
+                  child: SizedBox.square(
+                    dimension: side,
+                    child: _WoodFrame(
+                      palette: widget.boardPalette,
+                      child: LayoutBuilder(builder: (context, boardLimits) {
+                        final cellSize = boardLimits.maxWidth / 10;
+                        return Stack(children: [
+                          GridView.builder(
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 10),
+                            itemCount: 100,
+                            itemBuilder: (context, i) {
+                              final displayRow = i ~/ 10, col = i % 10;
+                              final row = widget.flipped
+                                  ? displayRow
+                                  : 9 - displayRow;
+                              if (!isPlayable(row, col)) {
+                                return _PlankCell(
+                                    palette: widget.boardPalette,
+                                    dark: false,
+                                    inert: true);
+                              }
+                              final square = squareOf(row, col);
+                              return _PlankCell(
+                                palette: widget.boardPalette,
+                                dark: (row + col) % 4 == 1,
+                                seed: square,
+                              );
+                            },
+                          ),
+                          for (final piece in _pieces)
+                            _AnimatedPieceView(
+                              key: ValueKey('var-${piece.id}'),
+                              piece: piece,
+                              palette: widget.piecePalette,
+                              cellSize: cellSize,
+                              flipped: widget.flipped,
+                              selected: false,
+                              dragging: false,
+                              moveDuration: Duration(
+                                  milliseconds: (420 / _speed).round()),
+                              fadeDuration: const Duration(milliseconds: 200),
+                            ),
+                        ]);
+                      }),
+                    ),
+                  ),
+                );
+              }),
+            ),
+            const SizedBox(height: 12),
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              IconButton(
+                tooltip: 'Replay from start',
+                onPressed: () {
+                  setState(_reset);
+                  _play();
+                },
+                icon: const Icon(Icons.replay_rounded),
+              ),
+              IconButton(
+                tooltip: _paused ? 'Resume replay' : 'Pause replay',
+                onPressed: !_playing
+                    ? _play
+                    : () => setState(() => _paused = !_paused),
+                icon: Icon(!_playing || _paused
+                    ? Icons.play_arrow_rounded
+                    : Icons.pause_rounded),
+              ),
+              const SizedBox(width: 12),
+              SegmentedButton<double>(
+                segments: const [
+                  ButtonSegment(value: 0.5, label: Text('0.5x')),
+                  ButtonSegment(value: 1, label: Text('1x')),
+                  ButtonSegment(value: 2, label: Text('2x')),
+                ],
+                selected: {_speed},
+                onSelectionChanged: (speed) =>
+                    setState(() => _speed = speed.first),
+              ),
+            ]),
+          ]),
         ),
       ),
     );

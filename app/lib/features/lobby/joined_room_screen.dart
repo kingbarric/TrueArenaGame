@@ -34,6 +34,7 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
   GameSocket? _socket;
   StreamSubscription? _sub;
   bool _handedOff = false;
+  String _gameMode = 'relay';
   bool _ready = false;
   late AppState _app;
 
@@ -99,6 +100,7 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
         .toList();
     if (!mounted) return;
     setState(() {
+      _gameMode = p['mode'] as String? ?? _gameMode;
       _room = RoomView(
         id: p['roomId'] as String,
         code: p['code'] as String,
@@ -203,8 +205,11 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const MarqueeBar(
-                'you\'re in  •  ready up  •  waiting on the host to start'),
+            MarqueeBar(_room.gameType == 'goosi'
+                ? _gameMode == 'oware'
+                    ? 'OWARE ABAPA  •  CAPTURE 2 OR 3  •  WAITING ON HOST'
+                    : 'RELAY FOUR  •  COLLECT FOUR  •  WAITING ON HOST'
+                : 'YOU\'RE IN  •  READY UP  •  WAITING ON THE HOST TO START'),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
               child: NeonCard(

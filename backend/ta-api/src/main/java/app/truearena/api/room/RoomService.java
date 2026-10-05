@@ -156,13 +156,26 @@ public class RoomService {
                                 ? Mono.error(ApiExceptions.forbidden("join the championship invitation instead"))
                                 : members.findByRoomIdAndUserId(room.id(), userId)
                         .flatMap(existing -> view(room, userId))
-                        .switchIfEmpty(members.countByRoomId(room.id())
+                        .switchIfEmpty(!"lobby".equals(room.status())
+                                ? Mono.error(ApiExceptions.conflict("this huud is already playing — watch live instead"))
+                                : members.countByRoomId(room.id())
                                 .flatMap(count -> count >= ("ludo".equals(room.gameType()) ? 4 : MAX_PLAYERS)
                                         ? Mono.error(ApiExceptions.conflict("huud is full"))
                                         : members.save(RoomMemberRow.of(room.id(), userId, nickname))
                                         .thenReturn(room)
                                         .flatMap(r -> escrowStake(r, userId))
                                         .then(view(room, userId))))));
+    }
+
+    public Mono<RoomView> watch(String code, UUID userId) {
+        return rooms.findByCode(code.toUpperCase())
+                .switchIfEmpty(Mono.error(ApiExceptions.notFound("no huud with that code")))
+                .filter(room -> "in_game".equals(room.status()))
+                .switchIfEmpty(Mono.error(ApiExceptions.conflict("this huud is not live yet")))
+                .flatMap(room -> (championships == null ? Mono.just(true)
+                        : championships.spectatorAllowed(room.id(), userId))
+                        .flatMap(allowed -> allowed ? view(room, userId)
+                                : Mono.error(ApiExceptions.forbidden("private championship match"))));
     }
 
     /**

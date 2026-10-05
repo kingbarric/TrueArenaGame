@@ -4,6 +4,7 @@ import app.truearena.api.room.RoomDtos.CreateRoomRequest;
 import app.truearena.api.room.RoomDtos.DiscoverableRoomView;
 import app.truearena.api.room.RoomDtos.JoinRoomRequest;
 import app.truearena.api.room.RoomDtos.RoomView;
+import app.truearena.api.room.RoomDtos.WatchRoomRequest;
 import app.truearena.api.support.CurrentUser;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -80,6 +81,12 @@ public class RoomController {
     @Operation(summary = "Join a room by its 6-char code")
     public Mono<RoomView> join(@Valid @RequestBody JoinRoomRequest body) {
         return CurrentUser.id().flatMap(uid -> rooms.join(body.code(), uid, body.nickname()));
+    }
+
+    @PostMapping("/watch")
+    @Operation(summary = "Resolve an active room by huud code without taking a player seat")
+    public Mono<RoomView> watch(@Valid @RequestBody WatchRoomRequest body) {
+        return CurrentUser.id().flatMap(uid -> rooms.watch(body.code(), uid));
     }
 
     @GetMapping("/{id}")

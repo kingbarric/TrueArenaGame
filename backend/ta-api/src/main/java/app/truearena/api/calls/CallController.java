@@ -41,4 +41,9 @@ public class CallController {
     public Mono<CallToken> gameToken(@PathVariable UUID roomId) {
         return CurrentUser.id().flatMap(uid -> calls.gameCallToken(uid, roomId));
     }
+
+    @PostMapping("/games/{roomId}/activate")
+    public Mono<Void> activateSpectatorVoice(@PathVariable UUID roomId) {
+        return CurrentUser.id().flatMap(uid -> calls.activateSpectatorVoice(uid, roomId));
+    }
 }

@@ -8,7 +8,9 @@ import app.truearena.persistence.GroupMemberRepository;
 import app.truearena.persistence.RoomMemberRepository;
 import app.truearena.persistence.RoomRepository;
 import app.truearena.persistence.UserRepository;
+import app.truearena.room.RoomRuntimeRegistry;
 import app.truearena.voice.LiveKitTokenService;
+import app.truearena.voice.LiveKitRoomAdmin;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
@@ -30,16 +32,21 @@ public class CallService {
     private final RoomRepository rooms;
     private final UserRepository users;
     private final LiveKitTokenService tokens;
+    private final RoomRuntimeRegistry runtimes;
+    private final LiveKitRoomAdmin voiceAdmin;
 
     public CallService(FriendRepository friends, GroupMemberRepository groupMembers,
                        RoomMemberRepository roomMembers, RoomRepository rooms,
-                       UserRepository users, LiveKitTokenService tokens) {
+                       UserRepository users, LiveKitTokenService tokens,
+                       RoomRuntimeRegistry runtimes, LiveKitRoomAdmin voiceAdmin) {
         this.friends = friends;
         this.groupMembers = groupMembers;
         this.roomMembers = roomMembers;
         this.rooms = rooms;
         this.users = users;
         this.tokens = tokens;
+        this.runtimes = runtimes;
+        this.voiceAdmin = voiceAdmin;
     }
 
     public Mono<CallToken> dmCallToken(UUID selfId, UUID friendId) {
@@ -80,11 +87,40 @@ public class CallService {
         return rooms.findById(roomId)
                 .filter(room -> "in_game".equals(room.status()))
                 .switchIfEmpty(Mono.error(ApiExceptions.notFound("no active game")))
-                .then(roomMembers.findByRoomIdAndUserId(roomId, selfId))
-                .switchIfEmpty(Mono.error(ApiExceptions.forbidden("only players can join game voice")))
-                .then(users.findById(selfId))
-                .switchIfEmpty(Mono.error(ApiExceptions.notFound("no such user")))
-                .map(self -> tokenFor("game-" + roomId, self.id(), self.displayName()));
+                .then(roomMembers.findByRoomIdAndUserId(roomId, selfId).hasElement())
+                .flatMap(isPlayer -> {
+                    if (!isPlayer && !spectatorCanTalk(roomId, selfId)) {
+                        return Mono.error(ApiExceptions.forbidden(
+                                "ask an active player to approve you for live talk"));
+                    }
+                    return users.findById(selfId)
+                            .switchIfEmpty(Mono.error(ApiExceptions.notFound("no such user")))
+                            .map(self -> new CallToken("game-" + roomId,
+                                    tokens.mintToken("game-" + roomId, self.id().toString(),
+                                            self.displayName(), isPlayer), tokens.wsUrl()));
+                });
+    }
+
+    /** Elevate a connected spectator only after checking their current approval. */
+    public Mono<Void> activateSpectatorVoice(UUID selfId, UUID roomId) {
+        return rooms.findById(roomId)
+                .filter(room -> "in_game".equals(room.status()))
+                .switchIfEmpty(Mono.error(ApiExceptions.notFound("no active game")))
+                .then(Mono.defer(() -> spectatorCanTalk(roomId, selfId)
+                        ? voiceAdmin.setCanPublish("game-" + roomId, selfId.toString(), true)
+                                .then(Mono.defer(() -> spectatorCanTalk(roomId, selfId)
+                                        ? Mono.empty()
+                                        : voiceAdmin.remove("game-" + roomId, selfId.toString())))
+                        : Mono.error(ApiExceptions.forbidden("live-talk approval is no longer active"))));
+    }
+
+    private boolean spectatorCanTalk(UUID roomId, UUID userId) {
+        String id = userId.toString();
+        return runtimes.find(roomId)
+                .map(rt -> rt.spectatorUserIds.contains(id)
+                        && rt.spectatorVoiceSpeakers.contains(id)
+                        && !rt.mutedSpectatorVoiceSpeakers.contains(id))
+                .orElse(false);
     }
 
     private CallToken tokenFor(String roomName, UUID participantId, String participantName) {

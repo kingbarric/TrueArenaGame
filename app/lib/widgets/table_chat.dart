@@ -75,6 +75,7 @@ class TableChatPanel extends StatefulWidget {
 
 class _TableChatPanelState extends State<TableChatPanel> {
   bool _expanded = false;
+  bool _unreadComment = false;
   late int _lastLineCount;
 
   @override
@@ -91,6 +92,13 @@ class _TableChatPanelState extends State<TableChatPanel> {
     if (widget.lines.length > _lastLineCount &&
         widget.lines.isNotEmpty && widget.lines.first.isAgent) {
       _expanded = true;
+    }
+    if (widget.lines.length > _lastLineCount &&
+        widget.lines.isNotEmpty &&
+        !widget.lines.first.isSystem &&
+        !widget.lines.first.isAgent &&
+        !_expanded) {
+      _unreadComment = true;
     }
     _lastLineCount = widget.lines.length;
   }
@@ -113,11 +121,26 @@ class _TableChatPanelState extends State<TableChatPanel> {
             ),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               InkWell(
-                onTap: () => setState(() => _expanded = !_expanded),
+                onTap: () => setState(() {
+                  _expanded = !_expanded;
+                  if (_expanded) _unreadComment = false;
+                }),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                   child: Row(children: [
                     const Icon(Icons.chat_bubble_outline_rounded, size: 15, color: Colors.white),
+                    if (_unreadComment) ...[
+                      const SizedBox(width: 3),
+                      Container(
+                        key: const ValueKey('unread-comment'),
+                        width: 6,
+                        height: 6,
+                        decoration: const BoxDecoration(
+                          color: Color(0xffffcf66),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ],
                     const SizedBox(width: 7),
                     Text('CHAT${widget.lines.isEmpty ? '' : ' · ${widget.lines.length}'}',
                         style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800)),

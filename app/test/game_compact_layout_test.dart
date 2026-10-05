@@ -14,6 +14,7 @@ import 'package:truearena/theme/neon_theme.dart';
 
 class _Socket implements GameSocket {
   final frames = StreamController<Map<String, dynamic>>.broadcast();
+  final sent = <String>[];
   @override
   final ValueNotifier<Set<String>> onlinePlayers = ValueNotifier(<String>{});
   @override
@@ -25,7 +26,7 @@ class _Socket implements GameSocket {
   @override
   String get roomId => '00000000-0000-0000-0000-000000000001';
   @override
-  void send(String type, [Map<String, dynamic>? payload]) {}
+  void send(String type, [Map<String, dynamic>? payload]) => sent.add(type);
   @override
   Future<void> close() => frames.close();
   void snapshot(Map<String, dynamic> payload) =>
@@ -180,4 +181,38 @@ void main() {
       await tester.binding.setSurfaceSize(null);
     });
   }
+
+  testWidgets('Word Bluff spectator sees review without team controls',
+      (tester) async {
+    final socket = _Socket();
+    await open(
+        tester,
+        WordBluffGameScreen(
+            socket: socket,
+            selfId: 'viewer',
+            isHost: false,
+            nicknames: const {},
+            spectating: true),
+        socket,
+        {
+          'phase': 'Review',
+          'round': 1,
+          'teamA': ['p1', 'p2'],
+          'teamB': ['p3', 'p4'],
+          'turnTeam': 'A',
+          'describer': 'p1',
+          'attempts': [
+            {'word': 'giraffe', 'correct': true, 'skipped': false}
+          ],
+          'targetScore': 30,
+          'turnSeconds': 60,
+        });
+
+    expect(find.text('The teams are reviewing this round.'), findsOneWidget);
+    expect(find.textContaining('Accept 1 point'), findsNothing);
+    await tester.tap(find.text('giraffe'));
+    expect(socket.sent, isNot(contains('PLAYER_ACTION')));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
 }

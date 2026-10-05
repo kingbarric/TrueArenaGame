@@ -5,6 +5,7 @@ import '../../core/app_state.dart';
 import '../../core/models.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/neon.dart';
+import '../spectate/spectate_screen.dart';
 import 'joined_room_screen.dart';
 
 /// The other half of a lobby: `LobbyScreen`/`WordBluffLobbyScreen` only ever
@@ -78,6 +79,36 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
     }
   }
 
+  Future<void> _watch() async {
+    final code = _codeController.text.trim().toUpperCase();
+    if (code.length != 6) {
+      setState(() => _error = 'Huud codes are 6 characters');
+      return;
+    }
+    setState(() {
+      _joining = true;
+      _error = null;
+    });
+    try {
+      final raw = await AppScope.of(context).api.post('/rooms/watch', {'code': code})
+          as Map<String, dynamic>;
+      final room = RoomView.fromJson(raw);
+      if (!mounted) return;
+      Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => SpectateScreen(
+                roomId: room.id,
+                gameType: room.gameType,
+                title: 'Watching ${room.gameType == 'draughts' ? 'Draft' : room.gameType}',
+              )));
+    } on ApiException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } catch (_) {
+      if (mounted) setState(() => _error = 'Could not reach the server');
+    } finally {
+      if (mounted) setState(() => _joining = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final n = context.neon;
@@ -115,6 +146,12 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
               ],
               const SizedBox(height: 22),
               NeonButton(_joining ? 'Joining…' : 'Join a huud', onPressed: _joining ? null : _join),
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: _joining ? null : _watch,
+                icon: const Icon(Icons.visibility_rounded),
+                label: const Text('Watch live'),
+              ),
             ],
           ),
         ),

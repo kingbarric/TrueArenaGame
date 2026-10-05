@@ -19,8 +19,8 @@ import '../status/victory_status.dart';
 import '../onboarding/guest_save_session_card.dart';
 import 'goosi_theme.dart';
 
-/// Goosi — PlayHuud's Oware Abapa game: twelve houses, two players and the
-/// standard feeding, grand-slam and 2-or-3 capture rules. See `GoosiModule`
+/// Macala has twelve houses and two players. A move relay-sows around the
+/// board and collects any house brought to exactly four seeds. See `GoosiModule`
 /// (ta-game-goosi) for the full rules; this screen is a thin renderer over
 /// the same SNAPSHOT/PHASE/EVENT-in, PLAYER_ACTION-out contract every other
 /// game uses. Nothing here is secret, so every event is exactly what's
@@ -38,6 +38,7 @@ class GoosiGameScreen extends StatefulWidget {
     this.roomCode = '',
     this.avatars = const {},
     this.agents = const {},
+    this.spectating = false,
   });
 
   final GameSocket socket;
@@ -46,6 +47,7 @@ class GoosiGameScreen extends StatefulWidget {
   final String roomCode;
   final Map<String, String> avatars;
   final Set<String> agents;
+  final bool spectating;
 
   @override
   State<GoosiGameScreen> createState() => _GoosiGameScreenState();
@@ -71,6 +73,7 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
   int? _coinsAwarded;
   List<String> winners = [];
   int turnSeconds = 45;
+  String mode = 'relay';
   int? _secondsLeft;
   final List<TableChatLine> feed = [];
   final TextEditingController _chatController = TextEditingController();
@@ -88,6 +91,8 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
   /// sowing cut an older one short rather than the two interleaving.
   Future<void>? _sowAnimation;
   int _sowToken = 0;
+  List<int>? _pendingSowFinalPits;
+  Map<String, int>? _pendingSowScores;
 
   /// Render keys keep the hand and capture flights anchored to the board the
   /// player can actually see. The tray is vertically centred, so calculating
@@ -146,7 +151,7 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
   /// Spectators talk on the muteable `spectate` channel; players talk on
   /// `table`. Same box either way — the split only exists so muting
   /// spectators doesn't also silence the people playing.
-  bool get _amSpectator => !players.contains(widget.selfId);
+  bool get _amSpectator => widget.spectating || !players.contains(widget.selfId);
 
   void _sendChat() {
     final text = _chatController.text.trim();
@@ -187,6 +192,7 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
   }
 
   bool get myTurn =>
+      !_amSpectator &&
       myIndex >= 0 &&
       myIndex == turnIndex &&
       (phase.startsWith('Turn') || phase.startsWith('Grace'));
@@ -231,7 +237,13 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
       final rawOwner = p['owner'] as List?;
       if (rawOwner != null) owner = rawOwner.map((e) => e?.toString()).toList();
       final rawPits = p['pits'] as List?;
-      if (rawPits != null) pits = rawPits.map((e) => e as int).toList();
+      if (rawPits != null) {
+        _sowToken++;
+        _pendingSowFinalPits = null;
+        _pendingSowScores = null;
+        _handPit = null;
+        pits = rawPits.map((e) => e as int).toList();
+      }
       final rawLegal = p['legalPits'] as List?;
       if (rawLegal != null) {
         legalPits = rawLegal.map((e) => (e as num).toInt()).toList();
@@ -241,6 +253,7 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
       if (rawScores != null) {
         scores = rawScores.map((k, v) => MapEntry(k.toString(), v as int));
       }
+      mode = p['mode'] as String? ?? mode;
       _paused = p['paused'] as bool? ?? _paused;
       final left = p['secondsLeft'] as int?;
       if (left != null) _secondsLeft = left;
@@ -370,6 +383,10 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
         setState(() => _spectatorsMuted = false);
       case 'GAME_STARTED':
         setState(() {
+          _sowToken++;
+          _pendingSowFinalPits = null;
+          _pendingSowScores = null;
+          _handPit = null;
           players = (data['players'] as List).map((e) => e.toString()).toList();
           owner = (data['owner'] as List).map((e) => e?.toString()).toList();
           pits = (data['pits'] as List).map((e) => e as int).toList();
@@ -378,10 +395,20 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
               .map((e) => (e as num).toInt())
               .toList();
           turnSeconds = data['turnSeconds'] as int? ?? turnSeconds;
+          mode = data['mode'] as String? ?? mode;
           scores = {for (final pid in players) pid: 0};
         });
         _restartCountdown();
       case 'SOWN':
+        final previousFinalPits = _pendingSowFinalPits;
+        if (previousFinalPits != null) {
+          setState(() {
+            pits = previousFinalPits;
+            if (winningSide == null && _pendingSowScores != null) {
+              scores = _pendingSowScores!;
+            }
+          });
+        }
         final from = data['from'] as int;
         final touched = (data['touched'] as List).map((e) => e as int).toList();
         // `laps` splits the sowing at each point the hand scooped a pit up
@@ -393,31 +420,48 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
             : rawLaps
                 .map((l) => (l as List).map((e) => e as int).toList())
                 .toList();
+        final captures = (data['captures'] as Map?)?.map(
+              (key, value) => MapEntry(key.toString(), (value as num).toInt()),
+            ) ??
+            const <String, int>{};
+        final finalPits = (data['finalPits'] as List?)
+            ?.map((value) => (value as num).toInt())
+            .toList();
+        final finalScores = (data['scores'] as Map?)?.map(
+              (key, value) => MapEntry(key.toString(), (value as num).toInt()),
+            );
+        _pendingSowFinalPits = finalPits;
+        _pendingSowScores = finalScores;
         _sowAnimation =
-            _animateSow(from, laps, const {}, data['by']?.toString() ?? '');
+            _animateSow(from, laps, captures, data['by']?.toString() ?? '',
+                finalPits: finalPits, finalScores: finalScores);
       case 'CAPTURED':
         final captured = ((data['pits'] as List?) ?? const [])
             .map((e) => (e as num).toInt())
             .toList();
         final newScores = (data['scores'] as Map)
             .map((k, v) => MapEntry(k.toString(), v as int));
-        () async {
-          await _sowAnimation;
-          if (!mounted) return;
-          setState(() {
-            for (final pit in captured) {
-              final capturedCount = pits[pit];
-              pits[pit] = 0;
-              _flights.add(_CaptureFlight(
-                  id: _nextFlightId++,
-                  pit: pit,
-                  owner: data['by']?.toString() ?? '',
-                  count: capturedCount));
-            }
-            scores = newScores;
-          });
-          GameSfx.capture();
-        }();
+        if (data['duringSow'] != true) {
+          final sowToken = _sowToken;
+          final sowAnimation = _sowAnimation;
+          () async {
+            await sowAnimation;
+            if (!mounted || sowToken != _sowToken) return;
+            setState(() {
+              for (final pit in captured) {
+                final capturedCount = pits[pit];
+                pits[pit] = 0;
+                _flights.add(_CaptureFlight(
+                    id: _nextFlightId++,
+                    pit: pit,
+                    owner: data['by']?.toString() ?? '',
+                    count: capturedCount));
+              }
+              scores = newScores;
+            });
+            GameSfx.capture();
+          }();
+        }
         feed.insert(
             0,
             TableChatLine.system(
@@ -451,15 +495,15 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
 
   /// Replays the sowing the server just reported, one seed at a time.
   ///
-  /// The hand lifts the chosen pit, moves along dropping a seed into each
-  /// one. Captures are reported separately once the final seed lands, so the
-  /// sow remains readable before captured seeds leave the opponent's row.
+  /// The hand lifts each relay pit, drops seeds one by one, and sends each
+  /// completed four-seed house to the mover's store on that drop.
   ///
   /// Paced to be watchable rather than quick: about a second a seed, easing
   /// to half that once a relay runs long, since a twenty-five seed sowing at
   /// full pace would outstay its welcome.
   Future<void> _animateSow(int from, List<List<int>> laps,
-      Map<String, int> captures, String sower) async {
+      Map<String, int> captures, String sower,
+      {List<int>? finalPits, Map<String, int>? finalScores}) async {
     final token = ++_sowToken;
     if (!mounted) return;
 
@@ -538,7 +582,15 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
     }
 
     await Future.delayed(const Duration(milliseconds: 180));
-    if (mounted && token == _sowToken) setState(() => _handPit = null);
+    if (mounted && token == _sowToken) {
+      setState(() {
+        if (finalPits != null && finalPits.length == pits.length) pits = finalPits;
+        if (winningSide == null && finalScores != null) scores = finalScores;
+        _pendingSowFinalPits = null;
+        _pendingSowScores = null;
+        _handPit = null;
+      });
+    }
   }
 
   /// Where a pit sits, in the coordinates of the whole board area — the
@@ -563,7 +615,7 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
         for (var i = 0; i < 12; i++)
           if (owner[i] == rowPlayer) i
       ];
-      if (rowPlayer != widget.selfId) {
+      if (row != order.length - 1) {
         rowPits.setAll(0, rowPits.reversed.toList());
       }
       final at = rowPits.indexOf(pit);
@@ -581,7 +633,7 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
   Offset _storeSpot(
       String playerId, BoxConstraints box, List<int> order, bool strips) {
     if (strips) {
-      final mine = myIndex >= 0 && players[myIndex] == playerId;
+      final mine = players[order.last] == playerId;
       return Offset(box.maxWidth * 0.62,
           mine ? box.maxHeight - _stripHeight * 0.5 : _stripHeight * 0.5);
     }
@@ -803,6 +855,10 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
   final Set<int> _pulsing = {};
 
   Future<void> _confirmExit() async {
+    if (widget.spectating) {
+      Navigator.of(context).pop();
+      return;
+    }
     final hasAgent = widget.agents.isNotEmpty;
     final leave = await showDialog<bool>(
       context: context,
@@ -863,13 +919,25 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: finished,
+      canPop: finished || widget.spectating,
       child: Scaffold(
         backgroundColor: _bg,
         appBar: AppBar(
           title: Row(children: [
-            Text(finished ? 'RESULTS' : 'MACALA',
-                style: const TextStyle(fontWeight: FontWeight.w900)),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(finished ? 'RESULTS' : 'MACALA',
+                    style: const TextStyle(fontWeight: FontWeight.w900)),
+                if (!finished)
+                  Text(mode == 'oware' ? 'OWARE ABAPA' : 'RELAY FOUR',
+                      style: const TextStyle(
+                          color: _gold,
+                          fontSize: 8,
+                          fontWeight: FontWeight.w800)),
+              ],
+            ),
             if (!finished && widget.roomCode.isNotEmpty) ...[
               const SizedBox(width: 12),
               Flexible(
@@ -882,7 +950,7 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
               ),
             ],
           ]),
-          automaticallyImplyLeading: finished,
+          automaticallyImplyLeading: finished || widget.spectating,
           backgroundColor: _bg,
           foregroundColor: _cream,
           // Only Pause earns a permanent button — it's the one thing you
@@ -891,8 +959,14 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
           actions: finished
               ? null
               : [
-                  GameVoiceControl(roomId: widget.socket.roomId),
-                  IconButton(
+                  GameVoiceControl(
+                    roomId: widget.socket.roomId,
+                    socket: widget.socket,
+                    selfId: widget.selfId,
+                    nicknames: widget.nicknames,
+                    spectating: _amSpectator,
+                  ),
+                  if (!_amSpectator) IconButton(
                     tooltip: _paused ? 'Resume' : 'Pause',
                     icon: Icon(
                         _paused
@@ -935,7 +1009,7 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
                               ? Icons.volume_up_rounded
                               : Icons.volume_off_rounded,
                           _sfxOn ? 'Mute game sounds' : 'Play game sounds'),
-                      _menuItem(
+                      if (!_amSpectator) _menuItem(
                         'spectators',
                         _spectatorsMuted
                             ? Icons.comments_disabled_rounded
@@ -979,15 +1053,19 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
     if (n == 0) return const Center(child: CircularProgressIndicator());
 
     final order = <int>[];
-    for (var i = 1; i < n; i++) {
-      order.add((myIndex + i) % n);
+    if (myIndex < 0) {
+      order.addAll(List<int>.generate(n, (i) => i));
+    } else {
+      for (var i = 1; i < n; i++) {
+        order.add((myIndex + i) % n);
+      }
+      order.add(myIndex);
     }
-    if (myIndex >= 0) order.add(myIndex);
 
     // Two players get a strip each, above and below. More than two and
     // there's nowhere to put four of them, so those keep a store in each
     // row's header.
-    final strips = n == 2 && myIndex >= 0;
+    final strips = n == 2;
 
     return Column(children: [
       Expanded(
@@ -1008,6 +1086,7 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
                         children: [
                           for (final idx in order)
                             _playerRow(idx, idx == myIndex,
+                                reverse: idx != order.last,
                                 showHeader: !strips),
                         ],
                       ),
@@ -1015,7 +1094,7 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
                   ),
                 ),
                 if (strips)
-                  SizedBox(height: _stripHeight, child: _storeStrip(myIndex)),
+                  SizedBox(height: _stripHeight, child: _storeStrip(order.last)),
               ]),
 
               // The sowing hand, sliding from pit to pit rather than
@@ -1137,7 +1216,8 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
   String _clock(int seconds) =>
       '${(seconds ~/ 60).toString().padLeft(2, '0')}:${(seconds % 60).toString().padLeft(2, '0')}';
 
-  Widget _playerRow(int playerIndex, bool isMe, {bool showHeader = true}) {
+  Widget _playerRow(int playerIndex, bool isMe,
+      {bool showHeader = true, bool? reverse}) {
     final playerId = players[playerIndex];
     final stone = _theme?.stone ?? goosiStonePalettes.first;
     final active = playerIndex == turnIndex;
@@ -1145,7 +1225,7 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
     for (var i = 0; i < 12; i++) {
       if (owner[i] == playerId) myPits.add(i);
     }
-    if (!isMe) {
+    if (reverse ?? !isMe) {
       myPits.setAll(0, myPits.reversed.toList());
     }
     return Padding(
@@ -1278,11 +1358,19 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Macala rules'),
-        content: const Text(
-            'Choose one of your six houses and sow every seed counter-clockwise. '
-            'If the final seed leaves 2 or 3 seeds in an opponent house, capture '
-            'that house and consecutive 2-or-3 houses behind it. Feed an empty '
-            'opponent row whenever possible. The first player past 24 wins.'),
+        content: Text(mode == 'oware'
+            ? 'Oware Abapa: choose one of your six houses and sow every seed '
+                'counter-clockwise, skipping the starting house on a full lap. '
+                'If the final seed leaves 2 or 3 seeds in an opponent house, '
+                'capture it and consecutive 2-or-3 opponent houses behind it. '
+                'You must feed an empty opponent row when possible. A move that '
+                'would capture every opponent seed captures nothing. First past 24 wins.'
+            : 'Relay Four: choose one of your six houses and sow every seed '
+                'counter-clockwise. Whenever a seed makes any house contain exactly '
+                'four, collect those four from either side. If your last seed lands '
+                'in an occupied house, pick it up and continue. The turn ends on an '
+                'empty or collected last hole. First past 24 wins. If the next player '
+                'has no seeds, the game ends and uncollected seeds stay on the board.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context),

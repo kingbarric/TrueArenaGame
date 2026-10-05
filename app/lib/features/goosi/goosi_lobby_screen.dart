@@ -17,7 +17,7 @@ import '../../widgets/stake_picker_sheet.dart';
 import 'goosi_game_screen.dart';
 
 /// The room before a Goosi game starts. Same shape as
-/// `DraughtsLobbyScreen`/`WordBluffLobbyScreen`. Oware Abapa is always a
+/// `DraughtsLobbyScreen`/`WordBluffLobbyScreen`. Macala is always a
 /// two-player game, so the table is ready only when both seats are occupied.
 class GoosiLobbyScreen extends StatefulWidget {
   const GoosiLobbyScreen({super.key});
@@ -27,6 +27,7 @@ class GoosiLobbyScreen extends StatefulWidget {
 }
 
 class _GoosiLobbyScreenState extends State<GoosiLobbyScreen> {
+  String _mode = 'relay';
   RoomView? _room;
   bool _example = false;
   String? _error;
@@ -62,6 +63,13 @@ class _GoosiLobbyScreenState extends State<GoosiLobbyScreen> {
   Future<void> _open() async {
     final app = AppScope.of(context);
     _app = app;
+    final chosenMode = await _chooseMode();
+    if (!mounted) return;
+    if (chosenMode == null) {
+      Navigator.of(context).pop();
+      return;
+    }
+    _mode = chosenMode;
     if (app.identity == Identity.anonymous) {
       setState(() {
         _example = true;
@@ -86,7 +94,11 @@ class _GoosiLobbyScreenState extends State<GoosiLobbyScreen> {
     }
     try {
       final res = await app.api.post(
-              '/rooms', {'gameType': 'goosi', if (stake > 0) 'stake': stake})
+              '/rooms', {
+                'gameType': 'goosi',
+                'gameConfig': {'mode': _mode},
+                if (stake > 0) 'stake': stake,
+              })
           as Map<String, dynamic>;
       if (!mounted) return;
       final room = RoomView.fromJson(res);
@@ -104,6 +116,38 @@ class _GoosiLobbyScreenState extends State<GoosiLobbyScreen> {
       }
     }
   }
+
+  Future<String?> _chooseMode() => showDialog<String>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Choose Macala mode'),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.autorenew_rounded),
+              title: const Text('Relay Four'),
+              subtitle: const Text(
+                  'Keep sowing from an occupied last hole. Collect every hole completed to four.'),
+              onTap: () => Navigator.pop(dialogContext, 'relay'),
+            ),
+            const Divider(),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.grain_rounded),
+              title: const Text('Oware Abapa'),
+              subtitle: const Text(
+                  'One sow per turn. Capture opponent holes ending with two or three seeds.'),
+              onTap: () => Navigator.pop(dialogContext, 'oware'),
+            ),
+          ]),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Cancel')),
+          ],
+        ),
+      );
 
   void _connect(AppState app, String roomId) {
     final socket = GameSocket.connect(app.api, roomId);
@@ -148,6 +192,7 @@ class _GoosiLobbyScreenState extends State<GoosiLobbyScreen> {
         .toList();
     if (!mounted) return;
     setState(() {
+      _mode = p['mode'] as String? ?? _mode;
       _spectatorCount = p['spectatorCount'] as int? ?? _spectatorCount;
       _room = RoomView(
         id: p['roomId'] as String,
@@ -265,8 +310,9 @@ class _GoosiLobbyScreenState extends State<GoosiLobbyScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const MarqueeBar(
-                '12 houses  •  2 players  •  capture 2 or 3 seeds'),
+            MarqueeBar(_mode == 'oware'
+                ? 'OWARE ABAPA  •  2 PLAYERS  •  CAPTURE 2 OR 3'
+                : 'RELAY FOUR  •  2 PLAYERS  •  COLLECT FOUR'),
             if (_error != null)
               Padding(
                   padding: const EdgeInsets.all(16),
@@ -307,6 +353,7 @@ class _GoosiLobbyScreenState extends State<GoosiLobbyScreen> {
                           WatchingEye(count: _spectatorCount),
                           _chip(n, '2 players'),
                           _chip(n, '12 houses'),
+                          _chip(n, _mode == 'oware' ? 'Oware Abapa' : 'Relay Four'),
                           _chip(n, 'no extra turns'),
                           if (room.stakeCoins > 0)
                             _chip(n,

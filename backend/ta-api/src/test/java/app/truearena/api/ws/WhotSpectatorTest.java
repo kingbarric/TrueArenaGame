@@ -6,6 +6,7 @@ import app.truearena.engine.RandomSource;
 import app.truearena.game.whot.WhotConfig;
 import app.truearena.game.whot.WhotModule;
 import app.truearena.room.RoomRuntime;
+import app.truearena.room.LobbyBroadcast;
 import app.truearena.ws.contract.Envelope;
 import app.truearena.ws.contract.MessageType;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -62,7 +63,8 @@ class WhotSpectatorTest {
         var before = rt.state();
         try {
             for (var type : List.of(MessageType.PLAYER_ACTION, MessageType.GAME_START,
-                    MessageType.READY_SET, MessageType.PAUSE_TOGGLE, MessageType.MUTE_SPECTATORS_TOGGLE)) {
+                    MessageType.READY_SET, MessageType.PAUSE_TOGGLE, MessageType.MUTE_SPECTATORS_TOGGLE,
+                    MessageType.SPECTATOR_VOICE_APPROVE, MessageType.SPECTATOR_VOICE_REMOVE)) {
                 server.handleFrame(rt, "a", mapper.writeValueAsString(Envelope.of(type,
                         Map.of("action", "DRAW"))), true).block();
                 assertThat(frames.getLast().payload().get("code")).isEqualTo("SPECTATOR_READ_ONLY");
@@ -82,5 +84,45 @@ class WhotSpectatorTest {
         var publicSnapshot = server.toEnvelope(rt, privateSnapshot, "a", true).block();
         assertThat(publicSnapshot.payload()).doesNotContainKeys("yourHand", "yourTurn");
         assertThat(server.toEnvelope(rt, GameEvent.pub(2, "CARD_PLAYED", Map.of("card", "circle-3")), "a", true).block()).isNotNull();
+    }
+
+    @Test
+    void playerControlsTheCompleteSpectatorLiveTalkLifecycle() throws Exception {
+        var rt = table();
+        String player = UUID.randomUUID().toString();
+        String viewer = UUID.randomUUID().toString();
+        rt.connectedUserIds.add(player);
+        rt.spectatorUserIds.add(viewer);
+        var broadcasts = new ArrayList<LobbyBroadcast>();
+        var subscription = rt.bus.asFlux().ofType(LobbyBroadcast.class).subscribe(broadcasts::add);
+        try {
+            server.handleFrame(rt, viewer, mapper.writeValueAsString(Envelope.of(
+                    MessageType.SPECTATOR_VOICE_REQUEST, Map.of())), true).block();
+            assertThat(rt.spectatorVoiceRequests).containsExactly(viewer);
+            assertThat(broadcasts.getLast().type()).isEqualTo("SPECTATOR_VOICE_REQUESTED");
+
+            server.handleFrame(rt, player, mapper.writeValueAsString(Envelope.of(
+                    MessageType.SPECTATOR_VOICE_APPROVE, Map.of("userId", viewer))), false).block();
+            assertThat(rt.spectatorVoiceRequests).isEmpty();
+            assertThat(rt.spectatorVoiceSpeakers).containsExactly(viewer);
+            assertThat(broadcasts.getLast().type()).isEqualTo("SPECTATOR_VOICE_APPROVED");
+
+            server.handleFrame(rt, player, mapper.writeValueAsString(Envelope.of(
+                    MessageType.SPECTATOR_VOICE_MUTE_TOGGLE, Map.of("userId", viewer))), false).block();
+            assertThat(rt.mutedSpectatorVoiceSpeakers).containsExactly(viewer);
+            assertThat(broadcasts.getLast().type()).isEqualTo("SPECTATOR_VOICE_MUTED");
+
+            server.handleFrame(rt, player, mapper.writeValueAsString(Envelope.of(
+                    MessageType.SPECTATOR_VOICE_MUTE_TOGGLE, Map.of("userId", viewer))), false).block();
+            assertThat(rt.mutedSpectatorVoiceSpeakers).isEmpty();
+            assertThat(broadcasts.getLast().type()).isEqualTo("SPECTATOR_VOICE_UNMUTED");
+
+            server.handleFrame(rt, player, mapper.writeValueAsString(Envelope.of(
+                    MessageType.SPECTATOR_VOICE_REMOVE, Map.of("userId", viewer))), false).block();
+            assertThat(rt.spectatorVoiceSpeakers).isEmpty();
+            assertThat(broadcasts.getLast().type()).isEqualTo("SPECTATOR_VOICE_REMOVED");
+        } finally {
+            subscription.dispose();
+        }
     }
 }

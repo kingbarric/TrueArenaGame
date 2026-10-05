@@ -13,18 +13,20 @@ import app.truearena.engine.RuleViolation;
 import app.truearena.engine.WinResult;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
- * Goosi is PlayHuud's Oware Abapa game: two players, two rows of six houses,
- * four seeds per house, and scores kept off the sowing loop. A turn lifts one
- * complete house and sows counter-clockwise, skipping the starting house on
- * a long lap. A last seed that leaves two or three in the opponent's house
- * captures that house and consecutive preceding opponent houses containing
- * two or three. A grand slam is void and feeding is mandatory when possible.
+ * PlayHuud Macala has two rows of six houses and four seeds per house. Seeds
+ * travel counter-clockwise around all twelve houses. If a drop makes any
+ * house contain exactly four seeds, the mover collects those four at once.
+ * When the last seed lands in an occupied house, the mover picks up that
+ * house and continues; landing in an empty house ends the turn.
  */
 public final class GoosiModule implements GameModule {
 
@@ -57,7 +59,7 @@ public final class GoosiModule implements GameModule {
         GoosiConfig config = (GoosiConfig) settings;
         int n = playerIds.size();
         if (n != 2) {
-            throw new RuleViolation("NEEDS_TWO_PLAYERS", "Oware needs exactly 2 players — got " + n);
+            throw new RuleViolation("NEEDS_TWO_PLAYERS", "Macala needs exactly 2 players — got " + n);
         }
         List<String> shuffled = new ArrayList<>(playerIds);
         rng.shuffle(shuffled);
@@ -84,6 +86,7 @@ public final class GoosiModule implements GameModule {
                 "pits", pitsSnapshot(d.pits),
                 "owner", ownerSnapshot(d.owner),
                 "legalPits", legalPits(d.pits, d.owner, shuffled.get(0)),
+                "mode", config.mode(),
                 "seedsPerPit", config.seedsPerPit(),
                 "turnSeconds", config.turnSeconds()));
         return d.build();
@@ -123,7 +126,7 @@ public final class GoosiModule implements GameModule {
      * settles it. Each grace phase waits paused so the time isn't spent
      * while the player is still away.
      *
-     * <p>Oware is head to head, so the player who runs out forfeits and the
+     * <p>Macala is head to head, so the player who runs out forfeits and the
      * other takes the game, exactly as in Draughts.
      */
     @Override
@@ -201,14 +204,87 @@ public final class GoosiModule implements GameModule {
         require(from >= 0 && from < 12, "BAD_PIT", "house out of range");
         require(a.actor().equals(s.owner[from]), "NOT_YOUR_PIT", "that pit isn't yours");
         require(s.pits[from] > 0, "EMPTY_PIT", "that pit has no seeds to sow");
-        require(legalPits(s.pits, s.owner, a.actor()).contains(from),
-                "MUST_FEED", "choose a house that feeds your opponent");
-
-        sow(d, s, a.actor(), myIndex, from);
+        if (GoosiConfig.OWARE.equals(s.config.mode())) {
+            sowOware(d, s, a.actor(), myIndex, from);
+        } else {
+            sowRelay(d, s, a.actor(), myIndex, from);
+        }
     }
 
-    /** One Abapa sow, followed by the backward 2-or-3 capture chain. */
-    private void sow(GoosiState.Draft d, GoosiState s, String actor, int myIndex, int from) {
+    /** Relay-sow until the last seed reaches an empty or just-captured house. */
+    private void sowRelay(GoosiState.Draft d, GoosiState s, String actor, int myIndex, int from) {
+        int seeds = d.pits[from];
+        d.pits[from] = 0;
+        int cur = from;
+        List<Integer> touched = new ArrayList<>();
+        List<List<Integer>> laps = new ArrayList<>();
+        List<Integer> capturedPits = new ArrayList<>();
+        Map<String, Integer> captures = new LinkedHashMap<>();
+        Set<String> seen = new HashSet<>();
+        boolean cycle = false;
+        while (true) {
+            // A relay can revisit a board position. Settle that rare loop
+            // instead of letting one action hang the room indefinitely.
+            String position = cur + ":" + seeds + ":" + Arrays.toString(d.pits);
+            if (!seen.add(position)) {
+                d.pits[cur] += seeds;
+                cycle = true;
+                break;
+            }
+            List<Integer> lap = new ArrayList<>();
+            int lapIndex = laps.size();
+            boolean lastWasEmpty = false;
+            while (seeds > 0) {
+                cur = (cur + 1) % 12;
+                lastWasEmpty = d.pits[cur] == 0;
+                d.pits[cur]++;
+                lap.add(cur);
+                touched.add(cur);
+                seeds--;
+                if (d.pits[cur] == 4) {
+                    d.pits[cur] = 0;
+                    d.scores[myIndex] += 4;
+                    capturedPits.add(cur);
+                    captures.put(lapIndex + ":" + (lap.size() - 1), cur);
+                }
+            }
+            laps.add(lap);
+            if (lastWasEmpty || d.pits[cur] == 0) break;
+            seeds = d.pits[cur];
+            d.pits[cur] = 0;
+        }
+
+        int captured = capturedPits.size() * 4;
+        d.emit("SOWN", Map.of(
+                "by", actor, "from", from, "touched", touched,
+                "laps", laps, "captures", captures,
+                "capturedPits", capturedPits, "finalPits", pitsSnapshot(d.pits),
+                "scores", scoresSnapshot(d.players, d.scores)));
+        if (!capturedPits.isEmpty()) {
+            d.emit("CAPTURED", Map.of(
+                    "by", actor,
+                    "pits", capturedPits,
+                    "count", captured,
+                    "duringSow", true,
+                    "scores", scoresSnapshot(d.players, d.scores)));
+        }
+
+        if (cycle) {
+            finishFromScores(d, s);
+            return;
+        }
+
+        if (d.scores[myIndex] > 24) {
+            finishFromScores(d, s);
+            return;
+        }
+        advanceTurn(d, s);
+    }
+
+    /** Classic Oware Abapa: one sow, then a backward chain of opponent twos or threes. */
+    private void sowOware(GoosiState.Draft d, GoosiState s, String actor, int myIndex, int from) {
+        require(owareLegalPits(s.pits, s.owner, actor).contains(from),
+                "MUST_FEED", "choose a house that feeds your opponent");
         int seeds = d.pits[from];
         d.pits[from] = 0;
         int cur = from;
@@ -221,13 +297,12 @@ public final class GoosiModule implements GameModule {
             seeds--;
         }
 
-        List<Integer> capturedPits = captureChain(d.pits, d.owner, actor, cur);
+        List<Integer> capturedPits = owareCaptureChain(d.pits, d.owner, actor, cur);
         int captured = capturedPits.stream().mapToInt(pit -> d.pits[pit]).sum();
         int opponentSeeds = 0;
         for (int i = 0; i < 12; i++) {
             if (!actor.equals(d.owner[i])) opponentSeeds += d.pits[i];
         }
-        // Abapa voids a grand slam: the sow stands, but no seed is taken.
         if (captured == opponentSeeds) {
             capturedPits = List.of();
             captured = 0;
@@ -240,12 +315,9 @@ public final class GoosiModule implements GameModule {
                 "laps", List.of(touched), "capturedPits", capturedPits));
         if (!capturedPits.isEmpty()) {
             d.emit("CAPTURED", Map.of(
-                    "by", actor,
-                    "pits", capturedPits,
-                    "count", captured,
+                    "by", actor, "pits", capturedPits, "count", captured,
                     "scores", scoresSnapshot(d.players, d.scores)));
         }
-
         if (d.scores[myIndex] > 24) {
             finishFromScores(d, s);
             return;
@@ -253,7 +325,7 @@ public final class GoosiModule implements GameModule {
         advanceTurn(d, s);
     }
 
-    private static List<Integer> captureChain(int[] pits, String[] owner, String actor, int last) {
+    private static List<Integer> owareCaptureChain(int[] pits, String[] owner, String actor, int last) {
         if (actor.equals(owner[last]) || (pits[last] != 2 && pits[last] != 3)) return List.of();
         List<Integer> captured = new ArrayList<>();
         int pit = last;
@@ -266,19 +338,26 @@ public final class GoosiModule implements GameModule {
 
     static List<Integer> legalPits(int[] pits, String[] owner, String actor) {
         List<Integer> nonEmpty = new ArrayList<>();
-        boolean opponentEmpty = true;
         for (int i = 0; i < 12; i++) {
             if (actor.equals(owner[i]) && pits[i] > 0) nonEmpty.add(i);
+        }
+        return nonEmpty;
+    }
+
+    private static List<Integer> legalPits(GoosiState s, String actor) {
+        return GoosiConfig.OWARE.equals(s.config.mode())
+                ? owareLegalPits(s.pits, s.owner, actor)
+                : legalPits(s.pits, s.owner, actor);
+    }
+
+    private static List<Integer> owareLegalPits(int[] pits, String[] owner, String actor) {
+        List<Integer> nonEmpty = legalPits(pits, owner, actor);
+        boolean opponentEmpty = true;
+        for (int i = 0; i < pits.length; i++) {
             if (!actor.equals(owner[i]) && pits[i] > 0) opponentEmpty = false;
         }
         if (!opponentEmpty) return nonEmpty;
-        List<Integer> feeding = nonEmpty.stream()
-                .filter(from -> feedsOpponent(pits, owner, actor, from))
-                .toList();
-        // If there is no way to feed an empty opponent row, play is over.
-        // Returning no move lets advanceTurn sweep the remaining seeds and
-        // settle the score instead of allowing a starvation loop.
-        return feeding;
+        return nonEmpty.stream().filter(from -> feedsOpponent(pits, owner, actor, from)).toList();
     }
 
     private static boolean feedsOpponent(int[] pits, String[] owner, String actor, int from) {
@@ -297,8 +376,15 @@ public final class GoosiModule implements GameModule {
         int n = s.players.size();
         int next = (d.turnIndex + 1) % n;
         String nextPlayer = s.players.get(next);
-        if (legalPits(d.pits, d.owner, nextPlayer).isEmpty()) {
-            finish(d, s);
+        List<Integer> nextLegal = GoosiConfig.OWARE.equals(s.config.mode())
+                ? owareLegalPits(d.pits, d.owner, nextPlayer)
+                : legalPits(d.pits, d.owner, nextPlayer);
+        if (nextLegal.isEmpty()) {
+            if (GoosiConfig.OWARE.equals(s.config.mode())) {
+                finishOware(d, s);
+            } else {
+                finishFromScores(d, s);
+            }
             return;
         }
         d.turnIndex = next;
@@ -306,15 +392,14 @@ public final class GoosiModule implements GameModule {
         d.round++;
         d.emit("TURN_STARTED", Map.of(
                 "player", nextPlayer,
-                "legalPits", legalPits(d.pits, d.owner, nextPlayer)));
+                "legalPits", nextLegal));
     }
 
-    private void finish(GoosiState.Draft d, GoosiState s) {
-        // Sweep every remaining seed into whichever player owns that pit.
-        for (int i = 0; i < 12; i++) {
+    private void finishOware(GoosiState.Draft d, GoosiState s) {
+        for (int i = 0; i < d.pits.length; i++) {
             if (d.pits[i] > 0) {
-                int idx = s.indexOf(d.owner[i]);
-                d.scores[idx] += d.pits[i];
+                int ownerIndex = s.indexOf(d.owner[i]);
+                d.scores[ownerIndex] += d.pits[i];
                 d.pits[i] = 0;
             }
         }
@@ -383,9 +468,10 @@ public final class GoosiModule implements GameModule {
         m.put("pits", pitsSnapshot(s.pits));
         m.put("owner", ownerSnapshot(s.owner));
         m.put("scores", scoresSnapshot(s.players, s.scores));
+        m.put("mode", s.config.mode());
         m.put("legalPits", s.finished()
                 ? List.of()
-                : legalPits(s.pits, s.owner, s.players.get(s.turnIndex)));
+                : legalPits(s, s.players.get(s.turnIndex)));
         return m;
     }
 

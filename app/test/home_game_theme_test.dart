@@ -147,6 +147,11 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.byType(GoosiLobbyScreen), findsOneWidget);
+    expect(find.text('Choose Macala mode'), findsOneWidget);
+    expect(find.text('Relay Four'), findsOneWidget);
+    expect(find.text('Oware Abapa'), findsOneWidget);
+    await tester.tap(find.text('Relay Four'));
+    await tester.pump();
     expect(find.text('Macala'), findsWidgets);
   });
 }

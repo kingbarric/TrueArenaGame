@@ -9,6 +9,9 @@ import app.truearena.persistence.RoomRow;
 import app.truearena.persistence.UserRepository;
 import app.truearena.persistence.UserRow;
 import app.truearena.voice.LiveKitTokenService;
+import app.truearena.voice.LiveKitRoomAdmin;
+import app.truearena.room.RoomRuntime;
+import app.truearena.room.RoomRuntimeRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
@@ -18,6 +21,7 @@ import java.util.UUID;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 
 class WhotCallServiceTest {
     private final UUID roomId = UUID.randomUUID();
@@ -26,9 +30,11 @@ class WhotCallServiceTest {
     private final RoomMemberRepository members = mock(RoomMemberRepository.class);
     private final UserRepository users = mock(UserRepository.class);
     private final LiveKitTokenService tokens = mock(LiveKitTokenService.class);
+    private final LiveKitRoomAdmin voiceAdmin = mock(LiveKitRoomAdmin.class);
+    private final RoomRuntimeRegistry runtimes = new RoomRuntimeRegistry();
     private final CallService service = new CallService(
             mock(FriendRepository.class), mock(GroupMemberRepository.class),
-            members, rooms, users, tokens);
+            members, rooms, users, tokens, runtimes, voiceAdmin);
 
     private RoomRow room(String game, String status) {
         return new RoomRow(roomId, "123456", null, playerId, status,
@@ -76,7 +82,7 @@ class WhotCallServiceTest {
         when(users.findById(playerId)).thenReturn(Mono.just(new UserRow(playerId,
                 "Player", null, null, null, null, false, null, false,
                 null, null, null, null, null)));
-        when(tokens.mintToken("game-" + roomId, playerId.toString(), "Player"))
+        when(tokens.mintToken("game-" + roomId, playerId.toString(), "Player", true))
                 .thenReturn("signed-token");
         when(tokens.wsUrl()).thenReturn("wss://voice.example.test");
 
@@ -85,5 +91,44 @@ class WhotCallServiceTest {
                         && value.token().equals("signed-token")
                         && value.livekitUrl().equals("wss://voice.example.test"))
                 .verifyComplete();
+    }
+
+    @Test
+    void approvedSpectatorCanJoinGameVoiceButMutedOrUnapprovedSpectatorCannot() {
+        UUID viewerId = UUID.randomUUID();
+        when(rooms.findById(roomId)).thenReturn(Mono.just(room("draughts", "in_game")));
+        when(members.findByRoomIdAndUserId(roomId, viewerId)).thenReturn(Mono.empty());
+        when(users.findById(viewerId)).thenReturn(Mono.just(new UserRow(viewerId,
+                "Viewer", null, null, null, null, false, null, false,
+                null, null, null, null, null)));
+        when(tokens.mintToken("game-" + roomId, viewerId.toString(), "Viewer", false))
+                .thenReturn("spectator-token");
+        when(tokens.wsUrl()).thenReturn("wss://voice.example.test");
+
+        RoomRuntime runtime = runtimes.computeIfAbsent(roomId,
+                ignored -> new RoomRuntime(roomId, playerId.toString()));
+        runtime.spectatorUserIds.add(viewerId.toString());
+
+        StepVerifier.create(service.gameCallToken(viewerId, roomId))
+                .expectErrorMatches(error -> error instanceof ResponseStatusException ex
+                        && ex.getStatusCode().value() == 403).verify();
+
+        runtime.spectatorVoiceSpeakers.add(viewerId.toString());
+        StepVerifier.create(service.gameCallToken(viewerId, roomId))
+                .expectNextMatches(value -> value.token().equals("spectator-token"))
+                .verifyComplete();
+
+        when(voiceAdmin.setCanPublish("game-" + roomId, viewerId.toString(), true))
+                .thenReturn(Mono.empty());
+        StepVerifier.create(service.activateSpectatorVoice(viewerId, roomId)).verifyComplete();
+        verify(voiceAdmin).setCanPublish("game-" + roomId, viewerId.toString(), true);
+
+        runtime.mutedSpectatorVoiceSpeakers.add(viewerId.toString());
+        StepVerifier.create(service.gameCallToken(viewerId, roomId))
+                .expectErrorMatches(error -> error instanceof ResponseStatusException ex
+                        && ex.getStatusCode().value() == 403).verify();
+        StepVerifier.create(service.activateSpectatorVoice(viewerId, roomId))
+                .expectErrorMatches(error -> error instanceof ResponseStatusException ex
+                        && ex.getStatusCode().value() == 403).verify();
     }
 }

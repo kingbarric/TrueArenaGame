@@ -47,6 +47,15 @@ public final class RoomRuntime {
     /** Any player can mute the spectate-channel comments (see {@code GameOrchestrator.handleMuteSpectatorsToggle}). */
     public volatile boolean spectatorsMuted;
 
+    /** Spectators waiting for a player to admit them to the live voice room. */
+    public final Set<String> spectatorVoiceRequests = ConcurrentHashMap.newKeySet();
+
+    /** Spectators currently allowed to mint a token for the live voice room. */
+    public final Set<String> spectatorVoiceSpeakers = ConcurrentHashMap.newKeySet();
+
+    /** Approved speakers whose publish permission has been suspended by a player. */
+    public final Set<String> mutedSpectatorVoiceSpeakers = ConcurrentHashMap.newKeySet();
+
     public volatile Disposable timer;
     public volatile String timerForPhase;
     public volatile int timerForRound;

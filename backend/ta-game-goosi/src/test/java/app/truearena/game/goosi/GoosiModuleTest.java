@@ -8,6 +8,8 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Arrays;
+import java.util.Random;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -23,7 +25,13 @@ class GoosiModuleTest {
     }
 
     private GoosiState position(int[] pits, int southScore, int northScore, int turn) {
-        GoosiState.Draft d = new GoosiState.Draft(start());
+        return position(pits, southScore, northScore, turn, GoosiConfig.RELAY);
+    }
+
+    private GoosiState position(int[] pits, int southScore, int northScore, int turn, String mode) {
+        GoosiState base = (GoosiState) module.initialState(
+                PLAYERS, new GoosiConfig(4, 45, mode), RandomSource.seeded(1));
+        GoosiState.Draft d = new GoosiState.Draft(base);
         d.pits = pits.clone();
         d.scores = new int[]{southScore, northScore};
         d.turnIndex = turn;
@@ -40,7 +48,7 @@ class GoosiModuleTest {
     }
 
     @Test
-    void startsAsAStandardTwelveHouseOwareBoard() {
+    void startsWithFourSeedsInEachOfTwelveHouses() {
         GoosiState state = start();
 
         assertThat(state.players).hasSize(2);
@@ -64,96 +72,106 @@ class GoosiModuleTest {
     }
 
     @Test
-    void oneMoveSowsOnceAndPassesTheTurn() {
-        GoosiState before = start();
-        int from = before.owner[0].equals(before.players.get(0)) ? 0 : 6;
-        GoosiState after = sow(before, from);
+    void lastSeedInEmptyHouseStopsAndPassesTheTurn() {
+        GoosiState before = position(
+                new int[]{2, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0}, 0, 0, 0);
+        GoosiState after = sow(before, 0);
 
-        assertThat(after.pits[from]).isZero();
-        for (int offset = 1; offset <= 4; offset++) {
-            assertThat(after.pits[(from + offset) % 12]).isEqualTo(5);
-        }
+        assertThat(after.pits).containsExactly(0, 2, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0);
         assertThat(after.turnIndex).isEqualTo(1);
     }
 
     @Test
-    void aLongSowSkipsItsStartingHouse() {
+    void longSowIncludesItsStartingHouseOnTheNextLap() {
         GoosiState state = position(
                 new int[]{12, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0}, 0, 0, 0);
         GoosiState after = sow(state, 0);
 
-        assertThat(after.pits[0]).isZero();
-        assertThat(after.pits[1]).isEqualTo(2);
-        for (int pit = 2; pit < 12; pit++) {
-            assertThat(after.pits[pit]).isEqualTo(pit == 6 ? 2 : 1);
-        }
+        assertThat(after.pits[0]).isEqualTo(1);
+        assertThat(after.pits[6]).isEqualTo(2);
+        assertThat(after.pits[11]).isEqualTo(1);
     }
 
     @Test
-    void capturesTwoOrThreeFromTheOpponentsRow() {
+    void lastSeedInOccupiedHouseRelaysUntilAnEmptyHouse() {
         GoosiState state = position(
-                new int[]{0, 0, 0, 0, 0, 1, 1, 4, 0, 0, 0, 0}, 0, 0, 0);
+                new int[]{2, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0}, 0, 0, 0);
+        GoosiState after = sow(state, 0);
+
+        assertThat(after.pits).containsExactly(0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0);
+        assertThat(after.scores).containsExactly(0, 0);
+        assertThat(after.events().stream().filter(e -> "SOWN".equals(e.type())).findFirst()
+                .orElseThrow().payload().get("laps")).isEqualTo(List.of(List.of(1, 2), List.of(3, 4)));
+    }
+
+    @Test
+    void completingFourCollectsFromOwnAndOpponentHousesMidSow() {
+        GoosiState state = position(
+                new int[]{0, 0, 0, 0, 3, 3, 3, 0, 1, 0, 0, 0}, 0, 0, 0);
+        GoosiState after = sow(state, 4);
+
+        assertThat(after.pits[5]).isZero();
+        assertThat(after.pits[6]).isZero();
+        assertThat(after.pits[7]).isEqualTo(1);
+        assertThat(after.scores[0]).isEqualTo(8);
+        assertThat(after.events().stream().filter(e -> "SOWN".equals(e.type())).findFirst()
+                .orElseThrow().payload().get("captures")).isEqualTo(Map.of("0:0", 5, "0:1", 6));
+    }
+
+    @Test
+    void lastSeedCompletingFourIsCollectedAndEndsTheRelay() {
+        GoosiState state = position(
+                new int[]{0, 0, 0, 0, 0, 1, 3, 1, 0, 0, 0, 0}, 0, 0, 0);
         GoosiState after = sow(state, 5);
 
         assertThat(after.pits[6]).isZero();
-        assertThat(after.scores[0]).isEqualTo(2);
-    }
-
-    @Test
-    void captureContinuesBackwardAcrossConsecutiveTwosAndThrees() {
-        GoosiState state = position(
-                new int[]{0, 0, 0, 0, 0, 3, 0, 1, 1, 4, 0, 0}, 0, 0, 0);
-        GoosiState after = sow(state, 5);
-
-        assertThat(after.pits[8]).isZero();
-        assertThat(after.pits[7]).isZero();
-        assertThat(after.pits[6]).isEqualTo(1);
         assertThat(after.scores[0]).isEqualTo(4);
-    }
-
-    @Test
-    void aGrandSlamIsVoidButTheSowStillStands() {
-        GoosiState state = position(
-                new int[]{0, 0, 0, 0, 0, 6, 1, 1, 1, 1, 1, 1}, 0, 0, 0);
-        GoosiState after = sow(state, 5);
-
-        assertThat(after.pits).containsExactly(0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2);
-        assertThat(after.scores[0]).isZero();
         assertThat(after.finished()).isFalse();
     }
 
     @Test
-    void feedingMoveIsMandatoryWhenOpponentHasNoSeeds() {
+    void anyNonEmptyOwnHouseIsLegalEvenIfOpponentRowIsEmpty() {
         GoosiState state = position(
                 new int[]{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0}, 0, 0, 0);
 
         assertThat(GoosiModule.legalPits(state.pits, state.owner, state.players.get(0)))
-                .containsExactly(5);
-        assertThatThrownBy(() -> sow(state, 0))
-                .isInstanceOf(RuleViolation.class)
-                .hasMessageContaining("feeds");
+                .containsExactly(0, 5);
     }
 
     @Test
-    void gameEndsWhenTheEmptyPlayerCannotBeFed() {
+    void gameEndsWhenNextPlayerHasNoHouseWithSeeds() {
         GoosiState state = position(
-                new int[]{0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0}, 0, 0, 0);
+                new int[]{0, 0, 0, 0, 0, 1, 3, 0, 0, 0, 0, 0}, 0, 0, 0);
 
         GoosiState after = sow(state, 5);
 
         assertThat(after.finished()).isTrue();
         assertThat(after.pits).containsOnly(0);
-        assertThat(after.scores).containsExactly(0, 1);
+        assertThat(after.scores).containsExactly(4, 0);
         assertThat(module.checkWinCondition(after)).isPresent();
+    }
+
+    @Test
+    void uncollectedSeedsStayOnTheBoardWhenTheNextPlayerCannotMove() {
+        GoosiState state = position(
+                new int[]{1, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0}, 8, 4, 0);
+
+        GoosiState after = sow(state, 0);
+
+        assertThat(after.finished()).isTrue();
+        assertThat(after.pits).containsExactly(0, 1, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0);
+        assertThat(after.scores).containsExactly(8, 4);
+        assertThat(module.checkWinCondition(after).orElseThrow().winningSide())
+                .isEqualTo(state.players.get(0));
     }
 
     @Test
     void firstPlayerPastTwentyFourWinsImmediately() {
         GoosiState state = position(
-                new int[]{0, 0, 0, 0, 0, 1, 2, 4, 0, 0, 0, 0}, 23, 18, 0);
+                new int[]{0, 0, 0, 0, 0, 1, 3, 1, 0, 0, 0, 0}, 23, 18, 0);
         GoosiState after = sow(state, 5);
 
-        assertThat(after.scores[0]).isEqualTo(26);
+        assertThat(after.scores[0]).isEqualTo(27);
         assertThat(after.finished()).isTrue();
         assertThat(module.checkWinCondition(after)).isPresent();
     }
@@ -164,8 +182,74 @@ class GoosiModuleTest {
                 new int[]{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0}, 0, 0, 0);
 
         assertThat(module.visibleStateFor(state, state.players.get(0)).data())
-                .containsEntry("legalPits", List.of(5))
+                .containsEntry("legalPits", List.of(0, 5))
                 .containsEntry("pitsPerPlayer", 6);
+    }
+
+    @Test
+    void owareSowsOnceAndCapturesTwoOrThreeFromOpponentRow() {
+        GoosiState state = position(
+                new int[]{0, 0, 0, 0, 0, 1, 1, 5, 0, 0, 0, 0},
+                0, 0, 0, GoosiConfig.OWARE);
+
+        GoosiState after = sow(state, 5);
+
+        assertThat(after.pits[6]).isZero();
+        assertThat(after.scores[0]).isEqualTo(2);
+        assertThat(after.turnIndex).isEqualTo(1);
+    }
+
+    @Test
+    void owareCaptureChainsBackwardAcrossOpponentTwosAndThrees() {
+        GoosiState state = position(
+                new int[]{0, 0, 0, 0, 0, 3, 0, 1, 1, 4, 0, 0},
+                0, 0, 0, GoosiConfig.OWARE);
+
+        GoosiState after = sow(state, 5);
+
+        assertThat(after.pits[8]).isZero();
+        assertThat(after.pits[7]).isZero();
+        assertThat(after.pits[6]).isEqualTo(1);
+        assertThat(after.scores[0]).isEqualTo(4);
+    }
+
+    @Test
+    void owareGrandSlamDoesNotCapture() {
+        GoosiState state = position(
+                new int[]{0, 0, 0, 0, 0, 6, 1, 1, 1, 1, 1, 1},
+                0, 0, 0, GoosiConfig.OWARE);
+
+        GoosiState after = sow(state, 5);
+
+        assertThat(after.pits).containsExactly(0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2);
+        assertThat(after.scores[0]).isZero();
+    }
+
+    @Test
+    void owareRequiresFeedingAnEmptyOpponentRow() {
+        GoosiState state = position(
+                new int[]{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0},
+                0, 0, 0, GoosiConfig.OWARE);
+
+        assertThat(module.visibleStateFor(state, state.players.get(0)).data())
+                .containsEntry("mode", GoosiConfig.OWARE)
+                .containsEntry("legalPits", List.of(5));
+        assertThatThrownBy(() -> sow(state, 0))
+                .isInstanceOf(RuleViolation.class)
+                .hasMessageContaining("feeds");
+    }
+
+    @Test
+    void owareSweepsRemainingSeedsWhenNextPlayerCannotMove() {
+        GoosiState state = position(
+                new int[]{0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0},
+                8, 4, 0, GoosiConfig.OWARE);
+
+        GoosiState after = sow(state, 5);
+
+        assertThat(after.finished()).isTrue();
+        assertThat(after.pits).containsOnly(0);
+        assertThat(after.scores).containsExactly(8, 5);
     }
 
     @Test
@@ -179,6 +263,26 @@ class GoosiModuleTest {
         GameState twice = module.onPlayerAction(once, action);
 
         assertThat(twice).isSameAs(once);
+    }
+
+    @Test
+    void relayPlayConservesAllFortyEightSeedsAcrossManyTurns() {
+        Random choices = new Random(19);
+        for (int game = 0; game < 12; game++) {
+            GoosiState state = (GoosiState) module.initialState(
+                    PLAYERS, GoosiConfig.defaults(), RandomSource.seeded(game + 1));
+            for (int turn = 0; turn < 100 && !state.finished(); turn++) {
+                String actor = state.players.get(state.turnIndex);
+                List<Integer> legal = GoosiModule.legalPits(state.pits, state.owner, actor);
+                assertThat(legal).isNotEmpty();
+                int[] beforeScores = state.scores.clone();
+                state = sow(state, legal.get(choices.nextInt(legal.size())));
+                assertThat(Arrays.stream(state.pits).sum() + Arrays.stream(state.scores).sum())
+                        .as("game %s turn %s", game, turn).isEqualTo(48);
+                assertThat(state.scores[0]).isGreaterThanOrEqualTo(beforeScores[0]);
+                assertThat(state.scores[1]).isGreaterThanOrEqualTo(beforeScores[1]);
+            }
+        }
     }
 
     @Test

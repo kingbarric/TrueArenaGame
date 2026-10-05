@@ -51,6 +51,7 @@ import app.truearena.room.RoomRuntime;
 import app.truearena.room.RoomRuntimeRegistry;
 import app.truearena.ws.contract.Envelope;
 import app.truearena.ws.contract.MessageType;
+import app.truearena.voice.LiveKitRoomAdmin;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -101,6 +102,8 @@ public class GameOrchestrator {
     private BotRuntimeRegistry botRuntimes;
     @Autowired(required = false)
     private app.truearena.api.push.PushNotificationService push;
+    @Autowired(required = false)
+    private LiveKitRoomAdmin voiceAdmin;
 
     public GameOrchestrator(RoomRuntimeRegistry registry, RoomLock lock, RoomEventLog eventLog,
                             RoomRepository rooms, RoomMemberRepository members,
@@ -214,8 +217,15 @@ public class GameOrchestrator {
 
     public Mono<Void> onSpectatorDisconnect(RoomRuntime rt, String userId) {
         rt.spectatorUserIds.remove(userId);
+        boolean wasSpeaker = rt.spectatorVoiceSpeakers.remove(userId);
+        rt.spectatorVoiceRequests.remove(userId);
+        rt.mutedSpectatorVoiceSpeakers.remove(userId);
         rt.unicast.remove(userId);
-        return broadcastLobby(rt, "SPECTATOR_COUNT", Map.of("count", rt.spectatorUserIds.size()));
+        if (wasSpeaker) {
+            rt.bus.tryEmitNext(new LobbyBroadcast("SPECTATOR_VOICE_REMOVED", Map.of("userId", userId)));
+        }
+        return (wasSpeaker ? removeFromVoice(rt, userId) : Mono.<Void>empty())
+                .then(broadcastLobby(rt, "SPECTATOR_COUNT", Map.of("count", rt.spectatorUserIds.size())));
     }
 
     /**
@@ -271,7 +281,8 @@ public class GameOrchestrator {
         }
         if (spectator
                 && in.type() != MessageType.HELLO && in.type() != MessageType.PING
-                && in.type() != MessageType.CHAT_SEND) {
+                && in.type() != MessageType.CHAT_SEND
+                && in.type() != MessageType.SPECTATOR_VOICE_REQUEST) {
             return tellError(rt, userId, "SPECTATOR_READ_ONLY", "spectators can watch and comment, but cannot control the game");
         }
         if (spectator && rt.tournament && in.type() == MessageType.CHAT_SEND)
@@ -285,6 +296,11 @@ public class GameOrchestrator {
                 case CHAT_SEND -> handleChat(rt, userId, in, spectator);
                 case PAUSE_TOGGLE -> handlePauseToggle(rt, userId);
                 case MUTE_SPECTATORS_TOGGLE -> handleMuteSpectatorsToggle(rt, userId);
+                case SPECTATOR_VOICE_REQUEST -> handleSpectatorVoiceRequest(rt, userId, spectator);
+                case SPECTATOR_VOICE_APPROVE -> handleSpectatorVoiceApprove(rt, userId, in);
+                case SPECTATOR_VOICE_DECLINE -> handleSpectatorVoiceDecline(rt, userId, in);
+                case SPECTATOR_VOICE_MUTE_TOGGLE -> handleSpectatorVoiceMuteToggle(rt, userId, in);
+                case SPECTATOR_VOICE_REMOVE -> handleSpectatorVoiceRemove(rt, userId, in);
                 case PING -> {
                     rt.tellUser(userId, Envelope.of(MessageType.PONG, Map.of()));
                     yield Mono.empty();
@@ -338,6 +354,9 @@ public class GameOrchestrator {
                     payload.put("code", room.code());
                     payload.put("hostId", room.hostId().toString());
                     payload.put("status", room.status());
+                    if ("goosi".equals(room.gameType())) {
+                        payload.put("mode", goosiConfigFrom(room.gameConfig()).mode());
+                    }
                     payload.put("members", t.getT2());
                     payload.put("spectatorCount", rt.spectatorUserIds.size());
                     rt.tellUser(userId, Envelope.of(MessageType.SNAPSHOT, payload));
@@ -400,6 +419,9 @@ public class GameOrchestrator {
         view.put("spectatorCount", rt.spectatorUserIds.size());
         view.put("spectatorsMuted", rt.spectatorsMuted);
         view.put("connectedPlayers", List.copyOf(rt.connectedUserIds));
+        view.put("spectatorVoiceRequests", List.copyOf(rt.spectatorVoiceRequests));
+        view.put("spectatorVoiceSpeakers", List.copyOf(rt.spectatorVoiceSpeakers));
+        view.put("mutedSpectatorVoiceSpeakers", List.copyOf(rt.mutedSpectatorVoiceSpeakers));
         return view;
     }
 
@@ -531,6 +553,117 @@ public class GameOrchestrator {
         rt.bus.tryEmitNext(new LobbyBroadcast(
                 rt.spectatorsMuted ? "SPECTATORS_MUTED" : "SPECTATORS_UNMUTED", Map.of("by", userId)));
         return Mono.empty();
+    }
+
+    private Mono<Void> handleSpectatorVoiceRequest(RoomRuntime rt, String userId, boolean spectator) {
+        if (!spectator || !rt.spectatorUserIds.contains(userId)) {
+            return tellError(rt, userId, "PLAYERS_ALREADY_ALLOWED", "players can join game voice directly");
+        }
+        if (!rt.started() || rt.state().finished()) {
+            return tellError(rt, userId, "NO_ACTIVE_GAME", "live talk is only available during a game");
+        }
+        if (rt.spectatorVoiceSpeakers.contains(userId)) {
+            return tellError(rt, userId, "ALREADY_APPROVED", "you are already approved for live talk");
+        }
+        if (rt.spectatorVoiceRequests.add(userId)) {
+            rt.bus.tryEmitNext(new LobbyBroadcast("SPECTATOR_VOICE_REQUESTED", Map.of("userId", userId)));
+        }
+        return Mono.empty();
+    }
+
+    private Mono<Void> handleSpectatorVoiceApprove(RoomRuntime rt, String playerId, Envelope in) {
+        if (!rt.connectedUserIds.contains(playerId)) {
+            return tellError(rt, playerId, "PLAYERS_ONLY", "only active players can approve live talk");
+        }
+        String spectatorId = voiceTarget(in);
+        if (spectatorId == null || !rt.spectatorUserIds.contains(spectatorId)) {
+            return tellError(rt, playerId, "NO_SUCH_SPECTATOR", "that spectator is no longer watching");
+        }
+        rt.spectatorVoiceRequests.remove(spectatorId);
+        rt.mutedSpectatorVoiceSpeakers.remove(spectatorId);
+        rt.spectatorVoiceSpeakers.add(spectatorId);
+        rt.bus.tryEmitNext(new LobbyBroadcast("SPECTATOR_VOICE_APPROVED", Map.of(
+                "userId", spectatorId, "by", playerId)));
+        return setVoicePublish(rt, spectatorId, true);
+    }
+
+    private Mono<Void> handleSpectatorVoiceDecline(RoomRuntime rt, String playerId, Envelope in) {
+        if (!rt.connectedUserIds.contains(playerId)) {
+            return tellError(rt, playerId, "PLAYERS_ONLY", "only active players can decline live talk");
+        }
+        String spectatorId = voiceTarget(in);
+        if (spectatorId == null || !rt.spectatorVoiceRequests.remove(spectatorId)) {
+            return tellError(rt, playerId, "NO_VOICE_REQUEST", "that live-talk request is no longer pending");
+        }
+        rt.bus.tryEmitNext(new LobbyBroadcast("SPECTATOR_VOICE_DECLINED", Map.of(
+                "userId", spectatorId, "by", playerId)));
+        return Mono.empty();
+    }
+
+    private Mono<Void> handleSpectatorVoiceMuteToggle(RoomRuntime rt, String playerId, Envelope in) {
+        if (!rt.connectedUserIds.contains(playerId)) {
+            return tellError(rt, playerId, "PLAYERS_ONLY", "only active players can mute live speakers");
+        }
+        String spectatorId = voiceTarget(in);
+        if (spectatorId == null || !rt.spectatorVoiceSpeakers.contains(spectatorId)) {
+            return tellError(rt, playerId, "NOT_A_LIVE_SPEAKER", "that spectator is not in live talk");
+        }
+        boolean muted;
+        if (rt.mutedSpectatorVoiceSpeakers.remove(spectatorId)) {
+            muted = false;
+        } else {
+            rt.mutedSpectatorVoiceSpeakers.add(spectatorId);
+            muted = true;
+        }
+        rt.bus.tryEmitNext(new LobbyBroadcast(
+                muted ? "SPECTATOR_VOICE_MUTED" : "SPECTATOR_VOICE_UNMUTED",
+                Map.of("userId", spectatorId, "by", playerId)));
+        return setVoicePublish(rt, spectatorId, !muted);
+    }
+
+    private Mono<Void> handleSpectatorVoiceRemove(RoomRuntime rt, String playerId, Envelope in) {
+        if (!rt.connectedUserIds.contains(playerId)) {
+            return tellError(rt, playerId, "PLAYERS_ONLY", "only active players can remove live speakers");
+        }
+        String spectatorId = voiceTarget(in);
+        if (spectatorId == null || !rt.spectatorVoiceSpeakers.remove(spectatorId)) {
+            return tellError(rt, playerId, "NOT_A_LIVE_SPEAKER", "that spectator is not in live talk");
+        }
+        rt.spectatorVoiceRequests.remove(spectatorId);
+        rt.mutedSpectatorVoiceSpeakers.remove(spectatorId);
+        rt.bus.tryEmitNext(new LobbyBroadcast("SPECTATOR_VOICE_REMOVED", Map.of(
+                "userId", spectatorId, "by", playerId)));
+        return removeFromVoice(rt, spectatorId);
+    }
+
+    private String voiceTarget(Envelope in) {
+        Object value = in.payload().get("userId");
+        if (value == null) return null;
+        try {
+            return UUID.fromString(value.toString()).toString();
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
+    }
+
+    private Mono<Void> setVoicePublish(RoomRuntime rt, String userId, boolean canPublish) {
+        if (voiceAdmin == null) return Mono.empty();
+        return voiceAdmin.setCanPublish("game-" + rt.roomId, userId, canPublish)
+                .onErrorResume(error -> {
+                    log.warn("could not update game voice permission for room {} user {}: {}",
+                            rt.roomId, userId, error.toString());
+                    return Mono.empty();
+                });
+    }
+
+    private Mono<Void> removeFromVoice(RoomRuntime rt, String userId) {
+        if (voiceAdmin == null) return Mono.empty();
+        return voiceAdmin.remove("game-" + rt.roomId, userId)
+                .onErrorResume(error -> {
+                    log.warn("could not remove game voice participant for room {} user {}: {}",
+                            rt.roomId, userId, error.toString());
+                    return Mono.empty();
+                });
     }
 
     // ---------------------------------------------------------------- game start / actions
@@ -888,7 +1021,8 @@ public class GameOrchestrator {
             GoosiConfig defaults = GoosiConfig.defaults();
             int seedsPerPit = raw.get("seedsPerPit") instanceof Number n ? n.intValue() : defaults.seedsPerPit();
             int turnSeconds = raw.get("turnSeconds") instanceof Number n ? n.intValue() : defaults.turnSeconds();
-            return new GoosiConfig(seedsPerPit, turnSeconds);
+            String mode = raw.get("mode") instanceof String value ? value : defaults.mode();
+            return new GoosiConfig(seedsPerPit, turnSeconds, mode);
         } catch (Exception e) {
             log.warn("unreadable goosi config, using defaults: {}", e.toString());
             return GoosiConfig.defaults();

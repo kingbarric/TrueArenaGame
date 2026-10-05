@@ -598,8 +598,14 @@ class _LudoGameScreenState extends State<LudoGameScreen>
               ))
             ]),
             actions: [
-              if (!widget.spectating && !_finished)
-                GameVoiceControl(roomId: widget.socket.roomId),
+              if (!_finished)
+                GameVoiceControl(
+                  roomId: widget.socket.roomId,
+                  socket: widget.socket,
+                  selfId: widget.selfId,
+                  nicknames: widget.nicknames,
+                  spectating: widget.spectating,
+                ),
               IconButton(
                   tooltip: GameSfx.enabled
                       ? 'Mute sound effects'

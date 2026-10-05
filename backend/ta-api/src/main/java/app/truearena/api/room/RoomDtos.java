@@ -28,6 +28,10 @@ public final class RoomDtos {
             @Size(max = 24) String nickname) {
     }
 
+    public record WatchRoomRequest(
+            @NotBlank @Size(min = 6, max = 6) String code) {
+    }
+
     public record RoomMemberView(UUID userId, String nickname, String connectionStatus, boolean ready,
                                  boolean isBot, String avatarUrl) {
     }

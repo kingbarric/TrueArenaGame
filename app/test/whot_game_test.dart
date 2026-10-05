@@ -266,7 +266,7 @@ void main() {
     final toggle = find.byKey(const ValueKey('whot-audio-toggle'));
     expect(toggle, findsOneWidget);
     expect(find.byTooltip('Mute music and effects'), findsOneWidget);
-    expect(find.byTooltip('Join Whot voice'), findsOneWidget);
+    expect(find.byTooltip('Game voice and live speakers'), findsOneWidget);
     await tap(tester, toggle);
     expect(GameMusic.enabled, isFalse);
     expect(GameSfx.enabled, isFalse);

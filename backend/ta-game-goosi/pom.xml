@@ -11,8 +11,7 @@
     </parent>
 
     <artifactId>ta-game-goosi</artifactId>
-    <description>Goosi — PlayHuud's Oware Abapa game: twelve houses, two-player sowing and capture,
-        2 or 4 players on one fixed 16-pit ring. See docs/DEV_REFERENCE.md.</description>
+    <description>Macala: two players relay-sow around twelve houses and collect every house completed to four seeds.</description>
 
     <dependencies>
         <dependency>

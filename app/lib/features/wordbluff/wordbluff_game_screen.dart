@@ -58,12 +58,14 @@ class WordBluffGameScreen extends StatefulWidget {
     required this.selfId,
     required this.isHost,
     required this.nicknames,
+    this.spectating = false,
   });
 
   final GameSocket socket;
   final String selfId;
   final bool isHost;
   final Map<String, String> nicknames;
+  final bool spectating;
 
   @override
   State<WordBluffGameScreen> createState() => _WordBluffGameScreenState();
@@ -644,7 +646,7 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
   }
 
   void _sendAction(String action, [Map<String, dynamic>? data]) {
-    if (_actionLocked || !widget.socket.isConnected) return;
+    if (_amSpectator || _actionLocked || !widget.socket.isConnected) return;
     setState(() => _actionLocked = true);
     widget.socket.send(
         'PLAYER_ACTION', {'action': action, if (data != null) 'data': data});
@@ -654,7 +656,7 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
   /// Only the opposing team may judge a word — see `WordBluffModule.mark`.
   /// The describing side can't award itself points; that's the whole reason
   /// marking moved off the describer.
-  bool get amOpponent => !onMyTeam;
+  bool get amOpponent => !_amSpectator && !onMyTeam;
 
   void _mark(bool correct) {
     final word = yourWord;
@@ -663,7 +665,7 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
   }
 
   void _toggleAttempt(int index) {
-    if (phase != 'Review') return;
+    if (_amSpectator || phase != 'Review') return;
     if (!widget.socket.isConnected) return;
     widget.socket.send('PLAYER_ACTION', {
       'action': 'REVIEW_TOGGLE',
@@ -672,7 +674,7 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
   }
 
   void _acceptReview() {
-    if (phase != 'Review') return;
+    if (_amSpectator || phase != 'Review') return;
     if (!widget.socket.isConnected) return;
     widget.socket.send('PLAYER_ACTION', {'action': 'REVIEW_ACCEPT'});
   }
@@ -727,17 +729,23 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: finished,
+      canPop: finished || widget.spectating,
       child: Scaffold(
         appBar: AppBar(
           title: Text(finished ? 'Results' : 'Round $round'),
-          automaticallyImplyLeading: finished,
+          automaticallyImplyLeading: finished || widget.spectating,
           // Always reachable, deliberately. The review waits on both teams
           // and has no clock, so a table that stops responding used to
           // leave no way out at all.
           actions: [
-            if (!finished && !_amSpectator)
-              GameVoiceControl(roomId: widget.socket.roomId),
+            if (!finished)
+              GameVoiceControl(
+                roomId: widget.socket.roomId,
+                socket: widget.socket,
+                selfId: widget.selfId,
+                nicknames: widget.nicknames,
+                spectating: _amSpectator,
+              ),
             PopupMenuButton<String>(
               tooltip: 'Game settings',
               icon: const Icon(Icons.settings_rounded),
@@ -830,6 +838,10 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
   }
 
   Future<void> _confirmExit() async {
+    if (widget.spectating) {
+      Navigator.of(context).pop();
+      return;
+    }
     final leave = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -906,7 +918,8 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
   /// Spectators talk on the muteable `spectate` channel, players on
   /// `table` — same box either way.
   bool get _amSpectator =>
-      !teamA.contains(widget.selfId) && !teamB.contains(widget.selfId);
+      widget.spectating ||
+      (!teamA.contains(widget.selfId) && !teamB.contains(widget.selfId));
 
   void _sendChat() {
     final text = _chatController.text.trim();
@@ -1509,6 +1522,8 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
         Text(
             phase == 'Summary'
                 ? 'Round complete. Next turn starts shortly.'
+                : _amSpectator
+                    ? 'The teams are reviewing this round.'
                 : 'Tap any word to change the call. Both teams must agree.',
             textAlign: TextAlign.center,
             style: Theme.of(context)
@@ -1533,6 +1548,8 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
         ]),
         const SizedBox(height: 16),
         if (phase == 'Summary')
+          const SizedBox.shrink()
+        else if (_amSpectator)
           const SizedBox.shrink()
         else if (iAccepted)
           Text('Waiting for the other team…',
@@ -1580,7 +1597,8 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
                             ?.copyWith(color: n.mute)),
                   ]),
             ),
-            Icon(Icons.swap_horiz_rounded, size: 16, color: n.mute),
+            if (!_amSpectator)
+              Icon(Icons.swap_horiz_rounded, size: 16, color: n.mute),
           ]),
         ),
       ),
@@ -1621,7 +1639,9 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
               .displayLarge
               ?.copyWith(fontSize: 28, color: accent)),
       const SizedBox(height: 6),
-      Text(won ? 'You won! 🎉' : 'Better luck next round.',
+      Text(_amSpectator
+          ? 'Final score'
+          : won ? 'You won! 🎉' : 'Better luck next round.',
           style:
               Theme.of(context).textTheme.bodyMedium?.copyWith(color: n.mid)),
       const SizedBox(height: 18),
@@ -1638,9 +1658,13 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
             roomId: widget.socket.roomId,
             gameType: 'wordbluff',
             detail: 'Team $winningTeam wins'),
-      NeonButton('Back to home', onPressed: () {
-        Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const MainShell()), (r) => false);
+      NeonButton(widget.spectating ? 'Close' : 'Back to home', onPressed: () {
+        if (widget.spectating) {
+          Navigator.of(context).pop();
+        } else {
+          Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const MainShell()), (r) => false);
+        }
       }),
       const GuestSaveSessionCard(),
     ]);
