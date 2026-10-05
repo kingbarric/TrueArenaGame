@@ -31,8 +31,11 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
     super.initState();
     _nicknameController = TextEditingController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final displayName = AppScope.of(context).user?.displayName;
-      if (displayName != null && mounted) setState(() => _nicknameController.text = displayName);
+      // Username, not the full real name — a huud code is sometimes shared
+      // outside your circle of friends, and a username is the handle you'd
+      // want strangers at the table to see.
+      final username = AppScope.of(context).user?.username;
+      if (username != null && mounted) setState(() => _nicknameController.text = username);
     });
   }
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/api_client.dart';
@@ -52,6 +54,35 @@ class FriendRequest {
       );
 }
 
+/// One search-as-you-type row — matches `/friends/search` either by
+/// username or real name, flagged with enough status to pick the right
+/// trailing action without a second round trip.
+class UserSearchResult {
+  const UserSearchResult({
+    required this.userId,
+    required this.displayName,
+    required this.username,
+    this.avatarUrl,
+    required this.isFriend,
+    required this.requestPending,
+  });
+  final String userId;
+  final String displayName;
+  final String username;
+  final String? avatarUrl;
+  final bool isFriend;
+  final bool requestPending;
+
+  factory UserSearchResult.fromJson(Map<String, dynamic> j) => UserSearchResult(
+        userId: j['userId'] as String,
+        displayName: j['displayName'] as String? ?? '',
+        username: j['username'] as String? ?? '',
+        avatarUrl: j['avatarUrl'] as String?,
+        isFriend: j['isFriend'] as bool? ?? false,
+        requestPending: j['requestPending'] as bool? ?? false,
+      );
+}
+
 /// Friends, requests, chat/call actions, and live online presence.
 class FriendsScreen extends StatefulWidget {
   const FriendsScreen({super.key});
@@ -66,8 +97,14 @@ class _FriendsScreenState extends State<FriendsScreen> {
   List<FriendRequest> _outgoing = [];
   String? _error;
   bool _loading = true;
-  bool _sending = false;
-  final _usernameController = TextEditingController();
+  final _searchController = TextEditingController();
+  Timer? _debounce;
+  List<UserSearchResult> _suggestions = [];
+  bool _searching = false;
+  // Guards against an earlier, slower request overwriting a later one's
+  // results — only the response matching the most recent keystroke lands.
+  int _searchToken = 0;
+  final Set<String> _requestingUserIds = {};
 
   @override
   void initState() {
@@ -77,7 +114,8 @@ class _FriendsScreenState extends State<FriendsScreen> {
 
   @override
   void dispose() {
-    _usernameController.dispose();
+    _searchController.dispose();
+    _debounce?.cancel();
     super.dispose();
   }
 
@@ -115,28 +153,73 @@ class _FriendsScreenState extends State<FriendsScreen> {
     }
   }
 
-  Future<void> _sendRequest() async {
-    final username = _usernameController.text.trim();
-    if (username.isEmpty) return;
-    setState(() => _sending = true);
+  void _onSearchChanged(String query) {
+    _debounce?.cancel();
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) {
+      setState(() {
+        _suggestions = [];
+        _searching = false;
+      });
+      return;
+    }
+    setState(() => _searching = true);
+    _debounce = Timer(const Duration(milliseconds: 300), () => _search(trimmed));
+  }
+
+  Future<void> _search(String query) async {
+    final token = ++_searchToken;
     final app = AppScope.of(context);
     try {
-      await app.api.post('/friends/requests', {'username': username});
-      _usernameController.clear();
-      if (mounted)
+      final raw = await app.api
+          .get('/friends/search?q=${Uri.encodeQueryComponent(query)}') as List;
+      if (!mounted || token != _searchToken) return;
+      setState(() {
+        _suggestions = raw
+            .map((e) => UserSearchResult.fromJson((e as Map).cast<String, dynamic>()))
+            .toList();
+        _searching = false;
+      });
+    } catch (_) {
+      if (mounted && token == _searchToken) setState(() => _searching = false);
+    }
+  }
+
+  Future<void> _sendRequestTo(UserSearchResult u) async {
+    setState(() => _requestingUserIds.add(u.userId));
+    final app = AppScope.of(context);
+    try {
+      await app.api.post('/friends/requests/user/${u.userId}');
+      if (mounted) {
+        setState(() {
+          _suggestions = _suggestions
+              .map((s) => s.userId == u.userId
+                  ? UserSearchResult(
+                      userId: s.userId,
+                      displayName: s.displayName,
+                      username: s.username,
+                      avatarUrl: s.avatarUrl,
+                      isFriend: s.isFriend,
+                      requestPending: true)
+                  : s)
+              .toList();
+        });
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('Friend request sent')));
+      }
       await _load();
     } on ApiException catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(e.message)));
+      }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Could not send the request')));
+      }
     } finally {
-      if (mounted) setState(() => _sending = false);
+      if (mounted) setState(() => _requestingUserIds.remove(u.userId));
     }
   }
 
@@ -145,6 +228,18 @@ class _FriendsScreenState extends State<FriendsScreen> {
     try {
       await app.api
           .post('/friends/requests/${req.id}/${accept ? 'accept' : 'decline'}');
+      await _load();
+    } on ApiException catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
+  Future<void> _cancel(FriendRequest req) async {
+    final app = AppScope.of(context);
+    try {
+      await app.api.post('/friends/requests/${req.id}/cancel');
       await _load();
     } on ApiException catch (e) {
       if (mounted)
@@ -278,23 +373,41 @@ class _FriendsScreenState extends State<FriendsScreen> {
                             .labelSmall
                             ?.copyWith(color: n.mute, letterSpacing: 2)),
                     const SizedBox(height: 8),
-                    Row(children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _usernameController,
-                          decoration:
-                              const InputDecoration(hintText: 'Their username'),
-                          onSubmitted: (_) => _sendRequest(),
-                        ),
+                    TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        hintText: 'Search by username or name',
+                        suffixIcon: _searching
+                            ? const Padding(
+                                padding: EdgeInsets.all(12),
+                                child: SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2)))
+                            : (_searchController.text.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.close_rounded),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      _onSearchChanged('');
+                                    })
+                                : null),
                       ),
-                      const SizedBox(width: 8),
-                      // expand: false is required inside a Row — the default
-                      // sets width: double.infinity, which is invalid under
-                      // the unbounded width a Row hands its non-flex children.
-                      NeonButton(_sending ? '…' : 'Add',
-                          expand: false,
-                          onPressed: _sending ? null : _sendRequest),
-                    ]),
+                      onChanged: _onSearchChanged,
+                    ),
+                    if (_suggestions.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      for (final s in _suggestions) _suggestionTile(n, s),
+                    ] else if (!_searching &&
+                        _searchController.text.trim().isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Text('No one matches that search',
+                            style: TextStyle(color: n.mute)),
+                      ),
+                    ],
                     const SizedBox(height: 8),
                     Bouncy(
                       onTap: () => Navigator.of(context).push(MaterialPageRoute(
@@ -341,7 +454,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         child: Text(
-                            'No friends yet — add one by username above.',
+                            'No friends yet — search for one above.',
                             style: TextStyle(color: n.mute)),
                       )
                     else
@@ -350,6 +463,38 @@ class _FriendsScreenState extends State<FriendsScreen> {
                 ),
               ),
       ),
+    );
+  }
+
+  Widget _suggestionTile(NeonColors n, UserSearchResult s) {
+    final requesting = _requestingUserIds.contains(s.userId);
+    return CompactListRow(
+      leading: Avatar(s.displayName.isEmpty ? s.username : s.displayName,
+          size: 32, imageUrl: s.avatarUrl),
+      title: Text(s.displayName.isEmpty ? '@${s.username}' : s.displayName,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context)
+              .textTheme
+              .bodyMedium
+              ?.copyWith(fontWeight: FontWeight.w700)),
+      subtitle: Text('@${s.username}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style:
+              Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute)),
+      trailing: s.isFriend
+          ? Text('FRIENDS',
+              style: TextStyle(
+                  color: n.jade, fontSize: 9, fontWeight: FontWeight.w800))
+          : s.requestPending
+              ? Text('PENDING',
+                  style: TextStyle(
+                      color: n.mute, fontSize: 9, fontWeight: FontWeight.w800))
+              : NeonButton(requesting ? '…' : 'Add',
+                  style: NeonStyle.ghost,
+                  expand: false,
+                  onPressed: requesting ? null : () => _sendRequestTo(s)),
     );
   }
 
@@ -388,12 +533,12 @@ class _FriendsScreenState extends State<FriendsScreen> {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(color: n.mid)),
-      trailing: Text('PENDING',
-          style: TextStyle(
-              color: n.mute,
-              fontSize: 9,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.6)),
+      trailing: TextButton(
+        onPressed: () => _cancel(r),
+        child: Text('CANCEL',
+            style: TextStyle(
+                color: n.danger, fontSize: 9, fontWeight: FontWeight.w800)),
+      ),
     );
   }
 

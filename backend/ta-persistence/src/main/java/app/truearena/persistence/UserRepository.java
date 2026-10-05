@@ -66,4 +66,20 @@ public interface UserRepository extends ReactiveCrudRepository<UserRow, UUID> {
 
     @Query("SELECT lifetime_coins FROM users WHERE id = :userId")
     Mono<Long> lifetimeCoinsOf(UUID userId);
+
+    /**
+     * Friend search-as-you-type — matches either handle, real humans only
+     * (no bots), never the searcher themself. Exact and prefix username
+     * matches rank first, then a prefix match on the real name, so typing
+     * a few characters of either surfaces the right person before anyone
+     * who merely contains the substring elsewhere in their name.
+     */
+    @Query("SELECT * FROM users WHERE NOT is_bot AND id <> :selfId "
+            + "AND (username ILIKE '%' || :q || '%' OR display_name ILIKE '%' || :q || '%') "
+            + "ORDER BY (lower(username) = lower(:q)) DESC, "
+            + "(username ILIKE :q || '%') DESC, "
+            + "(display_name ILIKE :q || '%') DESC, "
+            + "username "
+            + "LIMIT 10")
+    Flux<UserRow> searchByUsernameOrDisplayName(String q, UUID selfId);
 }

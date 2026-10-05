@@ -462,7 +462,10 @@ public final class WhotModule implements GameModule {
                 }
             }
             d.emit("GENERAL_MARKET", Map.of("by", by, "handSizes", handSizes(d)));
-            advance(d, 1);
+            // The player who played it continues — everyone else went to
+            // market, so the turn would otherwise skip straight past them.
+            d.round++;
+            announceTurn(d);
             return;
         }
         if (card.number() == 1 && c.holdOn()) {
