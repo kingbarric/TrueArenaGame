@@ -19,6 +19,7 @@ class CompetitiveApi {
     String? regionName,
     String? city,
     bool? cityPublic,
+    bool? profilePublic,
   }) async {
     final res = await api.patch('/me/competitive', {
       if (countryCode != null) 'countryCode': countryCode,
@@ -26,6 +27,7 @@ class CompetitiveApi {
       if (regionName != null) 'regionName': regionName,
       if (city != null) 'city': city,
       if (cityPublic != null) 'cityPublic': cityPublic,
+      if (profilePublic != null) 'profilePublic': profilePublic,
     });
     return CompetitiveProfile.fromJson((res as Map).cast<String, dynamic>());
   }

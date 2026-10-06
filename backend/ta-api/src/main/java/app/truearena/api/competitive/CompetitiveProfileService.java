@@ -84,35 +84,48 @@ public class CompetitiveProfileService {
                 .flatMap(user -> profileOf(user, own));
     }
 
-    public Mono<CompetitiveProfileView> profileOfUsername(String username) {
+    public Mono<CompetitiveProfileView> profileOfUsername(String username, UUID viewer) {
         return users.findByUsername(username)
                 .filter(u -> !u.isBot())
                 .switchIfEmpty(Mono.error(ApiExceptions.notFound("player not found")))
-                .flatMap(user -> profileOf(user, false));
+                .flatMap(user -> profileOf(user, user.id().equals(viewer)));
     }
 
     private Mono<CompetitiveProfileView> profileOf(UserRow user, boolean own) {
         Mono<Long> number = users.playhuudNumberOf(user.id()).map(n -> n).defaultIfEmpty(-1L);
-        Mono<CompetitiveProfileRow> profile = profiles.findByUserId(user.id())
-                .defaultIfEmpty(CompetitiveProfileRow.empty(user.id()));
-        Mono<List<GameRecordView>> games = gameRecords(user.id());
-        Mono<List<PlayerAchievementRow>> earned = achievements
-                .findByUserIdOrderByDisplayPriorityDescEarnedAtDesc(user.id()).collectList();
+        return Mono.zip(number, profiles.findByUserId(user.id()).defaultIfEmpty(CompetitiveProfileRow.empty(user.id())))
+                .flatMap(t -> {
+                    Long playhuudNumber = t.getT1() < 0 ? null : t.getT1();
+                    CompetitiveProfileRow p = t.getT2();
+                    FoundingTier tier = FoundingTier.of(playhuudNumber);
+                    if (!own && !p.profilePublic()) {
+                        // Private: identity only. The PlayHuud number and founding
+                        // tier are who you are, not what you've done, so they stay.
+                        return Mono.just(new CompetitiveProfileView(
+                                user.id(), user.username(), user.displayName(), user.avatarUrl(),
+                                playhuudNumber, FoundingTier.formatNumber(playhuudNumber), FoundingView.of(tier),
+                                null, false, null, false, true, List.of(), achievementViews(tier, List.of())));
+                    }
+                    Mono<List<GameRecordView>> games = gameRecords(user.id());
+                    Mono<List<PlayerAchievementRow>> earned = achievements
+                            .findByUserIdOrderByDisplayPriorityDescEarnedAtDesc(user.id()).collectList();
+                    return Mono.zip(games, earned).map(g -> new CompetitiveProfileView(
+                            user.id(), user.username(), user.displayName(), user.avatarUrl(),
+                            playhuudNumber, FoundingTier.formatNumber(playhuudNumber), FoundingView.of(tier),
+                            location(p, own),
+                            p.hasCountry() && p.hasRegion(),
+                            own && p.locationLockedUntil() != null && p.locationLockedUntil().isAfter(Instant.now())
+                                    ? p.locationLockedUntil() : null,
+                            p.profilePublic(),
+                            false,
+                            g.getT1(),
+                            achievementViews(tier, g.getT2())));
+                });
+    }
 
-        return Mono.zip(number, profile, games, earned).map(t -> {
-            Long playhuudNumber = t.getT1() < 0 ? null : t.getT1();
-            CompetitiveProfileRow p = t.getT2();
-            FoundingTier tier = FoundingTier.of(playhuudNumber);
-            return new CompetitiveProfileView(
-                    user.id(), user.username(), user.displayName(), user.avatarUrl(),
-                    playhuudNumber, FoundingTier.formatNumber(playhuudNumber), FoundingView.of(tier),
-                    location(p, own),
-                    p.hasCountry() && p.hasRegion(),
-                    own && p.locationLockedUntil() != null && p.locationLockedUntil().isAfter(Instant.now())
-                            ? p.locationLockedUntil() : null,
-                    t.getT3(),
-                    achievementViews(tier, t.getT4()));
-        });
+    /** Whether someone other than the owner may see this player's games and history. */
+    public Mono<Boolean> isPublic(UUID userId) {
+        return profiles.findByUserId(userId).map(CompetitiveProfileRow::profilePublic).defaultIfEmpty(true);
     }
 
     /**
@@ -249,6 +262,9 @@ public class CompetitiveProfileService {
                                     region == null ? null : region.name(), allowed.locationChanges(), now,
                                     allowed.lockedUntil());
                         }
+                    }
+                    if (body.profilePublic() != null && body.profilePublic() != next.profilePublic()) {
+                        next = next.withProfilePublic(body.profilePublic());
                     }
                     if (body.city() != null || body.cityPublic() != null) {
                         String city = body.city() == null ? next.city()

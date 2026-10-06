@@ -277,6 +277,12 @@ Per `(match_id, user_id)` (**unique**): `outcome` (`won`/`lost`/`tied`), `forfei
 ### `player_achievements`
 `user_id, type, game_type (nullable), earned_at, metadata jsonb, display_priority, rarity` — **unique NULLS NOT DISTINCT** (user_id, type, game_type). Catalog lives in code (`AchievementType`); founding badges are derived from `playhuud_number`, never stored.
 
+## V34 — profile visibility (`V34__profile_visibility.sql`)
+
+Adds `competitive_profiles.profile_public BOOLEAN NOT NULL DEFAULT true` — public by
+default; when false, other players see identity only. A separate migration because V32
+was already applied in production before this column existed.
+
 ---
 
 ## Not yet migrated (tracked)

@@ -10,6 +10,7 @@ import '../../widgets/neon.dart';
 import '../calls/call_screen.dart';
 import '../games/game_select_screen.dart';
 import '../chat/conversation_screen.dart';
+import '../competitive/player_profile_screen.dart';
 import '../status/victory_status.dart';
 import 'invite_contacts_screen.dart';
 
@@ -545,8 +546,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
   Widget _friendTile(NeonColors n, FriendUser f) {
     return CompactListRow(
       onTap: () => Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) =>
-              StatusScreen(userId: f.userId, title: f.displayName))),
+          builder: (_) => PlayerProfileScreen(username: f.username, statusUserId: f.userId))),
       leading: ValueListenableBuilder<Set<String>>(
         valueListenable: AppScope.of(context).onlineFriends,
         builder: (_, online, __) => OnlineAvatar(f.displayName,
@@ -559,7 +559,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
               .textTheme
               .bodyMedium
               ?.copyWith(fontWeight: FontWeight.w700)),
-      subtitle: Text('@${f.username} · View status',
+      subtitle: Text('@${f.username} · View profile',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style:
