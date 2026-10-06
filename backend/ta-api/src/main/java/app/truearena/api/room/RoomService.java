@@ -66,7 +66,7 @@ public class RoomService {
         this.games = games;
     }
 
-    private static final java.util.Set<String> GAME_TYPES = java.util.Set.of("truearena", "wordbluff", "draughts", "goosi", "whot", "ludo");
+    private static final java.util.Set<String> GAME_TYPES = java.util.Set.of("truearena", "wordbluff", "draughts", "goosi", "whot", "ludo", "chess");
 
     /** A guest can join any room, but hosting (creating) one needs a real
      * account — otherwise there's no way to reach them again if the app is

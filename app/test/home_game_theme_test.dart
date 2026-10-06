@@ -74,7 +74,8 @@ void main() {
         'Draft',
         'Whot',
         'Ludo',
-        'Macala'
+        'Macala',
+        'Chess'
       ]) {
         expect(tester.widget<Text>(find.text(name)).maxLines, 1);
       }
@@ -84,7 +85,7 @@ void main() {
 
     for (final theme in [NeonTheme.nebulaDark, NeonTheme.nebulaLight]) {
       await show(theme);
-      expect(find.byType(NeonCard), findsNWidgets(6));
+      expect(find.byType(NeonCard), findsNWidgets(7));
       final tile = tester.widget<AnimatedContainer>(find
           .descendant(
             of: find.byType(NeonCard).first,
@@ -96,7 +97,7 @@ void main() {
 
     for (final theme in [NeonTheme.supercarDark, NeonTheme.supercarLight]) {
       await show(theme);
-      expect(find.byType(NeonCard), findsNWidgets(6));
+      expect(find.byType(NeonCard), findsNWidgets(7));
       final tile = tester.widget<AnimatedContainer>(find
           .descendant(
             of: find.byType(NeonCard).first,

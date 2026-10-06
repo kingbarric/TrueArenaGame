@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/app_state.dart';
 import '../../core/game_socket.dart';
 import '../../core/models.dart';
+import '../chess/chess_game_screen.dart';
 import '../draughts/draughts_game_screen.dart';
 import '../goosi/goosi_game_screen.dart';
 import '../wordbluff/wordbluff_game_screen.dart';
@@ -67,6 +68,15 @@ class _BoardGameWatchScreenState extends State<BoardGameWatchScreen> {
       for (final member in room.members)
         member.userId: member.nickname ?? member.userId,
     };
+    if (room.gameType == 'chess') {
+      return ChessGameScreen(
+        socket: socket,
+        selfId: _selfId,
+        nicknames: names,
+        roomCode: room.code,
+        spectating: true,
+      );
+    }
     if (room.gameType == 'draughts') {
       return DraughtsGameScreen(
         socket: socket,

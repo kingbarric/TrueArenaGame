@@ -207,7 +207,7 @@ class GameMusic {
   /// The mood a game should ask for. Kept here rather than on each screen so
   /// adding a game is one line in one place.
   static MusicMood moodFor(String gameType) => switch (gameType) {
-        'draughts' || 'goosi' || 'ludo' => MusicMood.calm,
+        'draughts' || 'chess' || 'goosi' || 'ludo' => MusicMood.calm,
         _ => MusicMood.lively,
       };
 }

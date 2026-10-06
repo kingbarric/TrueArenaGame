@@ -18,6 +18,7 @@ class GameBadge extends StatelessWidget {
     'truearena': Color(0xff2e0a1c),
     'bluff': Color(0xff0e2a3a),
     'draughts': Color(0xff3a2408),
+    'chess': Color(0xff24133a),
     'goosi': Color(0xff0e2e1c),
     'whot': Color(0xff52202b),
     'ludo': Color(0xff351639),
@@ -27,6 +28,7 @@ class GameBadge extends StatelessWidget {
     'truearena': Color(0xffff5da2),
     'bluff': Color(0xff6ee7ff),
     'draughts': Color(0xffffd24d),
+    'chess': Color(0xffffcf66),
     'goosi': Color(0xff5eead4),
     'whot': Color(0xffe9b963),
     'ludo': Color(0xffffcf66),
@@ -36,6 +38,7 @@ class GameBadge extends StatelessWidget {
     'truearena': 'TRAITORS',
     'bluff': 'WORD BLUFF',
     'draughts': 'DRAFT',
+    'chess': 'CHESS',
     'goosi': 'MACALA',
     'whot': 'WHOT',
     'ludo': 'LUDO',
@@ -117,7 +120,11 @@ class GameBadge extends StatelessWidget {
                   ],
                 ),
             },
-            child: artwork == null
+            child: artwork == null && gameId == 'chess'
+                ? const FittedBox(
+                    child: Text('\u265E\uFE0E',
+                        style: TextStyle(color: Color(0xffffcf66))))
+                : artwork == null
                 ? SvgPicture.string(
                     '<svg viewBox="0 0 100 100">${_goosiIcon.replaceAll('COLOR', '#5eead4')}</svg>')
                 : Image.asset(artwork, fit: BoxFit.contain),

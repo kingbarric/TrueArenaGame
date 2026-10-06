@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/game_badge.dart';
 import '../../widgets/neon.dart';
+import '../chess/chess_lobby_screen.dart';
 import '../draughts/draughts_mode_screen.dart';
 import '../goosi/goosi_lobby_screen.dart';
 import '../whot/whot_lobby_screen.dart';
@@ -51,6 +52,13 @@ const List<GameCatalogEntry> gameCatalog = [
     name: 'Draft',
     emoji: '⚫',
     tagline: '1v1 · 10x10 · flying kings',
+    available: true,
+  ),
+  GameCatalogEntry(
+    id: 'chess',
+    name: 'Chess',
+    emoji: '♞',
+    tagline: '1v1 · standard rules · timed',
     available: true,
   ),
   GameCatalogEntry(
@@ -113,6 +121,7 @@ class GameSelectScreen extends StatelessWidget {
                     builder: (_) => const DraughtsModeScreen(),
                   ));
                 } else if (g.id == 'bluff' ||
+                    g.id == 'chess' ||
                     g.id == 'whot' ||
                     g.id == 'ludo' ||
                     g.id == 'goosi') {
@@ -125,6 +134,7 @@ class GameSelectScreen extends StatelessWidget {
                       'bluff' => const WordBluffLobbyScreen(),
                       'whot' => const WhotLobbyScreen(),
                       'goosi' => const GoosiLobbyScreen(),
+                      'chess' => const ChessLobbyScreen(),
                       _ => const LudoLobbyScreen(),
                     },
                   ));

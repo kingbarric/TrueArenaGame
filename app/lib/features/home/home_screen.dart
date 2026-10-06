@@ -8,6 +8,7 @@ import '../../widgets/game_badge.dart';
 import '../../widgets/motif.dart';
 import '../../widgets/neon.dart';
 import '../../widgets/playhuud_logo.dart';
+import '../chess/chess_lobby_screen.dart';
 import '../draughts/draughts_mode_screen.dart';
 import '../games/game_select_screen.dart';
 import '../goosi/goosi_lobby_screen.dart';
@@ -298,6 +299,7 @@ class HomeScreen extends StatelessWidget {
         builder: (_) => const DraughtsModeScreen(),
       ));
     } else if (g.id == 'bluff' ||
+        g.id == 'chess' ||
         g.id == 'whot' ||
         g.id == 'ludo' ||
         g.id == 'goosi') {
@@ -308,6 +310,7 @@ class HomeScreen extends StatelessWidget {
           'bluff' => const WordBluffLobbyScreen(),
           'whot' => const WhotLobbyScreen(),
           'goosi' => const GoosiLobbyScreen(),
+          'chess' => const ChessLobbyScreen(),
           _ => const LudoLobbyScreen(),
         },
       ));
