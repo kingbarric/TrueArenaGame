@@ -118,14 +118,15 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
           ),
-          if (app.activeRoomId != null) ...[
-            const SizedBox(height: 18),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 22),
-              child: NeonButton('Resume your huud',
-                  onPressed: () => _resumeGame(context, app)),
-            ),
-          ],
+          const SizedBox(height: 18),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 22),
+            child: NeonButton('Join a huud', style: NeonStyle.ghost,
+                onPressed: () {
+              Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const JoinRoomScreen()));
+            }),
+          ),
           const SizedBox(height: 24),
           // The badge row *is* the picker — there used to be a "New game"
           // button here too, which opened a screen listing these same four
@@ -150,29 +151,32 @@ class HomeScreen extends StatelessWidget {
                     .labelSmall
                     ?.copyWith(color: n.mute)),
           ),
-          // Three compact columns keep the join action in view as the catalog grows.
+          // Two to a row, so each game's artwork is big enough to read.
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 22),
             child: LayoutBuilder(builder: (context, constraints) {
-              final columns = constraints.maxWidth >= 330 ? 3 : 2;
+              const columns = 2;
               final tileWidth =
-                  (constraints.maxWidth - (columns - 1) * 10) / columns;
-              return Wrap(spacing: 10, runSpacing: 10, children: [
+                  (constraints.maxWidth - (columns - 1) * 12) / columns;
+              return Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  alignment: WrapAlignment.center,
+                  children: [
                 for (final game in gameCatalog)
                   SizedBox(
                       width: tileWidth, child: _gameTile(context, n, game)),
               ]);
             }),
           ),
-          const SizedBox(height: 14),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 22),
-            child: NeonButton('Join a huud', style: NeonStyle.ghost,
-                onPressed: () {
-              Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const JoinRoomScreen()));
-            }),
-          ),
+          if (app.activeRoomId != null) ...[
+            const SizedBox(height: 14),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 22),
+              child: NeonButton('Resume your huud',
+                  onPressed: () => _resumeGame(context, app)),
+            ),
+          ],
           if (isGuest) ...[
             const SizedBox(height: 10),
             Padding(
