@@ -211,6 +211,74 @@ for pre-existing rows as `player_<first 8 of id>`. No new tables — this migrat
 
 ---
 
+> V6–V31 are not yet written up here — the migration files are the source of truth for them.
+
+## V32 — competitive identity (`V32__competitive.sql`) · design: [COMPETITIVE_IDENTITY.md](COMPETITIVE_IDENTITY.md)
+
+### `users` (added)
+| column | type | notes |
+|---|---|---|
+| playhuud_number | bigint **unique**, nullable | permanent sequential PlayHuud number. Assigned by `BEFORE INSERT` trigger from `playhuud_number_seq` (null for bots); frozen by a `BEFORE UPDATE` trigger; never recycled. Existing humans backfilled `ORDER BY created_at, id`. Not on `UserRow` — read via `UserRepository.playhuudNumberOf` (same reason as `coins`). |
+
+### `rooms` (added)
+| column | type | notes |
+|---|---|---|
+| ranked | boolean not null default false | the host's *request* for a rated match; `RatedMatchPolicy` decides at game end |
+
+### `competitive_profiles`
+| column | type | notes |
+|---|---|---|
+| id | uuid pk | |
+| user_id | uuid not null **unique** → users.id, cascade | |
+| country_code | text | ISO 3166-1 alpha-2, **CHECK** `^[A-Z]{2}$` |
+| country_name / region_name | text | display copies |
+| region_code | text | ISO 3166-2 style (`NG-RI`), or `CC-SLUG` for uncatalogued countries; **CHECK** requires country |
+| city | text | optional, private unless `city_public` |
+| city_public | boolean not null default false | |
+| location_changes | int not null default 0 | changes after the first set; drives the cooldown / support-review rule |
+| location_updated_at / location_locked_until | timestamptz | |
+| created_at / updated_at | timestamptz | |
+
+Trigger `competitive_profiles_sync_rating_location` copies country/region onto every `player_game_ratings` row for the user.
+
+### `player_game_ratings`
+| column | type | notes |
+|---|---|---|
+| id | uuid pk | |
+| user_id | uuid not null → users.id, cascade | **unique** (user_id, game_type) — one rating per game, no universal rating |
+| game_type | text not null | |
+| rating / rating_deviation / volatility | double not null | Glicko-2 state, defaults 1500 / 350 / 0.06 |
+| peak_rating | double not null | |
+| rated_games_played | int not null | |
+| provisional / leaderboard_eligible | boolean not null | maintained by `RatingService`; boards read only eligible rows |
+| country_code / region_code | text | **trigger-maintained** copy of the profile location (denormalised for partial-index boards) |
+| last_rated_at / created_at | timestamptz | |
+
+Partial indexes (all `WHERE leaderboard_eligible`): `(game_type, rating DESC, rated_games_played DESC, user_id)`, the same prefixed with `country_code`, and with `country_code, region_code`.
+
+### `player_game_stats`
+Per `(user_id, game_type)`, **ranked matches only**: `games_played, wins, losses, draws` (**CHECK** they sum), `current_win_streak, best_win_streak, top100_wins`, plus `casual_games` (human-vs-human unrated games), `last_played_at`, `updated_at`.
+
+### `match_records`
+| column | type | notes |
+|---|---|---|
+| id | uuid pk | |
+| game_session_id | uuid **unique** → game_sessions.id, set null | the idempotency key — a replayed `finishGame` can't rate twice |
+| room_id / championship_id | uuid, set null | |
+| game_type | text not null | |
+| ranked | boolean not null | **CHECK** `ranked = (unranked_reason IS NULL)` |
+| unranked_reason | text | `unrated_game_type`, `casual_room`, `vs_agent`, `guest_player`, `too_few_humans`, `repeat_opponent` |
+| winning_side / draw / player_count | | |
+| started_at / completed_at / duration_ms / rated_at | | |
+
+### `match_participants`
+Per `(match_id, user_id)` (**unique**): `outcome` (`won`/`lost`/`tied`), `forfeited`, `disconnected`, and — only on a rated match — `rating_before, rating_after, rating_delta, deviation_before, deviation_after, opponent_rating_before` (mean, for multi-player). This **is** the rating history; there is no separate history table.
+
+### `player_achievements`
+`user_id, type, game_type (nullable), earned_at, metadata jsonb, display_priority, rarity` — **unique NULLS NOT DISTINCT** (user_id, type, game_type). Catalog lives in code (`AchievementType`); founding badges are derived from `playhuud_number`, never stored.
+
+---
+
 ## Not yet migrated (tracked)
 
 - **Guest identity** (`PROJECT_PLAN.md` 2.4): a `guest_session` (or a `users` flag)

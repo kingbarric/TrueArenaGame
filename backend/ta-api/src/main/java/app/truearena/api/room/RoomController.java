@@ -38,7 +38,8 @@ public class RoomController {
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Create a room (in a group, or ad-hoc if groupId is omitted). stake is optional — omit for an unstaked room.")
     public Mono<RoomView> create(@Valid @RequestBody CreateRoomRequest body) {
-        return CurrentUser.id().flatMap(uid -> rooms.create(uid, body.groupId(), body.gameType(), body.stake(), body.gameConfig()));
+        return CurrentUser.id().flatMap(uid -> rooms.create(uid, body.groupId(), body.gameType(), body.stake(), body.gameConfig(),
+                Boolean.TRUE.equals(body.ranked())));
     }
 
     @DeleteMapping("/{id}")

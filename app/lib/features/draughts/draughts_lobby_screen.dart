@@ -89,14 +89,17 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
       // host an unstaked room rather than blocking on it.
     }
     try {
-      // House rules are settled before the first move. Optional captures are
-      // the casual default, including when the sheet is dismissed.
-      final mandatoryCapture = await showDraughtsRulesSheet(context) ?? false;
+      // Ranked/casual and house rules are settled before the first move.
+      // Dismissing the sheet means a casual game with optional captures.
+      final setup = await showDraughtsRulesSheet(context,
+              canRank: app.identity == Identity.account) ??
+          const DraughtsMatchSetup();
       if (!mounted) return;
       final res = await app.api.post('/rooms', {
         'gameType': 'draughts',
         if (stake > 0) 'stake': stake,
-        'gameConfig': {'mandatoryCapture': mandatoryCapture},
+        if (setup.ranked) 'ranked': true,
+        'gameConfig': {'mandatoryCapture': setup.mandatoryCapture},
       }) as Map<String, dynamic>;
       if (!mounted) return;
       final room = RoomView.fromJson(res);
@@ -164,6 +167,7 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
         members: members,
         stakeCoins: _room?.stakeCoins ??
             0, // not carried on the WS snapshot — keep whatever the REST create/join response gave us
+        ranked: _room?.ranked ?? false, // likewise REST-only
       );
       _spectatorCount = p['spectatorCount'] as int? ?? _spectatorCount;
       final me = _room!.members.where((m) => m.userId == _selfId(_app));
@@ -560,70 +564,132 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
 /// The house rules a Draughts host picks before the room exists. Returns the
 /// chosen mandatory-capture setting, or null if the host backed out (which
 /// the caller treats as optional captures).
-Future<bool?> showDraughtsRulesSheet(BuildContext context) {
-  return showModalBottomSheet<bool>(
+/// What the host chose before opening the room.
+class DraughtsMatchSetup {
+  const DraughtsMatchSetup(
+      {this.ranked = false, this.mandatoryCapture = false});
+
+  final bool ranked;
+  final bool mandatoryCapture;
+}
+
+/// `canRank` is false for guests — a rated game needs a verified account on
+/// both sides, so the option isn't offered rather than silently ignored.
+Future<DraughtsMatchSetup?> showDraughtsRulesSheet(BuildContext context,
+    {bool canRank = false}) {
+  return showModalBottomSheet<DraughtsMatchSetup>(
     context: context,
     isScrollControlled: true,
     backgroundColor: context.neon.panel.withValues(alpha: 0.96),
-    builder: (_) => const _DraughtsRulesSheet(),
+    builder: (_) => _DraughtsRulesSheet(canRank: canRank),
   );
 }
 
 class _DraughtsRulesSheet extends StatefulWidget {
-  const _DraughtsRulesSheet();
+  const _DraughtsRulesSheet({required this.canRank});
+
+  final bool canRank;
 
   @override
   State<_DraughtsRulesSheet> createState() => _DraughtsRulesSheetState();
 }
 
 class _DraughtsRulesSheetState extends State<_DraughtsRulesSheet> {
+  bool _ranked = false;
   bool _mandatoryCapture = false;
+
+  /// Every rated game is played under the same, official rules — a rating
+  /// earned with optional captures wouldn't mean the same thing.
+  bool get _capturesCompulsory => _ranked || _mandatoryCapture;
 
   @override
   Widget build(BuildContext context) {
     final n = context.neon;
     final t = Theme.of(context).textTheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 20, 22, 26),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('HOUSE RULES', style: t.labelLarge?.copyWith(color: n.gold)),
-          const SizedBox(height: 4),
-          Text(
-              'Set before the game starts — everyone at the table plays by these.',
-              style: t.bodySmall?.copyWith(color: n.mid)),
-          const SizedBox(height: 16),
-          NeonCard(
-            child: Column(children: [
-              Row(children: [
-                Expanded(
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Captures are compulsory', style: t.bodyMedium),
-                        const SizedBox(height: 2),
-                        Text(
-                          _mandatoryCapture
-                              ? 'If you can take, you must — and you must take the most pieces available.'
-                              : 'Taking is optional. A jump you start still has to be played out.',
-                          style: t.labelSmall
-                              ?.copyWith(color: n.mute, height: 1.3),
-                        ),
-                      ]),
-                ),
-                Switch(
-                  value: _mandatoryCapture,
-                  onChanged: (v) => setState(() => _mandatoryCapture = v),
-                ),
+    // Scrolls so the Start button stays reachable on short phones now that
+    // the sheet carries the ranked choice as well as the house rules.
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(22, 20, 22, 26),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (widget.canRank) ...[
+              Text('MATCH TYPE', style: t.labelLarge?.copyWith(color: n.gold)),
+              const SizedBox(height: 10),
+              NeonCard(
+                accent: _ranked ? n.gold : null,
+                child: Row(children: [
+                  Icon(Icons.military_tech_rounded,
+                      color: _ranked ? n.gold : n.mute, size: 26),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Ranked',
+                              style: t.bodyMedium
+                                  ?.copyWith(fontWeight: FontWeight.w800)),
+                          const SizedBox(height: 2),
+                          Text(
+                            _ranked
+                                ? 'Counts toward your Draughts rating and rankings. Official rules.'
+                                : 'Casual — just for fun, no rating change.',
+                            style: t.labelSmall
+                                ?.copyWith(color: n.mute, height: 1.3),
+                          ),
+                        ]),
+                  ),
+                  Switch(
+                    value: _ranked,
+                    onChanged: (v) => setState(() => _ranked = v),
+                  ),
+                ]),
+              ),
+              const SizedBox(height: 18),
+            ],
+            Text('HOUSE RULES', style: t.labelLarge?.copyWith(color: n.gold)),
+            const SizedBox(height: 4),
+            Text(
+                _ranked
+                    ? 'Ranked games always use official rules.'
+                    : 'Set before the game starts — everyone at the table plays by these.',
+                style: t.bodySmall?.copyWith(color: n.mid)),
+            const SizedBox(height: 16),
+            NeonCard(
+              child: Column(children: [
+                Row(children: [
+                  Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Captures are compulsory', style: t.bodyMedium),
+                          const SizedBox(height: 2),
+                          Text(
+                            _capturesCompulsory
+                                ? 'If you can take, you must — and you must take the most pieces available.'
+                                : 'Taking is optional. A jump you start still has to be played out.',
+                            style: t.labelSmall
+                                ?.copyWith(color: n.mute, height: 1.3),
+                          ),
+                        ]),
+                  ),
+                  Switch(
+                    value: _capturesCompulsory,
+                    onChanged: _ranked
+                        ? null
+                        : (v) => setState(() => _mandatoryCapture = v),
+                  ),
+                ]),
               ]),
-            ]),
-          ),
-          const SizedBox(height: 18),
-          NeonButton('Start the huud',
-              onPressed: () => Navigator.of(context).pop(_mandatoryCapture)),
-        ],
+            ),
+            const SizedBox(height: 18),
+            NeonButton(_ranked ? 'Start ranked huud' : 'Start the huud',
+                onPressed: () => Navigator.of(context).pop(DraughtsMatchSetup(
+                    ranked: _ranked, mandatoryCapture: _capturesCompulsory))),
+          ],
+        ),
       ),
     );
   }

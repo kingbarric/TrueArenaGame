@@ -18,18 +18,25 @@ public record RoomRow(
         @Column("stake_coins") long stakeCoins,
         /** Host-chosen game options as JSON; null means the game's defaults. */
         @Column("game_config") String gameConfig,
+        /**
+         * The host's request for a rated match. Only a request: the server
+         * decides a finished game's actual rated-ness (see
+         * {@code RatedMatchPolicy}), so a "ranked" room that turns out to hold
+         * a Cyber Agent is still recorded unranked.
+         */
+        boolean ranked,
         @Column("created_at") Instant createdAt
 ) {
     public static RoomRow create(String code, UUID groupId, UUID hostId, String gameType, long stakeCoins,
-                                 String gameConfig) {
-        return new RoomRow(null, code, groupId, hostId, "lobby", gameType, stakeCoins, gameConfig, null);
+                                 String gameConfig, boolean ranked) {
+        return new RoomRow(null, code, groupId, hostId, "lobby", gameType, stakeCoins, gameConfig, ranked, null);
     }
 
     public RoomRow withHost(UUID newHostId) {
-        return new RoomRow(id, code, groupId, newHostId, status, gameType, stakeCoins, gameConfig, createdAt);
+        return new RoomRow(id, code, groupId, newHostId, status, gameType, stakeCoins, gameConfig, ranked, createdAt);
     }
 
     public RoomRow withStatus(String newStatus) {
-        return new RoomRow(id, code, groupId, hostId, newStatus, gameType, stakeCoins, gameConfig, createdAt);
+        return new RoomRow(id, code, groupId, hostId, newStatus, gameType, stakeCoins, gameConfig, ranked, createdAt);
     }
 }

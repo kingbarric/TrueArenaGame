@@ -71,7 +71,7 @@ class GameOrchestratorPayoutTest {
     }
 
     private RoomRow stakedRoom(UUID host, long stake) {
-        return new RoomRow(UUID.randomUUID(), "123456", null, host, "ended", "truearena", stake, null, null);
+        return new RoomRow(UUID.randomUUID(), "123456", null, host, "ended", "truearena", stake, null, false, null);
     }
 
     @Test

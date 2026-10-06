@@ -38,7 +38,7 @@ class WhotCallServiceTest {
 
     private RoomRow room(String game, String status) {
         return new RoomRow(roomId, "123456", null, playerId, status,
-                game, 0, null, null);
+                game, 0, null, false, null);
     }
 
     @Test

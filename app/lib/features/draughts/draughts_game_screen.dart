@@ -1611,13 +1611,16 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
               width: 44,
               height: 40,
               child: TextButton(
+                key: const Key('draughts-var-tv'),
                 onPressed: _var.lastCompleted == null ||
                         (!_amSpectator && _var.lastCompleted!.side == mySide)
                     ? null
                     : _openVar,
                 style: TextButton.styleFrom(padding: EdgeInsets.zero),
-                child: const Text('VAR',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
+                child: _VarTvIcon(
+                  enabled: _var.lastCompleted != null &&
+                      (_amSpectator || _var.lastCompleted!.side != mySide),
+                ),
               ),
             ),
           ]),
@@ -1907,9 +1910,13 @@ class _VarReplaySheet extends StatefulWidget {
 }
 
 class _VarReplaySheetState extends State<_VarReplaySheet> {
+  static const _openingHold = Duration(milliseconds: 450);
+  static const _restartHold = Duration(milliseconds: 240);
+
   final List<_Piece> _pieces = [];
   int _step = 0;
   int _playToken = 0;
+  int _boardGeneration = 0;
   bool _playing = false;
   bool _paused = false;
   double _speed = 1;
@@ -1918,7 +1925,9 @@ class _VarReplaySheetState extends State<_VarReplaySheet> {
   void initState() {
     super.initState();
     _reset();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _play());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _play(leadIn: _openingHold);
+    });
   }
 
   @override
@@ -1929,6 +1938,7 @@ class _VarReplaySheetState extends State<_VarReplaySheet> {
 
   void _reset() {
     _playToken++;
+    _boardGeneration++;
     _pieces.clear();
     for (var square = 0; square < widget.turn.before.length; square++) {
       final type = widget.turn.before[square];
@@ -1939,11 +1949,11 @@ class _VarReplaySheetState extends State<_VarReplaySheet> {
     _paused = false;
   }
 
-  Future<void> _play() async {
-    if (_playing) {
-      setState(_reset);
-    }
-    if (_step == widget.turn.steps.length) {
+  Future<void> _play({
+    bool restart = false,
+    Duration leadIn = Duration.zero,
+  }) async {
+    if (_playing || restart || _step == widget.turn.steps.length) {
       setState(_reset);
     }
     final token = ++_playToken;
@@ -1951,6 +1961,16 @@ class _VarReplaySheetState extends State<_VarReplaySheet> {
       _playing = true;
       _paused = false;
     });
+
+    // Let Flutter paint the recorded starting board before changing the
+    // first piece. Without this frame, reset + move can collapse into one
+    // build and AnimatedPositioned has no old position to animate from.
+    await WidgetsBinding.instance.endOfFrame;
+    if (leadIn > Duration.zero) {
+      await Future<void>.delayed(leadIn);
+    }
+    if (!mounted || token != _playToken) return;
+
     while (mounted && token == _playToken && _step < widget.turn.steps.length) {
       if (_paused) {
         await Future<void>.delayed(const Duration(milliseconds: 80));
@@ -1960,7 +1980,8 @@ class _VarReplaySheetState extends State<_VarReplaySheet> {
       final piece = _pieces.where((p) => p.square == move.from).firstOrNull;
       if (piece == null) break;
       setState(() => piece.square = move.to);
-      await Future<void>.delayed(Duration(milliseconds: (560 / _speed).round()));
+      await Future<void>.delayed(
+          Duration(milliseconds: (560 / _speed).round()));
       if (!mounted || token != _playToken) return;
       setState(() {
         if (move.captured != null) {
@@ -1969,7 +1990,8 @@ class _VarReplaySheetState extends State<_VarReplaySheet> {
         if (move.promoted) piece.type = '${widget.turn.side}_KING';
         _step++;
       });
-      await Future<void>.delayed(Duration(milliseconds: (180 / _speed).round()));
+      await Future<void>.delayed(
+          Duration(milliseconds: (180 / _speed).round()));
     }
     if (mounted && token == _playToken) setState(() => _playing = false);
   }
@@ -1978,6 +2000,7 @@ class _VarReplaySheetState extends State<_VarReplaySheet> {
   Widget build(BuildContext context) {
     return SafeArea(
       child: SizedBox(
+        key: const Key('draughts-var-sheet'),
         height: MediaQuery.sizeOf(context).height * 0.76,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 18),
@@ -1997,8 +2020,10 @@ class _VarReplaySheetState extends State<_VarReplaySheet> {
             ]),
             Align(
               alignment: Alignment.centerLeft,
-              child: Text('${widget.playerName} · step $_step of ${widget.turn.steps.length}',
-                  style: const TextStyle(color: Color(0xffc9b18c), fontSize: 12)),
+              child: Text(
+                  '${widget.playerName} · step $_step of ${widget.turn.steps.length}',
+                  style:
+                      const TextStyle(color: Color(0xffc9b18c), fontSize: 12)),
             ),
             const SizedBox(height: 14),
             Expanded(
@@ -2020,9 +2045,8 @@ class _VarReplaySheetState extends State<_VarReplaySheet> {
                             itemCount: 100,
                             itemBuilder: (context, i) {
                               final displayRow = i ~/ 10, col = i % 10;
-                              final row = widget.flipped
-                                  ? displayRow
-                                  : 9 - displayRow;
+                              final row =
+                                  widget.flipped ? displayRow : 9 - displayRow;
                               if (!isPlayable(row, col)) {
                                 return _PlankCell(
                                     palette: widget.boardPalette,
@@ -2038,17 +2062,21 @@ class _VarReplaySheetState extends State<_VarReplaySheet> {
                             },
                           ),
                           for (final piece in _pieces)
-                            _AnimatedPieceView(
-                              key: ValueKey('var-${piece.id}'),
-                              piece: piece,
-                              palette: widget.piecePalette,
-                              cellSize: cellSize,
-                              flipped: widget.flipped,
-                              selected: false,
-                              dragging: false,
-                              moveDuration: Duration(
-                                  milliseconds: (420 / _speed).round()),
-                              fadeDuration: const Duration(milliseconds: 200),
+                            KeyedSubtree(
+                              key: ValueKey(
+                                  'var-run-$_boardGeneration-${piece.id}'),
+                              child: _AnimatedPieceView(
+                                key: ValueKey('var-${piece.id}'),
+                                piece: piece,
+                                palette: widget.piecePalette,
+                                cellSize: cellSize,
+                                flipped: widget.flipped,
+                                selected: false,
+                                dragging: false,
+                                moveDuration: Duration(
+                                    milliseconds: (420 / _speed).round()),
+                                fadeDuration: const Duration(milliseconds: 200),
+                              ),
                             ),
                         ]);
                       }),
@@ -2061,10 +2089,10 @@ class _VarReplaySheetState extends State<_VarReplaySheet> {
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               IconButton(
                 tooltip: 'Replay from start',
-                onPressed: () {
-                  setState(_reset);
-                  _play();
-                },
+                onPressed: () => _play(
+                  restart: true,
+                  leadIn: _restartHold,
+                ),
                 icon: const Icon(Icons.replay_rounded),
               ),
               IconButton(
@@ -2090,6 +2118,50 @@ class _VarReplaySheetState extends State<_VarReplaySheet> {
             ]),
           ]),
         ),
+      ),
+    );
+  }
+}
+
+class _VarTvIcon extends StatelessWidget {
+  const _VarTvIcon({required this.enabled});
+
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final casing = enabled ? const Color(0xffe0a94a) : const Color(0xff6f604e);
+    return SizedBox(
+      width: 36,
+      height: 32,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Icon(Icons.tv_rounded, size: 34, color: casing),
+          Positioned(
+            top: 9,
+            left: 7,
+            right: 7,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: const Color(0xff241708),
+                borderRadius: BorderRadius.circular(2),
+              ),
+              child: Text(
+                'VAR',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: enabled
+                      ? const Color(0xffffe6ae)
+                      : const Color(0xff9a8163),
+                  fontSize: 7,
+                  height: 1.25,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -71,6 +71,19 @@ truearena:
     # settings → Service accounts → Generate new private key). Blank means
     # push notifications are disabled — see FirebaseConfig/PushNotificationService.
     firebase-credentials-base64: ${FIREBASE_CREDENTIALS_BASE64:}
+  competitive:
+    # Games with a skill rating + leaderboards (comma-separated). Adding a game
+    # here is all it takes once its GameModule exists — see CompetitiveSettings.
+    rated-game-types: ${COMPETITIVE_RATED_GAMES:draughts}
+    # Rated games before a player stops being provisional and can appear on a board.
+    placement-games: 10
+    # Rated games one pair of accounts can play against each other per 24h
+    # before further games between them are recorded unrated (alt-farming guard).
+    max-rated-games-per-pair-per-day: 5
+    # Ranking-location changes: first correction is immediate, later ones wait
+    # this long; past max-location-changes it needs support.
+    location-cooldown-days: 30
+    max-location-changes: 3
 
 # Cyber Agent brains. Both read from the environment only — never paste a
 # key here. Gemini wins when both are present (see BotLlmConfig); with

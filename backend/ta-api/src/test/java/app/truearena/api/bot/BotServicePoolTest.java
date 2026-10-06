@@ -135,7 +135,7 @@ class BotServicePoolTest {
     }
 
     private static RoomRow room(UUID roomId, UUID hostId) {
-        return new RoomRow(roomId, "ABCDEF", null, hostId, "lobby", "whot", 0, null, Instant.now());
+        return new RoomRow(roomId, "ABCDEF", null, hostId, "lobby", "whot", 0, null, false, Instant.now());
     }
 
     private static BotService service(RoomRepository rooms, RoomMemberRepository members,

@@ -69,7 +69,7 @@ class RoomServiceTest {
     }
 
     private RoomRow room(UUID id, UUID hostId, long stake) {
-        return new RoomRow(id, "ABCDEF", null, hostId, "lobby", "truearena", stake, null, Instant.now());
+        return new RoomRow(id, "ABCDEF", null, hostId, "lobby", "truearena", stake, null, false, Instant.now());
     }
 
     /** Every `rooms.save(...)` in the flows under test gets the same stable id back. */
@@ -77,7 +77,7 @@ class RoomServiceTest {
         when(rooms.save(any(RoomRow.class))).thenAnswer(inv -> {
             RoomRow arg = inv.getArgument(0);
             return Mono.just(new RoomRow(roomId, arg.code(), arg.groupId(), arg.hostId(), arg.status(),
-                    arg.gameType(), arg.stakeCoins(), arg.gameConfig(), arg.createdAt()));
+                    arg.gameType(), arg.stakeCoins(), arg.gameConfig(), arg.ranked(), arg.createdAt()));
         });
     }
 
@@ -87,7 +87,7 @@ class RoomServiceTest {
         UUID hostId = UUID.randomUUID();
         UUID viewerId = UUID.randomUUID();
         RoomRow active = new RoomRow(roomId, "ABCDEF", null, hostId,
-                "in_game", "draughts", 0, null, Instant.now());
+                "in_game", "draughts", 0, null, false, Instant.now());
         when(rooms.findByCode("ABCDEF")).thenReturn(Mono.just(active));
         when(members.findByRoomId(roomId))
                 .thenReturn(Flux.just(RoomMemberRow.of(roomId, hostId, "Host")));
@@ -109,7 +109,7 @@ class RoomServiceTest {
         UUID hostId = UUID.randomUUID();
         UUID viewerId = UUID.randomUUID();
         RoomRow active = new RoomRow(roomId, "ABCDEF", null, hostId,
-                "in_game", "draughts", 0, null, Instant.now());
+                "in_game", "draughts", 0, null, false, Instant.now());
         when(rooms.findByCode("ABCDEF")).thenReturn(Mono.just(active));
         when(members.findByRoomIdAndUserId(roomId, viewerId))
                 .thenReturn(Mono.empty());
@@ -194,6 +194,51 @@ class RoomServiceTest {
         ArgumentCaptor<RoomRow> saved = ArgumentCaptor.forClass(RoomRow.class);
         verify(rooms).save(saved.capture());
         assertThat(saved.getValue().gameConfig()).isEqualTo("{\"mode\":\"oware\"}");
+    }
+
+    @Test
+    void create_rankedDraughtsForcesOfficialRulesWhateverTheClientSent() {
+        UUID hostId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        when(users.findById(hostId)).thenReturn(Mono.just(realUser(hostId)));
+        when(rooms.findByCode(anyString())).thenReturn(Mono.empty());
+        stubRoomSave(roomId);
+        when(members.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(members.findByRoomId(roomId)).thenReturn(Flux.empty());
+        when(inbox.callCompanionsOf(hostId)).thenReturn(Set.of());
+        when(jwt.issueAccess(hostId)).thenReturn("token");
+
+        StepVerifier.create(service.create(hostId, null, "draughts", null,
+                        java.util.Map.of("mandatoryCapture", false), true))
+                .expectNextMatches(v -> v.ranked())
+                .verifyComplete();
+
+        ArgumentCaptor<RoomRow> saved = ArgumentCaptor.forClass(RoomRow.class);
+        verify(rooms).save(saved.capture());
+        assertThat(saved.getValue().ranked()).isTrue();
+        assertThat(saved.getValue().gameConfig()).isEqualTo("{\"mandatoryCapture\":true}");
+    }
+
+    @Test
+    void create_casualDraughtsKeepsTheHostsHouseRules() {
+        UUID hostId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        when(users.findById(hostId)).thenReturn(Mono.just(realUser(hostId)));
+        when(rooms.findByCode(anyString())).thenReturn(Mono.empty());
+        stubRoomSave(roomId);
+        when(members.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(members.findByRoomId(roomId)).thenReturn(Flux.empty());
+        when(inbox.callCompanionsOf(hostId)).thenReturn(Set.of());
+        when(jwt.issueAccess(hostId)).thenReturn("token");
+
+        StepVerifier.create(service.create(hostId, null, "draughts", null,
+                        java.util.Map.of("mandatoryCapture", false)))
+                .expectNextMatches(v -> !v.ranked())
+                .verifyComplete();
+
+        ArgumentCaptor<RoomRow> saved = ArgumentCaptor.forClass(RoomRow.class);
+        verify(rooms).save(saved.capture());
+        assertThat(saved.getValue().gameConfig()).isEqualTo("{\"mandatoryCapture\":false}");
     }
 
     @Test
@@ -301,7 +346,7 @@ class RoomServiceTest {
         UUID roomId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
         RoomRow ludo = new RoomRow(roomId, "ABCDEF", null, UUID.randomUUID(),
-                "lobby", "ludo", 0, null, Instant.now());
+                "lobby", "ludo", 0, null, false, Instant.now());
         when(rooms.findByCode("ABCDEF")).thenReturn(Mono.just(ludo));
         when(members.findByRoomIdAndUserId(roomId, userId)).thenReturn(Mono.empty());
         when(members.countByRoomId(roomId)).thenReturn(Mono.just(4L));
@@ -434,7 +479,7 @@ class RoomServiceTest {
         UUID roomId = UUID.randomUUID();
         UUID hostId = UUID.randomUUID();
         UUID agentId = UUID.randomUUID();
-        RoomRow room = new RoomRow(roomId, "ABCDEF", null, hostId, "in_game", "draughts", 0, null, Instant.now());
+        RoomRow room = new RoomRow(roomId, "ABCDEF", null, hostId, "in_game", "draughts", 0, null, false, Instant.now());
         UserRow agent = new UserRow(agentId, "Agent", null, null, null, "agent", false, null,
                 true, hostId, "all", "easy", null, Instant.now());
         when(rooms.findById(roomId)).thenReturn(Mono.just(room));
@@ -457,7 +502,7 @@ class RoomServiceTest {
         UUID roomId = UUID.randomUUID();
         UUID hostId = UUID.randomUUID();
         UUID agentId = UUID.randomUUID();
-        RoomRow room = new RoomRow(roomId, "ABCDEF", null, hostId, "in_game", "draughts", 0, null, Instant.now());
+        RoomRow room = new RoomRow(roomId, "ABCDEF", null, hostId, "in_game", "draughts", 0, null, false, Instant.now());
         UserRow agent = new UserRow(agentId, "Agent", null, null, null, "agent", false, null,
                 true, hostId, "all", "easy", null, Instant.now());
         when(rooms.findById(roomId)).thenReturn(Mono.just(room));
@@ -480,7 +525,7 @@ class RoomServiceTest {
         UUID roomId = UUID.randomUUID();
         UUID hostId = UUID.randomUUID();
         UUID opponentId = UUID.randomUUID();
-        RoomRow room = new RoomRow(roomId, "ABCDEF", null, hostId, "in_game", "draughts", 0, null, Instant.now());
+        RoomRow room = new RoomRow(roomId, "ABCDEF", null, hostId, "in_game", "draughts", 0, null, false, Instant.now());
         when(rooms.findById(roomId)).thenReturn(Mono.just(room));
         when(members.findByRoomId(roomId)).thenReturn(Flux.just(
                 RoomMemberRow.of(roomId, hostId, null), RoomMemberRow.of(roomId, opponentId, null)));
@@ -498,7 +543,7 @@ class RoomServiceTest {
         UUID hostId = UUID.randomUUID();
         UUID firstAgent = UUID.randomUUID();
         UUID secondAgent = UUID.randomUUID();
-        RoomRow room = new RoomRow(roomId, "ABCDEF", null, hostId, "in_game", "whot", 0, null, Instant.now());
+        RoomRow room = new RoomRow(roomId, "ABCDEF", null, hostId, "in_game", "whot", 0, null, false, Instant.now());
         when(rooms.findById(roomId)).thenReturn(Mono.just(room));
         when(members.findByRoomId(roomId)).thenReturn(Flux.just(
                 RoomMemberRow.of(roomId, hostId, null),
@@ -523,7 +568,7 @@ class RoomServiceTest {
         UUID roomId = UUID.randomUUID();
         UUID hostId = UUID.randomUUID();
         UUID humanId = UUID.randomUUID();
-        RoomRow room = new RoomRow(roomId, "ABCDEF", null, hostId, "in_game", "whot", 0, null, Instant.now());
+        RoomRow room = new RoomRow(roomId, "ABCDEF", null, hostId, "in_game", "whot", 0, null, false, Instant.now());
         when(rooms.findById(roomId)).thenReturn(Mono.just(room));
         when(members.findByRoomId(roomId)).thenReturn(Flux.just(
                 RoomMemberRow.of(roomId, hostId, null), RoomMemberRow.of(roomId, humanId, null)));
@@ -540,7 +585,7 @@ class RoomServiceTest {
         UUID roomId = UUID.randomUUID();
         UUID hostId = UUID.randomUUID();
         UUID agentId = UUID.randomUUID();
-        RoomRow room = new RoomRow(roomId, "ABCDEF", null, hostId, "in_game", "whot", 0, null, Instant.now());
+        RoomRow room = new RoomRow(roomId, "ABCDEF", null, hostId, "in_game", "whot", 0, null, false, Instant.now());
         when(rooms.findById(roomId)).thenReturn(Mono.just(room));
         when(members.findByRoomId(roomId)).thenReturn(Flux.just(
                 RoomMemberRow.of(roomId, hostId, null), RoomMemberRow.of(roomId, agentId, "Agent")));
@@ -562,7 +607,7 @@ class RoomServiceTest {
         UUID roomId = UUID.randomUUID();
         UUID hostId = UUID.randomUUID();
         UUID agentId = UUID.randomUUID();
-        RoomRow room = new RoomRow(roomId, "ABCDEF", null, hostId, "in_game", "goosi", 0, null, Instant.now());
+        RoomRow room = new RoomRow(roomId, "ABCDEF", null, hostId, "in_game", "goosi", 0, null, false, Instant.now());
         when(rooms.findById(roomId)).thenReturn(Mono.just(room));
         when(members.findByRoomId(roomId)).thenReturn(Flux.just(
                 RoomMemberRow.of(roomId, hostId, null), RoomMemberRow.of(roomId, agentId, "Agent")));
@@ -583,7 +628,7 @@ class RoomServiceTest {
         UUID roomId = UUID.randomUUID();
         UUID hostId = UUID.randomUUID();
         UUID humanId = UUID.randomUUID();
-        RoomRow room = new RoomRow(roomId, "ABCDEF", null, hostId, "in_game", "goosi", 0, null, Instant.now());
+        RoomRow room = new RoomRow(roomId, "ABCDEF", null, hostId, "in_game", "goosi", 0, null, false, Instant.now());
         when(rooms.findById(roomId)).thenReturn(Mono.just(room));
         when(members.findByRoomId(roomId)).thenReturn(Flux.just(
                 RoomMemberRow.of(roomId, hostId, null), RoomMemberRow.of(roomId, humanId, null)));
@@ -600,7 +645,7 @@ class RoomServiceTest {
         UUID roomId = UUID.randomUUID();
         UUID hostId = UUID.randomUUID();
         UUID agentId = UUID.randomUUID();
-        RoomRow room = new RoomRow(roomId, "ABCDEF", null, hostId, "in_game", "wordbluff", 0, null, Instant.now());
+        RoomRow room = new RoomRow(roomId, "ABCDEF", null, hostId, "in_game", "wordbluff", 0, null, false, Instant.now());
         when(rooms.findById(roomId)).thenReturn(Mono.just(room));
         when(members.findByRoomId(roomId)).thenReturn(Flux.just(
                 RoomMemberRow.of(roomId, hostId, null), RoomMemberRow.of(roomId, agentId, "Agent")));
@@ -621,7 +666,7 @@ class RoomServiceTest {
         UUID roomId = UUID.randomUUID();
         UUID hostId = UUID.randomUUID();
         UUID humanId = UUID.randomUUID();
-        RoomRow room = new RoomRow(roomId, "ABCDEF", null, hostId, "in_game", "wordbluff", 0, null, Instant.now());
+        RoomRow room = new RoomRow(roomId, "ABCDEF", null, hostId, "in_game", "wordbluff", 0, null, false, Instant.now());
         when(rooms.findById(roomId)).thenReturn(Mono.just(room));
         when(members.findByRoomId(roomId)).thenReturn(Flux.just(
                 RoomMemberRow.of(roomId, hostId, null), RoomMemberRow.of(roomId, humanId, null)));
@@ -639,7 +684,7 @@ class RoomServiceTest {
         UUID hostId = UUID.randomUUID();
         UUID firstAgent = UUID.randomUUID();
         UUID secondAgent = UUID.randomUUID();
-        RoomRow room = new RoomRow(roomId, "ABCDEF", null, hostId, "in_game", "ludo", 0, null, Instant.now());
+        RoomRow room = new RoomRow(roomId, "ABCDEF", null, hostId, "in_game", "ludo", 0, null, false, Instant.now());
         when(rooms.findById(roomId)).thenReturn(Mono.just(room));
         when(members.findByRoomId(roomId)).thenReturn(Flux.just(
                 RoomMemberRow.of(roomId, hostId, null), RoomMemberRow.of(roomId, firstAgent, "A"),

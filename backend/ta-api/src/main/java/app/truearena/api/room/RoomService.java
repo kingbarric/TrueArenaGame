@@ -75,6 +75,16 @@ public class RoomService {
      * the request is even sent), but this is the actual enforcement. */
     public Mono<RoomView> create(UUID hostId, UUID groupId, String gameType, Long stake,
                                  java.util.Map<String, Object> gameConfig) {
+        return create(hostId, groupId, gameType, stake, gameConfig, false);
+    }
+
+    /**
+     * {@code ranked} is the host's request for a rated match, nothing more:
+     * whether the finished game actually moves anyone's rating is decided
+     * server-side at the end (see {@code RatedMatchPolicy}).
+     */
+    public Mono<RoomView> create(UUID hostId, UUID groupId, String gameType, Long stake,
+                                 java.util.Map<String, Object> gameConfig, boolean ranked) {
         String type = gameType == null || gameType.isBlank() ? "truearena" : gameType;
         if (!GAME_TYPES.contains(type)) {
             return Mono.error(ApiExceptions.badRequest("unknown gameType: " + type));
@@ -91,11 +101,29 @@ public class RoomService {
                         ? Mono.error(ApiExceptions.forbidden("verify a phone or email to host a game — guests can join, not host"))
                         : allocateCode(5)
                                 .flatMap(code -> rooms.save(RoomRow.create(code, groupId, hostId, type, stakeCoins,
-                                        writeConfig(gameConfig))))
+                                        writeConfig(ranked ? withRankedRules(type, gameConfig) : gameConfig), ranked)))
                                 .flatMap(room -> members.save(RoomMemberRow.of(room.id(), hostId, host.username())).thenReturn(room))
                                 .flatMap(room -> escrowStake(room, hostId))
                                 .doOnNext(room -> notifyCallCompanions(room, host.displayName()))
                                 .flatMap(room -> view(room, hostId)));
+    }
+
+    /**
+     * Rules every rated game of a type is played under, whatever the client
+     * sent — a rating earned under house rules wouldn't mean the same thing,
+     * and the app's locked toggle is only a convenience, not the guarantee.
+     */
+    static final Map<String, Map<String, Object>> RANKED_RULES = Map.of(
+            "draughts", Map.of("mandatoryCapture", true));
+
+    static java.util.Map<String, Object> withRankedRules(String gameType, java.util.Map<String, Object> requested) {
+        Map<String, Object> rules = RANKED_RULES.get(gameType);
+        if (rules == null) {
+            return requested;
+        }
+        java.util.Map<String, Object> merged = new java.util.HashMap<>(requested == null ? Map.of() : requested);
+        merged.putAll(rules);
+        return merged;
     }
 
     /** Host-chosen options, stored as JSON. Unreadable input is dropped rather than failing room creation. */
@@ -415,7 +443,7 @@ public class RoomService {
                 .map(list -> new RoomView(
                         room.id(), room.code(), room.groupId(), room.hostId(), room.status(), room.gameType(),
                         room.stakeCoins(), room.createdAt(),
-                        list, "/ws/room/" + room.id(), jwt.issueAccess(viewerId)));
+                        list, "/ws/room/" + room.id(), jwt.issueAccess(viewerId), room.ranked()));
     }
 
     private Mono<String> allocateCode(int attemptsLeft) {

@@ -20,7 +20,9 @@ public final class RoomDtos {
      * and the common case): staking is opt-in per room, never required.
      */
     public record CreateRoomRequest(UUID groupId, String gameType, Long stake,
-                                    java.util.Map<String, Object> gameConfig) {
+                                    java.util.Map<String, Object> gameConfig,
+                                    /** Optional; omitted = casual. A request, not a guarantee — see RatedMatchPolicy. */
+                                    Boolean ranked) {
     }
 
     public record JoinRoomRequest(
@@ -51,6 +53,8 @@ public final class RoomDtos {
             Instant createdAt,
             List<RoomMemberView> members,
             String wsUrl,
-            String sessionToken) {
+            String sessionToken,
+            /** The host asked for a rated match — the final say is RatedMatchPolicy's, at game end. */
+            boolean ranked) {
     }
 }

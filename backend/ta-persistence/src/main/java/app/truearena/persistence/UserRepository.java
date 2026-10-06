@@ -68,6 +68,15 @@ public interface UserRepository extends ReactiveCrudRepository<UserRow, UUID> {
     Mono<Long> lifetimeCoinsOf(UUID userId);
 
     /**
+     * Permanent PlayHuud number. Deliberately not a {@link UserRow} field, for
+     * the same reason {@code coins} isn't: the database assigns it (a BEFORE
+     * INSERT trigger) and freezes it (a BEFORE UPDATE trigger), so an entity
+     * copy would be stale straight after {@code save()}. Empty for bots.
+     */
+    @Query("SELECT playhuud_number FROM users WHERE id = :userId AND playhuud_number IS NOT NULL")
+    Mono<Long> playhuudNumberOf(UUID userId);
+
+    /**
      * Friend search-as-you-type — matches either handle, real humans only
      * (no bots), never the searcher themself. Exact and prefix username
      * matches rank first, then a prefix match on the real name, so typing

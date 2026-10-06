@@ -248,7 +248,7 @@ public class ChampionshipService {
 
     private Mono<Void> createMatchRoom(ChampionshipMatchRow m) {
         if (m.roomId() != null) return games.getObject().startTournamentRoom(m.roomId());
-        return rooms.save(RoomRow.create(code(), null, m.playerA(), "draughts", 0, null))
+        return rooms.save(RoomRow.create(code(), null, m.playerA(), "draughts", 0, null, true))
                 .flatMap(room -> members.save(RoomMemberRow.of(room.id(), m.playerA(), null))
                         .then(members.save(RoomMemberRow.of(room.id(), m.playerB(), null)))
                         .then(db.sql("UPDATE championship_matches SET room_id=:room,status='active',started_at=now(), "

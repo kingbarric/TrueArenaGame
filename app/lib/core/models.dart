@@ -169,6 +169,7 @@ class RoomView {
     this.wsUrl,
     this.gameType = 'truearena',
     this.stakeCoins = 0,
+    this.ranked = false,
   });
 
   final String id;
@@ -177,6 +178,10 @@ class RoomView {
   final String status;
   final List<RoomMember> members;
   final String? wsUrl;
+
+  /// The host asked for a rated match. The server has the final say when the
+  /// game ends (a Cyber Agent or a guest at the table makes it unrated).
+  final bool ranked;
 
   /// 'truearena' | 'wordbluff' — which game screen to hand off to once the
   /// game starts. Only present on a room the app fetched or joined from the
@@ -196,6 +201,7 @@ class RoomView {
         wsUrl: j['wsUrl'] as String?,
         gameType: j['gameType'] as String? ?? 'truearena',
         stakeCoins: (j['stakeCoins'] as num?)?.toInt() ?? 0,
+        ranked: j['ranked'] as bool? ?? false,
         members: ((j['members'] as List?) ?? const [])
             .map((e) => RoomMember.fromJson((e as Map).cast<String, dynamic>()))
             .toList(),

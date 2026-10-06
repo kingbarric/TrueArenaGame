@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import '../../core/app_state.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/neon.dart';
-import '../shell/main_shell.dart';
+import '../competitive/competitive_setup_screen.dart';
 
 /// Shown once, right after a brand-new account's first OTP verify (see
 /// `AuthTokens.newAccount`). A username already exists at this point — the
@@ -51,9 +51,12 @@ class _UsernameSetupScreenState extends State<UsernameSetupScreen> {
     }
   }
 
+  /// Next stop is the competitive profile (country/state) — skippable, so
+  /// sign-up itself never gets longer; it lands on `MainShell` either way.
   void _goHome() {
     if (!mounted) return;
-    Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const MainShell()), (r) => false);
+    Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const CompetitiveSetupScreen(onboarding: true)), (r) => false);
   }
 
   @override

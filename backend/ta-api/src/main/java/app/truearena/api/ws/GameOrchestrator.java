@@ -104,6 +104,8 @@ public class GameOrchestrator {
     private app.truearena.api.push.PushNotificationService push;
     @Autowired(required = false)
     private LiveKitRoomAdmin voiceAdmin;
+    @Autowired(required = false)
+    private app.truearena.api.competitive.RatingService ratings;
 
     public GameOrchestrator(RoomRuntimeRegistry registry, RoomLock lock, RoomEventLog eventLog,
                             RoomRepository rooms, RoomMemberRepository members,
@@ -1408,8 +1410,29 @@ public class GameOrchestrator {
                 : rooms.findById(rt.roomId).flatMap(room -> payoutStake(room, win.perPlayerOutcome())).then();
         Mono<Void> tournament = championships == null || win == null ? Mono.empty()
                 : championships.gameFinished(rt.roomId, rt.gameSessionId, win.perPlayerOutcome());
+        Mono<Void> competitive = win == null ? Mono.empty() : recordCompetitive(rt, win);
         return saveResult.then(flushEvents).then(endSession).then(endRoom).then(stats).then(coinRewards)
-                .then(stakePayout).then(tournament).then(releaseAgents(rt.roomId));
+                .then(stakePayout).then(tournament).then(competitive).then(releaseAgents(rt.roomId));
+    }
+
+    /**
+     * Match history + rating, for every game type — the competitive system is
+     * game-agnostic and decides for itself whether this game counts (see
+     * {@code RatedMatchPolicy}). Runs after the tournament step so the
+     * championship link exists, and is best-effort like stats and coins: a
+     * rating failure must never undo a result, a payout, or an advancement.
+     */
+    private Mono<Void> recordCompetitive(RoomRuntime rt, app.truearena.engine.WinResult win) {
+        if (ratings == null) {
+            return Mono.empty();
+        }
+        return ratings.recordMatch(new app.truearena.api.competitive.RatingService.FinishedGame(
+                        rt.gameSessionId, rt.roomId, rt.module().gameType(), win.winningSide(),
+                        win.perPlayerOutcome(), Set.copyOf(rt.connectedUserIds)))
+                .onErrorResume(e -> {
+                    log.warn("competitive record failed for session {}: {}", rt.gameSessionId, e.toString());
+                    return Mono.empty();
+                });
     }
 
     /**

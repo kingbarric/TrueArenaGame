@@ -65,7 +65,7 @@ class GameOrchestratorHostMigrationTest {
 
         when(users.findById(botId)).thenReturn(Mono.just(bot(botId)));
         when(users.findById(humanId)).thenReturn(Mono.just(human(humanId)));
-        RoomRow room = new RoomRow(rt.roomId, "123456", null, oldHost, "lobby", "truearena", 0L, null, null);
+        RoomRow room = new RoomRow(rt.roomId, "123456", null, oldHost, "lobby", "truearena", 0L, null, false, null);
         when(rooms.findById(rt.roomId)).thenReturn(Mono.just(room));
         when(rooms.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 

@@ -11,6 +11,9 @@ import '../onboarding/sign_out.dart';
 import '../settings/settings_screen.dart';
 import '../wallet/wallet_screen.dart';
 import '../draughts/championships_screen.dart';
+import '../competitive/competitive_api.dart';
+import '../competitive/competitive_models.dart';
+import '../competitive/player_profile_screen.dart';
 
 /// Reached from Home by tapping the avatar/name row. Appearance is available
 /// here, with the rest of the device preferences in [SettingsScreen].
@@ -26,6 +29,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _statsError;
   bool _pickingPhoto = false;
   List<Map<String, dynamic>> _championshipBadges = const [];
+  CompetitiveProfile? _competitive;
+  List<String> _ratedGames = const ['draughts'];
 
   Future<void> _choosePhoto(AppState app) async {
     setState(() => _pickingPhoto = true);
@@ -81,7 +86,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) { _loadStats(); _loadBadges(); });
+    WidgetsBinding.instance.addPostFrameCallback((_) { _loadStats(); _loadBadges(); _loadCompetitive(); });
+  }
+
+  /// PlayHuud number, founding status, location and per-game ratings. Never
+  /// blocks the rest of the profile — on failure the section just doesn't show.
+  Future<void> _loadCompetitive() async {
+    final app = AppScope.of(context);
+    if (app.identity == Identity.anonymous) return;
+    final api = CompetitiveApi(app.api);
+    try {
+      final results = await Future.wait([api.mine(), api.ratedGames()]);
+      if (mounted) {
+        setState(() {
+          _competitive = results[0] as CompetitiveProfile;
+          _ratedGames = results[1] as List<String>;
+        });
+      }
+    } catch (_) {/* optional section */}
   }
 
   Future<void> _loadBadges() async {
@@ -189,6 +211,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ],
                       ),
                     ),
+                  if (_competitive != null) ...[
+                    const SizedBox(height: 10),
+                    CompetitiveIdentityHeader(profile: _competitive!, showAvatar: false),
+                  ],
                 ],
               ),
             ),
@@ -211,6 +237,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ]),
               ),
             ),
+            if (_competitive != null) ...[
+              const SizedBox(height: 24),
+              CompetitiveRecordSection(
+                key: const ValueKey('profile-competitive-record'),
+                profile: _competitive!,
+                own: true,
+                ratedGames: _ratedGames,
+                onChanged: _loadCompetitive,
+              ),
+            ],
             const SizedBox(height: 28),
             if (_championshipBadges.isNotEmpty) ...[
               Text('CHAMPIONSHIP BADGES', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: n.gold)),

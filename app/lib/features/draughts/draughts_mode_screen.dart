@@ -4,10 +4,11 @@ import '../../core/app_state.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/neon.dart';
 import '../onboarding/guest_gate.dart';
+import '../competitive/leaderboard_screen.dart';
 import 'championships_screen.dart';
 import 'draughts_lobby_screen.dart';
 
-/// The two ways to play Draft, shown before creating a classic room.
+/// The ways into Draft — a classic match, a championship, or the rankings.
 class DraughtsModeScreen extends StatelessWidget {
   const DraughtsModeScreen({super.key});
 
@@ -72,6 +73,32 @@ class DraughtsModeScreen extends StatelessWidget {
                         style: Theme.of(context).textTheme.titleMedium),
                     const SizedBox(height: 4),
                     Text('Enter or host a knockout tournament.',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: n.mid)),
+                  ],
+                )),
+                Icon(Icons.chevron_right, color: n.mute),
+              ]),
+            ),
+            const SizedBox(height: 12),
+            NeonCard(
+              key: const ValueKey('draft-rankings'),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => const LeaderboardScreen(gameType: 'draughts'),
+              )),
+              child: Row(children: [
+                Icon(Icons.leaderboard_rounded, color: n.gold, size: 34),
+                const SizedBox(width: 16),
+                Expanded(
+                    child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Rankings',
+                        style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 4),
+                    Text('Global, national, state and friends.',
                         style: Theme.of(context)
                             .textTheme
                             .bodySmall
