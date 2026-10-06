@@ -370,7 +370,7 @@ class CompetitiveRatingIT {
         UUID mover = human("mover");
         seedRated(mover, 1700, 30, "NG", "NG-LA");
 
-        profiles.updateLocation(mover, new UpdateLocationRequest("NG", "NG-RI", null, null, null)).block();
+        profiles.updateLocation(mover, new UpdateLocationRequest("NG", "NG-RI", null, null, null, null)).block();
 
         LeaderboardView rivers = leaderboards.page(gameType, LeaderboardScope.REGION, "NG-RI", null, 10, 0).block();
         assertThat(rivers.entries()).extracting(e -> e.userId()).contains(mover);
@@ -413,7 +413,7 @@ class CompetitiveRatingIT {
         assertThat(before.location()).isNull();
 
         CompetitiveProfileView after = profiles.updateLocation(ada,
-                new UpdateLocationRequest("ng", "ng-ri", null, "Port Harcourt", false)).block();
+                new UpdateLocationRequest("ng", "ng-ri", null, "Port Harcourt", false, null)).block();
         assertThat(after.profileComplete()).isTrue();
         assertThat(after.location().countryName()).isEqualTo("Nigeria");
         assertThat(after.location().regionName()).isEqualTo("Rivers");
@@ -428,19 +428,46 @@ class CompetitiveRatingIT {
     @Test
     void locationSwitchingIsRateLimited() {
         UUID ada = human("ada");
-        profiles.updateLocation(ada, new UpdateLocationRequest("NG", "NG-RI", null, null, null)).block();
+        profiles.updateLocation(ada, new UpdateLocationRequest("NG", "NG-RI", null, null, null, null)).block();
         // First correction: allowed, starts the cooldown.
         CompetitiveProfileView corrected = profiles.updateLocation(ada,
-                new UpdateLocationRequest("NG", "NG-LA", null, null, null)).block();
+                new UpdateLocationRequest("NG", "NG-LA", null, null, null, null)).block();
         assertThat(corrected.locationLockedUntil()).isNotNull();
         // Second change inside the cooldown: refused.
         assertThatThrownBy(() -> profiles.updateLocation(ada,
-                new UpdateLocationRequest("GH", "GH-AA", null, null, null)).block())
+                new UpdateLocationRequest("GH", "GH-AA", null, null, null, null)).block())
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("change your ranking location again");
         // City alone is never rate-limited.
-        assertThat(profiles.updateLocation(ada, new UpdateLocationRequest(null, null, null, "Ikeja", true)).block()
+        assertThat(profiles.updateLocation(ada, new UpdateLocationRequest(null, null, null, "Ikeja", true, null)).block()
                 .location().city()).isEqualTo("Ikeja");
+    }
+
+    @Test
+    void profilesArePublicByDefaultAndCanBeMadePrivate() {
+        UUID ada = human("ada");
+        UUID bola = human("bola");
+        profiles.updateLocation(ada, new UpdateLocationRequest("NG", "NG-RI", null, null, null, null)).block();
+        play(session(ada, true), ada, bola);
+        String adaName = users.findById(ada).block().username();
+
+        CompetitiveProfileView seen = profiles.profileOfUsername(adaName, bola).block();
+        assertThat(seen.profilePublic()).isTrue();
+        assertThat(seen.restricted()).isFalse();
+        assertThat(seen.games()).isNotEmpty();
+
+        profiles.updateLocation(ada, new UpdateLocationRequest(null, null, null, null, null, false)).block();
+
+        CompetitiveProfileView hidden = profiles.profileOfUsername(adaName, bola).block();
+        assertThat(hidden.restricted()).isTrue();
+        assertThat(hidden.playhuudId()).isNotNull(); // identity stays
+        assertThat(hidden.games()).isEmpty();
+        assertThat(hidden.location()).isNull();
+        // The owner still sees everything.
+        CompetitiveProfileView own = profiles.profileOfUsername(adaName, ada).block();
+        assertThat(own.restricted()).isFalse();
+        assertThat(own.profilePublic()).isFalse();
+        assertThat(own.games()).isNotEmpty();
     }
 
     @Test

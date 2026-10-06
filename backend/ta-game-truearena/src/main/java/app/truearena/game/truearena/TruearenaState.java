@@ -44,11 +44,13 @@ public final class TruearenaState implements GameState {
     final String shieldHolder;
     final boolean shieldPoisoned;
     final boolean shieldAvailable;
-    final String poisonedPlayer;
-    final int poisonDueRound;
+    /** Poisoned players and the round whose night they die in. More than one can be pending. */
+    final Map<String, Integer> poisonDue;
     final int giftUses;
     final String immunityHolder;
     final boolean immunitySpent;
+    /** The game's one coin has been used (or expired). It can't be awarded again. */
+    final boolean immunityConsumed;
     final int eliminationIndex;
     final List<String> eliminatedLog;
     final Map<String, String> eliminationCause;
@@ -65,6 +67,13 @@ public final class TruearenaState implements GameState {
     final boolean doubleAgentRecruited;
     final Map<String, String> lastWills;
     final boolean tieDefensePending;
+    /** false_reveal: Traitors have committed to hiding the next banished Faithful's role. */
+    final boolean falseRevealArmed;
+    /**
+     * Every resolved ballot, in order — {@code {round, stage, votes}}. Kept so the
+     * Results screen can release the votes a veiled endgame withheld.
+     */
+    final List<Map<String, Object>> ballotHistory;
     final GameConfig config;
     final long seed;
     final Set<String> appliedActionIds;
@@ -94,11 +103,11 @@ public final class TruearenaState implements GameState {
         this.shieldHolder = d.shieldHolder;
         this.shieldPoisoned = d.shieldPoisoned;
         this.shieldAvailable = d.shieldAvailable;
-        this.poisonedPlayer = d.poisonedPlayer;
-        this.poisonDueRound = d.poisonDueRound;
+        this.poisonDue = Collections.unmodifiableMap(new LinkedHashMap<>(d.poisonDue));
         this.giftUses = d.giftUses;
         this.immunityHolder = d.immunityHolder;
         this.immunitySpent = d.immunitySpent;
+        this.immunityConsumed = d.immunityConsumed;
         this.eliminationIndex = d.eliminationIndex;
         this.eliminatedLog = List.copyOf(d.eliminatedLog);
         this.eliminationCause = Collections.unmodifiableMap(new LinkedHashMap<>(d.eliminationCause));
@@ -114,6 +123,8 @@ public final class TruearenaState implements GameState {
         this.doubleAgentRecruited = d.doubleAgentRecruited;
         this.lastWills = Collections.unmodifiableMap(new LinkedHashMap<>(d.lastWills));
         this.tieDefensePending = d.tieDefensePending;
+        this.falseRevealArmed = d.falseRevealArmed;
+        this.ballotHistory = List.copyOf(d.ballotHistory);
         this.config = d.config;
         this.seed = d.seed;
         this.appliedActionIds = Set.copyOf(d.appliedActionIds);
@@ -173,11 +184,11 @@ public final class TruearenaState implements GameState {
         String shieldHolder;
         boolean shieldPoisoned;
         boolean shieldAvailable;
-        String poisonedPlayer;
-        int poisonDueRound;
+        Map<String, Integer> poisonDue = new LinkedHashMap<>();
         int giftUses;
         String immunityHolder;
         boolean immunitySpent;
+        boolean immunityConsumed;
         int eliminationIndex;
         List<String> eliminatedLog = new ArrayList<>();
         Map<String, String> eliminationCause = new LinkedHashMap<>();
@@ -193,6 +204,8 @@ public final class TruearenaState implements GameState {
         boolean doubleAgentRecruited;
         Map<String, String> lastWills = new LinkedHashMap<>();
         boolean tieDefensePending;
+        boolean falseRevealArmed;
+        List<Map<String, Object>> ballotHistory = new ArrayList<>();
         GameConfig config;
         long seed;
         Set<String> appliedActionIds = new LinkedHashSet<>();
@@ -225,11 +238,11 @@ public final class TruearenaState implements GameState {
             this.shieldHolder = s.shieldHolder;
             this.shieldPoisoned = s.shieldPoisoned;
             this.shieldAvailable = s.shieldAvailable;
-            this.poisonedPlayer = s.poisonedPlayer;
-            this.poisonDueRound = s.poisonDueRound;
+            this.poisonDue = new LinkedHashMap<>(s.poisonDue);
             this.giftUses = s.giftUses;
             this.immunityHolder = s.immunityHolder;
             this.immunitySpent = s.immunitySpent;
+            this.immunityConsumed = s.immunityConsumed;
             this.eliminationIndex = s.eliminationIndex;
             this.eliminatedLog = new ArrayList<>(s.eliminatedLog);
             this.eliminationCause = new LinkedHashMap<>(s.eliminationCause);
@@ -245,6 +258,8 @@ public final class TruearenaState implements GameState {
             this.doubleAgentRecruited = s.doubleAgentRecruited;
             this.lastWills = new LinkedHashMap<>(s.lastWills);
             this.tieDefensePending = s.tieDefensePending;
+            this.falseRevealArmed = s.falseRevealArmed;
+            this.ballotHistory = new ArrayList<>(s.ballotHistory);
             this.config = s.config;
             this.seed = s.seed;
             this.appliedActionIds = new LinkedHashSet<>(s.appliedActionIds);

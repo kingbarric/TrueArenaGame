@@ -486,8 +486,10 @@ public class GameOrchestrator {
         // applying the rule left them with no way for players to talk at all.
         boolean hasRoundTable = rt.module().definePhases(rt.config).stream()
                 .anyMatch(p -> "RoundTable".equals(p.name()));
-        if (hasRoundTable && !"RoundTable".equals(rt.state().phase())) {
-            return tellError(rt, userId, "WRONG_PHASE", "that channel is only open during the round table");
+        if (hasRoundTable && !chatOpenInPhase(channel, rt.state().phase())) {
+            return tellError(rt, userId, "WRONG_PHASE", ChatMessage.TRAITORS.equals(channel)
+                    ? "the traitors' channel is open at night and during the round table"
+                    : "that channel is only open during the round table");
         }
         if (ChatMessage.TRAITORS.equals(channel) && !roleGroupMatches("traitor", String.valueOf(rt.roleByUser().get(userId)))) {
             return tellError(rt, userId, "NOT_TRAITOR", "only traitors can use that channel");
@@ -1232,9 +1234,7 @@ public class GameOrchestrator {
         Object rawActionId = in.payload().get("actionId");
         String actionId = rawActionId != null ? rawActionId.toString() : UUID.randomUUID().toString();
 
-        boolean hostOnly = "REVEAL_NEXT".equals(action) || "ADVANCE_PHASE".equals(action)
-                || "CHOOSE_TIE".equals(action) || "AWARD_IMMUNITY".equals(action);
-        if (hostOnly && !userId.equals(rt.hostUserId)) {
+        if (isHostOnlyAction(action) && !userId.equals(rt.hostUserId)) {
             return tellError(rt, userId, "NOT_HOST", "only the host can do that");
         }
 
@@ -1254,6 +1254,29 @@ public class GameOrchestrator {
                 return afterMutation(rt, step.events());
             }));
         });
+    }
+
+    /**
+     * Moderator actions. HOST_ASSIGN_VOTE was missing from this list, so in a
+     * "host assigns" AFK game any player could fill in an absent player's ballot.
+     */
+    static boolean isHostOnlyAction(String action) {
+        return switch (action) {
+            case "REVEAL_NEXT", "ADVANCE_PHASE", "CHOOSE_TIE", "AWARD_IMMUNITY", "HOST_ASSIGN_VOTE" -> true;
+            default -> false;
+        };
+    }
+
+    /**
+     * Whether a chat channel is open in this phase of a game that has a round
+     * table (Traitors). The table talks only at the round table; the Traitors'
+     * own channel is also open at night, because that is when they have to agree
+     * on a target — in a consensus mode (The Last Alibi) they otherwise had no
+     * way to coordinate at all.
+     */
+    static boolean chatOpenInPhase(String channel, String phase) {
+        if ("RoundTable".equals(phase)) return true;
+        return ChatMessage.TRAITORS.equals(channel) && "Night".equals(phase);
     }
 
     /**
@@ -1660,10 +1683,15 @@ public class GameOrchestrator {
      * write failing doesn't undo the result/session writes above.
      */
     private Mono<Void> updateStats(RoomRuntime rt, Map<String, String> perPlayerOutcome) {
+        // Roles as they ended, not as they were dealt: a Faithful recruited mid-game
+        // (Hidden Legacy, Double Agent) played and won or lost as a Traitor, but the
+        // roles table only holds the starting deal.
+        Map<String, String> finalRoles = rt.roleByUser();
         return roleRows.findByGameSessionId(rt.gameSessionId)
                 .concatMap(role -> {
                     boolean won = "won".equals(perPlayerOutcome.get(role.userId().toString()));
-                    boolean wasTraitor = "traitor".equals(role.roleType()) || "recruited_traitor".equals(role.roleType());
+                    String endedAs = finalRoles.getOrDefault(role.userId().toString(), role.roleType());
+                    boolean wasTraitor = "traitor".equals(endedAs) || "recruited_traitor".equals(endedAs);
                     return statsRows.findByUserIdAndGroupIdIsNull(role.userId())
                             .defaultIfEmpty(PlayerStatsRow.lifetimeZero(role.userId()))
                             .flatMap(row -> statsRows.save(row.plusGame(won, wasTraitor)));

@@ -219,7 +219,7 @@ public final class TrueArenaModule implements GameModule {
                 || d.nightSubmissions.values().stream().distinct().count() == 1
                     && d.secondNightSubmissions.values().stream().distinct().count() <= 1;
         if (allIn && agreed) {
-            resolveNight(d);
+            resolveNight(d, false);
         }
     }
 
@@ -229,7 +229,7 @@ public final class TrueArenaModule implements GameModule {
         require(s.config.nightKill().allowSkip() && !s.nightSkipUsed, "SKIP_UNAVAILABLE", "no skip left");
         d.nightSkipUsed = true;
         d.nightTarget = null;
-        resolveNight(d);
+        resolveNight(d, true);
     }
 
     private void nightGift(TruearenaState.Draft d, TruearenaState s, PlayerAction a) {
@@ -242,10 +242,10 @@ public final class TrueArenaModule implements GameModule {
             String target = a.str("target");
             require(target != null && s.alive.contains(target) && !s.isTraitor(target),
                     "BAD_TARGET", "poison must target a living Faithful");
-            d.poisonedPlayer = target;
-            d.poisonDueRound = d.round + 1;
-            d.emitToPlayer("POISONED", Map.of("dueRound", d.poisonDueRound), target);
-            d.emit("DIRECT_POISON_USED", Map.of("dueRound", d.poisonDueRound));
+            require(!d.poisonDue.containsKey(target), "BAD_TARGET", "that player is already poisoned");
+            d.poisonDue.put(target, d.round + 1);
+            d.emitToPlayer("POISONED", Map.of("dueRound", d.round + 1), target);
+            d.emit("DIRECT_POISON_USED", Map.of("dueRound", d.round + 1));
         } else if ("shield".equals(choice)) {
             d.shieldAvailable = true;
             d.shieldPoisoned = RandomSource.seeded(d.seed + 991L + d.round).nextInt(2) == 0;
@@ -263,15 +263,14 @@ public final class TrueArenaModule implements GameModule {
         d.shieldHolder = a.actor();
         d.emit("SHIELD_CLAIMED", Map.of("holder", a.actor()));
         if (d.shieldPoisoned) {
-            d.poisonedPlayer = a.actor();
-            d.poisonDueRound = d.round + 1;
-            d.emitToPlayer("POISONED", Map.of("dueRound", d.poisonDueRound), a.actor());
+            d.poisonDue.merge(a.actor(), d.round + 1, Math::min);
+            d.emitToPlayer("POISONED", Map.of("dueRound", d.poisonDue.get(a.actor())), a.actor());
         }
     }
 
     private void awardImmunity(TruearenaState.Draft d, TruearenaState s, PlayerAction a) {
         require("RoundTable".equals(d.phase), "WRONG_PHASE", "award immunity during discussion");
-        require(s.config.twistEnabled("immunity_coin") && d.immunityHolder == null,
+        require(s.config.twistEnabled("immunity_coin") && d.immunityHolder == null && !d.immunityConsumed,
                 "IMMUNITY_UNAVAILABLE", "immunity has already been awarded");
         String target = a.str("target");
         require(target != null && s.alive.contains(target), "BAD_TARGET", "winner must be alive");
@@ -282,7 +281,7 @@ public final class TrueArenaModule implements GameModule {
     private void useImmunity(TruearenaState.Draft d, TruearenaState s, PlayerAction a) {
         require("VoteReview".equals(d.phase) || "Elimination".equals(d.phase),
                 "WRONG_PHASE", "use immunity before elimination");
-        require(a.actor().equals(d.immunityHolder) && !d.immunitySpent,
+        require(a.actor().equals(d.immunityHolder) && !d.immunitySpent && s.alive.contains(a.actor()),
                 "IMMUNITY_UNAVAILABLE", "you do not hold an unused immunity coin");
         d.immunitySpent = true;
         d.emit("IMMUNITY_SPENT", Map.of("holder", a.actor()));
@@ -343,18 +342,22 @@ public final class TrueArenaModule implements GameModule {
         }
     }
 
+    /**
+     * Arms the twist: the next banished Faithful whose role would be shown is
+     * announced as unknown instead. It has to be armed before the banishment —
+     * the old version hid a role the morning after, by which time every client
+     * had already received it in PLAYER_ELIMINATED, so it hid nothing. Only the
+     * Traitors are told it's armed.
+     */
     private void falseReveal(TruearenaState.Draft d, TruearenaState s, PlayerAction a) {
-        require("MorningReveal".equals(d.phase), "WRONG_PHASE", "false reveal is a morning action");
+        require(!"Night".equals(d.phase) && !"RoleReveal".equals(d.phase),
+                "WRONG_PHASE", "arm the false reveal during the day, before the banishment");
         require(s.isTraitor(a.actor()) && s.alive.contains(a.actor()), "NOT_TRAITOR", "only a living Traitor can force a false reveal");
         require(s.config.twistEnabled("false_reveal") && d.falseRevealUses > 0,
                 "FALSE_REVEAL_UNAVAILABLE", "no false reveals remain");
-        String target = a.str("target");
-        require(target != null && s.eliminatedLog.contains(target), "BAD_TARGET", "target must be an eliminated player");
-        require(TruearenaState.FAITHFUL.equals(s.roles.get(target)), "BAD_TARGET", "false reveal only works on an eliminated Faithful");
-        require(Boolean.TRUE.equals(s.eliminationRoleShown.get(target)), "BAD_TARGET", "that role isn't currently shown");
-        d.eliminationRoleShown.put(target, false);
-        d.falseRevealUses--;
-        d.emit("FALSE_REVEAL_USED", Map.of("id", target));
+        require(!d.falseRevealArmed, "FALSE_REVEAL_ARMED", "the false reveal is already armed");
+        d.falseRevealArmed = true;
+        d.emitToRole("FALSE_REVEAL_ARMED", Map.of("by", a.actor()), TruearenaState.TRAITOR);
     }
 
     private void submitConfessional(TruearenaState.Draft d, TruearenaState s, PlayerAction a) {
@@ -428,9 +431,7 @@ public final class TrueArenaModule implements GameModule {
         d.emit("VOTE_PROGRESS", Map.of("locked", d.voteLocked.size(), "total", s.alive.size()));
         List<String> stillMissing = d.alive.stream().filter(id -> !d.voteLocked.contains(id)).toList();
         if (stillMissing.isEmpty()) {
-            d.phase = "VoteReview";
-            d.votesRevealed = 0;
-            d.emit("ALL_VOTES_IN", Map.of("count", d.votes.size(), "veiled", veiled(d)));
+            enterVoteReview(d);
         }
     }
 
@@ -439,7 +440,7 @@ public final class TrueArenaModule implements GameModule {
     private void advance(TruearenaState.Draft d, String from) {
         switch (from) {
             case "RoleReveal" -> goNight(d);
-            case "Night" -> resolveNight(d);
+            case "Night" -> resolveNight(d, false);
             case "MorningReveal" -> {
                 d.confessionals.clear();
                 d.phase = "RoundTable";
@@ -468,9 +469,7 @@ public final class TrueArenaModule implements GameModule {
                     d.voteLocked.addAll(stillMissing);
                     d.emit("AFK_ABSTAINED", Map.of("ids", stillMissing));
                 }
-                d.phase = "VoteReview";
-                d.votesRevealed = 0;
-                d.emit("ALL_VOTES_IN", Map.of("count", d.votes.size(), "veiled", veiled(d)));
+                enterVoteReview(d);
             }
             case "VoteReview" -> {
                 // Unconditional bulk-reveal-then-advance regardless of voteReveal — this is the
@@ -525,21 +524,24 @@ public final class TrueArenaModule implements GameModule {
         d.secondNightSubmissions.clear();
         d.nightTarget = null;
         d.survivorsChoiceVotes.clear();
+        d.accused = null; // yesterday's accusation is over
         d.emit("NIGHT_FALLS", Map.of("round", d.round));
     }
 
-    private void resolveNight(TruearenaState.Draft d) {
+    /** @param skipped the Traitors used their one skip tonight (as opposed to simply not choosing) */
+    private void resolveNight(TruearenaState.Draft d, boolean skipped) {
         boolean opensDry = d.round == 1 && !d.config.nightKill().opensWithKill();
         List<String> eliminated = new ArrayList<>();
-        if (d.poisonedPlayer != null && d.poisonDueRound <= d.round) {
-            if (d.alive.contains(d.poisonedPlayer)) {
-                eliminate(d, d.poisonedPlayer, "poison");
-                eliminated.add(d.poisonedPlayer);
+        for (String poisoned : List.copyOf(d.poisonDue.keySet())) {
+            if (d.poisonDue.get(poisoned) <= d.round) {
+                if (d.alive.contains(poisoned)) {
+                    eliminate(d, poisoned, "poison");
+                    eliminated.add(poisoned);
+                }
+                d.poisonDue.remove(poisoned);
             }
-            d.poisonedPlayer = null;
-            d.poisonDueRound = 0;
         }
-        if (opensDry || d.nightSkipUsed && d.nightTarget == null) {
+        if (opensDry || skipped) {
             d.emit("NO_MURDER", Map.of("round", d.round, "reason", opensDry ? "opening_night" : "skipped"));
         } else if (d.config.nightKill().requireTraitorConsensus()
                 && d.nightSubmissions.values().stream().distinct().count() > 1) {
@@ -590,6 +592,12 @@ public final class TrueArenaModule implements GameModule {
     private boolean settleWin(TruearenaState.Draft d) {
         TruearenaState now = build(d);
         if (now.aliveTraitors().isEmpty()) {
+            // Same rule as winCheckStep: the last original Traitor falling before the
+            // trigger recruits instead of ending — including to poison overnight.
+            if (TwistRegistry.recruitEligible(d)) {
+                recruit(d);
+                return false;
+            }
             finish(d, "faithful");
             return true;
         }
@@ -613,15 +621,28 @@ public final class TrueArenaModule implements GameModule {
             d.voteLocked.addAll(missing);
             d.emit("AFK_ABSTAINED", Map.of("ids", missing));
         }
+        enterVoteReview(d);
+    }
+
+    /**
+     * Every route into VoteReview goes through here — a normal close, the host
+     * filling in AFK ballots, or the AFK timer running out — so {@code all_at_once}
+     * behaves the same on all of them. It used to apply only to the first: after
+     * an AFK detour the game sat in VoteReview, where REVEAL_NEXT is refused in
+     * all_at_once mode, until the host force-advanced.
+     */
+    private void enterVoteReview(TruearenaState.Draft d) {
         d.phase = "VoteReview";
         d.votesRevealed = 0;
         d.emit("ALL_VOTES_IN", Map.of("count", d.votes.size(), "veiled", veiled(d)));
         // all_at_once: reveal immediately, no waiting on REVEAL_NEXT or a host force-advance —
         // that's the one real behavioral difference from `sequential` (see revealNext()'s guard).
-        if ("all_at_once".equals(d.config.voteReveal()) && !veiled(d)) {
-            while (d.votesRevealed < d.votes.size()) {
-                String voter = new ArrayList<>(d.votes.keySet()).get(d.votesRevealed++);
-                d.emit("VOTE_REVEALED", Map.of("voter", voter, "target", d.votes.get(voter)));
+        if ("all_at_once".equals(d.config.voteReveal())) {
+            if (!veiled(d)) {
+                while (d.votesRevealed < d.votes.size()) {
+                    String voter = new ArrayList<>(d.votes.keySet()).get(d.votesRevealed++);
+                    d.emit("VOTE_REVEALED", Map.of("voter", voter, "target", d.votes.get(voter)));
+                }
             }
             d.phase = "Elimination";
         }
@@ -633,8 +654,16 @@ public final class TrueArenaModule implements GameModule {
             d.phase = "WinCheck";
             d.tieCandidates.clear();
             clearBallot(d);
+            expireImmunity(d);
             return;
         }
+        // Kept for Results: a veiled endgame withholds these at the time, and the
+        // spec promises the full ballot history at the end.
+        d.ballotHistory.add(Map.of(
+                "round", d.round,
+                "stage", d.tieStage == 0 ? "vote" : "tie",
+                "veiled", veiled(d),
+                "votes", new LinkedHashMap<>(d.votes)));
         Map<String, Integer> tally = new LinkedHashMap<>();
         for (String t : d.votes.values()) {
             tally.merge(t, 1, Integer::sum);
@@ -645,11 +674,13 @@ public final class TrueArenaModule implements GameModule {
         String banished;
         if (tied.size() == 1) {
             banished = tied.get(0);
-        } else if (d.tieStage == 0 && d.config.twistEnabled("trial_of_two")) {
+        } else if (d.tieStage == 0 && (d.config.twistEnabled("trial_of_two")
+                || "trial_of_two".equals(d.config.tieBreak()))) {
             // Twist takes precedence over whatever `tieBreak` is configured (docs/GAME_CONFIG.md
             // compatibility rule: "the twist wins"). Reuses the existing Defense phase/timer;
             // advance()'s Defense case routes here via tieDefensePending instead of the normal
-            // accusation-reply openVote().
+            // accusation-reply openVote(). Picking trial_of_two as the plain tie rule (no twist)
+            // takes this path too — it used to fall through to SuddenDeath with no defense.
             d.tieCandidates = new ArrayList<>(tied);
             d.tieStage = 1;
             d.tieDefensePending = true;
@@ -663,11 +694,12 @@ public final class TrueArenaModule implements GameModule {
                 d.emit("TIE_NO_ELIMINATION", Map.of("tied", tied));
                 d.phase = "WinCheck";
                 d.tieCandidates.clear();
+                d.tieStage = 0;
                 clearBallot(d);
+                expireImmunity(d);
                 return;
             }
-            if (d.tieStage == 0 && ("revote".equals(rule) || "sudden_death".equals(rule)
-                    || "trial_of_two".equals(rule))) {
+            if (d.tieStage == 0 && ("revote".equals(rule) || "sudden_death".equals(rule))) {
                 d.tieCandidates = new ArrayList<>(tied);
                 d.tieStage = 1;
                 d.phase = "revote".equals(rule) ? "Revote" : "SuddenDeath";
@@ -692,16 +724,30 @@ public final class TrueArenaModule implements GameModule {
     private void banish(TruearenaState.Draft d, String banished, int votes) {
         if (banished.equals(d.immunityHolder) && d.immunitySpent) {
             d.emit("IMMUNITY_BLOCKED_BANISH", Map.of("holder", banished));
-            d.immunityHolder = null;
-            d.immunitySpent = false;
         } else {
-        eliminate(d, banished, "banish");
+            eliminate(d, banished, "banish");
             d.emit("BANISHED", Map.of("id", banished, "votes", votes));
         }
+        expireImmunity(d);
         clearBallot(d);
         d.tieCandidates.clear();
         d.tieStage = 0;
         d.phase = "WinCheck";
+    }
+
+    /**
+     * A spent coin covers the elimination it was spent for and nothing after —
+     * otherwise spending it early would cost nothing, and "one use" would mean
+     * "permanent once spent". Either way the game's only coin is then gone; it
+     * used to reset to unawarded after blocking a banish, so the host could
+     * award a second one.
+     */
+    private void expireImmunity(TruearenaState.Draft d) {
+        if (d.immunitySpent) {
+            d.immunitySpent = false;
+            d.immunityHolder = null;
+            d.immunityConsumed = true;
+        }
     }
 
     private void clearBallot(TruearenaState.Draft d) {
@@ -751,10 +797,18 @@ public final class TrueArenaModule implements GameModule {
         d.win = new WinResult(side, outcome);
         d.phase = "Results";
         d.emit("GAME_OVER", Map.of("winningSide", side, "rounds", d.round));
-        d.emit("FULL_REVEAL", Map.of(
-                "roles", new LinkedHashMap<>(d.roles),
-                "eliminated", List.copyOf(d.eliminatedLog),
-                "causes", new LinkedHashMap<>(d.eliminationCause)));
+        Map<String, Object> reveal = new LinkedHashMap<>();
+        reveal.put("roles", new LinkedHashMap<>(d.roles));
+        reveal.put("eliminated", List.copyOf(d.eliminatedLog));
+        reveal.put("causes", new LinkedHashMap<>(d.eliminationCause));
+        reveal.put("ballots", List.copyOf(d.ballotHistory));
+        if (d.shieldHolder != null) {
+            Map<String, Object> shield = new LinkedHashMap<>();
+            shield.put("holder", d.shieldHolder);
+            shield.put("poisoned", d.shieldPoisoned);
+            reveal.put("shield", shield);
+        }
+        d.emit("FULL_REVEAL", reveal);
     }
 
     private void eliminate(TruearenaState.Draft d, String id, String cause) {
@@ -762,6 +816,13 @@ public final class TrueArenaModule implements GameModule {
         d.eliminatedLog.add(id);
         d.eliminationCause.put(id, cause);
         boolean shown = roleShownAt(d.config.revealOnElimination(), d.eliminationIndex);
+        if (shown && "banish".equals(cause) && d.falseRevealArmed
+                && TruearenaState.FAITHFUL.equals(d.roles.get(id))) {
+            shown = false;
+            d.falseRevealArmed = false;
+            d.falseRevealUses--;
+            d.emitToRole("FALSE_REVEAL_USED", Map.of("id", id), TruearenaState.TRAITOR);
+        }
         d.eliminationRoleShown.put(id, shown);
         d.eliminationIndex++;
         Map<String, Object> p = new LinkedHashMap<>();
@@ -822,7 +883,8 @@ public final class TrueArenaModule implements GameModule {
             case "Night" -> s.alive.stream().filter(s::isTraitor).collect(java.util.stream.Collectors.toSet());
             case "Vote", "Revote" -> s.alive.stream().filter(id -> !s.voteLocked.contains(id))
                     .collect(java.util.stream.Collectors.toSet());
-            case "Defense" -> s.accused == null ? java.util.Set.of() : java.util.Set.of(s.accused);
+            case "Defense" -> s.tieDefensePending ? java.util.Set.copyOf(s.tieCandidates)
+                    : s.accused == null ? java.util.Set.of() : java.util.Set.of(s.accused);
             default -> java.util.Set.of();
         };
     }
@@ -846,7 +908,37 @@ public final class TrueArenaModule implements GameModule {
                     .map(Map.Entry::getKey).toList());
             if ("Night".equals(s.phase)) {
                 m.put("yourNightTarget", s.nightTarget);
+                // What each Traitor has picked tonight. Without this, a mode that
+                // needs consensus (The Last Alibi) was nearly unplayable: nobody
+                // could see whether they agreed.
+                m.put("nightPicks", s.nightSubmissions);
+                m.put("secondNightPicks", s.secondNightSubmissions);
+                m.put("canSkipNight", s.config.nightKill().allowSkip() && !s.nightSkipUsed);
+                Integer after = s.config.nightKill().doubleAfterRound();
+                m.put("doubleMurderAvailable", after != null && after > 0 && s.round > after);
+                if (s.config.twistEnabled("double_agent") && !s.doubleAgentRecruited
+                        && s.doubleAgentCandidate != null && s.alive.contains(s.doubleAgentCandidate)) {
+                    m.put("doubleAgentCandidate", s.doubleAgentCandidate);
+                }
             }
+            if (s.config.twistEnabled("false_reveal")) {
+                m.put("falseRevealUses", s.falseRevealUses);
+                m.put("falseRevealArmed", s.falseRevealArmed);
+            }
+        }
+        if (s.votes.containsKey(playerId)) {
+            // Your own locked ballot, so the app can show it — never anyone else's.
+            m.put("yourVote", s.votes.get(playerId));
+        }
+        if (s.poisonDue.containsKey(playerId)) {
+            m.put("poisonedUntilRound", s.poisonDue.get(playerId));
+        }
+        if (s.config.twistEnabled("confessional") && s.alive.contains(playerId)) {
+            m.put("confessionalSubmitted", s.confessionals.containsKey(playerId));
+        }
+        if (s.config.twistEnabled("last_will") && "MorningReveal".equals(s.phase)
+                && s.eliminatedLog.contains(playerId) && !s.lastWills.containsKey(playerId)) {
+            m.put("canLeaveLastWill", true);
         }
         if (s.finished()) {
             m.put("allRoles", s.roles);
@@ -889,9 +981,39 @@ public final class TrueArenaModule implements GameModule {
         m.put("revealedRoles", revealed);
         m.put("lastWills", s.lastWills);
         m.put("voteProgress", Map.of("locked", s.voteLocked.size(), "total", s.alive.size()));
+        m.put("rules", rulesView(s.config));
+        m.put("immunityAvailable", s.config.twistEnabled("immunity_coin")
+                && s.immunityHolder == null && !s.immunityConsumed);
+        if ("HostAssignVotes".equals(s.phase)) {
+            m.put("missingVoters", s.alive.stream().filter(id -> !s.voteLocked.contains(id)).toList());
+        }
+        if (s.config.twistEnabled("survivors_choice")) {
+            m.put("survivorsChoiceVotes", s.survivorsChoiceVotes.size());
+        }
         m.put("veiled", s.config.veilThreshold() > 0 && s.alive.size() <= s.config.veilThreshold());
         if (s.finished()) m.put("winningSide", s.win.winningSide());
         return m;
+    }
+
+    /**
+     * The table's rules, public on purpose — everyone at the table agreed to them
+     * in the lobby. The app reads this rather than guessing from the preset name,
+     * which left every rule unusable in a Custom game.
+     */
+    private static Map<String, Object> rulesView(GameConfig c) {
+        Map<String, Object> r = new LinkedHashMap<>();
+        r.put("twists", List.copyOf(c.twists().keySet()));
+        r.put("allowSkip", c.nightKill().allowSkip());
+        r.put("doubleAfterRound", c.nightKill().doubleAfterRound());
+        r.put("requireTraitorConsensus", c.nightKill().requireTraitorConsensus());
+        r.put("voteReveal", c.voteReveal());
+        r.put("afk", c.afk());
+        r.put("tieBreak", c.tieBreak());
+        r.put("revealOnElimination", c.revealOnElimination());
+        r.put("timers", Map.of("night", c.timers().night(), "roundTable", c.timers().roundTable(),
+                "vote", c.timers().vote(), "defense", c.timers().defense(),
+                "suddenDeath", c.suddenDeathSeconds()));
+        return r;
     }
 
     @Override

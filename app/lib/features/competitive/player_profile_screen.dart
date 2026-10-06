@@ -9,6 +9,8 @@ import 'competitive_models.dart';
 import 'competitive_setup_screen.dart';
 import 'competitive_widgets.dart';
 import 'leaderboard_screen.dart';
+import 'player_card.dart';
+import '../status/victory_status.dart';
 
 /// `NG -> 🇳🇬`, from the two regional-indicator code points.
 String flagEmoji(String? countryCode) {
@@ -61,12 +63,17 @@ class CompetitiveIdentityHeader extends StatelessWidget {
   }
 }
 
-/// Someone else's competitive profile — reached from a leaderboard row.
+/// Someone else's competitive profile — reached from a leaderboard row or by
+/// tapping a friend. Same cards as your own profile; if they've made their
+/// profile private you see who they are and nothing more.
 class PlayerProfileScreen extends StatefulWidget {
-  const PlayerProfileScreen({super.key, required this.username, this.focusGame});
+  const PlayerProfileScreen({super.key, required this.username, this.focusGame, this.statusUserId});
 
   final String username;
   final String? focusGame;
+
+  /// Set when opened from the friends list, to keep their Status one tap away.
+  final String? statusUserId;
 
   @override
   State<PlayerProfileScreen> createState() => _PlayerProfileScreenState();
@@ -75,6 +82,7 @@ class PlayerProfileScreen extends StatefulWidget {
 class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
   late final CompetitiveApi _api = CompetitiveApi(AppScope.of(context).api);
   CompetitiveProfile? _profile;
+  List<String> _ratedGames = const ['draughts'];
   String? _error;
 
   @override
@@ -86,7 +94,16 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
   Future<void> _load() async {
     try {
       final p = await _api.player(widget.username);
-      if (mounted) setState(() => _profile = p);
+      List<String> rated = _ratedGames;
+      try {
+        rated = await _api.ratedGames();
+      } catch (_) {/* default list is fine */}
+      if (mounted) {
+        setState(() {
+          _profile = p;
+          _ratedGames = rated;
+        });
+      }
     } catch (_) {
       if (mounted) setState(() => _error = 'Could not load this player');
     }
@@ -95,26 +112,59 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final n = context.neon;
+    final t = Theme.of(context).textTheme;
     final p = _profile;
+    final statusId = widget.statusUserId;
     return Scaffold(
-      appBar: AppBar(title: Text(p == null ? '' : '@${p.username}')),
+      appBar: AppBar(
+        title: Text(p == null ? '' : '@${p.username}'),
+        actions: [
+          if (statusId != null && p != null)
+            IconButton(
+              tooltip: 'Status',
+              icon: const Icon(Icons.auto_awesome_rounded),
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => StatusScreen(userId: statusId, title: p.displayName))),
+            ),
+        ],
+      ),
       body: SafeArea(
         child: _error != null
             ? Center(child: Text(_error!, style: TextStyle(color: n.danger)))
             : p == null
                 ? const Center(child: CircularProgressIndicator())
-                : ListView(padding: const EdgeInsets.all(20), children: [
-                    CompetitiveIdentityHeader(profile: p),
-                    const SizedBox(height: 24),
-                    CompetitiveRecordSection(profile: p, own: false),
+                : ListView(padding: const EdgeInsets.symmetric(vertical: 20), children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: CompetitiveIdentityHeader(profile: p),
+                    ),
+                    const SizedBox(height: 22),
+                    if (p.restricted)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: NeonCard(
+                          key: const ValueKey('profile-private'),
+                          child: Row(children: [
+                            Icon(Icons.lock_rounded, color: n.mute),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text('${p.displayName} keeps their competitive profile private.',
+                                  style: t.bodySmall?.copyWith(color: n.mid)),
+                            ),
+                          ]),
+                        ),
+                      )
+                    else
+                      CompetitiveRecordSection(profile: p, own: false, ratedGames: _ratedGames),
                   ]),
       ),
     );
   }
 }
 
-/// "COMPETITIVE RECORD" — one card per rated game, plus the badge shelf.
-/// Used on your own profile and on anyone else's.
+/// The player's cards — Overall first, then one per rated game — plus, on
+/// your own profile, the prompt to finish your location and the visibility
+/// switch. Used on your own profile and on anyone else's.
 class CompetitiveRecordSection extends StatelessWidget {
   const CompetitiveRecordSection({
     super.key,
@@ -122,13 +172,17 @@ class CompetitiveRecordSection extends StatelessWidget {
     required this.own,
     this.ratedGames = const ['draughts'],
     this.onChanged,
+    this.horizontalPadding = 20,
   });
 
   final CompetitiveProfile profile;
   final bool own;
 
-  /// Every game that has a rating — so your own profile shows a Draft card
-  /// ("play a ranked match to get rated") before you've played one.
+  /// Inset for the text around the cards; the cards themselves always use
+  /// the full width so neighbours can peek in.
+  final double horizontalPadding;
+
+  /// Every game that has a rating — each gets a card, blank until played.
   final List<String> ratedGames;
   final VoidCallback? onChanged;
 
@@ -136,60 +190,125 @@ class CompetitiveRecordSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final n = context.neon;
     final t = Theme.of(context).textTheme;
-    final records = [
-      ...profile.games,
-      if (own)
-        for (final g in ratedGames)
-          if (profile.game(g) == null) GameRecord(gameType: g),
-    ];
+    final cards = buildPlayerCards(profile, ratedGames: ratedGames);
+    final side = EdgeInsets.symmetric(horizontal: horizontalPadding);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       if (own && !profile.profileComplete) ...[
-        NeonCard(
-          key: const ValueKey('complete-player-profile'),
-          accent: n.brand,
-          onTap: () async {
-            final saved = await Navigator.of(context).push<bool>(
-                MaterialPageRoute(builder: (_) => CompetitiveSetupScreen(initial: profile)));
-            if (saved == true) onChanged?.call();
-          },
-          child: Row(children: [
-            Icon(Icons.flag_rounded, color: n.brand),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text('Complete your player profile to unlock National & State rankings.',
-                  style: t.bodySmall?.copyWith(fontWeight: FontWeight.w700)),
-            ),
-            Icon(Icons.chevron_right, color: n.mute, size: 20),
-          ]),
+        Padding(
+          padding: side,
+          child: NeonCard(
+            key: const ValueKey('complete-player-profile'),
+            accent: n.brand,
+            onTap: () async {
+              final saved = await Navigator.of(context).push<bool>(
+                  MaterialPageRoute(builder: (_) => CompetitiveSetupScreen(initial: profile)));
+              if (saved == true) onChanged?.call();
+            },
+            child: Row(children: [
+              Icon(Icons.flag_rounded, color: n.brand),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text('Complete your player profile to unlock National & State rankings.',
+                    style: t.bodySmall?.copyWith(fontWeight: FontWeight.w700)),
+              ),
+              Icon(Icons.chevron_right, color: n.mute, size: 20),
+            ]),
+          ),
         ),
         const SizedBox(height: 16),
       ],
-      Text('COMPETITIVE RECORD', style: t.labelLarge?.copyWith(color: n.gold)),
-      const SizedBox(height: 10),
-      if (records.isEmpty)
-        Text('No ranked games yet.', style: t.bodySmall?.copyWith(color: n.mute))
-      else
-        for (final r in records)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: GameRecordCard(
-              key: ValueKey('game-record-${r.gameType}'),
-              record: r,
-              countryName: profile.location?.countryName,
-              onTap: () async {
-                await Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => GameCompetitiveScreen(profile: profile, gameType: r.gameType, own: own)));
-                onChanged?.call();
-              },
-            ),
-          ),
+      Padding(
+        padding: side,
+        child: Text('PLAYER CARDS', style: t.labelLarge?.copyWith(color: n.gold)),
+      ),
+      const SizedBox(height: 8),
+      PlayerCardCarousel(
+        cards: cards,
+        onOpen: (card) {
+          final game = card.gameType;
+          if (game == null) return;
+          Navigator.of(context)
+              .push(MaterialPageRoute(
+                  builder: (_) => GameCompetitiveScreen(profile: profile, gameType: game, own: own)))
+              .then((_) => onChanged?.call());
+        },
+      ),
+      const SizedBox(height: 6),
+      Center(
+        child: Text('Swipe for each game · tap a card for details',
+            style: t.labelSmall?.copyWith(color: n.mute)),
+      ),
+      if (own) ...[
+        const SizedBox(height: 8),
+        Padding(padding: side, child: _VisibilitySwitch(profile: profile, onChanged: onChanged)),
+      ],
       if (profile.achievements.isNotEmpty) ...[
         const SizedBox(height: 14),
-        Text('ACHIEVEMENTS', style: t.labelLarge?.copyWith(color: n.gold)),
+        Padding(padding: side, child: Text('ACHIEVEMENTS', style: t.labelLarge?.copyWith(color: n.gold))),
         const SizedBox(height: 10),
-        AchievementShelf(achievements: profile.achievements),
+        Padding(padding: side, child: AchievementShelf(achievements: profile.achievements)),
       ],
     ]);
+  }
+}
+
+/// "Public profile" — on by default; off means other players see only your
+/// name, avatar and PlayHuud number. You still appear on leaderboards.
+class _VisibilitySwitch extends StatefulWidget {
+  const _VisibilitySwitch({required this.profile, this.onChanged});
+
+  final CompetitiveProfile profile;
+  final VoidCallback? onChanged;
+
+  @override
+  State<_VisibilitySwitch> createState() => _VisibilitySwitchState();
+}
+
+class _VisibilitySwitchState extends State<_VisibilitySwitch> {
+  late bool _public = widget.profile.profilePublic;
+  bool _saving = false;
+
+  @override
+  void didUpdateWidget(covariant _VisibilitySwitch old) {
+    super.didUpdateWidget(old);
+    if (!_saving) _public = widget.profile.profilePublic;
+  }
+
+  Future<void> _set(bool value) async {
+    setState(() {
+      _public = value;
+      _saving = true;
+    });
+    try {
+      await CompetitiveApi(AppScope.of(context).api).updateLocation(profilePublic: value);
+      widget.onChanged?.call();
+    } catch (_) {
+      if (mounted) {
+        setState(() => _public = !value);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Could not update your profile visibility')));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final n = context.neon;
+    final t = Theme.of(context).textTheme;
+    return SwitchListTile(
+      key: const ValueKey('profile-public-switch'),
+      contentPadding: EdgeInsets.zero,
+      value: _public,
+      onChanged: _saving ? null : _set,
+      title: Text('Public profile', style: t.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+      subtitle: Text(
+          _public
+              ? 'Anyone can open your cards and match history.'
+              : 'Others only see your name and PlayHuud number. You still appear in rankings.',
+          style: t.labelSmall?.copyWith(color: n.mute)),
+    );
   }
 }
 
@@ -357,7 +476,7 @@ class _GameCompetitiveScreenState extends State<GameCompetitiveScreen> {
             physics: const NeverScrollableScrollPhysics(),
             mainAxisSpacing: 8,
             crossAxisSpacing: 8,
-            childAspectRatio: 1.45,
+            childAspectRatio: 1.1, // room for the label + number at phone widths
             children: [
               StatTile('Games', '${s.gamesPlayed}'),
               StatTile('Win rate', s.gamesPlayed == 0 ? '—' : '${(s.winRate * 100).round()}%', accent: n.jade),

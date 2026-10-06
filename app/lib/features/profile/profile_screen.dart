@@ -249,6 +249,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 own: true,
                 ratedGames: _ratedGames,
                 onChanged: _loadCompetitive,
+                horizontalPadding: 0, // this list is already padded
               ),
             ],
             const SizedBox(height: 28),

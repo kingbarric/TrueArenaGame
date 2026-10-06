@@ -10,6 +10,7 @@ import 'package:truearena/core/api_client.dart';
 import 'package:truearena/core/app_state.dart';
 import 'package:truearena/features/competitive/competitive_models.dart';
 import 'package:truearena/features/competitive/leaderboard_screen.dart';
+import 'package:truearena/features/competitive/player_card.dart';
 import 'package:truearena/features/competitive/player_profile_screen.dart';
 import 'package:truearena/features/draughts/draughts_lobby_screen.dart';
 import 'package:truearena/theme/neon_theme.dart';
@@ -121,8 +122,49 @@ void main() {
     });
   });
 
-  testWidgets('own profile without a state asks to complete it, and still shows Draughts before any rated game',
+  /// A phone-sized viewport — the cards are sized off the screen width.
+  void phone(WidgetTester tester) {
+    tester.view.physicalSize = const Size(1170, 2532);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+  }
+
+  group('player cards', () {
+    test('Overall leads with the best game rating, labelled with that game — never a blended rating', () {
+      final cards = buildPlayerCards(CompetitiveProfile.fromJson(_profileJson()));
+      expect(cards.map((c) => c.title), ['OVERALL', 'DRAUGHTS']);
+      final overall = cards.first;
+      expect(overall.bigValue, '1842');
+      expect(overall.bigLabel, 'DRA');
+      expect(overall.stats.map((s) => '${s.value} ${s.label}'),
+          ['428 GMS', '68% WIN', '3 TTL', '19 BST', '1 BDG', '#127 RNK']);
+      final draft = cards[1];
+      expect(draft.bigLabel, 'NG #127');
+      expect(draft.theme.accent, PlayerCardTheme.forGame('draughts').accent);
+      expect(draft.theme.accent, isNot(PlayerCardTheme.overall.accent)); // each game has its own livery
+    });
+
+    test('a player with nothing rated still gets every card, blank', () {
+      final cards = buildPlayerCards(CompetitiveProfile.fromJson(_profileJson(rated: false)));
+      expect(cards.map((c) => c.title), ['OVERALL', 'DRAUGHTS']);
+      expect(cards.every((c) => c.blank), isTrue);
+      expect(cards[1].bigValue, '—');
+      expect(cards[1].bigLabel, 'UNRATED');
+    });
+
+    test('provisional players show their placement progress instead of a rank', () {
+      final json = _profileJson();
+      final game = (json['games'] as List).first as Map<String, dynamic>;
+      game['provisional'] = true;
+      game['placementGamesPlayed'] = 5;
+      final cards = buildPlayerCards(CompetitiveProfile.fromJson(json));
+      expect(cards[1].bigLabel, 'PROV 5/10');
+    });
+  });
+
+  testWidgets('own profile without a state asks to complete it, and shows blank Draughts cards before any rated game',
       (tester) async {
+    phone(tester);
     final state = AppState(ApiClient(client: MockClient((_) async => _json([]))));
     final profile = CompetitiveProfile.fromJson(_profileJson(rated: false));
 
@@ -132,22 +174,77 @@ void main() {
             body: SingleChildScrollView(
                 child: CompetitiveRecordSection(profile: profile, own: true, ratedGames: const ['draughts']))),
       ));
+    await tester.pumpAndSettle();
 
     expect(find.text('Complete your player profile to unlock National & State rankings.'), findsOneWidget);
-    expect(find.byKey(const ValueKey('game-record-draughts')), findsOneWidget);
-    expect(find.text('Play a ranked match to get rated'), findsOneWidget);
+    expect(find.byKey(const ValueKey('player-card-OVERALL')), findsOneWidget);
+    expect(find.byKey(const ValueKey('player-card-DRAUGHTS')), findsOneWidget);
+    expect(find.byKey(const ValueKey('profile-public-switch')), findsOneWidget);
   });
 
-  testWidgets("someone else's profile never shows the complete-profile prompt", (tester) async {
+  testWidgets("someone else's profile shows their cards, but no prompts or settings", (tester) async {
+    phone(tester);
     final state = AppState(ApiClient(client: MockClient((_) async => _json([]))));
     final profile = CompetitiveProfile.fromJson(_profileJson());
 
     await tester.pumpWidget(_app(
         state, Scaffold(body: SingleChildScrollView(child: CompetitiveRecordSection(profile: profile, own: false)))));
+    await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('complete-player-profile')), findsNothing);
-    expect(find.text('Nigeria #127'), findsOneWidget);
+    expect(find.byKey(const ValueKey('profile-public-switch')), findsNothing);
     expect(find.text('10 Match Win Streak'), findsOneWidget);
+    expect(tester.widget<Text>(find.byKey(const ValueKey('card-big-OVERALL'))).data, '1842');
+  });
+
+  testWidgets('swiping brings the next game card to the front; tapping it opens that game', (tester) async {
+    phone(tester);
+    final state = AppState(ApiClient(client: MockClient((_) async => _json([]))));
+    final profile = CompetitiveProfile.fromJson(_profileJson());
+
+    await tester.pumpWidget(_app(
+        state, Scaffold(body: SingleChildScrollView(child: CompetitiveRecordSection(profile: profile, own: false)))));
+    await tester.pumpAndSettle();
+
+    final carousel = find.byKey(const ValueKey('player-card-carousel'));
+    final pageView = tester.widget<PageView>(carousel);
+    expect(pageView.controller!.page, 0); // Overall first
+
+    await tester.fling(carousel, const Offset(-400, 0), 1500);
+    await tester.pumpAndSettle();
+    expect(pageView.controller!.page, 1); // Draughts now in front, Overall tucked to the left
+
+    await tester.tap(find.byKey(const ValueKey('player-card-DRAUGHTS')));
+    await tester.pumpAndSettle();
+    expect(find.byType(GameCompetitiveScreen), findsOneWidget);
+  });
+
+  testWidgets('a private profile shows who they are and nothing more', (tester) async {
+    phone(tester);
+    final mock = MockClient((req) async {
+      if (req.url.path.endsWith('/players/eric/competitive')) {
+        return _json({
+          ..._profileJson(),
+          'restricted': true,
+          'profilePublic': false,
+          'games': [],
+          'location': null,
+          'achievements': [],
+        });
+      }
+      if (req.url.path.endsWith('/competitive/games')) return _json(['draughts']);
+      return _json([]);
+    });
+    final state = AppState(ApiClient(client: mock));
+
+    await tester.pumpWidget(_app(state, const PlayerProfileScreen(username: 'eric', statusUserId: 'u1')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.text('Eric keeps their competitive profile private.'), findsOneWidget);
+    expect(find.textContaining('#000127', findRichText: true), findsOneWidget); // identity stays
+    expect(find.byKey(const ValueKey('player-card-carousel')), findsNothing);
+    expect(find.byTooltip('Status'), findsOneWidget); // opened from friends: status is one tap away
   });
 
   testWidgets('game detail shows real ranks big, and explains a missing one', (tester) async {

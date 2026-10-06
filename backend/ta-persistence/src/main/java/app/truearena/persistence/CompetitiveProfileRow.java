@@ -27,6 +27,8 @@ public record CompetitiveProfileRow(
         @Column("region_name") String regionName,
         String city,
         @Column("city_public") boolean cityPublic,
+        /** Others can open this player's competitive profile. Public by default. */
+        @Column("profile_public") boolean profilePublic,
         @Column("location_changes") int locationChanges,
         @Column("location_updated_at") Instant locationUpdatedAt,
         @Column("location_locked_until") Instant locationLockedUntil,
@@ -34,7 +36,7 @@ public record CompetitiveProfileRow(
         @Column("updated_at") Instant updatedAt
 ) {
     public static CompetitiveProfileRow empty(UUID userId) {
-        return new CompetitiveProfileRow(null, userId, null, null, null, null, null, false, 0,
+        return new CompetitiveProfileRow(null, userId, null, null, null, null, null, false, true, 0,
                 null, null, null, null);
     }
 
@@ -50,11 +52,18 @@ public record CompetitiveProfileRow(
                                               String newRegionCode, String newRegionName,
                                               int newChanges, Instant changedAt, Instant lockedUntil) {
         return new CompetitiveProfileRow(id, userId, newCountryCode, newCountryName, newRegionCode, newRegionName,
-                city, cityPublic, newChanges, changedAt, lockedUntil, createdAt, Instant.now());
+                city, cityPublic, profilePublic, newChanges, changedAt, lockedUntil, createdAt, Instant.now());
     }
 
     public CompetitiveProfileRow withCity(String newCity, boolean newCityPublic) {
         return new CompetitiveProfileRow(id, userId, countryCode, countryName, regionCode, regionName,
-                newCity, newCityPublic, locationChanges, locationUpdatedAt, locationLockedUntil, createdAt, Instant.now());
+                newCity, newCityPublic, profilePublic, locationChanges, locationUpdatedAt, locationLockedUntil,
+                createdAt, Instant.now());
+    }
+
+    public CompetitiveProfileRow withProfilePublic(boolean visible) {
+        return new CompetitiveProfileRow(id, userId, countryCode, countryName, regionCode, regionName,
+                city, cityPublic, visible, locationChanges, locationUpdatedAt, locationLockedUntil,
+                createdAt, Instant.now());
     }
 }

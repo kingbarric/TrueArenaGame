@@ -82,6 +82,13 @@ public final class CompetitiveDtos {
             boolean profileComplete,
             /** Own profile only: when the ranking location can next be changed, if locked. */
             Instant locationLockedUntil,
+            /** The owner's setting: others may view this profile. */
+            boolean profilePublic,
+            /**
+             * True when the viewer is looking at someone's private profile — games,
+             * location and achievements are withheld, only identity is shown.
+             */
+            boolean restricted,
             List<GameRecordView> games,
             List<AchievementView> achievements) {
     }
@@ -92,7 +99,9 @@ public final class CompetitiveDtos {
             /** Free-text region, only for countries whose regions aren't catalogued. */
             @Size(max = 60) String regionName,
             @Size(max = 60) String city,
-            Boolean cityPublic) {
+            Boolean cityPublic,
+            /** Let other players open your competitive profile. */
+            Boolean profilePublic) {
     }
 
     public record LeaderboardEntryView(

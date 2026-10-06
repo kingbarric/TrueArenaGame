@@ -61,10 +61,16 @@ public class CompetitiveController {
         return CurrentUser.id().flatMap(id -> profiles.updateLocation(id, body));
     }
 
+    /**
+     * Another player's competitive profile. If they've turned their profile
+     * off, this still answers — with identity only and {@code restricted} set —
+     * so the app can say "private" rather than "not found". Looking yourself
+     * up by username always gets the full view.
+     */
     @GetMapping("/players/{username}/competitive")
-    @Operation(summary = "Another player's public competitive profile")
+    @Operation(summary = "Another player's competitive profile (identity only if they made it private)")
     public Mono<CompetitiveProfileView> player(@PathVariable String username) {
-        return profiles.profileOfUsername(username);
+        return CurrentUser.id().flatMap(viewer -> profiles.profileOfUsername(username, viewer));
     }
 
     @GetMapping("/me/matches")
@@ -79,10 +85,14 @@ public class CompetitiveController {
     public Mono<List<MatchHistoryView>> playerMatches(@PathVariable String username,
                                                       @RequestParam(required = false) String gameType,
                                                       @RequestParam(defaultValue = "20") int limit) {
-        return users.findByUsername(username)
-                .filter(u -> !u.isBot())
-                .switchIfEmpty(Mono.error(ApiExceptions.notFound("player not found")))
-                .flatMap(u -> profiles.matchesOf(u.id(), blankToNull(gameType), limit));
+        return Mono.zip(CurrentUser.id(), users.findByUsername(username)
+                        .filter(u -> !u.isBot())
+                        .switchIfEmpty(Mono.error(ApiExceptions.notFound("player not found"))))
+                .flatMap(t -> t.getT1().equals(t.getT2().id())
+                        ? profiles.matchesOf(t.getT2().id(), blankToNull(gameType), limit)
+                        : profiles.isPublic(t.getT2().id()).flatMap(visible -> visible
+                                ? profiles.matchesOf(t.getT2().id(), blankToNull(gameType), limit)
+                                : Mono.error(ApiExceptions.forbidden("this player's profile is private"))));
     }
 
     /**

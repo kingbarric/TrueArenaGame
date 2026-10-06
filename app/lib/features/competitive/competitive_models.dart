@@ -219,6 +219,8 @@ class CompetitiveProfile {
     this.location,
     this.profileComplete = false,
     this.locationLockedUntil,
+    this.profilePublic = true,
+    this.restricted = false,
     this.games = const [],
     this.achievements = const [],
   });
@@ -237,6 +239,12 @@ class CompetitiveProfile {
   /// Country and state both set — unlocks every scoped leaderboard.
   final bool profileComplete;
   final DateTime? locationLockedUntil;
+
+  /// The owner lets other players see this profile (the default).
+  final bool profilePublic;
+
+  /// You're looking at someone's private profile: identity only.
+  final bool restricted;
   final List<GameRecord> games;
   final List<Achievement> achievements;
 
@@ -260,6 +268,8 @@ class CompetitiveProfile {
         location: CompetitiveLocation.fromJson(j['location']),
         profileComplete: j['profileComplete'] as bool? ?? false,
         locationLockedUntil: DateTime.tryParse(j['locationLockedUntil'] as String? ?? ''),
+        profilePublic: j['profilePublic'] as bool? ?? true,
+        restricted: j['restricted'] as bool? ?? false,
         games: ((j['games'] as List?) ?? const [])
             .map((e) => GameRecord.fromJson((e as Map).cast<String, dynamic>()))
             .toList(),

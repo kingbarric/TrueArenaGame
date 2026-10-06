@@ -384,6 +384,26 @@ vocabulary — the status feel the brief asks for comes from typography and hier
 
 ---
 
+### 8.1 Player cards and profile visibility
+
+Every profile — your own, a friend's, anyone opened from a leaderboard — shows a
+swipeable set of FUT-style shield cards (`player_card.dart`): **Overall** first, then one
+card per rated game, each in its own livery (Draft teal/yellow, Whot black/lime, …). The
+carousel tilts and drops the neighbouring cards so the row sits on an arc, and the
+focused card glints once as it lands. A game you haven't played still gets its card,
+blank, so the set is always complete.
+
+The Overall card is **not** a blended rating — there is no universal rating by design.
+Its corner shows your best game rating labelled with that game (`1842 DRA`); the rest is
+career totals (games, win %, titles, best streak, badges, best national rank).
+
+Tapping a friend now opens their profile; their Status stays one tap away in the app bar.
+
+Profiles are **public by default** (`competitive_profiles.profile_public`). Turning it off
+leaves only name, avatar, PlayHuud number and founding tier visible to others (the
+response carries `restricted: true`), and `/players/{username}/matches` returns 403.
+Leaderboards are unaffected — a rank is a fact about the board, not the profile.
+
 ## 9. Tests
 
 Runnable without Docker (plain JUnit):
