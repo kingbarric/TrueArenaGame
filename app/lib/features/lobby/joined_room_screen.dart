@@ -9,6 +9,7 @@ import '../../core/models.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/neon.dart';
 import '../../widgets/copyable_huud_code.dart';
+import '../chess/chess_game_screen.dart';
 import '../draughts/draughts_game_screen.dart';
 import '../game/game_screen.dart';
 import '../goosi/goosi_game_screen.dart';
@@ -132,6 +133,15 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
             nicknames: nicknames),
         'draughts' => DraughtsGameScreen(
             socket: _socket!, selfId: selfId, nicknames: nicknames),
+        'chess' => ChessGameScreen(
+            socket: _socket!,
+            selfId: selfId,
+            roomCode: _room.code,
+            nicknames: nicknames,
+            avatars: {
+              for (final m in _room.members)
+                if (m.avatarUrl?.isNotEmpty == true) m.userId: m.avatarUrl!,
+            }),
         'whot' => WhotGameScreen(
               socket: _socket!,
               selfId: selfId,
@@ -186,6 +196,7 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
         title: Text(switch (_room.gameType) {
           'wordbluff' => 'Word Bluff',
           'draughts' => 'Draft',
+          'chess' => 'Chess',
           'goosi' => 'Macala',
           'whot' => 'Whot',
           _ => 'Traitors',

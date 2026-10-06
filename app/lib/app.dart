@@ -92,6 +92,7 @@ class _GameInviteOverlayState extends State<_GameInviteOverlay> {
     'truearena': 'Traitors',
     'wordbluff': 'Word Bluff',
     'draughts': 'Draft',
+    'chess': 'Chess',
     'goosi': 'Macala',
     'whot': 'Whot',
     'ludo': 'Ludo',

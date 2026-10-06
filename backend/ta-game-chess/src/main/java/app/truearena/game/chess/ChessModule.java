@@ -70,6 +70,16 @@ public final class ChessModule implements GameModule {
         return GAME_TYPE;
     }
 
+    /**
+     * Nothing in chess is hidden, but the legal-move list and both clocks
+     * change on every move. Pushing each player a fresh view after every
+     * mutation means the app never has to run its own move generator.
+     */
+    @Override
+    public boolean hasPrivatePlayerState() {
+        return true;
+    }
+
     @Override
     public List<Phase> definePhases(GameSettings settings) {
         ChessConfig config = (ChessConfig) settings;
