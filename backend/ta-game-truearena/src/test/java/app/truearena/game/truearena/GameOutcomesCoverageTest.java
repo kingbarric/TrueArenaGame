@@ -236,16 +236,17 @@ class GameOutcomesCoverageTest {
 
     /**
      * {@code revote}, {@code sudden_death}, and the bare {@code trial_of_two} tieBreak
-     * string (twist not enabled — see {@link #trialOfTwoTwist_opensDefenseThenARestrictedFinalVote()}
-     * for the twist-enabled path) each open their own replay phase instead of resolving
-     * immediately; none of them fall through to the random-pick branch.
+     * string each open their own replay phase instead of resolving immediately; none of
+     * them fall through to the random-pick branch. {@code trial_of_two} as the plain tie
+     * rule now gets the same Defense the twist does (it used to run SuddenDeath, with no
+     * defense at all — see TraitorsAuditTest.trialOfTwoAsTieRule).
      */
     @Test
     void tieBreak_replayRules_openADedicatedPhaseInsteadOfResolvingImmediately() {
         record Case(String rule, String expectedPhase) {
         }
         for (Case c : List.of(new Case("revote", "Revote"), new Case("sudden_death", "SuddenDeath"),
-                new Case("trial_of_two", "SuddenDeath"))) {
+                new Case("trial_of_two", "Defense"))) {
             GameConfig config = withTieBreak(Presets.CLASSIC_CONSPIRACY.config(), c.rule());
             GameState s = playToTiedVote(config, 5);
             assertThat(s.phase()).as(c.rule()).isEqualTo(c.expectedPhase());
@@ -437,8 +438,14 @@ class GameOutcomesCoverageTest {
 
     // ---------------------------------------------------------------- new twists
 
+    /**
+     * False Reveal can no longer rewrite a role that has already been announced —
+     * every client got it in PLAYER_ELIMINATED, so hiding it afterwards hid nothing.
+     * It is armed during the day and applies to the next banished Faithful instead
+     * (see TraitorsAuditTest.falseRevealHidesTheRoleAsItIsAnnounced).
+     */
     @Test
-    void falseReveal_hidesAnAlreadyRevealedFaithfulsRole() {
+    void falseReveal_cannotRewriteARoleAlreadyAnnounced() {
         GameConfig base = Presets.CLASSIC_CONSPIRACY.config();
         GameConfig withTwist = new GameConfig(base.catalogVersion(), base.preset(), base.table(), base.timers(),
                 base.nightKill(), base.revealOnElimination(), base.tieBreak(), base.secondTie(), base.suddenDeathSeconds(),
@@ -454,15 +461,15 @@ class GameOutcomesCoverageTest {
         assertThat(ts.eliminationRoleShown.get(victim)).isTrue(); // "always" reveal by default
 
         String traitor = ts.originalTraitors.iterator().next();
-        s = apply(s, traitor, "FALSE_REVEAL", Map.of("target", victim));
+        s = apply(s, traitor, "FALSE_REVEAL", Map.of());
         TruearenaState after = (TruearenaState) s;
-        assertThat(after.eliminationRoleShown.get(victim)).isFalse();
-        assertThat(after.falseRevealUses).isZero();
-        assertThat(s.events().stream().anyMatch(e -> "FALSE_REVEAL_USED".equals(e.type()))).isTrue();
+        assertThat(after.eliminationRoleShown.get(victim)).as("the past is not rewritten").isTrue();
+        assertThat(after.falseRevealArmed).isTrue();
+        assertThat(after.falseRevealUses).as("spent only when it fires").isEqualTo(1);
 
         GameState finalState = s;
-        assertThatThrownBy(() -> module.onPlayerAction(finalState, PlayerAction.of(traitor, "FALSE_REVEAL", Map.of("target", victim))))
-                .isInstanceOf(RuleViolation.class); // uses exhausted
+        assertThatThrownBy(() -> module.onPlayerAction(finalState, PlayerAction.of(traitor, "FALSE_REVEAL", Map.of())))
+                .isInstanceOf(RuleViolation.class); // already armed
     }
 
     @Test

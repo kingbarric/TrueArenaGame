@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../core/app_state.dart';
 import '../../core/game_music.dart';
 import '../../core/game_sfx.dart';
 import '../../core/game_socket.dart';
@@ -70,6 +69,29 @@ class _GameScreenState extends State<GameScreen> {
   String? _accused;
   int _giftUses = 0;
   bool _actionLocked = false;
+
+  /// The table's rules, straight from the server (`rules` on every snapshot).
+  /// Read instead of the preset name, so Custom games get every rule too.
+  Map<String, dynamic> _rules = const {};
+  Map<String, String> _nightPicks = const {};
+  bool _canSkipNight = false;
+  bool _doubleMurderAvailable = false;
+  String? _doubleAgentCandidate;
+  int _falseRevealUses = 0;
+  bool _falseRevealArmed = false;
+  bool _confessionalSubmitted = true;
+  bool _canLeaveLastWill = false;
+  bool _immunityAvailable = false;
+  List<String> _missingVoters = const [];
+  int _survivorsChoiceVotes = 0;
+  String? _yourVote;
+  ({int locked, int total})? _voteProgress;
+
+  /// Ballots a veiled endgame withheld, released with the full reveal.
+  List<Map<String, dynamic>> _hiddenBallots = const [];
+
+  bool _twist(String id) => ((_rules['twists'] as List?) ?? const []).contains(id);
+  bool get _amAlive => alive.contains(widget.selfId);
   Map<String, int> _timers = const {night: 0, roundTable: 0, vote: 0};
   int _suddenDeathSeconds = 30;
   int _defenseSeconds = 60;
@@ -172,7 +194,6 @@ class _GameScreenState extends State<GameScreen> {
     // draughts_game_screen.dart: reusing widget.socket.lastSeq here can
     // make the server skip sending a full snapshot entirely.
     widget.socket.send('HELLO', {'lastSeq': 0});
-    _loadTimers();
   }
 
   @override
@@ -185,36 +206,6 @@ class _GameScreenState extends State<GameScreen> {
     _watchController.dispose();
     super.dispose();
   }
-
-  Future<void> _loadTimers() async {
-    // Informational only — the server elapses timed phases on its own; this
-    // just drives a countdown so players can see one.
-    try {
-      final api = AppScope.of(context).api;
-      final presets = await api.get('/config/presets') as List;
-      // presetSlug arrives on GAME_STARTED — if it hasn't yet, default is fine.
-      for (final p in presets) {
-        final cfg = (p as Map)['config'] as Map;
-        if (cfg['preset'] == _presetSlug) {
-          final t = (cfg['timers'] as Map).cast<String, dynamic>();
-          if (mounted) {
-            setState(() => _timers = {
-                  night: t['night'] as int,
-                  roundTable: t['roundTable'] as int,
-                  vote: t['vote'] as int
-                });
-            _suddenDeathSeconds = cfg['suddenDeathSeconds'] as int? ?? 30;
-            _defenseSeconds = t['defense'] as int? ?? 60;
-          }
-          return;
-        }
-      }
-    } catch (_) {
-      // best-effort — no countdown shown if this fails
-    }
-  }
-
-  String? _presetSlug;
 
   String label(String id) =>
       widget.nicknames[id] ?? (id.length > 6 ? id.substring(0, 6) : id);
@@ -255,7 +246,6 @@ class _GameScreenState extends State<GameScreen> {
     final serverSeconds = p['secondsLeft'] as int?;
     setState(() {
       phase = p['phase'] as String? ?? phase;
-      _presetSlug = p['preset'] as String? ?? _presetSlug;
       round = p['round'] as int? ?? round;
       _tieCandidates = ((p['tieCandidates'] as List?) ?? const []).cast<String>();
       _canAccuse = p['canAccuse'] == true;
@@ -284,26 +274,61 @@ class _GameScreenState extends State<GameScreen> {
         allRoles = (p['allRoles'] as Map).cast<String, String>();
       }
       winningSide = p['winningSide'] as String? ?? winningSide;
+      _applyRules(p['rules']);
+      _nightPicks = ((p['nightPicks'] as Map?) ?? const {}).cast<String, String>();
+      _canSkipNight = p['canSkipNight'] == true;
+      _doubleMurderAvailable = p['doubleMurderAvailable'] == true;
+      _doubleAgentCandidate = p['doubleAgentCandidate'] as String?;
+      _falseRevealUses = p['falseRevealUses'] as int? ?? 0;
+      _falseRevealArmed = p['falseRevealArmed'] == true;
+      _confessionalSubmitted = p['confessionalSubmitted'] != false;
+      _canLeaveLastWill = p['canLeaveLastWill'] == true;
+      _immunityAvailable = p['immunityAvailable'] == true;
+      _missingVoters = ((p['missingVoters'] as List?) ?? const []).cast<String>();
+      _survivorsChoiceVotes = p['survivorsChoiceVotes'] as int? ?? 0;
+      _yourVote = p['yourVote'] as String?;
+      final progress = p['voteProgress'];
+      if (progress is Map) {
+        _voteProgress = (locked: progress['locked'] as int? ?? 0, total: progress['total'] as int? ?? 0);
+      }
+      // A snapshot follows every server-side change, so whatever we sent has
+      // been dealt with (or refused, which arrives as an ERROR).
+      _actionLocked = false;
     });
     if (serverSeconds != null) _startCountdown(serverSeconds);
+  }
+
+  void _applyRules(Object? raw) {
+    if (raw is! Map) return;
+    _rules = raw.cast<String, dynamic>();
+    final t = ((_rules['timers'] as Map?) ?? const {}).cast<String, dynamic>();
+    _timers = {
+      night: t['night'] as int? ?? 0,
+      roundTable: t['roundTable'] as int? ?? 0,
+      vote: t['vote'] as int? ?? 0,
+    };
+    _suddenDeathSeconds = t['suddenDeath'] as int? ?? _suddenDeathSeconds;
+    _defenseSeconds = t['defense'] as int? ?? _defenseSeconds;
   }
 
   void _applyPhase(Map<String, dynamic> p) {
     final next = p['phase'] as String;
     final nextRound = p['round'] as int? ?? round;
     final changed = next != phase || nextRound != round;
+    // The server sends PHASE after every change, not just when the phase moves
+    // on. Resetting on each one cleared your highlighted vote the moment anyone
+    // else voted, and wiped the traitors' night chat on every pick.
+    if (!changed) return;
     setState(() {
       phase = next;
       round = nextRound;
       _selectedTarget = null;
       _firstNightTarget = null;
       _actionLocked = false;
-      if (next != 'RoundTable') {
-        // chat is discussion-only and never replayed — start clean next time
-        _tableChat.clear();
-        _traitorChat.clear();
-        _chatExpanded = false;
-      }
+      // chat is per phase and never replayed — start clean
+      _tableChat.clear();
+      _traitorChat.clear();
+      _chatExpanded = false;
     });
     if (changed) _restartCountdown();
   }
@@ -351,8 +376,6 @@ class _GameScreenState extends State<GameScreen> {
         case 'GAME_STARTED':
           players = (data['players'] as List).cast<String>();
           alive = players.toSet();
-          _presetSlug = data['preset'] as String?;
-          _loadTimers();
         case 'ROLE_ASSIGNED':
           yourRole = data['role'] as String;
         case 'FELLOW_TRAITORS':
@@ -378,6 +401,10 @@ class _GameScreenState extends State<GameScreen> {
           GameMusic.playOutcome(won: (winningSide == 'traitors') == isTraitor);
         case 'FULL_REVEAL':
           allRoles = (data['roles'] as Map).cast<String, String>();
+          _hiddenBallots = ((data['ballots'] as List?) ?? const [])
+              .map((b) => (b as Map).cast<String, dynamic>())
+              .where((b) => b['veiled'] == true)
+              .toList();
         case 'SPECTATOR_COUNT':
           _spectatorCount = data['count'] as int? ?? _spectatorCount;
         case 'CHAT_MESSAGE':
@@ -419,7 +446,8 @@ class _GameScreenState extends State<GameScreen> {
   void _sendChat() {
     final text = _chatController.text.trim();
     if (text.isEmpty) return;
-    widget.socket.send('CHAT_SEND', {'channel': _chatChannel, 'text': text});
+    // At night only the traitors' channel is open (they're agreeing a target).
+    widget.socket.send('CHAT_SEND', {'channel': phase == 'Night' ? 'traitors' : _chatChannel, 'text': text});
     _chatController.clear();
   }
 
@@ -428,9 +456,11 @@ class _GameScreenState extends State<GameScreen> {
       case 'NIGHT_FALLS':
         return 'Night ${data['round']} falls.';
       case 'NO_MURDER':
-        return data['reason'] == 'opening_night'
-            ? 'A quiet first night — no one was taken.'
-            : 'No one was taken tonight.';
+        return switch (data['reason']) {
+          'opening_night' => 'A quiet first night — no one was taken.',
+          'no_consensus' => 'The traitors couldn\'t agree — no one was taken.',
+          _ => 'No one was taken tonight.',
+        };
       case 'MORNING_REVEAL':
         final id = data['eliminated'];
         return id == null
@@ -447,7 +477,48 @@ class _GameScreenState extends State<GameScreen> {
       case 'TIE_NO_ELIMINATION':
         return 'A tie — no one is banished.';
       case 'TIE_REPLAY':
-        return 'The vote is tied. A ${data['method'] == 'sudden_death' ? 'sudden-death vote' : 'revote'} begins.';
+        return switch (data['method']) {
+          'sudden_death' => 'The vote is tied. A sudden-death vote begins.',
+          'trial_of_two' => 'The vote is tied. Both tied players get to defend themselves.',
+          _ => 'The vote is tied. A revote begins.',
+        };
+      case 'FINAL_VOTE_OPEN':
+        return 'Final vote between the two tied players.';
+      case 'AFK_ABSTAINED':
+        final ids = ((data['ids'] as List?) ?? const []).cast<String>();
+        return ids.isEmpty ? null : '${ids.map(label).join(', ')} didn\'t vote — counted as abstaining.';
+      case 'AFK_PENDING':
+        return 'Some votes are missing — the host will settle them.';
+      case 'IMMUNITY_BLOCKED_BANISH':
+        return 'The immunity coin saved ${label(data['holder'] as String)} from banishment.';
+      case 'DIRECT_POISON_USED':
+        return 'Someone has been poisoned…';
+      case 'ACCUSATION_GRANTED':
+        return 'You hold the secret accusation. Use it once, at a round table.';
+      case 'BLACKMAIL_INTEL':
+        return 'Blackmail: ${label(data['target'] as String)} is ${data['side'] == 'faithful' ? 'Faithful' : 'a Traitor'}. Share it, hide it, or lie.';
+      case 'SILENT_WITNESS_INTEL':
+        return 'Silent witness: ${label(data['victim'] as String)} was definitely Faithful.';
+      case 'RECRUITED_AS_TRAITOR':
+        return 'You have been recruited. You are now a Traitor.';
+      case 'DOUBLE_AGENT_CANDIDATE':
+        return '${label(data['id'] as String)} can be recruited on a later night.';
+      case 'DOUBLE_AGENT_RECRUITED':
+        return '${label(data['id'] as String)} has joined the Traitors.';
+      case 'FALSE_REVEAL_ARMED':
+        return 'False reveal armed — the next banished Faithful\'s role will read unknown.';
+      case 'FALSE_REVEAL_USED':
+        return 'The false reveal hid ${label(data['id'] as String)}\'s role.';
+      case 'CONFESSIONAL_REVEALED':
+        return 'Confessional: "${data['text']}"';
+      case 'LAST_WILL_POSTED':
+        return '${label(data['id'] as String)}\'s last will: "${data['text']}"';
+      case 'SURVIVORS_CHOICE_PROGRESS':
+        return 'Survivors\' choice: ${data['votes']} of ${data['needed']} want to end the game.';
+      case 'SURVIVORS_CHOICE_CALLED':
+        return 'The survivors ended the game.';
+      case 'NIGHT_TARGET_SET':
+        return data['by'] == widget.selfId ? null : '${label(data['by'] as String)} picked ${label(data['target'] as String)}.';
       case 'TIE_HOST_DECISION':
         return 'The vote is tied. The host will choose.';
       case 'PUBLIC_ACCUSATION':
@@ -497,7 +568,7 @@ class _GameScreenState extends State<GameScreen> {
 
   void _pickNightTarget(String id) {
     setState(() => _selectedTarget = id);
-    if (_presetSlug == 'blood_moon' && round > 2 && _firstNightTarget == null) {
+    if (_doubleMurderAvailable && _firstNightTarget == null) {
       setState(() => _firstNightTarget = id);
       return;
     }
@@ -545,6 +616,48 @@ class _GameScreenState extends State<GameScreen> {
           alive.where((id) => id != widget.selfId && !fellowTraitors.contains(id)).toList(),
           choice: choice);
     }
+  }
+
+  Future<String?> _promptText(String title, String hint, {int maxLength = 140}) {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLength: maxLength,
+          maxLines: 3,
+          minLines: 1,
+          decoration: InputDecoration(hintText: hint),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, controller.text.trim()), child: const Text('Send')),
+        ],
+      ),
+    ).whenComplete(controller.dispose);
+  }
+
+  Future<void> _sendTextAction(String action, String title, String hint, {int maxLength = 140}) async {
+    final text = await _promptText(title, hint, maxLength: maxLength);
+    if (!mounted || text == null || text.isEmpty) return;
+    _sendAction(action, {'text': text});
+  }
+
+  /// Host fills in an absent player's ballot: pick the voter, then their vote.
+  Future<void> _assignMissingVote(String voter) async {
+    final target = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(child: ListView(shrinkWrap: true, children: [
+        ListTile(title: Text('${label(voter)} votes for…', style: const TextStyle(fontWeight: FontWeight.w800))),
+        for (final id in alive.where((id) => id != voter))
+          ListTile(title: Text(label(id)), onTap: () => Navigator.pop(ctx, id)),
+      ])),
+    );
+    if (!mounted || target == null) return;
+    _sendAction('HOST_ASSIGN_VOTE', {'voterId': voter, 'target': target});
   }
 
   void _castVote(String id) {
@@ -644,19 +757,28 @@ class _GameScreenState extends State<GameScreen> {
     return switch (phase) {
       'RoleReveal' => _roleReveal(n),
       'Night' => _night(n),
-      'MorningReveal' => _simpleAdvance(n, '🌅', 'Morning'),
+      'MorningReveal' => _simpleAdvance(n, '🌅', 'Morning', extras: [
+          if (_canLeaveLastWill)
+            NeonButton('Leave your last will', style: NeonStyle.ghost,
+                onPressed: _actionLocked ? null : () => _sendTextAction('LAST_WILL',
+                    'Your last will', 'One sentence for the table', maxLength: 140)),
+        ]),
       'RoundTable' => _roundTable(n),
       'Vote' => _vote(n),
       'Revote' => _vote(n),
       'SuddenDeath' => _vote(n),
-      'Defense' => _simpleAdvance(n, '🗣️',
-          '${_accused == null ? 'The accused player' : label(_accused!)} answers the accusation'),
+      'Defense' => _defense(n),
+      'HostAssignVotes' => _hostAssignVotes(n),
       'HostDecision' => widget.isHost
           ? _pickerScreen(n, title: 'Break the tie', subtitle: 'Choose a tied player to banish.',
               candidates: _tieCandidates, onPick: (id) => _sendAction('CHOOSE_TIE', {'target': id}),
               accent: n.gold)
           : _centered([const Text('The host is breaking the tie.')]),
-      'VoteReview' => _simpleAdvance(n, '🗳️', 'Vote review'),
+      'VoteReview' => _simpleAdvance(n, '🗳️', 'Vote review', hostExtras: [
+          if (_rules['voteReveal'] != 'all_at_once')
+            NeonButton('Reveal next vote', style: NeonStyle.ghost,
+                onPressed: _actionLocked ? null : () => _sendAction('REVEAL_NEXT')),
+        ], continueLabel: 'Reveal all'),
       'Elimination' => _simpleAdvance(n, '⚖️', 'Elimination'),
       'WinCheck' => _simpleAdvance(n, '🔎', 'Checking the table…'),
       'Results' => _results(n),
@@ -719,7 +841,7 @@ class _GameScreenState extends State<GameScreen> {
     final candidates = alive
         .where((id) => id != widget.selfId && !fellowTraitors.contains(id))
         .toList();
-    if (!isTraitor) {
+    if (!isTraitor || !_amAlive) {
       return _centered([
         const Text('🌙', style: TextStyle(fontSize: 56)),
         const SizedBox(height: 14),
@@ -738,19 +860,28 @@ class _GameScreenState extends State<GameScreen> {
         ],
       ]);
     }
+    final consensus = _rules['requireTraitorConsensus'] == true;
+    // Who has picked whom tonight, so the traitors can see whether they agree.
+    final picks = <String, List<String>>{};
+    _nightPicks.forEach((traitor, target) =>
+        picks.putIfAbsent(target, () => []).add(traitor == widget.selfId ? 'You' : label(traitor)));
     return Column(children: [
       Expanded(child: _pickerScreen(
         n,
         title: _firstNightTarget == null ? 'Choose your target' : 'Choose a second target',
         subtitle: _firstNightTarget != null
-            ? 'Blood Moon allows a second murder after round two.'
-            : fellowTraitors.isEmpty
-                ? 'Pick who to eliminate tonight.'
-                : 'Agree with your fellow traitors on tonight\'s target.',
+            ? 'A second murder is allowed tonight.'
+            : consensus
+                ? 'Every traitor must pick the same target before the clock runs out.'
+                : fellowTraitors.isEmpty
+                    ? 'Pick who to eliminate tonight.'
+                    : 'Agree with your fellow traitors on tonight\'s target.',
         candidates: _firstNightTarget == null
             ? candidates : candidates.where((id) => id != _firstNightTarget).toList(),
         onPick: _pickNightTarget,
         accent: n.brand,
+        countdown: true,
+        tags: {for (final e in picks.entries) e.key: e.value.join(', ')},
       )),
       if (_firstNightTarget != null)
         TextButton(onPressed: () {
@@ -758,9 +889,77 @@ class _GameScreenState extends State<GameScreen> {
           setState(() => _firstNightTarget = null);
           _sendAction('NIGHT_TARGET', {'target': target});
         }, child: const Text('Continue with one target')),
-      if (_giftUses > 0)
-        TextButton(onPressed: _actionLocked ? null : _useGift,
-            child: const Text('Use Poisoned Gift')),
+      Wrap(alignment: WrapAlignment.center, spacing: 4, children: [
+        if (_canSkipNight)
+          TextButton(
+              onPressed: _actionLocked ? null : () => _sendAction('NIGHT_SKIP'),
+              child: const Text('Skip tonight (once per game)')),
+        if (_giftUses > 0)
+          TextButton(onPressed: _actionLocked ? null : _useGift,
+              child: const Text('Use Poisoned Gift')),
+        if (_doubleAgentCandidate != null)
+          TextButton(
+              onPressed: _actionLocked ? null : () => _sendAction('RECRUIT_DOUBLE_AGENT'),
+              child: Text('Recruit ${label(_doubleAgentCandidate!)}')),
+      ]),
+      if (fellowTraitors.isNotEmpty) _chatPanel(n),
+    ]);
+  }
+
+  Widget _defense(NeonColors n) {
+    final trial = _tieCandidates.isNotEmpty;
+    return _centered([
+      const Text('🗣️', style: TextStyle(fontSize: 52)),
+      const SizedBox(height: 10),
+      Text(trial ? 'Trial of two' : 'The defense',
+          style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 26)),
+      const SizedBox(height: 8),
+      Text(
+        trial
+            ? '${_tieCandidates.map(label).join(' and ')} each make their case. Then a final vote between them.'
+            : '${_accused == null ? 'The accused player' : label(_accused!)} answers the accusation.',
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: n.mid),
+      ),
+      if (_secondsLeft != null) ...[const SizedBox(height: 12), _countdown(n)],
+      const SizedBox(height: 14),
+      _recentFeed(n, max: 3),
+      const SizedBox(height: 20),
+      if (widget.isHost)
+        NeonButton('Go to the vote', style: NeonStyle.ghost, onPressed: _actionLocked ? null : _advance)
+      else
+        _waiting(n, 'Listen closely…'),
+    ]);
+  }
+
+  /// "Host assigns" AFK rule: the host fills in missing ballots, or lets them
+  /// count as abstentions. This phase used to render as an endless spinner.
+  Widget _hostAssignVotes(NeonColors n) {
+    return _centered([
+      const Text('🗳️', style: TextStyle(fontSize: 52)),
+      const SizedBox(height: 10),
+      Text('Missing votes', style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 26)),
+      const SizedBox(height: 8),
+      Text(
+        _missingVoters.isEmpty
+            ? 'Everyone has voted.'
+            : '${_missingVoters.map(label).join(', ')} ${_missingVoters.length == 1 ? 'hasn\'t' : 'haven\'t'} voted.',
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: n.mid),
+      ),
+      if (_secondsLeft != null) ...[const SizedBox(height: 12), _countdown(n)],
+      const SizedBox(height: 18),
+      if (widget.isHost) ...[
+        Wrap(spacing: 8, runSpacing: 8, alignment: WrapAlignment.center, children: [
+          for (final voter in _missingVoters)
+            NeonChip(label: 'Vote for ${label(voter)}', accent: n.gold, selected: false,
+                onTap: _actionLocked ? () {} : () => _assignMissingVote(voter)),
+        ]),
+        const SizedBox(height: 18),
+        NeonButton('Count them as abstaining', style: NeonStyle.ghost,
+            onPressed: _actionLocked ? null : _advance),
+      ] else
+        _waiting(n, 'The host is settling the missing votes…'),
     ]);
   }
 
@@ -801,7 +1000,22 @@ class _GameScreenState extends State<GameScreen> {
               NeonButton('Claim the mystery shield', style: NeonStyle.ghost,
                 onPressed: _actionLocked ? null : () => _sendAction('CLAIM_SHIELD')),
             ],
-            if (widget.isHost && _presetSlug == 'midnight_heist' && _immunityHolder == null) ...[
+            if (_twist('confessional') && _amAlive && !_confessionalSubmitted) ...[
+              const SizedBox(height: 12),
+              NeonButton('Submit your confessional', style: NeonStyle.ghost,
+                onPressed: _actionLocked ? null : () => _sendTextAction('SUBMIT_CONFESSIONAL',
+                    'Confessional', 'One line — it\'s shown anonymously', maxLength: 200)),
+            ],
+            if (isTraitor && _amAlive && _falseRevealUses > 0 && !_falseRevealArmed) ...[
+              const SizedBox(height: 12),
+              NeonButton('Hide the next banished Faithful\'s role', style: NeonStyle.ghost,
+                onPressed: _actionLocked ? null : () => _sendAction('FALSE_REVEAL')),
+            ],
+            if (_survivorsChoiceAvailable) ...[
+              const SizedBox(height: 12),
+              _survivorsChoiceButton(n),
+            ],
+            if (widget.isHost && _immunityAvailable) ...[
               const SizedBox(height: 12),
               NeonButton('Award challenge immunity', style: NeonStyle.ghost,
                 onPressed: _actionLocked ? null : () => _chooseTargetAction(
@@ -824,21 +1038,30 @@ class _GameScreenState extends State<GameScreen> {
   /// public "table" channel everyone sees, plus a "traitors" channel only
   /// traitors can even select (the backend also enforces this — see
   /// GameOrchestrator.handleChat — this hides the option, that guarantees it).
-  /// Only ever shown during RoundTable; there's no chat during voting.
+  /// Shown during RoundTable, and to the Traitors at night (traitors' channel
+  /// only) so they can agree a target. There's no chat during voting.
   Widget _chatPanel(NeonColors n) {
-    final onTraitorChannel = _chatChannel == 'traitors';
+    final atNight = phase == 'Night';
+    final onTraitorChannel = atNight || _chatChannel == 'traitors';
     final messages = onTraitorChannel ? _traitorChat : _tableChat;
     final tint = onTraitorChannel ? n.brand : n.gold;
+    // Shorter at night: the target picker above it matters more.
+    final openHeight = MediaQuery.sizeOf(context).height < 600 ? 180.0 : (atNight ? 240.0 : 320.0);
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
-      height: _chatExpanded
-          ? (MediaQuery.sizeOf(context).height < 600 ? 180 : 320)
-          : 54,
+      height: _chatExpanded ? openHeight : 54,
       decoration: BoxDecoration(
           color: n.panel,
           border: const Border(top: BorderSide(color: kCabinetInk, width: 2))),
-      child: Column(
+      // Lay the contents out at their final height and clip while the panel
+      // grows — otherwise they overflow for the length of the animation.
+      child: ClipRect(
+       child: OverflowBox(
+        alignment: Alignment.topCenter,
+        minHeight: 0,
+        maxHeight: (_chatExpanded ? openHeight : 54) - 2,
+        child: Column(
         children: [
           Bouncy(
             onTap: () => setState(() => _chatExpanded = !_chatExpanded),
@@ -864,7 +1087,7 @@ class _GameScreenState extends State<GameScreen> {
             ),
           ),
           if (_chatExpanded) ...[
-            if (isTraitor)
+            if (isTraitor && !atNight)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
                 child: NeonSegmented<String>(
@@ -962,25 +1185,63 @@ class _GameScreenState extends State<GameScreen> {
           ],
         ],
       ),
+       ),
+      ),
     );
   }
+
+  bool get _survivorsChoiceAvailable =>
+      _twist('survivors_choice') && _amAlive && alive.length <= 4;
+
+  Widget _survivorsChoiceButton(NeonColors n) => NeonButton(
+      'End the game now ($_survivorsChoiceVotes/${alive.length})', style: NeonStyle.ghost,
+      onPressed: _actionLocked ? null : () => _sendAction('CALL_SURVIVORS_CHOICE'));
 
   Widget _vote(NeonColors n) {
+    final progress = _voteProgress == null ? '' : ' · ${_voteProgress!.locked}/${_voteProgress!.total} in';
+    if (!_amAlive) {
+      // Eliminated players and spectators watch; the picker only produced errors for them.
+      return _centered([
+        const Text('🗳️', style: TextStyle(fontSize: 52)),
+        const SizedBox(height: 10),
+        Text('The table is voting', style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 26)),
+        const SizedBox(height: 8),
+        Text('You\'re out of this game — watch how it plays out$progress',
+            textAlign: TextAlign.center, style: TextStyle(color: n.mid)),
+        if (_secondsLeft != null) ...[const SizedBox(height: 12), _countdown(n)],
+        const SizedBox(height: 14),
+        _recentFeed(n, max: 4),
+      ]);
+    }
     final candidates = alive.where((id) => id != widget.selfId &&
         (_tieCandidates.isEmpty || _tieCandidates.contains(id))).toList();
-    return _pickerScreen(
-      n,
-      title: phase == 'Vote' ? 'Cast your vote' : 'Break the tie',
-      subtitle: phase == 'Vote' ? 'Who do you want to banish?'
-          : 'Vote again between the tied players.',
-      candidates: candidates,
-      onPick: _castVote,
-      accent: n.gold,
-      countdown: true,
-    );
+    final finalVote = phase == 'Vote' && _tieCandidates.isNotEmpty;
+    final title = switch (phase) {
+      'SuddenDeath' => 'Sudden death',
+      'Revote' => 'Break the tie',
+      _ => finalVote ? 'Final vote' : 'Cast your vote',
+    };
+    final voted = _yourVote;
+    return Column(children: [
+      Expanded(child: _pickerScreen(
+        n,
+        title: title,
+        subtitle: voted != null
+            ? 'Your vote is locked: ${label(voted)}$progress'
+            : (phase == 'Vote' && !finalVote ? 'Who do you want to banish?' : 'Vote between the tied players.') + progress,
+        candidates: candidates,
+        onPick: _castVote,
+        accent: n.gold,
+        countdown: true,
+        lockedChoice: voted,
+      )),
+      if (_survivorsChoiceAvailable) Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 12), child: _survivorsChoiceButton(n)),
+    ]);
   }
 
-  Widget _simpleAdvance(NeonColors n, String emoji, String title) {
+  Widget _simpleAdvance(NeonColors n, String emoji, String title,
+      {List<Widget> extras = const [], List<Widget> hostExtras = const [], String continueLabel = 'Continue'}) {
     return _centered([
       Text(emoji, style: const TextStyle(fontSize: 52)),
       const SizedBox(height: 10),
@@ -995,11 +1256,13 @@ class _GameScreenState extends State<GameScreen> {
         NeonButton('Spend immunity coin', style: NeonStyle.ghost,
             onPressed: _actionLocked ? null : () => _sendAction('USE_IMMUNITY')),
       ],
+      for (final w in extras) ...[const SizedBox(height: 12), w],
       const SizedBox(height: 20),
-      if (widget.isHost)
-        NeonButton('Continue',
-            style: NeonStyle.ghost, onPressed: _actionLocked ? null : _advance)
-      else
+      if (widget.isHost) ...[
+        for (final w in hostExtras) ...[w, const SizedBox(height: 10)],
+        NeonButton(continueLabel,
+            style: NeonStyle.ghost, onPressed: _actionLocked ? null : _advance),
+      ] else
         _waiting(n, 'Waiting for the host…'),
     ]);
   }
@@ -1044,6 +1307,20 @@ class _GameScreenState extends State<GameScreen> {
                 ),
             ]),
       ],
+      if (_hiddenBallots.isNotEmpty) ...[
+        const SizedBox(height: 18),
+        Text('THE HIDDEN VOTES',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute, letterSpacing: 2)),
+        const SizedBox(height: 8),
+        for (final b in _hiddenBallots) ...[
+          Text('Round ${b['round']}${b['stage'] == 'tie' ? ' (tie-break)' : ''}',
+              style: TextStyle(color: n.gold, fontWeight: FontWeight.w800, fontSize: 12)),
+          for (final v in ((b['votes'] as Map?) ?? const {}).entries)
+            Text('${label(v.key as String)} → ${label(v.value as String)}',
+                style: TextStyle(color: n.mid, fontSize: 12)),
+          const SizedBox(height: 6),
+        ],
+      ],
       const SizedBox(height: 28),
       if (won) VictoryShareButton(roomId: widget.socket.roomId,
           gameType: 'truearena', detail: 'The ${winningSide == 'traitors' ? 'Traitors' : 'Faithful'} win'),
@@ -1065,29 +1342,39 @@ class _GameScreenState extends State<GameScreen> {
     required void Function(String) onPick,
     required Color accent,
     bool countdown = false,
+    Map<String, String> tags = const {},
+    String? lockedChoice,
   }) {
-    return Column(
+    // Short on height (e.g. the traitors' chat open at night on a phone):
+    // drop to a one-line header rather than overflowing the screen.
+    return LayoutBuilder(builder: (context, outer) {
+     final compact = outer.maxHeight < 320;
+     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
+          padding: EdgeInsets.fromLTRB(20, compact ? 8 : 18, 20, compact ? 2 : 6),
           child: Column(children: [
-            Text(title,
+            Text(compact && countdown && _secondsLeft != null ? '$title · $_secondsLeft s' : title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: Theme.of(context)
                     .textTheme
                     .displayLarge
-                    ?.copyWith(fontSize: 26),
+                    ?.copyWith(fontSize: compact ? 18 : 26),
                 textAlign: TextAlign.center),
-            const SizedBox(height: 6),
-            Text(subtitle,
-                textAlign: TextAlign.center,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.copyWith(color: n.mid)),
-            if (countdown && _secondsLeft != null) ...[
-              const SizedBox(height: 10),
-              _countdown(n)
+            if (!compact) ...[
+              const SizedBox(height: 6),
+              Text(subtitle,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(color: n.mid)),
+              if (countdown && _secondsLeft != null) ...[
+                const SizedBox(height: 10),
+                _countdown(n)
+              ],
             ],
           ]),
         ),
@@ -1104,9 +1391,9 @@ class _GameScreenState extends State<GameScreen> {
                     itemCount: candidates.length,
                     itemBuilder: (context, i) {
                       final id = candidates[i];
-                      final selected = _selectedTarget == id;
+                      final selected = (lockedChoice ?? _selectedTarget) == id;
                       return Bouncy(
-                        onTap: _actionLocked && !selected
+                        onTap: lockedChoice != null || (_actionLocked && !selected)
                             ? null
                             : () => onPick(id),
                         pressScale: 0.92,
@@ -1143,13 +1430,20 @@ class _GameScreenState extends State<GameScreen> {
                                   .textTheme
                                   .bodySmall
                                   ?.copyWith(fontWeight: FontWeight.w700)),
+                          if (tags[id] != null)
+                            Text(tags[id]!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: accent, fontSize: 10, fontWeight: FontWeight.w800)),
                         ]),
                       );
                     },
                   )),
         ),
       ],
-    );
+     );
+    });
   }
 
   /// Everyone at the table, not just the survivors. Who has gone — and when
