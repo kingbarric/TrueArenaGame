@@ -115,7 +115,9 @@ class ChessBotAdapterTest {
                     state = module.onPlayerAction(state, humanMove(state, rng));
                 }
             }
-            assertThat(botMoves).as(level + " agent moved").isGreaterThan(5);
+            // Either the game ran its course or the agent mated a random mover early.
+            assertThat(botMoves).as(level + " agent moved").isPositive();
+            assertThat(state.finished() || botMoves > 5).as(level + " agent kept playing").isTrue();
         }
     }
 
@@ -129,6 +131,24 @@ class ChessBotAdapterTest {
         assertThat(answer.type()).isEqualTo("DECLINE_DRAW"); // level position: play on
         state = module.onPlayerAction(state, answer);
         assertThat(module.broadcastState(state).data().get("pendingDrawOffer")).isNull();
+    }
+
+    @Test
+    void waitsOutAPauseAndMovesOnResume() {
+        GameState state = startWithBotAs(true);
+        ChessBotAdapter bot = adapter();
+        Map<String, Object> paused = snapshot(state);
+        paused.put("paused", true);
+        assertThat(bot.onFrame("SNAPSHOT", paused, BOT, Difficulty.EASY)).isEmpty();
+
+        Map<String, Object> resumed = Map.of("type", "GAME_RESUMED", "data", Map.of("by", HUMAN));
+        assertThat(bot.onFrame("EVENT", resumed, BOT, Difficulty.EASY)).isPresent();
+        PlayerAction move = bot.decideLocally(BOT, Difficulty.EASY).orElseThrow();
+        assertThat(move.type()).isEqualTo("MOVE");
+
+        // Paused again mid-thought: the move was refused. Resuming retries it.
+        bot.onFrame("EVENT", Map.of("type", "GAME_PAUSED", "data", Map.of("by", HUMAN)), BOT, Difficulty.EASY);
+        assertThat(bot.onFrame("EVENT", resumed, BOT, Difficulty.EASY)).isPresent();
     }
 
     @Test

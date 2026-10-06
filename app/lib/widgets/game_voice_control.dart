@@ -7,6 +7,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../core/api_client.dart';
 import '../core/app_state.dart';
 import '../core/game_socket.dart';
+import '../theme/neon_theme.dart';
 
 /// One game-voice entry point for players and spectators in every game.
 class GameVoiceControl extends StatefulWidget {
@@ -296,9 +297,19 @@ class _GameVoiceControlState extends State<GameVoiceControl> {
   }
 
   Future<void> _openPanel() async {
+    final n = context.neon;
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
+      // The app theme leaves sheets transparent for screens that paint their
+      // own panel; this one has none, so it brings its own solid surface —
+      // otherwise the game shows straight through it.
+      backgroundColor: n.panel,
+      isScrollControlled: true,
+      constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.7),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (sheetContext) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),

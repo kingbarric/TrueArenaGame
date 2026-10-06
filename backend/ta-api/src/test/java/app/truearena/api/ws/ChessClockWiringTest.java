@@ -90,12 +90,22 @@ class ChessClockWiringTest {
     }
 
     @Test
-    void chessClocksCannotBePaused() throws Exception {
-        RoomRuntime rt = chessRoom(ChessConfig.defaults());
+    void pausingFreezesTheMoversClockAndResumingPicksItBackUp() throws Exception {
+        RoomRuntime rt = chessRoom(new ChessConfig(300, 0));
+        reschedule(rt);
         Method toggle = GameOrchestrator.class.getDeclaredMethod("togglePause", RoomRuntime.class, String.class);
         toggle.setAccessible(true);
+
         ((reactor.core.publisher.Mono<?>) toggle.invoke(server, rt, "w")).block();
+        assertThat(rt.paused).isTrue();
+        long frozen = server.liveClockMs(rt).orElseThrow();
+        Thread.sleep(120);
+        assertThat(server.liveClockMs(rt).orElseThrow()).as("no time passes while paused").isEqualTo(frozen);
+
+        ((reactor.core.publisher.Mono<?>) toggle.invoke(server, rt, "b")).block();
         assertThat(rt.paused).isFalse();
+        assertThat(server.liveClockMs(rt).orElseThrow()).isBetween(frozen - 100, frozen);
+        rt.cancelTimer();
     }
 
     @Test

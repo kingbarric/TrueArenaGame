@@ -38,6 +38,7 @@ public final class ChessBotAdapter implements GameBotAdapter {
     private String turn = "white";
     private Position position = Position.initial();
     private boolean finished;
+    private boolean paused;
     private int ply;
     private String pendingDrawOffer;
     private boolean canClaimDraw;
@@ -71,12 +72,28 @@ public final class ChessBotAdapter implements GameBotAdapter {
     @Override
     @SuppressWarnings("unchecked")
     public Optional<BotPrompt> onFrame(String frameType, Map<String, Object> payload, String botUserId, Difficulty difficulty) {
-        if (!"SNAPSHOT".equals(frameType) || Boolean.TRUE.equals(payload.get("lobby"))) {
+        if ("EVENT".equals(frameType)) {
+            String type = String.valueOf(payload.get("type"));
+            if ("GAME_PAUSED".equals(type)) {
+                paused = true;
+                return Optional.empty();
+            }
+            if (!"GAME_RESUMED".equals(type)) {
+                return Optional.empty();
+            }
+            paused = false;
+            // A move tried while paused was refused, and resuming brings no
+            // fresh snapshot — so if it's still our turn, take it again.
+            if (white != null && myTurn(botUserId)) {
+                movedOnPly = -1;
+            }
+        } else if (!"SNAPSHOT".equals(frameType) || Boolean.TRUE.equals(payload.get("lobby"))) {
             return Optional.empty();
+        } else {
+            apply(payload);
         }
-        apply(payload);
         pending = Pending.NONE;
-        if (finished || white == null || black == null) {
+        if (paused || finished || white == null || black == null) {
             return Optional.empty();
         }
         String mySide = sideOf(botUserId);
@@ -113,6 +130,7 @@ public final class ChessBotAdapter implements GameBotAdapter {
         blackMs = longOr(p.get("blackMs"), blackMs);
         incrementMs = longOr(p.get("incrementMs"), incrementMs);
         liveClockMs = p.get("clockMsLeft") instanceof Number n ? n.longValue() : null;
+        paused = Boolean.TRUE.equals(p.get("paused"));
     }
 
     @Override

@@ -103,6 +103,11 @@ class _ChessGameScreenState extends State<ChessGameScreen>
   bool _sfxOn = GameSfx.enabled;
   bool _leaving = false;
 
+  /// Either player can pause. Both clocks stop and nobody can move until
+  /// someone resumes.
+  bool _paused = false;
+  String? _pausedBy;
+
   @override
   void initState() {
     super.initState();
@@ -140,7 +145,8 @@ class _ChessGameScreenState extends State<ChessGameScreen>
   String get _myColor => _mySide == 'white' ? 'w' : 'b';
   String get _opponentSide => _mySide == 'white' ? 'black' : 'white';
   bool get _flipped => !_amSpectator && _mySide == 'black';
-  bool get _myTurn => !_amSpectator && !_view.finished && _view.turn == _mySide;
+  bool get _myTurn =>
+      !_amSpectator && !_view.finished && !_paused && _view.turn == _mySide;
 
   String _label(String id) =>
       widget.nicknames[id] ?? (id.length > 6 ? id.substring(0, 6) : id);
@@ -207,6 +213,7 @@ class _ChessGameScreenState extends State<ChessGameScreen>
       _actionLocked = false;
       _spectatorCount = p['spectatorCount'] as int? ?? _spectatorCount;
       _spectatorsMuted = p['spectatorsMuted'] as bool? ?? _spectatorsMuted;
+      _paused = p['paused'] as bool? ?? _paused;
       if (_selected != null && !next.legalMoves.containsKey(_selected)) {
         _selected = null;
       }
@@ -216,7 +223,7 @@ class _ChessGameScreenState extends State<ChessGameScreen>
       _sinceSnapshot
         ..reset()
         ..stop();
-      if (!next.finished && live != null) _sinceSnapshot.start();
+      if (!next.finished && !_paused && live != null) _sinceSnapshot.start();
       if (freshMove) {
         _slideFrom = next.lastFrom;
         _slideTo = next.lastTo;
@@ -270,6 +277,29 @@ class _ChessGameScreenState extends State<ChessGameScreen>
       case 'SPECTATOR_COUNT':
         setState(
             () => _spectatorCount = data['count'] as int? ?? _spectatorCount);
+      case 'GAME_PAUSED':
+        final by = data['by']?.toString();
+        setState(() {
+          // Freeze on the server's own figure so both screens agree.
+          _moverBaseMs =
+              (data['clockMsLeft'] as num?)?.toInt() ?? _clockMs(_view.turn);
+          _sinceSnapshot
+            ..reset()
+            ..stop();
+          _paused = true;
+          _pausedBy = by;
+          _selected = null;
+        });
+        _system(by == null ? 'Game paused.' : '${_label(by)} paused the game.');
+      case 'GAME_RESUMED':
+        setState(() {
+          _moverBaseMs = (data['clockMsLeft'] as num?)?.toInt() ?? _moverBaseMs;
+          _sinceSnapshot.reset();
+          if (!_view.finished) _sinceSnapshot.start();
+          _paused = false;
+          _pausedBy = null;
+        });
+        _system('Game resumed.');
       case 'SPECTATORS_MUTED':
         setState(() => _spectatorsMuted = true);
       case 'SPECTATORS_UNMUTED':
@@ -537,6 +567,49 @@ class _ChessGameScreenState extends State<ChessGameScreen>
         MaterialPageRoute(builder: (_) => const MainShell()), (r) => false);
   }
 
+  void _togglePause() => widget.socket.send('PAUSE_TOGGLE');
+
+  Widget _pauseOverlay() {
+    final by = _pausedBy;
+    return Container(
+      key: const ValueKey('chess-paused'),
+      color: const Color(0xcc0d0618),
+      alignment: Alignment.center,
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Icon(Icons.pause_circle_filled_rounded, size: 56, color: _gold),
+        const SizedBox(height: 8),
+        const Text('PAUSED',
+            style: TextStyle(
+                color: _gold,
+                fontSize: 22,
+                letterSpacing: 4,
+                fontWeight: FontWeight.w700,
+                fontFamily: 'Georgia',
+                fontFamilyFallback: ['Times New Roman', 'serif'])),
+        const SizedBox(height: 4),
+        Text(
+            by == null
+                ? 'Both clocks are stopped.'
+                : '${by == widget.selfId ? 'You' : _label(by)} paused · both clocks are stopped',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: _mute, fontSize: 12)),
+        if (!_amSpectator) ...[
+          const SizedBox(height: 14),
+          FilledButton.icon(
+            key: const ValueKey('chess-resume'),
+            style: FilledButton.styleFrom(
+                backgroundColor: _gold,
+                foregroundColor: const Color(0xff2a1600)),
+            onPressed: _togglePause,
+            icon: const Icon(Icons.play_arrow_rounded),
+            label: const Text('Resume',
+                style: TextStyle(fontWeight: FontWeight.w900)),
+          ),
+        ],
+      ]),
+    );
+  }
+
   Future<void> _toggleSfx() async {
     final next = !_sfxOn;
     setState(() => _sfxOn = next);
@@ -652,6 +725,8 @@ class _ChessGameScreenState extends State<ChessGameScreen>
                     Expanded(
                       child: Stack(children: [
                         Positioned.fill(child: _boardArea()),
+                        if (_paused && !_view.finished)
+                          Positioned.fill(child: _pauseOverlay()),
                         if (_view.finished && _showResults)
                           Positioned.fill(child: _results()),
                       ]),
@@ -709,14 +784,34 @@ class _ChessGameScreenState extends State<ChessGameScreen>
           ),
         ),
         if (!_view.finished)
-          GameVoiceControl(
-            roomId: widget.socket.roomId,
-            socket: widget.socket,
-            selfId: widget.selfId,
-            nicknames: widget.nicknames,
-            spectating: _amSpectator,
+          // The shared mic button takes its colour from the theme, which on
+          // a light theme would be dark-on-purple here.
+          Theme(
+            data: Theme.of(context).copyWith(
+              iconButtonTheme: IconButtonThemeData(
+                  style: IconButton.styleFrom(foregroundColor: _cream)),
+              iconTheme: const IconThemeData(color: _cream),
+            ),
+            child: GameVoiceControl(
+              roomId: widget.socket.roomId,
+              socket: widget.socket,
+              selfId: widget.selfId,
+              nicknames: widget.nicknames,
+              spectating: _amSpectator,
+            ),
+          ),
+        if (!_view.finished && !_amSpectator)
+          IconButton(
+            key: const ValueKey('chess-pause'),
+            tooltip: _paused ? 'Resume' : 'Pause',
+            color: _cream,
+            visualDensity: VisualDensity.compact,
+            icon: Icon(_paused ? Icons.play_arrow_rounded : Icons.pause_rounded,
+                size: 24),
+            onPressed: _togglePause,
           ),
         IconButton(
+          visualDensity: VisualDensity.compact,
           tooltip: _sfxOn ? 'Mute game sounds' : 'Play game sounds',
           color: _cream,
           icon: Icon(
@@ -726,6 +821,7 @@ class _ChessGameScreenState extends State<ChessGameScreen>
         ),
         PopupMenuButton<String>(
           tooltip: 'Game settings',
+          padding: EdgeInsets.zero,
           icon: const Icon(Icons.settings_rounded, size: 21, color: _cream),
           color: _panel,
           onSelected: (value) {
@@ -1279,6 +1375,8 @@ class _ChessGameScreenState extends State<ChessGameScreen>
           : (_amSpectator
               ? '${_view.winningSide?.toUpperCase()} WINS'
               : (_view.winningSide == _mySide ? 'YOU WIN' : 'YOU LOST'));
+    } else if (_paused) {
+      text = 'PAUSED';
     } else if (_myTurn) {
       text = _view.inCheck ? 'CHECK!' : 'YOUR MOVE';
     } else if (_amSpectator) {

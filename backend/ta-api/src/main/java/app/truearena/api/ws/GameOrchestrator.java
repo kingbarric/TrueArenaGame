@@ -532,19 +532,19 @@ public class GameOrchestrator {
         if (!rt.connectedUserIds.contains(userId)) {
             return tellError(rt, userId, "SPECTATORS_CANT_PAUSE", "only players can pause the game");
         }
-        // A clock either player could stop at will isn't a clock.
-        if (rt.module().runningClockMs(rt.state()).isPresent()) {
-            return tellError(rt, userId, "CLOCK_GAME_NO_PAUSE", "chess clocks can't be paused — offer a draw or resign instead");
-        }
         rt.paused = !rt.paused;
         if (rt.paused) {
             freezeTimer(rt);
         } else {
             thawTimer(rt);
         }
-        rt.bus.tryEmitNext(new LobbyBroadcast(
-                rt.paused ? "GAME_PAUSED" : "GAME_RESUMED",
-                Map.of("by", userId, "secondsLeft", secondsLeft(rt))));
+        // Per-player clocks freeze with the timer (they're the same deadline),
+        // and carry the exact figure so both screens stop on the same tenth.
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("by", userId);
+        data.put("secondsLeft", secondsLeft(rt));
+        liveClockMs(rt).ifPresent(ms -> data.put("clockMsLeft", ms));
+        rt.bus.tryEmitNext(new LobbyBroadcast(rt.paused ? "GAME_PAUSED" : "GAME_RESUMED", data));
         return Mono.empty();
     }
 
@@ -1221,6 +1221,11 @@ public class GameOrchestrator {
             return tellError(rt, userId, "MATCH_PAUSED", "waiting for both players to reconnect");
         }
         String action = String.valueOf(in.payload().get("action"));
+        // A frozen clock can't be moved on — otherwise pausing would be a
+        // way to think for free.
+        if (rt.paused && "MOVE".equals(action) && rt.module().runningClockMs(rt.state()).isPresent()) {
+            return tellError(rt, userId, "GAME_PAUSED", "the game is paused — resume it to move");
+        }
         @SuppressWarnings("unchecked")
         Map<String, Object> clientData = (Map<String, Object>) in.payload().getOrDefault("data", Map.of());
         Map<String, Object> data = serverActionData(rt, clientData);

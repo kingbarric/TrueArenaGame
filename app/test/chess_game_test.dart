@@ -270,6 +270,50 @@ void main() {
     await close(tester);
   });
 
+  testWidgets('pausing stops the clocks and blocks moves until resumed',
+      (tester) async {
+    final socket = await open(tester);
+    socket.snapshot(legalMoves: const {
+      'e2': ['e3', 'e4']
+    });
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('chess-pause')));
+    expect(socket.sent.last['type'], 'PAUSE_TOGGLE');
+    socket.frames.add({
+      'type': 'EVENT',
+      'payload': {
+        'type': 'GAME_PAUSED',
+        'data': {'by': 'opponent', 'clockMsLeft': 431000},
+      },
+    });
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byKey(const ValueKey('chess-paused')), findsOneWidget);
+    expect(find.text('PAUSED'), findsWidgets);
+    expect(find.text('7:11'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('chess-square-e2')),
+        warnIfMissed: false);
+    await tester.tap(find.byKey(const ValueKey('chess-square-e4')),
+        warnIfMissed: false);
+    await tester.pump();
+    expect(socket.actions, isEmpty);
+
+    await tester.tap(find.byKey(const ValueKey('chess-resume')));
+    expect(socket.sent.last['type'], 'PAUSE_TOGGLE');
+    socket.frames.add({
+      'type': 'EVENT',
+      'payload': {
+        'type': 'GAME_RESUMED',
+        'data': {'by': 'me', 'clockMsLeft': 431000},
+      },
+    });
+    await tester.pump();
+    expect(find.byKey(const ValueKey('chess-paused')), findsNothing);
+    expect(find.text('YOUR MOVE'), findsOneWidget);
+    await close(tester);
+  });
+
   testWidgets('spectators get no move controls', (tester) async {
     final socket = await open(tester, spectating: true);
     socket.snapshot(legalMoves: const {
