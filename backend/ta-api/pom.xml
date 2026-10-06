@@ -64,6 +64,10 @@
         </dependency>
         <dependency>
             <groupId>app.truearena</groupId>
+            <artifactId>ta-game-chess</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>app.truearena</groupId>
             <artifactId>ta-ws</artifactId>
         </dependency>
         <dependency>

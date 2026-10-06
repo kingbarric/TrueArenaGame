@@ -2,6 +2,7 @@ package app.truearena.engine;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 
 /**
@@ -60,5 +61,27 @@ public interface GameModule {
      */
     default Set<String> playersToAct(GameState state) {
         return Set.of();
+    }
+
+    /**
+     * Action-data key under which the orchestrator stamps the live
+     * milliseconds left on the running clock, for modules that report one
+     * via {@link #runningClockMs}. Any client-supplied value is discarded
+     * first — clients never get to say how much time they have.
+     */
+    String CLOCK_REMAINING_KEY = "__clockRemainingMs";
+
+    /**
+     * For games where each player owns a cumulative clock (chess) rather than
+     * a fixed allowance per phase: the milliseconds banked on the clock that
+     * is running right now. The orchestrator arms the phase timer with this
+     * instead of the phase's fixed {@code timerSeconds}, and stamps every
+     * action with the live remaining time under {@link #CLOCK_REMAINING_KEY}.
+     * Keeping wall-clock measurement in the orchestrator (which already
+     * excludes paused time) leaves the module itself pure and deterministic.
+     * Empty for ordinary per-phase timers.
+     */
+    default OptionalLong runningClockMs(GameState state) {
+        return OptionalLong.empty();
     }
 }

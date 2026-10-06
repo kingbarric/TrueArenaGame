@@ -13,6 +13,8 @@ import app.truearena.engine.Phase;
 import app.truearena.engine.PlayerAction;
 import app.truearena.engine.RandomSource;
 import app.truearena.engine.RuleViolation;
+import app.truearena.game.chess.ChessConfig;
+import app.truearena.game.chess.ChessModule;
 import app.truearena.game.draughts.DraughtsConfig;
 import app.truearena.game.draughts.DraughtsModule;
 import app.truearena.game.goosi.GoosiConfig;
@@ -416,6 +418,8 @@ public class GameOrchestrator {
         // spectator) immediately knows the room is paused and how many are watching.
         view.put("paused", rt.paused);
         view.put("secondsLeft", secondsLeft(rt));
+        // Millisecond precision for per-player clocks, where the final seconds matter.
+        liveClockMs(rt).ifPresent(ms -> view.put("clockMsLeft", ms));
         view.put("spectatorCount", rt.spectatorUserIds.size());
         view.put("spectatorsMuted", rt.spectatorsMuted);
         view.put("connectedPlayers", List.copyOf(rt.connectedUserIds));
@@ -525,6 +529,10 @@ public class GameOrchestrator {
         }
         if (!rt.connectedUserIds.contains(userId)) {
             return tellError(rt, userId, "SPECTATORS_CANT_PAUSE", "only players can pause the game");
+        }
+        // A clock either player could stop at will isn't a clock.
+        if (rt.module().runningClockMs(rt.state()).isPresent()) {
+            return tellError(rt, userId, "CLOCK_GAME_NO_PAUSE", "chess clocks can't be paused — offer a draw or resign instead");
         }
         rt.paused = !rt.paused;
         if (rt.paused) {
@@ -693,6 +701,7 @@ public class GameOrchestrator {
                     return switch (gameType) {
                         case "wordbluff" -> startWordBluff(rt, userId, playerIds);
                         case "draughts" -> startDraughts(rt, userId, playerIds);
+                        case "chess" -> startChess(rt, userId, playerIds, t.getT1().gameConfig());
                         case "goosi" -> startGoosi(rt, userId, playerIds);
                         case "whot" -> startWhot(rt, userId, playerIds);
                         case "ludo" -> startLudo(rt, userId, playerIds, options);
@@ -805,6 +814,42 @@ public class GameOrchestrator {
                     return updateRoomStatus(rt.roomId, "in_game")
                             .then(afterMutation(rt, state.events()));
                 });
+    }
+
+    private Mono<Void> startChess(RoomRuntime rt, String userId, List<String> playerIds, String roomConfig) {
+        ChessConfig cfg = chessConfigFrom(roomConfig);
+        ChessModule module = new ChessModule();
+        long seed = ThreadLocalRandom.current().nextLong();
+        GameState state;
+        try {
+            state = module.initialState(playerIds, cfg, RandomSource.seeded(seed));
+        } catch (RuleViolation rv) {
+            return tellError(rt, userId, rv.code(), rv.getMessage());
+        }
+        return sessions.save(GameSessionRow.start(rt.roomId, module.gameType(), writeJson(cfg), 1, seed))
+                .flatMap(session -> {
+                    rt.config = cfg;
+                    rt.start(module, state, session.id());
+                    return updateRoomStatus(rt.roomId, "in_game")
+                            .then(afterMutation(rt, state.events()));
+                });
+    }
+
+    /** Host-chosen time control; anything missing or out of range falls back to the defaults. */
+    ChessConfig chessConfigFrom(String json) {
+        if (json == null || json.isBlank()) {
+            return ChessConfig.defaults();
+        }
+        try {
+            Map<?, ?> raw = mapper.readValue(json, Map.class);
+            ChessConfig defaults = ChessConfig.defaults();
+            int initial = raw.get("initialSeconds") instanceof Number n ? n.intValue() : defaults.initialSeconds();
+            int increment = raw.get("incrementSeconds") instanceof Number n ? n.intValue() : defaults.incrementSeconds();
+            return new ChessConfig(initial, increment);
+        } catch (Exception e) {
+            log.warn("unreadable chess config, using defaults: {}", e.toString());
+            return ChessConfig.defaults();
+        }
     }
 
     /** Starts a bracket pairing with its phase clock suspended until both players connect. */
@@ -1175,7 +1220,8 @@ public class GameOrchestrator {
         }
         String action = String.valueOf(in.payload().get("action"));
         @SuppressWarnings("unchecked")
-        Map<String, Object> data = (Map<String, Object>) in.payload().getOrDefault("data", Map.of());
+        Map<String, Object> clientData = (Map<String, Object>) in.payload().getOrDefault("data", Map.of());
+        Map<String, Object> data = serverActionData(rt, clientData);
         Object rawActionId = in.payload().get("actionId");
         String actionId = rawActionId != null ? rawActionId.toString() : UUID.randomUUID().toString();
 
@@ -1201,6 +1247,33 @@ public class GameOrchestrator {
                 return afterMutation(rt, step.events());
             }));
         });
+    }
+
+    /**
+     * The action data a module actually sees: whatever the client sent, minus
+     * any {@code __}-prefixed keys (reserved for the server), plus — for games
+     * with running clocks — the live time left on that clock. A client can
+     * never claim more time than the server measured.
+     */
+    Map<String, Object> serverActionData(RoomRuntime rt, Map<String, Object> clientData) {
+        Map<String, Object> data = new java.util.HashMap<>(clientData);
+        data.keySet().removeIf(k -> k.startsWith("__"));
+        liveClockMs(rt).ifPresent(ms -> data.put(GameModule.CLOCK_REMAINING_KEY, ms));
+        return data;
+    }
+
+    /** Milliseconds left on a running per-player clock right now — empty for games without one, or before it's armed. */
+    java.util.OptionalLong liveClockMs(RoomRuntime rt) {
+        if (rt.state() == null || rt.module().runningClockMs(rt.state()).isEmpty()) {
+            return java.util.OptionalLong.empty();
+        }
+        if (rt.paused) {
+            return java.util.OptionalLong.of(rt.timerRemainingMs);
+        }
+        if (rt.timerDeadlineMs <= 0) {
+            return java.util.OptionalLong.empty();
+        }
+        return java.util.OptionalLong.of(Math.max(0, rt.timerDeadlineMs - System.currentTimeMillis()));
     }
 
     private void triggerElapse(RoomRuntime rt, String expectedPhase, int expectedRound) {
@@ -1359,17 +1432,21 @@ public class GameOrchestrator {
             rt.bus.tryEmitNext(new LobbyBroadcast("GAME_PAUSED",
                     Map.of("reason", "grace", "phase", phase, "secondsLeft", secs)));
         }
-        if (secs > 0) {
+        // A game with per-player clocks (chess) runs each turn for exactly what
+        // the mover has left, not a fixed per-phase allowance.
+        java.util.OptionalLong playerClock = rt.module().runningClockMs(rt.state());
+        long ms = playerClock.isPresent() ? Math.max(0, playerClock.getAsLong()) : secs * 1000L;
+        if (secs > 0 || playerClock.isPresent()) {
             if (rt.paused) {
                 // Phase changed while paused (e.g. a forced advance): bank the
                 // full duration rather than starting a clock nobody can see.
-                rt.timerRemainingMs = secs * 1000L;
+                rt.timerRemainingMs = ms;
                 rt.timerDeadlineMs = 0;
                 return;
             }
-            rt.timerDeadlineMs = System.currentTimeMillis() + secs * 1000L;
+            rt.timerDeadlineMs = System.currentTimeMillis() + ms;
             int round = rt.state().round();
-            rt.timer = Mono.delay(Duration.ofSeconds(secs)).subscribe(x -> triggerElapse(rt, phase, round));
+            rt.timer = Mono.delay(Duration.ofMillis(ms)).subscribe(x -> triggerElapse(rt, phase, round));
         } else {
             rt.timerDeadlineMs = 0;
         }
