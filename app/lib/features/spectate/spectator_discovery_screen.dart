@@ -10,7 +10,7 @@ import 'spectate_screen.dart';
 const _gameNames = {
   'truearena': 'Traitors',
   'wordbluff': 'Word Bluff',
-  'draughts': 'Draft',
+  'draughts': 'Draughts',
   'chess': 'Chess',
   'goosi': 'Macala',
   'whot': 'Whot',

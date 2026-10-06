@@ -229,8 +229,8 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
     final count = room.members.length;
     if (count != 2) {
       final message = count < 2
-          ? 'Draft needs one opponent. Add a player or a Cyber Agent before starting.'
-          : 'Draft is one on one. Remove the extra players before starting.';
+          ? 'Draughts needs one opponent. Add a player or a Cyber Agent before starting.'
+          : 'Draughts is one on one. Remove the extra players before starting.';
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(message)));
       return;
@@ -274,7 +274,7 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Draft'),
+        title: const Text('Draughts'),
         actions: [
           if (room != null)
             IconButton(

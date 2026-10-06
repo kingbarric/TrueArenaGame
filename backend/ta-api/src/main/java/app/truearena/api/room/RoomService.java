@@ -251,7 +251,7 @@ public class RoomService {
                 }));
     }
 
-    /** Leaving a private Draft or Chess game against a system agent ends that room. */
+    /** Leaving a private Draughts or Chess game against a system agent ends that room. */
     public Mono<Boolean> leaveBotDraughtsRoom(UUID roomId, UUID callerId) {
         return rooms.findById(roomId)
                 .switchIfEmpty(Mono.error(ApiExceptions.notFound("huud not found")))

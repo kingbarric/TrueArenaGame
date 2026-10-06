@@ -101,7 +101,7 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
           builder: (_) => SpectateScreen(
                 roomId: room.id,
                 gameType: room.gameType,
-                title: 'Watching ${room.gameType == 'draughts' ? 'Draft' : room.gameType}',
+                title: 'Watching ${room.gameType == 'draughts' ? 'Draughts' : room.gameType}',
               )));
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);

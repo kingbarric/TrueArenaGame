@@ -4,6 +4,7 @@ import 'core/api_client.dart';
 import 'core/app_state.dart';
 import 'core/models.dart';
 import 'core/push_notifications.dart';
+import 'features/calls/incoming_call_screen.dart';
 import 'features/shell/main_shell.dart';
 import 'features/lobby/joined_room_screen.dart';
 import 'features/onboarding/welcome_screen.dart';
@@ -91,7 +92,7 @@ class _GameInviteOverlayState extends State<_GameInviteOverlay> {
   static const _gameNames = {
     'truearena': 'Traitors',
     'wordbluff': 'Word Bluff',
-    'draughts': 'Draft',
+    'draughts': 'Draughts',
     'chess': 'Chess',
     'goosi': 'Macala',
     'whot': 'Whot',
@@ -228,6 +229,15 @@ class _ResumeGateState extends State<_ResumeGate> {
       widget.state.pendingConversationId = null;
       if (mounted) setState(() => _checking = false);
       await PushNotifications.openConversation(pendingConversation);
+      return;
+    }
+    final pendingCall = widget.state.pendingIncomingCall;
+    if (pendingCall != null) {
+      widget.state.pendingIncomingCall = null;
+      if (mounted) setState(() => _checking = false);
+      // Opened from a call notification: ring here so it can be answered.
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => IncomingCalls.present(pendingCall));
       return;
     }
     final pendingRoom = widget.state.pendingRoomId;

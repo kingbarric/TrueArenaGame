@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Draft Championship · PlayHuud</title>
+  <title>Draughts Championship · PlayHuud</title>
   <style>
     body{margin:0;background:#150f19;color:#f9f0d8;font:16px system-ui,sans-serif;min-height:100vh;display:grid;place-items:center}
     main{box-sizing:border-box;max-width:540px;width:calc(100% - 32px);padding:32px;background:#241b2b;border:1px solid #70538a;border-radius:20px}
@@ -14,14 +14,14 @@
   </style>
 </head>
 <body><main>
-  <div class="eyebrow">PlayHuud · Draft knockout</div>
+  <div class="eyebrow">PlayHuud · Draughts knockout</div>
   <h1 id="name">Championship invitation</h1>
   <p id="details">Loading the invitation…</p>
   <p class="count" id="count"></p>
   <p>Invitation code<br><span class="code" id="code"></span></p>
   <a class="button" id="open" href="#">Open in PlayHuud</a>
   <button class="secondary" id="copy">Copy code</button>
-  <p>New to PlayHuud? <a href="/">Get the app</a>, create your account, then enter this code in Draft Championships.</p>
+  <p>New to PlayHuud? <a href="/">Get the app</a>, create your account, then enter this code in Draughts Championships.</p>
 </main>
 <script>
   const code = location.pathname.split('/').filter(Boolean).pop().toUpperCase();
@@ -34,7 +34,7 @@
     .then(c => {
       document.getElementById('name').textContent = c.name;
       const start = new Date(c.scheduledAt).toLocaleString();
-      document.getElementById('details').textContent = 'Draft · single elimination · starts ' + start + ' · ' + c.visibility;
+      document.getElementById('details').textContent = 'Draughts · single elimination · starts ' + start + ' · ' + c.visibility;
       document.getElementById('count').textContent = c.joined + ' / ' + c.size + ' players joined';
     }).catch(e => document.getElementById('details').textContent = e.message);
 </script></body></html>

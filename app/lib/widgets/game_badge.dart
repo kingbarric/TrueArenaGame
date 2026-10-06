@@ -37,7 +37,7 @@ class GameBadge extends StatelessWidget {
   static const _names = {
     'truearena': 'TRAITORS',
     'bluff': 'WORD BLUFF',
-    'draughts': 'DRAFT',
+    'draughts': 'DRAUGHTS',
     'chess': 'CHESS',
     'goosi': 'MACALA',
     'whot': 'WHOT',
@@ -51,6 +51,7 @@ class GameBadge extends StatelessWidget {
     'goosi': 'assets/images/game_icons/goosi.png',
     'whot': 'assets/images/game_icons/whot.png',
     'ludo': 'assets/images/game_icons/ludo.png',
+    'chess': 'assets/images/game_icons/chess.png',
   };
 
   static String? artworkFor(String gameId) => _artwork[gameId];
@@ -120,11 +121,7 @@ class GameBadge extends StatelessWidget {
                   ],
                 ),
             },
-            child: artwork == null && gameId == 'chess'
-                ? const FittedBox(
-                    child: Text('\u265E\uFE0E',
-                        style: TextStyle(color: Color(0xffffcf66))))
-                : artwork == null
+            child: artwork == null
                 ? SvgPicture.string(
                     '<svg viewBox="0 0 100 100">${_goosiIcon.replaceAll('COLOR', '#5eead4')}</svg>')
                 : Image.asset(artwork, fit: BoxFit.contain),

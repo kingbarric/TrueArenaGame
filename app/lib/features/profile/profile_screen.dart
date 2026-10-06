@@ -152,7 +152,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final n = context.neon;
     final app = AppScope.of(context);
     final user = app.user;
-    final name = user?.displayName ?? 'Player';
+    // Your own profile shows your username only; full names are shown to
+    // you for friends, not for yourself.
+    final name = user?.username ?? user?.displayName ?? 'Player';
     final isGuest = app.identity == Identity.guest;
 
     return Scaffold(
@@ -193,8 +195,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   TextButton(onPressed: _pickingPhoto ? null : () => _chooseAvatar(app),
                       child: Text(_pickingPhoto ? 'Opening photos…' : 'Change profile picture')),
                   const SizedBox(height: 12),
-                  Text(name, style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 4),
+                  if (isGuest) ...[
+                    Text(name, style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 4),
+                  ],
                   if (isGuest)
                     Text('Guest — this device only', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute))
                   else
@@ -205,7 +209,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text('@${user?.username ?? '—'}',
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: n.gold, fontWeight: FontWeight.w700)),
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(color: n.gold, fontWeight: FontWeight.w800)),
                           const SizedBox(width: 4),
                           Icon(Icons.edit, size: 13, color: n.mute),
                         ],

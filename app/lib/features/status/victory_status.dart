@@ -13,7 +13,7 @@ const gameStatusNames = {
   'whot': 'Whot',
   'ludo': 'Ludo',
   'wordbluff': 'Word Bluff',
-  'draughts': 'Draft',
+  'draughts': 'Draughts',
   'chess': 'Chess',
   'goosi': 'Macala',
   'truearena': 'Traitors',

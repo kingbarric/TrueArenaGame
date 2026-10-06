@@ -16,10 +16,13 @@ import '../../widgets/table_chat.dart';
 import '../onboarding/guest_save_session_card.dart';
 import '../shell/main_shell.dart';
 import '../status/victory_status.dart';
+import '../../widgets/var_tv_icon.dart';
+import 'chess_piece.dart';
+import 'chess_var.dart';
 import 'chess_view.dart';
 
 /// Standard chess, played against the server's `ChessModule`. The same
-/// SNAPSHOT/PHASE/EVENT-in, PLAYER_ACTION-out contract as Draft and Macala.
+/// SNAPSHOT/PHASE/EVENT-in, PLAYER_ACTION-out contract as Draughts and Macala.
 ///
 /// The screen holds no rules of its own. Every snapshot carries the moves
 /// the engine will accept (`legalMoves`), the clocks and the draw state, and
@@ -107,6 +110,9 @@ class _ChessGameScreenState extends State<ChessGameScreen>
   /// someone resumes.
   bool _paused = false;
   String? _pausedBy;
+
+  /// The last move played, kept for VAR.
+  ChessVarMove? _lastVar;
 
   @override
   void initState() {
@@ -207,6 +213,21 @@ class _ChessGameScreenState extends State<ChessGameScreen>
         next.lastFrom != null &&
         next.lastTo != null &&
         !(previous.lastFrom == next.lastFrom && previous.lastTo == next.lastTo);
+    // One new move on a board we already had: remember it for VAR.
+    if (_server.hasBoard &&
+        next.hasBoard &&
+        next.moves.length == _server.moves.length + 1 &&
+        next.lastFrom != null &&
+        next.lastTo != null) {
+      _lastVar = ChessVarMove(
+        side: next.turn == 'white' ? 'black' : 'white',
+        san: next.moves.last,
+        from: next.lastFrom!,
+        to: next.lastTo!,
+        before: List<String?>.unmodifiable(_server.board),
+        after: List<String?>.unmodifiable(next.board),
+      );
+    }
     setState(() {
       _server = next;
       _view = next;
@@ -455,7 +476,7 @@ class _ChessGameScreenState extends State<ChessGameScreen>
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: _gold, width: 2),
                     ),
-                    child: _PieceGlyph(
+                    child: ChessPieceGlyph(
                         code: '$_myColor${letter.toUpperCase()}', size: 46),
                   ),
                 ),
@@ -975,9 +996,53 @@ class _ChessGameScreenState extends State<ChessGameScreen>
             ],
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 4),
+        if (side == (_amSpectator ? 'black' : _opponentSide)) _varButton(),
+        const SizedBox(width: 4),
         _clockBox(side, isMe: isMe, active: active),
       ]),
+    );
+  }
+
+  /// Replays the opponent's last move — never your own, you just saw it.
+  bool get _varAvailable {
+    final last = _lastVar;
+    return last != null && (_amSpectator || last.side != _mySide);
+  }
+
+  Widget _varButton() {
+    return SizedBox(
+      width: 40,
+      height: 38,
+      child: TextButton(
+        key: const ValueKey('chess-var-tv'),
+        style: TextButton.styleFrom(padding: EdgeInsets.zero),
+        onPressed: _varAvailable ? _openVar : null,
+        child: VarTvIcon(
+          enabled: _varAvailable,
+          casing: _gold,
+          screen: _panelDeep,
+          label: _cream,
+          disabled: const Color(0xff5d4a78),
+        ),
+      ),
+    );
+  }
+
+  void _openVar() {
+    final move = _lastVar;
+    if (move == null) return;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: _panel,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => ChessVarSheet(
+        move: move,
+        playerName: _label(_view.playerFor(move.side)),
+        flipped: _flipped,
+      ),
     );
   }
 
@@ -991,7 +1056,7 @@ class _ChessGameScreenState extends State<ChessGameScreen>
           for (final code in sorted)
             Align(
               widthFactor: 0.62,
-              child: _PieceGlyph(code: code, size: 17),
+              child: ChessPieceGlyph(code: code, size: 17),
             ),
         ],
       ),
@@ -1153,14 +1218,14 @@ class _ChessGameScreenState extends State<ChessGameScreen>
 
     Widget? pieceWidget;
     if (piece != null && !sliding) {
-      final glyph = _PieceGlyph(code: piece, size: cell * 0.86);
+      final glyph = ChessPieceGlyph(code: piece, size: cell * 0.86);
       pieceWidget = draggable
           ? Draggable<int>(
               data: sq,
               feedback: SizedBox(
                   width: cell * 1.25,
                   height: cell * 1.25,
-                  child: _PieceGlyph(code: piece, size: cell * 1.1)),
+                  child: ChessPieceGlyph(code: piece, size: cell * 1.1)),
               childWhenDragging: const SizedBox.shrink(),
               dragAnchorStrategy: (_, __, ___) =>
                   Offset(cell * 0.62, cell * 0.95),
@@ -1252,7 +1317,8 @@ class _ChessGameScreenState extends State<ChessGameScreen>
             top: pos.dy,
             width: cell,
             height: cell,
-            child: Center(child: _PieceGlyph(code: piece, size: cell * 0.86)),
+            child:
+                Center(child: ChessPieceGlyph(code: piece, size: cell * 0.86)),
           ),
         ]);
       },
@@ -1542,59 +1608,5 @@ class _ChessGameScreenState extends State<ChessGameScreen>
         ),
       ),
     ]);
-  }
-}
-
-/// A chess piece drawn from its Unicode glyph: cream with a dark edge for
-/// white, near-black with a light edge for black, so both read on either
-/// square colour.
-class _PieceGlyph extends StatelessWidget {
-  const _PieceGlyph({required this.code, required this.size});
-
-  final String code;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    final white = code.startsWith('w');
-    final glyph = glyphFor(code);
-    final base = TextStyle(
-      fontSize: size,
-      height: 1.0,
-      fontFamilyFallback: const [
-        'Apple Symbols',
-        'Segoe UI Symbol',
-        'Noto Sans Symbols 2',
-        'DejaVu Sans'
-      ],
-    );
-    return SizedBox(
-      width: size,
-      height: size,
-      child: FittedBox(
-        child: Stack(alignment: Alignment.center, children: [
-          Text(glyph,
-              style: base.copyWith(
-                foreground: Paint()
-                  ..style = PaintingStyle.stroke
-                  ..strokeWidth = size * 0.07
-                  ..strokeJoin = StrokeJoin.round
-                  ..color =
-                      white ? const Color(0xff2b1d10) : const Color(0xffe9dcc4),
-              )),
-          Text(glyph,
-              style: base.copyWith(
-                color:
-                    white ? const Color(0xfffff8ea) : const Color(0xff1d1712),
-                shadows: const [
-                  Shadow(
-                      color: Color(0x66000000),
-                      blurRadius: 3,
-                      offset: Offset(0, 1.5)),
-                ],
-              )),
-        ]),
-      ),
-    );
   }
 }

@@ -55,6 +55,7 @@ class _Socket implements GameSocket {
     String? winningSide,
     String? resultReason,
     List<String> moves = const [],
+    Map<String, String>? lastMove,
   }) {
     final board = List<String?>.filled(64, null);
     final setup = pieces.isEmpty ? _initial : pieces;
@@ -70,7 +71,7 @@ class _Socket implements GameSocket {
         'board': board,
         'inCheck': inCheck,
         'moves': moves,
-        'lastMove': null,
+        'lastMove': lastMove,
         'capturedByWhite': <String>[],
         'capturedByBlack': <String>[],
         'whiteMs': 600000,
@@ -311,6 +312,38 @@ void main() {
     await tester.pump();
     expect(find.byKey(const ValueKey('chess-paused')), findsNothing);
     expect(find.text('YOUR MOVE'), findsOneWidget);
+    await close(tester);
+  });
+
+  testWidgets('VAR replays the opponent\'s last move', (tester) async {
+    final socket = await open(tester);
+    socket.snapshot(
+        white: 'opponent', black: 'me', turn: 'white', moves: const []);
+    await tester.pump();
+    final tv = find.byKey(const ValueKey('chess-var-tv'));
+    expect(tv, findsOneWidget);
+    expect(tester.widget<TextButton>(tv).onPressed, isNull,
+        reason: 'nothing to replay yet');
+
+    final after = Map<String, String>.of(_initial)
+      ..remove('e2')
+      ..['e4'] = 'wP';
+    socket.snapshot(
+        white: 'opponent',
+        black: 'me',
+        turn: 'black',
+        pieces: after,
+        moves: const ['e4'],
+        lastMove: const {'from': 'e2', 'to': 'e4'});
+    await tester.pump();
+    expect(tester.widget<TextButton>(tv).onPressed, isNotNull);
+
+    await tester.tap(tv);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byKey(const ValueKey('chess-var-sheet')), findsOneWidget);
+    expect(find.text('Ama played e4'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3)); // let the replay finish
     await close(tester);
   });
 

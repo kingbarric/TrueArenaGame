@@ -275,6 +275,27 @@ class _FriendsScreenState extends State<FriendsScreen> {
     }
   }
 
+  Future<void> _nudge(FriendUser f) async {
+    final app = AppScope.of(context);
+    try {
+      await app.api.post('/friends/${f.userId}/nudge');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('👋 Nudged ${f.displayName} — their phone is buzzing')));
+      }
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not send the nudge')));
+      }
+    }
+  }
+
   Future<void> _call(FriendUser f) async {
     final app = AppScope.of(context);
     try {
@@ -288,6 +309,10 @@ class _FriendsScreenState extends State<FriendsScreen> {
           livekitUrl: res['livekitUrl'] as String,
           title: f.displayName,
           peerPublicKey: f.publicKey, // 1:1 → end-to-end encrypted media
+          ringPeerId: f.userId, // makes their phone ring
+          refreshToken: () async =>
+              ((await app.api.post('/calls/dm/${f.userId}/token')
+                  as Map<String, dynamic>)['token'] as String),
         ),
       ));
     } on ApiException catch (e) {
@@ -552,13 +577,38 @@ class _FriendsScreenState extends State<FriendsScreen> {
         builder: (_, online, __) => OnlineAvatar(f.displayName,
             size: 32, imageUrl: f.avatarUrl, online: online.contains(f.userId)),
       ),
-      title: Text(f.displayName,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context)
-              .textTheme
-              .bodyMedium
-              ?.copyWith(fontWeight: FontWeight.w700)),
+      title: Row(children: [
+        Flexible(
+          child: Text(f.displayName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(fontWeight: FontWeight.w700)),
+        ),
+        const SizedBox(width: 6),
+        // Right by their name: buzz their phone to come online.
+        Tooltip(
+          message: 'Nudge ${f.displayName}',
+          child: InkWell(
+            key: ValueKey('nudge-${f.userId}'),
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => _nudge(f),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color: n.gold.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: n.gold.withValues(alpha: 0.6)),
+              ),
+              child: Text('👋 Nudge',
+                  style: TextStyle(
+                      color: n.gold, fontSize: 10, fontWeight: FontWeight.w800)),
+            ),
+          ),
+        ),
+      ]),
       subtitle: Text('@${f.username} · View status',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,

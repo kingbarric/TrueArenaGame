@@ -199,7 +199,7 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
       appBar: AppBar(
         title: Text(switch (_room.gameType) {
           'wordbluff' => 'Word Bluff',
-          'draughts' => 'Draft',
+          'draughts' => 'Draughts',
           'chess' => 'Chess',
           'goosi' => 'Macala',
           'whot' => 'Whot',

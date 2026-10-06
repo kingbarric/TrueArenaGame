@@ -956,7 +956,7 @@ public class GameOrchestrator {
         }));
     }
 
-    /** End an ordinary Draft or Chess match against a Cyber Agent before its socket closes. */
+    /** End an ordinary Draughts or Chess match against a Cyber Agent before its socket closes. */
     public Mono<Boolean> forfeitBotDraughtsRoom(UUID roomId, UUID loser) {
         return registry.find(roomId)
                 .<Mono<Boolean>>map(rt -> lock.withLock(roomId, LOCK_TTL, () -> {

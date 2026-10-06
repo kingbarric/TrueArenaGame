@@ -5,6 +5,7 @@ import '../../core/models.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/coin_tier_badge.dart';
 import '../../widgets/game_badge.dart';
+import '../../widgets/idle_wiggle.dart';
 import '../../widgets/motif.dart';
 import '../../widgets/neon.dart';
 import '../../widgets/playhuud_logo.dart';
@@ -28,7 +29,9 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final n = context.neon;
     final app = AppScope.of(context);
-    final name = app.user?.displayName ?? 'Player';
+    // Your own card shows your username; full names are for your friends'
+    // lists, not your own header.
+    final name = app.user?.username ?? app.user?.displayName ?? 'Player';
     final isGuest = app.identity == Identity.guest;
 
     return Scaffold(
@@ -98,21 +101,15 @@ class HomeScreen extends StatelessWidget {
                             _TierBadgeLoader(app: app),
                           ],
                         ),
-                        Text(
-                            isGuest
-                                ? 'Guest — this device only'
-                                : (app.user?.username != null
-                                    ? '@${app.user!.username}'
-                                    : 'Signed in'),
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelSmall
-                                ?.copyWith(color: n.mute)),
+                        if (isGuest)
+                          Text('Guest — this device only',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelSmall
+                                  ?.copyWith(color: n.mute)),
                       ],
                     ),
                   ),
-                  const PlayHuudLogo(width: 112, height: 38),
-                  const SizedBox(width: 4),
                   Icon(Icons.chevron_right, color: n.mute, size: 20),
                 ],
               ),
@@ -134,21 +131,19 @@ class HomeScreen extends StatelessWidget {
           // headline now sits directly above the row it's describing, and the
           // row is the primary action. (`GameSelectScreen` still exists: it's
           // the picker for screens that aren't Home, e.g. Chats and Friends.)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 22),
-            child: Text('START A GAME',
-                style: Theme.of(context)
-                    .textTheme
-                    .displayLarge
-                    ?.copyWith(fontSize: 34, height: 1)),
+          // The logo gets a line to itself, right above the games.
+          const Center(
+            key: ValueKey('home-logo'),
+            child: PlayHuudLogo(width: 190, height: 64),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Padding(
-            padding: const EdgeInsets.fromLTRB(22, 0, 22, 10),
-            child: Text('Pick one to open a huud',
+            padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
+            child: Text('Pick one game to open a huud',
+                textAlign: TextAlign.center,
                 style: Theme.of(context)
                     .textTheme
-                    .labelSmall
+                    .labelMedium
                     ?.copyWith(color: n.mute)),
           ),
           // Two to a row, so each game's artwork is big enough to read.
@@ -241,9 +236,13 @@ class HomeScreen extends StatelessWidget {
           aspectRatio: 1,
           child: Opacity(
             opacity: g.available ? 1 : 0.45,
-            child: artwork == null
-                ? GameBadge(gameId: g.id)
-                : Image.asset(artwork, fit: BoxFit.contain),
+            // Each game gives a little shake now and then, at its own
+            // random moment, so the shelf feels alive.
+            child: IdleWiggle(
+              child: artwork == null
+                  ? GameBadge(gameId: g.id)
+                  : Image.asset(artwork, fit: BoxFit.contain),
+            ),
           ),
         ),
         const SizedBox(height: 4),

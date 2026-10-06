@@ -7,6 +7,10 @@ import app.truearena.persistence.DeviceTokenRow;
 import app.truearena.persistence.UserNotificationRepository;
 import app.truearena.persistence.UserNotificationRow;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.firebase.messaging.AndroidConfig;
+import com.google.firebase.messaging.AndroidNotification;
+import com.google.firebase.messaging.ApnsConfig;
+import com.google.firebase.messaging.Aps;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.MessagingErrorCode;
@@ -92,6 +96,56 @@ public class PushNotificationService {
                 .subscribeOn(Schedulers.boundedElastic())
                 .subscribe(rows -> sendTo(rows, title, body, data),
                         e -> log.warn("push lookup failed for {} users: {}", userIds.size(), e.toString()));
+    }
+
+    /**
+     * An incoming call: the loudest thing the app sends. High priority so it
+     * arrives straight away on a dozing phone, on Android's dedicated
+     * "incoming_calls" channel (max importance, vibration), and on iOS as a
+     * time-sensitive alert with sound so it breaks through notification
+     * summaries. Not recorded in the notifications page — a missed ring is
+     * not something to read later.
+     */
+    public void sendCallAlert(UUID userId, String title, String body, Map<String, String> data) {
+        tokens.findByUserIdIn(Set.of(userId))
+                .collectList()
+                .subscribeOn(Schedulers.boundedElastic())
+                .subscribe(rows -> {
+                    if (rows.isEmpty()) return;
+                    if (messaging == null) {
+                        log.info("[PUSH-STUB] would ring {} device(s): \"{}\"", rows.size(), title);
+                        return;
+                    }
+                    MulticastMessage message = MulticastMessage.builder()
+                            .addAllTokens(rows.stream().map(DeviceTokenRow::token).toList())
+                            .setNotification(Notification.builder().setTitle(title).setBody(body).build())
+                            .putAllData(data)
+                            .setAndroidConfig(AndroidConfig.builder()
+                                    .setPriority(AndroidConfig.Priority.HIGH)
+                                    .setTtl(45_000)
+                                    .setNotification(AndroidNotification.builder()
+                                            .setChannelId("incoming_calls")
+                                            .setPriority(AndroidNotification.Priority.MAX)
+                                            .setSound("default")
+                                            .setDefaultVibrateTimings(false)
+                                            .setVibrateTimingsInMillis(new long[]{0, 900, 600, 900, 600, 900})
+                                            .build())
+                                    .build())
+                            .setApnsConfig(ApnsConfig.builder()
+                                    .putHeader("apns-priority", "10")
+                                    .putHeader("apns-expiration", String.valueOf(Instant.now().getEpochSecond() + 45))
+                                    .setAps(Aps.builder()
+                                            .setSound("default")
+                                            .putCustomData("interruption-level", "time-sensitive")
+                                            .build())
+                                    .build())
+                            .build();
+                    try {
+                        messaging.sendEachForMulticast(message);
+                    } catch (Exception e) {
+                        log.warn("call push failed: {}", e.toString());
+                    }
+                }, e -> log.warn("call push lookup failed: {}", e.toString()));
     }
 
     /**

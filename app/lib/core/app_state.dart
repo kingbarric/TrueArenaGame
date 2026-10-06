@@ -47,6 +47,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   /// shape as [pendingChampionshipCode].
   String? pendingConversationId;
   String? pendingRoomId;
+
+  /// A call push tapped while the app was closed — rung once the app is up.
+  Map<String, dynamic>? pendingIncomingCall;
   GoogleSignIn? _googleClient;
 
   Identity identity = Identity.anonymous;
@@ -85,6 +88,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   final _chatController = StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get chatMessages => _chatController.stream;
 
+  /// Ringing and nudges from the inbox: `CALL_INCOMING`, `CALL_CANCELLED`,
+  /// `CALL_DECLINED` and `NUDGE`, each as `{type, data}`.
+  final _callController = StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get callEvents => _callController.stream;
+
   void dismissGameInvite() {
     pendingGameInvite = null;
     notifyListeners();
@@ -121,6 +129,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         notifyListeners();
       } else if (payload?['type'] == 'NEW_MESSAGE') {
         _chatController.add((payload!['data'] as Map).cast<String, dynamic>());
+      } else if (const {'CALL_INCOMING', 'CALL_CANCELLED', 'CALL_DECLINED', 'NUDGE'}
+          .contains(payload?['type'])) {
+        _callController.add(payload!);
       }
     }, onDone: () => _scheduleInboxReconnect(generation));
     client.ready.then((_) {

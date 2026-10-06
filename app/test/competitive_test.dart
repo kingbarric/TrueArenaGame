@@ -15,7 +15,7 @@ import 'package:truearena/features/draughts/draughts_lobby_screen.dart';
 import 'package:truearena/theme/neon_theme.dart';
 import 'package:truearena/widgets/neon.dart';
 
-/// A /me/competitive payload as the server sends it: rated in Draft, on the
+/// A /me/competitive payload as the server sends it: rated in Draughts, on the
 /// global board, but with no state set yet.
 Map<String, dynamic> _profileJson({bool complete = false, bool rated = true}) => {
       'userId': 'u1',
@@ -102,7 +102,7 @@ void main() {
       expect(p.founding?.label, 'Founding 1,000');
       expect(p.profileComplete, isFalse);
       final draft = p.game('draughts')!;
-      expect(draft.name, 'Draft'); // the app's brand name for draughts
+      expect(draft.name, 'Draughts'); // the app's brand name for draughts
       expect(draft.rating, 1842);
       expect(draft.ranks.country.isRanked, isTrue);
       expect(draft.ranks.region.status, RankInfo.locationRequired);
@@ -121,7 +121,7 @@ void main() {
     });
   });
 
-  testWidgets('own profile without a state asks to complete it, and still shows Draft before any rated game',
+  testWidgets('own profile without a state asks to complete it, and still shows Draughts before any rated game',
       (tester) async {
     final state = AppState(ApiClient(client: MockClient((_) async => _json([]))));
     final profile = CompetitiveProfile.fromJson(_profileJson(rated: false));
@@ -226,7 +226,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
-    expect(find.text('Draft Rankings'), findsOneWidget);
+    expect(find.text('Draughts Rankings'), findsOneWidget);
     expect(find.text('Champ'), findsOneWidget);
     expect(find.text('FOUNDING 100'), findsOneWidget);
     expect(find.text('2147'), findsOneWidget);
@@ -244,7 +244,7 @@ void main() {
     expect(find.text('Complete profile'), findsOneWidget);
   });
 
-  testWidgets('choosing Ranked locks Draft to official rules', (tester) async {
+  testWidgets('choosing Ranked locks Draughts to official rules', (tester) async {
     DraughtsMatchSetup? result;
     await tester.pumpWidget(MaterialApp(
       theme: NeonTheme.light,

@@ -119,6 +119,9 @@ class _GroupsScreenState extends State<GroupsScreen> {
           token: res['token'] as String,
           livekitUrl: res['livekitUrl'] as String,
           title: g.name,
+          refreshToken: () async =>
+              ((await app.api.post('/calls/groups/${g.id}/token')
+                  as Map<String, dynamic>)['token'] as String),
         ),
       ));
     } on ApiException catch (e) {

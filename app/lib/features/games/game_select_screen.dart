@@ -49,7 +49,7 @@ const List<GameCatalogEntry> gameCatalog = [
   ),
   GameCatalogEntry(
     id: 'draughts',
-    name: 'Draft',
+    name: 'Draughts',
     emoji: '⚫',
     tagline: '1v1 · 10x10 · flying kings',
     available: true,

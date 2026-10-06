@@ -92,7 +92,7 @@ class _ChampionshipsScreenState extends State<ChampionshipsScreen> {
     DateTime start = DateTime.now().add(const Duration(hours: 1));
     final result = await showDialog<Map<String, dynamic>>(context: context, builder: (context) => StatefulBuilder(
       builder: (context, setDialogState) => AlertDialog(
-        title: const Text('Create Draft Championship'),
+        title: const Text('Create Draughts Championship'),
         content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
           TextField(controller: name, maxLength: 80, decoration: const InputDecoration(labelText: 'Championship name')),
           DropdownButtonFormField<int>(initialValue: size, decoration: const InputDecoration(labelText: 'Players'),
@@ -134,7 +134,7 @@ class _ChampionshipsScreenState extends State<ChampionshipsScreen> {
   Widget build(BuildContext context) {
     final n = context.neon;
     return Scaffold(
-      appBar: AppBar(title: const Text('Draft Championships')),
+      appBar: AppBar(title: const Text('Draughts Championships')),
       body: RefreshIndicator(onRefresh: _load, child: ListView(padding: const EdgeInsets.all(16), children: [
         NeonButton('Create Championship', onPressed: _create),
         const SizedBox(height: 8),
@@ -285,7 +285,7 @@ class _ChampionshipDetailScreenState extends State<ChampionshipDetailScreen> {
     }
     return Scaffold(appBar: AppBar(title: Text(c['name']?.toString() ?? 'Championship')),
       body: RefreshIndicator(onRefresh: _load, child: ListView(padding: const EdgeInsets.all(16), children: [
-        const Text('Draft · single elimination · one game per pairing; draws replay'),
+        const Text('Draughts · single elimination · one game per pairing; draws replay'),
         const SizedBox(height: 8),
         Text('${c['joined']}/${c['size']} players · ${c['visibility']} · ${c['status']}',
           style: TextStyle(color: n.gold, fontWeight: FontWeight.bold)),
@@ -306,7 +306,7 @@ class _ChampionshipDetailScreenState extends State<ChampionshipDetailScreen> {
           _starting ? 'Starting…' : 'Start now', onPressed: _starting ? null : _startNow),
         if (_error != null) Padding(padding: const EdgeInsets.all(8), child: Text(_error!, style: TextStyle(color: n.danger))),
         if (joined) ...[
-          NeonButton('Invite Friends', onPressed: () => Share.share('${c['name']} · Draft knockout championship\n${c['inviteLink']}\nCode: ${c['code']}')),
+          NeonButton('Invite Friends', onPressed: () => Share.share('${c['name']} · Draughts knockout championship\n${c['inviteLink']}\nCode: ${c['code']}')),
           TextButton.icon(onPressed: () { Clipboard.setData(ClipboardData(text: c['code'].toString()));
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Code copied'))); },
             icon: const Icon(Icons.copy), label: Text('Code ${c['code']}')),

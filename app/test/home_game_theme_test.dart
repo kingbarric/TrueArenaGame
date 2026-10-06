@@ -71,7 +71,7 @@ void main() {
       for (final name in [
         'Traitors',
         'Word Bluff',
-        'Draft',
+        'Draughts',
         'Whot',
         'Ludo',
         'Macala',

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -7,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../app.dart';
+import '../features/calls/incoming_call_screen.dart';
 import '../features/chat/conversation_screen.dart';
 import '../features/lobby/joined_room_screen.dart';
 import 'app_state.dart';
@@ -61,10 +63,19 @@ class PushNotifications {
       description: 'Messages, game invites, turn reminders, and announcements',
       importance: Importance.high,
     );
-    await _local
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(channel);
+    final android = _local.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    await android?.createNotificationChannel(channel);
+    // Calls get their own loud channel — the server sends call pushes on
+    // "incoming_calls" so they ring and buzz even when other alerts are quiet.
+    await android?.createNotificationChannel(AndroidNotificationChannel(
+      'incoming_calls',
+      'Incoming calls',
+      description: 'Rings and vibrates when a friend calls you',
+      importance: Importance.max,
+      enableVibration: true,
+      vibrationPattern: Int64List.fromList([0, 900, 600, 900, 600, 900]),
+    ));
     await _local.initialize(
       settings: const InitializationSettings(
         android: AndroidInitializationSettings('@mipmap/ic_launcher'),
@@ -141,6 +152,17 @@ class PushNotifications {
   /// one code path for both is simpler) — this matters most for broadcasts,
   /// which are sent regardless of whether the recipient is online.
   void _showForeground(RemoteMessage message) {
+    // Calls and nudges have their own in-app treatment — a ringing screen,
+    // a buzz — rather than a banner.
+    final type = message.data['type'];
+    if (type == 'INCOMING_CALL') {
+      IncomingCalls.present(message.data.cast<String, dynamic>());
+      return;
+    }
+    if (type == 'NUDGE') {
+      IncomingCalls.nudged(message.data['fromName'] as String? ?? 'A friend');
+      return;
+    }
     final notification = message.notification;
     if (notification == null) return;
     _local.show(
@@ -166,6 +188,8 @@ class PushNotifications {
       _app.pendingConversationId = data['conversationId'] as String?;
     } else if (type == 'YOUR_TURN') {
       _app.pendingRoomId = data['roomId'] as String?;
+    } else if (type == 'INCOMING_CALL') {
+      _app.pendingIncomingCall = data;
     }
     // BROADCAST: no deep link — the app just opens normally.
   }
@@ -181,6 +205,8 @@ class PushNotifications {
     } else if (type == 'YOUR_TURN') {
       final roomId = data['roomId'] as String?;
       if (roomId != null) await openRoom(roomId);
+    } else if (type == 'INCOMING_CALL') {
+      IncomingCalls.present(data);
     }
   }
 

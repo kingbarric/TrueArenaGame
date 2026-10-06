@@ -36,7 +36,7 @@ const chessTimeControls = [
   ChessTimeControl('Classical', 30, 0),
 ];
 
-/// The room before a chess game starts — exactly two players, like Draft.
+/// The room before a chess game starts — exactly two players, like Draughts.
 /// The host picks a time control before the room exists, then invites a
 /// friend or seats a Cyber Agent (which plays with a real chess engine).
 class ChessLobbyScreen extends StatefulWidget {

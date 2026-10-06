@@ -8,7 +8,7 @@ import '../competitive/leaderboard_screen.dart';
 import 'championships_screen.dart';
 import 'draughts_lobby_screen.dart';
 
-/// The ways into Draft — a classic match, a championship, or the rankings.
+/// The ways into Draughts — a classic match, a championship, or the rankings.
 class DraughtsModeScreen extends StatelessWidget {
   const DraughtsModeScreen({super.key});
 
@@ -23,7 +23,7 @@ class DraughtsModeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final n = context.neon;
     return Scaffold(
-      appBar: AppBar(title: const Text('Draft')),
+      appBar: AppBar(title: const Text('Draughts')),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),

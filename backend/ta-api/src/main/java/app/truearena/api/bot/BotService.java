@@ -146,7 +146,7 @@ public class BotService {
         URI uri = URI.create("ws://localhost:" + serverPort + "/ws/room/" + room.id() + "?token=" + token);
         GameBotAdapter adapter = adapters.create(room.gameType());
         String gameName = switch (room.gameType()) {
-            case "draughts" -> "Draft (international draughts)";
+            case "draughts" -> "Draughts (international, 10x10)";
             case "chess" -> "Chess";
             case "goosi" -> "Macala (Relay Four or Oware Abapa, chosen for the room)";
             case "wordbluff" -> "Word Bluff";

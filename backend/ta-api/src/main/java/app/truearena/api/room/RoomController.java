@@ -49,7 +49,7 @@ public class RoomController {
     }
 
     @PostMapping("/{id}/leave-draughts")
-    @Operation(summary = "End a Draft game against a system Cyber Agent when leaving it")
+    @Operation(summary = "End a Draughts game against a system Cyber Agent when leaving it")
     public Mono<Boolean> leaveDraughts(@PathVariable UUID id) {
         return CurrentUser.id().flatMap(uid -> rooms.leaveBotDraughtsRoom(id, uid));
     }
