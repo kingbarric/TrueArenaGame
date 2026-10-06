@@ -35,6 +35,24 @@ public interface GameBotAdapter {
     Optional<PlayerAction> fallbackAction(String botUserId);
 
     /**
+     * True for games with a real engine of their own (chess): the runtime
+     * calls {@link #decideLocally} instead of asking a model, on a worker
+     * thread since searching takes real CPU time.
+     */
+    default boolean decidesLocally() {
+        return false;
+    }
+
+    /**
+     * The adapter's own decision for the turn {@link #onFrame} just flagged.
+     * Any pacing ("thinking" time) is the adapter's to apply, because only
+     * it knows how much clock it can spend.
+     */
+    default Optional<PlayerAction> decideLocally(String botUserId, Difficulty difficulty) {
+        return Optional.empty();
+    }
+
+    /**
      * What to ask the model for.
      *
      * <p>Usually the answer is a move, parsed by {@link #parseAction}. When

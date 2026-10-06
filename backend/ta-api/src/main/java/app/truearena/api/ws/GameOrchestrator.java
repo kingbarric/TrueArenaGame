@@ -956,12 +956,12 @@ public class GameOrchestrator {
         }));
     }
 
-    /** End an ordinary Draft match against a Cyber Agent before its socket closes. */
+    /** End an ordinary Draft or Chess match against a Cyber Agent before its socket closes. */
     public Mono<Boolean> forfeitBotDraughtsRoom(UUID roomId, UUID loser) {
         return registry.find(roomId)
                 .<Mono<Boolean>>map(rt -> lock.withLock(roomId, LOCK_TTL, () -> {
                     if (rt.tournament || !rt.started() || rt.state().finished()
-                            || !"draughts".equals(rt.module().gameType())) {
+                            || !java.util.Set.of("draughts", "chess").contains(rt.module().gameType())) {
                         return Mono.just(false);
                     }
                     GameRunner.Step step = new GameRunner(rt.module()).apply(rt.state(),

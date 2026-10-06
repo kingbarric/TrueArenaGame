@@ -134,14 +134,18 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
         'draughts' => DraughtsGameScreen(
             socket: _socket!, selfId: selfId, nicknames: nicknames),
         'chess' => ChessGameScreen(
-            socket: _socket!,
-            selfId: selfId,
-            roomCode: _room.code,
-            nicknames: nicknames,
-            avatars: {
-              for (final m in _room.members)
-                if (m.avatarUrl?.isNotEmpty == true) m.userId: m.avatarUrl!,
-            }),
+              socket: _socket!,
+              selfId: selfId,
+              roomCode: _room.code,
+              nicknames: nicknames,
+              avatars: {
+                for (final m in _room.members)
+                  if (m.avatarUrl?.isNotEmpty == true) m.userId: m.avatarUrl!,
+              },
+              agents: {
+                for (final m in _room.members)
+                  if (m.isBot) m.userId,
+              }),
         'whot' => WhotGameScreen(
               socket: _socket!,
               selfId: selfId,

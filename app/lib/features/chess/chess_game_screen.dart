@@ -37,6 +37,7 @@ class ChessGameScreen extends StatefulWidget {
     required this.nicknames,
     this.roomCode = '',
     this.avatars = const {},
+    this.agents = const {},
     this.spectating = false,
   });
 
@@ -45,6 +46,9 @@ class ChessGameScreen extends StatefulWidget {
   final Map<String, String> nicknames;
   final String roomCode;
   final Map<String, String> avatars;
+
+  /// Seats held by Cyber Agents, shown with a robot instead of a photo.
+  final Set<String> agents;
   final bool spectating;
 
   @override
@@ -481,16 +485,19 @@ class _ChessGameScreenState extends State<ChessGameScreen>
       Navigator.of(context).pop();
       return;
     }
+    final vsAgent = widget.agents.contains(_view.playerFor(_opponentSide));
     if (!_view.finished) {
       final leave = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
           backgroundColor: _panel,
           title: const Text('Leave the game?', style: TextStyle(color: _cream)),
-          content: const Text(
-              'Your clock keeps running while you\'re away. Rejoin with the '
-              'huud code before it runs out.',
-              style: TextStyle(color: _mute)),
+          content: Text(
+              vsAgent
+                  ? 'Leaving ends the game — the Cyber Agent takes the win.'
+                  : 'Your clock keeps running while you\'re away. Rejoin with '
+                      'the huud code before it runs out.',
+              style: const TextStyle(color: _mute)),
           actions: [
             TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
@@ -506,7 +513,23 @@ class _ChessGameScreenState extends State<ChessGameScreen>
     if (_leaving) return;
     _leaving = true;
     final app = AppScope.of(context);
-    if (_view.finished) {
+    var ended = _view.finished;
+    if (!ended && vsAgent) {
+      // Against an agent nobody is waiting on you to come back: end it now.
+      try {
+        ended = await app.api
+                .post('/rooms/${widget.socket.roomId}/leave-draughts') ==
+            true;
+      } catch (_) {
+        _leaving = false;
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Server error. Please try again.')));
+        }
+        return;
+      }
+    }
+    if (ended) {
       await app.clearActiveRoom(widget.socket.roomId).catchError((_) {});
     }
     if (!mounted) return;
@@ -805,6 +828,7 @@ class _ChessGameScreenState extends State<ChessGameScreen>
             size: 40,
             online: online.contains(playerId),
             imageUrl: widget.avatars[playerId],
+            emoji: widget.agents.contains(playerId) ? '🤖' : null,
           ),
         ),
         const SizedBox(width: 10),

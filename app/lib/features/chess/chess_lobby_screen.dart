@@ -8,6 +8,7 @@ import '../../core/game_socket.dart';
 import '../../core/models.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/copyable_huud_code.dart';
+import '../../widgets/cyber_agent_sheet.dart';
 import '../../widgets/invite_players_sheet.dart';
 import '../../widgets/neon.dart';
 import '../../widgets/stake_picker_sheet.dart';
@@ -36,9 +37,8 @@ const chessTimeControls = [
 ];
 
 /// The room before a chess game starts — exactly two players, like Draft.
-/// The host picks a time control before the room exists; there's no Cyber
-/// Agent for chess yet, so an opponent is always a person you invite or who
-/// joins with the code.
+/// The host picks a time control before the room exists, then invites a
+/// friend or seats a Cyber Agent (which plays with a real chess engine).
 class ChessLobbyScreen extends StatefulWidget {
   const ChessLobbyScreen({super.key});
 
@@ -52,6 +52,7 @@ class _ChessLobbyScreenState extends State<ChessLobbyScreen> {
   bool _ready = false;
   ChessTimeControl _control = chessTimeControls[3];
   int _spectatorCount = 0;
+  bool _addingBot = false;
 
   GameSocket? _socket;
   StreamSubscription? _sub;
@@ -192,6 +193,10 @@ class _ChessLobbyScreenState extends State<ChessLobbyScreen> {
           for (final m in room.members)
             if (m.avatarUrl?.isNotEmpty == true) m.userId: m.avatarUrl!,
         },
+        agents: {
+          for (final m in room.members)
+            if (m.isBot) m.userId,
+        },
       ),
     ));
   }
@@ -206,12 +211,35 @@ class _ChessLobbyScreenState extends State<ChessLobbyScreen> {
     ));
   }
 
+  Future<void> _addBot(RoomView room) async {
+    final choice = await showCyberAgentPicker(context, defaultName: 'Cyber 1');
+    if (choice == null || !mounted) return;
+    setState(() => _addingBot = true);
+    try {
+      await _app.api.post('/rooms/${room.id}/bots',
+          {'name': choice.name, 'difficulty': choice.difficulty});
+      // The agent connects itself and shows up through the lobby snapshots.
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not add the Cyber Agent')));
+      }
+    } finally {
+      if (mounted) setState(() => _addingBot = false);
+    }
+  }
+
   void _start(RoomView room) {
     final count = room.members.length;
     if (count != 2) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(count < 2
-              ? 'Chess needs one opponent. Invite a friend or share the code.'
+              ? 'Chess needs one opponent. Invite a friend or add a Cyber Agent.'
               : 'Chess is one on one. Remove the extra players before starting.')));
       return;
     }
@@ -282,11 +310,15 @@ class _ChessLobbyScreenState extends State<ChessLobbyScreen> {
                   for (final m in room.members)
                     ListTile(
                       leading: OnlineAvatar(m.nickname ?? '?',
-                          size: 40, online: m.connected),
+                          size: 40,
+                          online: m.isBot || m.connected,
+                          emoji: m.isBot ? '🤖' : null),
                       title: Text(m.nickname ?? m.userId),
-                      subtitle: Text(m.userId == room.hostId
-                          ? 'Host'
-                          : (m.ready ? 'Ready' : 'Waiting')),
+                      subtitle: Text(m.isBot
+                          ? 'Cyber Agent'
+                          : m.userId == room.hostId
+                              ? 'Host'
+                              : (m.ready ? 'Ready' : 'Waiting')),
                       trailing: Icon(
                           m.ready
                               ? Icons.check_circle_rounded
@@ -315,7 +347,17 @@ class _ChessLobbyScreenState extends State<ChessLobbyScreen> {
         if (isHost && !exact) ...[
           NeonButton('Invite a player',
               style: NeonStyle.ghost, onPressed: () => _invitePlayers(room)),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
+          Center(
+            child: TextButton.icon(
+              key: const ValueKey('chess-add-agent'),
+              onPressed: _addingBot ? null : () => _addBot(room),
+              icon: Icon(Icons.smart_toy_rounded, size: 16, color: n.jade),
+              label: Text(_addingBot ? 'Adding…' : 'or play a Cyber Agent',
+                  style: TextStyle(color: n.jade, fontWeight: FontWeight.w700)),
+            ),
+          ),
+          const SizedBox(height: 6),
         ],
         Row(children: [
           Expanded(

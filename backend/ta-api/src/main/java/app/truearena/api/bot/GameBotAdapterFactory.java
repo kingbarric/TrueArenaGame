@@ -15,6 +15,7 @@ public class GameBotAdapterFactory {
     public GameBotAdapter create(String gameType) {
         return switch (gameType) {
             case "draughts" -> new DraughtsBotAdapter();
+            case "chess" -> new ChessBotAdapter();
             case "goosi" -> new GoosiBotAdapter();
             case "truearena" -> new TrueArenaBotAdapter();
             case "wordbluff" -> new WordBluffBotAdapter();

@@ -74,6 +74,10 @@ class _BoardGameWatchScreenState extends State<BoardGameWatchScreen> {
         selfId: _selfId,
         nicknames: names,
         roomCode: room.code,
+        agents: {
+          for (final member in room.members)
+            if (member.isBot) member.userId
+        },
         spectating: true,
       );
     }
@@ -99,7 +103,10 @@ class _BoardGameWatchScreenState extends State<BoardGameWatchScreen> {
       selfId: _selfId,
       roomCode: room.code,
       nicknames: names,
-      agents: {for (final member in room.members) if (member.isBot) member.userId},
+      agents: {
+        for (final member in room.members)
+          if (member.isBot) member.userId
+      },
       spectating: true,
     );
   }

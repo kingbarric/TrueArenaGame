@@ -147,6 +147,7 @@ public class BotService {
         GameBotAdapter adapter = adapters.create(room.gameType());
         String gameName = switch (room.gameType()) {
             case "draughts" -> "Draft (international draughts)";
+            case "chess" -> "Chess";
             case "goosi" -> "Macala (Relay Four or Oware Abapa, chosen for the room)";
             case "wordbluff" -> "Word Bluff";
             case "whot" -> "Whot";

@@ -12,6 +12,7 @@ import org.springframework.web.reactive.socket.client.WebSocketClient;
 import reactor.core.Disposable;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
+import reactor.core.scheduler.Schedulers;
 
 import java.net.URI;
 import java.time.Duration;
@@ -119,6 +120,18 @@ public final class BotRuntime {
                         return describeAloud(p, outbound).then(reaction);
                     }
                     actionPending = true;
+                    if (adapter.decidesLocally()) {
+                        return Mono.fromCallable(() -> adapter.decideLocally(botUserId, difficulty)
+                                        .or(() -> adapter.fallbackAction(botUserId))
+                                        .orElse(null))
+                                .subscribeOn(Schedulers.boundedElastic())
+                                .flatMap(action -> {
+                                    sendAction(outbound, action);
+                                    return maybeSay(outbound, describeOwnMove(action));
+                                })
+                                .switchIfEmpty(Mono.fromRunnable(() -> actionPending = false))
+                                .then(reaction);
+                    }
                     return picker.pickMove(p.systemPrompt(), p.userPrompt(), difficulty)
                             .flatMap(raw -> {
                                 PlayerAction action = adapter.parseAction(raw, botUserId)
@@ -262,6 +275,8 @@ public final class BotRuntime {
         boolean notable = lastMoveWasNotable;
         lastMoveWasNotable = false;
         return switch (action.type()) {
+            case "OFFER_DRAW", "ACCEPT_DRAW", "CLAIM_DRAW" -> "you just agreed to call the game a draw";
+            case "DECLINE_DRAW" -> "you just turned down a draw offer";
             case "MOVE" -> notable ? "you just captured one of the human's pieces" : "you just made your move";
             case "SOW" -> "you just sowed one of your pits";
             case "SKIP" -> "you gave up on the current word";
