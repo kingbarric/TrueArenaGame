@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -380,7 +381,7 @@ class _HuudScreenState extends State<HuudScreen> {
     final isGuest = app.identity == Identity.guest;
     final searchingNow = _search.text.trim().isNotEmpty;
     final items = (_items ?? const <HuudItem>[])
-        .where((i) => i.game == null || i.game!.expiresAt.isAfter(DateTime.now()))
+        .where((i) => i.game == null || i.game!.expiresAt.isAfter(clock.now()))
         .toList();
 
     return Scaffold(
@@ -405,38 +406,52 @@ class _HuudScreenState extends State<HuudScreen> {
               onRefresh: () async {
                 await Future.wait([_load(), _loadFriends()]);
               },
-              child: ListView(
+              // Slivers so only the cards on screen are built — a full page
+              // is 40 cards with game art, and building them all up front is
+              // what made a long feed hitch on open and on tab switch.
+              child: CustomScrollView(
                 controller: _scroll,
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 128),
-                children: [
-                  _searchField(n),
-                  const SizedBox(height: 10),
-                  if (searchingNow)
-                    ..._searchSection(context, n)
-                  else ...[
-                    _filterChips(n),
-                    const SizedBox(height: 12),
-                    _composerCard(context, n, app),
-                    if (_tab == HuudTab.friends) ...[
-                      const SizedBox(height: 16),
-                      if (isGuest) _guestCard(context, n) else _friendsOnline(context, n, app),
-                    ],
-                    const SizedBox(height: 16),
-                    if (_error != null) _errorCard(n),
-                    if (_items == null && _loading)
-                      const Padding(
-                          padding: EdgeInsets.all(32),
-                          child: Center(child: CircularProgressIndicator()))
-                    else if (items.isEmpty && _error == null)
-                      _emptyState(context, n)
-                    else
-                      for (final item in items)
-                        Padding(
-                          key: ValueKey(item.id),
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    sliver: SliverList.list(children: [
+                      _searchField(n),
+                      const SizedBox(height: 10),
+                      if (searchingNow)
+                        ..._searchSection(context, n)
+                      else ...[
+                        _filterChips(n),
+                        const SizedBox(height: 12),
+                        _composerCard(context, n, app),
+                        if (_tab == HuudTab.friends) ...[
+                          const SizedBox(height: 16),
+                          if (isGuest) _guestCard(context, n) else _friendsOnline(context, n, app),
+                        ],
+                        const SizedBox(height: 16),
+                        if (_error != null) _errorCard(n),
+                        if (_items == null && _loading)
+                          const Padding(
+                              padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator()))
+                        else if (items.isEmpty && _error == null)
+                          _emptyState(context, n),
+                      ],
+                    ]),
+                  ),
+                  if (!searchingNow)
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      sliver: SliverList.builder(
+                        itemCount: items.length,
+                        itemBuilder: (context, i) => Padding(
+                          key: ValueKey(items[i].id),
                           padding: const EdgeInsets.only(bottom: 12),
-                          child: _card(context, n, item),
+                          child: _card(context, n, items[i]),
                         ),
-                  ],
+                      ),
+                    ),
+                  // Room to scroll the last card clear of the nav pill and the Post button.
+                  const SliverToBoxAdapter(child: SizedBox(height: 128)),
                 ],
               ),
             ),
@@ -835,7 +850,8 @@ class _FeedPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final n = context.neon;
-    final fg = outlined ? (quiet ? n.ink : n.gold) : kCabinetInk;
+    // Disabled (no onTap) reads as a status, not a faded button: full-strength muted text.
+    final fg = onTap == null ? n.mute : (outlined ? (quiet ? n.ink : n.gold) : kCabinetInk);
     return Semantics(
       button: true,
       selected: outlined && !quiet,
@@ -855,7 +871,7 @@ class _FeedPill extends StatelessWidget {
             if (icon != null) ...[Icon(icon, size: 15, color: fg), const SizedBox(width: 5)],
             Text(label,
                 style: TextStyle(
-                    color: onTap == null ? fg.withValues(alpha: 0.5) : fg,
+                    color: fg,
                     fontWeight: quiet ? FontWeight.w600 : FontWeight.w800,
                     fontSize: small ? 12 : 13)),
           ]),
@@ -887,7 +903,12 @@ class _CardAction extends StatelessWidget {
             Icon(icon, size: 17, color: n.mute),
             if (label != null) ...[
               const SizedBox(width: 6),
-              Text(label!, style: TextStyle(color: n.mute, fontWeight: FontWeight.w600, fontSize: 12)),
+              Flexible(
+                child: Text(label!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: n.mute, fontWeight: FontWeight.w600, fontSize: 12)),
+              ),
             ],
           ]),
         ),
@@ -929,15 +950,26 @@ class _StripPerson extends StatelessWidget {
       );
 }
 
-Widget _gameArt(String gameType, double size) {
-  final art = GameBadge.artworkFor(huudArtworkId(gameType));
-  return SizedBox(
-    width: size,
-    height: size,
-    child: art == null
-        ? GameBadge(gameId: huudArtworkId(gameType), size: size)
-        : Image.asset(art, fit: BoxFit.contain),
-  );
+/// Game art, decoded at the size it's shown — the source PNGs are ~1250px
+/// square (~6 MB each decoded), far too much to decode for a 48px icon in
+/// every card of a scrolling feed.
+class _GameArt extends StatelessWidget {
+  const _GameArt(this.gameType, this.size);
+  final String gameType;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final art = GameBadge.artworkFor(huudArtworkId(gameType));
+    final px = (size * MediaQuery.devicePixelRatioOf(context)).ceil();
+    return SizedBox(
+      width: size,
+      height: size,
+      child: art == null
+          ? GameBadge(gameId: huudArtworkId(gameType), size: size)
+          : Image.asset(art, fit: BoxFit.contain, cacheWidth: px, gaplessPlayback: true),
+    );
+  }
 }
 
 /// Name, @handle and age — the top line of every person card.
@@ -998,7 +1030,7 @@ class _GamePanel extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.all(12),
           child: Row(children: [
-            _gameArt(gameType, 48),
+            _GameArt(gameType, 48),
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1026,7 +1058,7 @@ class _TimeLeftBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final n = context.neon;
-    final left = expiresAt.difference(DateTime.now());
+    final left = expiresAt.difference(clock.now());
     final fraction = (left.inSeconds / ttl.inSeconds).clamp(0.0, 1.0);
     return LinearProgressIndicator(
       value: fraction,
@@ -1103,6 +1135,7 @@ class _GameRequestCard extends StatelessWidget {
                     text: g.ranked ? 'Ranked' : 'Casual',
                     style: TextStyle(color: g.ranked ? n.gold : n.mute, fontWeight: FontWeight.w800)),
                 TextSpan(text: '${g.seats == 2 ? ' · 1v1' : ''} · ${g.seatsTaken}/${g.seats} seats'),
+                if (g.filled) TextSpan(text: ' · Filled', style: TextStyle(color: n.ink, fontWeight: FontWeight.w800)),
               ]),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
@@ -1112,8 +1145,11 @@ class _GameRequestCard extends StatelessWidget {
           ]),
           action: g.mine || g.joined
               ? _FeedPill('Open lobby', outlined: true, onTap: onJoin)
-              : _FeedPill(g.seatsLeft == 1 && g.seats > 2 ? 'Take last seat' : 'Join game', onTap: onJoin),
-          footer: _TimeLeftBar(expiresAt: g.expiresAt, ttl: _requestTtl),
+              : g.filled
+                  ? const _FeedPill('Filled', key: ValueKey('huud-filled'), outlined: true, quiet: true,
+                      icon: Icons.check_rounded)
+                  : _FeedPill(g.seatsLeft == 1 && g.seats > 2 ? 'Take last seat' : 'Join game', onTap: onJoin),
+          footer: g.filled ? null : _TimeLeftBar(expiresAt: g.expiresAt, ttl: _requestTtl),
         ),
         const SizedBox(height: 6),
         Row(children: [
@@ -1129,10 +1165,11 @@ class _GameRequestCard extends StatelessWidget {
               _CardAction(icon: Icons.ios_share_rounded, tooltip: 'Share', onTap: onShare),
             ]),
           ),
-          if (timeLeft != null)
+          if (timeLeft != null && !g.filled)
             Text(timeLeft,
+                maxLines: 1,
                 style: TextStyle(
-                    color: g.expiresAt.difference(DateTime.now()).inMinutes < 5 ? n.danger : n.mute,
+                    color: g.expiresAt.difference(clock.now()).inMinutes < 5 ? n.danger : n.mute,
                     fontWeight: FontWeight.w700,
                     fontSize: 12)),
         ]),
@@ -1459,7 +1496,7 @@ class _GamePickerSheet extends StatelessWidget {
             CompactListRow(
               key: ValueKey('huud-pick-$g'),
               onTap: () => Navigator.pop(context, g),
-              leading: _gameArt(g, 32),
+              leading: _GameArt(g, 32),
               title: Text(huudGameNames[g]!,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
               trailing: Icon(Icons.chevron_right_rounded, color: context.neon.mute),

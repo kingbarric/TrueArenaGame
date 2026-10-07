@@ -41,3 +41,7 @@ CREATE INDEX huud_posts_open_idx ON huud_posts (expires_at, created_at DESC) WHE
 -- "Challenges waiting for me".
 CREATE INDEX huud_posts_target_idx ON huud_posts (target_user_id, status) WHERE kind = 'challenge';
 CREATE INDEX huud_posts_author_idx ON huud_posts (author_id, status);
+
+-- Win cards read the last 48 hours of finished games across every game type;
+-- match_records only had per-game and ranked-only indexes.
+CREATE INDEX match_records_completed_idx ON match_records (completed_at DESC);

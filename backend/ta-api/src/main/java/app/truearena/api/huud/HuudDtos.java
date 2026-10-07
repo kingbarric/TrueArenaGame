@@ -37,10 +37,12 @@ public final class HuudDtos {
      * An open game request or a challenge. {@code target} is set for a challenge;
      * {@code lastOutcome} is the viewer's result the last time these two played
      * this game ("won" / "lost" / "tied"), which is what makes it a rematch.
+     * {@code filled}: every seat is taken or the game has started — the card
+     * stays up so people see it went, but there's nothing left to join.
      */
     public record OpenGame(UUID postId, UUID roomId, String roomCode, boolean ranked, int seatsTaken, int seats,
                            List<PersonView> players, Instant expiresAt, boolean joined, boolean mine,
-                           PersonView target, String lastOutcome) {
+                           PersonView target, String lastOutcome, boolean filled) {
     }
 
     /**

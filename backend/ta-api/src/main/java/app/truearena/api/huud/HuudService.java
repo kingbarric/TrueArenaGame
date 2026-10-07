@@ -122,6 +122,11 @@ public class HuudService {
                 + " AND f.high_user_id = GREATEST(:uid, " + column + "))";
     }
 
+    /**
+     * One query for the whole section: each post's players come back as
+     * parallel arrays and a challenge's last result as a scalar subquery, so
+     * a page of 40 cards is one round trip, not 80.
+     */
     private Flux<FeedItem> openGames(UUID viewer, Tab tab) {
         String scope = tab == Tab.FRIENDS
                 ? "((p.kind = 'challenge' AND (p.target_user_id = :uid OR p.author_id = :uid))"
@@ -129,108 +134,114 @@ public class HuudService {
                 : "p.kind = 'game_request'";
         return db.sql("""
                         SELECT p.id, p.kind, p.author_id, p.room_id, p.game_type, p.message, p.ranked, p.seats,
-                               p.target_user_id, p.created_at, p.expires_at, r.code,
+                               p.target_user_id, p.created_at, p.expires_at, r.code, r.status AS room_status,
                                a.display_name AS a_name, a.username AS a_username, a.avatar_url AS a_avatar,
                                %s AS a_friend,
                                t.display_name AS t_name, t.username AS t_username, t.avatar_url AS t_avatar,
-                               (t.id IS NOT NULL AND %s) AS t_friend
+                               (t.id IS NOT NULL AND %s) AS t_friend,
+                               pl.ids AS player_ids, pl.names AS player_names, pl.usernames AS player_usernames,
+                               pl.avatars AS player_avatars, pl.friends AS player_friends,
+                               CASE WHEN p.kind = 'challenge' THEN (
+                                   SELECT me.outcome FROM match_participants me
+                                   JOIN match_participants them ON them.match_id = me.match_id
+                                    AND them.user_id = CASE WHEN p.author_id = :uid THEN p.target_user_id ELSE p.author_id END
+                                   JOIN match_records mr ON mr.id = me.match_id
+                                   WHERE me.user_id = :uid AND mr.game_type = p.game_type
+                                   ORDER BY mr.completed_at DESC LIMIT 1) END AS last_outcome
                         FROM huud_posts p
                         JOIN rooms r ON r.id = p.room_id
                         JOIN users a ON a.id = p.author_id
                         LEFT JOIN users t ON t.id = p.target_user_id
-                        WHERE p.status = 'open' AND p.expires_at > now() AND r.status = 'lobby' AND %s
+                        LEFT JOIN LATERAL (
+                            SELECT array_agg(m.user_id ORDER BY m.joined_at) AS ids,
+                                   array_agg(u.display_name ORDER BY m.joined_at) AS names,
+                                   array_agg(u.username ORDER BY m.joined_at) AS usernames,
+                                   array_agg(COALESCE(u.avatar_url, '') ORDER BY m.joined_at) AS avatars,
+                                   array_agg(%s ORDER BY m.joined_at) AS friends
+                            FROM room_members m JOIN users u ON u.id = m.user_id
+                            WHERE m.room_id = p.room_id
+                        ) pl ON true
+                        -- A full or started game stays up, marked filled, until the post runs out.
+                        WHERE p.status = 'open' AND p.expires_at > now() AND r.status IN ('lobby', 'in_game') AND %s
                         ORDER BY p.created_at DESC
                         LIMIT %d
-                        """.formatted(friendOf("p.author_id"), friendOf("t.id"), scope, PAGE))
+                        """.formatted(friendOf("p.author_id"), friendOf("t.id"), friendOf("m.user_id"), scope, PAGE))
                 .bind("uid", viewer)
-                .map((row, meta) -> PostRow.of(row))
-                .all()
-                .concatMap(post -> players(viewer, post.roomId()).collectList()
-                        .zipWith(post.target() == null ? Mono.just("")
-                                : lastOutcome(viewer, post.authorId().equals(viewer) ? post.target().userId()
-                                        : post.authorId(), post.gameType()).defaultIfEmpty(""))
-                        .map(t -> post.toItem(viewer, t.getT1(), t.getT2().isEmpty() ? null : t.getT2())))
-                // A full request has nothing left to offer anyone who isn't already in it.
-                .filter(item -> "challenge".equals(item.kind()) || item.game().joined()
-                        || item.game().seatsTaken() < item.game().seats());
-    }
-
-    private Flux<PersonView> players(UUID viewer, UUID roomId) {
-        return db.sql("""
-                        SELECT m.user_id, COALESCE(m.nickname, u.username) AS nickname, u.display_name, u.username,
-                               u.avatar_url, %s AS friend
-                        FROM room_members m JOIN users u ON u.id = m.user_id
-                        WHERE m.room_id = :room
-                        ORDER BY m.joined_at
-                        """.formatted(friendOf("m.user_id")))
-                .bind("uid", viewer).bind("room", roomId)
-                .map((row, meta) -> new PersonView(row.get("user_id", UUID.class), row.get("display_name", String.class),
-                        row.get("username", String.class), row.get("avatar_url", String.class),
-                        Boolean.TRUE.equals(row.get("friend", Boolean.class))))
+                .map((row, meta) -> PostRow.of(row).toItem(viewer, playersOf(row), row.get("last_outcome", String.class)))
                 .all();
     }
 
-    /** The viewer's result the last time they and {@code other} finished this game together. */
-    private Mono<String> lastOutcome(UUID viewer, UUID other, String gameType) {
-        return db.sql("""
-                        SELECT me.outcome FROM match_participants me
-                        JOIN match_participants them ON them.match_id = me.match_id AND them.user_id = :other
-                        JOIN match_records mr ON mr.id = me.match_id
-                        WHERE me.user_id = :uid AND mr.game_type = :game
-                        ORDER BY mr.completed_at DESC
-                        LIMIT 1
-                        """)
-                .bind("uid", viewer).bind("other", other).bind("game", gameType)
-                .map((row, meta) -> row.get("outcome", String.class))
-                .one();
+    private static List<PersonView> playersOf(Row row) {
+        UUID[] ids = row.get("player_ids", UUID[].class);
+        if (ids == null) {
+            return List.of();
+        }
+        String[] names = row.get("player_names", String[].class);
+        String[] usernames = row.get("player_usernames", String[].class);
+        String[] avatars = row.get("player_avatars", String[].class);
+        Boolean[] friends = row.get("player_friends", Boolean[].class);
+        List<PersonView> players = new ArrayList<>(ids.length);
+        for (int i = 0; i < ids.length; i++) {
+            String avatar = avatars[i];
+            players.add(new PersonView(ids[i], names[i], usernames[i], avatar == null || avatar.isEmpty() ? null : avatar,
+                    Boolean.TRUE.equals(friends[i])));
+        }
+        return players;
     }
 
+    /**
+     * Narrow first, then decorate: pick each player's latest win per game and
+     * apply the tab's scope, cut to a page, and only then compute the rating,
+     * weekly delta and beaten names for those rows.
+     */
     private Flux<FeedItem> wins(UUID viewer, Tab tab) {
         String scope = tab == Tab.FRIENDS
-                ? "(w.user_id = :uid OR " + friendOf("w.user_id") + ")"
-                : "((w.ranked OR (w.recent[1] = 'won' AND w.recent[2] = 'won' AND w.recent[3] = 'won'))"
-                        + " AND (w.user_id = :uid OR " + friendOf("w.user_id") + " OR w.profile_public))";
+                ? "(l.user_id = :uid OR " + friendOf("l.user_id") + ")"
+                : "((l.ranked OR (rec.recent[1] = 'won' AND rec.recent[2] = 'won' AND rec.recent[3] = 'won'))"
+                        + " AND (l.user_id = :uid OR " + friendOf("l.user_id") + " OR COALESCE(cp.profile_public, true)))";
         return db.sql("""
-                        SELECT * FROM (
+                        WITH latest AS (
                             SELECT DISTINCT ON (mp.user_id, mr.game_type)
-                                   mr.id AS match_id, mr.game_type, mr.ranked, mr.completed_at,
-                                   mp.user_id, u.display_name, u.username, u.avatar_url,
-                                   COALESCE(cp.profile_public, true) AS profile_public,
-                                   %s AS friend,
-                                   rec.recent,
-                                   CASE WHEN pgr.rated_games_played > 0 THEN pgr.rating END AS rating,
-                                   (SELECT SUM(p2.rating_delta) FROM match_participants p2
-                                      JOIN match_records r2 ON r2.id = p2.match_id
-                                     WHERE p2.user_id = mp.user_id AND r2.game_type = mr.game_type
-                                       AND r2.completed_at > now() - interval '7 days') AS week_delta,
-                                   ARRAY(SELECT o.display_name FROM match_participants op
-                                           JOIN users o ON o.id = op.user_id
-                                          WHERE op.match_id = mr.id AND op.user_id <> mp.user_id
-                                            AND op.outcome = 'lost' AND NOT o.is_bot
-                                          ORDER BY o.display_name) AS beaten
-                            FROM match_participants mp
-                            JOIN match_records mr ON mr.id = mp.match_id
-                            JOIN users u ON u.id = mp.user_id
-                            LEFT JOIN competitive_profiles cp ON cp.user_id = mp.user_id
-                            LEFT JOIN player_game_ratings pgr ON pgr.user_id = mp.user_id AND pgr.game_type = mr.game_type
+                                   mp.user_id, mr.id AS match_id, mr.game_type, mr.ranked, mr.completed_at
+                            FROM match_records mr
+                            JOIN match_participants mp ON mp.match_id = mr.id AND mp.outcome = 'won'
+                            WHERE mr.completed_at > now() - interval '48 hours'
+                            ORDER BY mp.user_id, mr.game_type, mr.completed_at DESC
+                        ), page AS (
+                            SELECT l.*, u.display_name, u.username, u.avatar_url, %s AS friend, rec.recent
+                            FROM latest l
+                            JOIN users u ON u.id = l.user_id
+                            LEFT JOIN competitive_profiles cp ON cp.user_id = l.user_id
                             LEFT JOIN LATERAL (
                                 SELECT array_agg(x.outcome ORDER BY x.completed_at DESC) AS recent FROM (
                                     SELECT p3.outcome, r3.completed_at FROM match_participants p3
                                     JOIN match_records r3 ON r3.id = p3.match_id
-                                    WHERE p3.user_id = mp.user_id AND r3.game_type = mr.game_type
+                                    WHERE p3.user_id = l.user_id AND r3.game_type = l.game_type
                                     ORDER BY r3.completed_at DESC LIMIT 20) x
                             ) rec ON true
-                            WHERE mp.outcome = 'won' AND mr.completed_at > now() - interval '48 hours'
-                              AND NOT u.is_bot AND NOT u.is_guest
+                            WHERE NOT u.is_bot AND NOT u.is_guest
                               -- a win over Cyber Agents alone isn't news
                               AND EXISTS (SELECT 1 FROM match_participants op JOIN users o ON o.id = op.user_id
-                                           WHERE op.match_id = mr.id AND op.user_id <> mp.user_id AND NOT o.is_bot)
-                            ORDER BY mp.user_id, mr.game_type, mr.completed_at DESC
-                        ) w
-                        WHERE %s
-                        ORDER BY w.completed_at DESC
-                        LIMIT %d
-                        """.formatted(friendOf("mp.user_id"), scope, PAGE))
+                                           WHERE op.match_id = l.match_id AND op.user_id <> l.user_id AND NOT o.is_bot)
+                              AND %s
+                            ORDER BY l.completed_at DESC
+                            LIMIT %d
+                        )
+                        SELECT page.*,
+                               CASE WHEN pgr.rated_games_played > 0 THEN pgr.rating END AS rating,
+                               (SELECT SUM(p2.rating_delta) FROM match_participants p2
+                                  JOIN match_records r2 ON r2.id = p2.match_id
+                                 WHERE p2.user_id = page.user_id AND r2.game_type = page.game_type
+                                   AND r2.completed_at > now() - interval '7 days') AS week_delta,
+                               ARRAY(SELECT o.display_name FROM match_participants op
+                                       JOIN users o ON o.id = op.user_id
+                                      WHERE op.match_id = page.match_id AND op.user_id <> page.user_id
+                                        AND op.outcome = 'lost' AND NOT o.is_bot
+                                      ORDER BY o.display_name) AS beaten
+                        FROM page
+                        LEFT JOIN player_game_ratings pgr ON pgr.user_id = page.user_id AND pgr.game_type = page.game_type
+                        ORDER BY page.completed_at DESC
+                        """.formatted(friendOf("l.user_id"), scope, PAGE))
                 .bind("uid", viewer)
                 .map((row, meta) -> winItem(row))
                 .all();
@@ -509,7 +520,7 @@ public class HuudService {
     /** One {@code huud_posts} row with its author/target, before the room's players are attached. */
     private record PostRow(UUID id, String kind, UUID authorId, UUID roomId, String gameType, String message,
                            boolean ranked, int seats, Instant createdAt, Instant expiresAt, String code,
-                           PersonView author, PersonView target) {
+                           String roomStatus, PersonView author, PersonView target) {
 
         static PostRow of(Row row) {
             UUID targetId = row.get("target_user_id", UUID.class);
@@ -519,6 +530,7 @@ public class HuudService {
                     row.get("message", String.class), Boolean.TRUE.equals(row.get("ranked", Boolean.class)),
                     row.get("seats", Integer.class), row.get("created_at", Instant.class),
                     row.get("expires_at", Instant.class), row.get("code", String.class),
+                    row.get("room_status", String.class),
                     new PersonView(authorId, row.get("a_name", String.class), row.get("a_username", String.class),
                             row.get("a_avatar", String.class), Boolean.TRUE.equals(row.get("a_friend", Boolean.class))),
                     targetId == null ? null : new PersonView(targetId, row.get("t_name", String.class),
@@ -528,8 +540,9 @@ public class HuudService {
 
         FeedItem toItem(UUID viewer, List<PersonView> players, String lastOutcome) {
             boolean joined = players.stream().anyMatch(p -> viewer.equals(p.userId()));
+            boolean filled = players.size() >= seats || "in_game".equals(roomStatus);
             OpenGame game = new OpenGame(id, roomId, code, ranked, players.size(), seats, players, expiresAt,
-                    joined, viewer.equals(authorId), target, lastOutcome);
+                    joined, viewer.equals(authorId), target, lastOutcome, filled);
             return new FeedItem(kind, "post:" + id, createdAt, author, gameType, message, game, null, null);
         }
     }

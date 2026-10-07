@@ -110,6 +110,16 @@ class HuudFeedIT {
         return huud.feed(viewer, tab, Filter.ALL).collectList().block();
     }
 
+    private FeedItem card(UUID viewer, Tab tab, String id) {
+        return feed(viewer, tab).stream().filter(i -> i.id().equals(id)).findFirst()
+                .orElseThrow(() -> new AssertionError(id + " is not in the feed"));
+    }
+
+    private void setRoomStatus(UUID room, String status) {
+        db.sql("UPDATE rooms SET status = :s WHERE id = :r").bind("s", status).bind("r", room)
+                .fetch().rowsUpdated().block();
+    }
+
     private static List<String> ids(List<FeedItem> items) {
         return items.stream().map(FeedItem::id).toList();
     }
@@ -155,19 +165,50 @@ class HuudFeedIT {
     }
 
     @Test
-    void aFullRequestDropsOutOfOtherPeoplesFeeds() {
+    void aFullRequestStaysOnTheFeedMarkedFilled() {
         UUID eric = human("full");
         UUID tunde = human("tunde");
         UUID watcher = human("watcher");
         CreatedPost post = huud.post(eric, new CreatePostRequest("chess", null, false, null)).block();
         String id = "post:" + post.postId();
 
-        assertThat(ids(feed(watcher, Tab.FOR_YOU))).contains(id);
+        assertThat(card(watcher, Tab.FOR_YOU, id).game().filled()).isFalse();
         db.sql("INSERT INTO room_members (room_id, user_id, nickname) VALUES (:r, :u, 'tunde')")
                 .bind("r", post.room().id()).bind("u", tunde).fetch().rowsUpdated().block();
 
+        FeedItem filled = card(watcher, Tab.FOR_YOU, id);
+        assertThat(filled.game().filled()).isTrue();
+        assertThat(filled.game().seatsTaken()).isEqualTo(2);
+        assertThat(filled.game().players()).extracting(p -> p.userId()).containsExactly(eric, tunde);
+        assertThat(card(tunde, Tab.FOR_YOU, id).game().joined()).isTrue();
+
+        // Once it's started it still reads as filled…
+        setRoomStatus(post.room().id(), "in_game");
+        assertThat(card(watcher, Tab.FOR_YOU, id).game().filled()).isTrue();
+        // …and once it's over it's gone.
+        setRoomStatus(post.room().id(), "ended");
         assertThat(ids(feed(watcher, Tab.FOR_YOU))).doesNotContain(id);
-        assertThat(ids(feed(tunde, Tab.FOR_YOU))).contains(id);
+    }
+
+    @Test
+    void aStartedGameReadsAsFilledEvenWithSeatsLeft() {
+        UUID host = human("early");
+        CreatedPost post = huud.post(host, new CreatePostRequest("whot", null, false, 6)).block();
+        setRoomStatus(post.room().id(), "in_game");
+
+        FeedItem item = card(human("late"), Tab.FOR_YOU, "post:" + post.postId());
+        assertThat(item.game().seatsTaken()).isEqualTo(1);
+        assertThat(item.game().filled()).isTrue();
+    }
+
+    @Test
+    void expiredPostsLeaveTheFeed() {
+        UUID host = human("expired");
+        CreatedPost post = huud.post(host, new CreatePostRequest("whot", null, false, null)).block();
+        db.sql("UPDATE huud_posts SET created_at = now() - interval '1 hour', expires_at = now() - interval '1 minute' WHERE id = :id")
+                .bind("id", post.postId()).fetch().rowsUpdated().block();
+
+        assertThat(ids(feed(human("viewer"), Tab.FOR_YOU))).doesNotContain("post:" + post.postId());
     }
 
     @Test
@@ -317,5 +358,93 @@ class HuudFeedIT {
                 .extracting(r -> r.userId()).first().isEqualTo(ngozi);
         assertThat(friends.search(me, String.valueOf(number)).collectList().block())
                 .extracting(r -> r.userId()).first().isEqualTo(ngozi);
+    }
+    // ---------------------------------------------------------------- guards
+
+    @Test
+    void onlyTheAuthorCanTakeDownAPost() {
+        UUID host = human("owner");
+        CreatedPost post = huud.post(host, new CreatePostRequest("whot", null, false, null)).block();
+
+        assertThatThrownBy(() -> huud.close(human("other"), post.postId()).block())
+                .isInstanceOf(ResponseStatusException.class);
+        huud.close(host, post.postId()).block();
+        assertThat(ids(feed(host, Tab.FRIENDS))).doesNotContain("post:" + post.postId());
+    }
+
+    @Test
+    void challengesRefuseCyberAgentsAndExpire() {
+        UUID me = human("challenger");
+        UUID agent = users.save(UserRow.newBot("Agent", "a_" + UUID.randomUUID().toString().substring(0, 12), null,
+                "whot", "easy")).map(UserRow::id).block();
+        assertThatThrownBy(() -> huud.challenge(me, new CreateChallengeRequest(agent, "whot", null, false)).block())
+                .isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(() -> huud.challenge(me, new CreateChallengeRequest(me, "whot", null, false)).block())
+                .isInstanceOf(ResponseStatusException.class);
+
+        UUID target = human("slow");
+        CreatedPost challenge = huud.challenge(me, new CreateChallengeRequest(target, "whot", null, false)).block();
+        db.sql("UPDATE huud_posts SET created_at = now() - interval '1 hour', expires_at = now() - interval '1 minute' WHERE id = :id")
+                .bind("id", challenge.postId()).fetch().rowsUpdated().block();
+        assertThatThrownBy(() -> huud.accept(target, challenge.postId()).block())
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("expired");
+    }
+
+    // ---------------------------------------------------------------- speed
+
+    /**
+     * A busy lobby: 120 open requests and 400 finished matches from 60
+     * players in the last two days. The feed must stay one page and fast —
+     * this is the regression guard for per-card queries creeping back in.
+     */
+    @Test
+    void aBusyLobbyStillServesOnePageQuickly() {
+        UUID viewer = human("busyviewer");
+        List<UUID> crowd = new java.util.ArrayList<>();
+        for (int i = 0; i < 60; i++) {
+            UUID p = human("crowd" + i);
+            crowd.add(p);
+            if (i % 3 == 0) {
+                befriend(viewer, p);
+            }
+        }
+        for (int i = 0; i < 120; i++) {
+            UUID host = crowd.get(i % crowd.size());
+            UUID room = db.sql("INSERT INTO rooms (code, host_id, game_type) VALUES (:c, :h, 'whot') RETURNING id")
+                    .bind("c", UUID.randomUUID().toString().substring(0, 8)).bind("h", host)
+                    .map(r -> r.get("id", UUID.class)).one().block();
+            db.sql("INSERT INTO room_members (room_id, user_id, nickname) VALUES (:r, :u, 'x')")
+                    .bind("r", room).bind("u", host).fetch().rowsUpdated().block();
+            db.sql("INSERT INTO huud_posts (author_id, kind, room_id, game_type, seats, expires_at) "
+                            + "VALUES (:a, 'game_request', :r, 'whot', 4, now() + interval '10 minutes')")
+                    .bind("a", host).bind("r", room).fetch().rowsUpdated().block();
+        }
+        for (int i = 0; i < 400; i++) {
+            UUID winner = crowd.get(i % crowd.size());
+            UUID loser = crowd.get((i * 7 + 1) % crowd.size());
+            if (winner.equals(loser)) {
+                continue;
+            }
+            UUID match = db.sql("INSERT INTO match_records (game_type, ranked, player_count, completed_at) "
+                            + "VALUES ('draughts', true, 2, now() - (:m || ' minutes')::interval) RETURNING id")
+                    .bind("m", String.valueOf(i * 5)).map(r -> r.get("id", UUID.class)).one().block();
+            db.sql("INSERT INTO match_participants (match_id, user_id, outcome) VALUES (:m, :w, 'won'), (:m, :l, 'lost')")
+                    .bind("m", match).bind("w", winner).bind("l", loser).fetch().rowsUpdated().block();
+        }
+
+        for (Tab tab : Tab.values()) {
+            feed(viewer, tab); // warm up
+            long best = Long.MAX_VALUE;
+            List<FeedItem> page = List.of();
+            for (int run = 0; run < 3; run++) {
+                long start = System.nanoTime();
+                page = feed(viewer, tab);
+                best = Math.min(best, (System.nanoTime() - start) / 1_000_000);
+            }
+            assertThat(page).hasSizeLessThanOrEqualTo(40).isNotEmpty();
+            assertThat(page).extracting(FeedItem::id).doesNotHaveDuplicates();
+            assertThat(best).as("%s feed took %d ms", tab, best).isLessThan(400);
+        }
     }
 }

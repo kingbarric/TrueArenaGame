@@ -2,6 +2,8 @@
 /// [HuudItem] per card; its [HuudItem.kind] says which detail block is set.
 library;
 
+import 'package:clock/clock.dart';
+
 /// "Your Huud" is you and your friends; "For you" is the whole public lobby.
 enum HuudTab { friends, forYou }
 
@@ -77,9 +79,14 @@ class HuudOpenGame {
     required this.mine,
     this.target,
     this.lastOutcome,
+    this.filled = false,
   });
   final String postId, roomId, roomCode;
   final bool ranked, joined, mine;
+
+  /// Every seat taken, or the game already started: the card stays up, but
+  /// there's nothing left to join.
+  final bool filled;
   final int seatsTaken, seats;
   final List<HuudPerson> players;
   final DateTime expiresAt;
@@ -110,6 +117,8 @@ class HuudOpenGame {
             ? null
             : HuudPerson.fromJson((j['target'] as Map).cast<String, dynamic>()),
         lastOutcome: j['lastOutcome'] as String?,
+        filled: j['filled'] == true ||
+            ((j['seatsTaken'] as num?)?.toInt() ?? 0) >= ((j['seats'] as num?)?.toInt() ?? 2),
       );
 }
 
@@ -223,7 +232,7 @@ class HuudItem {
 
 /// "2m", "1h", "3d" — the timeline's compact age.
 String huudAgo(DateTime at, {DateTime? now}) {
-  final d = (now ?? DateTime.now()).difference(at);
+  final d = (now ?? clock.now()).difference(at);
   if (d.inMinutes < 1) return 'now';
   if (d.inHours < 1) return '${d.inMinutes}m';
   if (d.inDays < 1) return '${d.inHours}h';
@@ -232,9 +241,9 @@ String huudAgo(DateTime at, {DateTime? now}) {
 
 /// "8 min left", or null once it's gone.
 String? huudTimeLeft(DateTime expiresAt, {DateTime? now}) {
-  final left = expiresAt.difference(now ?? DateTime.now());
+  final left = expiresAt.difference(now ?? clock.now());
   if (left.isNegative) return null;
-  if (left.inMinutes < 1) return 'under a minute left';
+  if (left.inMinutes < 1) return '<1 min left';
   return '${left.inMinutes} min left';
 }
 

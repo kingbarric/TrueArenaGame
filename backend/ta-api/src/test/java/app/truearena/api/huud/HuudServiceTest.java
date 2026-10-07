@@ -74,7 +74,7 @@ class HuudServiceTest {
 
     private static FeedItem challenge(UUID from, UUID to, Instant at) {
         OpenGame game = new OpenGame(UUID.randomUUID(), UUID.randomUUID(), "ABCDEF", false, 1, 2,
-                List.of(person(from)), at.plusSeconds(600), false, false, person(to), null);
+                List.of(person(from)), at.plusSeconds(600), false, false, person(to), null, false);
         return new FeedItem("challenge", "c" + at, at, person(from), "whot", null, game, null, null);
     }
 

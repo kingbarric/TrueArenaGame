@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -101,7 +102,8 @@ Map<String, dynamic> _tournament() => {
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
 
-  Future<List<String>> pumpFeed(WidgetTester tester, Future<http.Response> Function(http.Request) extra) async {
+  Future<List<String>> pumpFeed(WidgetTester tester, Future<http.Response> Function(http.Request) extra,
+      {bool settle = true}) async {
     final calls = <String>[];
     final mock = MockClient((request) async {
       calls.add('${request.method} ${request.url.path}${request.url.hasQuery ? '?${request.url.query}' : ''}');
@@ -119,7 +121,12 @@ void main() {
       state: state,
       child: MaterialApp(theme: NeonTheme.dark, home: const HuudScreen()),
     ));
-    await tester.pumpAndSettle();
+    if (settle) {
+      await tester.pumpAndSettle();
+    } else {
+      await tester.pump();
+      await tester.pump();
+    }
     return calls;
   }
 
@@ -203,6 +210,188 @@ void main() {
 
     expect(posted, {'gameType': 'draughts', 'message': 'Winner stays on.', 'ranked': true});
     expect(find.text('not enough coins'), findsOneWidget);
+  });
+
+  Map<String, dynamic> requestNo(int i, {int taken = 1, int seats = 4, bool? filled, Duration left = const Duration(minutes: 8)}) => {
+        'kind': 'game_request',
+        'id': 'post:r$i',
+        'at': _now.subtract(Duration(minutes: i)).toIso8601String(),
+        'actor': _person('p$i', 'Player $i'),
+        'gameType': 'whot',
+        'message': 'Table number $i',
+        'game': {
+          'postId': 'r$i',
+          'roomId': 'room-r$i',
+          'roomCode': 'CODE$i',
+          'ranked': false,
+          'seatsTaken': taken,
+          'seats': seats,
+          'players': [for (var k = 0; k < taken; k++) _person('p$i-$k', 'Seat $k')],
+          'expiresAt': _now.add(left).toIso8601String(),
+          'joined': false,
+          'mine': false,
+          if (filled != null) 'filled': filled,
+        },
+      };
+
+  testWidgets('a full page builds only the cards on screen, and scrolls to the last one', (tester) async {
+    await pumpFeed(tester, (request) async {
+      if (request.url.path == '/api/v1/huud/feed') return _json([for (var i = 0; i < 40; i++) requestNo(i)]);
+      return http.Response('not found', 404);
+    });
+
+    final built = find.textContaining('Table number', skipOffstage: false).evaluate().length;
+    expect(built, greaterThan(0));
+    expect(built, lessThan(40), reason: 'every card was built up front — the feed lost its lazy list');
+
+    await tester.scrollUntilVisible(find.text('Table number 39'), 600,
+        scrollable: find.byType(Scrollable).first);
+    await tester.pumpAndSettle();
+    expect(find.text('Table number 39'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('game art is decoded at the size it is shown, not the 1250px source', (tester) async {
+    await pumpFeed(tester, (request) async {
+      if (request.url.path == '/api/v1/huud/feed') return _json([requestNo(1)]);
+      return http.Response('not found', 404);
+    });
+    final art = tester.widgetList<Image>(find.byType(Image)).where((i) => i.image is ResizeImage).toList();
+    expect(art, isNotEmpty);
+    for (final image in art) {
+      expect((image.image as ResizeImage).width, lessThanOrEqualTo(48 * 3));
+    }
+  });
+
+  testWidgets('a filled game stays on the feed, says Filled and cannot be joined', (tester) async {
+    final calls = await pumpFeed(tester, (request) async {
+      if (request.url.path == '/api/v1/huud/feed') {
+        return _json([requestNo(1, taken: 4, seats: 4, filled: true), requestNo(2, taken: 1, seats: 6, filled: true)]);
+      }
+      return http.Response('not found', 404);
+    });
+
+    expect(find.byKey(const ValueKey('huud-filled')), findsNWidgets(2));
+    expect(find.text('Join game'), findsNothing);
+    expect(find.textContaining('min left'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('huud-filled')).first);
+    await tester.pumpAndSettle();
+    expect(calls.where((c) => c.contains('/rooms/join')), isEmpty);
+  });
+
+  test('an older server without the filled flag still reads a full table as filled', () {
+    final full = HuudItem.fromJson(requestNo(1, taken: 4, seats: 4));
+    final open = HuudItem.fromJson(requestNo(2, taken: 1, seats: 4));
+    expect(full.game!.filled, isTrue);
+    expect(open.game!.filled, isFalse);
+  });
+
+  testWidgets('a slow answer for the tab you left never replaces the tab you are on', (tester) async {
+    final friends = Completer<http.Response>();
+    await pumpFeed(tester, (request) async {
+      if (request.url.path == '/api/v1/huud/feed') {
+        if (request.url.queryParameters['tab'] == 'friends') return friends.future;
+        return _json([_win()]);
+      }
+      return http.Response('not found', 404);
+    }, settle: false);
+
+    await tester.tap(find.byKey(const ValueKey('huud-tab-for_you')));
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.textContaining('8 Draughts games in a row'), findsOneWidget);
+
+    friends.complete(_json([_request()]));
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.textContaining('8 Draughts games in a row'), findsOneWidget);
+    expect(find.text('Ranked Draughts, anyone? Winner stays on.'), findsNothing);
+
+    // …and that answer is waiting, already loaded, when you go back.
+    await tester.tap(find.byKey(const ValueKey('huud-tab-friends')));
+    await tester.pump();
+    expect(find.text('Ranked Draughts, anyone? Winner stays on.'), findsOneWidget);
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('search results for an older query never replace a newer one', (tester) async {
+    final slow = Completer<http.Response>();
+    await pumpFeed(tester, (request) async {
+      if (request.url.path == '/api/v1/huud/feed') return _json([]);
+      if (request.url.path == '/api/v1/friends/search') {
+        final q = request.url.queryParameters['q'];
+        if (q == 'a') return slow.future;
+        return _json([
+          {'userId': 'amaka', 'displayName': 'Amaka O.', 'username': 'amaka', 'isFriend': true, 'requestPending': false}
+        ]);
+      }
+      return http.Response('not found', 404);
+    });
+
+    final field = find.byType(TextField).first;
+    await tester.enterText(field, 'a');
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.enterText(field, 'am');
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pump();
+    expect(find.text('Amaka O.'), findsOneWidget);
+
+    slow.complete(_json([
+      {'userId': 'ada', 'displayName': 'Ada Stale', 'username': 'ada', 'isFriend': false, 'requestPending': false}
+    ]));
+    await tester.pumpAndSettle();
+    expect(find.text('Ada Stale'), findsNothing);
+    expect(find.text('Amaka O.'), findsOneWidget);
+  });
+
+  testWidgets('the countdown re-renders without refetching, and expired cards drop out', (tester) async {
+    final calls = await pumpFeed(tester, (request) async {
+      if (request.url.path == '/api/v1/huud/feed') {
+        return _json([requestNo(1, left: const Duration(seconds: 20)), requestNo(2)]);
+      }
+      return http.Response('not found', 404);
+    });
+    expect(find.text('Table number 1'), findsOneWidget);
+    final feedCalls = calls.where((c) => c.contains('/huud/feed')).length;
+
+    await tester.pump(const Duration(seconds: 31));
+    await tester.pump(const Duration(seconds: 31));
+
+    expect(find.text('Table number 1'), findsNothing);
+    expect(find.text('Table number 2'), findsOneWidget);
+    expect(calls.where((c) => c.contains('/huud/feed')).length, feedCalls);
+  });
+
+  testWidgets('a failed load shows Retry, and Retry recovers', (tester) async {
+    var fail = true;
+    await pumpFeed(tester, (request) async {
+      if (request.url.path == '/api/v1/huud/feed') {
+        if (fail) return _json({'message': 'feed is down'}, 503);
+        return _json([_request()]);
+      }
+      return http.Response('not found', 404);
+    });
+    expect(find.text('feed is down'), findsOneWidget);
+
+    fail = false;
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+    expect(find.text('feed is down'), findsNothing);
+    expect(find.text('Ranked Draughts, anyone? Winner stays on.'), findsOneWidget);
+  });
+
+  test('cards survive a sparse payload', () {
+    final item = HuudItem.fromJson({
+      'kind': 'win',
+      'id': 'win:x',
+      'at': _now.toIso8601String(),
+      'actor': {'userId': 'u1'},
+      'win': {'matchId': 'm'},
+    });
+    expect(item.actor.name, '');
+    expect(item.win!.recent, isEmpty);
+    expect(item.win!.streak, 0);
+    expect(item.gameName, '');
   });
 
   test('time and number helpers', () {
