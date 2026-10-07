@@ -6,6 +6,7 @@ import app.truearena.api.support.ApiExceptions;
 import app.truearena.persistence.FriendRepository;
 import app.truearena.persistence.FriendRow;
 import app.truearena.persistence.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
@@ -36,6 +37,9 @@ public class NudgeService {
     private final Clock clock;
     private final Map<String, Instant> lastNudge = new ConcurrentHashMap<>();
 
+    // Two constructors (the other takes a test Clock), so Spring needs telling
+    // which one to use — without this the app failed to start in production.
+    @Autowired
     public NudgeService(FriendRepository friends, UserRepository users, InboxRegistry inbox,
                         PushNotificationService push) {
         this(friends, users, inbox, push, Clock.systemUTC());
