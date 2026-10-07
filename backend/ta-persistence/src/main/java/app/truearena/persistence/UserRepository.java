@@ -81,11 +81,14 @@ public interface UserRepository extends ReactiveCrudRepository<UserRow, UUID> {
      * (no bots), never the searcher themself. Exact and prefix username
      * matches rank first, then a prefix match on the real name, so typing
      * a few characters of either surfaces the right person before anyone
-     * who merely contains the substring elsewhere in their name.
+     * who merely contains the substring elsewhere in their name. A PlayHuud
+     * number ("1042" or "#1042") finds its one owner exactly, and ranks first.
      */
     @Query("SELECT * FROM users WHERE NOT is_bot AND id <> :selfId "
-            + "AND (username ILIKE '%' || :q || '%' OR display_name ILIKE '%' || :q || '%') "
-            + "ORDER BY (lower(username) = lower(:q)) DESC, "
+            + "AND (username ILIKE '%' || :q || '%' OR display_name ILIKE '%' || :q || '%' "
+            + "OR playhuud_number::text = ltrim(:q, '#')) "
+            + "ORDER BY (playhuud_number::text = ltrim(:q, '#')) IS TRUE DESC, "
+            + "(lower(username) = lower(:q)) DESC, "
             + "(username ILIKE :q || '%') DESC, "
             + "(display_name ILIKE :q || '%') DESC, "
             + "username "

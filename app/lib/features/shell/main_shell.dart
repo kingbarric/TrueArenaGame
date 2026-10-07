@@ -5,6 +5,7 @@ import '../../widgets/playground_nav_pill.dart';
 import '../chat/chat_list_screen.dart';
 import '../friends/friends_screen.dart';
 import '../home/home_screen.dart';
+import '../huud/huud_screen.dart';
 import '../onboarding/guest_gate.dart';
 import '../profile/profile_screen.dart';
 import '../spectate/spectator_discovery_screen.dart';
@@ -25,23 +26,49 @@ class MainShell extends StatefulWidget {
 
   final int initialIndex;
 
+  /// The Huud feed's slot, for anything that wants to open it (a challenge
+  /// push tapped while the app was in the background).
+  static const huudTab = 1;
+
+  /// Set from outside the widget tree — a push tap only has the root
+  /// navigator — and picked up by whichever shell is mounted.
+  static final requestedTab = ValueNotifier<int?>(null);
+
   @override
   State<MainShell> createState() => _MainShellState();
 }
 
 class _MainShellState extends State<MainShell> {
   late int _index = widget.initialIndex;
-  static const _tabKey = 'ta_main_tab';
+  // v2: the Huud tab was inserted second, which shifted every saved index —
+  // a fresh key rather than reopening someone on the tab next to theirs.
+  static const _tabKey = 'ta_main_tab_v2';
 
   @override
   void initState() {
     super.initState();
     SharedPreferences.getInstance().then((prefs) {
       final saved = prefs.getInt(_tabKey);
-      if (mounted && saved != null && saved >= 0 && saved < 5) {
+      if (mounted && saved != null && saved >= 0 && saved < _tabs.length) {
         setState(() => _index = saved);
       }
     });
+    MainShell.requestedTab.addListener(_onTabRequested);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _onTabRequested());
+  }
+
+  @override
+  void dispose() {
+    MainShell.requestedTab.removeListener(_onTabRequested);
+    super.dispose();
+  }
+
+  void _onTabRequested() {
+    final requested = MainShell.requestedTab.value;
+    if (requested == null || !mounted) return;
+    MainShell.requestedTab.value = null;
+    Navigator.of(context).popUntil((r) => r.isFirst);
+    _select(requested);
   }
 
   /// Built lazily and kept alive — a tab the user never opens costs nothing,
@@ -50,6 +77,7 @@ class _MainShellState extends State<MainShell> {
 
   static const _tabs = [
     _Tab(icon: Icons.sports_esports_rounded, label: 'Games'),
+    _Tab(icon: Icons.track_changes_rounded, label: 'Huud'),
     _Tab(icon: Icons.chat_bubble_rounded, label: 'Chats', needsAccount: true),
     _Tab(icon: Icons.people_alt_rounded, label: 'Friends', needsAccount: true),
     _Tab(icon: Icons.visibility_rounded, label: 'Watch', needsAccount: true),
@@ -58,15 +86,16 @@ class _MainShellState extends State<MainShell> {
 
   Widget _screenFor(int i) => _built.putIfAbsent(i, () => switch (i) {
         0 => const HomeScreen(),
-        1 => const ChatListScreen(),
-        2 => const FriendsScreen(),
-        3 => const SpectatorDiscoveryScreen(),
+        1 => const HuudScreen(),
+        2 => const ChatListScreen(),
+        3 => const FriendsScreen(),
+        4 => const SpectatorDiscoveryScreen(),
         _ => const ProfileScreen(),
       });
 
   Future<void> _select(int i) async {
     if (i == _index) return;
-    // Guests can browse Home and their own profile, but the social tabs
+    // Guests can browse Home, the Huud lobby and their own profile, but the social tabs
     // need a verified account — prompt once here rather than letting them
     // land on an empty screen and wonder why.
     if (_tabs[i].needsAccount && !await canUseFriendsOrPromptToVerify(context)) return;

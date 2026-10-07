@@ -93,6 +93,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   final _callController = StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get callEvents => _callController.stream;
 
+  /// The Huud feed's live notices: `HUUD_CHALLENGE` (someone challenged
+  /// you) and `HUUD_CHALLENGE_ANSWERED`, each as `{type, data}`.
+  final _huudController = StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get huudEvents => _huudController.stream;
+
   void dismissGameInvite() {
     pendingGameInvite = null;
     notifyListeners();
@@ -132,6 +137,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       } else if (const {'CALL_INCOMING', 'CALL_CANCELLED', 'CALL_DECLINED', 'NUDGE'}
           .contains(payload?['type'])) {
         _callController.add(payload!);
+      } else if (const {'HUUD_CHALLENGE', 'HUUD_CHALLENGE_ANSWERED'}
+          .contains(payload?['type'])) {
+        _huudController.add(payload!);
       }
     }, onDone: () => _scheduleInboxReconnect(generation));
     client.ready.then((_) {

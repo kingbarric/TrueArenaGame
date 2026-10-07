@@ -1,6 +1,7 @@
 package app.truearena;
 
 import app.truearena.api.competitive.RatingService;
+import app.truearena.api.friends.FriendService;
 import app.truearena.api.competitive.RatingService.FinishedGame;
 import app.truearena.api.huud.HuudDtos.CreateChallengeRequest;
 import app.truearena.api.huud.HuudDtos.CreatePostRequest;
@@ -87,6 +88,7 @@ class HuudFeedIT {
     @Autowired HuudService huud;
     @Autowired RatingService ratings;
     @Autowired UserRepository users;
+    @Autowired FriendService friends;
     @Autowired DatabaseClient db;
 
     // ---------------------------------------------------------------- fixtures
@@ -301,5 +303,19 @@ class HuudFeedIT {
 
         assertThat(ids(feed(friend, Tab.FRIENDS))).contains("tournament:" + championship);
         assertThat(huud.feed(friend, Tab.FRIENDS, Filter.OPEN).collectList().block()).isEmpty();
+    }
+
+    // ---------------------------------------------------------------- search
+
+    @Test
+    void theSearchBarFindsAPlayerByTheirPlayHuudNumber() {
+        UUID me = human("searcher");
+        UUID ngozi = human("ngozi");
+        long number = users.playhuudNumberOf(ngozi).block();
+
+        assertThat(friends.search(me, "#" + number).collectList().block())
+                .extracting(r -> r.userId()).first().isEqualTo(ngozi);
+        assertThat(friends.search(me, String.valueOf(number)).collectList().block())
+                .extracting(r -> r.userId()).first().isEqualTo(ngozi);
     }
 }

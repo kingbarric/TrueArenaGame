@@ -11,6 +11,7 @@ import '../app.dart';
 import '../features/calls/incoming_call_screen.dart';
 import '../features/chat/conversation_screen.dart';
 import '../features/lobby/joined_room_screen.dart';
+import '../features/shell/main_shell.dart';
 import 'app_state.dart';
 import 'models.dart';
 
@@ -190,6 +191,9 @@ class PushNotifications {
       _app.pendingRoomId = data['roomId'] as String?;
     } else if (type == 'INCOMING_CALL') {
       _app.pendingIncomingCall = data;
+    } else if (type == 'HUUD_CHALLENGE' || type == 'HUUD_CHALLENGE_ANSWERED') {
+      // Read by MainShell when it first mounts.
+      MainShell.requestedTab.value = MainShell.huudTab;
     }
     // BROADCAST: no deep link — the app just opens normally.
   }
@@ -207,6 +211,9 @@ class PushNotifications {
       if (roomId != null) await openRoom(roomId);
     } else if (type == 'INCOMING_CALL') {
       IncomingCalls.present(data);
+    } else if (type == 'HUUD_CHALLENGE' || type == 'HUUD_CHALLENGE_ANSWERED') {
+      // The challenge card (Accept / Not now) lives at the top of Your Huud.
+      MainShell.requestedTab.value = MainShell.huudTab;
     }
   }
 
