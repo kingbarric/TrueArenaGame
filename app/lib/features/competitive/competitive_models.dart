@@ -7,6 +7,8 @@ import '../games/game_select_screen.dart' show gameCatalog;
 
 /// The player-facing name for a game id ('draughts' is branded "Draft").
 String gameDisplayName(String gameType) {
+  // Word Bluff is `wordbluff` on the server, `bluff` in the catalog.
+  if (gameType == 'wordbluff') gameType = 'bluff';
   for (final g in gameCatalog) {
     if (g.id == gameType) return g.name;
   }

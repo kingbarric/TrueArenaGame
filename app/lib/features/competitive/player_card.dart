@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../theme/neon_theme.dart';
+import '../games/game_select_screen.dart' show gameCatalog;
 import 'competitive_models.dart';
 import 'competitive_widgets.dart';
 
@@ -48,9 +49,10 @@ class PlayerCardTheme {
     'goosi': PlayerCardTheme(
         top: Color(0xff175a35), bottom: Color(0xff072014), accent: Color(0xffffb84d),
         secondary: Color(0xff3fbf7f), ink: Colors.white, icon: '🫘'),
+    // Blood red — distinct from Ludo's pink.
     'truearena': PlayerCardTheme(
-        top: Color(0xff5c1029), bottom: Color(0xff1f0510), accent: Color(0xffff5da2),
-        secondary: Color(0xffb0264f), ink: Colors.white, icon: '🎭'),
+        top: Color(0xff6b0f14), bottom: Color(0xff1c0406), accent: Color(0xffff3b30),
+        secondary: Color(0xffa3161d), ink: Colors.white, icon: '🎭'),
     'bluff': PlayerCardTheme(
         top: Color(0xff0f3b5c), bottom: Color(0xff061624), accent: Color(0xff6ee7ff),
         secondary: Color(0xff2b7fb8), ink: Colors.white, icon: '🗣️'),
@@ -59,8 +61,9 @@ class PlayerCardTheme {
         secondary: Color(0xff9c6b3c), ink: Colors.white, icon: '♟️'),
   };
 
+  /// Word Bluff is `bluff` in the app's catalog and `wordbluff` on the server.
   static PlayerCardTheme forGame(String gameType) =>
-      _byGame[gameType] ??
+      _byGame[gameType == 'wordbluff' ? 'bluff' : gameType] ??
       const PlayerCardTheme(
           top: Color(0xff2b3140), bottom: Color(0xff0e1117), accent: Color(0xff9ecbff),
           secondary: Color(0xff4d6a8f), ink: Colors.white, icon: '🎮');
@@ -88,6 +91,7 @@ class PlayerCardData {
     this.playhuudId,
     this.founding,
     this.blank = false,
+    this.ranked = false,
   });
 
   /// "OVERALL", "DRAFT"…
@@ -108,6 +112,10 @@ class PlayerCardData {
   final String? playhuudId;
   final FoundingTier? founding;
   final bool blank;
+
+  /// The game has a skill rating and rankings (only some do so far), so the
+  /// card can open a detail page. Overall is always openable-free.
+  final bool ranked;
 }
 
 /// The cards for a profile: Overall first, then one per rated game.
@@ -115,11 +123,24 @@ class PlayerCardData {
 /// Overall is deliberately NOT a blended skill rating — there is no universal
 /// rating by design. Its corner shows the player's best game rating, labelled
 /// with that game, and the rest is career totals.
-List<PlayerCardData> buildPlayerCards(CompetitiveProfile p, {List<String> ratedGames = const ['draughts']}) {
+///
+/// Every game gets a card, played or not — a game with no data shows its
+/// card blank, in its own colours. Ranked games come first (Draughts leads),
+/// then the rest in catalog order.
+List<PlayerCardData> buildPlayerCards(CompetitiveProfile p,
+    {List<String> ratedGames = const ['draughts'], List<String>? allGames}) {
+  final catalog = allGames ?? [for (final g in gameCatalog) if (g.available) g.id];
+  final order = <String>[
+    for (final g in ratedGames) g,
+    for (final g in catalog)
+      if (!ratedGames.contains(g) && !(g == 'bluff' && ratedGames.contains('wordbluff'))) g,
+  ];
+  GameRecord? recordFor(String id) => p.game(id) ?? (id == 'bluff' ? p.game('wordbluff') : null);
   final records = <GameRecord>[
-    ...p.games,
-    for (final g in ratedGames)
-      if (p.game(g) == null) GameRecord(gameType: g),
+    for (final id in order) recordFor(id) ?? GameRecord(gameType: id),
+    // Anything rated the catalog doesn't list (yet) still shows.
+    for (final r in p.games)
+      if (!order.contains(r.gameType) && !(r.gameType == 'wordbluff' && order.contains('bluff'))) r,
   ];
   final name = p.displayName;
 
@@ -159,11 +180,13 @@ List<PlayerCardData> buildPlayerCards(CompetitiveProfile p, {List<String> ratedG
 
   return [
     overall,
-    for (final r in records) _gameCard(p, r, name),
+    for (final r in records)
+      _gameCard(p, r, name,
+          ranked: ratedGames.contains(r.gameType) || (r.gameType == 'bluff' && ratedGames.contains('wordbluff'))),
   ];
 }
 
-PlayerCardData _gameCard(CompetitiveProfile p, GameRecord r, String name) {
+PlayerCardData _gameCard(CompetitiveProfile p, GameRecord r, String name, {required bool ranked}) {
   final s = r.stats;
   final String label;
   if (!r.hasRating) {
@@ -189,6 +212,7 @@ PlayerCardData _gameCard(CompetitiveProfile p, GameRecord r, String name) {
     playhuudId: p.playhuudId,
     founding: p.founding,
     blank: !r.hasRating,
+    ranked: ranked,
     stats: [
       CardStat(played ? _compact(s.gamesPlayed) : '—', 'GMS'),
       CardStat(played ? '${(s.winRate * 100).round()}%' : '—', 'WIN'),
@@ -220,9 +244,14 @@ const double kPlayerCardAspect = 0.68;
 
 /// A FUT-style shield card. Sized by its parent's width.
 class PlayerCard extends StatelessWidget {
-  const PlayerCard({super.key, required this.data, this.shine = 0});
+  const PlayerCard({super.key, required this.data, this.shine = 0, this.glow = true});
 
   final PlayerCardData data;
+
+  /// The soft halo round the shield. Off when the card is captured for
+  /// sharing: the capture is a rectangle, so the halo would end in hard
+  /// square edges — the story image draws its own glow instead.
+  final bool glow;
 
   /// 0..1 progress of a light sweep across the face (0 = none).
   final double shine;
@@ -243,7 +272,7 @@ class PlayerCard extends StatelessWidget {
           fontFeatures: const [FontFeature.tabularFigures()],
         );
         return CustomPaint(
-          painter: _ShieldGlowPainter(t.accent),
+          painter: glow ? _ShieldGlowPainter(t.accent) : null,
           child: ClipPath(
             clipper: const ShieldClipper(),
             child: Stack(children: [
@@ -261,9 +290,11 @@ class PlayerCard extends StatelessWidget {
               ),
               // Corner: rating and what it means.
               Positioned(
-                left: w * 0.09,
+                left: w * 0.08,
                 top: h * 0.10,
-                width: w * 0.36,
+                // Stops short of the portrait (which starts at 0.42w), so a long
+                // rank line scales down instead of running under the circle.
+                width: w * 0.32,
                 child: Column(crossAxisAlignment: CrossAxisAlignment.center, children: [
                   FittedBox(
                     child: Text(data.bigValue,
@@ -277,6 +308,11 @@ class PlayerCard extends StatelessWidget {
                   ),
                   SizedBox(height: h * 0.012),
                   Text(t.icon, style: TextStyle(fontSize: w * 0.07)),
+                  if (data.founding != null) ...[
+                    SizedBox(height: h * 0.01),
+                    _FoundingMark(label: data.founding!.label, theme: t, width: w * 0.28,
+                        key: ValueKey('card-founding-${data.title}')),
+                  ],
                 ]),
               ),
               // Small title tab at the top centre.
@@ -285,12 +321,19 @@ class PlayerCard extends StatelessWidget {
                 left: 0,
                 right: 0,
                 child: Center(
-                  child: Text(data.title,
-                      style: TextStyle(
-                          color: t.accent.withValues(alpha: 0.9),
-                          fontWeight: FontWeight.w900,
-                          fontSize: w * 0.038,
-                          letterSpacing: 2.4)),
+                  child: SizedBox(
+                    width: w * 0.6,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(data.title,
+                          maxLines: 1,
+                          style: TextStyle(
+                              color: t.accent.withValues(alpha: 0.9),
+                              fontWeight: FontWeight.w900,
+                              fontSize: w * 0.038,
+                              letterSpacing: 2.4)),
+                    ),
+                  ),
                 ),
               ),
               // Name plate.
@@ -326,32 +369,40 @@ class PlayerCard extends StatelessWidget {
                   Expanded(child: _statColumn(data.stats.skip(3).take(3).toList(), numberStyle, w, t)),
                 ]),
               ),
-              // Footer: founding status (if any) over the PlayHuud number.
-              Positioned(
-                left: w * 0.2,
-                right: w * 0.2,
-                bottom: h * 0.06,
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  if (data.founding != null)
-                    FittedBox(
-                      child: Text(data.founding!.label.toUpperCase(),
-                          key: ValueKey('card-founding-${data.title}'),
-                          style: TextStyle(
-                              color: t.accent,
-                              fontWeight: FontWeight.w900,
-                              fontSize: w * 0.036,
-                              letterSpacing: 1.6)),
+              // Footer: the PlayHuud number as one compact pill. The shield
+              // narrows to a point here, so the pill is held well inside it
+              // (it used to carry two lines that ran off the edges).
+              if (data.playhuudId != null)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: h * 0.868,
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: w * 0.42, maxHeight: h * 0.05),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Container(
+                          key: ValueKey('card-number-${data.title}'),
+                          padding: EdgeInsets.symmetric(horizontal: w * 0.03, vertical: w * 0.006),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.35),
+                            borderRadius: BorderRadius.circular(w * 0.04),
+                            border: Border.all(color: t.accent.withValues(alpha: 0.55), width: 1),
+                          ),
+                          child: Text(data.playhuudId!,
+                              maxLines: 1,
+                              style: TextStyle(
+                                  color: t.ink,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: w * 0.04,
+                                  letterSpacing: 1,
+                                  fontFeatures: const [FontFeature.tabularFigures()])),
+                        ),
+                      ),
                     ),
-                  FittedBox(
-                    child: Text(data.playhuudId == null ? 'PLAYHUUD' : 'PLAYHUUD ${data.playhuudId}',
-                        style: TextStyle(
-                            color: t.ink.withValues(alpha: 0.75),
-                            fontWeight: FontWeight.w800,
-                            fontSize: w * 0.032,
-                            letterSpacing: 1.4)),
                   ),
-                ]),
-              ),
+                ),
               if (shine > 0 && shine < 1)
                 Positioned.fill(child: IgnorePointer(child: CustomPaint(painter: _ShinePainter(shine)))),
             ]),
@@ -379,6 +430,47 @@ class PlayerCard extends StatelessWidget {
             ]),
           ),
       ],
+    );
+  }
+}
+
+/// Founding status as a small two-line mark under the corner rating — the
+/// slot a FUT card uses for nation/club — so the footer only has to hold
+/// the number.
+class _FoundingMark extends StatelessWidget {
+  const _FoundingMark({super.key, required this.label, required this.theme, required this.width});
+
+  final String label;
+  final PlayerCardTheme theme;
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    // "Founding 1,000" → "FOUNDING" over "1,000".
+    final parts = label.toUpperCase().split(' ');
+    final tier = parts.length > 1 ? parts.sublist(1).join(' ') : '';
+    return SizedBox(
+      width: width,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: width * 0.08, vertical: width * 0.03),
+          decoration: BoxDecoration(
+            color: theme.accent.withValues(alpha: 0.16),
+            borderRadius: BorderRadius.circular(width * 0.08),
+            border: Border.all(color: theme.accent.withValues(alpha: 0.8)),
+          ),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(parts.first,
+                style: TextStyle(color: theme.accent, fontWeight: FontWeight.w900,
+                    fontSize: width * 0.13, letterSpacing: 1, height: 1.1)),
+            if (tier.isNotEmpty)
+              Text(tier,
+                  style: TextStyle(color: theme.ink, fontWeight: FontWeight.w900,
+                      fontSize: width * 0.17, height: 1.1)),
+          ]),
+        ),
+      ),
     );
   }
 }
@@ -606,133 +698,230 @@ class _ShinePainter extends CustomPainter {
 
 // ---------------------------------------------------------------- the carousel
 
-/// Swipeable cards: the focused card faces you, the previous one tilts away
-/// on the left and the next on the right, both dropped slightly so the row
-/// sits on an arc rather than a flat line. Each card glints once as it lands.
+/// The cards on a ring: the current card faces you at the front, its
+/// neighbours turn away on either side and sink back, further cards fade
+/// out behind. Drag or flick to spin it; it always settles with one card
+/// squarely at the front, which glints once as it lands.
+///
+/// Not a PageView: a PageView paints the next card over the current one,
+/// and a ring needs the front card on top. Here the cards are drawn far to
+/// near, so the front one is always last (and is the one you tap).
 class PlayerCardCarousel extends StatefulWidget {
-  const PlayerCardCarousel({super.key, required this.cards, this.onOpen});
+  const PlayerCardCarousel({super.key, required this.cards, this.onOpen, this.onShare});
 
   final List<PlayerCardData> cards;
 
-  /// Tapping the focused card — e.g. to open that game's details.
+  /// Tapping the front card — e.g. to open that game's details.
   final void Function(PlayerCardData card)? onOpen;
+
+  /// Shows a Share button for the front card. Gets the card's capture key
+  /// and the button's rect (the iPad share sheet anchors to it).
+  final Future<void> Function(PlayerCardData card, GlobalKey cardKey, Rect? origin)? onShare;
 
   @override
   State<PlayerCardCarousel> createState() => _PlayerCardCarouselState();
 }
 
-class _PlayerCardCarouselState extends State<PlayerCardCarousel> with SingleTickerProviderStateMixin {
-  final _controller = PageController(viewportFraction: 0.68);
+class _PlayerCardCarouselState extends State<PlayerCardCarousel> with TickerProviderStateMixin {
+  /// Continuous position on the ring: 0 = first card at the front, 1.5 =
+  /// halfway between the second and third.
+  late final AnimationController _position = AnimationController.unbounded(vsync: this);
   late final AnimationController _shine =
       AnimationController(vsync: this, duration: const Duration(milliseconds: 1100));
-  int _page = 0;
+  late List<GlobalKey> _captureKeys = _keysFor(widget.cards.length);
+  int _current = 0;
+  double _cardWidth = 200;
+  bool _sharing = false;
+
+  static List<GlobalKey> _keysFor(int n) => [for (var i = 0; i < n; i++) GlobalKey()];
 
   @override
   void initState() {
     super.initState();
+    _position.addListener(_track);
     _shine.forward(from: 0);
   }
 
   @override
+  void didUpdateWidget(covariant PlayerCardCarousel old) {
+    super.didUpdateWidget(old);
+    if (old.cards.length != widget.cards.length) {
+      _captureKeys = _keysFor(widget.cards.length);
+      final last = (widget.cards.length - 1).clamp(0, 1 << 20).toDouble();
+      if (_position.value > last) _position.value = last;
+    }
+  }
+
+  @override
   void dispose() {
-    _controller.dispose();
+    _position.dispose();
     _shine.dispose();
     super.dispose();
   }
 
-  void _onPage(int page) {
-    setState(() => _page = page);
-    _shine.forward(from: 0);
+  int get _last => widget.cards.length - 1;
+
+  void _track() {
+    final i = _position.value.round().clamp(0, _last);
+    if (i != _current) setState(() => _current = i);
+  }
+
+  void _settle(int target) {
+    final to = target.clamp(0, _last).toDouble();
+    _position
+        .animateTo(to, duration: const Duration(milliseconds: 380), curve: Curves.easeOutCubic)
+        .whenComplete(() {
+      if (mounted && (_position.value - to).abs() < 0.001) _shine.forward(from: 0);
+    });
+  }
+
+  void _onDragUpdate(DragUpdateDetails d) {
+    _position.stop();
+    _position.value = (_position.value - (d.primaryDelta ?? 0) / (_cardWidth * 0.8))
+        .clamp(-0.35, _last + 0.35);
+  }
+
+  void _onDragEnd(DragEndDetails d) {
+    final v = d.primaryVelocity ?? 0;
+    final at = _position.value;
+    final target = v < -250 ? at.floor() + 1 : (v > 250 ? at.ceil() - 1 : at.round());
+    _settle(target);
+  }
+
+  Future<void> _share(BuildContext buttonContext) async {
+    final onShare = widget.onShare;
+    if (onShare == null || _sharing) return;
+    final box = buttonContext.findRenderObject() as RenderBox?;
+    final origin = box == null ? null : box.localToGlobal(Offset.zero) & box.size;
+    setState(() => _sharing = true); // no glint in the exported image
+    try {
+      await WidgetsBinding.instance.endOfFrame;
+      await onShare(widget.cards[_current], _captureKeys[_current], origin);
+    } finally {
+      if (mounted) setState(() => _sharing = false);
+    }
+  }
+
+  Widget _cardOnRing(int i, double position, double cardWidth) {
+    final d = i - position;
+    final angle = (d * 0.55).clamp(-1.35, 1.35); // radians round the ring per card
+    final depth = math.cos(angle); // 1 at the front, ~0.2 at the sides
+    final x = math.sin(angle) * cardWidth * 0.92;
+    final scale = 0.58 + 0.42 * depth;
+    final sink = (1 - depth) * 26;
+    final opacity = ((depth - 0.2) / 0.8).clamp(0.0, 1.0);
+    final card = widget.cards[i];
+    final transform = Matrix4.identity()
+      ..setEntry(3, 2, 0.0013) // perspective
+      ..translateByDouble(x, sink, 0, 1)
+      ..rotateY(-angle * 0.85) // turn to face the centre of the ring
+      ..scaleByDouble(scale, scale, 1, 1);
+    return Transform(
+      key: ValueKey('ring-$i'),
+      alignment: Alignment.center,
+      transform: transform,
+      child: Opacity(
+        opacity: opacity,
+        child: SizedBox(
+          width: cardWidth,
+          child: GestureDetector(
+            onTap: () {
+              if (i == _current && (position - i).abs() < 0.05) {
+                widget.onOpen?.call(card);
+              } else {
+                _settle(i);
+              }
+            },
+            child: RepaintBoundary(
+              key: _captureKeys[i],
+              child: PlayerCard(
+                key: ValueKey('player-card-${card.title}'),
+                data: card,
+                shine: i == _current && !_sharing ? _shine.value : 0,
+                glow: !(i == _current && _sharing),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final n = context.neon;
+    if (widget.cards.isEmpty) return const SizedBox.shrink();
     return LayoutBuilder(builder: (context, box) {
-      final cardWidth = box.maxWidth * 0.68 * 0.92;
+      final cardWidth = math.min(box.maxWidth * 0.6, 300.0);
+      _cardWidth = cardWidth;
       final height = cardWidth / kPlayerCardAspect + 36;
       return Column(children: [
-        SizedBox(
-          height: height,
-          child: PageView.builder(
-            key: const ValueKey('player-card-carousel'),
-            controller: _controller,
-            // Neighbouring cards may paint past this box into the page's
-            // padding, so they still peek in from the screen edges.
-            clipBehavior: Clip.none,
-            itemCount: widget.cards.length,
-            onPageChanged: _onPage,
-            itemBuilder: (context, i) {
-              return AnimatedBuilder(
-                animation: Listenable.merge([_controller, _shine]),
-                builder: (context, child) {
-                  final position = _controller.position.hasContentDimensions
-                      ? (_controller.page ?? _page.toDouble())
-                      : _page.toDouble();
-                  final d = (position - i).clamp(-1.5, 1.5);
-                  final abs = d.abs();
-                  final transform = Matrix4.identity()
-                    ..setEntry(3, 2, 0.0014) // perspective
-                    ..translateByDouble(0, abs * 26, 0, 1) // neighbours sit lower: the arc
-                    ..rotateY(d * 0.55) // and turn away from the centre
-                    ..scaleByDouble(1 - abs * 0.12, 1 - abs * 0.12, 1, 1);
-                  return Opacity(
-                    opacity: (1 - abs * 0.35).clamp(0.0, 1.0),
-                    child: Transform(
-                      alignment: Alignment.center,
-                      transform: transform,
-                      child: Center(
-                        child: SizedBox(
-                          width: cardWidth,
-                          child: GestureDetector(
-                            onTap: () {
-                              if (i != _page) {
-                                _controller.animateToPage(i,
-                                    duration: const Duration(milliseconds: 350), curve: Curves.easeOutCubic);
-                              } else {
-                                widget.onOpen?.call(widget.cards[i]);
-                              }
-                            },
-                            child: PlayerCard(
-                              key: ValueKey('player-card-${widget.cards[i].title}'),
-                              data: widget.cards[i],
-                              shine: i == _page ? _shine.value : 0,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              );
-            },
+        GestureDetector(
+          key: const ValueKey('player-card-carousel'),
+          behavior: HitTestBehavior.opaque,
+          onHorizontalDragStart: (_) => _position.stop(),
+          onHorizontalDragUpdate: _onDragUpdate,
+          onHorizontalDragEnd: _onDragEnd,
+          child: SizedBox(
+            height: height,
+            width: double.infinity,
+            child: AnimatedBuilder(
+              animation: Listenable.merge([_position, _shine]),
+              builder: (context, _) {
+                final position = _position.value;
+                // Far cards first, the front card last — so it sits on top.
+                final order = [for (var i = 0; i < widget.cards.length; i++) i]
+                  ..removeWhere((i) => (i - position).abs() > 3.2)
+                  ..sort((a, b) => (b - position).abs().compareTo((a - position).abs()));
+                return Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.center,
+                  children: [for (final i in order) _cardOnRing(i, position, cardWidth)],
+                );
+              },
+            ),
           ),
         ),
         const SizedBox(height: 6),
-        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          for (var i = 0; i < widget.cards.length; i++)
-            GestureDetector(
-              onTap: () => _controller.animateToPage(i,
-                  duration: const Duration(milliseconds: 350), curve: Curves.easeOutCubic),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 220),
-                margin: const EdgeInsets.symmetric(horizontal: 4),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: i == _page ? widget.cards[i].theme.accent.withValues(alpha: 0.18) : Colors.transparent,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                      color: i == _page ? widget.cards[i].theme.accent : n.line.withValues(alpha: 0.6)),
+        SizedBox(
+          height: 30,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            children: [
+              for (var i = 0; i < widget.cards.length; i++)
+                GestureDetector(
+                  onTap: () => _settle(i),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 220),
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: i == _current ? widget.cards[i].theme.accent.withValues(alpha: 0.18) : Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                          color: i == _current ? widget.cards[i].theme.accent : n.line.withValues(alpha: 0.6)),
+                    ),
+                    child: Text(widget.cards[i].title,
+                        style: TextStyle(
+                            color: i == _current ? n.ink : n.mute,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 10,
+                            letterSpacing: 1)),
+                  ),
                 ),
-                child: Text(widget.cards[i].title,
-                    style: TextStyle(
-                        color: i == _page ? n.ink : n.mute,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 10,
-                        letterSpacing: 1)),
-              ),
+            ],
+          ),
+        ),
+        if (widget.onShare != null)
+          Builder(
+            builder: (buttonContext) => TextButton.icon(
+              key: const ValueKey('share-player-card'),
+              onPressed: _sharing ? null : () => _share(buttonContext),
+              icon: const Icon(Icons.ios_share_rounded, size: 18),
+              label: Text(_sharing ? 'Preparing…' : 'Share ${widget.cards[_current].title.toLowerCase()} card'),
             ),
-        ]),
+          ),
       ]);
     });
   }

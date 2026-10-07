@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -10,6 +12,7 @@ import 'package:truearena/core/api_client.dart';
 import 'package:truearena/core/app_state.dart';
 import 'package:truearena/features/competitive/competitive_models.dart';
 import 'package:truearena/features/competitive/leaderboard_screen.dart';
+import 'package:truearena/features/competitive/card_share.dart';
 import 'package:truearena/features/competitive/player_card.dart';
 import 'package:truearena/features/competitive/player_profile_screen.dart';
 import 'package:truearena/features/draughts/draughts_lobby_screen.dart';
@@ -132,7 +135,9 @@ void main() {
   group('player cards', () {
     test('Overall leads with the best game rating, labelled with that game — never a blended rating', () {
       final cards = buildPlayerCards(CompetitiveProfile.fromJson(_profileJson()));
-      expect(cards.map((c) => c.title), ['OVERALL', 'DRAUGHTS']);
+      // Overall, then the ranked game, then every other game — played or not.
+      expect(cards.map((c) => c.title),
+          ['OVERALL', 'DRAUGHTS', 'TRAITORS', 'WORD BLUFF', 'CHESS', 'WHOT', 'LUDO', 'MACALA']);
       final overall = cards.first;
       expect(overall.bigValue, '1842');
       expect(overall.bigLabel, 'DRA');
@@ -146,10 +151,40 @@ void main() {
 
     test('a player with nothing rated still gets every card, blank', () {
       final cards = buildPlayerCards(CompetitiveProfile.fromJson(_profileJson(rated: false)));
-      expect(cards.map((c) => c.title), ['OVERALL', 'DRAUGHTS']);
+      expect(cards, hasLength(8));
       expect(cards.every((c) => c.blank), isTrue);
       expect(cards[1].bigValue, '—');
       expect(cards[1].bigLabel, 'UNRATED');
+    });
+
+    test('every card has its own colours', () {
+      final cards = buildPlayerCards(CompetitiveProfile.fromJson(_profileJson(rated: false)));
+      expect(cards.map((c) => c.theme.accent).toSet(), hasLength(cards.length));
+      expect(cards.map((c) => c.theme.top).toSet(), hasLength(cards.length));
+    });
+
+    test('only ranked games open a detail page', () {
+      final cards = buildPlayerCards(CompetitiveProfile.fromJson(_profileJson()));
+      expect(cards.where((c) => c.ranked).map((c) => c.title), ['DRAUGHTS']);
+    });
+
+    test('share captions name the game, the rating and how to find the player', () {
+      final cards = buildPlayerCards(CompetitiveProfile.fromJson(_profileJson()));
+      expect(playerCardShareText(cards[0]), 'My PlayHuud player card #000127. Come play me: https://playhuud.com');
+      expect(playerCardShareText(cards[1]),
+          'My Draughts card on PlayHuud — rating 1842, NG #127. Find me: #000127 https://playhuud.com');
+      expect(playerCardShareText(cards.firstWhere((c) => c.title == 'WHOT')),
+          'Come play Whot with me on PlayHuud #000127: https://playhuud.com');
+    });
+
+    test('the shared image is story-sized (9:16), for WhatsApp Status and friends', () async {
+      final recorder = ui.PictureRecorder();
+      Canvas(recorder).drawRect(const Rect.fromLTWH(0, 0, 68, 100), Paint()..color = const Color(0xff12606a));
+      final card = await recorder.endRecording().toImage(68, 100);
+      final cards = buildPlayerCards(CompetitiveProfile.fromJson(_profileJson()));
+      final story = await composePlayerCardStory(card, cards[1]);
+      expect(story.width, 1080);
+      expect(story.height, 1920);
     });
 
     test('provisional players show their placement progress instead of a rank', () {
@@ -179,7 +214,31 @@ void main() {
     expect(find.text('Complete your player profile to unlock National & State rankings.'), findsOneWidget);
     expect(find.byKey(const ValueKey('player-card-OVERALL')), findsOneWidget);
     expect(find.byKey(const ValueKey('player-card-DRAUGHTS')), findsOneWidget);
-    expect(find.byKey(const ValueKey('profile-public-switch')), findsOneWidget);
+    // The visibility switch moved to Settings; the profile page is just cards.
+    expect(find.byKey(const ValueKey('profile-public-switch')), findsNothing);
+  });
+
+  testWidgets('your page runs: cards, then "complete your profile", then the wallet', (tester) async {
+    phone(tester);
+    final state = AppState(ApiClient(client: MockClient((_) async => _json([]))));
+    final profile = CompetitiveProfile.fromJson(_profileJson(rated: false));
+
+    await tester.pumpWidget(_app(
+        state,
+        Scaffold(
+            body: SingleChildScrollView(
+                child: CompetitiveRecordSection(
+          profile: profile,
+          own: true,
+          belowPrompt: const Text('WALLET-ROW'),
+        )))));
+    await tester.pumpAndSettle();
+
+    final cardsY = tester.getTopLeft(find.byKey(const ValueKey('player-card-carousel'))).dy;
+    final promptY = tester.getTopLeft(find.byKey(const ValueKey('complete-player-profile'))).dy;
+    final walletY = tester.getTopLeft(find.text('WALLET-ROW')).dy;
+    expect(cardsY, lessThan(promptY), reason: 'the player cards are the first thing on the page');
+    expect(promptY, lessThan(walletY), reason: 'the wallet sits under the complete-profile prompt');
   });
 
   testWidgets("someone else's profile shows their cards, but no prompts or settings", (tester) async {
@@ -207,16 +266,33 @@ void main() {
     await tester.pumpAndSettle();
 
     final carousel = find.byKey(const ValueKey('player-card-carousel'));
-    final pageView = tester.widget<PageView>(carousel);
-    expect(pageView.controller!.page, 0); // Overall first
+    expect(find.text('Share overall card'), findsOneWidget); // Overall starts at the front
 
-    await tester.fling(carousel, const Offset(-400, 0), 1500);
+    await tester.fling(carousel, const Offset(-200, 0), 1500);
     await tester.pumpAndSettle();
-    expect(pageView.controller!.page, 1); // Draughts now in front, Overall tucked to the left
+    expect(find.text('Share draughts card'), findsOneWidget, reason: 'one flick moves one card round the ring');
 
-    await tester.tap(find.byKey(const ValueKey('player-card-DRAUGHTS')));
+    // The front card is drawn last, so it's the one a tap reaches.
+    await tester.tapAt(tester.getCenter(carousel));
     await tester.pumpAndSettle();
     expect(find.byType(GameCompetitiveScreen), findsOneWidget);
+  });
+
+  testWidgets('a game without rankings says so instead of opening an empty page', (tester) async {
+    phone(tester);
+    final state = AppState(ApiClient(client: MockClient((_) async => _json([]))));
+    final profile = CompetitiveProfile.fromJson(_profileJson());
+    await tester.pumpWidget(_app(
+        state, Scaffold(body: SingleChildScrollView(child: CompetitiveRecordSection(profile: profile, own: false)))));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('TRAITORS').last); // the pill under the ring (the card has the same title)
+    await tester.pumpAndSettle();
+    expect(find.text('Share traitors card'), findsOneWidget);
+    await tester.tapAt(tester.getCenter(find.byKey(const ValueKey('player-card-carousel'))));
+    await tester.pumpAndSettle();
+    expect(find.byType(GameCompetitiveScreen), findsNothing);
+    expect(find.text('Rankings for Traitors are coming soon.'), findsOneWidget);
   });
 
   testWidgets('a private profile shows who they are and nothing more', (tester) async {

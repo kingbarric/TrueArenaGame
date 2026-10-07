@@ -9,6 +9,7 @@ import 'competitive_models.dart';
 import 'competitive_setup_screen.dart';
 import 'competitive_widgets.dart';
 import 'leaderboard_screen.dart';
+import 'card_share.dart';
 import 'player_card.dart';
 import '../status/victory_status.dart';
 
@@ -173,10 +174,15 @@ class CompetitiveRecordSection extends StatelessWidget {
     this.ratedGames = const ['draughts'],
     this.onChanged,
     this.horizontalPadding = 20,
+    this.belowPrompt,
   });
 
   final CompetitiveProfile profile;
   final bool own;
+
+  /// Slotted in under the cards and the complete-your-profile prompt — your
+  /// own profile puts the Wallet here.
+  final Widget? belowPrompt;
 
   /// Inset for the text around the cards; the cards themselves always use
   /// the full width so neighbours can peek in.
@@ -192,7 +198,42 @@ class CompetitiveRecordSection extends StatelessWidget {
     final t = Theme.of(context).textTheme;
     final cards = buildPlayerCards(profile, ratedGames: ratedGames);
     final side = EdgeInsets.symmetric(horizontal: horizontalPadding);
+    // The cards come first; everything about finishing your profile sits under them.
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      PlayerCardCarousel(
+        cards: cards,
+        onOpen: (card) {
+          final game = card.gameType;
+          if (game == null) return;
+          if (!card.ranked) {
+            // Only some games have ratings so far; the card is there (in its
+            // colours) so the set is complete, but there's no page behind it yet.
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text('Rankings for ${gameDisplayName(game)} are coming soon.')));
+            return;
+          }
+          Navigator.of(context)
+              .push(MaterialPageRoute(
+                  builder: (_) => GameCompetitiveScreen(profile: profile, gameType: game, own: own)))
+              .then((_) => onChanged?.call());
+        },
+        onShare: (card, key, origin) async {
+          try {
+            await sharePlayerCard(key, card, origin: origin);
+          } catch (_) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(const SnackBar(content: Text('Could not open the share sheet.')));
+            }
+          }
+        },
+      ),
+      const SizedBox(height: 2),
+      Center(
+        child: Text('Swipe through every game · tap the front card for details',
+            style: t.labelSmall?.copyWith(color: n.mute)),
+      ),
+      const SizedBox(height: 16),
       if (own && !profile.profileComplete) ...[
         Padding(
           padding: side,
@@ -215,33 +256,9 @@ class CompetitiveRecordSection extends StatelessWidget {
             ]),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
       ],
-      Padding(
-        padding: side,
-        child: Text('PLAYER CARDS', style: t.labelLarge?.copyWith(color: n.gold)),
-      ),
-      const SizedBox(height: 8),
-      PlayerCardCarousel(
-        cards: cards,
-        onOpen: (card) {
-          final game = card.gameType;
-          if (game == null) return;
-          Navigator.of(context)
-              .push(MaterialPageRoute(
-                  builder: (_) => GameCompetitiveScreen(profile: profile, gameType: game, own: own)))
-              .then((_) => onChanged?.call());
-        },
-      ),
-      const SizedBox(height: 6),
-      Center(
-        child: Text('Swipe for each game · tap a card for details',
-            style: t.labelSmall?.copyWith(color: n.mute)),
-      ),
-      if (own) ...[
-        const SizedBox(height: 8),
-        Padding(padding: side, child: _VisibilitySwitch(profile: profile, onChanged: onChanged)),
-      ],
+      if (belowPrompt != null) Padding(padding: side, child: belowPrompt),
       if (profile.achievements.isNotEmpty) ...[
         const SizedBox(height: 14),
         Padding(padding: side, child: Text('ACHIEVEMENTS', style: t.labelLarge?.copyWith(color: n.gold))),
@@ -254,22 +271,22 @@ class CompetitiveRecordSection extends StatelessWidget {
 
 /// "Public profile" — on by default; off means other players see only your
 /// name, avatar and PlayHuud number. You still appear on leaderboards.
-class _VisibilitySwitch extends StatefulWidget {
-  const _VisibilitySwitch({required this.profile, this.onChanged});
+class ProfileVisibilitySwitch extends StatefulWidget {
+  const ProfileVisibilitySwitch({super.key, required this.profile, this.onChanged});
 
   final CompetitiveProfile profile;
   final VoidCallback? onChanged;
 
   @override
-  State<_VisibilitySwitch> createState() => _VisibilitySwitchState();
+  State<ProfileVisibilitySwitch> createState() => _ProfileVisibilitySwitchState();
 }
 
-class _VisibilitySwitchState extends State<_VisibilitySwitch> {
+class _ProfileVisibilitySwitchState extends State<ProfileVisibilitySwitch> {
   late bool _public = widget.profile.profilePublic;
   bool _saving = false;
 
   @override
-  void didUpdateWidget(covariant _VisibilitySwitch old) {
+  void didUpdateWidget(covariant ProfileVisibilitySwitch old) {
     super.didUpdateWidget(old);
     if (!_saving) _public = widget.profile.profilePublic;
   }
