@@ -6,12 +6,16 @@ import '../../core/game_music.dart';
 import '../../core/game_sfx.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/neon.dart';
+import '../competitive/competitive_api.dart';
+import '../competitive/competitive_models.dart';
+import '../competitive/competitive_setup_screen.dart';
+import '../competitive/player_profile_screen.dart' show ProfileVisibilitySwitch, locationLine;
 import '../notifications/notifications_screen.dart';
 import '../onboarding/sign_out.dart';
 
-/// Reached by tapping the profile row on Home. Everything here is a
-/// per-device preference (avatar, theme) — there's no backend profile
-/// endpoint yet, so nothing here syncs across devices.
+/// Everything about you and your device: edit profile (photo, username,
+/// where you compete, who can see your cards), appearance, sound,
+/// notifications, and sign out. The Profile tab is just your player cards.
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
@@ -23,6 +27,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _picking = false;
   bool _musicOn = GameMusic.enabled;
   bool _sfxOn = GameSfx.enabled;
+  CompetitiveProfile? _competitive;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadCompetitive());
+  }
+
+  Future<void> _loadCompetitive() async {
+    final app = AppScope.of(context);
+    if (app.identity != Identity.account) return;
+    try {
+      final p = await CompetitiveApi(app.api).mine();
+      if (mounted) setState(() => _competitive = p);
+    } catch (_) {/* the rows below just don't show */}
+  }
+
+  Future<void> _editUsername(AppState app) async {
+    final controller = TextEditingController(text: app.user?.username ?? '');
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: context.neon.panel,
+      builder: (_) => _UsernameSheet(controller: controller),
+    );
+    controller.dispose();
+    if (result == null || result.isEmpty || !mounted) return;
+    try {
+      await app.setUsername(result);
+      if (mounted) setState(() {});
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(e.toString().contains('409') ? 'That username is taken' : 'Could not update username')));
+      }
+    }
+  }
+
+  Future<void> _editLocation() async {
+    final saved = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(builder: (_) => CompetitiveSetupScreen(initial: _competitive)));
+    if (saved == true) _loadCompetitive();
+  }
 
   Future<void> _upload(AppState app) async {
     setState(() => _picking = true);
@@ -57,11 +104,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Center(
               child: Column(
                 children: [
-                  Avatar(name,
-                      size: 84,
-                      emoji: app.avatarEmoji,
-                      imagePath: app.avatarImagePath,
-                      imageUrl: app.user?.avatarUrl),
+                  InkWell(
+                    onTap: _picking ? null : () => _upload(app),
+                    borderRadius: BorderRadius.circular(48),
+                    child: Stack(alignment: Alignment.bottomRight, children: [
+                      Avatar(name,
+                          size: 84,
+                          emoji: app.avatarEmoji,
+                          imagePath: app.avatarImagePath,
+                          imageUrl: app.user?.avatarUrl),
+                      CircleAvatar(
+                          radius: 15,
+                          backgroundColor: n.gold,
+                          child: const Icon(Icons.camera_alt_rounded, size: 16, color: Colors.black)),
+                    ]),
+                  ),
                   const SizedBox(height: 10),
                   Text(name, style: Theme.of(context).textTheme.titleMedium),
                   if (app.user?.phone != null)
@@ -74,6 +131,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 22),
+            if (app.identity == Identity.account) ...[
+              Text('EDIT PROFILE', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: n.gold)),
+              const SizedBox(height: 12),
+              NeonCard(
+                key: const ValueKey('settings-username'),
+                onTap: () => _editUsername(app),
+                child: Row(children: [
+                  Icon(Icons.alternate_email, color: n.mid),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('Username', style: Theme.of(context).textTheme.bodyMedium),
+                      Text('@${app.user?.username ?? '—'}',
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.gold)),
+                    ]),
+                  ),
+                  Icon(Icons.edit, color: n.mute, size: 18),
+                ]),
+              ),
+              if (_competitive != null) ...[
+                const SizedBox(height: 10),
+                NeonCard(
+                  key: const ValueKey('settings-location'),
+                  onTap: _editLocation,
+                  child: Row(children: [
+                    Icon(Icons.flag_rounded, color: n.mid),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text('Where you compete', style: Theme.of(context).textTheme.bodyMedium),
+                        Text(
+                            locationLine(_competitive!.location).isEmpty
+                                ? 'Not set — add it to unlock National & State rankings'
+                                : locationLine(_competitive!.location),
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute)),
+                      ]),
+                    ),
+                    Icon(Icons.chevron_right, color: n.mute, size: 20),
+                  ]),
+                ),
+                const SizedBox(height: 4),
+                ProfileVisibilitySwitch(profile: _competitive!, onChanged: _loadCompetitive),
+              ],
+              const SizedBox(height: 28),
+            ],
             Text('NOTIFICATIONS',
                 style: Theme.of(context)
                     .textTheme
@@ -93,7 +195,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ]),
             ),
             const SizedBox(height: 28),
-            Text('PROFILE ICON',
+            Text('PROFILE PICTURE',
                 style: Theme.of(context)
                     .textTheme
                     .labelLarge
@@ -489,5 +591,36 @@ class NeonSegmentedThemePicker extends StatelessWidget {
       option(ThemeMode.dark, Icons.dark_mode_outlined, 'Dark'),
       option(ThemeMode.system, Icons.smartphone_outlined, 'Auto'),
     ]);
+  }
+}
+
+class _UsernameSheet extends StatelessWidget {
+  const _UsernameSheet({required this.controller});
+  final TextEditingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final n = context.neon;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(22, 20, 22, MediaQuery.viewInsetsOf(context).bottom + 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('CHANGE USERNAME', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: n.gold)),
+          const SizedBox(height: 12),
+          TextField(
+            controller: controller,
+            autofocus: true,
+            maxLength: 24,
+            decoration: const InputDecoration(
+                hintText: 'e.g. king_of_traitors', counterText: '', prefixIcon: Icon(Icons.alternate_email)),
+            onSubmitted: (v) => Navigator.of(context).pop(v.trim()),
+          ),
+          const SizedBox(height: 12),
+          NeonButton('Save', onPressed: () => Navigator.of(context).pop(controller.text.trim())),
+        ],
+      ),
+    );
   }
 }

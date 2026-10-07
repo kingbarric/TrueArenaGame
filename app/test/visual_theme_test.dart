@@ -112,7 +112,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('players can change the visual theme from Profile',
+  testWidgets('the Profile tab no longer carries appearance or sign out — they live in Settings',
       (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
@@ -122,6 +122,25 @@ void main() {
     await tester.pumpWidget(TrueArenaApp(state: state));
     TrueArenaApp.navigatorKey.currentState!.push(
       MaterialPageRoute<void>(builder: (_) => const ProfileScreen()),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(find.text('APPEARANCE'), findsNothing);
+    expect(find.text('Sign out'), findsNothing);
+    expect(find.text('Change profile picture'), findsNothing);
+    expect(find.text('Wallet'), findsOneWidget);
+  });
+
+  testWidgets('players can change the visual theme from Settings',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final state = AppState(ApiClient())..themeMode = ThemeMode.dark;
+    await tester.pumpWidget(TrueArenaApp(state: state));
+    TrueArenaApp.navigatorKey.currentState!.push(
+      MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 600));

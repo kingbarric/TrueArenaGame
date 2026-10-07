@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../widgets/hide_on_scroll_nav.dart';
 import '../../widgets/playground_nav_pill.dart';
 import '../chat/chat_list_screen.dart';
 import '../friends/friends_screen.dart';
@@ -108,34 +109,30 @@ class _MainShellState extends State<MainShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          IndexedStack(
-            index: _index,
-            // Must be `expand`: the default (StackFit.loose) hands children
-            // unbounded constraints, which blows up any tab using Spacer /
-            // Expanded / a full-width Container (i.e. all of them).
-            sizing: StackFit.expand,
-            children: [for (var i = 0; i < _tabs.length; i++) _screenFor(i)],
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 18,
-            child: Center(
-              child: SafeArea(
-                top: false,
-                child: PlaygroundNavPill(
-                  activeIndex: _index,
-                  items: [
-                    for (var i = 0; i < _tabs.length; i++)
-                      PlaygroundNavItem(icon: _tabs[i].icon, onTap: () => _select(i)),
-                  ],
-                ),
-              ),
+      // The menu slides away while you scroll down and returns when you
+      // scroll up; switching tabs always brings it back.
+      body: HideOnScrollNav(
+        resetKey: _index,
+        body: IndexedStack(
+          index: _index,
+          // Must be `expand`: the default (StackFit.loose) hands children
+          // unbounded constraints, which blows up any tab using Spacer /
+          // Expanded / a full-width Container (i.e. all of them).
+          sizing: StackFit.expand,
+          children: [for (var i = 0; i < _tabs.length; i++) _screenFor(i)],
+        ),
+        nav: Center(
+          child: SafeArea(
+            top: false,
+            child: PlaygroundNavPill(
+              activeIndex: _index,
+              items: [
+                for (var i = 0; i < _tabs.length; i++)
+                  PlaygroundNavItem(icon: _tabs[i].icon, onTap: () => _select(i)),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }

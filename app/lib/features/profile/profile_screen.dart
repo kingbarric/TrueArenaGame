@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../../core/app_state.dart';
 import '../../core/models.dart';
@@ -7,7 +6,6 @@ import '../../theme/neon_theme.dart';
 import '../../widgets/neon.dart';
 import '../notifications/notifications_screen.dart';
 import '../onboarding/guest_save_session_card.dart';
-import '../onboarding/sign_out.dart';
 import '../settings/settings_screen.dart';
 import '../wallet/wallet_screen.dart';
 import '../draughts/championships_screen.dart';
@@ -27,61 +25,9 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   StatsView? _stats;
   String? _statsError;
-  bool _pickingPhoto = false;
   List<Map<String, dynamic>> _championshipBadges = const [];
   CompetitiveProfile? _competitive;
   List<String> _ratedGames = const ['draughts'];
-
-  Future<void> _choosePhoto(AppState app) async {
-    setState(() => _pickingPhoto = true);
-    try {
-      final picked = await ImagePicker().pickImage(
-          source: ImageSource.gallery,
-          maxWidth: 320,
-          maxHeight: 320,
-          imageQuality: 65);
-      if (picked != null) await app.setAvatarImage(picked.path);
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(error is StateError
-                ? error.message : 'Photo saved on this phone, but could not sync it')));
-      }
-    } finally {
-      if (mounted) setState(() => _pickingPhoto = false);
-    }
-  }
-
-  Future<void> _chooseAvatar(AppState app) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: context.neon.panel,
-      builder: (sheetContext) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text('PROFILE PICTURE', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 14),
-            NeonButton('Choose from photos', onPressed: () {
-              Navigator.of(sheetContext).pop();
-              _choosePhoto(app);
-            }),
-            const SizedBox(height: 14),
-            Wrap(spacing: 8, runSpacing: 8, alignment: WrapAlignment.center,
-              children: [for (final emoji in kAvatarPresets)
-                InkWell(
-                  onTap: () {
-                    app.setAvatarEmoji(emoji);
-                    Navigator.of(sheetContext).pop();
-                  },
-                  child: Avatar('', size: 44, emoji: emoji),
-                )],
-            ),
-          ]),
-        ),
-      ),
-    );
-  }
 
   @override
   void initState() {
@@ -127,34 +73,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<void> _editUsername(AppState app) async {
-    final controller = TextEditingController(text: app.user?.username ?? '');
-    final result = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: context.neon.panel,
-      builder: (_) => _UsernameSheet(controller: controller),
-    );
-    if (result == null || result.isEmpty || !mounted) return;
-    try {
-      await app.setUsername(result);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString().contains('409') ? 'That username is taken' : 'Could not update username')),
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final n = context.neon;
     final app = AppScope.of(context);
-    final user = app.user;
     // Your own profile shows your username only; full names are shown to
     // you for friends, not for yourself.
-    final name = user?.username ?? user?.displayName ?? 'Player';
     final isGuest = app.identity == Identity.guest;
 
     return Scaffold(
@@ -178,71 +102,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            Center(
-              child: Column(
-                children: [
-                  InkWell(
-                    onTap: _pickingPhoto ? null : () => _chooseAvatar(app),
-                    borderRadius: BorderRadius.circular(48),
-                    child: Stack(alignment: Alignment.bottomRight, children: [
-                      Avatar(name, size: 84, emoji: app.avatarEmoji,
-                          imagePath: app.avatarImagePath, imageUrl: user?.avatarUrl),
-                      CircleAvatar(radius: 15, backgroundColor: n.gold,
-                          child: const Icon(Icons.camera_alt_rounded, size: 16, color: Colors.black)),
-                    ]),
-                  ),
-                  const SizedBox(height: 6),
-                  TextButton(onPressed: _pickingPhoto ? null : () => _chooseAvatar(app),
-                      child: Text(_pickingPhoto ? 'Opening photos…' : 'Change profile picture')),
-                  const SizedBox(height: 12),
-                  if (isGuest) ...[
-                    Text(name, style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 4),
-                  ],
-                  if (isGuest)
-                    Text('Guest — this device only', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute))
-                  else
-                    Bouncy(
-                      onTap: () => _editUsername(app),
-                      pressScale: 0.96,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text('@${user?.username ?? '—'}',
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(color: n.gold, fontWeight: FontWeight.w800)),
-                          const SizedBox(width: 4),
-                          Icon(Icons.edit, size: 13, color: n.mute),
-                        ],
-                      ),
-                    ),
-                  if (_competitive != null) ...[
-                    const SizedBox(height: 10),
-                    CompetitiveIdentityHeader(profile: _competitive!, showAvatar: false),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            Bouncy(
-              pressScale: 0.98,
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WalletScreen())),
-              child: NeonCard(
-                accent: n.jade,
-                child: Row(children: [
-                  Icon(Icons.diamond_rounded, color: n.jade, size: 22),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('Wallet', style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
-                      Text('Coins, tier, and history', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute)),
-                    ]),
-                  ),
-                  Icon(Icons.chevron_right, color: n.mute, size: 20),
-                ]),
-              ),
-            ),
-            if (_competitive != null) ...[
-              const SizedBox(height: 24),
+            // Order: the player cards, then "complete your profile", then the
+            // wallet, then everything else. (Photo, username, theme and sign
+            // out live in Settings.)
+            if (_competitive != null)
               CompetitiveRecordSection(
                 key: const ValueKey('profile-competitive-record'),
                 profile: _competitive!,
@@ -250,8 +113,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ratedGames: _ratedGames,
                 onChanged: _loadCompetitive,
                 horizontalPadding: 0, // this list is already padded
-              ),
-            ],
+                belowPrompt: Bouncy(
+      pressScale: 0.98,
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WalletScreen())),
+      child: NeonCard(
+        accent: n.jade,
+        child: Row(children: [
+          Icon(Icons.diamond_rounded, color: n.jade, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Wallet', style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+              Text('Coins, tier, and history', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute)),
+            ]),
+          ),
+          Icon(Icons.chevron_right, color: n.mute, size: 20),
+        ]),
+      ),
+    ),
+              )
+            else
+              Bouncy(
+      pressScale: 0.98,
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WalletScreen())),
+      child: NeonCard(
+        accent: n.jade,
+        child: Row(children: [
+          Icon(Icons.diamond_rounded, color: n.jade, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Wallet', style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+              Text('Coins, tier, and history', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute)),
+            ]),
+          ),
+          Icon(Icons.chevron_right, color: n.mute, size: 20),
+        ]),
+      ),
+    ),
             const SizedBox(height: 28),
             if (_championshipBadges.isNotEmpty) ...[
               Text('CHAMPIONSHIP BADGES', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: n.gold)),
@@ -264,24 +163,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ))),
               const SizedBox(height: 16),
             ],
-            Text('APPEARANCE',
-                style: Theme.of(context)
-                    .textTheme
-                    .labelLarge
-                    ?.copyWith(color: n.gold)),
-            const SizedBox(height: 6),
-            Text('Choose the look of your app and games.',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: n.mid)),
-            const SizedBox(height: 12),
-            VisualThemePicker(
-                value: app.visualTheme, onChanged: app.setVisualTheme),
-            const SizedBox(height: 16),
-            NeonSegmentedThemePicker(
-                mode: app.themeMode, onChanged: app.setThemeMode),
-            const SizedBox(height: 28),
             Text('MATCH HISTORY', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: n.gold)),
             const SizedBox(height: 12),
             if (isGuest) ...[
@@ -303,12 +184,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator()))
             else
               _statsGrid(n, _stats!),
-            const SizedBox(height: 28),
-            NeonButton(
-              'Sign out',
-              style: NeonStyle.ghost,
-              onPressed: () => confirmSignOut(context, app),
-            ),
           ],
         ),
       ),
@@ -353,34 +228,4 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Text(value, style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 26, color: accent)),
         ]),
       );
-}
-
-class _UsernameSheet extends StatelessWidget {
-  const _UsernameSheet({required this.controller});
-  final TextEditingController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final n = context.neon;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(22, 20, 22, MediaQuery.viewInsetsOf(context).bottom + 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('CHANGE USERNAME', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: n.gold)),
-          const SizedBox(height: 12),
-          TextField(
-            controller: controller,
-            autofocus: true,
-            maxLength: 24,
-            decoration: const InputDecoration(hintText: 'e.g. king_of_traitors', counterText: '', prefixIcon: Icon(Icons.alternate_email)),
-            onSubmitted: (v) => Navigator.of(context).pop(v.trim()),
-          ),
-          const SizedBox(height: 12),
-          NeonButton('Save', onPressed: () => Navigator.of(context).pop(controller.text.trim())),
-        ],
-      ),
-    );
-  }
 }

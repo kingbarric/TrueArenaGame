@@ -54,8 +54,9 @@ class TrueArenaApp extends StatelessWidget {
                   ? const WelcomeScreen() : ChampionshipsScreen(inviteCode: code));
             },
             builder: (context, child) {
-              final content = _GameInviteOverlay(
-                  state: state, child: child ?? const SizedBox.shrink());
+              final content = DismissKeyboardOnOutsideTap(
+                  child: _GameInviteOverlay(
+                      state: state, child: child ?? const SizedBox.shrink()));
               if (state.visualTheme == VisualTheme.palmWine) return content;
               final design = context.neonDesign.kind;
               return DecoratedBox(
@@ -67,6 +68,39 @@ class TrueArenaApp extends StatelessWidget {
             },
           );
         },
+      ),
+    );
+  }
+}
+
+/// App-wide: tapping anywhere that isn't a control, or starting to drag a
+/// list, puts the keyboard away. Flutter only does this by default on
+/// desktop/web, so on phones the keyboard stayed up after tapping out of a
+/// search or text box.
+///
+/// Taps on buttons and fields still go to them (they win the gesture arena),
+/// so a chat's send button keeps the keyboard up for the next message and
+/// tapping from one field to another never flickers it closed.
+class DismissKeyboardOnOutsideTap extends StatelessWidget {
+  const DismissKeyboardOnOutsideTap({super.key, required this.child});
+
+  final Widget child;
+
+  static void _dismiss() => FocusManager.instance.primaryFocus?.unfocus();
+
+  @override
+  Widget build(BuildContext context) {
+    return NotificationListener<ScrollStartNotification>(
+      onNotification: (n) {
+        // Only a finger drag — not the scroll that brings a focused field
+        // into view when the keyboard opens.
+        if (n.dragDetails != null) _dismiss();
+        return false;
+      },
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: _dismiss,
+        child: child,
       ),
     );
   }
