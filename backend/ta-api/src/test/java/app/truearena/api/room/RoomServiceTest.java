@@ -342,6 +342,37 @@ class RoomServiceTest {
     }
 
     @Test
+    void join_aLiveGameIsRefusedWithTheWatchLiveMessage() {
+        UUID roomId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        RoomRow live = new RoomRow(roomId, "ABCDEF", null, UUID.randomUUID(), "in_game", "draughts", 0, null, false, Instant.now());
+        when(rooms.findByCode("ABCDEF")).thenReturn(Mono.just(live));
+        when(members.findByRoomIdAndUserId(roomId, userId)).thenReturn(Mono.empty());
+
+        StepVerifier.create(service.join("abcdef", userId, "nick"))
+                .expectErrorMatches(e -> e instanceof ResponseStatusException rse
+                        && rse.getStatusCode().value() == 409
+                        && RoomService.ALREADY_PLAYING.equals(rse.getReason()))
+                .verify();
+        verify(members, never()).save(any());
+    }
+
+    @Test
+    void join_aFinishedGameSaysItEnded_notThatItIsPlaying() {
+        UUID roomId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        RoomRow ended = new RoomRow(roomId, "ABCDEF", null, UUID.randomUUID(), "ended", "draughts", 0, null, false, Instant.now());
+        when(rooms.findByCode("ABCDEF")).thenReturn(Mono.just(ended));
+        when(members.findByRoomIdAndUserId(roomId, userId)).thenReturn(Mono.empty());
+
+        StepVerifier.create(service.join("abcdef", userId, "nick"))
+                .expectErrorMatches(e -> e instanceof ResponseStatusException rse
+                        && rse.getStatusCode().value() == 409
+                        && rse.getReason().contains("ended"))
+                .verify();
+    }
+
+    @Test
     void join_rejectsAFifthLudoSeat() {
         UUID roomId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();

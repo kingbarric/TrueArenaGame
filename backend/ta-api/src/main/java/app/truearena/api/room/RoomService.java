@@ -36,6 +36,9 @@ public class RoomService {
 
     private static final String ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no O/0/I/1
     private static final int MAX_PLAYERS = 16;
+
+    /** Join refused because the game is live — the app turns this into "watch live". Keep in step with `kAlreadyPlaying` in the app. */
+    public static final String ALREADY_PLAYING = "this huud is already playing — watch live instead";
     private static final SecureRandom RNG = new SecureRandom();
 
     private final RoomRepository rooms;
@@ -185,8 +188,14 @@ public class RoomService {
                                 ? Mono.error(ApiExceptions.forbidden("join the championship invitation instead"))
                                 : members.findByRoomIdAndUserId(room.id(), userId)
                         .flatMap(existing -> view(room, userId))
-                        .switchIfEmpty(!"lobby".equals(room.status())
-                                ? Mono.error(ApiExceptions.conflict("this huud is already playing — watch live instead"))
+                        .switchIfEmpty("in_game".equals(room.status())
+                                // The app matches on ALREADY_PLAYING and takes the person
+                                // to the live view instead of showing an error.
+                                ? Mono.error(ApiExceptions.conflict(ALREADY_PLAYING))
+                                : "ended".equals(room.status())
+                                // A finished huud used to get the "already playing" message too,
+                                // which sent people to watch something that wasn't live.
+                                ? Mono.error(ApiExceptions.conflict("this huud has already ended"))
                                 : members.countByRoomId(room.id())
                                 .flatMap(count -> count >= ("ludo".equals(room.gameType()) ? 4 : MAX_PLAYERS)
                                         ? Mono.error(ApiExceptions.conflict("huud is full"))

@@ -4,6 +4,7 @@ import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../spectate/watch_live.dart';
 import '../../core/api_client.dart';
 import '../../core/app_state.dart';
 import '../../core/models.dart';
@@ -280,6 +281,11 @@ class _HuudScreenState extends State<HuudScreen> {
           : await app.api.post('/rooms/join', {'code': game.roomCode});
       await _enterRoom(RoomView.fromJson((raw as Map).cast<String, dynamic>()));
     } on ApiException catch (e) {
+      if (isAlreadyPlaying(e) && await watchHuudByCode(app, game.roomCode, context: context)) {
+        if (mounted) announceWatching(ScaffoldMessenger.of(context));
+        _load();
+        return;
+      }
       _snack(e.message);
       _load();
     } catch (_) {

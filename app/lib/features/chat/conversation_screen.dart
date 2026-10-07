@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'package:cryptography/cryptography.dart' show SecretKey;
 
+import '../spectate/watch_live.dart';
 import '../../core/api_client.dart';
 import '../../core/app_state.dart';
 import '../../core/e2e_crypto.dart';
@@ -293,9 +294,14 @@ class _ConversationScreenState extends State<ConversationScreen> {
       Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => JoinedRoomScreen(room: room)));
     } on ApiException catch (e) {
-      if (mounted)
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      // The game started without them: take them to watch rather than just saying so.
+      if (isAlreadyPlaying(e) && await watchHuudByCode(app, m.roomCode!, context: context, messenger: messenger)) {
+        announceWatching(messenger);
+      } else {
+        messenger.showSnackBar(SnackBar(content: Text(e.message)));
+      }
     } finally {
       if (mounted) setState(() => _joining = false);
     }

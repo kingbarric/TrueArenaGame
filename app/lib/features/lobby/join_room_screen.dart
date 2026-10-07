@@ -5,7 +5,7 @@ import '../../core/app_state.dart';
 import '../../core/models.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/neon.dart';
-import '../spectate/spectate_screen.dart';
+import '../spectate/watch_live.dart';
 import 'joined_room_screen.dart';
 
 /// The other half of a lobby: `LobbyScreen`/`WordBluffLobbyScreen` only ever
@@ -70,6 +70,11 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
         MaterialPageRoute(builder: (_) => JoinedRoomScreen(room: room)),
       );
     } on ApiException catch (e) {
+      if (isAlreadyPlaying(e)) {
+        // Can't sit down — the game is on. Watch it instead of showing an error.
+        await _watch(announce: true);
+        return;
+      }
       setState(() => _error = e.status == 404
           ? 'No huud with that code'
           : e.message.toLowerCase() == 'room is full'
@@ -82,7 +87,7 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
     }
   }
 
-  Future<void> _watch() async {
+  Future<void> _watch({bool announce = false}) async {
     final code = _codeController.text.trim().toUpperCase();
     if (code.length != 6) {
       setState(() => _error = 'Huud codes are 6 characters');
@@ -92,24 +97,11 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
       _joining = true;
       _error = null;
     });
-    try {
-      final raw = await AppScope.of(context).api.post('/rooms/watch', {'code': code})
-          as Map<String, dynamic>;
-      final room = RoomView.fromJson(raw);
-      if (!mounted) return;
-      Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) => SpectateScreen(
-                roomId: room.id,
-                gameType: room.gameType,
-                title: 'Watching ${room.gameType == 'draughts' ? 'Draughts' : room.gameType}',
-              )));
-    } on ApiException catch (error) {
-      if (mounted) setState(() => _error = error.message);
-    } catch (_) {
-      if (mounted) setState(() => _error = 'Could not reach the server');
-    } finally {
-      if (mounted) setState(() => _joining = false);
-    }
+    final messenger = ScaffoldMessenger.of(context);
+    final opened = await watchHuudByCode(AppScope.of(context), code, context: context, messenger: messenger);
+    if (!mounted) return;
+    setState(() => _joining = false);
+    if (opened && announce) announceWatching(messenger);
   }
 
   @override
@@ -151,7 +143,7 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
               NeonButton(_joining ? 'Joining…' : 'Join a huud', onPressed: _joining ? null : _join),
               const SizedBox(height: 10),
               OutlinedButton.icon(
-                onPressed: _joining ? null : _watch,
+                onPressed: _joining ? null : () => _watch(),
                 icon: const Icon(Icons.visibility_rounded),
                 label: const Text('Watch live'),
               ),

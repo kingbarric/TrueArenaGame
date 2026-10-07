@@ -4,6 +4,7 @@ import 'core/api_client.dart';
 import 'core/app_state.dart';
 import 'core/models.dart';
 import 'core/push_notifications.dart';
+import 'features/spectate/watch_live.dart';
 import 'features/calls/incoming_call_screen.dart';
 import 'features/shell/main_shell.dart';
 import 'features/lobby/joined_room_screen.dart';
@@ -145,9 +146,16 @@ class _GameInviteOverlayState extends State<_GameInviteOverlay> {
           MaterialPageRoute(builder: (_) => JoinedRoomScreen(room: room)));
     } on ApiException catch (e) {
       final ctx = TrueArenaApp.navigatorKey.currentContext;
-      if (ctx != null && ctx.mounted) {
-        ScaffoldMessenger.of(ctx)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+      if (ctx == null || !ctx.mounted) return;
+      final messenger = ScaffoldMessenger.of(ctx);
+      if (isAlreadyPlaying(e)) {
+        // Too late to sit down — watch it live instead.
+        widget.state.dismissGameInvite();
+        final opened = await watchHuudByCode(widget.state, invite['roomCode'] as String,
+            navigator: TrueArenaApp.navigatorKey.currentState, messenger: messenger);
+        if (opened) announceWatching(messenger);
+      } else {
+        messenger.showSnackBar(SnackBar(content: Text(e.message)));
       }
     } finally {
       if (mounted) setState(() => _joining = false);
