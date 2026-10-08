@@ -2,7 +2,6 @@ package app.truearena.api.bot;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -27,21 +26,12 @@ import org.springframework.web.reactive.function.client.WebClient;
 public class BotLlmConfig {
 
     @Bean
-    @ConditionalOnProperty(prefix = "gemini.api", name = "key")
-    public LlmMovePicker geminiMovePicker(WebClient.Builder builder, @Value("${gemini.api.key}") String apiKey) {
-        return new GeminiMovePicker(builder.build(), apiKey);
-    }
-
-    @Bean
     @ConditionalOnMissingBean(LlmMovePicker.class)
-    @ConditionalOnProperty(prefix = "groq.api", name = "key")
-    public LlmMovePicker groqMovePicker(WebClient.Builder builder, @Value("${groq.api.key}") String apiKey) {
-        return new GroqMovePicker(builder.build(), apiKey);
-    }
-
-    @Bean
-    @ConditionalOnMissingBean(LlmMovePicker.class)
-    public LlmMovePicker stubMovePicker() {
+    public LlmMovePicker movePicker(WebClient.Builder builder,
+            @Value("${gemini.api.key:}") String geminiKey,
+            @Value("${groq.api.key:}") String groqKey) {
+        if (!geminiKey.isBlank()) return new GeminiMovePicker(builder.build(), geminiKey);
+        if (!groqKey.isBlank()) return new GroqMovePicker(builder.build(), groqKey);
         return new StubMovePicker();
     }
 }

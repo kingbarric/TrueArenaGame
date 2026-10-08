@@ -418,6 +418,8 @@ public class GameOrchestrator {
                 ? rt.module().broadcastState(rt.state()).data()
                 : rt.module().visibleStateFor(rt.state(), userId).data());
         view.put("lobby", false);
+        view.put("botPlayerIds", List.copyOf(rt.botPlayerIds));
+        view.put("botTextMode", !rt.botPlayerIds.isEmpty());
         // Generic, game-agnostic fields — every screen gets these regardless of
         // which GameModule is running, so a late joiner/reconnect (player or
         // spectator) immediately knows the room is paused and how many are watching.
@@ -712,8 +714,12 @@ public class GameOrchestrator {
                 .flatMap(t -> {
                     String gameType = t.getT1().gameType();
                     List<String> playerIds = t.getT2().stream().map(m -> m.userId().toString()).toList();
+                    rt.botPlayerIds.clear();
+                    t.getT2().stream().filter(m -> m.botDifficulty() != null)
+                            .forEach(m -> rt.botPlayerIds.add(m.userId().toString()));
                     return switch (gameType) {
-                        case "wordbluff" -> startWordBluff(rt, userId, playerIds);
+                        case "wordbluff" -> startWordBluff(rt, userId, playerIds,
+                                t.getT2().stream().anyMatch(m -> m.botDifficulty() != null));
                         case "draughts" -> startDraughts(rt, userId, playerIds);
                         case "chess" -> startChess(rt, userId, playerIds, t.getT1().gameConfig());
                         case "goosi" -> startGoosi(rt, userId, playerIds);
@@ -761,8 +767,8 @@ public class GameOrchestrator {
                 });
     }
 
-    private Mono<Void> startWordBluff(RoomRuntime rt, String userId, List<String> playerIds) {
-        WordBluffConfig cfg = WordBluffConfig.defaults();
+    private Mono<Void> startWordBluff(RoomRuntime rt, String userId, List<String> playerIds, boolean textMode) {
+        WordBluffConfig cfg = new WordBluffConfig(30, 60, textMode);
         WordBluffModule module = new WordBluffModule();
         long seed = ThreadLocalRandom.current().nextLong();
         GameState state;

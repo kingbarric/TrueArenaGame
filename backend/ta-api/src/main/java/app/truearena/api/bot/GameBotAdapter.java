@@ -52,6 +52,14 @@ public interface GameBotAdapter {
         return Optional.empty();
     }
 
+    default boolean speaksThroughActions() { return false; }
+
+    default Optional<PlayerAction> speechAction(BotPrompt prompt, String text, String botUserId) {
+        return Optional.empty();
+    }
+
+    default String fallbackSpeech(BotPrompt prompt) { return ""; }
+
     /**
      * What to ask the model for.
      *

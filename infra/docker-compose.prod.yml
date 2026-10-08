@@ -79,6 +79,8 @@ services:
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:?set LIVEKIT_API_SECRET}
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
       BREVO_API_KEY: ${BREVO_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
       FIREBASE_CREDENTIALS_BASE64: ${FIREBASE_CREDENTIALS_BASE64:-}
       # Public Web OAuth client ID; override when using a different Google project.
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-26187322342-o2squi475tmt3ubs8k9rh2d2b7pfivgf.apps.googleusercontent.com}

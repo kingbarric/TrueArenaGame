@@ -1,0 +1,11 @@
+# Bot text play
+
+Word Bluff automatically enables text play when any playing seat is a bot. The describer sends `TEXT_CLUE`, teammates send `TEXT_GUESS`, and the server validates roles, the live clock, clue content and the current word index. Wrong guesses retain the word. A correct guess adds a provisional correct attempt and reveals the next word; the existing review still finalizes the score. Teammates may request another word through `TEXT_SKIP`. All-human games keep their voice and opponent-marking flow.
+
+Bot guess prompts contain only teammate clues and the category, never the hidden answer. Bot describers post validated clues without blocking their inbound socket for the old clue dwell timer. Text input is expanded by default in bot games. Reconnecting during a running Word Bluff turn shows the current word rather than replaying the wheel animation.
+
+Traitors bots respond to human round-table messages, begin the discussion, and include public discussion in their voting prompt. Bot-to-bot replies do not trigger reply loops. Replies are bounded to three per phase per bot. Traitors' private night/round-table messages use the existing role-restricted channel; public replies never receive private role data in their prompt. Human discussion input opens automatically when bots are playing. All-human calls retain their existing flow.
+
+Full language interaction requires the existing `GEMINI_API_KEY` or `GROQ_API_KEY`. Production Compose now passes either variable through. Empty keys correctly select the offline fallback, instead of selecting a provider with empty credentials. The offline Word Bluff fallback supplies definitions and clue matching for a small set of common objects; unknown clues request more information, and unsupported words can be skipped. It is not a substitute for the full language service.
+
+Verification covers typed human clues, bot guesses without private answers, bot clues and human guesses, wrong guesses, stale-word submissions, clue leaks, opposing-team rejection, all-human voice mode, private-channel access, discussion-aware voting, bot reply-loop suppression, offline matching and provider selection. Flutter tests also cover phone-sized Word Bluff and Traitors text input.

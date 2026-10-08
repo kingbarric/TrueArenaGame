@@ -49,6 +49,9 @@ class TableChatPanel extends StatefulWidget {
     this.height = 146,
     this.canSend = true,
     this.disabledHint,
+    this.initiallyExpanded = false,
+    this.composerHint,
+    this.emptyHint,
   });
 
   final List<TableChatLine> lines;
@@ -68,6 +71,9 @@ class TableChatPanel extends StatefulWidget {
 
   /// Why they can't, shown in place of the input.
   final String? disabledHint;
+  final bool initiallyExpanded;
+  final String? composerHint;
+  final String? emptyHint;
 
   @override
   State<TableChatPanel> createState() => _TableChatPanelState();
@@ -82,15 +88,19 @@ class _TableChatPanelState extends State<TableChatPanel> {
   void initState() {
     super.initState();
     _lastLineCount = widget.lines.length;
+    _expanded = widget.initiallyExpanded;
   }
 
   @override
   void didUpdateWidget(covariant TableChatPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.initiallyExpanded && !oldWidget.initiallyExpanded)
+      _expanded = true;
     // Word Bluff agents put their clues in chat. Bring a new clue into view
     // even when the player previously collapsed the panel for more board space.
     if (widget.lines.length > _lastLineCount &&
-        widget.lines.isNotEmpty && widget.lines.first.isAgent) {
+        widget.lines.isNotEmpty &&
+        widget.lines.first.isAgent) {
       _expanded = true;
     }
     if (widget.lines.length > _lastLineCount &&
@@ -126,9 +136,11 @@ class _TableChatPanelState extends State<TableChatPanel> {
                   if (_expanded) _unreadComment = false;
                 }),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                   child: Row(children: [
-                    const Icon(Icons.chat_bubble_outline_rounded, size: 15, color: Colors.white),
+                    const Icon(Icons.chat_bubble_outline_rounded,
+                        size: 15, color: Colors.white),
                     if (_unreadComment) ...[
                       const SizedBox(width: 3),
                       Container(
@@ -142,23 +154,35 @@ class _TableChatPanelState extends State<TableChatPanel> {
                       ),
                     ],
                     const SizedBox(width: 7),
-                    Text('CHAT${widget.lines.isEmpty ? '' : ' · ${widget.lines.length}'}',
-                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800)),
+                    Text(
+                        'CHAT${widget.lines.isEmpty ? '' : ' · ${widget.lines.length}'}',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800)),
                     if (!_expanded && widget.lines.isNotEmpty) ...[
                       const SizedBox(width: 8),
-                      Expanded(child: Text(widget.lines.first.text,
-                          maxLines: 1, overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Colors.white70, fontSize: 10))),
+                      Expanded(
+                          child: Text(widget.lines.first.text,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  color: Colors.white70, fontSize: 10))),
                     ] else
                       const Spacer(),
-                    Icon(_expanded ? Icons.keyboard_arrow_down_rounded : Icons.keyboard_arrow_up_rounded,
-                        color: Colors.white, size: 18),
+                    Icon(
+                        _expanded
+                            ? Icons.keyboard_arrow_down_rounded
+                            : Icons.keyboard_arrow_up_rounded,
+                        color: Colors.white,
+                        size: 18),
                   ]),
                 ),
               ),
               if (_expanded) ...[
                 SizedBox(height: widget.height, child: _messages()),
-                Container(height: 1, color: Colors.white.withValues(alpha: 0.16)),
+                Container(
+                    height: 1, color: Colors.white.withValues(alpha: 0.16)),
                 _composer(),
               ],
             ]),
@@ -174,8 +198,11 @@ class _TableChatPanelState extends State<TableChatPanel> {
         alignment: Alignment.bottomLeft,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
-          child: Text('Say something — anyone watching can join in.',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12)),
+          child: Text(
+              widget.emptyHint ??
+                  'Say something — anyone watching can join in.',
+              style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.5), fontSize: 12)),
         ),
       );
     }
@@ -216,7 +243,9 @@ class _TableChatPanelState extends State<TableChatPanel> {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.62), fontSize: 11, fontStyle: FontStyle.italic),
+                color: Colors.white.withValues(alpha: 0.62),
+                fontSize: 11,
+                fontStyle: FontStyle.italic),
           ),
         ),
       );
@@ -240,11 +269,15 @@ class _TableChatPanelState extends State<TableChatPanel> {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               text: TextSpan(
-                style: const TextStyle(fontSize: 13, height: 1.32, color: Colors.white),
+                style: const TextStyle(
+                    fontSize: 13, height: 1.32, color: Colors.white),
                 children: [
                   TextSpan(
                     text: who,
-                    style: TextStyle(color: nameColor, fontWeight: FontWeight.w800, fontSize: 12.5),
+                    style: TextStyle(
+                        color: nameColor,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12.5),
                   ),
                   if (line.isAgent || line.isSpectator)
                     TextSpan(
@@ -271,19 +304,24 @@ class _TableChatPanelState extends State<TableChatPanel> {
       return Padding(
         padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
         child: Row(children: [
-          Icon(Icons.lock_outline_rounded, size: 13, color: Colors.white.withValues(alpha: 0.4)),
+          Icon(Icons.lock_outline_rounded,
+              size: 13, color: Colors.white.withValues(alpha: 0.4)),
           const SizedBox(width: 7),
           Expanded(
             child: Text(
               widget.disabledHint ?? 'You can\'t talk right now.',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 12),
+              style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.45), fontSize: 12),
             ),
           ),
-          Icon(Icons.remove_red_eye_rounded, size: 13, color: Colors.white.withValues(alpha: 0.5)),
+          Icon(Icons.remove_red_eye_rounded,
+              size: 13, color: Colors.white.withValues(alpha: 0.5)),
           const SizedBox(width: 4),
           Text('${widget.spectatorCount}',
               style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.7), fontSize: 11, fontWeight: FontWeight.w800)),
+                  color: Colors.white.withValues(alpha: 0.7),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800)),
         ]),
       );
     }
@@ -301,19 +339,24 @@ class _TableChatPanelState extends State<TableChatPanel> {
               isDense: true,
               counterText: '',
               border: InputBorder.none,
-              hintText: widget.amSpectator ? 'Add a comment…' : 'Say something…',
-              hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 13.5),
+              hintText: widget.composerHint ??
+                  (widget.amSpectator ? 'Add a comment…' : 'Say something…'),
+              hintStyle: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.45), fontSize: 13.5),
             ),
           ),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 6),
           child: Row(children: [
-            Icon(Icons.remove_red_eye_rounded, size: 13, color: Colors.white.withValues(alpha: 0.6)),
+            Icon(Icons.remove_red_eye_rounded,
+                size: 13, color: Colors.white.withValues(alpha: 0.6)),
             const SizedBox(width: 4),
             Text('${widget.spectatorCount}',
                 style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.75), fontSize: 11, fontWeight: FontWeight.w800)),
+                    color: Colors.white.withValues(alpha: 0.75),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800)),
           ]),
         ),
         GestureDetector(
@@ -322,8 +365,10 @@ class _TableChatPanelState extends State<TableChatPanel> {
             width: 34,
             height: 34,
             margin: const EdgeInsets.symmetric(vertical: 5),
-            decoration: const BoxDecoration(color: Color(0xffc02b52), shape: BoxShape.circle),
-            child: const Icon(Icons.arrow_upward_rounded, size: 18, color: Colors.white),
+            decoration: const BoxDecoration(
+                color: Color(0xffc02b52), shape: BoxShape.circle),
+            child: const Icon(Icons.arrow_upward_rounded,
+                size: 18, color: Colors.white),
           ),
         ),
       ]),

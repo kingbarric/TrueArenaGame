@@ -18,6 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * game-specific: the module/state are only set once a game actually starts.
  */
 public final class RoomRuntime {
+    public final java.util.Set<String> botPlayerIds = new java.util.HashSet<>();
 
     public final UUID roomId;
     public volatile String hostUserId;

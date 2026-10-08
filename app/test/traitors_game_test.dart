@@ -85,6 +85,31 @@ void main() {
     return socket;
   }
 
+  testWidgets('bot game opens round-table text and sends player discussion',
+      (tester) async {
+    final socket =
+        await open(tester, _snap('RoundTable', extra: {'botTextMode': true}));
+    expect(
+        find.text('Type to discuss the round with the bots.'), findsOneWidget);
+    await tester.enterText(
+        find.byType(TextField), 'Why did you change your story?');
+    await tester.testTextInput.receiveAction(TextInputAction.send);
+    expect(socket.sent.last.type, 'CHAT_SEND');
+    expect(socket.sent.last.payload,
+        {'channel': 'table', 'text': 'Why did you change your story?'});
+  });
+
+  testWidgets('all-human round table keeps text collapsed', (tester) async {
+    await open(tester, _snap('RoundTable', extra: {'botTextMode': false}));
+    expect(find.byType(TextField), findsNothing);
+  });
+
+  testWidgets('faithful in a bot game cannot type in the traitors night chat',
+      (tester) async {
+    await open(tester, _snap('Night', extra: {'botTextMode': true}));
+    expect(find.byType(TextField), findsNothing);
+  });
+
   testWidgets('a locked vote stays highlighted when someone else votes', (tester) async {
     final socket = await open(tester, _snap('Vote', extra: {'yourVote': 'p3', 'voteProgress': {'locked': 1, 'total': 6}}));
     expect(find.text('Your vote is locked: Chidi · 1/6 in'), findsOneWidget);

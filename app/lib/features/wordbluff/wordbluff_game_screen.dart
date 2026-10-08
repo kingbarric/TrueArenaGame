@@ -141,6 +141,8 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
   final List<TableChatLine> feed = [];
   final TextEditingController _chatController = TextEditingController();
   int _spectatorCount = 0;
+  bool _textMode = false;
+  int _wordIndex = 0;
 
   bool _actionLocked = false;
   bool _spinning = false;
@@ -191,6 +193,7 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
 
   bool get _shouldBeListening =>
       mounted &&
+      !_textMode &&
       phase == 'Turn' &&
       amOpponent &&
       hasActiveWord &&
@@ -311,6 +314,8 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
     final serverSecondsLeft = p['secondsLeft'] as int?;
     setState(() {
       phase = p['phase'] as String? ?? phase;
+      _textMode = p['textMode'] as bool? ?? _textMode;
+      _wordIndex = p['wordIndex'] as int? ?? _wordIndex;
       round = p['round'] as int? ?? round;
       teamA = ((p['teamA'] as List?) ?? teamA).cast<String>();
       teamB = ((p['teamB'] as List?) ?? teamB).cast<String>();
@@ -338,7 +343,14 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
           category != null &&
           category != _settledCategory) {
         categoryName = _nameOf(category!);
-        _settleWheel(category!);
+        if (p['clockStarted'] == true) {
+          // A reconnect must show the live word, not replay the category spin.
+          _settledCategory = category;
+          _spinning = false;
+          _clearAnnouncing();
+        } else {
+          _settleWheel(category!);
+        }
       }
     });
     if (phase == 'Turn' &&
@@ -399,6 +411,20 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
     final type = payload['type'] as String;
     final data =
         ((payload['data'] as Map?) ?? const {}).cast<String, dynamic>();
+    if (type == 'TEXT_CLUE' || type == 'TEXT_GUESS') {
+      setState(() {
+        _wordIndex = data['wordIndex'] as int? ?? _wordIndex;
+        _actionLocked = false;
+        feed.insert(
+            0,
+            TableChatLine(
+                who: label(data['from']?.toString() ?? ''),
+                text: type == 'TEXT_GUESS'
+                    ? '${data['text']} · ${data['correct'] == true ? 'Correct!' : 'Try again'}'
+                    : data['text']?.toString() ?? ''));
+      });
+      return;
+    }
     if (type == 'CHAT_MESSAGE') {
       _onChat(data);
       return;
@@ -412,6 +438,7 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
         case 'SPECTATORS_UNMUTED':
           _spectatorsMuted = false;
         case 'GAME_STARTED':
+          _textMode = data['textMode'] as bool? ?? _textMode;
           teamA = (data['teamA'] as List).cast<String>();
           teamB = (data['teamB'] as List).cast<String>();
           targetScore = data['targetScore'] as int? ?? targetScore;
@@ -448,6 +475,7 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
           _clearAnnouncing();
           _restartCountdown();
         case 'WORD_REVEALED':
+          _wordIndex = data['wordIndex'] as int? ?? _wordIndex;
           _clearAnnouncing();
           yourWord = data['word'] as String?;
           hasActiveWord = true;
@@ -458,6 +486,7 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
           _clearAnnouncing();
           hasActiveWord = true;
         case 'WORD_RESOLVED':
+          _wordIndex = data['wordIndex'] as int? ?? _wordIndex;
           _clearAnnouncing();
           lastResolved = data['result'] as String?;
           hasActiveWord = false;
@@ -686,10 +715,14 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
       title: 'Word Bluff',
       tagline: 'Two teams take turns describing words without saying them — '
           'guess fast before the clock runs out.',
-      steps: const [
+      steps: [
         "When it's your turn, hold the crank to spin the wheel — the longer you hold, the harder it spins.",
-        'The wheel picks a category and your first word appears — describe it out loud without saying the word itself.',
-        'Your teammates shout their guesses; the other team decides if your partner got it right or wrong.',
+        _textMode
+            ? 'With bots at the table, type clues in the text box without naming the word. Your bot partner guesses from your clues.'
+            : 'The wheel picks a category and your first word appears — describe it out loud without saying the word itself.',
+        _textMode
+            ? 'When your partner describes, read their clue and type your guess. Correct answers count toward the round review.'
+            : 'Your teammates shout their guesses; the other team decides if your partner got it right or wrong.',
         'Stuck on a word? Skip it — it moves straight to the next one.',
         "When the clock runs out, everyone reviews the round's calls together before the score locks in.",
         'First team to reach the target score wins.',
@@ -824,6 +857,17 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
                     onSend: _sendChat,
                     spectatorCount: _spectatorCount,
                     amSpectator: _amSpectator,
+                    initiallyExpanded: _textMode && !_amSpectator,
+                    composerHint: !_textMode || _amSpectator
+                        ? null
+                        : amDescriber
+                            ? 'Describe your word without naming it…'
+                            : onMyTeam
+                                ? 'Type your guess…'
+                                : 'Discuss the round…',
+                    emptyHint: _textMode
+                        ? 'Clues and guesses appear here. Bots play through text.'
+                        : null,
                     // An agent's clue is a sentence or two, and it's the
                     // thing the guessing team is reading — at 96 it scrolled
                     // out of sight almost as it arrived.
@@ -924,6 +968,16 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
   void _sendChat() {
     final text = _chatController.text.trim();
     if (text.isEmpty) return;
+    if (_textMode &&
+        !_amSpectator &&
+        phase == 'Turn' &&
+        hasActiveWord &&
+        (amDescriber || onMyTeam)) {
+      _sendAction(amDescriber ? 'TEXT_CLUE' : 'TEXT_GUESS',
+          {'text': text, 'wordIndex': _wordIndex});
+      _chatController.clear();
+      return;
+    }
     widget.socket.send('CHAT_SEND',
         {'channel': _amSpectator ? 'spectate' : 'table', 'text': text});
     _chatController.clear();
@@ -1392,7 +1446,10 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
           ]),
         ),
         const SizedBox(height: 8),
-        Text("Don't say the word — describe it!",
+        Text(
+            _textMode
+                ? 'Type a clue below — do not name the word!'
+                : "Don't say the word — describe it!",
             style:
                 Theme.of(context).textTheme.bodyMedium?.copyWith(color: n.mid)),
         const SizedBox(height: 24),
@@ -1402,7 +1459,10 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
             style: NeonStyle.ghost,
             onPressed: _actionLocked ? null : () => _sendAction('SKIP')),
         const SizedBox(height: 8),
-        Text('The other team decides if your partner got it.',
+        Text(
+            _textMode
+                ? 'Correct text guesses count toward the round review.'
+                : 'The other team decides if your partner got it.',
             textAlign: TextAlign.center,
             style: Theme.of(context)
                 .textTheme
@@ -1413,7 +1473,10 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
     return _centered([
       const Text('🤔', style: TextStyle(fontSize: 56)),
       const SizedBox(height: 12),
-      Text(onMyTeam ? 'Shout your guesses!' : 'You\'re judging this one',
+      Text(
+          onMyTeam
+              ? (_textMode ? 'Type your guesses below!' : 'Shout your guesses!')
+              : 'You\'re judging this one',
           style:
               Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 22)),
       const SizedBox(height: 8),
@@ -1423,6 +1486,14 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
           style:
               Theme.of(context).textTheme.bodyMedium?.copyWith(color: n.mid)),
       // The judging team is shown the word — they can't call an attempt
+      if (_textMode && onMyTeam && hasActiveWord) ...[
+        const SizedBox(height: 12),
+        NeonButton('Ask for another word',
+            style: NeonStyle.ghost,
+            onPressed: _actionLocked
+                ? null
+                : () => _sendAction('TEXT_SKIP', {'wordIndex': _wordIndex})),
+      ],
       // right or wrong without it. The describer's own team never sees this
       // block, because guessing it is their job.
       if (amOpponent && hasActiveWord && yourWord != null) ...[
@@ -1525,7 +1596,7 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
                 ? 'Round complete. Next turn starts shortly.'
                 : _amSpectator
                     ? 'The teams are reviewing this round.'
-                : 'Tap any word to change the call. Both teams must agree.',
+                    : 'Tap any word to change the call. Both teams must agree.',
             textAlign: TextAlign.center,
             style: Theme.of(context)
                 .textTheme
@@ -1640,9 +1711,12 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
               .displayLarge
               ?.copyWith(fontSize: 28, color: accent)),
       const SizedBox(height: 6),
-      Text(_amSpectator
-          ? 'Final score'
-          : won ? 'You won! 🎉' : 'Better luck next round.',
+      Text(
+          _amSpectator
+              ? 'Final score'
+              : won
+                  ? 'You won! 🎉'
+                  : 'Better luck next round.',
           style:
               Theme.of(context).textTheme.bodyMedium?.copyWith(color: n.mid)),
       const SizedBox(height: 18),
@@ -1664,7 +1738,8 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
           Navigator.of(context).pop();
         } else {
           Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (_) => const MainShell()), (r) => false);
+              MaterialPageRoute(builder: (_) => const MainShell()),
+              (r) => false);
         }
       }),
       const GuestSaveSessionCard(),

@@ -178,6 +178,12 @@ public final class BotRuntime {
                 .onErrorReturn("")
                 .defaultIfEmpty("")
                 .flatMap(line -> {
+                    if (line.isBlank()) line = cleanClue(adapter.fallbackSpeech(p), p.forbidden());
+                    if (adapter.speaksThroughActions()) {
+                        adapter.speechAction(p, line, botUserId).ifPresent(a -> sendAction(outbound, a));
+                        // Keep receiving typed guesses instead of blocking the inbound queue.
+                        return Mono.empty();
+                    }
                     if (!line.isBlank()) {
                         log.debug("clue bot={} says '{}'", botUserId, line);
                         emit(outbound, "CHAT_SEND", Map.of("channel", "agent", "text", line));
@@ -302,6 +308,10 @@ public final class BotRuntime {
 
     private void sendAction(Sinks.Many<String> outbound, PlayerAction action) {
         actionPending = false;
+        if ("CHAT_SEND".equals(action.type())) {
+            emit(outbound, "CHAT_SEND", action.data());
+            return;
+        }
         emit(outbound, "PLAYER_ACTION", Map.of("action", action.type(), "data", action.data(), "actionId", action.actionId()));
     }
 

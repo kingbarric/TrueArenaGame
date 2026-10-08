@@ -72,7 +72,7 @@ public final class WordBluffModule implements GameModule {
                 "teamA", List.copyOf(d.teamA),
                 "teamB", List.copyOf(d.teamB),
                 "targetScore", config.targetScore(),
-                "turnSeconds", config.turnSeconds()));
+                "turnSeconds", config.turnSeconds(), "textMode", config.textMode()));
         startTurn(d);
         return d.build();
     }
@@ -94,6 +94,13 @@ public final class WordBluffModule implements GameModule {
             case "REVEAL" -> reveal(d, s, action);
             case "MARK_CORRECT", "MARK" -> mark(d, s, action);
             case "SKIP" -> skip(d, s, action);
+            case "TEXT_CLUE" -> textClue(d, s, action);
+            case "TEXT_GUESS" -> textGuess(d, s, action);
+            case "TEXT_SKIP" -> {
+                requireTextTurn(d, action);
+                require(d.turnTeam.equals(s.teamOfPlayer(action.actor())), "NOT_YOUR_TURN", "only the describing team skips");
+                record(d, false, true, action.actor(), s.currentDescriber());
+            }
             case "REVIEW_TOGGLE" -> reviewToggle(d, s, action);
             case "REVIEW_ACCEPT" -> reviewAccept(d, s, action);
             case "FORFEIT" -> forfeit(d, s, action);
@@ -152,7 +159,8 @@ public final class WordBluffModule implements GameModule {
         }
         String word = pickUnusedWord(d, d.currentCategory);
         d.currentWord = word;
-        Map<String, Object> payload = Map.of("word", word, "category", d.currentCategory.slug());
+        Map<String, Object> payload = Map.of("word", word, "category", d.currentCategory.slug(),
+                "wordIndex", d.usedWords.size());
 
         d.emitToPlayer("WORD_REVEALED", payload, describer);
         for (String marker : d.teamA.contains(describer) ? d.teamB : d.teamA) {
@@ -216,6 +224,40 @@ public final class WordBluffModule implements GameModule {
         record(d, correct, false, a.actor(), s.currentDescriber());
     }
 
+    private void requireTextTurn(WordBluffState.Draft d, PlayerAction a) {
+        require(d.config.textMode(), "VOICE_GAME", "this game uses voice clues");
+        require("Turn".equals(d.phase) && d.clockStarted, "WRONG_PHASE", "start the turn clock first");
+        require(d.currentWord != null, "NO_ACTIVE_WORD", "there is no word to describe");
+        require(a.data().get("wordIndex") instanceof Number n && n.intValue() == d.usedWords.size(),
+                "STALE_WORD", "that word has already moved on");
+    }
+
+    private void textClue(WordBluffState.Draft d, WordBluffState s, PlayerAction a) {
+        requireTextTurn(d, a);
+        require(a.actor().equals(s.currentDescriber()), "NOT_YOUR_TURN", "only the describer gives clues");
+        String text = String.valueOf(a.data().getOrDefault("text", "")).strip();
+        require(!text.isBlank() && text.length() <= 240, "BAD_CLUE", "use a clue of 1–240 characters");
+        require(!normalizeText(text).contains(normalizeText(d.currentWord)), "WORD_IN_CLUE", "describe without saying the word");
+        d.emit("TEXT_CLUE", Map.of("from", a.actor(), "text", text, "wordIndex", d.usedWords.size()));
+    }
+
+    private void textGuess(WordBluffState.Draft d, WordBluffState s, PlayerAction a) {
+        requireTextTurn(d, a);
+        require(d.turnTeam.equals(s.teamOfPlayer(a.actor())) && !a.actor().equals(s.currentDescriber()),
+                "NOT_A_GUESSER", "only the describer's teammates guess");
+        String text = String.valueOf(a.data().getOrDefault("text", "")).strip();
+        require(!text.isBlank() && text.length() <= 240, "BAD_GUESS", "use a guess of 1–240 characters");
+        boolean correct = normalizeText(text).equals(normalizeText(d.currentWord));
+        d.emit("TEXT_GUESS", Map.of("from", a.actor(), "text", text, "correct", correct,
+                "wordIndex", d.usedWords.size()));
+        if (correct) record(d, true, false, a.actor(), s.currentDescriber());
+    }
+
+    private static String normalizeText(String text) {
+        return java.text.Normalizer.normalize(text.toLowerCase(java.util.Locale.ROOT), java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "").replaceAll("[^\\p{L}\\p{N}]", "");
+    }
+
     /** The describer giving up on a word — no point, but it still counts as an attempt. */
     private void skip(WordBluffState.Draft d, WordBluffState s, PlayerAction a) {
         require(d.phase.equals("Turn"), "WRONG_PHASE", "SKIP is Turn-only");
@@ -239,6 +281,7 @@ public final class WordBluffModule implements GameModule {
                 "word", word,
                 "category", category.slug(),
                 "markedBy", by,
+                "wordIndex", d.usedWords.size(),
                 "attempted", d.turnAttempts.size(),
                 "correctSoFar", correctCount(d.turnAttempts)));
         // The category belongs to the turn, so it stays put — only the word
@@ -468,6 +511,8 @@ public final class WordBluffModule implements GameModule {
     private Map<String, Object> commonView(WordBluffState s) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("phase", s.phase);
+        m.put("textMode", s.config.textMode());
+        m.put("wordIndex", s.usedWords.size());
         m.put("round", s.round);
         m.put("teamA", s.teamA);
         m.put("teamB", s.teamB);

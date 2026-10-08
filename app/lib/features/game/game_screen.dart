@@ -104,6 +104,7 @@ class _GameScreenState extends State<GameScreen> {
   final List<_ChatLine> _traitorChat = [];
   String _chatChannel = 'table';
   bool _chatExpanded = false;
+  bool _botTextMode = false;
   final _chatController = TextEditingController();
 
   /// The audience channel, deliberately separate from the players' chat.
@@ -244,8 +245,12 @@ class _GameScreenState extends State<GameScreen> {
 
   void _applySnapshot(Map<String, dynamic> p) {
     final serverSeconds = p['secondsLeft'] as int?;
+    final phaseChanged = p['phase'] != null && p['phase'] != phase;
     setState(() {
       phase = p['phase'] as String? ?? phase;
+      final botTextMode = p['botTextMode'] as bool? ?? _botTextMode;
+      if (botTextMode && (!_botTextMode || phaseChanged)) _chatExpanded = true;
+      _botTextMode = botTextMode;
       round = p['round'] as int? ?? round;
       _tieCandidates = ((p['tieCandidates'] as List?) ?? const []).cast<String>();
       _canAccuse = p['canAccuse'] == true;
@@ -328,7 +333,7 @@ class _GameScreenState extends State<GameScreen> {
       // chat is per phase and never replayed — start clean
       _tableChat.clear();
       _traitorChat.clear();
-      _chatExpanded = false;
+      _chatExpanded = _botTextMode;
     });
     if (changed) _restartCountdown();
   }
@@ -1105,7 +1110,7 @@ class _GameScreenState extends State<GameScreen> {
                       child: Text(
                         onTraitorChannel
                             ? 'Only your fellow traitors can see this.'
-                            : 'Say something the table can hear.',
+                            : _botTextMode ? 'Type to discuss the round with the bots.' : 'Say something the table can hear.',
                         style: TextStyle(color: n.mute, fontSize: 12),
                       ),
                     )
