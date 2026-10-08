@@ -1,36 +1,81 @@
-import {readFileSync,existsSync} from 'node:fs';
-import {resolve,basename} from 'node:path';
-// Validate the delivery folder before assigning URLs in the catalog.
-const root=process.argv[2];
-if(!root) {console.error('Usage: node scripts/validate-assets.mjs /path/to/delivery');process.exit(1);}
-const catalog=JSON.parse(readFileSync(new URL('../../backend/ta-api/src/main/resources/slay/catalog.json',import.meta.url),'utf8'));
-let missing=0,invalid=0;
-const rigs=new Map();
-function inspect(path) {
- const bytes=readFileSync(path);
- if(bytes.byteLength>32*1024*1024) throw Error('exceeds the renderer asset limit');
- if(bytes.toString('ascii',0,4)!=='glTF'||bytes.readUInt32LE(4)!==2||bytes.readUInt32LE(8)!==bytes.length)throw Error('invalid GLB 2 header');
- if(bytes.toString('ascii',16,20)!=='JSON')throw Error('missing JSON chunk');
- const gltf=JSON.parse(bytes.toString('utf8',20,20+bytes.readUInt32LE(12)).trim());
- const bones=new Set((gltf.skins??[]).flatMap(s=>s.joints.map(j=>gltf.nodes[j]?.name)));
- return {gltf,bones};
+import { readFileSync, existsSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { inspectGlb } from '../src/glb.ts';
+
+export function validateDelivery(root, catalog, {partial = false} = {}) {
+  const files = [], rigs = new Map();
+  const inspect = (name, check) => {
+    const record = {file: name, status: 'ok', errors: [], warnings: []}; files.push(record);
+    const path = resolve(root, name);
+    if (!existsSync(path)) { record.status = partial ? 'skipped' : 'missing'; return; }
+    try {
+      const bytes = readFileSync(path);
+      const document = inspectGlb(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
+      record.bytes = bytes.byteLength;
+      const names = (document.skins ?? []).flatMap(skin => skin.joints.map(joint => document.nodes[joint].name));
+      if (names.some(name => !name?.trim())) throw Error('every skeleton bone must have a name');
+      // A bone may appear in several skins, but different nodes cannot share its name.
+      const joints = new Set((document.skins ?? []).flatMap(skin => skin.joints));
+      if (new Set([...joints].map(joint => document.nodes[joint].name)).size !== joints.size) throw Error('ambiguous duplicate bone names');
+      check(document, new Set(names), record);
+    } catch (error) { record.status = 'invalid'; record.errors.push(error.message); }
+  };
+  for (const avatar of catalog.avatars) inspect(avatar.body + '.glb', (document, bones, record) => {
+    if (!bones.size) throw Error('base avatar must have a named skeleton');
+    const regions = new Set((document.nodes ?? []).filter(node => node.name?.startsWith('region_')).map(node => node.name.slice(7)));
+    rigs.set(avatar.body, {bones, regions});
+    const clips = new Set((document.animations ?? []).map(clip => clip.name));
+    for (const clip of ['idle', ...catalog.poses]) if (!clips.has(clip)) record.warnings.push('animation missing: ' + clip);
+    const morphs = new Set((document.meshes ?? []).flatMap(mesh => mesh.extras?.targetNames ?? []));
+    for (const name of [...catalog.facePresets.map(face => 'face_' + face), 'expression_smile']) {
+      if (!morphs.has(name)) record.warnings.push('morph missing: ' + name);
+    }
+  });
+  for (const item of catalog.items) inspect(item.id + '.glb', (document, bones, record) => {
+    const targets = item.body === 'unisex' ? ['male', 'female'] : [item.body];
+    for (const body of targets) {
+      const rig = rigs.get(body);
+      if (!rig) { record.warnings.push('cannot verify compatibility without valid ' + body + '.glb'); continue; }
+      for (const bone of bones) if (!rig.bones.has(bone)) throw Error('unknown ' + body + ' bone: ' + bone);
+      if (item.attachmentBone && !rig.bones.has(item.attachmentBone)) throw Error('attachment bone absent in ' + body + ': ' + item.attachmentBone);
+      for (const region of item.hidesRegions ?? []) if (!rig.regions.has(region)) record.warnings.push(body + ' body mask missing: region_' + region);
+    }
+    if (!existsSync(resolve(root, item.id + '.webp'))) record.warnings.push('thumbnail missing: ' + item.id + '.webp');
+    const target = item.category === 'outfit' ? 2 : 1;
+    if (record.bytes > target * 1024 * 1024) record.warnings.push('above suggested ' + target + ' MB item budget');
+  });
+  const count = status => files.filter(file => file.status === status).length;
+  const summary = {checked: count('ok') + count('invalid'), missing: count('missing'), invalid: count('invalid'), skipped: count('skipped'), warnings: files.reduce((sum, file) => sum + file.warnings.length, 0)};
+  return {catalogVersion: catalog.version, partial, files, summary};
 }
-for(const avatar of catalog.avatars) {
- const path=resolve(root,avatar.body+'.glb');
- if(!existsSync(path)){console.log('MISSING '+basename(path));missing++;continue;}
- try {const info=inspect(path);if(!info.bones.size)throw Error('base avatar must have a named skeleton');rigs.set(avatar.body,info.bones);
-  const clips=new Set((info.gltf.animations??[]).map(a=>a.name));for(const pose of ['idle',...catalog.poses])if(!clips.has(pose))console.log('WARN '+avatar.body+' animation missing: '+pose);
-  console.log('OK '+basename(path)+' · '+info.bones.size+' bones');
- }catch(e){console.log('INVALID '+basename(path)+' · '+e.message);invalid++;}
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const args = process.argv.slice(2), root = args.shift();
+  let partial = false, strict = false, reportPath, invalidArgs = false;
+  while (args.length) {
+    const arg = args.shift();
+    if (arg === '--partial') partial = true;
+    else if (arg === '--strict') strict = true;
+    else if (arg === '--report') {
+      reportPath = args.shift();
+      if (!reportPath || reportPath.startsWith('--')) invalidArgs = true;
+    } else invalidArgs = true;
+  }
+  if (!root || root.startsWith('--') || invalidArgs) {
+    console.error('Usage: node --experimental-strip-types scripts/validate-assets.mjs /path/to/delivery [--partial] [--strict] [--report /path/to/report.json]');
+    process.exitCode = 1;
+  } else {
+    const catalog = JSON.parse(readFileSync(new URL('../../backend/ta-api/src/main/resources/slay/catalog.json', import.meta.url), 'utf8'));
+    const report = validateDelivery(root, catalog, {partial});
+    for (const file of report.files) {
+      console.log(file.status.toUpperCase() + ' ' + file.file);
+      for (const error of file.errors) console.log('  ERROR ' + error);
+      for (const warning of file.warnings) console.log('  WARN ' + warning);
+    }
+    if (reportPath) writeFileSync(resolve(reportPath), JSON.stringify(report, null, 2) + '\n');
+    const {checked, missing, invalid, skipped, warnings} = report.summary;
+    console.log(`Delivery check: ${checked} checked, ${missing} missing, ${invalid} invalid, ${skipped} skipped, ${warnings} warnings.`);
+    process.exitCode = missing || invalid || !checked || (strict && warnings) ? 1 : 0;
+  }
 }
-for(const item of catalog.items) {
- const path=resolve(root,item.id+'.glb');
- if(!existsSync(path)){console.log('MISSING '+basename(path));missing++;continue;}
- try {const {bones}=inspect(path);const targets=item.body==='unisex'?['male','female']:[item.body];
-  for(const body of targets){const rig=rigs.get(body);if(rig)for(const bone of bones)if(!rig.has(bone))throw Error('unknown '+body+' bone: '+bone);if(item.attachmentBone&&rig&&!rig.has(item.attachmentBone))throw Error('attachment bone absent: '+item.attachmentBone);}
-  console.log('OK '+basename(path));
- }catch(e){console.log('INVALID '+basename(path)+' · '+e.message);invalid++;}
- if(!existsSync(resolve(root,item.id+'.webp')))console.log('WARN thumbnail missing: '+item.id+'.webp');
-}
-console.log(`Delivery check: ${missing} missing models, ${invalid} invalid models. Warnings also need visual review.`);
-process.exitCode=missing||invalid?1:0;

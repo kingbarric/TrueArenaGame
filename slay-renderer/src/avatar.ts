@@ -5,6 +5,7 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import type { Look,Item,Catalog } from './types';
 import { bindGarment } from './rig';
 import { assetBytes } from './cache';
+import { presentBody, presentFace } from './presentation';
 
 const palette:Record<string,string>={gold:'#c39b55',navy:'#283d54',pink:'#c98491',red:'#a53541',purple:'#674269',green:'#397c65',black:'#28262a',white:'#eee5d6',blue:'#48879a',grey:'#8e8c87',orange:'#c5773d',yellow:'#ddba55'};
 function material(colour:string){return new T.MeshStandardMaterial({color:colour,roughness:.72,metalness:.05});}
@@ -42,7 +43,7 @@ function placeholder(item:Item,body:string){
   return g;
 }
 export function dispose(root:T.Object3D){
-  root.traverse(object=>{if(object instanceof T.Mesh){object.geometry.dispose();const mats=Array.isArray(object.material)?object.material:[object.material];for(const mat of mats){for(const value of Object.values(mat))if(value instanceof T.Texture)value.dispose();mat.dispose();}}});
+  root.traverse(object=>{if(object instanceof T.Mesh){if(object instanceof T.SkinnedMesh)object.skeleton.dispose();object.geometry.dispose();const mats=Array.isArray(object.material)?object.material:[object.material];for(const mat of mats){for(const value of Object.values(mat))if(value instanceof T.Texture)value.dispose();mat.dispose();}}});
 }
 export class Wardrobe {
   root=new T.Group();private body?:T.Group;private bodyKey='';private equipped=new Map<string,{id:string,root:T.Group}>();
@@ -57,12 +58,12 @@ export class Wardrobe {
       if(!avatar.assetUrl&&!catalog.developmentAssets)throw Error('Missing production avatar asset');
       const gltf=avatar.assetUrl?await this.load(avatar.assetUrl):null;
       const body=gltf?.scene??mannequin(look);if(version!==this.revision){dispose(body);return;}
+      presentBody(body,look.skinTone,new Set());
       this.clear();this.body=body;this.bodyKey=look.body+':'+avatar.assetUrl;this.root.add(body);
       this.clips=gltf?.animations??[];this.mixer=new T.AnimationMixer(body);this.bones.clear();
       body.traverse(o=>{if(o instanceof T.Bone)this.bones.set(o.name,o);});
     }
     const body=this.body!;
-    body.traverse(o=>{if(o.name.startsWith('region_'))o.visible=true;if(o instanceof T.Mesh&&o.name.startsWith('region_')&&!Array.isArray(o.material)&&(o.material as T.MeshStandardMaterial).color)(o.material as T.MeshStandardMaterial).color.set(look.skinTone);if(o instanceof T.Mesh&&o.morphTargetDictionary&&o.morphTargetInfluences){for(const [name,index] of Object.entries(o.morphTargetDictionary)){if(name.startsWith('face_'))o.morphTargetInfluences[index]=name==='face_'+look.facePreset?1:0;}}});
     const staged=new Map<string,{id:string,root:T.Group}>();
     try {
       for(const [slot,id] of Object.entries(look.items)){
@@ -71,21 +72,23 @@ export class Wardrobe {
         if(!item.assetUrl&&!catalog.developmentAssets)throw Error('Missing production wardrobe asset: '+id);
         const garment=item.assetUrl?(await this.load(item.assetUrl)).scene:placeholder(item,look.body);
         if(version!==this.revision){dispose(garment);for(const e of staged.values())dispose(e.root);return;}
+        staged.set(slot,{id,root:garment});
         if(item.assetUrl){
           bindGarment(garment,this.bones);
           if(item.attachmentBone){const bone=this.bones.get(item.attachmentBone);if(!bone)throw Error('Missing attachment bone: '+item.attachmentBone);}
         }
-        staged.set(slot,{id,root:garment});
       }
     }catch(error){for(const e of staged.values())dispose(e.root);throw error;}
     if(version!==this.revision){for(const e of staged.values())dispose(e.root);return;}
     for(const [slot,e] of this.equipped){if(look.items[slot]!==e.id){e.root.removeFromParent();dispose(e.root);this.equipped.delete(slot);}}
     for(const [slot,e] of staged){const item=catalog.items.find(i=>i.id===e.id)!;const parent=item.attachmentBone?this.bones.get(item.attachmentBone):this.root;(parent??this.root).add(e.root);this.equipped.set(slot,e);}
-    for(const id of Object.values(look.items)){const item=catalog.items.find(i=>i.id===id)!;for(const region of item.hidesRegions){body.getObjectByName('region_'+region)?.traverse(o=>{o.visible=false;});}}
+    const hidden=new Set(Object.values(look.items).flatMap(id=>catalog.items.find(i=>i.id===id)!.hidesRegions));
+    presentBody(body,look.skinTone,hidden);
+    presentFace(this.root,look.facePreset,look.pose);
     this.pose(look.pose);
   }
-  pose(id:string){this.body?.traverse(o=>{if(o instanceof T.Mesh&&o.morphTargetDictionary&&o.morphTargetInfluences){for(const [name,index] of Object.entries(o.morphTargetDictionary))if(name.startsWith('expression_'))o.morphTargetInfluences[index]=name==='expression_smile'&&['confident','celebrate'].includes(id)?1:0;}});if(!this.mixer)return;const clip=this.clips.find(c=>c.name===id)??this.clips.find(c=>c.name==='idle');if(clip){this.mixer.stopAllAction();this.mixer.clipAction(clip).reset().play();}else this.root.rotation.z=id==='editorial'?.025:0;}
+  pose(id:string){this.root.traverse(o=>{if(o instanceof T.Mesh&&o.morphTargetDictionary&&o.morphTargetInfluences){for(const [name,index] of Object.entries(o.morphTargetDictionary))if(name.startsWith('expression_'))o.morphTargetInfluences[index]=name==='expression_smile'&&['confident','celebrate'].includes(id)?1:0;}});this.root.rotation.z=0;if(!this.mixer)return;const clip=this.clips.find(c=>c.name===id)??this.clips.find(c=>c.name==='idle');if(clip){this.mixer.stopAllAction();this.mixer.clipAction(clip).reset().play();}else this.root.rotation.z=id==='editorial'?.025:0;}
   update(seconds:number){this.mixer?.update(seconds);}
-  clear(){this.mixer?.stopAllAction();this.body?.removeFromParent();if(this.body)dispose(this.body);for(const item of this.equipped.values()){item.root.removeFromParent();dispose(item.root);}this.equipped.clear();this.bodyKey='';}
+  clear(){this.mixer?.stopAllAction();if(this.body)this.mixer?.uncacheRoot(this.body);this.body?.removeFromParent();if(this.body)dispose(this.body);for(const item of this.equipped.values()){item.root.removeFromParent();dispose(item.root);}this.equipped.clear();this.bodyKey='';}
   destroy(){this.revision++;this.clear();this.ktx.dispose();}
 }

@@ -80,7 +80,9 @@ Bridge envelope:
 | Flutter → JS | `init` (catalog, tier), `applyLook`, `setCamera`, `setPose`, `snapshot`, `pause`, `dispose` |
 | JS → Flutter | `ready`, `ack`, `snapshotResult` (PNG base64), `error`, `perf`, `contextLost` |
 
-Commands execute serially and responses match request IDs. Requests time out rather than silently submitting missing imagery. Foreground/background transitions and covered routes pause rendering. WebGL context loss reloads and reapplies the look. Low measured frame rate reduces pixel density through high/standard/low 3D tiers; there is no 2D replacement. Physical-device performance targets still require real assets and profiling.
+Commands execute serially and responses match request IDs. Requests time out rather than silently submitting missing imagery. Snapshot export requires a fully applied look; a failed replacement invalidates export until a successful retry. Foreground/background transitions and covered routes pause rendering, and performance samples restart on resume so inactive time does not lower the quality tier. WebGL context loss reloads and reapplies the look. Low measured frame rate reduces pixel density through high/standard/low 3D tiers; there is no 2D replacement. Physical-device performance targets still require real assets and profiling.
+
+Grouped body meshes and all matching body regions support skin tint/masking. Skin materials are isolated to avoid recolouring shared clothing materials; supplied makeup overlays receive matching face/expression morph weights. Replaced skeleton GPU textures and animation bindings are released. Self-contained GLB structure is checked before parsing network or cached bytes; external texture/buffer URLs are rejected.
 
 Production missing assets produce errors; mannequins are permitted only while `developmentAssets=true`. Development competitions never move rating.
 
@@ -165,7 +167,9 @@ cd slay-renderer
 npm ci
 npm run build
 npm test
-node scripts/validate-assets.mjs /path/to/asset-delivery
+npm run assets:validate -- /path/to/asset-delivery
+# For an initial smaller delivery and a report to return to the artist:
+npm run assets:validate -- /path/to/asset-delivery --partial --report /tmp/slay-assets.json
 ```
 
 `npm run build` refreshes the bundled Flutter HTML and catalogue. Run it after renderer or catalogue edits.
@@ -196,7 +200,7 @@ Backend verification uses normal Maven reactor checks. `SlayHuudIT` supports eit
 
 - Backend: 107 relevant checks passed (68 unit tests; 39 PostgreSQL/Redis integration tests across SlayHuud, competitive ratings and Huud).
 - Flutter: seven voting/theme widget tests passed; targeted feature/integration-route analysis is clean.
-- Renderer: TypeScript/Vite build and three bundle/skeleton tests passed.
+- Renderer: TypeScript/Vite build and 17 bundle/skeleton/presentation/snapshot/asset-delivery tests passed after asset-readiness hardening. Backend and Flutter counts above are from the foundation verification; this renderer-only continuation does not rerun those suites.
 - Android: debug APK built successfully using the stable plugin compatibility patch. Android runtime/performance has not been tested on a physical device.
 - iOS: fixture preview built and ran on iPhone 16e simulator; inspected studio, outfit swapping, back camera and PNG submission/score flow. This does not substitute for real asset/device measurements or a signed release.
 

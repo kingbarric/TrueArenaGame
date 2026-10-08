@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
+    "assets:validate": "node --experimental-strip-types scripts/validate-assets.mjs",
     "build": "tsc --noEmit && vite build && node scripts/bundle.mjs",
     "test": "node --experimental-strip-types --test test/*.test.mjs"
   },

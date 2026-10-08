@@ -28,7 +28,7 @@ Use `attachmentBone` for a rigid attachment, such as an earring on a named head 
 
 ## Materials, face, makeup and poses
 
-Use glTF PBR materials; textures/materials belong inside the GLB wherever practical. The renderer changes skin colour on `region_*` skin meshes, so their material should support tinting and should not be shared with hair/clothes. Model skin and eye/mouth detail to look good at the face camera distance.
+Use glTF PBR materials with embedded buffers/textures (data URIs are also accepted). The renderer changes skin colour on meshes inside `region_*` skin groups, including multi-material meshes. Keep eye/mouth detail and other surfaces that must retain their colours outside skin groups. Skin materials are isolated before tinting so shared clothing materials are unaffected. Model skin and eye/mouth detail to look good at the face camera distance.
 
 Face morph names: `face_classic`, `face_soft`, `face_angular`. Expression morph: `expression_smile` (applied for confident/celebrate looks). Facial expressions can also be baked into pose clips.
 
@@ -49,12 +49,14 @@ Avoid hidden duplicate bodies inside clothing, unnecessary material slots, large
 From `slay-renderer`, run:
 
 ```sh
-node scripts/validate-assets.mjs /absolute/path/to/delivery
+npm run assets:validate -- /absolute/path/to/delivery
 ```
 
-It checks GLB headers, size, named avatar skeletons, matching garment bone names, attachment bones, required clips and thumbnails, and reports missing catalogue files. It does not certify art quality, skin weights, bone bind poses or visual fit; those need inspection in the studio.
+For the first smaller delivery, use `--partial` to check present models while skipping missing catalogue files. Add `--report /absolute/path/to/report.json` to produce an artist-readable per-file JSON report. Add `--strict` to make missing clips, morphs, masks, thumbnails and budget warnings fail the check. An empty delivery always fails. The normal check requires all enabled catalogue models.
 
-Populate each avatar's `assetUrl` and each item's `assetUrl`/`thumbnailUrl` with versioned HTTPS URLs. The loader also supports assets bundled on the same origin, but their files must actually be added to the Flutter asset bundle. Cross-origin asset servers need appropriate CORS headers for the loopback WebView origin and screenshot export. Prefer self-contained GLBs so caching does not depend on unversioned external textures.
+It checks GLB headers/chunk bounds, embedded buffer ranges, file size, named/unique avatar bones, matching garment bones, attachments, required clips, face morphs, body masks and thumbnail presence. External texture/buffer URLs and unsupported Draco compression fail explicitly. The same structural preflight runs before parsing downloaded or cached models in the studio. Meshopt placeholder buffers remain supported. It does not certify full glTF conformance, art quality, skin weights, bone bind poses, thumbnail image contents or visual fit; those need inspection in the studio.
+
+Populate each avatar's `assetUrl` and each item's `assetUrl`/`thumbnailUrl` with versioned HTTPS URLs. The loader also supports assets bundled on the same origin, but their files must actually be added to the Flutter asset bundle. Cross-origin asset servers need appropriate CORS headers for the loopback WebView origin and screenshot export. Supply self-contained GLBs: external buffers/textures are rejected so caching and URL restrictions cover the complete model.
 
 Increase `version` when changing the enabled catalogue. Run `npm run build` to refresh the Flutter bundle. Keep `developmentAssets=true` until all enabled models work; set it false after the art/fit/device review. Missing production assets then fail explicitly instead of substituting a mannequin.
 
