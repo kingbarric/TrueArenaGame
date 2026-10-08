@@ -56,6 +56,13 @@ public final class WhotModule implements GameModule {
     public static final int MAX_PLAYERS = 20;
 
     @Override
+    public app.truearena.engine.PlayerCapacity playerCapacity(app.truearena.engine.GameSettings config) {
+        return ((WhotConfig) config).tell()
+                ? new app.truearena.engine.PlayerCapacity(4,8,List.of(4,6,8))
+                : new app.truearena.engine.PlayerCapacity(MIN_PLAYERS,MAX_PLAYERS);
+    }
+
+    @Override
     public String gameType() {
         return "whot";
     }

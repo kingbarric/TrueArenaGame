@@ -14,6 +14,9 @@ import 'features/onboarding/welcome_screen.dart';
 import 'features/draughts/championships_screen.dart';
 import 'theme/neon_theme.dart';
 import 'widgets/neon.dart';
+import 'features/huud/huud_invite_overlay.dart';
+import 'features/huud/social_huud_entry.dart';
+import 'features/huud/social_huud_screen.dart';
 
 class TrueArenaApp extends StatelessWidget {
   const TrueArenaApp({super.key, required this.state});
@@ -48,6 +51,13 @@ class TrueArenaApp extends StatelessWidget {
                 ? _ResumeGate(state: state)
                 : const WelcomeScreen(),
             onGenerateRoute: (settings) {
+              final huudMatch = RegExp(r'^/huuds/([A-HJ-NP-Z2-9]{6})$', caseSensitive: false)
+                  .firstMatch(settings.name ?? '');
+              if (huudMatch != null) {
+                state.pendingHuudCode = huudMatch.group(1)!.toUpperCase();
+                return MaterialPageRoute(builder: (_) => state.identity == Identity.anonymous
+                    ? const WelcomeScreen() : _ResumeGate(state: state));
+              }
               final match = RegExp(r'^/championships/([A-HJ-NP-Z2-9]{8})$', caseSensitive: false)
                   .firstMatch(settings.name ?? '');
               if (match == null) return null;
@@ -58,8 +68,8 @@ class TrueArenaApp extends StatelessWidget {
             },
             builder: (context, child) {
               final content = DismissKeyboardOnOutsideTap(
-                  child: PersistentHangout(child: _GameInviteOverlay(
-                      state: state, child: child ?? const SizedBox.shrink())));
+                  child: PersistentHangout(child: HuudInviteOverlay(state: state, child: _GameInviteOverlay(
+                      state: state, child: child ?? const SizedBox.shrink()))));
               if (state.visualTheme == VisualTheme.palmWine) return content;
               final design = context.neonDesign.kind;
               return DecoratedBox(
@@ -266,6 +276,17 @@ class _ResumeGateState extends State<_ResumeGate> {
   }
 
   Future<void> _restore() async {
+    final huudCode = widget.state.pendingHuudCode;
+    if (huudCode != null) {
+      widget.state.pendingHuudCode = null;
+      if (mounted) setState(() => _checking = false);
+      try { await openHuudInvite(widget.state, huudCode); }
+      catch (_) { if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('This Huud is unavailable.')));
+      } }
+      return;
+    }
     // A cold-start notification tap (see PushNotifications) wins over the
     // ordinary "resume whatever game I was last in" flow below — the player
     // tapped something specific, that's where they meant to go.
@@ -311,6 +332,7 @@ class _ResumeGateState extends State<_ResumeGate> {
       }
       final raw = await widget.state.api.get('/rooms/$roomId') as Map<String, dynamic>;
       final room = RoomView.fromJson(raw);
+      final social = await socialHuudForRoom(widget.state.api, room.id);
       final isMember = room.members.any((member) => member.userId == widget.state.user?.id);
       if (!isMember || (room.status != 'lobby' && room.status != 'in_game')) {
         await widget.state.clearActiveRoom(roomId);
@@ -323,7 +345,8 @@ class _ResumeGateState extends State<_ResumeGate> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => JoinedRoomScreen(room: room)));
+              MaterialPageRoute(builder: (_) => social == null
+                  ? JoinedRoomScreen(room: room) : SocialHuudScreen(initial: social)));
         }
       });
     } on ApiException catch (error) {

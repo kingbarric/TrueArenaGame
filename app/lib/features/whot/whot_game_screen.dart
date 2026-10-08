@@ -15,6 +15,8 @@ import '../shell/main_shell.dart';
 import '../status/victory_status.dart';
 import 'whot_lobby_screen.dart';
 import 'whot_card.dart';
+import '../huud/social_huud_controller.dart';
+import '../huud/social_huud_screen.dart';
 
 class WhotGameScreen extends StatefulWidget {
   const WhotGameScreen(
@@ -905,6 +907,7 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
             valueListenable: _socket.onlinePlayers,
             builder: (_, online, __) => OnlineAvatar(_name(player),
                 size: diameter,
+                voiceIdentity: player,
                 online: online.contains(player),
                 emoji: isRemoteImage ? null : avatar,
                 imageUrl: _socket.memberAvatars[player] ?? (isRemoteImage ? avatar : null)),
@@ -1928,10 +1931,18 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
                     gameType: 'whot',
                     detail: '$_winnerLabel won Whot'),
               if (!widget.spectating) ...[
-                NeonButton('Play again',
-                    onPressed: () => Navigator.of(context).pushReplacement(
-                        MaterialPageRoute(
-                            builder: (_) => const WhotLobbyScreen()))),
+                NeonButton('Play again', onPressed: () async {
+                  final huud = SocialHuudScope.maybeOf(context);
+                  if (huud != null) {
+                    if (huud.isHost) {
+                      await huudAction(context, () => huud.action('/rematch'));
+                    }
+                    if (mounted) Navigator.of(context).pop();
+                  } else {
+                    Navigator.of(context).pushReplacement(MaterialPageRoute(
+                        builder: (_) => const WhotLobbyScreen()));
+                  }
+                }),
                 const SizedBox(height: 8),
               ],
               NeonButton('Play another game',

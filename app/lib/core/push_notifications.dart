@@ -11,6 +11,8 @@ import '../app.dart';
 import '../features/calls/incoming_call_screen.dart';
 import '../features/chat/conversation_screen.dart';
 import '../features/lobby/joined_room_screen.dart';
+import '../features/huud/social_huud_entry.dart';
+import '../features/huud/social_huud_screen.dart';
 import '../features/shell/main_shell.dart';
 import 'app_state.dart';
 import 'models.dart';
@@ -247,8 +249,10 @@ class PushNotifications {
       final app = AppScope.of(ctx);
       final raw = await app.api.get('/rooms/$roomId') as Map<String, dynamic>;
       final room = RoomView.fromJson(raw);
+      final social = await socialHuudForRoom(app.api, room.id);
       await app.rememberActiveRoom(room.id);
-      nav.push(MaterialPageRoute(builder: (_) => JoinedRoomScreen(room: room)));
+      nav.push(MaterialPageRoute(builder: (_) => social == null
+          ? JoinedRoomScreen(room: room) : SocialHuudScreen(initial: social)));
     } catch (_) {
       // room may have ended, or the request failed — nothing to recover into
     }

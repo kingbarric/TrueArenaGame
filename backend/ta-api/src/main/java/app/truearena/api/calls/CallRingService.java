@@ -96,7 +96,17 @@ public class CallRingService {
     // ------------------------------------------------------- in the call
 
     /** A token for a call room you belong to or were invited into — how an answered ring joins. */
+    @org.springframework.beans.factory.annotation.Autowired(required=false)
+    private app.truearena.api.socialhuud.SocialHuudAccess socialHuuds;
+
     public Mono<CallToken> joinToken(UUID userId, String roomName) {
+        if(roomName!=null && roomName.startsWith("huud-") && socialHuuds!=null) {
+            UUID id;
+            try { id=UUID.fromString(roomName.substring(5)); }
+            catch(IllegalArgumentException e) { return Mono.error(ApiExceptions.badRequest("invalid Huud voice room")); }
+            return socialHuuds.requireParticipant(id,userId).then(users.findById(userId))
+                .map(self -> new CallToken(roomName,tokens.mintToken(roomName,self.id().toString(),self.displayName()),tokens.wsUrl()));
+        }
         return (sessions == null ? canJoin(userId, roomName) :
                 sessions.removed(userId,roomName).flatMap(removed -> removed ? Mono.just(false) :
                 sessions.isMember(userId,roomName).flatMap(member -> member ? Mono.just(true) :

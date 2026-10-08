@@ -32,6 +32,12 @@ public final class TrueArenaModule implements GameModule {
     public static final String GAME_TYPE = "truearena";
 
     @Override
+    public app.truearena.engine.PlayerCapacity playerCapacity(app.truearena.engine.GameSettings config) {
+        app.truearena.engine.GameConfig.Table table=((app.truearena.engine.GameConfig)config).table();
+        return new app.truearena.engine.PlayerCapacity(table.adminOverride()?4:table.minPlayers(),table.adminOverride()?20:table.maxPlayers());
+    }
+
+    @Override
     public String gameType() {
         return GAME_TYPE;
     }

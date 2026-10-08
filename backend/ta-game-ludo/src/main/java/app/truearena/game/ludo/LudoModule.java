@@ -19,6 +19,11 @@ public final class LudoModule implements GameModule {
     private static final List<Integer> SEATS_THREE = List.of(0, 1, 2);
     private static final List<Integer> SEATS_FOUR = List.of(0, 1, 2, 3);
 
+    @Override
+    public app.truearena.engine.PlayerCapacity playerCapacity(app.truearena.engine.GameSettings config) {
+        return new app.truearena.engine.PlayerCapacity(2,4);
+    }
+
     @Override public String gameType() { return "ludo"; }
     @Override public boolean hasPrivatePlayerState() { return true; }
 

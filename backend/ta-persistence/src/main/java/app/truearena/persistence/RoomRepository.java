@@ -16,7 +16,7 @@ public interface RoomRepository extends ReactiveCrudRepository<RoomRow, UUID> {
     Flux<RoomRow> findRecentActiveForUser(UUID userId);
 
     @Query("SELECT r.* FROM rooms r WHERE r.host_id = :hostId AND r.game_type = :gameType "
-            + "AND r.status = 'lobby' AND NOT EXISTS (SELECT 1 FROM championship_matches cm WHERE cm.room_id = r.id) "
+            + "AND r.status = 'lobby' AND r.huud_session_id IS NULL AND NOT EXISTS (SELECT 1 FROM championship_matches cm WHERE cm.room_id = r.id) "
             + "ORDER BY r.created_at DESC LIMIT 1")
     Mono<RoomRow> findHostedLobby(UUID hostId, String gameType);
 

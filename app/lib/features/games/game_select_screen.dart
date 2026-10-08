@@ -1,16 +1,9 @@
+import '../huud/social_huud_entry.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/neon_theme.dart';
 import '../../widgets/game_badge.dart';
 import '../../widgets/neon.dart';
-import '../chess/chess_lobby_screen.dart';
-import '../draughts/draughts_mode_screen.dart';
-import '../goosi/goosi_lobby_screen.dart';
-import '../whot/whot_lobby_screen.dart';
-import '../ludo/ludo_lobby_screen.dart';
-import '../modes/mode_select_screen.dart';
-import '../onboarding/guest_gate.dart';
-import '../wordbluff/wordbluff_lobby_screen.dart';
 
 /// One entry in the games grid. Traitors, Word Bluff, and Draughts are all
 /// playable today; the catalog (and the `available` flag) exists so a
@@ -116,32 +109,7 @@ class GameSelectScreen extends StatelessWidget {
                       SnackBar(content: Text('${g.name} is coming soon')));
                   return;
                 }
-                if (g.id == 'draughts') {
-                  Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => const DraughtsModeScreen(),
-                  ));
-                } else if (g.id == 'bluff' ||
-                    g.id == 'chess' ||
-                    g.id == 'whot' ||
-                    g.id == 'ludo' ||
-                    g.id == 'goosi') {
-                  // These lobbies create the room the moment they open, so
-                  // the guest check has to happen right here, before pushing it.
-                  if (!await canHostOrPromptToVerify(context)) return;
-                  if (!context.mounted) return;
-                  Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => switch (g.id) {
-                      'bluff' => const WordBluffLobbyScreen(),
-                      'whot' => const WhotLobbyScreen(),
-                      'goosi' => const GoosiLobbyScreen(),
-                      'chess' => const ChessLobbyScreen(),
-                      _ => const LudoLobbyScreen(),
-                    },
-                  ));
-                } else {
-                  Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) => const ModeSelectScreen()));
-                }
+                await openOwnedHuud(context, gameType: g.id);
               },
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

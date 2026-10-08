@@ -1,6 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../huud/social_huud_controller.dart';
+import '../huud/huud_game_chat.dart';
+import '../huud/huud_host_game_controls.dart';
 
 import '../../core/app_state.dart';
 import '../../core/game_socket.dart';
@@ -46,6 +49,7 @@ class _SpectateScreenState extends State<SpectateScreen> {
   final _events = <String>[];
   final _input = TextEditingController();
   bool _started = false;
+  Map<String,dynamic> _publicState = {};
 
   @override
   void didChangeDependencies() {
@@ -75,6 +79,7 @@ class _SpectateScreenState extends State<SpectateScreen> {
     final payload = (env['payload'] as Map?)?.cast<String, dynamic>();
     if (type == 'SNAPSHOT' && payload != null) {
       setState(() {
+        _publicState = payload;
         _phase = payload['phase'] as String? ?? _phase;
         _round = (payload['round'] as num?)?.toInt() ?? _round;
         _spectatorCount = (payload['spectatorCount'] as num?)?.toInt() ?? _spectatorCount;
@@ -198,6 +203,7 @@ class _SpectateScreenState extends State<SpectateScreen> {
       return BoardGameWatchScreen(roomId: widget.roomId);
     }
     final n = context.neon;
+    final huud = SocialHuudScope.maybeOf(context);
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
@@ -269,7 +275,12 @@ class _SpectateScreenState extends State<SpectateScreen> {
                         style: TextStyle(color: n.mid, fontSize: 13))),
             ]),
           ),
-          if (_comments.isNotEmpty)
+          if (huud?.isHost == true && _socket != null && _winner == null)
+            HuudHostGameControls(socket: _socket!, state: _publicState,
+                names: {for (final p in huud!.huud.participants) p.userId: p.username}),
+          if (huud != null)
+            HuudGameChat(controller: huud, gameChat: const SizedBox.shrink()),
+          if (huud == null && _comments.isNotEmpty)
             SizedBox(
               height: 120,
               child: ListView.builder(
@@ -282,7 +293,7 @@ class _SpectateScreenState extends State<SpectateScreen> {
                 },
               ),
             ),
-          SafeArea(
+          if (huud == null) SafeArea(
             top: false,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),

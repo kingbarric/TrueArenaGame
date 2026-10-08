@@ -30,6 +30,7 @@ enum VisualTheme { palmWine, nebula, supercar }
 class AppState extends ChangeNotifier with WidgetsBindingObserver {
   /// Kept while a new invitee completes sign-in after opening a championship link.
   String? pendingChampionshipCode;
+  String? pendingHuudCode;
   AppState(this.api);
 
   final ApiClient api;
@@ -82,6 +83,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   int _inboxGeneration = 0;
   int _inboxRetrySeconds = 1;
   Map<String, dynamic>? pendingGameInvite;
+  Map<String, dynamic>? pendingHuudInvite;
+  void dismissHuudInvite() {
+    pendingHuudInvite = null;
+    notifyListeners();
+  }
 
   // Broadcast (not single-value like pendingGameInvite) — a chat list screen
   // and an open conversation screen may both be alive and both want every
@@ -130,7 +136,10 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     inbox = client;
     _inboxSub = client.envelopes.listen((env) {
       final payload = (env['payload'] as Map?)?.cast<String, dynamic>();
-      if (payload?['type'] == 'GAME_STARTING') {
+      if (payload?['type'] == 'HUUD_INVITE') {
+        pendingHuudInvite = (payload!['data'] as Map).cast<String, dynamic>();
+        notifyListeners();
+      } else if (payload?['type'] == 'GAME_STARTING') {
         pendingGameInvite = (payload!['data'] as Map).cast<String, dynamic>();
         notifyListeners();
       } else if (payload?['type'] == 'NEW_MESSAGE') {
@@ -162,6 +171,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> _refreshPresence() async {
     if (api.bearer == null) return;
+    api.post('/huuds/sessions/presence').catchError((_) => null);
     try {
       final result = await api.get('/friends/online') as List;
       if (api.bearer != null) {
@@ -655,6 +665,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     identity = Identity.anonymous;
     await clearActiveRoom();
     pendingGameInvite = null;
+    pendingHuudInvite = null;
+    pendingHuudCode = null;
     await _inboxSub?.cancel();
     await inbox?.close();
     inbox = null;

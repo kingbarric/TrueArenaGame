@@ -75,6 +75,11 @@ public class CallService {
     }
 
     public Mono<CallToken> whotCallToken(UUID selfId, UUID roomId) {
+        return (socialHuuds==null?Mono.<CallToken>empty():socialHuuds.forGame(roomId)
+            .flatMap(huud->gameCallToken(selfId,roomId)))
+            .switchIfEmpty(Mono.defer(()->legacyWhotCallToken(selfId,roomId)));
+    }
+    private Mono<CallToken> legacyWhotCallToken(UUID selfId, UUID roomId) {
         return rooms.findById(roomId)
                 .filter(room -> "whot".equals(room.gameType()) && "in_game".equals(room.status()))
                 .switchIfEmpty(Mono.error(ApiExceptions.notFound("no active Whot game")))
@@ -86,7 +91,16 @@ public class CallService {
     }
 
     /** A single voice room per active game, with the same membership check for every mode. */
+    @org.springframework.beans.factory.annotation.Autowired(required=false)
+    private app.truearena.api.socialhuud.SocialHuudAccess socialHuuds;
+
     public Mono<CallToken> gameCallToken(UUID selfId, UUID roomId) {
+        return (socialHuuds==null?Mono.<CallToken>empty():socialHuuds.forGame(roomId)
+            .flatMap(huud->socialHuuds.requireParticipant(huud,selfId).then(users.findById(selfId))
+                .map(self->tokenFor("huud-"+huud,self.id(),self.displayName()))))
+            .switchIfEmpty(Mono.defer(()->legacyGameCallToken(selfId,roomId)));
+    }
+    private Mono<CallToken> legacyGameCallToken(UUID selfId,UUID roomId) {
         return rooms.findById(roomId)
                 .filter(room -> "in_game".equals(room.status()))
                 .switchIfEmpty(Mono.error(ApiExceptions.notFound("no active game")))

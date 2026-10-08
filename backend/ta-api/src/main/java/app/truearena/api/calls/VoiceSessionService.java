@@ -42,6 +42,12 @@ public class VoiceSessionService {
                                 + "ON CONFLICT(voice_session_id,user_id) DO UPDATE SET left_at=NULL,last_seen_at=now(),joined_at=now()")
                                 .bind("id", id).bind("user", user).fetch().rowsUpdated()
                                 .then(Mono.defer(() -> {
+                                    if(roomName.startsWith("huud-")) {
+                                        UUID huud=UUID.fromString(roomName.substring(5));
+                                        return db.sql("UPDATE rooms SET voice_session_id=:id WHERE huud_session_id=:huud AND status='in_game' RETURNING rooms.id")
+                                            .bind("id",id).bind("huud",huud).map((r,m)->r.get("id",UUID.class)).all()
+                                            .concatMap(this::gameStarted).then();
+                                    }
                                     if (!roomName.startsWith("game-")) return Mono.empty();
                                     UUID game=UUID.fromString(roomName.substring(5));
                                     return db.sql("UPDATE rooms SET voice_session_id=:id WHERE id=:game AND NOT EXISTS(SELECT 1 FROM voice_sessions v WHERE v.id=rooms.voice_session_id AND v.status='active')")
@@ -57,6 +63,11 @@ public class VoiceSessionService {
         return db.sql("SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(:key,0))").bind("key", key).fetch().all().then();
     }
     private Mono<UUID> ensure(String name, UUID user) {
+        if(name.startsWith("huud-")) {
+            UUID huud=UUID.fromString(name.substring(5));
+            return db.sql("INSERT INTO voice_sessions(room_name,type,owner_id,created_by,privacy,invite_permissions) SELECT :name,'group',owner_id,owner_id,privacy,'host' FROM huud_sessions WHERE id=:huud AND status='active' ON CONFLICT(room_name) WHERE status='active' DO UPDATE SET room_name=EXCLUDED.room_name RETURNING id")
+                .bind("name",name).bind("huud",huud).map((r,m)->r.get("id",UUID.class)).one();
+        }
         String type = name.startsWith("dm-") ? "direct" : "group";
         var sql = db.sql("INSERT INTO voice_sessions(room_name,type,owner_id,created_by,social_group_id) "
                 + "VALUES(:name,:type,:user,:user,:group) ON CONFLICT(room_name) WHERE status='active' "
@@ -107,7 +118,7 @@ public class VoiceSessionService {
     }
     public Mono<Void> leave(UUID user, String roomName) {
         return active(user).filter(s -> s.roomName().equals(roomName)).flatMap(s -> {
-            if (s.ownerId().equals(user) && s.participants().size()>1) {
+            if (!roomName.startsWith("huud-") && s.ownerId().equals(user) && s.participants().size()>1) {
                 return Mono.error(ApiExceptions.conflict("choose the next host before leaving"));
             }
             return voice.remove(roomName,user.toString()).onErrorResume(e -> Mono.empty())
@@ -135,6 +146,7 @@ public class VoiceSessionService {
     }
     public Mono<Void> delegate(UUID user, UUID next) {
         return active(user).switchIfEmpty(Mono.error(ApiExceptions.notFound("no active hangout"))).flatMap(s -> {
+            if(s.roomName().startsWith("huud-")) return Mono.error(ApiExceptions.forbidden("Huud ownership cannot be delegated in v1"));
             if (!s.ownerId().equals(user) || s.participants().stream().noneMatch(p -> p.userId().equals(next))) {
                 return Mono.error(ApiExceptions.forbidden("the host must choose a participant"));
             }
@@ -144,7 +156,9 @@ public class VoiceSessionService {
         });
     }
     public Mono<Void> end(UUID user) {
-        return active(user).flatMap(s -> requireOwner(user,s.roomName()).then(
+        return active(user).flatMap(s -> {
+            if(s.roomName().startsWith("huud-")) return Mono.error(ApiExceptions.forbidden("use End Huud inside the Huud"));
+            return requireOwner(user,s.roomName()).then(
                 Flux.fromIterable(s.participants()).concatMap(p -> voice.remove(s.roomName(),p.userId().toString())
                         .onErrorResume(e -> Mono.empty())).then(tx.transactional(
                     db.sql("UPDATE voice_session_participants SET left_at=now() WHERE voice_session_id=:id AND left_at IS NULL")
@@ -152,7 +166,7 @@ public class VoiceSessionService {
                 .doOnSuccess(v -> {
                     notifyMembers(s,"VOICE_ENDED",user);
                     s.participants().forEach(p -> inbox.leaveCall(p.userId()));
-                })));
+                })); });
     }
     public Mono<Void> removeMembership(UUID user, String name) {
         return active(user).filter(s -> s.roomName().equals(name)).flatMap(s ->
@@ -195,6 +209,7 @@ public class VoiceSessionService {
         if (privacy == null || invites == null || !List.of("public","friends","invite_only","private").contains(privacy)
                 || !List.of("host","participants").contains(invites)) return Mono.error(ApiExceptions.badRequest("invalid hangout settings"));
         return active(user).flatMap(s -> {
+            if(s.roomName().startsWith("huud-")) return Mono.error(ApiExceptions.forbidden("change privacy inside the Huud"));
             if ("direct".equals(s.type()) && !List.of("invite_only","private").contains(privacy))
                 return Mono.error(ApiExceptions.badRequest("encrypted direct calls require invitations"));
             return requireOwner(user,s.roomName()).then(
@@ -202,7 +217,7 @@ public class VoiceSessionService {
                     .bind("privacy",privacy).bind("invites",invites).bind("id",s.voiceSessionId()).fetch().rowsUpdated().then()); });
     }
     public Flux<VoiceSession> discover(UUID user) {
-        return db.sql("SELECT s.id FROM voice_sessions s WHERE s.status='active' AND s.type='group' AND (s.privacy='public' OR "
+        return db.sql("SELECT s.id FROM voice_sessions s WHERE s.status='active' AND s.type='group' AND s.room_name NOT LIKE 'huud-%' AND (s.privacy='public' OR "
                 + "(s.privacy='friends' AND EXISTS(SELECT 1 FROM friends f WHERE f.status='accepted' "
                 + "AND f.low_user_id=LEAST(s.owner_id,:user) AND f.high_user_id=GREATEST(s.owner_id,:user))) OR EXISTS(SELECT 1 FROM voice_session_invites i WHERE i.voice_session_id=s.id AND i.user_id=:user AND i.status='approved')) "
                 + "ORDER BY s.started_at DESC LIMIT 50").bind("user",user).map((r,m) -> r.get("id",UUID.class)).all().concatMap(this::view);
@@ -246,7 +261,7 @@ public class VoiceSessionService {
                         .flatMap(s -> voice.remove(s.roomName(),row.get("user_id").toString()).onErrorResume(e -> Mono.empty())
                                 .doOnSuccess(v -> inbox.leaveCall((UUID)row.get("user_id")))))
                 .then(db.sql("UPDATE voice_sessions s SET owner_id=(SELECT p.user_id FROM voice_session_participants p "
-                        + "WHERE p.voice_session_id=s.id AND p.left_at IS NULL ORDER BY p.joined_at LIMIT 1) WHERE s.status='active' "
+                        + "WHERE p.voice_session_id=s.id AND p.left_at IS NULL ORDER BY p.joined_at LIMIT 1) WHERE s.status='active' AND s.room_name NOT LIKE 'huud-%' "
                         + "AND NOT EXISTS(SELECT 1 FROM voice_session_participants p WHERE p.voice_session_id=s.id AND p.user_id=s.owner_id AND p.left_at IS NULL) "
                         + "AND EXISTS(SELECT 1 FROM voice_session_participants p WHERE p.voice_session_id=s.id AND p.left_at IS NULL)").fetch().rowsUpdated())
                 .then(closeEmpty());

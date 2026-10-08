@@ -37,6 +37,9 @@ void main() {
     final calls = <String>[];
     final client = MockClient((req) async {
       calls.add('${req.method} ${req.url.path.replaceFirst('/api/v1', '')}');
+      if (req.url.path.endsWith('/huuds/sessions/code')) {
+        return _json(404, {'message': 'no active Huud with that code'});
+      }
       return handler(req);
     });
     await tester.pumpWidget(AppScope(
@@ -78,7 +81,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
 
-    expect(calls, ['POST /rooms/join']);
+    expect(calls, ['POST /huuds/sessions/code', 'POST /rooms/join']);
     expect(find.text('this huud has already ended'), findsOneWidget);
     expect(find.byType(SpectateScreen), findsNothing);
   });

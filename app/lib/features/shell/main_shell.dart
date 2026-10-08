@@ -6,10 +6,9 @@ import '../../widgets/playground_nav_pill.dart';
 import '../chat/chat_list_screen.dart';
 import '../friends/friends_screen.dart';
 import '../home/home_screen.dart';
-import '../huud/huud_screen.dart';
+import '../huud/social_huud_home.dart';
 import '../onboarding/guest_gate.dart';
 import '../profile/profile_screen.dart';
-import '../spectate/spectator_discovery_screen.dart';
 
 /// The app's persistent nav shell. Before this, the pill nav lived only on
 /// Home and everything else was a pushed route, so reaching Chats from
@@ -29,7 +28,7 @@ class MainShell extends StatefulWidget {
 
   /// The Huud feed's slot, for anything that wants to open it (a challenge
   /// push tapped while the app was in the background).
-  static const huudTab = 1;
+  static const huudTab = 0;
 
   /// Set from outside the widget tree — a push tap only has the root
   /// navigator — and picked up by whichever shell is mounted.
@@ -43,7 +42,7 @@ class _MainShellState extends State<MainShell> {
   late int _index = widget.initialIndex;
   // v2: the Huud tab was inserted second, which shifted every saved index —
   // a fresh key rather than reopening someone on the tab next to theirs.
-  static const _tabKey = 'ta_main_tab_v2';
+  static const _tabKey = 'ta_main_tab_v3';
 
   @override
   void initState() {
@@ -77,20 +76,18 @@ class _MainShellState extends State<MainShell> {
   final _built = <int, Widget>{};
 
   static const _tabs = [
+    _Tab(icon: Icons.home_rounded, label: 'Home'),
     _Tab(icon: Icons.sports_esports_rounded, label: 'Games'),
-    _Tab(icon: Icons.track_changes_rounded, label: 'Huud'),
     _Tab(icon: Icons.chat_bubble_rounded, label: 'Chats', needsAccount: true),
     _Tab(icon: Icons.people_alt_rounded, label: 'Friends', needsAccount: true),
-    _Tab(icon: Icons.visibility_rounded, label: 'Watch', needsAccount: true),
-    _Tab(icon: Icons.emoji_emotions_rounded, label: 'You'),
+    _Tab(icon: Icons.emoji_emotions_rounded, label: 'Profile'),
   ];
 
   Widget _screenFor(int i) => _built.putIfAbsent(i, () => switch (i) {
-        0 => const HomeScreen(),
-        1 => const HuudScreen(),
+        0 => const SocialHuudHome(),
+        1 => const HomeScreen(),
         2 => const ChatListScreen(),
         3 => const FriendsScreen(),
-        4 => const SpectatorDiscoveryScreen(),
         _ => const ProfileScreen(),
       });
 

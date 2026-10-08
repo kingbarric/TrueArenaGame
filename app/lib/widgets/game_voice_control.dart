@@ -9,6 +9,8 @@ import '../core/app_state.dart';
 import '../core/hangout_state.dart';
 import '../features/calls/call_screen.dart';
 import 'neon.dart';
+import '../features/huud/social_huud_controller.dart';
+import '../features/huud/social_huud_screen.dart';
 import '../core/game_socket.dart';
 import '../theme/neon_theme.dart';
 
@@ -474,6 +476,18 @@ class _GameVoiceControlState extends State<GameVoiceControl> {
 
   @override
   Widget build(BuildContext context) {
+    final social = SocialHuudScope.maybeOf(context);
+    if (social != null) {
+      return ListenableBuilder(listenable: social, builder: (context, _) {
+        final voice = HangoutState.instance;
+        final here = voice.roomName == 'huud-${social.huud.id}';
+        final speaking = here && voice.speaking.isNotEmpty;
+        return IconButton(tooltip: speaking ? '${voice.speaking.join(', ')} talking' : 'Huud voice',
+          icon: Icon(speaking ? Icons.graphic_eq : here && voice.muted ? Icons.mic_off : Icons.mic_none),
+          onPressed: () => social.huud.participant ? joinHuudVoice(context, social) :
+            huudAction(context, () => social.action('/join-request')));
+      });
+    }
     final hasRequests = !widget.spectating && _requests.isNotEmpty;
     final active = _room != null || _approved || _requesting;
     return IconButton(

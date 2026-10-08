@@ -41,6 +41,8 @@ public class BotService {
     private final RoomLock agentLock;
     @Autowired(required = false)
     private ChampionshipService championships;
+    @Autowired(required = false)
+    private app.truearena.api.socialhuud.SocialHuudAccess socialHuuds;
 
     @Value("${server.port:8080}")
     private int serverPort;
@@ -121,7 +123,8 @@ public class BotService {
     }
 
     private Mono<RoomRow> hostedLobby(UUID roomId, UUID requesterId) {
-        return guardTournamentRoom(roomId).then(rooms.findById(roomId))
+        return (socialHuuds==null?Mono.<Void>empty():socialHuuds.requireLegacyRoom(roomId))
+                .then(guardTournamentRoom(roomId)).then(rooms.findById(roomId))
                 .switchIfEmpty(Mono.error(ApiExceptions.notFound("huud not found")))
                 .flatMap(room -> {
                     if (!room.hostId().equals(requesterId)) {

@@ -7,6 +7,8 @@ import '../../theme/neon_theme.dart';
 import '../../widgets/neon.dart';
 import '../spectate/watch_live.dart';
 import 'joined_room_screen.dart';
+import '../huud/social_huud_models.dart';
+import '../huud/social_huud_screen.dart';
 
 /// The other half of a lobby: `LobbyScreen`/`WordBluffLobbyScreen` only ever
 /// create a new room (`POST /rooms`), so a second device could never actually
@@ -58,6 +60,15 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
       _error = null;
     });
     try {
+      try {
+        final huud = await app.api.post('/huuds/sessions/code', {'code': code}) as Map;
+        if (!mounted) return;
+        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) =>
+            SocialHuudScreen(initial: SocialHuud.fromJson(huud.cast<String, dynamic>()))));
+        return;
+      } on ApiException catch (e) {
+        if (e.status != 404) rethrow;
+      }
       final nickname = _nicknameController.text.trim();
       final res = await app.api.post('/rooms/join', {
         'code': code,

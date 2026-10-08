@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../theme/neon_theme.dart';
+import 'huud_speaking_indicator.dart';
 
 enum NeonStyle { go, gold, danger, ghost }
 
@@ -735,9 +736,11 @@ class OnlineAvatar extends StatelessWidget {
     this.imageUrl,
     this.imagePath,
     this.emoji,
+    this.voiceIdentity,
   });
 
   final String name;
+  final String? voiceIdentity;
   final bool online;
   final double size;
   final String? imageUrl;
@@ -754,8 +757,17 @@ class OnlineAvatar extends StatelessWidget {
         width: size,
         height: size,
         child: Stack(clipBehavior: Clip.none, children: [
-          Avatar(name, size: size, imageUrl: imageUrl,
-              imagePath: imagePath, emoji: emoji),
+          Avatar(name,
+              size: size,
+              imageUrl: imageUrl,
+              imagePath: imagePath,
+              emoji: emoji),
+          if (voiceIdentity != null)
+            Positioned(
+                right: -3,
+                top: -3,
+                child: HuudSpeakingIndicator(
+                    userId: voiceIdentity!, size: size * .27)),
           if (online)
             Positioned(
               right: -1,

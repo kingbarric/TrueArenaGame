@@ -30,6 +30,11 @@ public final class WordBluffModule implements GameModule {
     public static final String GAME_TYPE = "wordbluff";
 
     @Override
+    public app.truearena.engine.PlayerCapacity playerCapacity(app.truearena.engine.GameSettings config) {
+        return new app.truearena.engine.PlayerCapacity(4,Integer.MAX_VALUE);
+    }
+
+    @Override
     public String gameType() {
         return GAME_TYPE;
     }

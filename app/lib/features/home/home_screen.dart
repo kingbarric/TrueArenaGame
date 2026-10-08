@@ -1,3 +1,4 @@
+import '../huud/social_huud_entry.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/app_state.dart';
@@ -9,18 +10,10 @@ import '../../widgets/idle_wiggle.dart';
 import '../../widgets/motif.dart';
 import '../../widgets/neon.dart';
 import '../../widgets/playhuud_logo.dart';
-import '../chess/chess_lobby_screen.dart';
-import '../draughts/draughts_mode_screen.dart';
 import '../games/game_select_screen.dart';
-import '../goosi/goosi_lobby_screen.dart';
 import '../lobby/join_room_screen.dart';
 import '../lobby/joined_room_screen.dart';
-import '../modes/mode_select_screen.dart';
-import '../onboarding/guest_gate.dart';
 import '../profile/profile_screen.dart';
-import '../wordbluff/wordbluff_lobby_screen.dart';
-import '../whot/whot_lobby_screen.dart';
-import '../ludo/ludo_lobby_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -139,7 +132,7 @@ class HomeScreen extends StatelessWidget {
           const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
-            child: Text('Pick one game to open a huud',
+            child: Text('Choose a game for your Huud',
                 textAlign: TextAlign.center,
                 style: Theme.of(context)
                     .textTheme
@@ -297,30 +290,7 @@ class HomeScreen extends StatelessWidget {
           .showSnackBar(SnackBar(content: Text('${g.name} is coming soon')));
       return;
     }
-    if (g.id == 'draughts') {
-      Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => const DraughtsModeScreen(),
-      ));
-    } else if (g.id == 'bluff' ||
-        g.id == 'chess' ||
-        g.id == 'whot' ||
-        g.id == 'ludo' ||
-        g.id == 'goosi') {
-      if (!await canHostOrPromptToVerify(context)) return;
-      if (!context.mounted) return;
-      Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => switch (g.id) {
-          'bluff' => const WordBluffLobbyScreen(),
-          'whot' => const WhotLobbyScreen(),
-          'goosi' => const GoosiLobbyScreen(),
-          'chess' => const ChessLobbyScreen(),
-          _ => const LudoLobbyScreen(),
-        },
-      ));
-    } else {
-      Navigator.of(context)
-          .push(MaterialPageRoute(builder: (_) => const ModeSelectScreen()));
-    }
+    await openOwnedHuud(context, gameType: g.id);
   }
 }
 

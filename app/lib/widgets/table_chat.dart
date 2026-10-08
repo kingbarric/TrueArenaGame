@@ -1,3 +1,5 @@
+import '../features/huud/social_huud_controller.dart';
+import '../features/huud/huud_game_chat.dart';
 import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
 
@@ -52,6 +54,7 @@ class TableChatPanel extends StatefulWidget {
     this.initiallyExpanded = false,
     this.composerHint,
     this.emptyHint,
+    this.gameInteractionOnly = false,
   });
 
   final List<TableChatLine> lines;
@@ -74,6 +77,7 @@ class TableChatPanel extends StatefulWidget {
   final bool initiallyExpanded;
   final String? composerHint;
   final String? emptyHint;
+  final bool gameInteractionOnly;
 
   @override
   State<TableChatPanel> createState() => _TableChatPanelState();
@@ -115,6 +119,10 @@ class _TableChatPanelState extends State<TableChatPanel> {
 
   @override
   Widget build(BuildContext context) {
+    final social = SocialHuudScope.maybeOf(context);
+    if (social != null && !widget.gameInteractionOnly) {
+      return HuudGameChat(controller: social, gameChat: gameInteractionPanel(widget));
+    }
     return Padding(
       padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
       child: ClipRRect(

@@ -1,3 +1,4 @@
+import '../../widgets/huud_speaking_indicator.dart';
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -850,6 +851,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
               border:
                   player == _turn ? Border.all(color: _gold, width: 2) : null),
           child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            HuudSpeakingIndicator(userId: player, size: 10),
             Icon(
                 widget.agents.contains(player)
                     ? Icons.smart_toy_rounded

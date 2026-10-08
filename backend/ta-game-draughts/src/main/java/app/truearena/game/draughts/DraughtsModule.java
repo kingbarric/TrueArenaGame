@@ -31,6 +31,11 @@ public final class DraughtsModule implements GameModule {
     public static final String GAME_TYPE = "draughts";
 
     @Override
+    public app.truearena.engine.PlayerCapacity playerCapacity(app.truearena.engine.GameSettings config) {
+        return new app.truearena.engine.PlayerCapacity(2,2);
+    }
+
+    @Override
     public String gameType() {
         return GAME_TYPE;
     }

@@ -66,6 +66,11 @@ public final class ChessModule implements GameModule {
     static final int SEVENTY_FIVE_MOVE_HALFMOVES = 150;
 
     @Override
+    public app.truearena.engine.PlayerCapacity playerCapacity(app.truearena.engine.GameSettings config) {
+        return new app.truearena.engine.PlayerCapacity(2,2);
+    }
+
+    @Override
     public String gameType() {
         return GAME_TYPE;
     }

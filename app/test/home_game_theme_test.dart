@@ -8,7 +8,8 @@ import 'package:http/testing.dart';
 import 'package:truearena/core/api_client.dart';
 import 'package:truearena/core/app_state.dart';
 import 'package:truearena/features/home/home_screen.dart';
-import 'package:truearena/features/goosi/goosi_lobby_screen.dart';
+import 'package:truearena/features/huud/social_huud_screen.dart';
+import 'package:truearena/core/models.dart';
 import 'package:truearena/theme/neon_theme.dart';
 import 'package:truearena/widgets/neon.dart';
 
@@ -113,46 +114,79 @@ void main() {
     expect(find.byKey(const ValueKey('home-game-whot')), findsOneWidget);
   });
 
-  testWidgets('Macala home tile opens the Macala lobby', (tester) async {
+  testWidgets('Macala tile creates a social Huud with Macala preselected',
+      (tester) async {
     GoogleFonts.config.allowRuntimeFetching = false;
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    final api = ApiClient(
-        client: MockClient((_) async => http.Response(
-              jsonEncode({
-                'tier': {
-                  'tier': 'Rookie',
-                  'lifetimeCoins': 0,
-                  'nextTier': 'Rising Star',
-                  'coinsToNextTier': 10,
-                  'tierProgress': 0,
-                }
-              }),
-              200,
-              headers: {'content-type': 'application/json'},
-            )));
-
+    final requests = <Map<String, dynamic>>[];
+    final huud = <String, dynamic>{
+      'id': 'huud-1',
+      'code': 'ERIC82',
+      'ownerId': 'host',
+      'name': "Eric's Huud",
+      'description': '',
+      'privacy': 'public',
+      'status': 'active',
+      'activity': 'waiting',
+      'gameType': 'goosi',
+      'activityVersion': 1,
+      'currentRoomId': null,
+      'participantCount': 1,
+      'viewerCount': 0,
+      'playerCount': 0,
+      'participant': true,
+      'joinRequestStatus': 'accepted',
+      'gameRequestStatus': 'none',
+      'capacity': {'min': 2, 'max': 2, 'allowed': []},
+      'participants': [
+        {'userId': 'host', 'username': 'Eric'}
+      ],
+      'joinRequests': [],
+      'gameRequests': [],
+      'selectedPlayers': [],
+    };
+    final api = ApiClient(client: MockClient((r) async {
+      Object? body = huud;
+      if (r.url.path.endsWith('/owned')) return http.Response('', 200);
+      if (r.url.path.endsWith('/chat')) body = [];
+      if (r.method == 'POST' && r.url.path.endsWith('/huuds/sessions')) {
+        requests.add((jsonDecode(r.body) as Map).cast<String, dynamic>());
+      }
+      if (r.url.path.endsWith('/me/tier')) {
+        body = {
+          'tier': {
+            'tier': 'Rookie',
+            'lifetimeCoins': 0,
+            'nextTier': 'Rising Star',
+            'coinsToNextTier': 10,
+            'tierProgress': 0
+          }
+        };
+      }
+      return http.Response(jsonEncode(body), 200,
+          headers: {'content-type': 'application/json'});
+    }));
+    final state = AppState(api)
+      ..user =
+          const UserView(id: 'host', displayName: 'Eric', username: 'eric');
     await tester.pumpWidget(AppScope(
-      state: AppState(api),
-      child: MaterialApp(theme: NeonTheme.dark, home: const HomeScreen()),
-    ));
+        state: state,
+        child: MaterialApp(theme: NeonTheme.dark, home: const HomeScreen())));
     await tester.pump();
-    final oware = find.byKey(const ValueKey('home-game-goosi'));
-    await tester.ensureVisible(oware);
-    await tester.tap(oware);
-    // Not pumpAndSettle: GoosiLobbyScreen's WatchingEye keeps a pulsing
-    // AnimationController running forever, which would hang pumpAndSettle.
+    final tile = find.byKey(const ValueKey('home-game-goosi'));
+    await tester.ensureVisible(tile);
+    await tester.tap(tile);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-
-    expect(find.byType(GoosiLobbyScreen), findsOneWidget);
-    expect(find.text('Choose Macala mode'), findsOneWidget);
-    expect(find.text('Relay Four'), findsOneWidget);
-    expect(find.text('Oware Abapa'), findsOneWidget);
-    await tester.tap(find.text('Relay Four'));
+    expect(find.text('Create Huud'), findsWidgets);
+    await tester.tap(find.widgetWithText(FilledButton, 'Create Huud'));
     await tester.pump();
-    expect(find.text('Macala'), findsWidgets);
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(requests.single['gameType'], 'goosi');
+    expect(requests.single['privacy'], 'public');
+    expect(find.byType(SocialHuudScreen), findsOneWidget);
+    expect(find.text('Waiting for players'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 2));
+    state.dispose();
   });
 }

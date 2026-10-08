@@ -1,4 +1,5 @@
 package app.truearena.api.ws;
+import app.truearena.api.support.ApiExceptions;
 
 import app.truearena.api.auth.JwtService;
 import app.truearena.api.championship.ChampionshipService;
@@ -134,6 +135,12 @@ public class GameOrchestrator {
         this.coins = coins;
     }
 
+    @Autowired(required = false)
+    private app.truearena.api.socialhuud.SocialHuudAccess socialHuuds;
+
+    @Autowired(required=false)
+    private app.truearena.api.socialhuud.HuudTelemetry huudTelemetry;
+
     public record Authed(UUID roomId, String userId, boolean spectator) {
     }
 
@@ -152,6 +159,12 @@ public class GameOrchestrator {
                     return new Authed(roomId, userId.toString(), spectate);
                 })
                 .onErrorMap(e -> new SecurityException("bad token"));
+        if (socialHuuds != null) {
+            parsed=parsed.flatMap(a -> (spectate
+                ? socialHuuds.requireGameView(a.roomId(),UUID.fromString(a.userId()))
+                : socialHuuds.requireGamePlayer(a.roomId(),UUID.fromString(a.userId())))
+                .thenReturn(a));
+        }
         if (spectate) {
             return parsed.flatMap(a -> championships == null ? Mono.just(a)
                     : championships.spectatorAllowed(a.roomId(), UUID.fromString(a.userId()))
@@ -168,7 +181,12 @@ public class GameOrchestrator {
                 .map(Mono::just)
                 .orElseGet(() -> rooms.findById(roomId)
                         .switchIfEmpty(Mono.error(new IllegalStateException("room not found")))
-                        .map(room -> registry.computeIfAbsent(roomId, id -> new RoomRuntime(id, room.hostId().toString()))));
+                        .flatMap(room -> {
+                            RoomRuntime rt=registry.computeIfAbsent(roomId, id -> new RoomRuntime(id, room.hostId().toString()));
+                            rt.cancelled="ended".equals(room.status());
+                            return socialHuuds==null?Mono.just(rt):socialHuuds.forGame(roomId)
+                                .doOnNext(huud->rt.socialHuud=true).thenReturn(rt);
+                        }));
     }
 
     public Mono<Void> onConnect(RoomRuntime rt, String userId) {
@@ -193,7 +211,7 @@ public class GameOrchestrator {
         Mono<Void> disconnect = setConnection(rt.roomId, userId, "disconnected");
         // Mobile networks often drop a socket for a few seconds. Give its host
         // time to reconnect before transferring control to another player.
-        Mono<Void> migrate = rt.started() && userId.equals(rt.hostUserId)
+        Mono<Void> migrate = !rt.socialHuud && rt.started() && userId.equals(rt.hostUserId)
                 ? Mono.delay(Duration.ofSeconds(10))
                     .filter(ignored -> !rt.connectedUserIds.contains(userId)
                             && rt.started() && userId.equals(rt.hostUserId))
@@ -217,6 +235,7 @@ public class GameOrchestrator {
 
     /** Spectators never touch {@code room_members} or host migration — they're not participants. */
     public Mono<Void> onSpectatorConnect(RoomRuntime rt, String userId) {
+        rt.revokedUserIds.remove(userId);
         rt.spectatorUserIds.add(userId);
         if (rt.started()) sendSnapshot(rt, userId);
         return broadcastLobby(rt, "SPECTATOR_COUNT", Map.of("count", rt.spectatorUserIds.size()));
@@ -280,13 +299,22 @@ public class GameOrchestrator {
     }
 
     public Mono<Void> handleFrame(RoomRuntime rt, String userId, String text, boolean spectator) {
+        if(rt.cancelled || rt.revokedUserIds.contains(userId)) {
+            return Mono.error(new SecurityException("Huud match ended or access removed"));
+        }
         Envelope in;
         try {
             in = mapper.readValue(text, Envelope.class);
         } catch (Exception e) {
             return tellError(rt, userId, "BAD_ENVELOPE", "could not parse frame");
         }
-        if (spectator
+        if(rt.socialHuud && Set.of(MessageType.SPECTATOR_VOICE_REQUEST,MessageType.SPECTATOR_VOICE_APPROVE,
+            MessageType.SPECTATOR_VOICE_DECLINE,MessageType.SPECTATOR_VOICE_MUTE_TOGGLE,MessageType.SPECTATOR_VOICE_REMOVE).contains(in.type())) {
+            return tellError(rt,userId,"HUUD_MEMBERSHIP_VOICE","request to join the Huud; its admin handles admission and microphone access");
+        }
+        boolean huudModerator=rt.socialHuud && userId.equals(rt.hostUserId)
+            && in.type()==MessageType.PLAYER_ACTION && isHostOnlyAction(String.valueOf(in.payload().get("action")));
+        if (spectator && !huudModerator
                 && in.type() != MessageType.HELLO && in.type() != MessageType.PING
                 && in.type() != MessageType.CHAT_SEND
                 && in.type() != MessageType.SPECTATOR_VOICE_REQUEST) {
@@ -409,6 +437,7 @@ public class GameOrchestrator {
     }
 
     private void sendSnapshot(RoomRuntime rt, String userId) {
+        if(rt.revokedUserIds.contains(userId)) return;
         rt.tellUser(userId, Envelope.of(MessageType.SNAPSHOT,
                 snapshotView(rt, userId, rt.spectatorUserIds.contains(userId))));
     }
@@ -461,6 +490,9 @@ public class GameOrchestrator {
      * {@code ERROR}.
      */
     private Mono<Void> handleChat(RoomRuntime rt, String userId, Envelope in, boolean spectator) {
+        if(rt.socialHuud && spectator) {
+            return tellError(rt,userId,"HUUD_CHAT","join the Huud to chat; social conversation belongs in Huud Chat");
+        }
         String channel = String.valueOf(in.payload().get("channel"));
         if (spectator && !ChatMessage.SPECTATE.equals(channel)) {
             return tellError(rt, userId, "SPECTATOR_READ_ONLY", "spectators can comment on the spectator channel");
@@ -692,7 +724,48 @@ public class GameOrchestrator {
 
     // ---------------------------------------------------------------- game start / actions
 
+    /** Called only by the authoritative Huud roster/start service. The admin need not be a player. */
+    public Mono<Void> startHuudMatch(UUID roomId, UUID host) {
+        return ensureRuntime(roomId).flatMap(rt -> {
+            rt.socialHuud=true;
+            return startOrdinaryGame(rt,host.toString(),Map.of()).then(Mono.defer(() ->
+                rt.started() ? Mono.empty() : Mono.error(app.truearena.api.support.ApiExceptions.badRequest("game engine rejected the selected roster or settings"))));
+        });
+    }
+
+    /** Explicit cancellation never produces a win, a rating, or a payout. */
+    public Mono<Void> cancelHuudMatch(UUID roomId) {
+        return ensureRuntime(roomId).flatMap(rt -> lock.withLock(roomId,LOCK_TTL,()->cancelHuudRuntime(rt)));
+    }
+    private Mono<Void> cancelHuudRuntime(RoomRuntime rt) {
+        if(rt.started() && rt.state().finished()) return Mono.empty();
+        rt.cancelled=true;
+        rt.paused=true;
+        rt.cancelTimer();
+        rt.bus.tryEmitNext(new LobbyBroadcast("HUUD_MATCH_CANCELLED",Map.of("roomId",rt.roomId.toString())));
+        rt.unicast.values().forEach(sink -> sink.tryEmitComplete());
+        rt.bus.tryEmitComplete();
+        return sessions.findById(rt.gameSessionId==null?new UUID(0,0):rt.gameSessionId)
+            .flatMap(s -> sessions.save(new GameSessionRow(s.id(),s.roomId(),s.gameType(),s.config(),s.configPresetId(),s.catalogVersion(),s.rngSeed(),
+                s.phase(),s.round(),s.phaseEndsAt(),s.startedAt(),Instant.now(),s.voiceSessionId())))
+            .then(updateRoomStatus(rt.roomId,"ended"));
+    }
+    public Mono<Void> forfeitHuudPlayer(UUID roomId,UUID player) {
+        return ensureRuntime(roomId).flatMap(rt -> lock.withLock(roomId,LOCK_TTL,()->{
+            if(rt.cancelled) return Mono.empty();
+            if(!rt.started()) return cancelHuudRuntime(rt);
+            if(rt.state().finished()) return Mono.empty();
+            String type=rt.module().gameType();
+            if(!Set.of("draughts","chess","whot","ludo","goosi","wordbluff").contains(type)) return cancelHuudRuntime(rt);
+            GameRunner.Step step=new GameRunner(rt.module()).apply(rt.state(),new PlayerAction(UUID.randomUUID().toString(),
+                player.toString(),"goosi".equals(type)?"RESIGN":"FORFEIT",Map.of()));
+            rt.setState(step.state());
+            return afterMutation(rt,step.events());
+        }));
+    }
+
     private Mono<Void> handleGameStart(RoomRuntime rt, String userId, Map<String, Object> options) {
+        if(rt.socialHuud) return tellError(rt,userId,"HUUD_ADMIN_START","select players and start from the Huud");
         if (championships != null) {
             return championships.isTournamentRoom(rt.roomId).flatMap(tournament -> tournament
                     ? tellError(rt, userId, "TOURNAMENT_START", "the championship starts this match automatically")
@@ -712,14 +785,19 @@ public class GameOrchestrator {
                 .switchIfEmpty(Mono.error(new IllegalStateException("room not found")))
                 .zipWith(members.findByRoomId(rt.roomId).collectList())
                 .flatMap(t -> {
+                    if(rt.cancelled || "ended".equals(t.getT1().status()))
+                        return Mono.error(ApiExceptions.conflict("this match has ended"));
+                    if(rt.started()) return Mono.error(ApiExceptions.conflict("this match has already started"));
                     String gameType = t.getT1().gameType();
                     List<String> playerIds = t.getT2().stream().map(m -> m.userId().toString()).toList();
                     rt.botPlayerIds.clear();
                     t.getT2().stream().filter(m -> m.botDifficulty() != null)
                             .forEach(m -> rt.botPlayerIds.add(m.userId().toString()));
                     return switch (gameType) {
-                        case "wordbluff" -> startWordBluff(rt, userId, playerIds,
-                                t.getT2().stream().anyMatch(m -> m.botDifficulty() != null));
+                        case "wordbluff" -> rt.socialHuud
+                                ? startWordBluffWith(rt,userId,playerIds,mapper.convertValue(
+                                    readConfig(t.getT1().gameConfig()),WordBluffConfig.class))
+                                : startWordBluff(rt, userId, playerIds,t.getT2().stream().anyMatch(m -> m.botDifficulty() != null));
                         case "draughts" -> startDraughts(rt, userId, playerIds);
                         case "chess" -> startChess(rt, userId, playerIds, t.getT1().gameConfig());
                         case "goosi" -> startGoosi(rt, userId, playerIds);
@@ -768,7 +846,13 @@ public class GameOrchestrator {
     }
 
     private Mono<Void> startWordBluff(RoomRuntime rt, String userId, List<String> playerIds, boolean textMode) {
-        WordBluffConfig cfg = new WordBluffConfig(30, 60, textMode);
+        return startWordBluffWith(rt,userId,playerIds,new WordBluffConfig(30,60,textMode));
+    }
+    private Map<String,Object> readConfig(String config) {
+        try { return mapper.readValue(config,Map.class); }
+        catch(Exception e) { throw new IllegalArgumentException("invalid persisted game config",e); }
+    }
+    private Mono<Void> startWordBluffWith(RoomRuntime rt,String userId,List<String> playerIds,WordBluffConfig cfg) {
         WordBluffModule module = new WordBluffModule();
         long seed = ThreadLocalRandom.current().nextLong();
         GameState state;
@@ -1255,6 +1339,7 @@ public class GameOrchestrator {
         }
 
         return lock.withLock(rt.roomId, LOCK_TTL, () -> {
+            if(rt.cancelled || rt.revokedUserIds.contains(userId)) return Mono.error(new SecurityException("game access removed"));
             GameRunner runner = new GameRunner(rt.module());
             GameRunner.Step step;
             try {
@@ -1524,7 +1609,8 @@ public class GameOrchestrator {
                 .flatMap(s -> sessions.save(new GameSessionRow(s.id(), s.roomId(), s.gameType(), s.config(), s.configPresetId(),
                         s.catalogVersion(), s.rngSeed(), rt.state().phase(), rt.state().round(), null, s.startedAt(), Instant.now(), s.voiceSessionId())))
                 .then();
-        Mono<Void> endRoom = updateRoomStatus(rt.roomId, "ended");
+        Mono<Void> endRoom = updateRoomStatus(rt.roomId, "ended")
+                .then(huudTelemetry==null?Mono.empty():huudTelemetry.completed(rt.roomId));
         Mono<Void> stats = win == null ? Mono.empty() : updateStats(rt, win.perPlayerOutcome());
         Mono<Void> coinRewards = win == null ? Mono.empty() : awardCoins(rt, win.perPlayerOutcome());
         Mono<Void> stakePayout = win == null ? Mono.empty()
@@ -1731,6 +1817,7 @@ public class GameOrchestrator {
     // ---------------------------------------------------------------- visibility + wire helpers
 
     private boolean visibleTo(RoomRuntime rt, GameEvent ge, String userId) {
+        if(rt.revokedUserIds.contains(userId)) return false;
         var v = ge.visibility();
         if (v.isPublic()) {
             return true;
@@ -1756,6 +1843,7 @@ public class GameOrchestrator {
     }
 
     Mono<Envelope> toEnvelope(RoomRuntime rt, Object msg, String userId, boolean spectator) {
+        if(rt.revokedUserIds.contains(userId)) return Mono.empty();
         // Use the connection's authenticated mode, even when this account also
         // has a player connection or another socket has just disconnected.
         if (spectator) {

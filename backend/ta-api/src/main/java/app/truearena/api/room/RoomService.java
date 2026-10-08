@@ -37,6 +37,9 @@ public class RoomService {
     @Autowired
     private app.truearena.api.calls.VoiceSessionService voiceSessions;
 
+    @Autowired(required=false)
+    private app.truearena.api.socialhuud.SocialHuudAccess socialHuuds;
+
     private static final String ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no O/0/I/1
     private static final int MAX_PLAYERS = 16;
 
@@ -190,7 +193,8 @@ public class RoomService {
     }
 
     public Mono<RoomView> playTogether(UUID host, UUID roomId) {
-        return rooms.findById(roomId).filter(room -> room.hostId().equals(host) && !"ended".equals(room.status()))
+        return (socialHuuds==null?Mono.<Void>empty():socialHuuds.requireLegacyRoom(roomId))
+                .then(rooms.findById(roomId)).filter(room -> room.hostId().equals(host) && !"ended".equals(room.status()))
                 .switchIfEmpty(Mono.error(ApiExceptions.forbidden("only this Huud's host can invite the hangout")))
                 .flatMap(room -> voiceSessions.linkGame(host,roomId).then(users.findById(host))
                         .flatMap(user -> notifyCallCompanions(room,user.displayName()))
@@ -199,6 +203,9 @@ public class RoomService {
 
     public Mono<RoomView> join(String code, UUID userId, String nickname) {
         return rooms.findByCode(code.toUpperCase())
+                .flatMap(room -> socialHuuds==null?Mono.just(room):socialHuuds.forGame(room.id())
+                    .flatMap(id -> Mono.<RoomRow>error(ApiExceptions.forbidden("join this Huud and request to play through its admin")))
+                    .switchIfEmpty(Mono.just(room)))
                 .switchIfEmpty(Mono.error(ApiExceptions.notFound("no huud with that code")))
                 .flatMap(room -> (championships == null ? Mono.just(false) : championships.isTournamentRoom(room.id()))
                         .flatMap(tournament -> tournament
@@ -225,6 +232,7 @@ public class RoomService {
 
     public Mono<RoomView> watch(String code, UUID userId) {
         return rooms.findByCode(code.toUpperCase())
+                .flatMap(room -> (socialHuuds==null?Mono.<Void>empty():socialHuuds.requireGameView(room.id(),userId)).thenReturn(room))
                 .switchIfEmpty(Mono.error(ApiExceptions.notFound("no huud with that code")))
                 .filter(room -> "in_game".equals(room.status()))
                 .switchIfEmpty(Mono.error(ApiExceptions.conflict("this huud is not live yet")))
@@ -254,7 +262,7 @@ public class RoomService {
      */
     @org.springframework.transaction.annotation.Transactional
     public Mono<Void> abandon(UUID roomId, UUID callerId) {
-        return rooms.findById(roomId)
+        return (socialHuuds==null?Mono.<Void>empty():socialHuuds.requireLegacyRoom(roomId)).then(rooms.findById(roomId))
                 .switchIfEmpty(Mono.error(ApiExceptions.notFound("huud not found")))
                 .flatMap(room -> (championships == null ? Mono.just(false) : championships.isTournamentRoom(roomId))
                         .flatMap(tournament -> {
@@ -429,6 +437,7 @@ public class RoomService {
                             .collect(Collectors.toSet());
                     return Flux.fromIterable(runtimes.all())
                             .filter(RoomRuntime::started)
+                            .filter(rt -> !rt.socialHuud)
                             .filter(rt -> hosts.contains(UUID.fromString(rt.hostUserId)))
                             .concatMap(rt -> championships == null ? discoverableView(rt)
                                     : championships.spectatorAllowed(rt.roomId, selfId)
@@ -446,7 +455,7 @@ public class RoomService {
     }
 
     public Mono<RoomView> get(UUID roomId, UUID userId) {
-        return rooms.findById(roomId)
+        return (socialHuuds==null?Mono.<Void>empty():socialHuuds.requireGameView(roomId,userId)).then(rooms.findById(roomId))
                 .switchIfEmpty(Mono.error(ApiExceptions.notFound("huud not found")))
                 .flatMap(room -> (championships == null ? Mono.just(true)
                         : championships.spectatorAllowed(roomId, userId))

@@ -17,6 +17,11 @@ public interface GameModule {
 
     String gameType();
 
+    /** Games opting into social Huuds expose their own roster limits. */
+    default PlayerCapacity playerCapacity(GameSettings config) {
+        throw new UnsupportedOperationException("Huud roster capacity is not declared for " + gameType());
+    }
+
     /** The ordered phase template for one round loop, used for timers and the WS contract. */
     List<Phase> definePhases(GameSettings config);
 

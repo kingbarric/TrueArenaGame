@@ -6,6 +6,8 @@ import 'package:livekit_client/livekit_client.dart' as lk;
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../core/api_client.dart';
+import '../huud/social_huud_screen.dart';
+import '../huud/social_huud_models.dart';
 import '../../core/app_state.dart';
 import '../../core/hangout_state.dart';
 import '../chess/chess_lobby_screen.dart';
@@ -143,7 +145,7 @@ class _CallScreenState extends State<CallScreen> {
   AppState? _app;
 
   bool get _manageable => true;
-  bool get _isHost => HangoutState.instance.ownerId == _app?.user?.id;
+  bool get _isHost => !widget.roomName.startsWith('huud-') && HangoutState.instance.ownerId == _app?.user?.id;
 
   @override
   void initState() {
@@ -226,7 +228,7 @@ class _CallScreenState extends State<CallScreen> {
 
   Future<void> _start() async {
     final micStatus = await Permission.microphone.request();
-    if (!micStatus.isGranted) {
+    if (!micStatus.isGranted && !widget.roomName.startsWith('huud-')) {
       if (mounted) {
         setState(() {
           _connecting = false;
@@ -248,7 +250,9 @@ class _CallScreenState extends State<CallScreen> {
           .post('/calls/sessions/join', {'roomName': widget.roomName});
       if (!mounted) return;
       _applySession((joined as Map).cast<String, dynamic>());
-      _muted = HangoutState.instance.muted;
+      _muted = widget.roomName.startsWith('huud-') || HangoutState.instance.muted;
+      HangoutState.instance.muted = _muted;
+      if (_muted) await _app!.api.post('/calls/sessions/mute', {'muted': true});
       _heartbeat = Timer.periodic(
           const Duration(seconds: 30), (_) => _refreshSession(heartbeat: true));
       await _join(widget.token);
@@ -459,6 +463,10 @@ class _CallScreenState extends State<CallScreen> {
 
   Future<void> _toggleMute() async {
     final next = !_muted;
+    if (!next && widget.roomName.startsWith('huud-') && !(await Permission.microphone.request()).isGranted) {
+      _note('Allow microphone access to speak. You can keep listening.');
+      return;
+    }
     await _room?.localParticipant?.setMicrophoneEnabled(!next);
     if (mounted) setState(() => _muted = next);
     HangoutState.instance.muted = next;
@@ -828,6 +836,13 @@ class _CallScreenState extends State<CallScreen> {
   }
 
   Future<void> _playTogether() async {
+    if (widget.roomName.startsWith('huud-')) {
+      final raw = await _app!.api.get('/huuds/sessions/${widget.roomName.substring(5)}') as Map;
+      final nav = HangoutState.instance.navigationKey.currentState;
+      HangoutState.instance.minimize();
+      nav?.push(MaterialPageRoute(builder: (_) => SocialHuudScreen(initial: SocialHuud.fromJson(raw.cast<String,dynamic>()))));
+      return;
+    }
     HangoutState.instance.show();
     final choices = <String, Widget>{
       'Chess': const ChessLobbyScreen(),

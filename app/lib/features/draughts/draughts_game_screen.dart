@@ -1725,6 +1725,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
                 builder: (_, online, __) => OnlineAvatar(
                   label(playerId),
                   size: 34,
+                  voiceIdentity: playerId,
                   online: online.contains(playerId),
                   emoji: isMe ? app.avatarEmoji : null,
                   imagePath: isMe ? app.avatarImagePath : null,
