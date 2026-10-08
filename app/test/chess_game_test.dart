@@ -12,6 +12,8 @@ import 'package:truearena/features/chess/chess_view.dart';
 import 'package:truearena/theme/neon_theme.dart';
 
 class _Socket implements GameSocket {
+  @override
+  final memberAvatars = <String, String?>{};
   final frames = StreamController<Map<String, dynamic>>.broadcast(sync: true);
   final sent = <Map<String, dynamic>>[];
 

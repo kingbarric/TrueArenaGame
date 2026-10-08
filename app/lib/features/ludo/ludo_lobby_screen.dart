@@ -7,6 +7,8 @@ import '../../core/api_client.dart';
 import '../../core/app_state.dart';
 import '../../core/game_socket.dart';
 import '../../core/models.dart';
+import '../../widgets/pending_huud.dart';
+import '../../widgets/cancel_huud_button.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/cyber_agent_sheet.dart';
 import '../../widgets/copyable_huud_code.dart';
@@ -60,26 +62,30 @@ class _LudoLobbyScreenState extends State<LudoLobbyScreen> {
   RoomView? _room;
   GameSocket? _socket;
   StreamSubscription? _subscription;
-  AppState? _app;
   int _turnSeconds = 60;
   int _twoPlayerPieces = 8;
   bool _busy = false, _connected = false, _handedOff = false;
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final app = AppScope.of(context);
+      try {
+        await resumePendingHuud(context, app, 'ludo');
+      } catch (_) {
+        if (mounted)
+          setState(
+              () => _error = 'Could not check your waiting Huud. Try again.');
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _subscription?.cancel();
-    if (!_handedOff) {
-      _socket?.close();
-      final room = _room;
-      final app = _app;
-      if (room != null && app != null && room.hostId == app.user?.id) {
-        unawaited(app.api
-            .delete('/rooms/${room.id}')
-            .then((_) => app.clearActiveRoom(room.id))
-            .catchError((_) {}));
-      }
-    }
+    if (!_handedOff) _socket?.close();
     super.dispose();
   }
 
@@ -90,7 +96,8 @@ class _LudoLobbyScreenState extends State<LudoLobbyScreen> {
     });
     try {
       final app = AppScope.of(context);
-      _app = app;
+      if (await resumePendingHuud(context, app, 'ludo')) return;
+      if (!mounted) return;
       final raw = await app.api.post('/rooms', {
         'gameType': 'ludo',
         'gameConfig': {'turnSeconds': _turnSeconds},
@@ -119,6 +126,8 @@ class _LudoLobbyScreenState extends State<LudoLobbyScreen> {
     final socket = GameSocket.connect(AppScope.of(context).api, _room!.id);
     _socket = socket;
     _subscription = socket.envelopes.listen((env) {
+      if (!mounted) return;
+      if (handleCancelledHuud(context, env, _room!.id)) return;
       if (!mounted || _handedOff) return;
       final payload = (env['payload'] as Map? ?? {}).cast<String, dynamic>();
       switch (env['type']) {
@@ -219,9 +228,9 @@ class _LudoLobbyScreenState extends State<LudoLobbyScreen> {
   Widget build(BuildContext context) {
     final room = _room;
     return Scaffold(
-      appBar: AppBar(
-          title:
-              Text(room == null ? 'Ludo · Open a huud' : 'Ludo · Your huud')),
+      appBar: AppBar(actions: [
+        if (_room != null) CancelHuudButton(room: _room!)
+      ], title: Text(room == null ? 'Ludo · Open a huud' : 'Ludo · Your huud')),
       body: SafeArea(child: room == null ? _setup() : _lobby(room)),
     );
   }

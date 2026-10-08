@@ -7,6 +7,8 @@ import '../../core/api_client.dart';
 import '../../core/app_state.dart';
 import '../../core/game_socket.dart';
 import '../../core/models.dart';
+import '../../widgets/pending_huud.dart';
+import '../../widgets/cancel_huud_button.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/cyber_agent_sheet.dart';
 import '../../widgets/copyable_huud_code.dart';
@@ -49,21 +51,22 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
   @override
   void dispose() {
     _sub?.cancel();
-    if (!_handedOff) {
-      _socket?.close();
-      // An unstarted room must be removed even when it is unstaked. Otherwise
-      // its Cyber Agent remains attached to an active room and cannot be reused.
-      final room = _room;
-      if (room != null && room.hostId == _selfId(_app)) {
-        _app.api.delete('/rooms/${room.id}').catchError((_) {});
-      }
-    }
+    if (!_handedOff) _socket?.close();
     super.dispose();
   }
 
   Future<void> _open() async {
     final app = AppScope.of(context);
     _app = app;
+    try {
+      if (await resumePendingHuud(context, app, 'draughts')) return;
+      if (!mounted) return;
+    } catch (_) {
+      if (mounted)
+        setState(
+            () => _error = 'Could not check your waiting Huud. Try again.');
+      return;
+    }
     if (app.identity == Identity.anonymous) {
       setState(() {
         _example = true;
@@ -122,6 +125,8 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
     final socket = GameSocket.connect(app.api, roomId);
     _socket = socket;
     _sub = socket.envelopes.listen((env) {
+      if (!mounted) return;
+      if (handleCancelledHuud(context, env, _room!.id)) return;
       switch (env['type']) {
         case 'SNAPSHOT':
           final p = (env['payload'] as Map).cast<String, dynamic>();
@@ -164,6 +169,7 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
         code: p['code'] as String,
         hostId: p['hostId'] as String,
         status: p['status'] as String? ?? 'lobby',
+        gameType: 'draughts',
         members: members,
         stakeCoins: _room?.stakeCoins ??
             0, // not carried on the WS snapshot — keep whatever the REST create/join response gave us
@@ -312,6 +318,7 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
                                 .labelSmall
                                 ?.copyWith(color: n.mute, letterSpacing: 2)),
                         const SizedBox(height: 4),
+                        if (!_example) CancelHuudButton(room: room),
                         CopyableHuudCode(
                           code: room.code,
                           child: Text(room.code,
@@ -405,7 +412,9 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
               child: Opacity(
                   opacity: away ? 0.4 : 1,
                   child: OnlineAvatar(m.nickname ?? '?',
-                      size: 60, online: m.isBot || m.connected)),
+                      size: 60,
+                      imageUrl: m.avatarUrl,
+                      online: m.isBot || m.connected)),
             ),
             if (isHost)
               Positioned(

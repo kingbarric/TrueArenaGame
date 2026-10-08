@@ -907,7 +907,7 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
                 size: diameter,
                 online: online.contains(player),
                 emoji: isRemoteImage ? null : avatar,
-                imageUrl: isRemoteImage ? avatar : null),
+                imageUrl: _socket.memberAvatars[player] ?? (isRemoteImage ? avatar : null)),
           ),
         ),
         if (showName)

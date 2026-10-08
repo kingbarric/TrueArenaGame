@@ -60,6 +60,12 @@ class RoomServiceTest {
     private final RoomService service = new RoomService(rooms, members, users, jwt, inbox, friends, runtimes, coins,
             botRuntimes, games);
 
+    @org.junit.jupiter.api.BeforeEach
+    void pendingRoomDefaults() {
+        org.mockito.Mockito.lenient().when(rooms.lockHostedLobby(anyString())).thenReturn(Mono.just(1));
+        org.mockito.Mockito.lenient().when(rooms.findHostedLobby(any(), anyString())).thenReturn(Mono.empty());
+    }
+
     private UserRow realUser(UUID id) {
         return new UserRow(id, "Player", null, null, null, "player", false, null, false, null, null, null, null, null);
     }

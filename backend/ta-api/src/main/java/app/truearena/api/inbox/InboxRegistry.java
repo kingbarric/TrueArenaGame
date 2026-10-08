@@ -49,7 +49,7 @@ public class InboxRegistry {
         // A reconnect can replace this user's socket before the old session
         // finishes closing. Only the session still registered may clear it.
         if (sockets.remove(userId, sink)) {
-            leaveCall(userId);
+            // Inbox transport loss does not end the independently connected voice session.
             backgrounded.remove(userId); // don't leak stale state into a later, unrelated connection
         }
     }

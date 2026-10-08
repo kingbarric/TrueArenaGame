@@ -80,6 +80,9 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 @Component
 public class GameOrchestrator {
+    @org.springframework.beans.factory.annotation.Autowired
+    private app.truearena.api.calls.VoiceSessionService voiceSessions;
+
 
     private static final Logger log = LoggerFactory.getLogger(GameOrchestrator.class);
     private static final Duration LOCK_TTL = Duration.ofSeconds(10);
@@ -190,10 +193,10 @@ public class GameOrchestrator {
         Mono<Void> disconnect = setConnection(rt.roomId, userId, "disconnected");
         // Mobile networks often drop a socket for a few seconds. Give its host
         // time to reconnect before transferring control to another player.
-        Mono<Void> migrate = userId.equals(rt.hostUserId)
+        Mono<Void> migrate = rt.started() && userId.equals(rt.hostUserId)
                 ? Mono.delay(Duration.ofSeconds(10))
                     .filter(ignored -> !rt.connectedUserIds.contains(userId)
-                            && userId.equals(rt.hostUserId))
+                            && rt.started() && userId.equals(rt.hostUserId))
                     .flatMap(ignored -> migrateHost(rt)).then()
                 : Mono.empty();
         if (championships != null) {
@@ -228,7 +231,7 @@ public class GameOrchestrator {
         if (wasSpeaker) {
             rt.bus.tryEmitNext(new LobbyBroadcast("SPECTATOR_VOICE_REMOVED", Map.of("userId", userId)));
         }
-        return (wasSpeaker ? removeFromVoice(rt, userId) : Mono.<Void>empty())
+        return Mono.<Void>empty()
                 .then(broadcastLobby(rt, "SPECTATOR_COUNT", Map.of("count", rt.spectatorUserIds.size())));
     }
 
@@ -660,7 +663,7 @@ public class GameOrchestrator {
 
     private Mono<Void> setVoicePublish(RoomRuntime rt, String userId, boolean canPublish) {
         if (voiceAdmin == null) return Mono.empty();
-        return voiceAdmin.setCanPublish("game-" + rt.roomId, userId, canPublish)
+        return voiceRoom(rt.roomId).flatMap(name -> voiceAdmin.setCanPublish(name, userId, canPublish))
                 .onErrorResume(error -> {
                     log.warn("could not update game voice permission for room {} user {}: {}",
                             rt.roomId, userId, error.toString());
@@ -668,9 +671,16 @@ public class GameOrchestrator {
                 });
     }
 
+    private Mono<String> voiceRoom(UUID game) {
+        return voiceSessions == null ? Mono.just("game-" + game) : voiceSessions.voiceRoomForGame(game).defaultIfEmpty("game-" + game);
+    }
+
     private Mono<Void> removeFromVoice(RoomRuntime rt, String userId) {
         if (voiceAdmin == null) return Mono.empty();
-        return voiceAdmin.remove("game-" + rt.roomId, userId)
+        return (voiceSessions == null ? voiceAdmin.remove("game-" + rt.roomId, userId) :
+                voiceSessions.voiceRoomForGame(rt.roomId).map(java.util.Optional::of).defaultIfEmpty(java.util.Optional.empty())
+                        .flatMap(name -> name.isPresent() ? voiceAdmin.setCanPublish(name.get(),userId,false)
+                                : voiceAdmin.remove("game-" + rt.roomId,userId)))
                 .onErrorResume(error -> {
                     log.warn("could not remove game voice participant for room {} user {}: {}",
                             rt.roomId, userId, error.toString());
@@ -1506,7 +1516,7 @@ public class GameOrchestrator {
                 .then();
         Mono<Void> endSession = sessions.findById(rt.gameSessionId)
                 .flatMap(s -> sessions.save(new GameSessionRow(s.id(), s.roomId(), s.gameType(), s.config(), s.configPresetId(),
-                        s.catalogVersion(), s.rngSeed(), rt.state().phase(), rt.state().round(), null, s.startedAt(), Instant.now())))
+                        s.catalogVersion(), s.rngSeed(), rt.state().phase(), rt.state().round(), null, s.startedAt(), Instant.now(), s.voiceSessionId())))
                 .then();
         Mono<Void> endRoom = updateRoomStatus(rt.roomId, "ended");
         Mono<Void> stats = win == null ? Mono.empty() : updateStats(rt, win.perPlayerOutcome());
@@ -1706,6 +1716,9 @@ public class GameOrchestrator {
     private Mono<Void> updateRoomStatus(UUID roomId, String status) {
         return rooms.findById(roomId)
                 .flatMap(r -> rooms.save(r.withStatus(status)))
+                .flatMap(r -> voiceSessions == null ? Mono.just(r) :
+                        ("ended".equals(status) ? voiceSessions.gameEnded(roomId) :
+                         "in_game".equals(status) ? voiceSessions.gameStarted(roomId) : Mono.<Void>empty()).thenReturn(r))
                 .then();
     }
 

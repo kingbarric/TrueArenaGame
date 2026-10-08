@@ -13,6 +13,8 @@ import 'package:truearena/features/draughts/draughts_game_screen.dart';
 import 'package:truearena/theme/neon_theme.dart';
 
 class _Socket implements GameSocket {
+  @override
+  final memberAvatars = <String, String?>{};
   final frames = StreamController<Map<String, dynamic>>.broadcast();
 
   @override

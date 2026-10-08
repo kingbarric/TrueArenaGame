@@ -26,6 +26,9 @@ import java.util.UUID;
 @Service
 public class CallService {
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private VoiceSessionService sessions;
+
     private final FriendRepository friends;
     private final GroupMemberRepository groupMembers;
     private final RoomMemberRepository roomMembers;
@@ -95,9 +98,13 @@ public class CallService {
                     }
                     return users.findById(selfId)
                             .switchIfEmpty(Mono.error(ApiExceptions.notFound("no such user")))
-                            .map(self -> new CallToken("game-" + roomId,
-                                    tokens.mintToken("game-" + roomId, self.id().toString(),
-                                            self.displayName(), isPlayer), tokens.wsUrl()));
+                            .flatMap(self -> (sessions == null ? Mono.just("game-" + roomId) : sessions.voiceRoomForGame(roomId).defaultIfEmpty("game-" + roomId))
+                                    .flatMap(name -> {
+                                        Mono<Boolean> allowed = name.startsWith("dm-") && sessions != null ? sessions.isMember(selfId,name) : Mono.just(true);
+                                        return allowed.filter(Boolean::booleanValue)
+                                                .switchIfEmpty(Mono.error(ApiExceptions.forbidden("join the encrypted call by invitation first")))
+                                                .map(ok -> new CallToken(name,tokens.mintToken(name,self.id().toString(),self.displayName(),isPlayer),tokens.wsUrl()));
+                                    }));
                 });
     }
 
@@ -107,10 +114,12 @@ public class CallService {
                 .filter(room -> "in_game".equals(room.status()))
                 .switchIfEmpty(Mono.error(ApiExceptions.notFound("no active game")))
                 .then(Mono.defer(() -> spectatorCanTalk(roomId, selfId)
-                        ? voiceAdmin.setCanPublish("game-" + roomId, selfId.toString(), true)
-                                .then(Mono.defer(() -> spectatorCanTalk(roomId, selfId)
-                                        ? Mono.empty()
-                                        : voiceAdmin.remove("game-" + roomId, selfId.toString())))
+                        ? (sessions == null ? Mono.just("game-" + roomId) : sessions.voiceRoomForGame(roomId).defaultIfEmpty("game-" + roomId))
+                                .flatMap(name -> voiceAdmin.setCanPublish(name, selfId.toString(), true)
+                                        .then(Mono.defer(() -> spectatorCanTalk(roomId, selfId)
+                                                ? Mono.empty()
+                                                : sessions == null ? voiceAdmin.remove(name,selfId.toString())
+                                                : voiceAdmin.setCanPublish(name,selfId.toString(),false))))
                         : Mono.error(ApiExceptions.forbidden("live-talk approval is no longer active"))));
     }
 

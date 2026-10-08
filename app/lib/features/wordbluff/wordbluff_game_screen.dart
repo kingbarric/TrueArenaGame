@@ -1058,6 +1058,7 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
                     builder: (_, online, __) => OnlineAvatar(
                         id == widget.selfId ? 'You' : label(id),
                         size: 18,
+                        imageUrl: widget.socket.memberAvatars[id],
                         online: online.contains(id)),
                   ),
                 ),

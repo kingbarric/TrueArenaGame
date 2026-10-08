@@ -1418,7 +1418,7 @@ class _GameScreenState extends State<GameScreen> {
                             child: ValueListenableBuilder<Set<String>>(
                               valueListenable: widget.socket.onlinePlayers,
                               builder: (_, online, __) => OnlineAvatar(label(id),
-                                  size: 58, online: online.contains(id)),
+                                  size: 58, imageUrl: widget.socket.memberAvatars[id], online: online.contains(id)),
                             ),
                           ),
                           const SizedBox(height: 6),
@@ -1493,7 +1493,7 @@ class _GameScreenState extends State<GameScreen> {
                         child: ValueListenableBuilder<Set<String>>(
                           valueListenable: widget.socket.onlinePlayers,
                           builder: (_, online, __) => OnlineAvatar(label(id),
-                              size: 42, online: online.contains(id)),
+                              size: 42, imageUrl: widget.socket.memberAvatars[id], online: online.contains(id)),
                         ),
                       ),
                       if (!isAlive)

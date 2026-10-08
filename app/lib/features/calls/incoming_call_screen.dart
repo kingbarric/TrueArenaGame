@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../app.dart';
 import '../../core/app_state.dart';
+import '../../core/hangout_state.dart';
 import '../../core/call_ringer.dart';
 import '../../core/e2e_crypto.dart';
 import '../../widgets/neon.dart';
@@ -31,6 +32,35 @@ class IncomingCalls {
         present(data);
       } else if (type == 'CALL_CANCELLED') {
         if (data['callerId'] == _ringingFrom) _missed?.call();
+      } else if (type == 'VOICE_JOIN_ANSWERED' && data['approved'] == true) {
+        final ctx = TrueArenaApp.navigatorKey.currentContext;
+        if (ctx == null || !ctx.mounted) return;
+        ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+          content: const Text('Your hangout join request was approved'),
+          action: SnackBarAction(
+              label: 'Join',
+              onPressed: () async {
+                try {
+                  final path = '/calls/rooms/${data['roomName']}/token';
+                  final token =
+                      await app.api.post(path) as Map<String, dynamic>;
+                  if (!ctx.mounted) return;
+                  await CallScreen.open(
+                      ctx,
+                      CallScreen(
+                          roomName: token['roomName'] as String,
+                          token: token['token'] as String,
+                          livekitUrl: token['livekitUrl'] as String,
+                          title: 'Huud hangout',
+                          refreshToken: () async => ((await app.api.post(path)
+                              as Map<String, dynamic>)['token'] as String)));
+                } catch (_) {
+                  if (ctx.mounted)
+                    ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+                        content: Text('Could not join the hangout')));
+                }
+              }),
+        ));
       } else if (type == 'NUDGE') {
         nudged(data['fromName'] as String? ?? 'A friend');
       }
@@ -44,7 +74,7 @@ class IncomingCalls {
     HapticFeedback.vibrate();
     Future.delayed(const Duration(milliseconds: 450), HapticFeedback.vibrate);
     final ctx = TrueArenaApp.navigatorKey.currentContext;
-    if (ctx == null) return;
+    if (ctx == null || !ctx.mounted) return;
     ScaffoldMessenger.maybeOf(ctx)?.showSnackBar(SnackBar(
       content: Text('👋 $fromName nudged you — they want you to play!'),
       duration: const Duration(seconds: 4),
@@ -55,9 +85,10 @@ class IncomingCalls {
   /// you're already on a call.
   static void present(Map<String, dynamic> data) {
     final callerId = data['callerId'] as String?;
-    if (callerId == null || _ringingFrom != null || CallScreen.inCall) return;
+    if (callerId == null || _ringingFrom != null) return;
     final nav = TrueArenaApp.navigatorKey.currentState;
     if (nav == null) return;
+    if (HangoutState.instance.active) HangoutState.instance.minimize();
     _ringingFrom = callerId;
     nav
         .push(MaterialPageRoute(
@@ -157,6 +188,7 @@ class _IncomingCallScreenState extends State<IncomingCallScreen>
     setState(() => _answering = true);
     await CallRinger.stop();
     _timeout?.cancel();
+    if (!mounted) return;
     final app = AppScope.of(context);
     final path = widget.roomName == null
         ? '/calls/dm/${widget.callerId}/token'
@@ -171,20 +203,21 @@ class _IncomingCallScreenState extends State<IncomingCallScreen>
           mediaKeyHex = await E2eCrypto.decrypt(secret, sealed);
       }
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(MaterialPageRoute(
-        builder: (_) => CallScreen(
-          roomName: res['roomName'] as String,
-          token: res['token'] as String,
-          livekitUrl: res['livekitUrl'] as String,
-          title: widget.callerName,
-          // Joining someone else's 1:1 uses the key they sealed for us; a
-          // plain 1:1 derives it from the caller's public key.
-          peerPublicKey: sealed == null ? widget.callerPublicKey : null,
-          mediaKeyHex: mediaKeyHex,
-          refreshToken: () async => ((await app.api.post(path)
-              as Map<String, dynamic>)['token'] as String),
-        ),
-      ));
+      await CallScreen.open(
+          context,
+          CallScreen(
+            roomName: res['roomName'] as String,
+            token: res['token'] as String,
+            livekitUrl: res['livekitUrl'] as String,
+            title: widget.callerName,
+            // Joining someone else's 1:1 uses the key they sealed for us; a
+            // plain 1:1 derives it from the caller's public key.
+            peerPublicKey: sealed == null ? widget.callerPublicKey : null,
+            mediaKeyHex: mediaKeyHex,
+            refreshToken: () async => ((await app.api.post(path)
+                as Map<String, dynamic>)['token'] as String),
+          ));
+      if (mounted) Navigator.of(context).pop();
     } catch (_) {
       if (!mounted) return;
       setState(() {

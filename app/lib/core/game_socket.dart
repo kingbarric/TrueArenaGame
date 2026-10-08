@@ -26,6 +26,7 @@ class GameSocket {
   final _controller = StreamController<Map<String, dynamic>>.broadcast();
   final ValueNotifier<Set<String>> onlinePlayers = ValueNotifier(<String>{});
   final _agentIds = <String>{};
+  final memberAvatars = <String,String?>{};
   WebSocketChannel? _channel;
   StreamSubscription? _sub;
   Timer? _retry;
@@ -73,6 +74,7 @@ class GameSocket {
     try {
       final room = await _api.get('/rooms/$_roomId') as Map;
       if (_closed) return;
+      _readAvatars(room['members']);
       _agentIds.addAll((room['members'] as List? ?? const [])
           .whereType<Map>()
           .where((member) => member['isBot'] == true)
@@ -147,10 +149,17 @@ class GameSocket {
     }
   }
 
+  void _readAvatars(Object? members) {
+    for (final member in (members as List? ?? const []).whereType<Map>()) {
+      memberAvatars[member['userId'].toString()] = member['avatarUrl'] as String?;
+    }
+  }
+
   void _updatePresence(Map<String, dynamic> frame) {
     final payload = (frame['payload'] as Map?)?.cast<String, dynamic>();
     if (frame['type'] == 'SNAPSHOT' && payload != null) {
       if (payload['members'] is List) {
+        _readAvatars(payload['members']);
         _agentIds.addAll((payload['members'] as List)
             .whereType<Map>()
             .where((member) => member['isBot'] == true)

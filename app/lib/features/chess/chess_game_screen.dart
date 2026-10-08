@@ -944,7 +944,7 @@ class _ChessGameScreenState extends State<ChessGameScreen>
             isMe ? 'You' : _label(playerId),
             size: 40,
             online: online.contains(playerId),
-            imageUrl: widget.avatars[playerId],
+            imageUrl: widget.socket.memberAvatars[playerId] ?? widget.avatars[playerId],
             emoji: widget.agents.contains(playerId) ? '🤖' : null,
           ),
         ),

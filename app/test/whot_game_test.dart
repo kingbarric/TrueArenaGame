@@ -24,6 +24,8 @@ import 'package:truearena/widgets/table_chat.dart';
 
 class TestSocket implements GameSocket {
   @override
+  final memberAvatars = <String, String?>{};
+  @override
   final ValueNotifier<Set<String>> onlinePlayers = ValueNotifier(<String>{});
   final controller = StreamController<Map<String, dynamic>>.broadcast();
   final sent = <Map<String, dynamic>>[];

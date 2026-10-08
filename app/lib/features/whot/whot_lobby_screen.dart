@@ -5,6 +5,8 @@ import '../../core/app_state.dart';
 import '../../core/api_client.dart';
 import '../../core/game_socket.dart';
 import '../../core/models.dart';
+import '../../widgets/pending_huud.dart';
+import '../../widgets/cancel_huud_button.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/invite_players_sheet.dart';
 import '../../widgets/copyable_huud_code.dart';
@@ -20,7 +22,6 @@ class WhotLobbyScreen extends StatefulWidget {
 
 class _WhotLobbyScreenState extends State<WhotLobbyScreen> {
   RoomView? _room;
-  AppState? _app;
   GameSocket? _socket;
   StreamSubscription? _sub;
   bool _busy = false,
@@ -50,19 +51,24 @@ class _WhotLobbyScreenState extends State<WhotLobbyScreen> {
   };
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final app = AppScope.of(context);
+      try {
+        await resumePendingHuud(context, app, 'whot');
+      } catch (_) {
+        if (mounted)
+          setState(
+              () => _error = 'Could not check your waiting Huud. Try again.');
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _sub?.cancel();
-    if (!_handedOff) {
-      _socket?.close();
-      final room = _room;
-      final app = _app;
-      if (room != null && app != null && room.hostId == app.user?.id) {
-        unawaited(app.api
-            .delete('/rooms/${room.id}')
-            .then((_) => app.clearActiveRoom(room.id))
-            .catchError((_) {}));
-      }
-    }
+    if (!_handedOff) _socket?.close();
     super.dispose();
   }
 
@@ -73,7 +79,8 @@ class _WhotLobbyScreenState extends State<WhotLobbyScreen> {
     });
     try {
       final app = AppScope.of(context);
-      _app = app;
+      if (await resumePendingHuud(context, app, 'whot')) return;
+      if (!mounted) return;
       final raw = await app.api.post('/rooms', {
         'gameType': 'whot',
         'gameConfig': {
@@ -114,6 +121,8 @@ class _WhotLobbyScreenState extends State<WhotLobbyScreen> {
     final socket = GameSocket.connect(app.api, _room!.id);
     _socket = socket;
     _sub = socket.envelopes.listen((env) {
+      if (!mounted) return;
+      if (handleCancelledHuud(context, env, _room!.id)) return;
       if (!mounted || _handedOff) return;
       final p = (env['payload'] as Map? ?? {}).cast<String, dynamic>();
       if (env['type'] == 'SNAPSHOT') {
@@ -537,9 +546,9 @@ class _WhotLobbyScreenState extends State<WhotLobbyScreen> {
   Widget build(BuildContext context) {
     final room = _room;
     return Scaffold(
-      appBar: AppBar(
-          title:
-              Text(room == null ? 'Whot · Open a huud' : 'Whot · Your huud')),
+      appBar: AppBar(actions: [
+        if (_room != null) CancelHuudButton(room: _room!)
+      ], title: Text(room == null ? 'Whot · Open a huud' : 'Whot · Your huud')),
       body: SafeArea(
           child: room == null
               ? _initialSettings(context)

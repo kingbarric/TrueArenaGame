@@ -1246,6 +1246,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
 
     return Column(children: [
       _statusBar(n),
+      _turnBanner(),
       Expanded(
         child: LayoutBuilder(builder: (context, constraints) {
           final trayHeight = math.min(38.0, constraints.maxHeight * 0.09);
@@ -1475,7 +1476,12 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
                       onDoubleTap: () => _doubleTap(sq),
                       child: _PlankCell(
                         palette: boardPalette,
-                        dark: (row + col) % 4 == 1,
+                        // Every playable square is the board's dark colour and
+                        // every other one its light colour — a plain checkerboard.
+                        // (It used to mix dark and light among the playable
+                        // squares and paint the rest near-black, so the grid
+                        // never read clearly on any colour scheme.)
+                        dark: true,
                         seed: sq,
                         selected: sq == _selected,
                         armed: _chain.contains(sq),
@@ -1569,7 +1575,6 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
   }
 
   Widget _statusBar(NeonColors n) {
-    final required = _remainingRequired;
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
       decoration: const BoxDecoration(
@@ -1582,28 +1587,6 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
         // Clock and replay sit here rather than on a rail of their own below
         // the board. Voice is the single real control in the app bar.
         Column(mainAxisSize: MainAxisSize.min, children: [
-          if (required > 0)
-            const Text('MUST CAPTURE',
-                style: TextStyle(
-                    color: Color(0xffe0704a),
-                    fontSize: 9,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.6))
-          else if (myTurn)
-            const Text('YOUR TURN',
-                style: TextStyle(
-                    color: Color(0xffe0a94a),
-                    fontSize: 9,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.6))
-          else
-            const Text('OPPONENT IS THINKING…',
-                style: TextStyle(
-                    color: Color(0xff9a8163),
-                    fontSize: 9,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.4)),
-          const SizedBox(height: 6),
           Row(mainAxisSize: MainAxisSize.min, children: [
             _timerDial(),
             const SizedBox(width: 12),
@@ -1627,6 +1610,87 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
         ]),
         const Spacer(),
         _sideChip('B', playerB),
+      ]),
+    );
+  }
+
+  /// Whose move it is, in letters you can read from across the table. It was
+  /// a 9-point label squeezed between the two player chips; now it's a
+  /// full-width banner: bright and solid on your turn, a quiet "thinking"
+  /// strip while the other side moves.
+  Widget _turnBanner() {
+    final mustCapture = myTurn && _remainingRequired > 0;
+    final String text;
+    final Color fill;
+    final Color ink;
+    final IconData icon;
+    final bool waiting;
+    if (_amSpectator) {
+      // Watching: say whose turn it is, by name.
+      final who = label(_actorFor(turnSide));
+      text = "${who.toUpperCase()}'S TURN";
+      fill = const Color(0xff3a2410);
+      ink = const Color(0xfff0d8a8);
+      icon = Icons.visibility_rounded;
+      waiting = false;
+    } else if (mustCapture) {
+      text = 'YOU MUST CAPTURE';
+      fill = const Color(0xffe0584a);
+      ink = Colors.white;
+      icon = Icons.priority_high_rounded;
+      waiting = false;
+    } else if (myTurn) {
+      text = 'YOUR TURN';
+      fill = const Color(0xffffc233);
+      ink = const Color(0xff241708);
+      icon = Icons.touch_app_rounded;
+      waiting = false;
+    } else {
+      text = 'OPPONENT IS THINKING';
+      fill = const Color(0xff3a2410);
+      ink = const Color(0xfff0d8a8);
+      icon = Icons.hourglass_top_rounded;
+      waiting = true;
+    }
+    return AnimatedContainer(
+      key: const ValueKey('draughts-turn-banner'),
+      duration: const Duration(milliseconds: 220),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: fill,
+        boxShadow: myTurn && !_amSpectator
+            ? [BoxShadow(color: fill.withValues(alpha: 0.55), blurRadius: 14)]
+            : null,
+      ),
+      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        if (waiting)
+          SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2.4, color: ink))
+        else
+          Icon(icon, color: ink, size: 24),
+        const SizedBox(width: 10),
+        Flexible(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(text,
+                key: const ValueKey('draughts-turn-text'),
+                maxLines: 1,
+                style: TextStyle(
+                    color: ink,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.2)),
+          ),
+        ),
+        if (waiting) ...[
+          const SizedBox(width: 2),
+          Text('…',
+              style: TextStyle(
+                  color: ink, fontSize: 22, fontWeight: FontWeight.w900)),
+        ],
       ]),
     );
   }
@@ -1664,6 +1728,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
                   online: online.contains(playerId),
                   emoji: isMe ? app.avatarEmoji : null,
                   imagePath: isMe ? app.avatarImagePath : null,
+                  imageUrl: widget.socket.memberAvatars[playerId] ?? (isMe ? app.user?.avatarUrl : null),
                 ),
               ),
       ),
@@ -1855,11 +1920,12 @@ class _PlankCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (inert) return const ColoredBox(color: Color(0xff1c130a));
+    // Squares nobody can land on are the light squares: just the colour,
+    // nothing to tap or highlight.
+    if (inert) return ColoredBox(color: palette.lightSquare);
     final n = context.neon;
-    // Same walnut slab throughout the board — dark squares are an ebonized
-    // stain of the identical wood, not a different material, so the whole
-    // surface reads as one solid piece rather than two mismatched plank types.
+    // Clean tiles: each board's grain colour sits close to its square colour,
+    // so the pattern stays faint and the two square colours stay easy to tell apart.
     final base = dark ? palette.darkSquare : palette.lightSquare;
     final grain = dark ? palette.darkGrain : palette.lightGrain;
     return CustomPaint(
@@ -2056,7 +2122,7 @@ class _VarReplaySheetState extends State<_VarReplaySheet> {
                               final square = squareOf(row, col);
                               return _PlankCell(
                                 palette: widget.boardPalette,
-                                dark: (row + col) % 4 == 1,
+                                dark: true, // same checkerboard as the live board
                                 seed: square,
                               );
                             },

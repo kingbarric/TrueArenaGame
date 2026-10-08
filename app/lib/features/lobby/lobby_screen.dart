@@ -7,6 +7,8 @@ import '../../core/api_client.dart';
 import '../../core/app_state.dart';
 import '../../core/game_socket.dart';
 import '../../core/models.dart';
+import '../../widgets/pending_huud.dart';
+import '../../widgets/cancel_huud_button.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/cyber_agent_sheet.dart';
 import '../../widgets/copyable_huud_code.dart';
@@ -56,6 +58,15 @@ class _LobbyScreenState extends State<LobbyScreen> {
   Future<void> _open() async {
     final app = AppScope.of(context);
     _app = app;
+    try {
+      if (await resumePendingHuud(context, app, 'truearena')) return;
+      if (!mounted) return;
+    } catch (_) {
+      if (mounted)
+        setState(
+            () => _error = 'Could not check your waiting Huud. Try again.');
+      return;
+    }
     if (app.identity == Identity.anonymous) {
       setState(() {
         _example = true;
@@ -89,6 +100,8 @@ class _LobbyScreenState extends State<LobbyScreen> {
     final socket = GameSocket.connect(app.api, roomId);
     _socket = socket;
     _sub = socket.envelopes.listen((env) {
+      if (!mounted) return;
+      if (handleCancelledHuud(context, env, _room!.id)) return;
       switch (env['type']) {
         case 'SNAPSHOT':
           final p = (env['payload'] as Map).cast<String, dynamic>();
@@ -120,6 +133,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
         code: p['code'] as String,
         hostId: p['hostId'] as String,
         status: p['status'] as String? ?? 'lobby',
+        gameType: 'truearena',
         members: members,
       );
       final me = _room!.members.where((m) => m.userId == _selfId(_app));
@@ -252,6 +266,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                                 .labelSmall
                                 ?.copyWith(color: n.mute, letterSpacing: 2)),
                         const SizedBox(height: 4),
+                        if (!_example) CancelHuudButton(room: room),
                         CopyableHuudCode(
                           code: room.code,
                           child: Text(room.code,
@@ -343,7 +358,9 @@ class _LobbyScreenState extends State<LobbyScreen> {
               child: Opacity(
                 opacity: away ? 0.4 : 1,
                 child: OnlineAvatar(m.nickname ?? '?',
-                    size: 60, online: m.isBot || m.connected),
+                    size: 60,
+                    imageUrl: m.avatarUrl,
+                    online: m.isBot || m.connected),
               ),
             ),
             if (isHost)

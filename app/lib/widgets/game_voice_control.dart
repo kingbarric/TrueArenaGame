@@ -6,6 +6,9 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../core/api_client.dart';
 import '../core/app_state.dart';
+import '../core/hangout_state.dart';
+import '../features/calls/call_screen.dart';
+import 'neon.dart';
 import '../core/game_socket.dart';
 import '../theme/neon_theme.dart';
 
@@ -32,9 +35,9 @@ class GameVoiceControl extends StatefulWidget {
 
 class _GameVoiceControlState extends State<GameVoiceControl> {
   StreamSubscription? _socketSub;
-  livekit.Room? _room;
+  livekit.Room? get _room => HangoutState.instance.room;
   bool _joining = false;
-  bool _muted = false;
+  bool get _muted => HangoutState.instance.muted;
   bool _requesting = false;
   bool _approved = false;
   bool _serverMuted = false;
@@ -46,6 +49,7 @@ class _GameVoiceControlState extends State<GameVoiceControl> {
   void initState() {
     super.initState();
     _socketSub = widget.socket.envelopes.listen(_onEnvelope);
+    HangoutState.instance.addListener(_voiceChanged);
   }
 
   @override
@@ -60,12 +64,12 @@ class _GameVoiceControlState extends State<GameVoiceControl> {
   @override
   void dispose() {
     _socketSub?.cancel();
-    final room = _room;
-    if (room != null) {
-      room.disconnect();
-      room.dispose();
-    }
+    HangoutState.instance.removeListener(_voiceChanged);
     super.dispose();
+  }
+
+  void _voiceChanged() {
+    if (mounted) setState(() {});
   }
 
   void _onEnvelope(Map<String, dynamic> envelope) {
@@ -135,7 +139,8 @@ class _GameVoiceControlState extends State<GameVoiceControl> {
           _requests.remove(id);
           if (id == widget.selfId) _requesting = false;
         });
-        if (id == widget.selfId) _message('Your live-talk request was declined');
+        if (id == widget.selfId)
+          _message('Your live-talk request was declined');
       case 'SPECTATOR_VOICE_MUTED':
         setState(() {
           _mutedSpeakers.add(id);
@@ -147,7 +152,8 @@ class _GameVoiceControlState extends State<GameVoiceControl> {
           _mutedSpeakers.remove(id);
           if (id == widget.selfId) _serverMuted = false;
         });
-        if (id == widget.selfId) _message('A player unmuted your live-talk access');
+        if (id == widget.selfId)
+          _message('A player unmuted your live-talk access');
       case 'SPECTATOR_VOICE_REMOVED':
         setState(() {
           _requests.remove(id);
@@ -160,8 +166,8 @@ class _GameVoiceControlState extends State<GameVoiceControl> {
           }
         });
         if (id == widget.selfId) {
-          _leave();
-          _message('A player removed you from live talk');
+          _applyPlayerMute();
+          _message('A player removed your live-talk speaking permission');
         }
     }
   }
@@ -169,24 +175,8 @@ class _GameVoiceControlState extends State<GameVoiceControl> {
   Set<String> _ids(Object? raw) =>
       (raw as List? ?? const []).map((value) => value.toString()).toSet();
 
-  String _name(String id) => widget.nicknames[id] ??
-      (id.length > 6 ? id.substring(0, 6) : id);
-
-  Future<bool> _enableMicrophone(livekit.Room room) async {
-    for (var attempt = 0; attempt < 2; attempt++) {
-      try {
-        await room.localParticipant?.setMicrophoneEnabled(true);
-        return room.localParticipant?.isMicrophoneEnabled() ?? false;
-      } catch (error, stack) {
-        if (attempt == 0) {
-          await Future<void>.delayed(const Duration(milliseconds: 350));
-          continue;
-        }
-        debugPrint('Game voice microphone failed: $error\n$stack');
-      }
-    }
-    return false;
-  }
+  String _name(String id) =>
+      widget.nicknames[id] ?? (id.length > 6 ? id.substring(0, 6) : id);
 
   Future<void> _requestToTalk() async {
     if (_requesting) {
@@ -198,7 +188,8 @@ class _GameVoiceControlState extends State<GameVoiceControl> {
       return;
     }
     if (!(await Permission.microphone.request()).isGranted) {
-      _message('Allow microphone access in iPhone Settings to request live talk');
+      _message(
+          'Allow microphone access in iPhone Settings to request live talk');
       return;
     }
     if (!mounted) return;
@@ -212,50 +203,39 @@ class _GameVoiceControlState extends State<GameVoiceControl> {
   }
 
   Future<void> _connect() async {
-    if (_room != null || _joining || (widget.spectating && (!_approved || _serverMuted))) {
+    if (_joining || (widget.spectating && (!_approved || _serverMuted))) return;
+    if (HangoutState.instance.active) {
+      HangoutState.instance.show();
       return;
     }
     setState(() => _joining = true);
     final api = AppScope.of(context).api;
-    livekit.Room? joining;
     try {
-      if (!(await Permission.microphone.request()).isGranted) {
-        _message('Allow microphone access in iPhone Settings to use game voice');
-        return;
-      }
-      final response = await api.post('/calls/games/${widget.roomId}/token')
-          as Map<String, dynamic>;
-      joining = livekit.Room();
-      await joining.connect(
-          response['livekitUrl'] as String, response['token'] as String);
+      final path = '/calls/games/${widget.roomId}/token';
+      final response = await api.post(path) as Map<String, dynamic>;
       if (!mounted) return;
-      if (widget.spectating) {
-        await api.post('/calls/games/${widget.roomId}/activate');
-        if (!mounted) return;
-      }
-      final connectedRoom = joining;
-      _room = connectedRoom;
-      joining = null;
-      final microphoneOn = await _enableMicrophone(connectedRoom);
-      if (!mounted) {
-        await connectedRoom.disconnect();
-        connectedRoom.dispose();
-        return;
-      }
-      setState(() => _muted = !microphoneOn);
-      if (!microphoneOn) {
-        _message('Voice connected. Tap the microphone again to turn it on.');
-      }
+      final opened = await CallScreen.open(
+          context,
+          CallScreen(
+            roomName: response['roomName'] as String,
+            token: response['token'] as String,
+            livekitUrl: response['livekitUrl'] as String,
+            title: 'Huud hangout',
+            onConnected: widget.spectating
+                ? () async {
+                    await api.post('/calls/games/${widget.roomId}/activate');
+                  }
+                : null,
+            refreshToken: () async =>
+                ((await api.post('/calls/rooms/${response['roomName']}/token')
+                    as Map<String, dynamic>)['token'] as String),
+          ));
+      if (opened) HangoutState.instance.minimize();
     } on ApiException catch (error) {
-      _message('Game voice: ${error.message}');
-    } catch (error, stack) {
-      debugPrint('Game voice connection failed: $error\n$stack');
-      _message('Could not connect game voice. Check your connection and try again.');
+      _message(error.message);
+    } catch (_) {
+      _message('Could not connect voice. Check your connection and try again.');
     } finally {
-      if (joining != null) {
-        await joining.disconnect();
-        joining.dispose();
-      }
       if (mounted) setState(() => _joining = false);
     }
   }
@@ -265,30 +245,21 @@ class _GameVoiceControlState extends State<GameVoiceControl> {
       _message('A player has muted your live-talk microphone');
       return;
     }
-    final room = _room;
-    if (room == null) return _connect();
-    try {
-      await room.localParticipant?.setMicrophoneEnabled(_muted);
-      if (mounted) setState(() => _muted = !_muted);
-    } catch (_) {
-      _message('Could not change microphone state');
+    if (_room == null) {
+      await _connect();
+      return;
     }
+    await HangoutState.instance.toggleMute?.call();
   }
 
   Future<void> _applyPlayerMute() async {
-    try {
-      await _room?.localParticipant?.setMicrophoneEnabled(false);
-    } finally {
-      if (mounted) setState(() => _muted = true);
-    }
+    await _room?.localParticipant?.setMicrophoneEnabled(false);
+    HangoutState.instance.muted = true;
+    HangoutState.instance.changed();
   }
 
   Future<void> _leave() async {
-    final room = _room;
-    if (room == null) return;
-    if (mounted) setState(() => _room = null);
-    await room.disconnect();
-    room.dispose();
+    await HangoutState.instance.leave?.call();
   }
 
   void _sendControl(String type, String userId) {
@@ -306,8 +277,8 @@ class _GameVoiceControlState extends State<GameVoiceControl> {
       // otherwise the game shows straight through it.
       backgroundColor: n.panel,
       isScrollControlled: true,
-      constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * 0.7),
+      constraints:
+          BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.7),
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (sheetContext) => SafeArea(
@@ -319,6 +290,35 @@ class _GameVoiceControlState extends State<GameVoiceControl> {
               leading: Icon(Icons.graphic_eq_rounded),
               title: Text('Live talk'),
             ),
+            if (_room != null) ...[
+              for (final participant in HangoutState.instance.participants)
+                ListTile(
+                  leading: Avatar(
+                      participant.name.isEmpty
+                          ? _name(participant.identity)
+                          : participant.name,
+                      size: 36,
+                      imageUrl:
+                          HangoutState.instance.avatars[participant.identity]),
+                  title: Text(participant.name.isEmpty
+                      ? _name(participant.identity)
+                      : participant.name),
+                  trailing: Icon(
+                      participant.isSpeaking
+                          ? Icons.graphic_eq
+                          : participant.isMuted
+                              ? Icons.mic_off
+                              : Icons.mic,
+                      color: participant.isSpeaking ? n.jade : n.mute),
+                ),
+              ListTile(
+                  leading: const Icon(Icons.people_outline),
+                  title: const Text('Open hangout'),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    HangoutState.instance.show();
+                  }),
+            ],
             if (widget.spectating)
               _spectatorActions(sheetContext)
             else ...[
@@ -354,7 +354,8 @@ class _GameVoiceControlState extends State<GameVoiceControl> {
                 const Align(
                     alignment: Alignment.centerLeft,
                     child: Text('REQUESTS',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800))),
+                        style: TextStyle(
+                            fontSize: 11, fontWeight: FontWeight.w800))),
                 for (final id in _requests)
                   ListTile(
                     contentPadding: EdgeInsets.zero,
@@ -364,12 +365,14 @@ class _GameVoiceControlState extends State<GameVoiceControl> {
                       IconButton(
                         tooltip: 'Decline',
                         icon: const Icon(Icons.close_rounded),
-                        onPressed: () => _sendControl('SPECTATOR_VOICE_DECLINE', id),
+                        onPressed: () =>
+                            _sendControl('SPECTATOR_VOICE_DECLINE', id),
                       ),
                       IconButton.filled(
                         tooltip: 'Approve',
                         icon: const Icon(Icons.check_rounded),
-                        onPressed: () => _sendControl('SPECTATOR_VOICE_APPROVE', id),
+                        onPressed: () =>
+                            _sendControl('SPECTATOR_VOICE_APPROVE', id),
                       ),
                     ]),
                   ),
@@ -379,7 +382,8 @@ class _GameVoiceControlState extends State<GameVoiceControl> {
                 const Align(
                     alignment: Alignment.centerLeft,
                     child: Text('LIVE SPECTATORS',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800))),
+                        style: TextStyle(
+                            fontSize: 11, fontWeight: FontWeight.w800))),
                 for (final id in _speakers)
                   ListTile(
                     contentPadding: EdgeInsets.zero,
@@ -389,7 +393,8 @@ class _GameVoiceControlState extends State<GameVoiceControl> {
                     title: Text(_name(id)),
                     trailing: Wrap(spacing: 4, children: [
                       IconButton(
-                        tooltip: _mutedSpeakers.contains(id) ? 'Unmute' : 'Mute',
+                        tooltip:
+                            _mutedSpeakers.contains(id) ? 'Unmute' : 'Mute',
                         icon: Icon(_mutedSpeakers.contains(id)
                             ? Icons.mic_rounded
                             : Icons.mic_off_rounded),
@@ -399,7 +404,8 @@ class _GameVoiceControlState extends State<GameVoiceControl> {
                       IconButton(
                         tooltip: 'Remove from live talk',
                         icon: const Icon(Icons.person_remove_alt_1_rounded),
-                        onPressed: () => _sendControl('SPECTATOR_VOICE_REMOVE', id),
+                        onPressed: () =>
+                            _sendControl('SPECTATOR_VOICE_REMOVE', id),
                       ),
                     ]),
                   ),
@@ -418,7 +424,8 @@ class _GameVoiceControlState extends State<GameVoiceControl> {
         leading: Icon(_requesting
             ? Icons.hourglass_top_rounded
             : Icons.record_voice_over_rounded),
-        title: Text(_requesting ? 'Waiting for a player' : 'Request to join live talk'),
+        title: Text(
+            _requesting ? 'Waiting for a player' : 'Request to join live talk'),
         onTap: _requesting
             ? null
             : () {
@@ -430,9 +437,8 @@ class _GameVoiceControlState extends State<GameVoiceControl> {
     return Column(mainAxisSize: MainAxisSize.min, children: [
       ListTile(
         contentPadding: EdgeInsets.zero,
-        leading: Icon(_serverMuted || _muted
-            ? Icons.mic_off_rounded
-            : Icons.mic_rounded),
+        leading: Icon(
+            _serverMuted || _muted ? Icons.mic_off_rounded : Icons.mic_rounded),
         title: Text(_serverMuted
             ? 'Muted by a player'
             : _room == null
@@ -471,14 +477,20 @@ class _GameVoiceControlState extends State<GameVoiceControl> {
     final hasRequests = !widget.spectating && _requests.isNotEmpty;
     final active = _room != null || _approved || _requesting;
     return IconButton(
-      tooltip: widget.spectating ? 'Live talk' : 'Game voice and live speakers',
+      tooltip: HangoutState.instance.speaking.isNotEmpty
+          ? '${HangoutState.instance.speaking.join(', ')} talking'
+          : widget.spectating
+              ? 'Live talk'
+              : 'Game voice and live speakers',
       onPressed: _joining ? null : _openPanel,
       icon: Stack(clipBehavior: Clip.none, children: [
-        Icon(_serverMuted || (_room != null && _muted)
-            ? Icons.mic_off_rounded
-            : active
-                ? Icons.mic_rounded
-                : Icons.mic_none_rounded),
+        Icon(HangoutState.instance.speaking.isNotEmpty
+            ? Icons.graphic_eq_rounded
+            : _serverMuted || (_room != null && _muted)
+                ? Icons.mic_off_rounded
+                : active
+                    ? Icons.mic_rounded
+                    : Icons.mic_none_rounded),
         if (hasRequests)
           Positioned(
             right: -4,
@@ -490,7 +502,8 @@ class _GameVoiceControlState extends State<GameVoiceControl> {
                 color: Theme.of(context).colorScheme.error,
                 shape: BoxShape.circle,
                 border: Border.all(
-                    color: Theme.of(context).scaffoldBackgroundColor, width: 1.5),
+                    color: Theme.of(context).scaffoldBackgroundColor,
+                    width: 1.5),
               ),
             ),
           ),

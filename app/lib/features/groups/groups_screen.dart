@@ -113,8 +113,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
     try {
       final res = await app.api.post('/calls/groups/${g.id}/token') as Map<String, dynamic>;
       if (!mounted) return;
-      Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => CallScreen(
+      await CallScreen.open(context, CallScreen(
           roomName: res['roomName'] as String,
           token: res['token'] as String,
           livekitUrl: res['livekitUrl'] as String,
@@ -122,8 +121,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
           refreshToken: () async =>
               ((await app.api.post('/calls/groups/${g.id}/token')
                   as Map<String, dynamic>)['token'] as String),
-        ),
-      ));
+        ));
     } on ApiException catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } catch (_) {

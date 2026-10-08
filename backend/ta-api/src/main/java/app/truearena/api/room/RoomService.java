@@ -34,6 +34,9 @@ import java.util.stream.Collectors;
 @Service
 public class RoomService {
 
+    @Autowired
+    private app.truearena.api.calls.VoiceSessionService voiceSessions;
+
     private static final String ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no O/0/I/1
     private static final int MAX_PLAYERS = 16;
 
@@ -76,6 +79,7 @@ public class RoomService {
      * reinstalled, and no one to hand the room off to if they leave. The
      * Flutter client also gates this in the UI (a friendlier prompt before
      * the request is even sent), but this is the actual enforcement. */
+    @org.springframework.transaction.annotation.Transactional
     public Mono<RoomView> create(UUID hostId, UUID groupId, String gameType, Long stake,
                                  java.util.Map<String, Object> gameConfig) {
         return create(hostId, groupId, gameType, stake, gameConfig, false);
@@ -86,6 +90,7 @@ public class RoomService {
      * whether the finished game actually moves anyone's rating is decided
      * server-side at the end (see {@code RatedMatchPolicy}).
      */
+    @org.springframework.transaction.annotation.Transactional
     public Mono<RoomView> create(UUID hostId, UUID groupId, String gameType, Long stake,
                                  java.util.Map<String, Object> gameConfig, boolean ranked) {
         String type = gameType == null || gameType.isBlank() ? "truearena" : gameType;
@@ -98,7 +103,10 @@ public class RoomService {
         if (stakeCoins < 0) {
             return Mono.error(ApiExceptions.badRequest("stake can't be negative"));
         }
-        return users.findById(hostId)
+        return rooms.lockHostedLobby(hostId + ":" + type)
+                .then(rooms.findHostedLobby(hostId, type))
+                .flatMap(room -> view(room, hostId))
+                .switchIfEmpty(Mono.defer(() -> users.findById(hostId)
                 .switchIfEmpty(Mono.error(ApiExceptions.unauthorized("unknown user")))
                 .flatMap(host -> host.isGuest()
                         ? Mono.error(ApiExceptions.forbidden("verify a phone or email to host a game — guests can join, not host"))
@@ -107,8 +115,9 @@ public class RoomService {
                                         writeConfig(ranked ? withRankedRules(type, gameConfig) : gameConfig), ranked)))
                                 .flatMap(room -> members.save(RoomMemberRow.of(room.id(), hostId, host.username())).thenReturn(room))
                                 .flatMap(room -> escrowStake(room, hostId))
-                                .doOnNext(room -> notifyCallCompanions(room, host.displayName()))
-                                .flatMap(room -> view(room, hostId)));
+                                .flatMap(room -> voiceSessions == null ? Mono.just(room) : voiceSessions.linkGame(hostId,room.id()).thenReturn(room))
+                                .flatMap(room -> notifyCallCompanions(room, host.displayName()).thenReturn(room))
+                                .flatMap(room -> view(room, hostId)))));
     }
 
     /**
@@ -168,16 +177,24 @@ public class RoomService {
      * this is a nice-to-have layered on top of room creation, never a
      * reason for it to fail.
      */
-    private void notifyCallCompanions(RoomRow room, String hostName) {
-        for (UUID companion : inbox.callCompanionsOf(room.hostId())) {
-            inbox.notify(companion, Map.of(
-                    "type", "GAME_STARTING",
-                    "data", Map.of(
-                            "roomId", room.id().toString(),
-                            "roomCode", room.code(),
-                            "gameType", room.gameType(),
-                            "hostName", hostName)));
+    private Mono<Void> notifyCallCompanions(RoomRow room, String hostName) {
+        java.util.function.Consumer<UUID> notify = companion -> inbox.notify(companion, Map.of(
+                "type", "GAME_STARTING", "data", Map.of("roomId", room.id().toString(),
+                        "roomCode", room.code(), "gameType", room.gameType(), "hostName", hostName)));
+        if (voiceSessions == null) {
+            return Mono.fromRunnable(() -> inbox.callCompanionsOf(room.hostId()).forEach(notify));
         }
+        return voiceSessions.active(room.hostId()).doOnNext(session -> session.participants().stream()
+                .map(app.truearena.api.calls.VoiceSessionService.Participant::userId)
+                .filter(user -> !user.equals(room.hostId())).forEach(notify)).then();
+    }
+
+    public Mono<RoomView> playTogether(UUID host, UUID roomId) {
+        return rooms.findById(roomId).filter(room -> room.hostId().equals(host) && !"ended".equals(room.status()))
+                .switchIfEmpty(Mono.error(ApiExceptions.forbidden("only this Huud's host can invite the hangout")))
+                .flatMap(room -> voiceSessions.linkGame(host,roomId).then(users.findById(host))
+                        .flatMap(user -> notifyCallCompanions(room,user.displayName()))
+                        .then(view(room,host)));
     }
 
     public Mono<RoomView> join(String code, UUID userId, String nickname) {
@@ -197,7 +214,7 @@ public class RoomService {
                                 // which sent people to watch something that wasn't live.
                                 ? Mono.error(ApiExceptions.conflict("this huud has already ended"))
                                 : members.countByRoomId(room.id())
-                                .flatMap(count -> count >= ("ludo".equals(room.gameType()) ? 4 : MAX_PLAYERS)
+                                .flatMap(count -> count >= (switch (room.gameType()) { case "draughts", "chess", "goosi" -> 2; case "ludo" -> 4; default -> MAX_PLAYERS; })
                                         ? Mono.error(ApiExceptions.conflict("huud is full"))
                                         : resolvedNickname(userId, nickname)
                                         .flatMap(resolved -> members.save(RoomMemberRow.of(room.id(), userId, resolved)))
@@ -235,6 +252,7 @@ public class RoomService {
      * that's what forfeit/quitting mid-game is for, and it settles the
      * stake through the normal win/loss payout instead of a refund.
      */
+    @org.springframework.transaction.annotation.Transactional
     public Mono<Void> abandon(UUID roomId, UUID callerId) {
         return rooms.findById(roomId)
                 .switchIfEmpty(Mono.error(ApiExceptions.notFound("huud not found")))
@@ -245,7 +263,7 @@ public class RoomService {
                         return Mono.error(ApiExceptions.forbidden("only the host can abandon this huud"));
                     }
                     boolean started = runtimes.find(roomId).map(RoomRuntime::started).orElse(false);
-                    if (started) {
+                    if (started || !"lobby".equals(room.status())) {
                         return Mono.error(ApiExceptions.conflict("the game has already started — forfeit instead"));
                     }
                     return members.findByRoomId(roomId).map(RoomMemberRow::userId).collectList()
@@ -253,6 +271,8 @@ public class RoomService {
                                     .then(members.deleteByRoomId(roomId))
                                     .then(rooms.deleteById(roomId))
                                     .doOnSuccess(ignored -> {
+                                        runtimes.find(roomId).ifPresent(rt -> rt.bus.tryEmitNext(
+                                                new app.truearena.room.LobbyBroadcast("ROOM_CANCELLED",Map.of("roomId",roomId.toString()))));
                                         botRuntimes.stopRoom(roomId);
                                         runtimes.find(roomId).ifPresent(RoomRuntime::cancelTimer);
                                         runtimes.remove(roomId);
@@ -435,6 +455,10 @@ public class RoomService {
     }
 
     /** Recover a player's latest live room after reinstall or an older client. */
+    public Mono<RoomView> hostedLobby(UUID userId, String gameType) {
+        return rooms.findHostedLobby(userId, gameType).flatMap(room -> view(room, userId));
+    }
+
     public Mono<RoomView> mostRecentActive(UUID userId) {
         return rooms.findRecentActiveForUser(userId)
                 .next()

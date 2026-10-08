@@ -7,6 +7,8 @@ import '../../core/api_client.dart';
 import '../../core/app_state.dart';
 import '../../core/game_socket.dart';
 import '../../core/models.dart';
+import '../../widgets/pending_huud.dart';
+import '../../widgets/cancel_huud_button.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/cyber_agent_sheet.dart';
 import '../../widgets/copyable_huud_code.dart';
@@ -48,21 +50,22 @@ class _GoosiLobbyScreenState extends State<GoosiLobbyScreen> {
   @override
   void dispose() {
     _sub?.cancel();
-    if (!_handedOff) {
-      _socket?.close();
-      // Never started from here — refund a staked lobby rather than leaving
-      // the coins stuck. Best-effort: fires and forgets.
-      final room = _room;
-      if (room != null && room.stakeCoins > 0 && room.hostId == _selfId(_app)) {
-        _app.api.delete('/rooms/${room.id}').catchError((_) {});
-      }
-    }
+    if (!_handedOff) _socket?.close();
     super.dispose();
   }
 
   Future<void> _open() async {
     final app = AppScope.of(context);
     _app = app;
+    try {
+      if (await resumePendingHuud(context, app, 'goosi')) return;
+      if (!mounted) return;
+    } catch (_) {
+      if (mounted)
+        setState(
+            () => _error = 'Could not check your waiting Huud. Try again.');
+      return;
+    }
     final chosenMode = await _chooseMode();
     if (!mounted) return;
     if (chosenMode == null) {
@@ -93,13 +96,11 @@ class _GoosiLobbyScreenState extends State<GoosiLobbyScreen> {
       // no balance to stake against — fall through to an unstaked room
     }
     try {
-      final res = await app.api.post(
-              '/rooms', {
-                'gameType': 'goosi',
-                'gameConfig': {'mode': _mode},
-                if (stake > 0) 'stake': stake,
-              })
-          as Map<String, dynamic>;
+      final res = await app.api.post('/rooms', {
+        'gameType': 'goosi',
+        'gameConfig': {'mode': _mode},
+        if (stake > 0) 'stake': stake,
+      }) as Map<String, dynamic>;
       if (!mounted) return;
       final room = RoomView.fromJson(res);
       await app.rememberActiveRoom(room.id);
@@ -153,6 +154,8 @@ class _GoosiLobbyScreenState extends State<GoosiLobbyScreen> {
     final socket = GameSocket.connect(app.api, roomId);
     _socket = socket;
     _sub = socket.envelopes.listen((env) {
+      if (!mounted) return;
+      if (handleCancelledHuud(context, env, _room!.id)) return;
       switch (env['type']) {
         case 'SNAPSHOT':
           final p = (env['payload'] as Map).cast<String, dynamic>();
@@ -199,6 +202,7 @@ class _GoosiLobbyScreenState extends State<GoosiLobbyScreen> {
         code: p['code'] as String,
         hostId: p['hostId'] as String,
         status: p['status'] as String? ?? 'lobby',
+        gameType: 'goosi',
         members: members,
         stakeCoins: _room?.stakeCoins ?? 0,
       );
@@ -332,6 +336,7 @@ class _GoosiLobbyScreenState extends State<GoosiLobbyScreen> {
                                 .labelSmall
                                 ?.copyWith(color: n.mute, letterSpacing: 2)),
                         const SizedBox(height: 4),
+                        if (!_example) CancelHuudButton(room: room),
                         CopyableHuudCode(
                           code: room.code,
                           child: Text(room.code,
@@ -353,7 +358,8 @@ class _GoosiLobbyScreenState extends State<GoosiLobbyScreen> {
                           WatchingEye(count: _spectatorCount),
                           _chip(n, '2 players'),
                           _chip(n, '12 houses'),
-                          _chip(n, _mode == 'oware' ? 'Oware Abapa' : 'Relay Four'),
+                          _chip(n,
+                              _mode == 'oware' ? 'Oware Abapa' : 'Relay Four'),
                           _chip(n, 'no extra turns'),
                           if (room.stakeCoins > 0)
                             _chip(n,
@@ -423,7 +429,9 @@ class _GoosiLobbyScreenState extends State<GoosiLobbyScreen> {
               child: Opacity(
                   opacity: away ? 0.4 : 1,
                   child: OnlineAvatar(m.nickname ?? '?',
-                      size: 60, online: m.isBot || m.connected)),
+                      size: 60,
+                      imageUrl: m.avatarUrl,
+                      online: m.isBot || m.connected)),
             ),
             if (isHost)
               Positioned(

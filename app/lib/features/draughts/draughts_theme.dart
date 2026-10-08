@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// One board wood tone — dark/light squares stay the same walnut *species*
-/// (see `draughts_game_screen.dart`'s `_PlankCell` doc), just re-stained.
+/// One board look: the colour of the squares pieces sit on, the empty ones,
+/// and the frame around them.
 class BoardPalette {
   const BoardPalette({
     required this.id,
@@ -25,10 +25,9 @@ class BoardPalette {
   final Color frameBottom;
 }
 
-/// One pair of piece colors. Every preset here is chosen to stay legible
-/// against every `BoardPalette` above — that was the actual bug report
-/// ("piece is too dark and blends with the board") — so don't add a pair
-/// without checking it against the darkest board tone.
+/// One pair of piece colors. Every pair must stay legible against every
+/// `BoardPalette` — check a new pair against the darkest board's playing
+/// squares (the black ones) before adding it.
 class PiecePalette {
   const PiecePalette({
     required this.id,
@@ -51,109 +50,99 @@ class PiecePalette {
   final Color bRim;
 }
 
+/// Four boards, each with a clear difference between the squares pieces
+/// sit on (`darkSquare`) and the empty ones (`lightSquare`) — the older
+/// all-brown set was too dark and the grid was hard to read. The first is
+/// the default. Saved choices from the old set fall back to it.
+///
+/// The grain colours stay close to their square colour on purpose: the
+/// squares should look like clean flat tiles, not a busy texture.
 const List<BoardPalette> boardPalettes = [
   BoardPalette(
-    id: 'walnut',
-    label: 'Walnut',
-    darkSquare: Color(0xff251a10),
-    lightSquare: Color(0xff7a5230),
-    darkGrain: Color(0xff0a0603),
-    lightGrain: Color(0xff4a3018),
-    frameTop: Color(0xff5c3a1c),
-    frameBottom: Color(0xff2e1c0e),
+    id: 'classic',
+    label: 'Black & White',
+    darkSquare: Color(0xff1b1b1f),
+    lightSquare: Color(0xfff4f1ea),
+    darkGrain: Color(0xff242429),
+    lightGrain: Color(0xffe6e2d6),
+    frameTop: Color(0xff3a3a40),
+    frameBottom: Color(0xff121214),
   ),
   BoardPalette(
-    id: 'ebony',
-    label: 'Ebony',
-    darkSquare: Color(0xff17110c),
-    lightSquare: Color(0xff4a3a2c),
-    darkGrain: Color(0xff000000),
-    lightGrain: Color(0xff241a12),
-    frameTop: Color(0xff3a2c1e),
-    frameBottom: Color(0xff140e08),
+    id: 'tournament',
+    label: 'Green & Cream',
+    darkSquare: Color(0xff2f6f4a),
+    lightSquare: Color(0xfff0e8c8),
+    darkGrain: Color(0xff3a7d55),
+    lightGrain: Color(0xffe2d9b4),
+    frameTop: Color(0xff3f8a5c),
+    frameBottom: Color(0xff1d4630),
   ),
   BoardPalette(
-    id: 'rosewood',
-    label: 'Rosewood',
-    darkSquare: Color(0xff2e1210),
-    lightSquare: Color(0xff8a4030),
-    darkGrain: Color(0xff100604),
-    lightGrain: Color(0xff5a241a),
-    frameTop: Color(0xff6b2e1e),
-    frameBottom: Color(0xff33130c),
+    id: 'ocean',
+    label: 'Blue & Ice',
+    darkSquare: Color(0xff2a5d9f),
+    lightSquare: Color(0xffe3edf8),
+    darkGrain: Color(0xff3468ab),
+    lightGrain: Color(0xffd0deef),
+    frameTop: Color(0xff3a72b8),
+    frameBottom: Color(0xff183a68),
   ),
   BoardPalette(
-    id: 'driftwood',
-    label: 'Driftwood Ash',
-    darkSquare: Color(0xff40382c),
-    lightSquare: Color(0xffa89778),
-    darkGrain: Color(0xff1c1710),
-    lightGrain: Color(0xff6b5c42),
-    frameTop: Color(0xff7a6b52),
-    frameBottom: Color(0xff363024),
-  ),
-  BoardPalette(
-    id: 'mahogany',
-    label: 'Mahogany Fire',
-    darkSquare: Color(0xff33140a),
-    lightSquare: Color(0xffb35a24),
-    darkGrain: Color(0xff140704),
-    lightGrain: Color(0xff6b2e10),
-    frameTop: Color(0xff8a3c14),
-    frameBottom: Color(0xff2e1206),
+    id: 'wood',
+    label: 'Light Wood',
+    darkSquare: Color(0xff8a5530),
+    lightSquare: Color(0xfff0d9b0),
+    darkGrain: Color(0xff96603a),
+    lightGrain: Color(0xffe4cb9d),
+    frameTop: Color(0xffa8693a),
+    frameBottom: Color(0xff5a3318),
   ),
 ];
 
+/// Bright, saturated pairs that are easy to tell apart from each other and
+/// from every board above — never a dark piece colour, which was what
+/// blended into the board before.
 const List<PiecePalette> piecePalettes = [
   PiecePalette(
-    id: 'terracotta_ivory',
-    label: 'Terracotta vs. Ivory',
-    aTop: Color(0xffe8b25a),
-    aMid: Color(0xffc9822f),
-    aRim: Color(0xff6b3f16),
-    bTop: Color(0xfff2ead9),
-    bMid: Color(0xffcfc3a8),
-    bRim: Color(0xff7a6f56),
+    id: 'red_white',
+    label: 'Red vs. White',
+    aTop: Color(0xffff6f60),
+    aMid: Color(0xffe53935),
+    aRim: Color(0xff8e1b17),
+    bTop: Color(0xffffffff),
+    bMid: Color(0xffeceff1),
+    bRim: Color(0xff90a4ae),
   ),
   PiecePalette(
-    id: 'amber_slate',
-    label: 'Amber vs. Slate',
-    aTop: Color(0xffffcf7a),
-    aMid: Color(0xffe0a030),
-    aRim: Color(0xff7a4e10),
-    bTop: Color(0xff8fa3b8),
-    bMid: Color(0xff546a80),
-    bRim: Color(0xff26333f),
+    id: 'gold_sky',
+    label: 'Gold vs. Sky',
+    aTop: Color(0xffffe27a),
+    aMid: Color(0xffffb300),
+    aRim: Color(0xff8a5a00),
+    bTop: Color(0xff9fe0ff),
+    bMid: Color(0xff29a8f0),
+    bRim: Color(0xff0d5a8c),
   ),
   PiecePalette(
-    id: 'coral_teal',
-    label: 'Coral vs. Teal',
-    aTop: Color(0xffff9d7a),
-    aMid: Color(0xffe06848),
-    aRim: Color(0xff7a2a18),
-    bTop: Color(0xff5ecfc0),
-    bMid: Color(0xff2a8a7e),
-    bRim: Color(0xff123a34),
+    id: 'pink_lime',
+    label: 'Pink vs. Lime',
+    aTop: Color(0xffff8ac6),
+    aMid: Color(0xffff3d9a),
+    aRim: Color(0xff9c1560),
+    bTop: Color(0xffe2ff7a),
+    bMid: Color(0xffa6e022),
+    bRim: Color(0xff4f7a0a),
   ),
   PiecePalette(
-    id: 'bone_charcoal',
-    label: 'Bone vs. Charcoal',
-    aTop: Color(0xfff5ecd8),
-    aMid: Color(0xffd8c9a3),
-    aRim: Color(0xff8a7a52),
-    bTop: Color(0xff6a7078),
-    bMid: Color(0xff3a3f46),
-    bRim: Color(0xff16181c),
-  ),
-  PiecePalette(
-    id: 'gold_crimson',
-    label: 'Gold vs. Crimson',
-    aTop: Color(0xffffe08a),
-    aMid: Color(0xffe0ab30),
-    aRim: Color(0xff7a5610),
-    bTop: Color(0xffe0607a),
-    bMid: Color(0xffa32e4a),
-    bRim: Color(0xff4a1220),
+    id: 'orange_teal',
+    label: 'Orange vs. Teal',
+    aTop: Color(0xffffb35c),
+    aMid: Color(0xffff8a1f),
+    aRim: Color(0xff8f4a08),
+    bTop: Color(0xff6ee7f0),
+    bMid: Color(0xff1fc2d4),
+    bRim: Color(0xff0a6674),
   ),
 ];
 

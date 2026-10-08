@@ -303,8 +303,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
       final res = await app.api.post('/calls/dm/${f.userId}/token')
           as Map<String, dynamic>;
       if (!mounted) return;
-      Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => CallScreen(
+      await CallScreen.open(context, CallScreen(
           roomName: res['roomName'] as String,
           token: res['token'] as String,
           livekitUrl: res['livekitUrl'] as String,
@@ -314,8 +313,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
           refreshToken: () async =>
               ((await app.api.post('/calls/dm/${f.userId}/token')
                   as Map<String, dynamic>)['token'] as String),
-        ),
-      ));
+        ));
     } on ApiException catch (e) {
       if (mounted)
         ScaffoldMessenger.of(context)

@@ -6,6 +6,8 @@ import '../../core/api_client.dart';
 import '../../core/app_state.dart';
 import '../../core/game_socket.dart';
 import '../../core/models.dart';
+import '../../widgets/pending_huud.dart';
+import '../../widgets/cancel_huud_button.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/copyable_huud_code.dart';
 import '../../widgets/cyber_agent_sheet.dart';
@@ -68,19 +70,22 @@ class _ChessLobbyScreenState extends State<ChessLobbyScreen> {
   @override
   void dispose() {
     _sub?.cancel();
-    if (!_handedOff) {
-      _socket?.close();
-      final room = _room;
-      if (room != null && room.hostId == _app.user?.id) {
-        _app.api.delete('/rooms/${room.id}').catchError((_) {});
-      }
-    }
+    if (!_handedOff) _socket?.close();
     super.dispose();
   }
 
   Future<void> _open() async {
     final app = AppScope.of(context);
     _app = app;
+    try {
+      if (await resumePendingHuud(context, app, 'chess')) return;
+      if (!mounted) return;
+    } catch (_) {
+      if (mounted)
+        setState(
+            () => _error = 'Could not check your waiting Huud. Try again.');
+      return;
+    }
     final control = await showChessTimeControlSheet(context);
     if (!mounted) return;
     if (control == null) {
@@ -127,6 +132,8 @@ class _ChessLobbyScreenState extends State<ChessLobbyScreen> {
     final socket = GameSocket.connect(app.api, roomId);
     _socket = socket;
     _sub = socket.envelopes.listen((env) {
+      if (!mounted) return;
+      if (handleCancelledHuud(context, env, _room!.id)) return;
       switch (env['type']) {
         case 'SNAPSHOT':
           final p = (env['payload'] as Map).cast<String, dynamic>();
@@ -279,6 +286,7 @@ class _ChessLobbyScreenState extends State<ChessLobbyScreen> {
                           style: t.labelSmall
                               ?.copyWith(color: n.mute, letterSpacing: 2)),
                       const SizedBox(height: 4),
+                      CancelHuudButton(room: room),
                       CopyableHuudCode(
                         code: room.code,
                         child: Text(room.code,

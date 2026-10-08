@@ -13,6 +13,8 @@ import 'package:truearena/theme/neon_theme.dart';
 
 /// Records what the screen sends so tests can assert on actions and their data.
 class _Socket implements GameSocket {
+  @override
+  final memberAvatars = <String, String?>{};
   final frames = StreamController<Map<String, dynamic>>.broadcast();
   final sent = <({String type, Map<String, dynamic>? payload})>[];
   @override

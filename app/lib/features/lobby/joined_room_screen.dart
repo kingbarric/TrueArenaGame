@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import '../../core/app_state.dart';
 import '../../core/game_socket.dart';
 import '../../core/models.dart';
+import '../../widgets/cancel_huud_button.dart';
+import '../../widgets/pending_huud.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/neon.dart';
 import '../../widgets/copyable_huud_code.dart';
@@ -64,6 +66,8 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
     final socket = GameSocket.connect(_app.api, _room.id);
     _socket = socket;
     _sub = socket.envelopes.listen((env) {
+      if (!mounted) return;
+      if (handleCancelledHuud(context, env, _room.id)) return;
       switch (env['type']) {
         case 'CONNECTION':
           // A resume already knows from GET /rooms/{id} that the match is in
@@ -203,9 +207,11 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
           'chess' => 'Chess',
           'goosi' => 'Macala',
           'whot' => 'Whot',
+          'ludo' => 'Ludo',
           _ => 'Traitors',
         }),
         actions: [
+          CancelHuudButton(room: _room),
           IconButton(
             tooltip: 'Copy code',
             icon: const Icon(Icons.copy_all_outlined, size: 18),
@@ -388,9 +394,7 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
               },
             ),
           ),
-          // A joiner only sees Start if host migration (the original host
-          // disconnecting) has actually made them the host — same rule the
-          // backend enforces on GAME_START either way.
+          // Reopening a waiting Huud restores the saved creator’s Start control.
           if (isHost) ...[
             const SizedBox(width: 8),
             Expanded(

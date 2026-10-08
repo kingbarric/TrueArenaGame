@@ -31,11 +31,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * {@link PushNotificationService#sendCallAlert}). Cancel and decline travel
  * back the same way so nobody is left ringing.
  *
- * <p>Anyone on a call has the same powers: add a friend, mute someone, drop
- * someone. "On the call" means connected to that LiveKit room right now,
- * checked with LiveKit itself rather than trusted from the client. Adding
- * someone records a short-lived invitation, which is what lets a person
- * outside a 1:1 pair or a group into that call's room.
+ * <p>The persistent VoiceSession records who is on the call and its host.
+ * Only that host may mute/remove other participants. Invitations follow the
+ * session's invite permission and reuse the existing friendship checks.
+ * Invitation records allow reconnects without tying voice to a game.
  */
 @Service
 public class CallRingService {
@@ -50,6 +49,9 @@ public class CallRingService {
     private final PushNotificationService push;
     private final LiveKitTokenService tokens;
     private final LiveKitRoomAdmin voice;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private VoiceSessionService sessions;
 
     /** roomName → (invited user → when the invitation lapses). */
     private final Map<String, Map<UUID, Instant>> invites = new ConcurrentHashMap<>();
@@ -95,7 +97,10 @@ public class CallRingService {
 
     /** A token for a call room you belong to or were invited into — how an answered ring joins. */
     public Mono<CallToken> joinToken(UUID userId, String roomName) {
-        return canJoin(userId, roomName)
+        return (sessions == null ? canJoin(userId, roomName) :
+                sessions.removed(userId,roomName).flatMap(removed -> removed ? Mono.just(false) :
+                sessions.isMember(userId,roomName).flatMap(member -> member ? Mono.just(true) :
+                        sessions.approved(userId,roomName).flatMap(approved -> approved ? Mono.just(true) : canJoin(userId,roomName)))))
                 .filter(Boolean::booleanValue)
                 .switchIfEmpty(Mono.error(ApiExceptions.forbidden("you're not part of that call")))
                 .then(users.findById(userId))
@@ -112,6 +117,7 @@ public class CallRingService {
      */
     public Mono<Void> invite(UUID requesterId, String roomName, UUID friendId, String mediaKey) {
         return requireOnCall(requesterId, roomName)
+                .then(sessions == null ? Mono.empty() : sessions.requireInvitePermission(requesterId,roomName))
                 .then(Mono.defer(() -> requireFriends(requesterId, friendId)))
                 .then(Mono.defer(() -> ringInto(roomName, requesterId, friendId, "adding you to a call", mediaKey)));
     }
@@ -119,6 +125,7 @@ public class CallRingService {
     /** Someone on the call mutes another participant. They can unmute themselves. */
     public Mono<Void> mute(UUID requesterId, String roomName, UUID targetId) {
         return requireOnCall(requesterId, roomName)
+                .then(sessions == null ? Mono.empty() : sessions.requireOwner(requesterId,roomName))
                 .then(Mono.defer(() -> voice.muteAudio(roomName, targetId.toString())));
     }
 
@@ -128,11 +135,13 @@ public class CallRingService {
             return Mono.error(ApiExceptions.badRequest("to leave, just hang up"));
         }
         return requireOnCall(requesterId, roomName)
+                .then(sessions == null ? Mono.empty() : sessions.requireOwner(requesterId,roomName))
                 .doOnSuccess(ignored -> {
                     Map<UUID, Instant> invited = invites.get(roomName);
                     if (invited != null) invited.remove(targetId);
                 })
-                .then(Mono.defer(() -> voice.remove(roomName, targetId.toString())));
+                .then(Mono.defer(() -> voice.remove(roomName, targetId.toString())))
+                .then(sessions == null ? Mono.empty() : sessions.removeMembership(targetId,roomName));
     }
 
     // ------------------------------------------------------------ helpers
@@ -140,7 +149,8 @@ public class CallRingService {
     private Mono<Void> ringInto(String roomName, UUID callerId, UUID friendId, String why, String mediaKey) {
         invites.computeIfAbsent(roomName, k -> new ConcurrentHashMap<>())
                 .put(friendId, Instant.now().plus(INVITE_TTL));
-        return users.findById(callerId)
+        return (sessions == null ? Mono.<Void>empty() : sessions.recordInvite(roomName,friendId))
+                .then(users.findById(callerId))
                 .switchIfEmpty(Mono.error(ApiExceptions.notFound("no such user")))
                 .doOnNext(caller -> {
                     Map<String, String> data = callData(caller, roomName);
@@ -182,6 +192,8 @@ public class CallRingService {
     }
 
     private Mono<Void> requireOnCall(UUID userId, String roomName) {
+        if (sessions != null) return sessions.isMember(userId,roomName)
+                .filter(Boolean::booleanValue).switchIfEmpty(Mono.error(ApiExceptions.forbidden("only people on the call can do that"))).then();
         if (!roomName.startsWith("dm-") && !roomName.startsWith("group-")) {
             return Mono.error(ApiExceptions.forbidden("that isn't a friends or group call"));
         }

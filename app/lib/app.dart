@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'core/api_client.dart';
 import 'core/app_state.dart';
+import 'core/hangout_state.dart';
+import 'widgets/persistent_hangout.dart';
 import 'core/models.dart';
 import 'core/push_notifications.dart';
 import 'features/spectate/watch_live.dart';
@@ -18,7 +20,7 @@ class TrueArenaApp extends StatelessWidget {
 
   final AppState state;
 
-  static final navigatorKey = GlobalKey<NavigatorState>();
+  static final navigatorKey = HangoutState.instance.navigationKey;
 
   @override
   Widget build(BuildContext context) {
@@ -56,8 +58,8 @@ class TrueArenaApp extends StatelessWidget {
             },
             builder: (context, child) {
               final content = DismissKeyboardOnOutsideTap(
-                  child: _GameInviteOverlay(
-                      state: state, child: child ?? const SizedBox.shrink()));
+                  child: PersistentHangout(child: _GameInviteOverlay(
+                      state: state, child: child ?? const SizedBox.shrink())));
               if (state.visualTheme == VisualTheme.palmWine) return content;
               final design = context.neonDesign.kind;
               return DecoratedBox(
@@ -155,7 +157,8 @@ class _GameInviteOverlayState extends State<_GameInviteOverlay> {
             navigator: TrueArenaApp.navigatorKey.currentState, messenger: messenger);
         if (opened) announceWatching(messenger);
       } else {
-        messenger.showSnackBar(SnackBar(content: Text(e.message)));
+        messenger.showSnackBar(SnackBar(content: Text(e.message == 'room is full' || e.message == 'huud is full'
+            ? 'Player seats are full. Stay in voice; you can watch when the game starts.' : e.message)));
       }
     } finally {
       if (mounted) setState(() => _joining = false);

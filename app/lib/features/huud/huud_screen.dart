@@ -19,6 +19,7 @@ import '../lobby/joined_room_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../onboarding/guest_gate.dart';
 import '../profile/profile_screen.dart';
+import '../calls/hangouts_screen.dart';
 import 'huud_models.dart';
 
 /// The Huud — PlayHuud's lobby feed, one tab in the shell.
@@ -490,6 +491,8 @@ class _HuudScreenState extends State<HuudScreen> {
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
         ),
+        IconButton(tooltip: 'Hangouts', icon: const Icon(Icons.headset_rounded),
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const HangoutsScreen()))),
         IconButton(
           tooltip: 'Notifications',
           icon: const Icon(Icons.notifications_none_rounded),

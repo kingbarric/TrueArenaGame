@@ -10,6 +10,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'api_client.dart';
+import 'hangout_state.dart';
 import 'device_id.dart';
 import 'e2e_crypto.dart';
 import 'google_config.dart';
@@ -70,7 +71,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   bool voiceMatchEnabled = false;
   double voiceMatchThreshold = 0.8;
 
-  /// Live while signed in — see `InboxClient`. `CallScreen` sends
+  /// Live while signed in — see `InboxClient`. Older clients send
   /// `CALL_JOINED`/`CALL_LEFT` on it directly. `AppState` routes game-start
   /// notices to [pendingGameInvite] and incoming DMs to [chatMessages].
   InboxClient? inbox;
@@ -134,7 +135,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         notifyListeners();
       } else if (payload?['type'] == 'NEW_MESSAGE') {
         _chatController.add((payload!['data'] as Map).cast<String, dynamic>());
-      } else if (const {'CALL_INCOMING', 'CALL_CANCELLED', 'CALL_DECLINED', 'NUDGE'}
+      } else if (const {'CALL_INCOMING', 'CALL_CANCELLED', 'CALL_DECLINED', 'NUDGE',
+        'VOICE_USER_JOINED', 'VOICE_USER_LEFT', 'VOICE_HOST_CHANGED', 'VOICE_ENDED',
+        'VOICE_JOIN_REQUEST', 'VOICE_JOIN_ANSWERED'}
           .contains(payload?['type'])) {
         _callController.add(payload!);
       } else if (const {'HUUD_CHALLENGE', 'HUUD_CHALLENGE_ANSWERED'}
@@ -633,6 +636,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> signOut() async {
+    await HangoutState.instance.leave?.call();
+    if (HangoutState.instance.active) return;
     if (onSignedOut != null) await onSignedOut!(); // before api.bearer is cleared below
     try {
       await _googleClient?.signOut();

@@ -42,6 +42,11 @@ public class RoomController {
                 Boolean.TRUE.equals(body.ranked())));
     }
 
+    @PostMapping("/{id}/play-together")
+    public Mono<RoomView> playTogether(@PathVariable UUID id) {
+        return CurrentUser.id().flatMap(uid -> rooms.playTogether(uid,id));
+    }
+
     @DeleteMapping("/{id}")
     @Operation(summary = "Abandon a lobby before the game starts — host only, refunds any staked coins")
     public Mono<Void> abandon(@PathVariable UUID id) {
@@ -93,6 +98,11 @@ public class RoomController {
     @GetMapping("/{id}")
     public Mono<RoomView> one(@PathVariable UUID id) {
         return CurrentUser.id().flatMap(uid -> rooms.get(id, uid));
+    }
+
+    @GetMapping("/pending/{gameType}")
+    public Mono<RoomView> pending(@PathVariable String gameType) {
+        return CurrentUser.id().flatMap(uid -> rooms.hostedLobby(uid, gameType));
     }
 
     @GetMapping("/active")
