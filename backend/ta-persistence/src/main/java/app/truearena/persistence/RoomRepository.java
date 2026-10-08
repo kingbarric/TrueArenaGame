@@ -23,5 +23,8 @@ public interface RoomRepository extends ReactiveCrudRepository<RoomRow, UUID> {
     @Query("SELECT 1 FROM pg_advisory_xact_lock(hashtextextended(:key, 0))")
     Mono<Integer> lockHostedLobby(String key);
 
+    @Query("SELECT * FROM rooms WHERE game_type='slayhuud' AND status='in_game'")
+    Flux<RoomRow> findLiveSlayRooms();
+
     Mono<RoomRow> findByCode(String code);
 }

@@ -61,12 +61,12 @@ public class HuudService {
     /** Players a request gathers when the author doesn't say — the game's natural table. */
     static final Map<String, Integer> DEFAULT_SEATS = Map.of(
             "draughts", 2, "chess", 2, "goosi", 2,
-            "whot", 4, "ludo", 4, "wordbluff", 4, "truearena", 6);
+            "whot", 4, "ludo", 4, "wordbluff", 4, "truearena", 6, "slayhuud", 2);
     private static final Set<String> HEAD_TO_HEAD = Set.of("draughts", "chess", "goosi");
 
     static final Map<String, String> GAME_NAMES = Map.of(
             "draughts", "Draughts", "chess", "Chess", "goosi", "Macala", "whot", "Whot",
-            "ludo", "Ludo", "wordbluff", "Word Bluff", "truearena", "Traitors");
+            "ludo", "Ludo", "wordbluff", "Word Bluff", "truearena", "Traitors", "slayhuud", "SlayHuud");
 
     private final DatabaseClient db;
     private final RoomService rooms;
@@ -351,15 +351,20 @@ public class HuudService {
         String type = gameTypeOf(request.gameType());
         int seats = seatsFor(type, request.seats());
         boolean ranked = Boolean.TRUE.equals(request.ranked());
-        return rooms.create(author, null, type, null, null, ranked)
-                // One open request per player — a new one replaces the last.
-                .flatMap(room -> db.sql("""
-                                UPDATE huud_posts SET status = 'closed'
-                                WHERE author_id = :uid AND kind = 'game_request' AND status = 'open'
-                                """).bind("uid", author).fetch().rowsUpdated()
-                        .then(insert(author, "game_request", room, type, request.message(), ranked, seats, null,
-                                REQUEST_TTL))
-                        .map(id -> new CreatedPost(id, room)));
+        return rooms.create(author, null, type, null, "slayhuud".equals(type) ? Map.of("mode", seats == 2 ? "battle" : "group", "seats", seats, "themeId", "first-date") : null, ranked)
+            .flatMap(room -> advertisedSeats(room,type,seats).flatMap(actualSeats ->
+                db.sql("UPDATE huud_posts SET status='closed' WHERE author_id=:uid AND kind='game_request' AND status='open'")
+                    .bind("uid",author).fetch().rowsUpdated()
+                    .then(insert(author,"game_request",room,type,request.message(),ranked,actualSeats,null,REQUEST_TTL))
+                    .map(id->new CreatedPost(id,room))));
+    }
+
+    // A resumed Slay room retains its original mode and includes judge seats in its capacity.
+    private Mono<Integer> advertisedSeats(RoomView room,String gameType,int requested) {
+        if(!"slayhuud".equals(gameType))return Mono.just(requested);
+        return db.sql("SELECT game_config FROM rooms WHERE id=:id").bind("id",room.id())
+            .map(r->{try{Object value=new com.fasterxml.jackson.databind.ObjectMapper().readValue(r.get("game_config",String.class),Map.class).get("seats");return value instanceof Number n?n.intValue():requested;}catch(Exception e){return requested;}})
+            .one().defaultIfEmpty(requested);
     }
 
     /** Challenge one player: makes a two-seat lobby room and asks them into it. */
@@ -500,6 +505,11 @@ public class HuudService {
     static int seatsFor(String gameType, Integer requested) {
         if (HEAD_TO_HEAD.contains(gameType)) {
             return 2;
+        }
+        if("slayhuud".equals(gameType)) {
+            int wanted=requested==null?2:requested;
+            for(int size:List.of(2,4,6,8,10,16))if(size>=wanted)return size;
+            return 16;
         }
         int max = "ludo".equals(gameType) ? 4 : 16;
         int seats = requested == null ? DEFAULT_SEATS.get(gameType) : requested;

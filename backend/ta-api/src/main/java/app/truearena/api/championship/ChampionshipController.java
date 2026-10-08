@@ -20,13 +20,13 @@ public class ChampionshipController {
     public ChampionshipController(ChampionshipService service) { this.service = service; }
 
     public record Create(@NotBlank String name, int size, @NotBlank String visibility,
-                         @NotNull Instant scheduledAt) {}
+                         @NotNull Instant scheduledAt, String gameType) {}
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public Mono<ChampionshipService.View> create(@Valid @RequestBody Create request) {
         return CurrentUser.id().flatMap(u -> service.create(u, request.name(), request.size(),
-                request.visibility(), request.scheduledAt()));
+                request.visibility(), request.scheduledAt(), request.gameType()));
     }
 
     @GetMapping("/discover")

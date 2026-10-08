@@ -16,6 +16,9 @@ public record ChampionshipRow(@Id UUID id, String code, String name,
                               @Column("champion_id") UUID championId,
                               @Column("created_at") Instant createdAt,
                               @Column("completed_at") Instant completedAt) {
+    public static ChampionshipRow create(String code, String name, int size, String visibility, Instant scheduledAt, UUID creatorId, String gameType) {
+        return new ChampionshipRow(null, code, name, gameType, size, visibility, scheduledAt, creatorId, "lobby", 0, null, null, null);
+    }
     public static ChampionshipRow create(String code, String name, int size, String visibility,
                                          Instant scheduledAt, UUID creatorId) {
         return new ChampionshipRow(null, code, name, "draughts", size, visibility, scheduledAt,

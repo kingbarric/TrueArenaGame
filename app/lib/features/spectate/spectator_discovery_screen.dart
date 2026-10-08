@@ -14,7 +14,8 @@ const _gameNames = {
   'chess': 'Chess',
   'goosi': 'Macala',
   'whot': 'Whot',
-  'ludo': 'Ludo'
+  'ludo': 'Ludo',
+  'slayhuud': 'SlayHuud'
 };
 
 class DiscoverableRoom {

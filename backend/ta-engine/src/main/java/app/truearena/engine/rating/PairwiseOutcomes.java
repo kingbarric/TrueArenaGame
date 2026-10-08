@@ -74,6 +74,10 @@ public final class PairwiseOutcomes {
      * able to break the game-end path.
      */
     private static int placement(String outcome) {
+        if (outcome != null && outcome.startsWith("rank:")) {
+            try { int rank = Integer.parseInt(outcome.substring(5)); return rank > 0 ? 10000 - rank : 0; }
+            catch (NumberFormatException ignored) { return 0; }
+        }
         return switch (outcome == null ? "" : outcome) {
             case WON -> 2;
             case TIED -> 1;

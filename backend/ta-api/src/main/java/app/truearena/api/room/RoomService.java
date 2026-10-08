@@ -72,7 +72,13 @@ public class RoomService {
         this.games = games;
     }
 
-    private static final java.util.Set<String> GAME_TYPES = java.util.Set.of("truearena", "wordbluff", "draughts", "goosi", "whot", "ludo", "chess");
+    private static int slaySeats(String config) {
+        try { Object n = new com.fasterxml.jackson.databind.ObjectMapper().readValue(config, Map.class).get("seats");
+            return n instanceof Number number ? Math.min(22, Math.max(2, number.intValue())) : 2;
+        } catch (Exception e) { return 2; }
+    }
+
+    private static final java.util.Set<String> GAME_TYPES = java.util.Set.of("truearena", "wordbluff", "draughts", "goosi", "whot", "ludo", "chess", "slayhuud");
 
     /** A guest can join any room, but hosting (creating) one needs a real
      * account — otherwise there's no way to reach them again if the app is
@@ -100,6 +106,7 @@ public class RoomService {
         // Staking is opt-in per room, never required — a null/omitted stake
         // (the common case) is a perfectly ordinary unstaked room.
         long stakeCoins = stake == null ? 0 : stake;
+        if("slayhuud".equals(type)&&stakeCoins>0) return Mono.error(ApiExceptions.badRequest("SlayHuud competitions do not use coin stakes"));
         if (stakeCoins < 0) {
             return Mono.error(ApiExceptions.badRequest("stake can't be negative"));
         }
@@ -214,7 +221,7 @@ public class RoomService {
                                 // which sent people to watch something that wasn't live.
                                 ? Mono.error(ApiExceptions.conflict("this huud has already ended"))
                                 : members.countByRoomId(room.id())
-                                .flatMap(count -> count >= (switch (room.gameType()) { case "draughts", "chess", "goosi" -> 2; case "ludo" -> 4; default -> MAX_PLAYERS; })
+                                .flatMap(count -> count >= (switch (room.gameType()) { case "draughts", "chess", "goosi" -> 2; case "ludo" -> 4; case "slayhuud" -> slaySeats(room.gameConfig()); default -> MAX_PLAYERS; })
                                         ? Mono.error(ApiExceptions.conflict("huud is full"))
                                         : resolvedNickname(userId, nickname)
                                         .flatMap(resolved -> members.save(RoomMemberRow.of(room.id(), userId, resolved)))
@@ -427,12 +434,16 @@ public class RoomService {
                             .map(rt -> UUID.fromString(rt.hostUserId))
                             .filter(friendIds::contains)
                             .collect(Collectors.toSet());
-                    return Flux.fromIterable(runtimes.all())
+                    Flux<DiscoverableRoomView> regular = Flux.fromIterable(runtimes.all())
                             .filter(RoomRuntime::started)
                             .filter(rt -> hosts.contains(UUID.fromString(rt.hostUserId)))
                             .concatMap(rt -> championships == null ? discoverableView(rt)
                                     : championships.spectatorAllowed(rt.roomId, selfId)
                                             .flatMapMany(allowed -> allowed ? discoverableView(rt) : Flux.empty()));
+                    Flux<DiscoverableRoomView> styling = rooms.findLiveSlayRooms().filter(r->friendIds.contains(r.hostId()))
+                        .concatMap(r->(championships==null?Mono.just(true):championships.spectatorAllowed(r.id(),selfId))
+                            .flatMap(ok->ok?users.findById(r.hostId()).map(host->new DiscoverableRoomView(r.id(),r.code(),r.gameType(),host.displayName(),runtimes.find(r.id()).map(rt->rt.connectedUserIds.size()).orElse(0))):Mono.empty()));
+                    return Flux.merge(regular,styling).distinct(DiscoverableRoomView::roomId);
                 });
     }
 

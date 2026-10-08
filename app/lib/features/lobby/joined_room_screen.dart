@@ -12,6 +12,7 @@ import '../../theme/neon_theme.dart';
 import '../../widgets/neon.dart';
 import '../../widgets/copyable_huud_code.dart';
 import '../chess/chess_game_screen.dart';
+import '../slayhuud/slay_competition_screen.dart';
 import '../draughts/draughts_game_screen.dart';
 import '../game/game_screen.dart';
 import '../goosi/goosi_game_screen.dart';
@@ -62,6 +63,10 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
   }
 
   void _connect() {
+    if (_room.gameType == 'slayhuud') {
+      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => SlayCompetitionScreen(roomId: _room.id)));
+      return;
+    }
     _app = AppScope.of(context);
     final socket = GameSocket.connect(_app.api, _room.id);
     _socket = socket;

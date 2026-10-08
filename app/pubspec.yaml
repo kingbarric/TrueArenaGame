@@ -32,6 +32,7 @@ dependencies:
   firebase_core: ^4.15.0
   firebase_messaging: ^16.7.0
   flutter_local_notifications: ^22.3.1
+  flutter_inappwebview: ^6.1.5
 
 dev_dependencies:
   flutter_test:
@@ -45,6 +46,11 @@ flutter:
     - assets/images/game_icons/
     - assets/music/
     - assets/sfx/
+    - assets/slay_renderer/
+    - assets/slay_renderer/basis/
 
 dependency_overrides:
+  # Stable WebView Android plugin with the minimal AGP 9 ProGuard fix.
+  flutter_inappwebview_android:
+    path: vendor/flutter_inappwebview_android
   google_sign_in_ios: 5.7.1

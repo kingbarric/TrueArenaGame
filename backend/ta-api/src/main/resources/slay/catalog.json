@@ -1,0 +1,2922 @@
+{
+  "version": 1,
+  "developmentAssets": true,
+  "avatars": [
+    {
+      "body": "female",
+      "assetUrl": null,
+      "rigVersion": "slay-female-v1"
+    },
+    {
+      "body": "male",
+      "assetUrl": null,
+      "rigVersion": "slay-male-v1"
+    }
+  ],
+  "items": [
+    {
+      "id": "female-essential",
+      "name": "Everyday Essential",
+      "category": "outfit",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "streetwear"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "streetwear"
+      ],
+      "rarity": "common",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "outfit"
+    },
+    {
+      "id": "female-executive",
+      "name": "The Executive",
+      "category": "outfit",
+      "body": "female",
+      "styleTags": [
+        "formal",
+        "corporate",
+        "elegant"
+      ],
+      "colourTags": [
+        "navy"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "formal",
+        "corporate",
+        "elegant"
+      ],
+      "rarity": "common",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "outfit"
+    },
+    {
+      "id": "female-owambe",
+      "name": "Owambe Signature",
+      "category": "outfit",
+      "body": "female",
+      "styleTags": [
+        "traditional",
+        "wedding",
+        "party",
+        "african"
+      ],
+      "colourTags": [
+        "gold"
+      ],
+      "cultureTags": [
+        "african"
+      ],
+      "eventTags": [
+        "traditional",
+        "wedding",
+        "party",
+        "african"
+      ],
+      "rarity": "common",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "outfit"
+    },
+    {
+      "id": "female-redcarpet",
+      "name": "Premiere Night",
+      "category": "outfit",
+      "body": "female",
+      "styleTags": [
+        "formal",
+        "luxury",
+        "party",
+        "evening"
+      ],
+      "colourTags": [
+        "red"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "formal",
+        "luxury",
+        "party",
+        "evening"
+      ],
+      "rarity": "common",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "outfit"
+    },
+    {
+      "id": "female-romantic",
+      "name": "First Impression",
+      "category": "outfit",
+      "body": "female",
+      "styleTags": [
+        "romantic",
+        "casual",
+        "elegant"
+      ],
+      "colourTags": [
+        "pink"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "romantic",
+        "casual",
+        "elegant"
+      ],
+      "rarity": "common",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "outfit"
+    },
+    {
+      "id": "female-royal",
+      "name": "Royal Arrival",
+      "category": "outfit",
+      "body": "female",
+      "styleTags": [
+        "traditional",
+        "royal",
+        "luxury",
+        "african"
+      ],
+      "colourTags": [
+        "purple"
+      ],
+      "cultureTags": [
+        "african"
+      ],
+      "eventTags": [
+        "traditional",
+        "royal",
+        "luxury",
+        "african"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 80,
+      "unlockWins": 0,
+      "placeholder": "outfit"
+    },
+    {
+      "id": "female-beach",
+      "name": "Coastline",
+      "category": "outfit",
+      "body": "female",
+      "styleTags": [
+        "summer",
+        "casual",
+        "beach"
+      ],
+      "colourTags": [
+        "blue"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "summer",
+        "casual",
+        "beach"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 88,
+      "unlockWins": 0,
+      "placeholder": "outfit"
+    },
+    {
+      "id": "female-ankara",
+      "name": "Ankara Edit",
+      "category": "outfit",
+      "body": "female",
+      "styleTags": [
+        "traditional",
+        "african",
+        "streetwear",
+        "party"
+      ],
+      "colourTags": [
+        "green"
+      ],
+      "cultureTags": [
+        "african"
+      ],
+      "eventTags": [
+        "traditional",
+        "african",
+        "streetwear",
+        "party"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 96,
+      "unlockWins": 0,
+      "placeholder": "outfit"
+    },
+    {
+      "id": "female-bridal",
+      "name": "Wedding Vows",
+      "category": "outfit",
+      "body": "female",
+      "styleTags": [
+        "bridal",
+        "wedding",
+        "traditional"
+      ],
+      "colourTags": [
+        "white"
+      ],
+      "cultureTags": [
+        "african"
+      ],
+      "eventTags": [
+        "bridal",
+        "wedding",
+        "traditional"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 104,
+      "unlockWins": 0,
+      "placeholder": "outfit"
+    },
+    {
+      "id": "female-night",
+      "name": "After Hours",
+      "category": "outfit",
+      "body": "female",
+      "styleTags": [
+        "party",
+        "evening",
+        "luxury"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "party",
+        "evening",
+        "luxury"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 112,
+      "unlockWins": 0,
+      "placeholder": "outfit"
+    },
+    {
+      "id": "female-graduation",
+      "name": "The Graduate",
+      "category": "outfit",
+      "body": "female",
+      "styleTags": [
+        "formal",
+        "graduation"
+      ],
+      "colourTags": [
+        "navy"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "formal",
+        "graduation"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 120,
+      "unlockWins": 0,
+      "placeholder": "outfit"
+    },
+    {
+      "id": "female-holiday",
+      "name": "Holiday Muse",
+      "category": "outfit",
+      "body": "female",
+      "styleTags": [
+        "summer",
+        "holiday",
+        "casual"
+      ],
+      "colourTags": [
+        "orange"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "summer",
+        "holiday",
+        "casual"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 128,
+      "unlockWins": 0,
+      "placeholder": "outfit"
+    },
+    {
+      "id": "female-business",
+      "name": "Business Casual",
+      "category": "outfit",
+      "body": "female",
+      "styleTags": [
+        "corporate",
+        "casual",
+        "elegant"
+      ],
+      "colourTags": [
+        "grey"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "corporate",
+        "casual",
+        "elegant"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 136,
+      "unlockWins": 0,
+      "placeholder": "outfit"
+    },
+    {
+      "id": "female-dinner",
+      "name": "Quiet Luxury",
+      "category": "outfit",
+      "body": "female",
+      "styleTags": [
+        "elegant",
+        "evening",
+        "formal",
+        "muted"
+      ],
+      "colourTags": [
+        "navy"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "elegant",
+        "evening",
+        "formal",
+        "muted"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 144,
+      "unlockWins": 0,
+      "placeholder": "outfit"
+    },
+    {
+      "id": "female-festival",
+      "name": "Festival Energy",
+      "category": "outfit",
+      "body": "female",
+      "styleTags": [
+        "party",
+        "streetwear",
+        "african"
+      ],
+      "colourTags": [
+        "yellow"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "party",
+        "streetwear",
+        "african"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 152,
+      "unlockWins": 0,
+      "placeholder": "outfit"
+    },
+    {
+      "id": "female-hair-0",
+      "name": "Natural Crop",
+      "category": "hair",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "common",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "female-hair-1",
+      "name": "Sculpted Waves",
+      "category": "hair",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "common",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "female-hair-2",
+      "name": "Braids",
+      "category": "hair",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 30,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "female-hair-3",
+      "name": "Classic Fade",
+      "category": "hair",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 30,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "female-hair-4",
+      "name": "Afro Crown",
+      "category": "hair",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 30,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "female-hair-5",
+      "name": "Sleek Finish",
+      "category": "hair",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 30,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "male-essential",
+      "name": "Everyday Essential",
+      "category": "outfit",
+      "body": "male",
+      "styleTags": [
+        "casual",
+        "streetwear"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "streetwear"
+      ],
+      "rarity": "common",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "outfit"
+    },
+    {
+      "id": "male-executive",
+      "name": "The Executive",
+      "category": "outfit",
+      "body": "male",
+      "styleTags": [
+        "formal",
+        "corporate",
+        "elegant"
+      ],
+      "colourTags": [
+        "navy"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "formal",
+        "corporate",
+        "elegant"
+      ],
+      "rarity": "common",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "outfit"
+    },
+    {
+      "id": "male-owambe",
+      "name": "Owambe Signature",
+      "category": "outfit",
+      "body": "male",
+      "styleTags": [
+        "traditional",
+        "wedding",
+        "party",
+        "african"
+      ],
+      "colourTags": [
+        "gold"
+      ],
+      "cultureTags": [
+        "african"
+      ],
+      "eventTags": [
+        "traditional",
+        "wedding",
+        "party",
+        "african"
+      ],
+      "rarity": "common",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "outfit"
+    },
+    {
+      "id": "male-redcarpet",
+      "name": "Premiere Night",
+      "category": "outfit",
+      "body": "male",
+      "styleTags": [
+        "formal",
+        "luxury",
+        "party",
+        "evening"
+      ],
+      "colourTags": [
+        "red"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "formal",
+        "luxury",
+        "party",
+        "evening"
+      ],
+      "rarity": "common",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "outfit"
+    },
+    {
+      "id": "male-romantic",
+      "name": "First Impression",
+      "category": "outfit",
+      "body": "male",
+      "styleTags": [
+        "romantic",
+        "casual",
+        "elegant"
+      ],
+      "colourTags": [
+        "pink"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "romantic",
+        "casual",
+        "elegant"
+      ],
+      "rarity": "common",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "outfit"
+    },
+    {
+      "id": "male-royal",
+      "name": "Royal Arrival",
+      "category": "outfit",
+      "body": "male",
+      "styleTags": [
+        "traditional",
+        "royal",
+        "luxury",
+        "african"
+      ],
+      "colourTags": [
+        "purple"
+      ],
+      "cultureTags": [
+        "african"
+      ],
+      "eventTags": [
+        "traditional",
+        "royal",
+        "luxury",
+        "african"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 80,
+      "unlockWins": 0,
+      "placeholder": "outfit"
+    },
+    {
+      "id": "male-beach",
+      "name": "Coastline",
+      "category": "outfit",
+      "body": "male",
+      "styleTags": [
+        "summer",
+        "casual",
+        "beach"
+      ],
+      "colourTags": [
+        "blue"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "summer",
+        "casual",
+        "beach"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 88,
+      "unlockWins": 0,
+      "placeholder": "outfit"
+    },
+    {
+      "id": "male-ankara",
+      "name": "Ankara Edit",
+      "category": "outfit",
+      "body": "male",
+      "styleTags": [
+        "traditional",
+        "african",
+        "streetwear",
+        "party"
+      ],
+      "colourTags": [
+        "green"
+      ],
+      "cultureTags": [
+        "african"
+      ],
+      "eventTags": [
+        "traditional",
+        "african",
+        "streetwear",
+        "party"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 96,
+      "unlockWins": 0,
+      "placeholder": "outfit"
+    },
+    {
+      "id": "male-bridal",
+      "name": "Wedding Vows",
+      "category": "outfit",
+      "body": "male",
+      "styleTags": [
+        "bridal",
+        "wedding",
+        "traditional"
+      ],
+      "colourTags": [
+        "white"
+      ],
+      "cultureTags": [
+        "african"
+      ],
+      "eventTags": [
+        "bridal",
+        "wedding",
+        "traditional"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 104,
+      "unlockWins": 0,
+      "placeholder": "outfit"
+    },
+    {
+      "id": "male-night",
+      "name": "After Hours",
+      "category": "outfit",
+      "body": "male",
+      "styleTags": [
+        "party",
+        "evening",
+        "luxury"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "party",
+        "evening",
+        "luxury"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 112,
+      "unlockWins": 0,
+      "placeholder": "outfit"
+    },
+    {
+      "id": "male-graduation",
+      "name": "The Graduate",
+      "category": "outfit",
+      "body": "male",
+      "styleTags": [
+        "formal",
+        "graduation"
+      ],
+      "colourTags": [
+        "navy"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "formal",
+        "graduation"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 120,
+      "unlockWins": 0,
+      "placeholder": "outfit"
+    },
+    {
+      "id": "male-holiday",
+      "name": "Holiday Muse",
+      "category": "outfit",
+      "body": "male",
+      "styleTags": [
+        "summer",
+        "holiday",
+        "casual"
+      ],
+      "colourTags": [
+        "orange"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "summer",
+        "holiday",
+        "casual"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 128,
+      "unlockWins": 0,
+      "placeholder": "outfit"
+    },
+    {
+      "id": "male-business",
+      "name": "Business Casual",
+      "category": "outfit",
+      "body": "male",
+      "styleTags": [
+        "corporate",
+        "casual",
+        "elegant"
+      ],
+      "colourTags": [
+        "grey"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "corporate",
+        "casual",
+        "elegant"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 136,
+      "unlockWins": 0,
+      "placeholder": "outfit"
+    },
+    {
+      "id": "male-dinner",
+      "name": "Quiet Luxury",
+      "category": "outfit",
+      "body": "male",
+      "styleTags": [
+        "elegant",
+        "evening",
+        "formal",
+        "muted"
+      ],
+      "colourTags": [
+        "navy"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "elegant",
+        "evening",
+        "formal",
+        "muted"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 144,
+      "unlockWins": 0,
+      "placeholder": "outfit"
+    },
+    {
+      "id": "male-festival",
+      "name": "Festival Energy",
+      "category": "outfit",
+      "body": "male",
+      "styleTags": [
+        "party",
+        "streetwear",
+        "african"
+      ],
+      "colourTags": [
+        "yellow"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "party",
+        "streetwear",
+        "african"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 152,
+      "unlockWins": 0,
+      "placeholder": "outfit"
+    },
+    {
+      "id": "male-hair-0",
+      "name": "Natural Crop",
+      "category": "hair",
+      "body": "male",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "common",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "male-hair-1",
+      "name": "Sculpted Waves",
+      "category": "hair",
+      "body": "male",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "common",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "male-hair-2",
+      "name": "Braids",
+      "category": "hair",
+      "body": "male",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 30,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "male-hair-3",
+      "name": "Classic Fade",
+      "category": "hair",
+      "body": "male",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 30,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "male-hair-4",
+      "name": "Afro Crown",
+      "category": "hair",
+      "body": "male",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 30,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "male-hair-5",
+      "name": "Sleek Finish",
+      "category": "hair",
+      "body": "male",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 30,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "shoe-0",
+      "name": "Classic Heels",
+      "category": "shoes",
+      "body": "unisex",
+      "styleTags": [
+        "formal",
+        "elegant"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "formal",
+        "elegant"
+      ],
+      "rarity": "common",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "shoes"
+    },
+    {
+      "id": "shoe-1",
+      "name": "City Sneakers",
+      "category": "shoes",
+      "body": "unisex",
+      "styleTags": [
+        "casual",
+        "streetwear"
+      ],
+      "colourTags": [
+        "white"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "streetwear"
+      ],
+      "rarity": "common",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "shoes"
+    },
+    {
+      "id": "shoe-2",
+      "name": "Evening Loafers",
+      "category": "shoes",
+      "body": "unisex",
+      "styleTags": [
+        "formal",
+        "corporate"
+      ],
+      "colourTags": [
+        "navy"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "formal",
+        "corporate"
+      ],
+      "rarity": "common",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "shoes"
+    },
+    {
+      "id": "shoe-3",
+      "name": "Gold Sandals",
+      "category": "shoes",
+      "body": "unisex",
+      "styleTags": [
+        "traditional",
+        "wedding"
+      ],
+      "colourTags": [
+        "gold"
+      ],
+      "cultureTags": [
+        "african"
+      ],
+      "eventTags": [
+        "traditional",
+        "wedding"
+      ],
+      "rarity": "common",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "shoes"
+    },
+    {
+      "id": "shoe-4",
+      "name": "Beach Slides",
+      "category": "shoes",
+      "body": "unisex",
+      "styleTags": [
+        "summer",
+        "beach"
+      ],
+      "colourTags": [
+        "blue"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "summer",
+        "beach"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 35,
+      "unlockWins": 0,
+      "placeholder": "shoes"
+    },
+    {
+      "id": "shoe-5",
+      "name": "Premiere Shoes",
+      "category": "shoes",
+      "body": "unisex",
+      "styleTags": [
+        "luxury",
+        "evening"
+      ],
+      "colourTags": [
+        "red"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "luxury",
+        "evening"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 35,
+      "unlockWins": 0,
+      "placeholder": "shoes"
+    },
+    {
+      "id": "shoe-6",
+      "name": "Chelsea Boots",
+      "category": "shoes",
+      "body": "unisex",
+      "styleTags": [
+        "casual",
+        "elegant"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "elegant"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 35,
+      "unlockWins": 0,
+      "placeholder": "shoes"
+    },
+    {
+      "id": "shoe-7",
+      "name": "Royal Slippers",
+      "category": "shoes",
+      "body": "unisex",
+      "styleTags": [
+        "traditional",
+        "royal"
+      ],
+      "colourTags": [
+        "gold"
+      ],
+      "cultureTags": [
+        "african"
+      ],
+      "eventTags": [
+        "traditional",
+        "royal"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 35,
+      "unlockWins": 0,
+      "placeholder": "shoes"
+    },
+    {
+      "id": "accessory-0",
+      "name": "Gold Earrings",
+      "category": "jewellery",
+      "body": "unisex",
+      "styleTags": [
+        "traditional",
+        "wedding",
+        "luxury"
+      ],
+      "colourTags": [
+        "gold"
+      ],
+      "cultureTags": [
+        "african"
+      ],
+      "eventTags": [
+        "traditional",
+        "wedding",
+        "luxury"
+      ],
+      "rarity": "common",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "jewellery"
+    },
+    {
+      "id": "accessory-1",
+      "name": "Pearl Necklace",
+      "category": "jewellery",
+      "body": "unisex",
+      "styleTags": [
+        "bridal",
+        "formal"
+      ],
+      "colourTags": [
+        "white"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "bridal",
+        "formal"
+      ],
+      "rarity": "common",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "jewellery"
+    },
+    {
+      "id": "accessory-2",
+      "name": "Signature Watch",
+      "category": "watches",
+      "body": "unisex",
+      "styleTags": [
+        "corporate",
+        "luxury"
+      ],
+      "colourTags": [
+        "gold"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "corporate",
+        "luxury"
+      ],
+      "rarity": "common",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "watches"
+    },
+    {
+      "id": "accessory-3",
+      "name": "Studio Shades",
+      "category": "glasses",
+      "body": "unisex",
+      "styleTags": [
+        "streetwear",
+        "summer"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "streetwear",
+        "summer"
+      ],
+      "rarity": "common",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "glasses"
+    },
+    {
+      "id": "accessory-4",
+      "name": "Evening Clutch",
+      "category": "bags",
+      "body": "unisex",
+      "styleTags": [
+        "formal",
+        "evening"
+      ],
+      "colourTags": [
+        "navy"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "formal",
+        "evening"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 50,
+      "unlockWins": 0,
+      "placeholder": "bags"
+    },
+    {
+      "id": "accessory-5",
+      "name": "City Tote",
+      "category": "bags",
+      "body": "unisex",
+      "styleTags": [
+        "casual",
+        "corporate"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "corporate"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 55,
+      "unlockWins": 0,
+      "placeholder": "bags"
+    },
+    {
+      "id": "accessory-6",
+      "name": "Statement Bracelet",
+      "category": "accessories",
+      "body": "unisex",
+      "styleTags": [
+        "party",
+        "royal"
+      ],
+      "colourTags": [
+        "gold"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "party",
+        "royal"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 60,
+      "unlockWins": 0,
+      "placeholder": "accessories"
+    },
+    {
+      "id": "accessory-7",
+      "name": "Classic Gele",
+      "category": "headwear",
+      "body": "unisex",
+      "styleTags": [
+        "traditional",
+        "wedding",
+        "african"
+      ],
+      "colourTags": [
+        "gold"
+      ],
+      "cultureTags": [
+        "african"
+      ],
+      "eventTags": [
+        "traditional",
+        "wedding",
+        "african"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 65,
+      "unlockWins": 0,
+      "placeholder": "headwear"
+    },
+    {
+      "id": "accessory-8",
+      "name": "Royal Cap",
+      "category": "headwear",
+      "body": "unisex",
+      "styleTags": [
+        "traditional",
+        "royal",
+        "african"
+      ],
+      "colourTags": [
+        "purple"
+      ],
+      "cultureTags": [
+        "african"
+      ],
+      "eventTags": [
+        "traditional",
+        "royal",
+        "african"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 70,
+      "unlockWins": 0,
+      "placeholder": "headwear"
+    },
+    {
+      "id": "accessory-9",
+      "name": "Lace Wrap",
+      "category": "headwear",
+      "body": "unisex",
+      "styleTags": [
+        "bridal",
+        "traditional"
+      ],
+      "colourTags": [
+        "white"
+      ],
+      "cultureTags": [
+        "african"
+      ],
+      "eventTags": [
+        "bridal",
+        "traditional"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 75,
+      "unlockWins": 0,
+      "placeholder": "headwear"
+    },
+    {
+      "id": "accessory-10",
+      "name": "Pocket Detail",
+      "category": "accessories",
+      "body": "unisex",
+      "styleTags": [
+        "formal",
+        "elegant"
+      ],
+      "colourTags": [
+        "navy"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "formal",
+        "elegant"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 80,
+      "unlockWins": 0,
+      "placeholder": "accessories"
+    },
+    {
+      "id": "accessory-11",
+      "name": "Ankara Bag",
+      "category": "bags",
+      "body": "unisex",
+      "styleTags": [
+        "traditional",
+        "african",
+        "party"
+      ],
+      "colourTags": [
+        "green"
+      ],
+      "cultureTags": [
+        "african"
+      ],
+      "eventTags": [
+        "traditional",
+        "african",
+        "party"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 85,
+      "unlockWins": 0,
+      "placeholder": "bags"
+    },
+    {
+      "id": "makeup-0",
+      "name": "Bare Glow",
+      "category": "makeup",
+      "body": "female",
+      "styleTags": [
+        "formal",
+        "romantic",
+        "party"
+      ],
+      "colourTags": [
+        "pink"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "formal",
+        "romantic",
+        "party"
+      ],
+      "rarity": "common",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "makeup"
+    },
+    {
+      "id": "makeup-1",
+      "name": "Soft Glam",
+      "category": "makeup",
+      "body": "female",
+      "styleTags": [
+        "formal",
+        "romantic",
+        "party"
+      ],
+      "colourTags": [
+        "pink"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "formal",
+        "romantic",
+        "party"
+      ],
+      "rarity": "common",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "makeup"
+    },
+    {
+      "id": "makeup-2",
+      "name": "Golden Hour",
+      "category": "makeup",
+      "body": "female",
+      "styleTags": [
+        "formal",
+        "romantic",
+        "party"
+      ],
+      "colourTags": [
+        "pink"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "formal",
+        "romantic",
+        "party"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 25,
+      "unlockWins": 0,
+      "placeholder": "makeup"
+    },
+    {
+      "id": "makeup-3",
+      "name": "Classic Red",
+      "category": "makeup",
+      "body": "female",
+      "styleTags": [
+        "formal",
+        "romantic",
+        "party"
+      ],
+      "colourTags": [
+        "pink"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "formal",
+        "romantic",
+        "party"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 25,
+      "unlockWins": 0,
+      "placeholder": "makeup"
+    },
+    {
+      "id": "makeup-4",
+      "name": "Evening Smoke",
+      "category": "makeup",
+      "body": "female",
+      "styleTags": [
+        "formal",
+        "romantic",
+        "party"
+      ],
+      "colourTags": [
+        "pink"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "formal",
+        "romantic",
+        "party"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 25,
+      "unlockWins": 0,
+      "placeholder": "makeup"
+    },
+    {
+      "id": "makeup-5",
+      "name": "Rose Flush",
+      "category": "makeup",
+      "body": "female",
+      "styleTags": [
+        "formal",
+        "romantic",
+        "party"
+      ],
+      "colourTags": [
+        "pink"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "formal",
+        "romantic",
+        "party"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 25,
+      "unlockWins": 0,
+      "placeholder": "makeup"
+    },
+    {
+      "id": "makeup-6",
+      "name": "Bronze Muse",
+      "category": "makeup",
+      "body": "female",
+      "styleTags": [
+        "formal",
+        "romantic",
+        "party"
+      ],
+      "colourTags": [
+        "pink"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "formal",
+        "romantic",
+        "party"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 25,
+      "unlockWins": 0,
+      "placeholder": "makeup"
+    },
+    {
+      "id": "makeup-7",
+      "name": "Wedding Glow",
+      "category": "makeup",
+      "body": "female",
+      "styleTags": [
+        "formal",
+        "romantic",
+        "party"
+      ],
+      "colourTags": [
+        "pink"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "formal",
+        "romantic",
+        "party"
+      ],
+      "rarity": "rare",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 25,
+      "unlockWins": 0,
+      "placeholder": "makeup"
+    },
+    {
+      "id": "female-champion",
+      "name": "Champion Signature",
+      "category": "outfit",
+      "body": "female",
+      "styleTags": [
+        "traditional",
+        "royal",
+        "luxury",
+        "african"
+      ],
+      "colourTags": [
+        "purple"
+      ],
+      "cultureTags": [
+        "african"
+      ],
+      "eventTags": [
+        "traditional",
+        "royal",
+        "luxury",
+        "african"
+      ],
+      "rarity": "legendary",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "outfit"
+    },
+    {
+      "id": "female-winner",
+      "name": "Five-Win Edit",
+      "category": "outfit",
+      "body": "female",
+      "styleTags": [
+        "traditional",
+        "royal",
+        "luxury",
+        "african"
+      ],
+      "colourTags": [
+        "purple"
+      ],
+      "cultureTags": [
+        "african"
+      ],
+      "eventTags": [
+        "traditional",
+        "royal",
+        "luxury",
+        "african"
+      ],
+      "rarity": "epic",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 0,
+      "unlockWins": 5,
+      "placeholder": "outfit"
+    },
+    {
+      "id": "male-champion",
+      "name": "Champion Signature",
+      "category": "outfit",
+      "body": "male",
+      "styleTags": [
+        "traditional",
+        "royal",
+        "luxury",
+        "african"
+      ],
+      "colourTags": [
+        "purple"
+      ],
+      "cultureTags": [
+        "african"
+      ],
+      "eventTags": [
+        "traditional",
+        "royal",
+        "luxury",
+        "african"
+      ],
+      "rarity": "legendary",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "outfit"
+    },
+    {
+      "id": "male-winner",
+      "name": "Five-Win Edit",
+      "category": "outfit",
+      "body": "male",
+      "styleTags": [
+        "traditional",
+        "royal",
+        "luxury",
+        "african"
+      ],
+      "colourTags": [
+        "purple"
+      ],
+      "cultureTags": [
+        "african"
+      ],
+      "eventTags": [
+        "traditional",
+        "royal",
+        "luxury",
+        "african"
+      ],
+      "rarity": "epic",
+      "assetUrl": null,
+      "thumbnailUrl": null,
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 0,
+      "unlockWins": 5,
+      "placeholder": "outfit"
+    }
+  ],
+  "themes": [
+    {
+      "id": "lagos-owambe",
+      "title": "Lagos Owambe",
+      "description": "Create a look that captures Lagos Owambe. Let the outfit, colours and details tell the story.",
+      "styleTags": [
+        "traditional",
+        "wedding",
+        "party",
+        "african"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "shoes",
+        "jewellery"
+      ],
+      "optionalCategories": [
+        "hair",
+        "bags",
+        "glasses",
+        "accessories",
+        "makeup"
+      ],
+      "bodyEligibility": [
+        "female",
+        "male"
+      ],
+      "systemWeight": 0.35,
+      "stylingSeconds": 180,
+      "votingSeconds": 300,
+      "minVotes": 6,
+      "budget": null
+    },
+    {
+      "id": "wedding-guest",
+      "title": "Wedding Guest",
+      "description": "Create a look that captures Wedding Guest. Let the outfit, colours and details tell the story.",
+      "styleTags": [
+        "wedding",
+        "formal",
+        "elegant"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "shoes"
+      ],
+      "optionalCategories": [
+        "hair",
+        "bags",
+        "glasses",
+        "accessories",
+        "makeup"
+      ],
+      "bodyEligibility": [
+        "female",
+        "male"
+      ],
+      "systemWeight": 0.35,
+      "stylingSeconds": 180,
+      "votingSeconds": 300,
+      "minVotes": 6,
+      "budget": null
+    },
+    {
+      "id": "traditional-bride",
+      "title": "Traditional Bride",
+      "description": "Create a look that captures Traditional Bride. Let the outfit, colours and details tell the story.",
+      "styleTags": [
+        "bridal",
+        "wedding",
+        "traditional"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "headwear",
+        "jewellery"
+      ],
+      "optionalCategories": [
+        "hair",
+        "bags",
+        "glasses",
+        "accessories",
+        "makeup"
+      ],
+      "bodyEligibility": [
+        "female",
+        "male"
+      ],
+      "systemWeight": 0.35,
+      "stylingSeconds": 180,
+      "votingSeconds": 300,
+      "minVotes": 6,
+      "budget": null
+    },
+    {
+      "id": "traditional-groom",
+      "title": "Traditional Groom",
+      "description": "Create a look that captures Traditional Groom. Let the outfit, colours and details tell the story.",
+      "styleTags": [
+        "wedding",
+        "traditional",
+        "royal"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "headwear"
+      ],
+      "optionalCategories": [
+        "hair",
+        "bags",
+        "glasses",
+        "accessories",
+        "makeup"
+      ],
+      "bodyEligibility": [
+        "female",
+        "male"
+      ],
+      "systemWeight": 0.35,
+      "stylingSeconds": 180,
+      "votingSeconds": 300,
+      "minVotes": 6,
+      "budget": null
+    },
+    {
+      "id": "first-date",
+      "title": "First Date",
+      "description": "Create a look that captures First Date. Let the outfit, colours and details tell the story.",
+      "styleTags": [
+        "romantic",
+        "casual",
+        "elegant"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "shoes"
+      ],
+      "optionalCategories": [
+        "hair",
+        "bags",
+        "glasses",
+        "accessories",
+        "makeup"
+      ],
+      "bodyEligibility": [
+        "female",
+        "male"
+      ],
+      "systemWeight": 0.35,
+      "stylingSeconds": 180,
+      "votingSeconds": 300,
+      "minVotes": 6,
+      "budget": null
+    },
+    {
+      "id": "red-carpet",
+      "title": "Red Carpet",
+      "description": "Create a look that captures Red Carpet. Let the outfit, colours and details tell the story.",
+      "styleTags": [
+        "formal",
+        "luxury",
+        "party",
+        "evening"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "shoes",
+        "accessories"
+      ],
+      "optionalCategories": [
+        "hair",
+        "bags",
+        "glasses",
+        "accessories",
+        "makeup"
+      ],
+      "bodyEligibility": [
+        "female",
+        "male"
+      ],
+      "systemWeight": 0.35,
+      "stylingSeconds": 180,
+      "votingSeconds": 300,
+      "minVotes": 6,
+      "budget": null
+    },
+    {
+      "id": "sunday-best",
+      "title": "Sunday Best",
+      "description": "Create a look that captures Sunday Best. Let the outfit, colours and details tell the story.",
+      "styleTags": [
+        "formal",
+        "elegant",
+        "traditional"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "shoes"
+      ],
+      "optionalCategories": [
+        "hair",
+        "bags",
+        "glasses",
+        "accessories",
+        "makeup"
+      ],
+      "bodyEligibility": [
+        "female",
+        "male"
+      ],
+      "systemWeight": 0.35,
+      "stylingSeconds": 180,
+      "votingSeconds": 300,
+      "minVotes": 6,
+      "budget": null
+    },
+    {
+      "id": "detty-december",
+      "title": "Detty December",
+      "description": "Create a look that captures Detty December. Let the outfit, colours and details tell the story.",
+      "styleTags": [
+        "party",
+        "evening",
+        "streetwear"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "shoes"
+      ],
+      "optionalCategories": [
+        "hair",
+        "bags",
+        "glasses",
+        "accessories",
+        "makeup"
+      ],
+      "bodyEligibility": [
+        "female",
+        "male"
+      ],
+      "systemWeight": 0.35,
+      "stylingSeconds": 180,
+      "votingSeconds": 300,
+      "minVotes": 6,
+      "budget": null
+    },
+    {
+      "id": "abuja-dinner",
+      "title": "Abuja Dinner",
+      "description": "Create a look that captures Abuja Dinner. Let the outfit, colours and details tell the story.",
+      "styleTags": [
+        "elegant",
+        "formal",
+        "evening",
+        "muted"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "shoes"
+      ],
+      "optionalCategories": [
+        "hair",
+        "bags",
+        "glasses",
+        "accessories",
+        "makeup"
+      ],
+      "bodyEligibility": [
+        "female",
+        "male"
+      ],
+      "systemWeight": 0.35,
+      "stylingSeconds": 180,
+      "votingSeconds": 300,
+      "minVotes": 6,
+      "budget": null
+    },
+    {
+      "id": "beach-party",
+      "title": "Beach Party",
+      "description": "Create a look that captures Beach Party. Let the outfit, colours and details tell the story.",
+      "styleTags": [
+        "beach",
+        "summer",
+        "casual"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "shoes"
+      ],
+      "optionalCategories": [
+        "hair",
+        "bags",
+        "glasses",
+        "accessories",
+        "makeup"
+      ],
+      "bodyEligibility": [
+        "female",
+        "male"
+      ],
+      "systemWeight": 0.35,
+      "stylingSeconds": 180,
+      "votingSeconds": 300,
+      "minVotes": 6,
+      "budget": null
+    },
+    {
+      "id": "fashion-week",
+      "title": "Fashion Week",
+      "description": "Create a look that captures Fashion Week. Let the outfit, colours and details tell the story.",
+      "styleTags": [
+        "luxury",
+        "streetwear",
+        "party"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "shoes"
+      ],
+      "optionalCategories": [
+        "hair",
+        "bags",
+        "glasses",
+        "accessories",
+        "makeup"
+      ],
+      "bodyEligibility": [
+        "female",
+        "male"
+      ],
+      "systemWeight": 0.35,
+      "stylingSeconds": 180,
+      "votingSeconds": 300,
+      "minVotes": 6,
+      "budget": null
+    },
+    {
+      "id": "office-executive",
+      "title": "Office Executive",
+      "description": "Create a look that captures Office Executive. Let the outfit, colours and details tell the story.",
+      "styleTags": [
+        "corporate",
+        "formal",
+        "elegant"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "shoes",
+        "watches"
+      ],
+      "optionalCategories": [
+        "hair",
+        "bags",
+        "glasses",
+        "accessories",
+        "makeup"
+      ],
+      "bodyEligibility": [
+        "female",
+        "male"
+      ],
+      "systemWeight": 0.35,
+      "stylingSeconds": 180,
+      "votingSeconds": 300,
+      "minVotes": 6,
+      "budget": null
+    },
+    {
+      "id": "graduation",
+      "title": "Graduation",
+      "description": "Create a look that captures Graduation. Let the outfit, colours and details tell the story.",
+      "styleTags": [
+        "formal",
+        "graduation"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "shoes"
+      ],
+      "optionalCategories": [
+        "hair",
+        "bags",
+        "glasses",
+        "accessories",
+        "makeup"
+      ],
+      "bodyEligibility": [
+        "female",
+        "male"
+      ],
+      "systemWeight": 0.35,
+      "stylingSeconds": 180,
+      "votingSeconds": 300,
+      "minVotes": 6,
+      "budget": null
+    },
+    {
+      "id": "birthday-party",
+      "title": "Birthday Party",
+      "description": "Create a look that captures Birthday Party. Let the outfit, colours and details tell the story.",
+      "styleTags": [
+        "party",
+        "luxury",
+        "romantic"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "shoes"
+      ],
+      "optionalCategories": [
+        "hair",
+        "bags",
+        "glasses",
+        "accessories",
+        "makeup"
+      ],
+      "bodyEligibility": [
+        "female",
+        "male"
+      ],
+      "systemWeight": 0.35,
+      "stylingSeconds": 180,
+      "votingSeconds": 300,
+      "minVotes": 6,
+      "budget": null
+    },
+    {
+      "id": "night-out",
+      "title": "Night Out",
+      "description": "Create a look that captures Night Out. Let the outfit, colours and details tell the story.",
+      "styleTags": [
+        "party",
+        "evening",
+        "luxury"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "shoes"
+      ],
+      "optionalCategories": [
+        "hair",
+        "bags",
+        "glasses",
+        "accessories",
+        "makeup"
+      ],
+      "bodyEligibility": [
+        "female",
+        "male"
+      ],
+      "systemWeight": 0.35,
+      "stylingSeconds": 180,
+      "votingSeconds": 300,
+      "minVotes": 6,
+      "budget": null
+    },
+    {
+      "id": "streetwear",
+      "title": "Streetwear",
+      "description": "Create a look that captures Streetwear. Let the outfit, colours and details tell the story.",
+      "styleTags": [
+        "streetwear",
+        "casual"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "shoes"
+      ],
+      "optionalCategories": [
+        "hair",
+        "bags",
+        "glasses",
+        "accessories",
+        "makeup"
+      ],
+      "bodyEligibility": [
+        "female",
+        "male"
+      ],
+      "systemWeight": 0.35,
+      "stylingSeconds": 180,
+      "votingSeconds": 300,
+      "minVotes": 6,
+      "budget": null
+    },
+    {
+      "id": "african-royalty",
+      "title": "African Royalty",
+      "description": "Create a look that captures African Royalty. Let the outfit, colours and details tell the story.",
+      "styleTags": [
+        "african",
+        "royal",
+        "traditional",
+        "luxury"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "headwear"
+      ],
+      "optionalCategories": [
+        "hair",
+        "bags",
+        "glasses",
+        "accessories",
+        "makeup"
+      ],
+      "bodyEligibility": [
+        "female",
+        "male"
+      ],
+      "systemWeight": 0.35,
+      "stylingSeconds": 180,
+      "votingSeconds": 300,
+      "minVotes": 6,
+      "budget": null
+    },
+    {
+      "id": "genz-ankara",
+      "title": "Gen-Z Ankara",
+      "description": "Create a look that captures Gen-Z Ankara. Let the outfit, colours and details tell the story.",
+      "styleTags": [
+        "african",
+        "traditional",
+        "streetwear"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "shoes"
+      ],
+      "optionalCategories": [
+        "hair",
+        "bags",
+        "glasses",
+        "accessories",
+        "makeup"
+      ],
+      "bodyEligibility": [
+        "female",
+        "male"
+      ],
+      "systemWeight": 0.35,
+      "stylingSeconds": 180,
+      "votingSeconds": 300,
+      "minVotes": 6,
+      "budget": null
+    },
+    {
+      "id": "prom-night",
+      "title": "Prom Night",
+      "description": "Create a look that captures Prom Night. Let the outfit, colours and details tell the story.",
+      "styleTags": [
+        "formal",
+        "romantic",
+        "party"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "shoes"
+      ],
+      "optionalCategories": [
+        "hair",
+        "bags",
+        "glasses",
+        "accessories",
+        "makeup"
+      ],
+      "bodyEligibility": [
+        "female",
+        "male"
+      ],
+      "systemWeight": 0.35,
+      "stylingSeconds": 180,
+      "votingSeconds": 300,
+      "minVotes": 6,
+      "budget": null
+    },
+    {
+      "id": "holiday-style",
+      "title": "Holiday Style",
+      "description": "Create a look that captures Holiday Style. Let the outfit, colours and details tell the story.",
+      "styleTags": [
+        "summer",
+        "holiday",
+        "casual"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "shoes"
+      ],
+      "optionalCategories": [
+        "hair",
+        "bags",
+        "glasses",
+        "accessories",
+        "makeup"
+      ],
+      "bodyEligibility": [
+        "female",
+        "male"
+      ],
+      "systemWeight": 0.35,
+      "stylingSeconds": 180,
+      "votingSeconds": 300,
+      "minVotes": 6,
+      "budget": null
+    }
+  ],
+  "poses": [
+    "signature",
+    "confident",
+    "editorial",
+    "celebrate"
+  ],
+  "backgrounds": [
+    "studio",
+    "runway",
+    "lagos",
+    "sunset",
+    "royal"
+  ],
+  "skinTones": [
+    "#3b2219",
+    "#623a27",
+    "#8b573c",
+    "#b47a52",
+    "#d8a47d",
+    "#f0c9a8"
+  ],
+  "facePresets": [
+    "classic",
+    "soft",
+    "angular"
+  ],
+  "clients": [
+    {
+      "id": "abuja-dinner",
+      "name": "Zara",
+      "brief": "I have a dinner in Abuja. Elegant, but not too loud.",
+      "themeId": "abuja-dinner"
+    },
+    {
+      "id": "office-executive",
+      "name": "Tunde",
+      "brief": "My first day as an executive. Help me make the right impression.",
+      "themeId": "office-executive"
+    },
+    {
+      "id": "red-carpet",
+      "name": "Amara",
+      "brief": "My film premieres tonight. I want a memorable red-carpet entrance.",
+      "themeId": "red-carpet"
+    }
+  ]
+}

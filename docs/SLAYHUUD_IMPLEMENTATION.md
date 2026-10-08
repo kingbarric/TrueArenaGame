@@ -1,0 +1,203 @@
+# SlayHuud: implementation and handoff
+
+Branch: `codex/slayhuud`. Updated 8 October 2026.
+
+SlayHuud is a social styling competition inside PlayHuud. Its complete loop is theme → style a 3D avatar → save a look → submit → vote or receive a system score → results → coins/XP/wardrobe → another challenge. The current build uses clearly labelled development mannequins while production assets are supplied. This is a development branch, not a deployed release.
+
+The original product note is the product direction. [SLAYHUUD_PLAN.md](SLAYHUUD_PLAN.md) records the initial design; this document describes the implementation that supersedes its proposed module/storage choices.
+
+## 1. Architecture and reuse
+
+```text
+PlayHuud Flutter
+  existing authentication / AppScope / ApiClient / navigation / themes
+  features/slayhuud: hub, studio, competitions, Fashion Cups
+    SlayStage: local WebView → bundled Three.js renderer
+    wardrobe selections → versioned bridge → GLB rendering → PNG snapshot
+  existing Huud, room joining, watch, profiles, leaderboards, notifications
+
+Spring WebFlux backend
+  ta-engine/.../slay: pure validation, scoring and competition transitions
+  ta-api/.../slay: catalog, ownership, looks, competitions, ballots, settlement
+  existing RoomService, CoinService, RatingService, ChampionshipService, push
+  PostgreSQL: durable Slay state and server deadlines
+  existing room WebSocket bus: SLAY_CHANGED invalidation
+```
+
+Flutter remains responsible for all product controls. The renderer owns graphics, assets, animation and camera only. The backend calculates scores, closes voting, decides results and awards rewards. Neither client supplies its own score, placement or reward.
+
+Live modes reuse existing room IDs, codes, membership and WebSocket transport. Their game state and deadlines are durable PostgreSQL records rather than the existing board-game runtime timer. Daily/weekly modes use the same state machine without rooms. This permits restarts, asynchronous voting and rounds lasting longer than a socket connection. No duplicate user, wallet, social network, rating or tournament service is created.
+
+A three-second lifecycle scheduler advances expired competitions. `FOR UPDATE` serializes a competition's transitions, submissions and votes. REST reads catch up expired state too; WebSocket invalidation accelerates refresh and a three-second client poll covers missed events. Multi-pod fan-out still inherits the existing room bus's single-pod limitation; database settlement remains authoritative.
+
+## 2. UI and entry points
+
+SlayHuud is selectable from the games catalogue. Existing room invitations and spectator routes open its competition screen. The hub links to the personal studio, four V1 modes, daily/weekly challenges, client briefs, Fashion Cups and existing Slay rankings.
+
+Screens inherit the selected PlayHuud theme: Palm Wine, Nebula or Supercar, in light/dark mode. They reuse `NeonColors`, typography and `NeonCard`; buttons follow the shared accent and stadium treatment. Wine, gold and existing backgrounds remain the default visual language. Production item thumbnails replace the temporary wardrobe icons when supplied. The hub shows Slay rating, wins and top-three finishes using existing competitive profile data.
+
+The studio has a large 3D stage, rotate/pinch controls, front/back/face camera shortcuts, avatar body selection in solo play, wardrobe categories, skin/face selection, poses and backgrounds. A brief sheet shows requirements/style tags, and competitive styling shows its deadline. Draft selections persist locally. Submission waits for the renderer, exports a fixed portrait, saves the look and image, then scores or submits it.
+
+The separate `lib/slayhuud_preview.dart` entrypoint uses local fixture API responses and a UI PREVIEW banner. It runs the actual WebView renderer but does not authenticate or write to a PlayHuud server. Its scores are fixtures, not backend verification.
+
+## 3. New persistence (V37)
+
+| Table/change | Purpose |
+|---|---|
+| `slay_profiles` | Saved avatar selections and XP; linked to existing user |
+| `slay_wardrobe` | Earned/purchased ownership; default items come from catalog |
+| `slay_looks` | Immutable selections, catalog version and bounded PNG snapshot |
+| `slay_competitions` | Mode, linked room/host, durable JSON state, indexed deadline, settlement flag |
+| `slay_ballots` | Server-issued pair, voter, round, timestamps and accepted choice |
+| `slay_reward_claims` | Unique reward idempotency key per user/source |
+| `user_blocks` | Generic block relationship, absent in the inspected architecture |
+| `content_reports` | Generic report queue, also absent before this change |
+| `match_participants.placement` | Group finishing position in existing match history |
+| Existing constraints | Register `slayhuud` rooms and allow 64/128-player championships |
+
+Competition JSON contains members, submitted entries, system scores, pairwise comparisons, judge decisions, round state and eliminated contestants. It is the durable source, not an in-memory room snapshot. A future high-volume async release can normalize entries/votes without changing renderer contracts.
+
+Snapshots are stored as PostgreSQL `BYTEA` for the working V1; no external storage credentials are required. PNG size is capped at 1 MB and dimensions at 1024×1536, with actual decoding validation. Flutter exports 600×900. The WebFlux JSON body limit is 2 MB to accommodate base64. Move images to object storage/CDN before large-scale launch. `snapshot_verified` is reserved for future server verification and is not currently populated.
+
+## 4. Renderer and bridge
+
+Source: `slay-renderer/`. Runtime: bundled single HTML/JS file in `app/assets/slay_renderer/`, served on device loopback port 8187 by `flutter_inappwebview`.
+
+Three.js supplies orbit controls, portrait camera, lighting, stage, GLTF loading, named skeleton binding, body-region masking, pose/idle animation and morph presets. GLB with Meshopt compression and KTX2 textures is supported. Draco is not currently configured. The renderer loads only the avatar and selected items, retains equipped objects and releases replaced geometry/materials/textures. Immutable GLBs have a bounded 32 MB IndexedDB cache; cache failures still permit network loading.
+
+Bridge envelope:
+
+```json
+{"v":1,"id":"slay-12","type":"applyLook","payload":{"look":{
+  "body":"female","skinTone":"#623a27","facePreset":"classic",
+  "items":{"outfit":"female-owambe","hair":"female-hair-0","shoes":"shoe-3"},
+  "pose":"signature","background":"studio"
+}}}
+```
+
+| Direction | Messages |
+|---|---|
+| Flutter → JS | `init` (catalog, tier), `applyLook`, `setCamera`, `setPose`, `snapshot`, `pause`, `dispose` |
+| JS → Flutter | `ready`, `ack`, `snapshotResult` (PNG base64), `error`, `perf`, `contextLost` |
+
+Commands execute serially and responses match request IDs. Requests time out rather than silently submitting missing imagery. Foreground/background transitions and covered routes pause rendering. WebGL context loss reloads and reapplies the look. Low measured frame rate reduces pixel density through high/standard/low 3D tiers; there is no 2D replacement. Physical-device performance targets still require real assets and profiling.
+
+Production missing assets produce errors; mannequins are permitted only while `developmentAssets=true`. Development competitions never move rating.
+
+## 5. Competition lifecycle
+
+```text
+lobby → styling → voting → results
+                      ↘ round_result → styling (Slay or Pass)
+expired empty lobby / no submissions → cancelled
+```
+
+Server timestamps control every window. Missing looks forfeit; closing a client never auto-submits its draft.
+
+- **Style Battle:** two contestants, one theme, independent styling, anonymous community pairs, results and rematch. Equal final scores produce a draw, participation rewards and a draw in existing history.
+- **Groups:** 4, 6, 8, 10 or 16 contestants; ranking uses the same voting/settlement engine. Shared scores may share a placement.
+- **Slay or Pass:** 3+ contestants and 3–6 opposite-avatar-body judges. These are avatar role selections, not stored real-world gender. One anonymous look at a time; each judge chooses Slay/Pass once. Lowest score is eliminated and remaining players restyle. Final two receive Red Carpet and each judge chooses one finalist anonymously. Judges do not receive contestant rewards/rating. Reverse contestant/judge pools are supported.
+- **Daily/weekly:** entry at any time during the window, then community voting; no opponent needs to be online. Daily UTC windows use one day of entry followed by one day of voting. Weekly Monday UTC windows use seven days of entry and two days of voting.
+- **Solo/client:** same deterministic score engine and wardrobe ownership, with catalogue client briefs. Solo rewards are claimable once per theme per UTC day; repeated practice remains playable.
+
+## 6. System score, community voting and rating
+
+System score is deterministic: theme tag fit 50%, required categories 30%, colour harmony 10%, completeness 10%. Neutral colours are compatible; excess accent colours reduce harmony. Three stars begins at 85, two at 65, one at 40. Theme body eligibility and any budget are enforced. Rarity does not buy a higher score.
+
+Community pairwise scores use regularized Bradley–Terry strengths and convert them to a 0–100 average win expectation against the field. Per-challenge `systemWeight` controls the system/community blend. Every entry needs the minimum exposure (six comparisons by default; three judge responses in Slay or Pass). If exposure is insufficient, the result uses system score and is unranked. Names, countries, followers and ratings are withheld during voting; identities appear in final results.
+
+Slay rating reuses Glicko-2 math in a separate `game_type='slayhuud'` namespace. A head-to-head outcome is a win/loss/draw; group `rank:n` is expanded into pairwise outcomes against each opponent. Opponent strength therefore matters. Existing guest/bot checks, repeated-opponent limits, history, global/country boards and achievement infrastructure remain in force. Dev assets and insufficient voting override tournament rating eligibility.
+
+Anonymous PNGs are client-rendered. Validation proves format/size, not that the image matches the submitted outfit. A production anti-cheat/moderation decision is still needed before trusting every screenshot for competitive voting.
+
+## 7. API and realtime
+
+All feature routes are beneath `/api/v1/slay` and use existing authentication.
+
+| Routes | Behavior |
+|---|---|
+| `GET catalog`, `GET profile`, `GET wardrobe` | Catalogue, XP/stats/avatar and ownership |
+| `POST wardrobe/buy` | Atomic existing-coin debit plus unique ownership |
+| `POST looks`, `POST looks/{id}/snapshot`, `GET looks/{id}/snapshot` | Save selections, bounded immutable PNG, image read |
+| `POST solo/{theme}/score` | Server score and idempotent reward |
+| `GET/POST competitions`, `GET competitions/{id}`, `GET rooms/{id}` | Browse/create/read and existing room adapter |
+| `POST competitions/{id}/join`, `/start`, `/submit`, `/cancel` | Membership and competition lifecycle |
+| `POST competitions/{id}/judge`, `/final-vote` | Judge-only reveal/final decisions |
+| `GET competitions/{id}/ballot`, `POST ballots/{id}` | Server-assigned anonymous pairs and valid vote |
+| `POST reports`, `POST blocks` | Report a look; block future room/voting interactions |
+
+Existing `/ws/room/{id}` sends `EVENT` with payload type `SLAY_CHANGED` and competition ID after a committed change. Clients refetch authorized REST views. No private looks or rankings are broadcast on that public event.
+
+## 8. Huud, cups, profiles and rewards
+
+Existing Huud game requests accept SlayHuud, retain a real lobby and can be joined without friendship. The competition UI can explicitly post its lobby request. Slay match records feed existing social win/history mechanisms. No posts are automatically published while testing the fixture preview.
+
+Fashion Cups use `championships`, participants, matches, game history, badges and existing invitation links. Create requests add an optional `gameType` while preserving Draughts defaults. Knockout sizes are 4/8/16/32/64/128. Match rooms receive round themes. A tie replays the pairing; one submitted look wins by forfeit at deadline. With both entrants absent, the match closes with no winner and the bracket advances its byes.
+
+Competition settlement writes existing game results/history, updates a bracket and applies coins/XP once inside the transaction. Competitive reward coins/XP are capped at ten competition claims per rolling 24 hours. Group first/second/third normally earn 100/60/30 coins; other submitted participants receive 10. Tied battles receive 30 each. Existing coin stakes are explicitly disabled for Slay.
+
+Five wins and a Fashion Cup championship unlock exclusive wardrobe items for both avatar bodies. Slay top-three/five-win/champion achievements reuse existing profile badges. Rating remains separate from XP and coins.
+
+## 9. Abuse controls and remaining scale work
+
+Implemented: registered non-bot competitor/voter accounts, account-age gate for community voting, no contestants voting in their own competition, unique pair/voter/round ballots, one-second minimum ballot dwell, voting cap, server expiry, one decision per judge/look or final, ownership/body/slot/budget checks, immutable submitted looks, row locking, duplicate reward protection, block exclusions, private cup access checks and report actions.
+
+Existing architecture had no generic block/report tables, so V37 introduces them. Enforcement currently covers Slay room joining and its ballots; it does not retrofit every existing chat/game. Reports persist for review but a staff review UI/automated image moderation is not part of this branch. Image UUIDs are opaque; image reads enforce ownership or a published competition phase and private cup access. Device/account linkage and stronger collusion/bot detection remain future abuse work.
+
+The async implementation is appropriate for testing and modest V1 traffic. It stores votes with competition state and computes field comparisons at settlement; mass participation needs indexed/normalized ballot scheduling, performance measurements, pagination and load tests. Results show the top 100 plus the viewer’s submitted look when outside that range. Current hub lists are bounded and existing room fan-out is local to one backend process.
+
+## 10. Asset handoff and launch gates
+
+See [SLAYHUUD_ASSETS.md](SLAYHUUD_ASSETS.md) for exact filenames, skeleton/material/morph requirements and asset validation. The catalogue currently contains 20 themes, 17 outfits per avatar body (including unlocks), six hairstyles per body, eight shoes, twelve accessories, eight makeup choices, five backgrounds and four poses. These are metadata and procedural stand-ins, not completed fashion art.
+
+Before enabling a production catalogue:
+
+1. Supply and visually fit male/female GLBs, clothes, hair, accessories, makeup overlays, poses and thumbnails.
+2. Assign immutable HTTPS asset/thumbnail URLs and increase the catalogue version; set `developmentAssets=false` only after the catalogue is complete.
+3. Test real loading, rig deformation, clipping, skin tones, face/makeup overlays, textures and poses from all angles.
+4. Profile actual iPhone 12+ and representative Android hardware for frame rate, memory, cache, load time, thermal behavior and app lifecycle.
+5. Complete launch review of screenshot trust/moderation, image storage and expected async traffic.
+
+## 11. Development and validation
+
+```sh
+cd slay-renderer
+npm ci
+npm run build
+npm test
+node scripts/validate-assets.mjs /path/to/asset-delivery
+```
+
+`npm run build` refreshes the bundled Flutter HTML and catalogue. Run it after renderer or catalogue edits.
+
+```sh
+cd app
+flutter run -t lib/slayhuud_preview.dart --dart-define=API_BASE=http://localhost:55667
+flutter analyze lib/features/slayhuud lib/slayhuud_preview.dart
+flutter test test/slayhuud_vote_test.dart test/visual_theme_test.dart
+```
+
+The dummy API_BASE keeps fixture preview image/socket destinations local. Normal development runs use the existing backend and authentication flow.
+
+Backend verification uses normal Maven reactor checks. `SlayHuudIT` supports either Testcontainers or `it.r2dbc.url`, `it.jdbc.url`, `it.db.user`, `it.db.password`, `it.redis.port` pointing at disposable local services. It exercises real PostgreSQL/Redis wiring. No production database is used.
+
+## 12. Implementation phases
+
+| Phase | Current state |
+|---|---|
+| Architecture inspection and contracts | Implemented/documented against actual services |
+| First vertical slice | Theme → 3D stage → look/PNG → 1v1 → third-party vote → result/reward |
+| V1 modes | Solo, groups, Slay or Pass, async daily/weekly and client briefs implemented |
+| Platform integration | Existing rooms, Huud requests, spectator entry, coin ledger, profiles/ranks, achievements and knockout cups wired |
+| Asset production | Awaiting supplied GLBs, thumbnails and baked animation/morph content |
+| Launch hardening | Real-device profiling, screenshot/moderation and scale/storage decisions remain |
+
+### Recorded checks (8 October 2026)
+
+- Backend: 107 relevant checks passed (68 unit tests; 39 PostgreSQL/Redis integration tests across SlayHuud, competitive ratings and Huud).
+- Flutter: seven voting/theme widget tests passed; targeted feature/integration-route analysis is clean.
+- Renderer: TypeScript/Vite build and three bundle/skeleton tests passed.
+- Android: debug APK built successfully using the stable plugin compatibility patch. Android runtime/performance has not been tested on a physical device.
+- iOS: fixture preview built and ran on iPhone 16e simulator; inspected studio, outfit swapping, back camera and PNG submission/score flow. This does not substitute for real asset/device measurements or a signed release.
+
+Android uses a locally vendored stable `flutter_inappwebview_android` 1.1.3 with two upstream ProGuard filename fixes for AGP 9.1. See `app/vendor/flutter_inappwebview_android/PATCHES.md`; the shared Pub cache is untouched. All other WebView platforms remain on the stable release.

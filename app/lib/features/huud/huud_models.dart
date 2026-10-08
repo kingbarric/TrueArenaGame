@@ -29,6 +29,7 @@ const huudGameNames = {
   'truearena': 'Traitors',
   'wordbluff': 'Word Bluff',
   'draughts': 'Draughts',
+  'slayhuud': 'SlayHuud',
   'chess': 'Chess',
   'goosi': 'Macala',
   'whot': 'Whot',

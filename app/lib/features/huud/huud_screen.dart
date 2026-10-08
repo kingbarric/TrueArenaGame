@@ -38,7 +38,7 @@ class HuudScreen extends StatefulWidget {
 
 /// The games a request or challenge can be for, in the order the composer
 /// offers them.
-const _postableGames = ['draughts', 'chess', 'whot', 'ludo', 'goosi', 'wordbluff', 'truearena'];
+const _postableGames = ['slayhuud', 'draughts', 'chess', 'whot', 'ludo', 'goosi', 'wordbluff', 'truearena'];
 
 const _requestTtl = Duration(minutes: 15);
 const _challengeTtl = Duration(minutes: 10);

@@ -39,6 +39,7 @@ public class ChampionshipService {
     private final RoomRuntimeRegistry runtimes;
     private final DatabaseClient db;
     private final ObjectProvider<GameOrchestrator> games;
+    @org.springframework.beans.factory.annotation.Autowired private ObjectProvider<app.truearena.api.slay.SlayService> slay;
 
     public ChampionshipService(ChampionshipRepository championships, ChampionshipMatchRepository matches,
                                UserRepository users, RoomRepository rooms, RoomMemberRepository members,
@@ -83,14 +84,19 @@ public class ChampionshipService {
     }
 
     public Mono<View> create(UUID creator, String name, int size, String visibility, Instant start) {
-        if (name == null || name.isBlank() || name.length() > 80 || !List.of(4, 8, 16, 32).contains(size))
-            return Mono.error(ApiExceptions.badRequest("name and a size of 4, 8, 16 or 32 are required"));
+        return create(creator,name,size,visibility,start,"draughts");
+    }
+    public Mono<View> create(UUID creator, String name, int size, String visibility, Instant start, String requestedGame) {
+        String gameType=requestedGame==null?"draughts":requestedGame;
+        if(!List.of("draughts","slayhuud").contains(gameType))return Mono.error(ApiExceptions.badRequest("Unsupported championship game"));
+        if (name == null || name.isBlank() || name.length() > 80 || !List.of(4, 8, 16, 32, 64, 128).contains(size))
+            return Mono.error(ApiExceptions.badRequest("name and a size of 4, 8, 16, 32, 64 or 128 are required"));
         if (!List.of("public", "private").contains(visibility) || start == null || !start.isAfter(Instant.now()))
             return Mono.error(ApiExceptions.badRequest("choose visibility and a future start time"));
         return users.findById(creator)
                 .filter(u -> !u.isBot() && !u.isGuest())
                 .switchIfEmpty(Mono.error(ApiExceptions.forbidden("an account is required to create a championship")))
-                .flatMap(u -> championships.save(ChampionshipRow.create(code(), name.trim(), size, visibility, start, creator)))
+                .flatMap(u -> championships.save(ChampionshipRow.create(code(), name.trim(), size, visibility, start, creator, gameType)))
                 .flatMap(c -> db.sql("INSERT INTO championship_participants(championship_id,user_id,slot) VALUES(:c,:u,1)")
                         .bind("c", c.id()).bind("u", creator).fetch().rowsUpdated().thenReturn(c))
                 .flatMap(c -> detail(c.id(), creator));
@@ -247,16 +253,31 @@ public class ChampionshipService {
     }
 
     private Mono<Void> createMatchRoom(ChampionshipMatchRow m) {
-        if (m.roomId() != null) return games.getObject().startTournamentRoom(m.roomId());
-        return rooms.save(RoomRow.create(code(), null, m.playerA(), "draughts", 0, null, true))
+        if (m.roomId() != null) return startMatchAdapter(m.roomId());
+        return championships.findById(m.championshipId()).flatMap(c -> {
+          String theme=List.of("wedding-guest","lagos-owambe","abuja-dinner","african-royalty").get(Math.min(m.round()-1,3));
+          String config="slayhuud".equals(c.gameType())?"{\"mode\":\"battle\",\"seats\":2,\"themeId\":\""+theme+"\"}":null;
+          return rooms.save(RoomRow.create(code(), null, m.playerA(), c.gameType(), 0, config, true));
+        })
                 .flatMap(room -> members.save(RoomMemberRow.of(room.id(), m.playerA(), null))
                         .then(members.save(RoomMemberRow.of(room.id(), m.playerB(), null)))
                         .then(db.sql("UPDATE championship_matches SET room_id=:room,status='active',started_at=now(), "
                                         + "a_absent_since=now(),b_absent_since=now(),clock_phase=NULL,clock_remaining_ms=NULL "
                                         + "WHERE id=:id AND status='pending'")
                                 .bind("room", room.id()).bind("id", m.id()).fetch().rowsUpdated())
-                        .flatMap(n -> n == 0 ? Mono.empty() : games.getObject().startTournamentRoom(room.id())
+                        .flatMap(n -> n == 0 ? Mono.empty() : startMatchAdapter(room.id())
                                 .then(syncPause(room.id()))));
+    }
+
+    private Mono<Void> startMatchAdapter(UUID roomId) {
+        return rooms.findById(roomId).flatMap(r->"slayhuud".equals(r.gameType())
+            ? slay.getObject().startTournament(roomId) : games.getObject().startTournamentRoom(roomId));
+    }
+
+    /** Persistent styling deadline expired with no submissions from either entrant. */
+    public Mono<Void> stylingNoShow(UUID roomId) {
+        return matches.findByRoomId(roomId).filter(m -> "active".equals(m.status()))
+            .flatMap(m -> completeWithoutGame(m, null, "no_winner"));
     }
 
     /** Called by the game adapter after persisting a server-computed result. */
@@ -463,7 +484,7 @@ public class ChampionshipService {
                 .thenMany(championships.findAll().filter(c -> "running".equals(c.status())))
                 .concatMap(c -> recover(c).onErrorResume(e -> { log.warn("championship recovery failed {}: {}", c.id(), e.toString()); return Mono.empty(); }))
                 .thenMany(db.sql("SELECT id,room_id,player_a,player_b,a_remaining_ms,b_remaining_ms,a_absent_since,b_absent_since "
-                                + "FROM championship_matches WHERE status='active' AND room_id IS NOT NULL")
+                                + "FROM championship_matches WHERE status='active' AND room_id IS NOT NULL AND room_id NOT IN (SELECT id FROM rooms WHERE game_type='slayhuud')")
                         .map((r, meta) -> new Absence(r.get("id", UUID.class), r.get("room_id", UUID.class),
                                 r.get("player_a", UUID.class), r.get("player_b", UUID.class),
                                 r.get("a_remaining_ms", Long.class), r.get("b_remaining_ms", Long.class),
@@ -491,12 +512,12 @@ public class ChampionshipService {
                             .flatMap(fresh -> {
                                 var existing = runtimes.find(fresh.roomId());
                                 if (existing.map(RoomRuntime::started).orElse(false)) return Mono.empty();
-                                if (existing.isPresent()) return games.getObject().startTournamentRoom(fresh.roomId())
+                                if (existing.isPresent()) return startMatchAdapter(fresh.roomId())
                                         .then(syncPause(fresh.roomId()));
                                 return db.sql("UPDATE championship_matches SET a_absent_since=COALESCE(a_absent_since,now()), "
                                                 + "b_absent_since=COALESCE(b_absent_since,now()) WHERE id=:id")
                                         .bind("id", fresh.id()).fetch().rowsUpdated()
-                                        .then(games.getObject().startTournamentRoom(fresh.roomId()));
+                                        .then(startMatchAdapter(fresh.roomId()));
                             }));
                 }).then();
     }

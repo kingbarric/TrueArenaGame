@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/app_state.dart';
 import '../../core/game_socket.dart';
+import '../slayhuud/slay_competition_screen.dart';
 import '../../theme/neon_theme.dart';
 import '../whot/whot_watch_screen.dart';
 import '../ludo/ludo_watch_screen.dart';
@@ -52,7 +53,7 @@ class _SpectateScreenState extends State<SpectateScreen> {
     super.didChangeDependencies();
     if (_started) return;
     _started = true;
-    if (const {'whot', 'ludo', 'draughts', 'chess', 'goosi', 'wordbluff'}
+    if (const {'whot', 'ludo', 'draughts', 'chess', 'goosi', 'wordbluff', 'slayhuud'}
         .contains(widget.gameType)) {
       return;
     }
@@ -188,6 +189,7 @@ class _SpectateScreenState extends State<SpectateScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if(widget.gameType == 'slayhuud') return SlayCompetitionScreen(roomId: widget.roomId);
     if (widget.gameType == 'whot') {
       return WhotWatchScreen(roomId: widget.roomId);
     }

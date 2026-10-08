@@ -49,6 +49,13 @@ PODS:
   - Flutter (1.0.0)
   - flutter_contacts (0.0.1):
     - Flutter
+  - flutter_inappwebview_ios (0.0.1):
+    - Flutter
+    - flutter_inappwebview_ios/Core (= 0.0.1)
+    - OrderedSet (~> 6.0.3)
+  - flutter_inappwebview_ios/Core (0.0.1):
+    - Flutter
+    - OrderedSet (~> 6.0.3)
   - flutter_local_notifications (0.0.1):
     - Flutter
   - flutter_secure_storage (6.0.0):
@@ -109,6 +116,7 @@ PODS:
     - nanopb/encode (= 3.30910.0)
   - nanopb/decode (3.30910.0)
   - nanopb/encode (3.30910.0)
+  - OrderedSet (6.0.3)
   - permission_handler_apple (9.4.8):
     - Flutter
   - PromisesObjC (2.4.1)
@@ -134,6 +142,7 @@ DEPENDENCIES:
   - firebase_messaging (from `.symlinks/plugins/firebase_messaging/ios`)
   - Flutter (from `Flutter`)
   - flutter_contacts (from `.symlinks/plugins/flutter_contacts/ios`)
+  - flutter_inappwebview_ios (from `.symlinks/plugins/flutter_inappwebview_ios/ios`)
   - flutter_local_notifications (from `.symlinks/plugins/flutter_local_notifications/ios`)
   - flutter_secure_storage (from `.symlinks/plugins/flutter_secure_storage/ios`)
   - flutter_webrtc (from `.symlinks/plugins/flutter_webrtc/ios`)
@@ -163,6 +172,7 @@ SPEC REPOS:
     - GTMAppAuth
     - GTMSessionFetcher
     - nanopb
+    - OrderedSet
     - PromisesObjC
     - WebRTC-SDK
 
@@ -181,6 +191,8 @@ EXTERNAL SOURCES:
     :path: Flutter
   flutter_contacts:
     :path: ".symlinks/plugins/flutter_contacts/ios"
+  flutter_inappwebview_ios:
+    :path: ".symlinks/plugins/flutter_inappwebview_ios/ios"
   flutter_local_notifications:
     :path: ".symlinks/plugins/flutter_local_notifications/ios"
   flutter_secure_storage:
@@ -222,6 +234,7 @@ SPEC CHECKSUMS:
   FirebaseMessaging: c15f48126adbe8b4d3238a5e1fa24bab3ad3e472
   Flutter: 71a624a5bc0c04062bf19101d501e466baf2fb47
   flutter_contacts: 2ec1d6b62ca2869c3bbb3871bd74d4e3ef157135
+  flutter_inappwebview_ios: b89ba3482b96fb25e00c967aae065701b66e9b99
   flutter_local_notifications: 643a3eda1ce1c0599413ca31672536d423dee214
   flutter_secure_storage: 1ed9476fba7e7a782b22888f956cce43e2c62f13
   flutter_webrtc: 99283145164f482a16bf7122ef407b5d59d43158
@@ -235,6 +248,7 @@ SPEC CHECKSUMS:
   just_audio: 4e391f57b79cad2b0674030a00453ca5ce817eed
   livekit_client: 55f2f6afa597719985fa4913f6e889eb2b7eacd8
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
+  OrderedSet: e539b66b644ff081c73a262d24ad552a69be3a94
   permission_handler_apple: 92d754bbaa7361d436db2d6c3c1c2a0fdcec462e
   PromisesObjC: 752c3227f599e3467650e47ea36f433eeb10c273
   share_plus: 50da8cb520a8f0f65671c6c6a99b3617ed10a58a

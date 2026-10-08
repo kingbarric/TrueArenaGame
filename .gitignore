@@ -40,3 +40,10 @@ app/lib/core/contract/generated/
 # Built release artifacts — regenerated per release, served straight to the
 # VPS via rsync (see infra/deploy-access.local.md), never committed.
 website/downloads/
+
+# SlayHuud renderer development dependencies/build intermediates
+slay-renderer/node_modules/
+slay-renderer/dist/
+
+app/android/build/
+app/android/.kotlin/

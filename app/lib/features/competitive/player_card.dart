@@ -35,6 +35,7 @@ class PlayerCardTheme {
       secondary: Color(0xff8a6d1f), ink: Colors.white, icon: '👑');
 
   static const _byGame = <String, PlayerCardTheme>{
+    'slayhuud': PlayerCardTheme(top: Color(0xff8e1f3d), bottom: Color(0xff241517), accent: Color(0xffd9a441), secondary: Color(0xffd6bfb6), ink: Colors.white, icon: '✨'),
     // Teal and electric yellow.
     'draughts': PlayerCardTheme(
         top: Color(0xff12606a), bottom: Color(0xff062a30), accent: Color(0xfff2e41a),

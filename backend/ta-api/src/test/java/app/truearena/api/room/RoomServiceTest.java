@@ -766,6 +766,7 @@ class RoomServiceTest {
 
     @Test
     void discoverable_onlyListsStartedRoomsHostedByAnAcceptedFriend() {
+        when(rooms.findLiveSlayRooms()).thenReturn(Flux.empty());
         UUID self = UUID.randomUUID();
         UUID friend = UUID.randomUUID();
         UUID stranger = UUID.randomUUID();

@@ -106,7 +106,7 @@ public class RatingService {
                     MatchMeta meta = t.getT1();
                     List<Seat> seats = t.getT2();
                     Set<String> forfeited = t.getT3();
-                    boolean championship = meta.championshipId() != null;
+                    boolean championship = meta.championshipId() != null && (!"slayhuud".equals(game.gameType()) || meta.roomRanked());
                     Optional<UnrankedReason> early = policy.decide(game.gameType(), meta.roomRanked(), championship, seats, 0);
                     Mono<Optional<UnrankedReason>> decision = early.isPresent()
                             ? Mono.just(early)
@@ -228,7 +228,7 @@ public class RatingService {
                             Double.isNaN(opponentMean) ? null : opponentMean))
                     .then(updateStats(r, game.gameType(), bestBeatenRank))
                     .flatMap(stats -> awardAchievements(r.before().userId(), game.gameType(), matchId,
-                            PairwiseOutcomes.WON.equals(r.outcome()), stats[0], stats[1], bestBeatenRank,
+                            (PairwiseOutcomes.WON.equals(r.outcome()) || "rank:1".equals(r.outcome())), stats[0], stats[1], bestBeatenRank,
                             bestBeatenOpponent(id, r.outcome(), outcome, preRanks, bestBeatenRank)));
         }).then();
     }
@@ -254,7 +254,7 @@ public class RatingService {
 
     /** @return {@code [rankedWins, currentWinStreak]} after this match, for achievements. */
     private Mono<int[]> updateStats(Rated r, String gameType, Integer bestBeatenRank) {
-        int win = PairwiseOutcomes.WON.equals(r.outcome()) ? 1 : 0;
+        int win = (PairwiseOutcomes.WON.equals(r.outcome()) || "rank:1".equals(r.outcome())) ? 1 : 0;
         int draw = PairwiseOutcomes.TIED.equals(r.outcome()) ? 1 : 0;
         int loss = 1 - win - draw;
         int top100 = win == 1 && bestBeatenRank != null && bestBeatenRank <= 100 ? 1 : 0;
@@ -315,8 +315,7 @@ public class RatingService {
     private Mono<Void> insertParticipant(UUID matchId, String userId, String outcome, boolean forfeited,
                                          boolean disconnected, PlayerGameRatingRow before, RatingSnapshot after,
                                          Double opponentMean) {
-        String normalised = PairwiseOutcomes.WON.equals(outcome) || PairwiseOutcomes.TIED.equals(outcome)
-                ? outcome : PairwiseOutcomes.LOST;
+        String normalised = "rank:1".equals(outcome) ? PairwiseOutcomes.WON : PairwiseOutcomes.WON.equals(outcome) || PairwiseOutcomes.TIED.equals(outcome) ? outcome : PairwiseOutcomes.LOST;
         var spec = db.sql("INSERT INTO match_participants (match_id, user_id, outcome, forfeited, disconnected, "
                         + "rating_before, rating_after, rating_delta, deviation_before, deviation_after, opponent_rating_before) "
                         + "VALUES (:match, :uid, :outcome, :forfeited, :disconnected, :rb, :ra, :delta, :db, :da, :opp) "
@@ -329,7 +328,10 @@ public class RatingService {
         spec = bindNullable(spec, "db", before == null ? null : before.ratingDeviation(), Double.class);
         spec = bindNullable(spec, "da", after == null ? null : after.deviation(), Double.class);
         spec = bindNullable(spec, "opp", opponentMean, Double.class);
-        return spec.fetch().rowsUpdated().then();
+        return spec.fetch().rowsUpdated().then(outcome != null && outcome.startsWith("rank:")
+                ? db.sql("UPDATE match_participants SET placement=:p WHERE match_id=:m AND user_id=:u")
+                  .bind("p", Integer.parseInt(outcome.substring(5))).bind("m", matchId).bind("u", UUID.fromString(userId)).fetch().rowsUpdated().then()
+                : Mono.empty());
     }
 
     /**

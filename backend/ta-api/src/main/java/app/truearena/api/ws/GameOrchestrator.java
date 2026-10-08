@@ -725,6 +725,7 @@ public class GameOrchestrator {
                         case "goosi" -> startGoosi(rt, userId, playerIds);
                         case "whot" -> startWhot(rt, userId, playerIds);
                         case "ludo" -> startLudo(rt, userId, playerIds, options);
+                        case "slayhuud" -> tellError(rt,userId,"SLAY_STUDIO","Start this challenge from the SlayHuud runway screen");
                         default -> startTrueArena(rt, userId, playerIds, t.getT1().gameConfig());
                     };
                 }));

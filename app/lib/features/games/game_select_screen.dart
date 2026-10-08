@@ -4,6 +4,7 @@ import '../../theme/neon_theme.dart';
 import '../../widgets/game_badge.dart';
 import '../../widgets/neon.dart';
 import '../chess/chess_lobby_screen.dart';
+import '../slayhuud/slay_hub_screen.dart';
 import '../draughts/draughts_mode_screen.dart';
 import '../goosi/goosi_lobby_screen.dart';
 import '../whot/whot_lobby_screen.dart';
@@ -33,6 +34,7 @@ class GameCatalogEntry {
 }
 
 const List<GameCatalogEntry> gameCatalog = [
+  GameCatalogEntry(id: 'slayhuud', name: 'SlayHuud', emoji: '✨', tagline: 'Style · compete · own the spotlight', available: true),
   GameCatalogEntry(
     id: 'truearena',
     name: 'Traitors',
@@ -116,7 +118,9 @@ class GameSelectScreen extends StatelessWidget {
                       SnackBar(content: Text('${g.name} is coming soon')));
                   return;
                 }
-                if (g.id == 'draughts') {
+                if (g.id == 'slayhuud') {
+                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SlayHubScreen()));
+                } else if (g.id == 'draughts') {
                   Navigator.of(context).push(MaterialPageRoute(
                     builder: (_) => const DraughtsModeScreen(),
                   ));
