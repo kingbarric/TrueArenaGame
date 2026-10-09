@@ -119,7 +119,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(AppScope(
       state: state,
-      child: MaterialApp(theme: NeonTheme.dark, home: const HuudScreen()),
+      child: MaterialApp(theme: NeonTheme.dark, home: const HuudScreen(startOnLiveNow: false)),
     ));
     if (settle) {
       await tester.pumpAndSettle();
@@ -130,7 +130,7 @@ void main() {
     return calls;
   }
 
-  testWidgets('Your Huud comes first and pins a challenge with Accept / Not now', (tester) async {
+  testWidgets('Friends comes before For you and pins a challenge with Accept / Not now', (tester) async {
     final calls = await pumpFeed(tester, (request) async {
       if (request.url.path == '/api/v1/huud/feed') {
         expect(request.url.queryParameters['tab'], 'friends');
@@ -141,10 +141,14 @@ void main() {
     });
 
     expect(calls.first, 'GET /api/v1/huud/feed?tab=friends&filter=all');
-    expect(find.text('Your Huud'), findsOneWidget);
-    expect(find.text('For you'), findsOneWidget);
-    // Your Huud sits left of For you.
-    expect(tester.getCenter(find.text('Your Huud')).dx, lessThan(tester.getCenter(find.text('For you')).dx));
+    final friendsTab = find.byKey(const ValueKey('huud-tab-friends'));
+    final forYouTab = find.byKey(const ValueKey('huud-tab-for_you'));
+    expect(find.descendant(of: friendsTab, matching: find.textContaining('Friends')), findsOneWidget);
+    expect(find.descendant(of: forYouTab, matching: find.textContaining('For you')), findsOneWidget);
+    // Friends sits left of For you, with Live now in front of both.
+    expect(tester.getCenter(friendsTab).dx, lessThan(tester.getCenter(forYouTab).dx));
+    expect(tester.getCenter(find.byKey(const ValueKey('huud-tab-live'))).dx,
+        lessThan(tester.getCenter(friendsTab).dx));
 
     expect(find.textContaining('a Whot rematch'), findsOneWidget);
     expect(find.textContaining('You won the last one.'), findsOneWidget);

@@ -99,6 +99,25 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   final _huudController = StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get huudEvents => _huudController.stream;
 
+  /// Something changed in a Huud space you're in (someone joined, a game was
+  /// picked, the host moved on…) — the payload's `data.huudSpaceId` says which.
+  final _huudSpaceController = StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get huudSpaceEvents => _huudSpaceController.stream;
+
+  /// "Still here" for every Huud you're in, while the app is open. A host whose
+  /// app goes quiet for a few minutes hands their Huud to the next person.
+  Timer? _huudHeartbeat;
+  void _startHuudHeartbeat() {
+    _huudHeartbeat?.cancel();
+    _sendHuudHeartbeat();
+    _huudHeartbeat = Timer.periodic(const Duration(seconds: 45), (_) => _sendHuudHeartbeat());
+  }
+
+  void _sendHuudHeartbeat() {
+    if (api.bearer == null) return;
+    api.post('/huud-spaces/heartbeat').catchError((Object _) => null);
+  }
+
   void dismissGameInvite() {
     pendingGameInvite = null;
     notifyListeners();
@@ -143,6 +162,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       } else if (const {'HUUD_CHALLENGE', 'HUUD_CHALLENGE_ANSWERED'}
           .contains(payload?['type'])) {
         _huudController.add(payload!);
+      } else if (payload?['type'] == 'HUUD_SPACE') {
+        _huudSpaceController.add(payload!);
       }
     }, onDone: () => _scheduleInboxReconnect(generation));
     client.ready.then((_) {
@@ -155,9 +176,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       _scheduleInboxReconnect(generation);
     });
     _presenceTimer?.cancel();
+    _huudHeartbeat?.cancel();
     _refreshPresence();
     _presenceTimer =
         Timer.periodic(const Duration(seconds: 15), (_) => _refreshPresence());
+    _startHuudHeartbeat();
   }
 
   Future<void> _refreshPresence() async {
@@ -256,6 +279,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _refreshPresence();
+      if (api.bearer != null) _startHuudHeartbeat();
       if (api.bearer != null) _chatController.add({'type': 'sync'});
       inbox?.send('APP_FOREGROUND');
     }
@@ -265,6 +289,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       // PushNotificationService.sendToUserIfOffline still sends an OS push
       // instead of assuming the live in-app frame was enough.
       inbox?.send('APP_BACKGROUND');
+      _huudHeartbeat?.cancel();
       if (activeRoomId != null) {
         SharedPreferences.getInstance().then((prefs) => prefs.setInt(
             _kActiveRoomSavedAt, DateTime.now().millisecondsSinceEpoch));
@@ -649,6 +674,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     _inboxRetry?.cancel();
     _inboxRetry = null;
     _presenceTimer?.cancel();
+    _huudHeartbeat?.cancel();
     _presenceTimer = null;
     onlineFriends.value = <String>{};
     user = null;
@@ -669,6 +695,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _presenceTimer?.cancel();
+    _huudHeartbeat?.cancel();
     onlineFriends.dispose();
     super.dispose();
   }

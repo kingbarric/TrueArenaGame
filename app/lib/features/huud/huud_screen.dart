@@ -20,17 +20,22 @@ import '../notifications/notifications_screen.dart';
 import '../onboarding/guest_gate.dart';
 import '../profile/profile_screen.dart';
 import '../calls/hangouts_screen.dart';
+import '../huudspace/huud_kit.dart';
+import '../huudspace/live_now_panel.dart';
 import 'huud_models.dart';
 
-/// The Huud — PlayHuud's lobby feed, one tab in the shell.
+/// Live — what's happening now and PlayHuud's lobby feed, one tab in the shell.
 ///
-/// Two tabs: **Your Huud** (you and your friends: their open games, their
-/// wins, challenges sent to you) comes first, then **For you** (the whole
-/// public lobby). Both read `GET /huud/feed`; every open game on it is a
+/// Three tabs: **Live now** (Huuds going on and games to watch), **Friends**
+/// (you and your friends: their open games, their wins, challenges sent to
+/// you), then **For you** (the whole public lobby). Both read `GET /huud/feed`; every open game on it is a
 /// real lobby room, so Join is the ordinary `POST /rooms/join` and lands in
 /// the same `JoinedRoomScreen` as a typed huud code.
 class HuudScreen extends StatefulWidget {
-  const HuudScreen({super.key});
+  const HuudScreen({super.key, this.startOnLiveNow = true});
+
+  /// False opens straight on the Friends feed.
+  final bool startOnLiveNow;
 
   @override
   State<HuudScreen> createState() => _HuudScreenState();
@@ -44,6 +49,8 @@ const _requestTtl = Duration(minutes: 15);
 const _challengeTtl = Duration(minutes: 10);
 
 class _HuudScreenState extends State<HuudScreen> {
+  /// The Live now page sits in front of the two feed tabs.
+  late bool _liveNow = widget.startOnLiveNow;
   HuudTab _tab = HuudTab.friends;
   HuudFilter _filter = HuudFilter.all;
 
@@ -173,15 +180,16 @@ class _HuudScreenState extends State<HuudScreen> {
     if (_tab == HuudTab.friends) _load();
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(text),
-      action: event['type'] == 'HUUD_CHALLENGE' && _tab != HuudTab.friends
+      action: event['type'] == 'HUUD_CHALLENGE' && (_liveNow || _tab != HuudTab.friends)
           ? SnackBarAction(label: 'View', onPressed: () => _switchTab(HuudTab.friends))
           : null,
     ));
   }
 
   void _switchTab(HuudTab tab) {
-    if (tab == _tab) return;
+    if (tab == _tab && !_liveNow) return;
     setState(() {
+      _liveNow = false;
       _tab = tab;
       _error = null;
     });
@@ -392,7 +400,7 @@ class _HuudScreenState extends State<HuudScreen> {
         .toList();
 
     return Scaffold(
-      floatingActionButton: Padding(
+      floatingActionButton: _liveNow ? null : Padding(
         // Clear of the shell's floating nav pill.
         padding: const EdgeInsets.only(bottom: 78),
         child: FloatingActionButton(
@@ -408,6 +416,9 @@ class _HuudScreenState extends State<HuudScreen> {
         child: Column(children: [
           _header(context, n, app),
           _tabs(context, n),
+          if (_liveNow)
+            const Expanded(child: LiveNowPanel())
+          else
           Expanded(
             child: RefreshIndicator(
               onRefresh: () async {
@@ -487,7 +498,7 @@ class _HuudScreenState extends State<HuudScreen> {
           ),
         ),
         Expanded(
-          child: Text('Huud',
+          child: Text('Live',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
         ),
@@ -503,44 +514,60 @@ class _HuudScreenState extends State<HuudScreen> {
     );
   }
 
+  /// Big pill tabs — Live now · Friends · For you — orange marks where you are.
   Widget _tabs(BuildContext context, NeonColors n) {
-    Widget tab(HuudTab tab, String label) {
-      final active = _tab == tab;
-      return Expanded(
-        child: Semantics(
-          selected: active,
-          button: true,
-          child: InkWell(
-            key: ValueKey('huud-tab-${tab.wire}'),
-            onTap: () => _switchTab(tab),
-            child: SizedBox(
-              height: 48,
-              child: Column(mainAxisAlignment: MainAxisAlignment.end, children: [
-                Text(label,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w800, color: active ? n.ink : n.mute)),
-                const SizedBox(height: 10),
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  width: 56,
-                  height: 4,
-                  decoration: BoxDecoration(
-                      color: active ? n.gold : Colors.transparent,
-                      borderRadius: BorderRadius.circular(2)),
+    final h = HuudColors.of(context);
+    Widget tab(String key, String emoji, String label, bool active, VoidCallback onTap) => Expanded(
+          child: Semantics(
+            selected: active,
+            button: true,
+            label: label,
+            excludeSemantics: true,
+            child: GestureDetector(
+              key: ValueKey('huud-tab-$key'),
+              onTap: onTap,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                height: 46,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: active ? h.orange : Colors.transparent,
+                  borderRadius: BorderRadius.circular(23),
+                  border: active ? Border.all(color: kCabinetInk, width: 2.2) : null,
                 ),
-              ]),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    child: Text('$emoji $label',
+                        style: TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w900, color: active ? h.onOrange : n.mid)),
+                  ),
+                ),
+              ),
             ),
           ),
-        ),
-      );
-    }
+        );
 
-    return Container(
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: n.line))),
-      child: Row(children: [
-        tab(HuudTab.friends, 'Your Huud'),
-        tab(HuudTab.forYou, 'For you'),
-      ]),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: n.panel,
+          borderRadius: BorderRadius.circular(27),
+          border: Border.all(color: n.line, width: 1.4),
+        ),
+        child: Row(children: [
+          tab('live', '🔴', 'Live now', _liveNow, () {
+            if (!_liveNow) setState(() => _liveNow = true);
+          }),
+          tab(HuudTab.friends.wire, '👫', 'Friends', !_liveNow && _tab == HuudTab.friends,
+              () => _switchTab(HuudTab.friends)),
+          tab(HuudTab.forYou.wire, '✨', 'For you', !_liveNow && _tab == HuudTab.forYou,
+              () => _switchTab(HuudTab.forYou)),
+        ]),
+      ),
     );
   }
 

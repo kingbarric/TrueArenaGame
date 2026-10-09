@@ -111,7 +111,7 @@ void main() {
 
   testWidgets('the real app shell hides its menu when a tab scrolls down, and brings it back', (tester) async {
     GoogleFonts.config.allowRuntimeFetching = false;
-    SharedPreferences.setMockInitialValues({'ta_main_tab_v2': 5}); // open on "You" (the Profile tab)
+    SharedPreferences.setMockInitialValues({'ta_main_tab_v3': 5}); // open on "You" (the Profile tab)
     tester.view.physicalSize = const Size(1170, 2532);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);

@@ -53,6 +53,9 @@ public class CallRingService {
     @org.springframework.beans.factory.annotation.Autowired
     private VoiceSessionService sessions;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private app.truearena.api.huudspace.HuudSpaceAccess huudSpaces;
+
     /** roomName → (invited user → when the invitation lapses). */
     private final Map<String, Map<UUID, Instant>> invites = new ConcurrentHashMap<>();
 
@@ -180,6 +183,9 @@ public class CallRingService {
             } catch (IllegalArgumentException e) {
                 return Mono.just(false);
             }
+        }
+        if (roomName.startsWith(app.truearena.api.huudspace.HuudSpaceAccess.VOICE_PREFIX)) {
+            return huudSpaces == null ? Mono.just(false) : huudSpaces.canTalk(userId, roomName);
         }
         if (roomName.startsWith("group-")) {
             try {

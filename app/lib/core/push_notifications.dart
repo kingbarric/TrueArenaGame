@@ -193,7 +193,7 @@ class PushNotifications {
       _app.pendingIncomingCall = data;
     } else if (type == 'HUUD_CHALLENGE' || type == 'HUUD_CHALLENGE_ANSWERED') {
       // Read by MainShell when it first mounts.
-      MainShell.requestedTab.value = MainShell.huudTab;
+      MainShell.requestedTab.value = MainShell.liveTab;
     }
     // BROADCAST: no deep link — the app just opens normally.
   }
@@ -213,7 +213,7 @@ class PushNotifications {
       IncomingCalls.present(data);
     } else if (type == 'HUUD_CHALLENGE' || type == 'HUUD_CHALLENGE_ANSWERED') {
       // The challenge card (Accept / Not now) lives at the top of Your Huud.
-      MainShell.requestedTab.value = MainShell.huudTab;
+      MainShell.requestedTab.value = MainShell.liveTab;
     }
   }
 

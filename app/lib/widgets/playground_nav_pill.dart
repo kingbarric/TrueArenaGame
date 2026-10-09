@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/huud_colors.dart';
 import '../theme/neon_theme.dart';
 
 /// A floating rounded pill nav — the toy-box alternative to a traditional
@@ -47,6 +48,7 @@ class PlaygroundNavPill extends StatelessWidget {
 
   Widget _pillItem(BuildContext context, NeonColors n, PlaygroundNavItem item, bool active) {
     final design = context.neonDesign.kind;
+    if (item.label != null) return _labelledItem(context, n, item, active, design);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 3),
       child: InkWell(
@@ -92,8 +94,58 @@ class PlaygroundNavPill extends StatelessWidget {
   }
 }
 
+Widget _labelledItem(
+    BuildContext context, NeonColors n, PlaygroundNavItem item, bool active, NeonDesignKind design) {
+  final h = HuudColors.of(context);
+  final fill = design == NeonDesignKind.cabinet ? h.orange : n.gold;
+  return Semantics(
+    button: true,
+    selected: active,
+    label: item.label,
+    excludeSemantics: true,
+    child: InkWell(
+      key: ValueKey('nav-${item.label}'),
+      borderRadius: BorderRadius.circular(22),
+      onTap: item.onTap,
+      child: SizedBox(
+        width: 54,
+        height: 56,
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          AnimatedContainer(
+            key: ValueKey(design),
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutBack,
+            width: active ? 46 : 34,
+            height: 32,
+            decoration: BoxDecoration(
+              color: active ? fill : Colors.transparent,
+              borderRadius: BorderRadius.circular(16),
+              border: active && design != NeonDesignKind.nebula ? Border.all(color: kCabinetInk, width: 2) : null,
+            ),
+            alignment: Alignment.center,
+            child: Icon(item.icon, size: active ? 21 : 20, color: active ? kCabinetInk : n.mute),
+          ),
+          const SizedBox(height: 3),
+          Text(item.label!,
+              maxLines: 1,
+              overflow: TextOverflow.clip,
+              style: TextStyle(
+                  fontSize: 11,
+                  height: 1.1,
+                  fontWeight: active ? FontWeight.w900 : FontWeight.w700,
+                  color: active ? n.ink : n.mute)),
+        ]),
+      ),
+    ),
+  );
+}
+
 class PlaygroundNavItem {
-  const PlaygroundNavItem({required this.icon, required this.onTap});
+  const PlaygroundNavItem({required this.icon, required this.onTap, this.label});
   final IconData icon;
   final VoidCallback onTap;
+
+  /// Shown under the icon — a word beside every picture, so a young player
+  /// never has to guess what a button does.
+  final String? label;
 }
