@@ -49,7 +49,7 @@ class SlayLook {
           items: Map.unmodifiable(items ?? this.items),
           pose: pose ?? this.pose,
           background: background ?? this.background);
-  SlayLook equip(Map item) {
+  SlayLook equip(Map item, {Iterable<Map> wardrobe = const []}) {
     final next = {...items};
     final category = item['category'] as String;
     if (category == 'outfit' || category == 'dress') {
@@ -66,6 +66,19 @@ class SlayLook {
     } else if (['tops', 'shirts', 'trousers', 'skirts'].contains(category)) {
       next.remove('outfit');
       next.remove('dress');
+    }
+    if (['shirts', 'tops'].contains(category)) {
+      next.remove(category == 'shirts' ? 'tops' : 'shirts');
+      if (!next.containsKey('trousers') && !next.containsKey('skirts')) {
+        final bottoms = wardrobe.where((i) =>
+            i['category'] == 'trousers' &&
+            i['body'] == body &&
+            i['assetUrl'] != null &&
+            i['isDefault'] == true);
+        if (bottoms.isNotEmpty) next['trousers'] = bottoms.first['id'];
+      }
+    } else if (['trousers', 'skirts'].contains(category)) {
+      next.remove(category == 'trousers' ? 'skirts' : 'trousers');
     }
     next[category] = item['id'];
     return copy(items: next);

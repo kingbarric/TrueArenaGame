@@ -240,3 +240,12 @@ Android uses a locally vendored stable `flutter_inappwebview_android` 1.1.3 with
 
 - The shoe coverage mask removed the female ankle above the low shoe opening. Catalogue v11 retains the real foot/ankle inside both fitted shoe styles instead of hiding the entire foot region. Toe, heel and ankle fit was checked from front, side, back and an angle on both bodies in Three.js.
 - All 26 renderer tests pass, including a new actual-catalogue check that skin remains visible and rays through both ankle openings reach skin below the old cutoff. The Mac was locked during this inspection; browser review was available.
+
+
+### Starter wardrobe expansion (9 October 2026)
+
+- Catalogue v12 adds 28 immediately available items: three date dresses, three male suits, three casual shirts, one fitted pair of wool trousers, three eye colours for each body, three lipstick shades, three earrings, three bags and three original watch styles.
+- Converted the selected MakeHuman assets to embedded GLBs with small textures and actual-model thumbnails. Added precise coverage to the new dresses, fitted the polo shoulder line and aligned earrings/lipstick to the female face. Eyes respect transparent corneas; removing an eye choice restores the base mesh. Watches contain separate body fits and held bags follow the avatar hand.
+- Studio categories expose these assets, automatically pair shirts with starter trousers and offer None for optional beauty/accessories. Wardrobe credits are bundled offline and available from the gear menu; CC-BY bag authors/licenses/modifications are recorded in SLAYHUUD_ASSET_CREDITS.md.
+- Verification: 32 renderer tests, 13 focused Flutter tests and eight SlayRules tests passed. Feature analysis and the TypeScript/Vite build pass. All 49 enabled GLBs validate; 55 future slots remain skipped and 13 soft size-budget warnings remain. The bundled GLBs total approximately 45.7 MB, with models loaded only when selected.
+- Visually checked dresses/suits/shirts, eye/lip/earring selections and front/angled bag and watch fits in Three.js. Rebuilt and launched the dedicated iPhone 17 Pro fixture preview; the Mac locked before native tap verification of this expansion. Live multiplayer/rewards and physical-device performance are not verified by this asset update.

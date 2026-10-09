@@ -1,16 +1,141 @@
 {
-  "source": "MakeHuman Community CC0 asset packs",
-  "generatedAt": "2026-10-09T17:37:20.385Z",
+  "source": "MakeHuman Community CC0 and attributed CC-BY asset packs; see credits.txt",
+  "generatedAt": "2026-10-09T19:51:27.452Z",
   "assets": [
     {
       "id": "female",
       "triangles": 3168,
-      "bytes": 2481792
+      "bytes": 2486328
     },
     {
       "id": "male",
       "triangles": 27300,
-      "bytes": 3436288
+      "bytes": 3436324
+    },
+    {
+      "id": "female-date-cutout",
+      "triangles": 6156,
+      "bytes": 886276
+    },
+    {
+      "id": "female-date-keyhole",
+      "triangles": 17888,
+      "bytes": 1084716
+    },
+    {
+      "id": "female-date-strapless",
+      "triangles": 10336,
+      "bytes": 925528
+    },
+    {
+      "id": "male-dinner-suit",
+      "triangles": 15300,
+      "bytes": 1103428
+    },
+    {
+      "id": "male-bowtie-suit",
+      "triangles": 24654,
+      "bytes": 1313472
+    },
+    {
+      "id": "male-tailored-suit",
+      "triangles": 16250,
+      "bytes": 1018596
+    },
+    {
+      "id": "male-tee-relaxed",
+      "triangles": 2068,
+      "bytes": 115660
+    },
+    {
+      "id": "male-tee-tucked",
+      "triangles": 2700,
+      "bytes": 249900
+    },
+    {
+      "id": "male-tee-polo",
+      "triangles": 4106,
+      "bytes": 331476
+    },
+    {
+      "id": "male-trousers-classic",
+      "triangles": 2674,
+      "bytes": 306396
+    },
+    {
+      "id": "female-earrings-hoops",
+      "triangles": 544,
+      "bytes": 124632
+    },
+    {
+      "id": "female-earrings-pearls",
+      "triangles": 3184,
+      "bytes": 190812
+    },
+    {
+      "id": "female-earrings-lightning",
+      "triangles": 2016,
+      "bytes": 209308
+    },
+    {
+      "id": "female-bag-handbag",
+      "triangles": 3460,
+      "bytes": 495968
+    },
+    {
+      "id": "female-bag-sling",
+      "triangles": 51080,
+      "bytes": 2468488
+    },
+    {
+      "id": "female-bag-tote",
+      "triangles": 1336,
+      "bytes": 155840
+    },
+    {
+      "id": "female-eyes-hazel",
+      "triangles": 2040,
+      "bytes": 164224
+    },
+    {
+      "id": "female-eyes-green",
+      "triangles": 2040,
+      "bytes": 162780
+    },
+    {
+      "id": "female-eyes-blue",
+      "triangles": 2040,
+      "bytes": 162320
+    },
+    {
+      "id": "male-eyes-hazel",
+      "triangles": 2040,
+      "bytes": 164184
+    },
+    {
+      "id": "male-eyes-green",
+      "triangles": 2040,
+      "bytes": 162740
+    },
+    {
+      "id": "male-eyes-blue",
+      "triangles": 2040,
+      "bytes": 162280
+    },
+    {
+      "id": "female-lipstick-ruby",
+      "triangles": 108,
+      "bytes": 14108
+    },
+    {
+      "id": "female-lipstick-rose",
+      "triangles": 108,
+      "bytes": 14104
+    },
+    {
+      "id": "female-lipstick-plum",
+      "triangles": 108,
+      "bytes": 14108
     },
     {
       "id": "female-essential",

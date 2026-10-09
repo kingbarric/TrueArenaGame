@@ -1,7 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Group, Mesh, BoxGeometry, MeshStandardMaterial } from 'three';
-import { presentBody, presentFace } from '../src/presentation.ts';
+import { presentBody, presentFace, presentEyes } from '../src/presentation.ts';
+
+test('equipped eye colours replace the base eyes and removing them restores the base', () => {
+  const body = new Group(), eyes = new Mesh(), brows = new Mesh();
+  eyes.name = 'face_eyes'; brows.name = 'face_brows'; body.add(eyes, brows);
+  presentEyes(body, true);
+  assert.equal(eyes.visible, false); assert.equal(brows.visible, true);
+  presentEyes(body, false);
+  assert.equal(eyes.visible, true);
+});
 
 test('grouped skin receives tint without changing shared wardrobe material', () => {
   const body = new Group(), region = new Group(); region.name = 'region_head';

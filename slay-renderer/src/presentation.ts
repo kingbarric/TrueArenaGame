@@ -42,3 +42,9 @@ export function presentFace(root: Object3D, facePreset: string, pose: string) {
     }
   });
 }
+
+export function presentEyes(body: Object3D, replacement: boolean) {
+  body.traverse(object => {
+    if (object.name === 'face_eyes') object.visible = !replacement;
+  });
+}

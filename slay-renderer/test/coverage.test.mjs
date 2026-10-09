@@ -25,11 +25,11 @@ async function avatar() {
   return new GLTFLoader().parseAsync(JSON.stringify(doc), '');
 }
 
-test('all seven female outfits remove only their covered triangles and restore skin when switched or removed', async () => {
+test('all enabled female outfits remove only their covered triangles and restore skin when switched or removed', async () => {
   const {scene} = await avatar();
   const meshes = []; scene.traverse(mesh => {if (mesh instanceof SkinnedMesh && mesh.name.startsWith('region_')) meshes.push(mesh);});
   const originals = new Map(meshes.map(mesh => [mesh, Array.from(mesh.geometry.index.array)]));
-  for (const outfit of ['female-essential', 'female-executive', 'female-redcarpet', 'female-romantic', 'female-night', 'female-business', 'female-dinner']) {
+  for (const outfit of ['female-essential', 'female-executive', 'female-redcarpet', 'female-romantic', 'female-night', 'female-business', 'female-dinner', 'female-date-cutout', 'female-date-keyhole', 'female-date-strapless']) {
     coverBody(scene, [outfit]);
     let removed = 0;
     for (const mesh of meshes) {

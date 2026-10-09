@@ -76,4 +76,26 @@ void main() {
     expect(find.text('How to play SlayHuud'), findsNothing);
     expect(tester.takeException(), isNull);
   });
+  testWidgets('wardrobe credits are bundled and accessible from the gear menu',
+      (tester) async {
+    await launch(tester,
+        Scaffold(appBar: AppBar(actions: [SlayGameMenu(onExit: () {})])));
+    await tester.tap(find.byTooltip('Game settings'));
+    await transition(tester);
+    await tester.tap(find.text('Wardrobe credits'));
+    await transition(tester);
+    await tester.pumpAndSettle();
+    expect(find.text('The artists behind your wardrobe'), findsOneWidget);
+    expect(
+        find.byWidgetPredicate((w) =>
+            w is SelectableText &&
+            w.data!.contains('punkduck') &&
+            w.data!.contains('Elvaerwyn') &&
+            w.data!.contains('CC BY 4.0')),
+        findsOneWidget);
+    await tester.tap(find.text('Done'));
+    await transition(tester);
+    expect(find.text('The artists behind your wardrobe'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 }

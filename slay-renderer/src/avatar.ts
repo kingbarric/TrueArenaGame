@@ -5,7 +5,7 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import type { Look,Item,Catalog } from './types';
 import { bindGarment } from './rig';
 import { assetBytes } from './cache';
-import { presentBody, presentFace } from './presentation';
+import { presentBody, presentFace, presentEyes } from './presentation';
 import { applyPose, selectBodyFit } from './poses';
 import { coverBody } from './coverage';
 
@@ -90,6 +90,8 @@ export class Wardrobe {
     const hidden=new Set(Object.values(look.items).flatMap(id=>catalog.items.find(i=>i.id===id)!.hidesRegions));
     coverBody(body,Object.values(look.items));
     presentBody(body,look.skinTone,hidden);
+    // Eye choices replace the baked brown-eye mesh; do not stack two sets.
+    presentEyes(body,!!look.items.eyes);
     presentFace(this.root,look.facePreset,look.pose);
     this.pose(look.pose);
   }

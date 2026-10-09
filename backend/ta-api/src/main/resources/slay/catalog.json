@@ -1,5 +1,5 @@
 {
-  "version": 11,
+  "version": 12,
   "developmentAssets": true,
   "avatars": [
     {
@@ -669,7 +669,10 @@
       "rarity": "common",
       "assetUrl": "assets/male-essential.glb",
       "thumbnailUrl": "assets/male-essential.png",
-      "hidesRegions": ["torso", "upper_legs"],
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
       "attachmentBone": null,
       "isDefault": true,
       "coinCost": 0,
@@ -698,7 +701,10 @@
       "rarity": "common",
       "assetUrl": "assets/male-executive.glb",
       "thumbnailUrl": "assets/male-executive.png",
-      "hidesRegions": ["torso", "upper_legs"],
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
       "attachmentBone": null,
       "isDefault": true,
       "coinCost": 0,
@@ -765,7 +771,10 @@
       "rarity": "common",
       "assetUrl": "assets/male-redcarpet.glb",
       "thumbnailUrl": "assets/male-redcarpet.png",
-      "hidesRegions": ["torso", "upper_legs"],
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
       "attachmentBone": null,
       "isDefault": true,
       "coinCost": 0,
@@ -1058,7 +1067,10 @@
       "rarity": "rare",
       "assetUrl": "assets/male-business.glb",
       "thumbnailUrl": "assets/male-business.png",
-      "hidesRegions": ["torso", "upper_legs"],
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
       "attachmentBone": null,
       "isDefault": false,
       "coinCost": 136,
@@ -2230,6 +2242,756 @@
       "coinCost": 0,
       "unlockWins": 5,
       "placeholder": "outfit"
+    },
+    {
+      "id": "female-date-cutout",
+      "name": "After-dark Cut-out",
+      "category": "dress",
+      "body": "female",
+      "styleTags": [
+        "romantic",
+        "party",
+        "elegant"
+      ],
+      "colourTags": [
+        "brown",
+        "gold",
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "romantic",
+        "party",
+        "elegant"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-date-cutout.glb",
+      "thumbnailUrl": "assets/female-date-cutout.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "dress"
+    },
+    {
+      "id": "female-date-keyhole",
+      "name": "Zebra Keyhole",
+      "category": "dress",
+      "body": "female",
+      "styleTags": [
+        "romantic",
+        "party",
+        "elegant"
+      ],
+      "colourTags": [
+        "grey",
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "romantic",
+        "party",
+        "elegant"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-date-keyhole.glb",
+      "thumbnailUrl": "assets/female-date-keyhole.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "dress"
+    },
+    {
+      "id": "female-date-strapless",
+      "name": "Strapless Romance",
+      "category": "dress",
+      "body": "female",
+      "styleTags": [
+        "romantic",
+        "party",
+        "elegant"
+      ],
+      "colourTags": [
+        "pink",
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "romantic",
+        "party",
+        "elegant"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-date-strapless.glb",
+      "thumbnailUrl": "assets/female-date-strapless.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "dress"
+    },
+    {
+      "id": "male-dinner-suit",
+      "name": "Dinner Jacket",
+      "category": "outfit",
+      "body": "male",
+      "styleTags": [
+        "formal",
+        "elegant",
+        "luxury"
+      ],
+      "colourTags": [
+        "white",
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "formal",
+        "elegant",
+        "luxury"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/male-dinner-suit.glb",
+      "thumbnailUrl": "assets/male-dinner-suit.png",
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "outfit"
+    },
+    {
+      "id": "male-bowtie-suit",
+      "name": "Black Tie",
+      "category": "outfit",
+      "body": "male",
+      "styleTags": [
+        "formal",
+        "elegant",
+        "luxury"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "formal",
+        "elegant",
+        "luxury"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/male-bowtie-suit.glb",
+      "thumbnailUrl": "assets/male-bowtie-suit.png",
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "outfit"
+    },
+    {
+      "id": "male-tailored-suit",
+      "name": "Tailored Gentleman",
+      "category": "outfit",
+      "body": "male",
+      "styleTags": [
+        "formal",
+        "elegant",
+        "luxury"
+      ],
+      "colourTags": [
+        "navy",
+        "red"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "formal",
+        "elegant",
+        "luxury"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/male-tailored-suit.glb",
+      "thumbnailUrl": "assets/male-tailored-suit.png",
+      "hidesRegions": [
+        "torso",
+        "upper_legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "outfit"
+    },
+    {
+      "id": "male-tee-relaxed",
+      "name": "Relaxed Tee",
+      "category": "shirts",
+      "body": "male",
+      "styleTags": [
+        "casual",
+        "streetwear"
+      ],
+      "colourTags": [
+        "white"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "streetwear"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/male-tee-relaxed.glb",
+      "thumbnailUrl": "assets/male-tee-relaxed.png",
+      "hidesRegions": [
+        "torso"
+      ],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "shirts"
+    },
+    {
+      "id": "male-tee-tucked",
+      "name": "Classic Tucked Tee",
+      "category": "shirts",
+      "body": "male",
+      "styleTags": [
+        "casual",
+        "streetwear"
+      ],
+      "colourTags": [
+        "grey"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "streetwear"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/male-tee-tucked.glb",
+      "thumbnailUrl": "assets/male-tee-tucked.png",
+      "hidesRegions": [
+        "torso"
+      ],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "shirts"
+    },
+    {
+      "id": "male-tee-polo",
+      "name": "Weekend Polo",
+      "category": "shirts",
+      "body": "male",
+      "styleTags": [
+        "casual",
+        "streetwear"
+      ],
+      "colourTags": [
+        "grey"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "streetwear"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/male-tee-polo.glb",
+      "thumbnailUrl": "assets/male-tee-polo.png",
+      "hidesRegions": [
+        "torso"
+      ],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "shirts"
+    },
+    {
+      "id": "male-trousers-classic",
+      "name": "Classic Trousers",
+      "category": "trousers",
+      "body": "male",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/male-trousers-classic.glb",
+      "thumbnailUrl": "assets/male-trousers-classic.png",
+      "hidesRegions": [
+        "upper_legs",
+        "legs"
+      ],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "trousers"
+    },
+    {
+      "id": "female-earrings-hoops",
+      "name": "Metal Hoops",
+      "category": "jewellery",
+      "body": "female",
+      "styleTags": [
+        "elegant",
+        "party"
+      ],
+      "colourTags": [
+        "white"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "elegant",
+        "party"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-earrings-hoops.glb",
+      "thumbnailUrl": "assets/female-earrings-hoops.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "jewellery"
+    },
+    {
+      "id": "female-earrings-pearls",
+      "name": "Pearl Studs",
+      "category": "jewellery",
+      "body": "female",
+      "styleTags": [
+        "elegant",
+        "party"
+      ],
+      "colourTags": [
+        "white"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "elegant",
+        "party"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-earrings-pearls.glb",
+      "thumbnailUrl": "assets/female-earrings-pearls.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "jewellery"
+    },
+    {
+      "id": "female-earrings-lightning",
+      "name": "Lightning Drops",
+      "category": "jewellery",
+      "body": "female",
+      "styleTags": [
+        "elegant",
+        "party"
+      ],
+      "colourTags": [
+        "gold"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "elegant",
+        "party"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-earrings-lightning.glb",
+      "thumbnailUrl": "assets/female-earrings-lightning.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "jewellery"
+    },
+    {
+      "id": "female-bag-handbag",
+      "name": "City Handbag",
+      "category": "bags",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "party"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "party"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-bag-handbag.glb",
+      "thumbnailUrl": "assets/female-bag-handbag.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "bags"
+    },
+    {
+      "id": "female-bag-sling",
+      "name": "Sling Purse",
+      "category": "bags",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "party"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "party"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-bag-sling.glb",
+      "thumbnailUrl": "assets/female-bag-sling.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "bags"
+    },
+    {
+      "id": "female-bag-tote",
+      "name": "Shopping Tote",
+      "category": "bags",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "party"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "party"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-bag-tote.glb",
+      "thumbnailUrl": "assets/female-bag-tote.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "bags"
+    },
+    {
+      "id": "female-eyes-hazel",
+      "name": "Warm Hazel",
+      "category": "eyes",
+      "body": "female",
+      "styleTags": [],
+      "colourTags": [
+        "gold"
+      ],
+      "cultureTags": [],
+      "eventTags": [],
+      "rarity": "common",
+      "assetUrl": "assets/female-eyes-hazel.glb",
+      "thumbnailUrl": "assets/female-eyes-hazel.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "eyes"
+    },
+    {
+      "id": "female-eyes-green",
+      "name": "Emerald Eyes",
+      "category": "eyes",
+      "body": "female",
+      "styleTags": [],
+      "colourTags": [
+        "green"
+      ],
+      "cultureTags": [],
+      "eventTags": [],
+      "rarity": "common",
+      "assetUrl": "assets/female-eyes-green.glb",
+      "thumbnailUrl": "assets/female-eyes-green.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "eyes"
+    },
+    {
+      "id": "female-eyes-blue",
+      "name": "Deep Blue",
+      "category": "eyes",
+      "body": "female",
+      "styleTags": [],
+      "colourTags": [
+        "blue"
+      ],
+      "cultureTags": [],
+      "eventTags": [],
+      "rarity": "common",
+      "assetUrl": "assets/female-eyes-blue.glb",
+      "thumbnailUrl": "assets/female-eyes-blue.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "eyes"
+    },
+    {
+      "id": "male-eyes-hazel",
+      "name": "Warm Hazel",
+      "category": "eyes",
+      "body": "male",
+      "styleTags": [],
+      "colourTags": [
+        "gold"
+      ],
+      "cultureTags": [],
+      "eventTags": [],
+      "rarity": "common",
+      "assetUrl": "assets/male-eyes-hazel.glb",
+      "thumbnailUrl": "assets/male-eyes-hazel.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "eyes"
+    },
+    {
+      "id": "male-eyes-green",
+      "name": "Emerald Eyes",
+      "category": "eyes",
+      "body": "male",
+      "styleTags": [],
+      "colourTags": [
+        "green"
+      ],
+      "cultureTags": [],
+      "eventTags": [],
+      "rarity": "common",
+      "assetUrl": "assets/male-eyes-green.glb",
+      "thumbnailUrl": "assets/male-eyes-green.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "eyes"
+    },
+    {
+      "id": "male-eyes-blue",
+      "name": "Deep Blue",
+      "category": "eyes",
+      "body": "male",
+      "styleTags": [],
+      "colourTags": [
+        "blue"
+      ],
+      "cultureTags": [],
+      "eventTags": [],
+      "rarity": "common",
+      "assetUrl": "assets/male-eyes-blue.glb",
+      "thumbnailUrl": "assets/male-eyes-blue.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "eyes"
+    },
+    {
+      "id": "female-lipstick-ruby",
+      "name": "Ruby Red",
+      "category": "makeup",
+      "body": "female",
+      "styleTags": [
+        "romantic",
+        "party"
+      ],
+      "colourTags": [
+        "red"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "romantic",
+        "party"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-lipstick-ruby.glb",
+      "thumbnailUrl": "assets/female-lipstick-ruby.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "makeup"
+    },
+    {
+      "id": "female-lipstick-rose",
+      "name": "Soft Rose",
+      "category": "makeup",
+      "body": "female",
+      "styleTags": [
+        "romantic",
+        "party"
+      ],
+      "colourTags": [
+        "pink"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "romantic",
+        "party"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-lipstick-rose.glb",
+      "thumbnailUrl": "assets/female-lipstick-rose.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "makeup"
+    },
+    {
+      "id": "female-lipstick-plum",
+      "name": "Deep Plum",
+      "category": "makeup",
+      "body": "female",
+      "styleTags": [
+        "romantic",
+        "party"
+      ],
+      "colourTags": [
+        "purple"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "romantic",
+        "party"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-lipstick-plum.glb",
+      "thumbnailUrl": "assets/female-lipstick-plum.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "makeup"
+    },
+    {
+      "id": "watch-gold",
+      "name": "Gold Chronograph",
+      "category": "watches",
+      "body": "unisex",
+      "styleTags": [
+        "luxury"
+      ],
+      "colourTags": [
+        "gold"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "luxury"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/watch-gold.glb",
+      "thumbnailUrl": "assets/watch-gold.png",
+      "hidesRegions": [],
+      "attachmentBone": "LeftHand",
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "watches"
+    },
+    {
+      "id": "watch-silver",
+      "name": "Steel & Leather",
+      "category": "watches",
+      "body": "unisex",
+      "styleTags": [
+        "casual"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/watch-silver.glb",
+      "thumbnailUrl": "assets/watch-silver.png",
+      "hidesRegions": [],
+      "attachmentBone": "LeftHand",
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "watches"
+    },
+    {
+      "id": "watch-smart",
+      "name": "Night Smartwatch",
+      "category": "watches",
+      "body": "unisex",
+      "styleTags": [
+        "casual"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/watch-smart.glb",
+      "thumbnailUrl": "assets/watch-smart.png",
+      "hidesRegions": [],
+      "attachmentBone": "LeftHand",
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "watches"
     }
   ],
   "themes": [

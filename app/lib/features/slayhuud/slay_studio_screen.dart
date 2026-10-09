@@ -43,11 +43,12 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
     'trousers': 'Trousers',
     'skirts': 'Skirts',
     'hair': 'Hair',
+    'eyes': 'Eyes',
     'shoes': 'Shoes',
     'headwear': 'Headwear',
-    'jewellery': 'Jewellery',
+    'jewellery': 'Earrings',
     'bags': 'Bags',
-    'makeup': 'Makeup',
+    'makeup': 'Lipstick',
     'watches': 'Watches',
     'glasses': 'Glasses',
     'accessories': 'Details'
@@ -165,7 +166,8 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
         return;
       }
     }
-    _change(_look.equip(item));
+    _change(_look.equip(item,
+        wardrobe: (widget.catalog['items'] as List).cast<Map>()));
   }
 
   Future<void> _submit() async {
@@ -260,6 +262,16 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                 i['category'] == _category &&
                 (i['body'] == 'unisex' || i['body'] == _look.body))
             .toList();
+        final canRemove = [
+          'eyes',
+          'makeup',
+          'jewellery',
+          'watches',
+          'bags',
+          'glasses',
+          'headwear',
+          'accessories'
+        ].contains(_category);
         return Scaffold(
             appBar: AppBar(title: const Text('Your studio'), actions: [
               Padding(
@@ -468,9 +480,21 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                                     3,
                             crossAxisSpacing: 8,
                             mainAxisSpacing: 8),
-                        itemCount: items.length,
+                        itemCount: items.length + (canRemove ? 1 : 0),
                         itemBuilder: (context, i) {
-                          final item = Map<String, dynamic>.from(items[i]);
+                          if (canRemove && i == 0) {
+                            return SlayWardrobeTile(
+                                name: 'None',
+                                selected: !_look.items.containsKey(_category),
+                                owned: true,
+                                onTap: _busy
+                                    ? null
+                                    : () => _change(_look.copy(
+                                        items: {..._look.items}
+                                          ..remove(_category))));
+                          }
+                          final item = Map<String, dynamic>.from(
+                              items[i - (canRemove ? 1 : 0)]);
                           final selected = _look.items[_category] == item['id'],
                               owned = _owned.contains(item['id']);
                           return SlayWardrobeTile(
