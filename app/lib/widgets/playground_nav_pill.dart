@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/huud_colors.dart';
 import '../theme/neon_theme.dart';
+import 'nav_art.dart';
 
 /// A floating rounded pill nav — the toy-box alternative to a traditional
 /// full-width bottom bar (see the "Playground Home" design pass). Lives
@@ -96,6 +97,7 @@ class PlaygroundNavPill extends StatelessWidget {
 Widget _labelledItem(BuildContext context, NeonColors n, PlaygroundNavItem item, bool active, NeonDesignKind design) {
   final h = HuudColors.of(context);
   final fill = design == NeonDesignKind.cabinet ? h.orange : n.gold;
+  final art = item.art;
   return Semantics(
     button: true,
     selected: active,
@@ -106,29 +108,37 @@ Widget _labelledItem(BuildContext context, NeonColors n, PlaygroundNavItem item,
       borderRadius: BorderRadius.circular(22),
       onTap: item.onTap,
       child: SizedBox(
-        width: 54,
-        height: 56,
+        width: 58,
+        height: 60,
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           AnimatedContainer(
             key: ValueKey(design),
             duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOutBack,
-            width: active ? 46 : 34,
+            // No overshoot: the glow's blur would go negative on the way out.
+            curve: Curves.easeOutCubic,
+            width: active ? 48 : 36,
             height: 32,
             decoration: BoxDecoration(
-              color: active ? fill : Colors.transparent,
+              // A picture tab glows softly; a symbol tab keeps the solid pill.
+              color: active ? (art != null ? h.orangeSoft : fill) : Colors.transparent,
               borderRadius: BorderRadius.circular(16),
-              border: active && design != NeonDesignKind.nebula ? Border.all(color: kCabinetInk, width: 2) : null,
+              border: active && art == null && design != NeonDesignKind.nebula
+                  ? Border.all(color: kCabinetInk, width: 2)
+                  : null,
+              boxShadow:
+                  active && art != null ? [BoxShadow(color: h.orange.withValues(alpha: 0.35), blurRadius: 12)] : null,
             ),
             alignment: Alignment.center,
-            child: item.image != null
-                ? Opacity(
-                    opacity: active ? 1 : 0.75,
-                    child: Image.asset(item.image!, width: active ? 26 : 24, height: active ? 26 : 24),
-                  )
-                : Icon(item.icon, size: active ? 21 : 20, color: active ? kCabinetInk : n.mute),
+            child: art != null
+                ? NavArt(art, active: active, size: active ? 28 : 25)
+                : item.image != null
+                    ? Opacity(
+                        opacity: active ? 1 : 0.75,
+                        child: Image.asset(item.image!, width: active ? 26 : 24, height: active ? 26 : 24),
+                      )
+                    : Icon(item.icon, size: active ? 21 : 20, color: active ? kCabinetInk : n.mute),
           ),
-          const SizedBox(height: 3),
+          const SizedBox(height: 2),
           Text(item.label!,
               maxLines: 1,
               overflow: TextOverflow.clip,
@@ -136,7 +146,15 @@ Widget _labelledItem(BuildContext context, NeonColors n, PlaygroundNavItem item,
                   fontSize: 11,
                   height: 1.1,
                   fontWeight: active ? FontWeight.w900 : FontWeight.w700,
-                  color: active ? n.ink : n.mute)),
+                  color: active ? (art != null ? h.orangeText : n.ink) : n.mute)),
+          const SizedBox(height: 2),
+          // The little underline under the tab you're on.
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: active && art != null ? 16 : 0,
+            height: 3,
+            decoration: BoxDecoration(color: h.orange, borderRadius: BorderRadius.circular(2)),
+          ),
         ]),
       ),
     ),
@@ -144,11 +162,14 @@ Widget _labelledItem(BuildContext context, NeonColors n, PlaygroundNavItem item,
 }
 
 class PlaygroundNavItem {
-  const PlaygroundNavItem({required this.icon, required this.onTap, this.label, this.image});
+  const PlaygroundNavItem({required this.icon, required this.onTap, this.label, this.image, this.art});
   final IconData icon;
 
-  /// A picture to use instead of [icon] (the Huud tab's own icon).
+  /// A picture to use instead of [icon].
   final String? image;
+
+  /// One of the app's tab pictures (see [NavArt]) — takes priority.
+  final String? art;
   final VoidCallback onTap;
 
   /// Shown under the icon — a word beside every picture, so a young player

@@ -48,6 +48,7 @@ flutter:
     - assets/images/branding/
     - assets/images/game_icons/
     - assets/images/huud_backgrounds/
+    - assets/images/nav/
     - assets/music/
     - assets/sfx/
 

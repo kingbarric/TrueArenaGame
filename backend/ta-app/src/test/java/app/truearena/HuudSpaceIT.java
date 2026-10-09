@@ -82,6 +82,7 @@ class HuudSpaceIT {
     @Autowired UserRepository users;
     @Autowired FriendRepository friendRows;
     @Autowired DatabaseClient db;
+    @org.springframework.boot.test.mock.mockito.SpyBean InboxRegistry inbox;
     @MockBean LiveKitRoomAdmin livekit;
 
     @BeforeEach void media() {
@@ -117,6 +118,8 @@ class HuudSpaceIT {
         assertThat(first.privacy()).isEqualTo("friends");
         assertThat(first.code()).hasSize(6).doesNotContain("0", "O", "1", "I", "L");
         assertThat(first.youAreHost()).isTrue();
+        assertThat(first.youOwn()).isTrue();
+        assertThat(first.live()).isTrue();
         assertThat(first.members()).extracting("userId").containsExactly(ada);
 
         var again = huuds.create(ada, "Another one", "public").block();
@@ -182,117 +185,158 @@ class HuudSpaceIT {
         assertThat(huuds.joinByCode(stranger, open.code()).block().youAreIn()).isTrue();
     }
 
-    @Test void aLeavingHostHandsTheHuudToTheNextJoinerSkippingGuests() {
-        UUID host = person("Host"), guestKid = guest("Guest"), second = person("Second"), third = person("Third");
-        var huud = huuds.create(host, null, "public").block();
+    @Test void theOwnerCantLeaveTheirOwnHuudButMembersCanAndThenHearNothingMore() {
+        UUID owner = person("Owner"), friend = person("Friend");
+        var huud = huuds.create(owner, null, "public").block();
+        huuds.joinByCode(friend, huud.code()).block();
+        assertThatThrownBy(() -> huuds.leave(owner, huud.id()).block()).isInstanceOf(ResponseStatusException.class);
+
+        huuds.leave(friend, huud.id()).block();
+        assertThat(huuds.mine(friend).collectList().block()).isEmpty();
+        assertThat(huuds.view(huud.id(), owner).block().members()).extracting("userId").containsExactly(owner);
+
+        // Gone means no Live notification next time.
+        huuds.endLive(owner, huud.id()).block();
+        clearInvocations(inbox);
+        huuds.goLive(owner, huud.id(), "all").block();
+        verify(inbox, never()).notify(eq(friend), any());
+    }
+
+    @Test void whileLiveAnAwayHostIsCoveredByTheNextJoinerAndTheOwnerTakesBackOver() {
+        UUID owner = person("Owner"), guestKid = guest("Guest"), second = person("Second"), third = person("Third");
+        var huud = huuds.create(owner, null, "public").block();
         huuds.joinByCode(guestKid, huud.code()).block();
         huuds.joinByCode(second, huud.code()).block();
         huuds.joinByCode(third, huud.code()).block();
 
-        huuds.leave(host, huud.id()).block();
-
-        var after = huuds.view(huud.id(), third).block();
-        assertThat(after.host().userId()).isEqualTo(second);
-        assertThat(after.code()).isEqualTo(huud.code());
-        assertThat(after.members()).extracting("userId").doesNotContain(host);
-        assertThat(huuds.current(second).block().id()).isEqualTo(huud.id());
-        // The old host is free to make a new one.
-        assertThat(huuds.create(host, null, "public").block().id()).isNotEqualTo(huud.id());
-    }
-
-    @Test void aHostWhoseAppWentQuietIsReplacedByTheNextJoiner() {
-        UUID host = person("Host"), second = person("Second"), third = person("Third");
-        var huud = huuds.create(host, null, "public").block();
-        huuds.joinByCode(second, huud.code()).block();
-        huuds.joinByCode(third, huud.code()).block();
-
-        quiet(huud.id(), host, "4 minutes");
+        quiet(huud.id(), owner, "4 minutes");
         huuds.expire().block();
-        assertThat(huuds.view(huud.id(), third).block().host().userId()).isEqualTo(host);
+        assertThat(huuds.view(huud.id(), third).block().host().userId()).isEqualTo(owner);
 
-        quiet(huud.id(), host, "6 minutes");
+        quiet(huud.id(), owner, "6 minutes");
         huuds.expire().block();
-        var after = huuds.view(huud.id(), third).block();
-        assertThat(after.host().userId()).isEqualTo(second);
-        // Quiet but not gone yet: still listed until the member timeout.
-        assertThat(after.members()).extracting("userId").contains(host);
+        var covered = huuds.view(huud.id(), third).block();
+        // Guests can't run a Huud: the second person in does.
+        assertThat(covered.host().userId()).isEqualTo(second);
+        assertThat(covered.members()).extracting("userId").contains(owner);
+        assertThat(huuds.current(owner).block().id()).isEqualTo(huud.id());
+
+        // The owner opening it again is walking back in — and taking over.
+        var back = huuds.view(huud.id(), owner).block();
+        assertThat(back.youAreHost()).isTrue();
+        assertThat(back.host().userId()).isEqualTo(owner);
     }
 
-    @Test void someoneWhoLeftAndCameBackGoesToTheEndOfTheHostLine() {
-        UUID host = person("Host"), early = person("Early"), late = person("Late");
-        var huud = huuds.create(host, null, "public").block();
-        huuds.joinByCode(early, huud.code()).block();
-        huuds.joinByCode(late, huud.code()).block();
-        huuds.leave(early, huud.id()).block();
-        huuds.joinByCode(early, huud.code()).block();
-
-        huuds.leave(host, huud.id()).block();
-        assertThat(huuds.view(huud.id(), early).block().host().userId()).isEqualTo(late);
-    }
-
-    @Test void theLastPersonLeavingEndsTheHuudAndItStaysInEveryonesHistory() {
-        UUID host = person("Host"), friend = person("Friend");
-        var huud = huuds.create(host, "Saturday", "public").block();
+    @Test void endingLiveKeepsTheHuudItsPeopleCodeAndChatAndResetsTheHangout() {
+        UUID owner = person("Owner"), friend = person("Friend"), viewer = person("Viewer");
+        var huud = huuds.create(owner, "Saturday", "public", "draughts", "Who's in?", true).block();
         huuds.joinByCode(friend, huud.code()).block();
-        huuds.leave(friend, huud.id()).block();
-        huuds.leave(host, huud.id()).block();
+        requests.askForMic(friend, huud.id()).block();
+        huuds.watch(viewer, huud.id()).block();
+        chat.send(friend, huud.id(), "gg").block();
+        assertThatThrownBy(() -> huuds.endLive(friend, huud.id()).block()).isInstanceOf(ResponseStatusException.class);
 
-        assertThat(huuds.current(host).block()).isNull();
-        assertThatThrownBy(() -> huuds.joinByCode(person("Late"), huud.code()).block())
-                .isInstanceOf(ResponseStatusException.class);
-        for (UUID who : new UUID[]{host, friend}) {
-            var history = huuds.history(who).collectList().block();
-            assertThat(history).hasSize(1);
-            assertThat(history.get(0).status()).isEqualTo("ended");
-            assertThat(history.get(0).name()).isEqualTo("Saturday");
-            assertThat(history.get(0).participants()).extracting("userId").containsExactlyInAnyOrder(host, friend);
-        }
-        assertThat(huuds.history(host).collectList().block().get(0).youCreated()).isTrue();
-        assertThat(huuds.history(friend).collectList().block().get(0).youCreated()).isFalse();
+        var offline = huuds.endLive(owner, huud.id()).block();
+        assertThat(offline.live()).isFalse();
+        assertThat(offline.status()).isEqualTo("active");
+        assertThat(offline.code()).isEqualTo(huud.code());
+        assertThat(offline.name()).isEqualTo("Saturday");
+        assertThat(offline.currentGame()).isNull();
+        assertThat(offline.shared()).isFalse();
+        assertThat(offline.requests()).isEmpty();
+        assertThat(offline.memberCount()).isEqualTo(2);
+        assertThat(offline.liveCount()).isZero();
+        assertThat(access.canTalk(friend, huud.voiceRoom()).block()).isFalse();
+        assertThat(chat.messages(friend, huud.id(), null).collectList().block()).extracting("body").containsExactly("gg");
+        assertThat(huuds.live(viewer).collectList().block()).extracting("id").doesNotContain(huud.id());
+        assertThatThrownBy(() -> huuds.watch(viewer, huud.id()).block()).isInstanceOf(ResponseStatusException.class);
+
+        // Back Live with the same code and the same people.
+        var again = huuds.goLive(owner, huud.id(), "none").block();
+        assertThat(again.live()).isTrue();
+        assertThat(again.code()).isEqualTo(huud.code());
+        assertThat(again.memberCount()).isEqualTo(2);
+        assertThat(again.liveCount()).isEqualTo(1);
+        assertThat(huuds.view(huud.id(), friend).block().liveCount()).isEqualTo(2);
     }
 
-    @Test void membersWhoVanishAreDroppedAndAnEmptyHuudEnds() {
-        UUID host = person("Host"), friend = person("Friend");
-        var huud = huuds.create(host, null, "public").block();
+    @Test void goingLiveTellsMembersWhoHaventMutedItTheWayTheHostChose() {
+        UUID owner = person("Owner"), ada = person("Ada"), muted = person("Muted");
+        var huud = huuds.create(owner, null, "public").block();
+        huuds.joinByCode(ada, huud.code()).block();
+        huuds.joinByCode(muted, huud.code()).block();
+        assertThat(huuds.mute(muted, huud.id(), true).block().muted()).isTrue();
+        huuds.endLive(owner, huud.id()).block();
+
+        clearInvocations(inbox);
+        huuds.goLive(owner, huud.id(), "all").block();
+        verify(inbox).notify(eq(ada), argThat(event -> event.toString().contains("event=live")));
+        verify(inbox, never()).notify(eq(muted), argThat(event -> event.toString().contains("event=live")));
+
+        huuds.endLive(owner, huud.id()).block();
+        clearInvocations(inbox);
+        huuds.goLive(owner, huud.id(), "none").block();
+        verify(inbox, never()).notify(eq(ada), argThat(event -> event.toString().contains("event=live")));
+
+        huuds.endLive(owner, huud.id()).block();
+        clearInvocations(inbox);
+        // Nobody has the app open in a test: "online only" reaches nobody.
+        huuds.goLive(owner, huud.id(), "online").block();
+        verify(inbox, never()).notify(eq(ada), argThat(event -> event.toString().contains("event=live")));
+
+        assertThatThrownBy(() -> huuds.goLive(ada, huud.id(), "all").block()).isInstanceOf(ResponseStatusException.class);
+    }
+
+    @Test void youCanJoinWhileItsOfflineAndBeThereNextTimeItsLive() {
+        UUID owner = person("Owner"), early = person("Early");
+        var huud = huuds.create(owner, null, "public").block();
+        huuds.endLive(owner, huud.id()).block();
+
+        var joined = huuds.joinByCode(early, huud.code()).block();
+        assertThat(joined.youAreIn()).isTrue();
+        assertThat(joined.live()).isFalse();
+        assertThat(joined.liveCount()).isZero();
+        assertThat(huuds.mine(early).collectList().block()).extracting("id").containsExactly(huud.id());
+        assertThatThrownBy(() -> requests.askToPlay(early, huud.id()).block()).isInstanceOf(ResponseStatusException.class);
+
+        huuds.goLive(owner, huud.id(), "all").block();
+        var mine = huuds.mine(early).collectList().block().get(0);
+        assertThat(mine.live()).isTrue();
+        assertThat(mine.youOwn()).isFalse();
+    }
+
+    @Test void beingAwayOnlyTakesYouOutOfTheHangoutAndAnEmptyHangoutEndsLive() {
+        UUID owner = person("Owner"), friend = person("Friend");
+        var huud = huuds.create(owner, null, "public").block();
         huuds.joinByCode(friend, huud.code()).block();
-        var waiting = huuds.addGame(host, huud.id(), "chess").block();
-        quiet(huud.id(), host, "11 minutes");
+        var waiting = huuds.addGame(owner, huud.id(), "chess").block();
+        quiet(huud.id(), owner, "11 minutes");
         quiet(huud.id(), friend, "11 minutes");
         huuds.expire().block();
-        assertThat(huuds.history(host).collectList().block().get(0).status()).isEqualTo("ended");
-        assertThat(huuds.current(host).block()).isNull();
-        // Its waiting game went with it instead of lingering as an open lobby.
+
+        var after = huuds.view(huud.id(), friend).block();
+        // Just opening it again walks you in — so look via the owner's list instead.
+        var mine = huuds.mine(owner).collectList().block().get(0);
+        assertThat(mine.live()).isFalse();
+        assertThat(mine.memberCount()).isEqualTo(2);
+        assertThat(after.status()).isEqualTo("active");
         assertThat(db.sql("SELECT count(*) AS n FROM rooms WHERE id=:id AND status='lobby'").bind("id", waiting.id())
                 .map((r, m) -> ((Number) r.get("n")).intValue()).one().block()).isZero();
     }
 
-    @Test void aHuudNobodyCameToAndNothingWasPlayedInStaysOutOfHistory() {
-        UUID host = person("Host");
-        var lonely = huuds.create(host, null, "public").block();
-        assertThat(huuds.history(host).collectList().block()).extracting("id").containsExactly(lonely.id());
-        huuds.end(host, lonely.id()).block();
-        assertThat(huuds.history(host).collectList().block()).isEmpty();
-
-        var played = huuds.create(host, null, "public").block();
-        var room = huuds.addGame(host, played.id(), "draughts").block();
-        db.sql("INSERT INTO game_sessions(room_id,game_type,config,catalog_version,rng_seed) "
-                + "VALUES(:room,'draughts','{}',1,1)").bind("room", room.id()).fetch().rowsUpdated().block();
-        db.sql("UPDATE rooms SET status='ended' WHERE id=:id").bind("id", room.id()).fetch().rowsUpdated().block();
-        huuds.end(host, played.id()).block();
-        assertThat(huuds.history(host).collectList().block()).extracting("id").containsExactly(played.id());
-    }
-
-    @Test void endingClosesTheHuudForEveryoneAndOnlyTheHostCanEnd() {
-        UUID host = person("Host"), friend = person("Friend");
-        var huud = huuds.create(host, null, "public").block();
+    @Test void theOwnerCanDeleteTheirHuudForEveryone() {
+        UUID owner = person("Owner"), friend = person("Friend");
+        var huud = huuds.create(owner, null, "public").block();
         huuds.joinByCode(friend, huud.code()).block();
-        assertThatThrownBy(() -> huuds.end(friend, huud.id()).block()).isInstanceOf(ResponseStatusException.class);
-        huuds.end(host, huud.id()).block();
-        var ended = huuds.view(huud.id(), friend).block();
-        assertThat(ended.status()).isEqualTo("ended");
-        assertThat(ended.youAreIn()).isFalse();
-        assertThat(ended.code()).isNull();
-        assertThat(access.canTalk(friend, ended.voiceRoom()).block()).isFalse();
+        assertThatThrownBy(() -> huuds.delete(friend, huud.id()).block()).isInstanceOf(ResponseStatusException.class);
+        huuds.delete(owner, huud.id()).block();
+        assertThat(huuds.current(owner).block()).isNull();
+        assertThat(huuds.mine(friend).collectList().block()).isEmpty();
+        assertThatThrownBy(() -> huuds.joinByCode(person("Late"), huud.code()).block())
+                .isInstanceOf(ResponseStatusException.class);
+        // A brand-new Huud next time, with a new code.
+        var fresh = huuds.create(owner, null, null).block();
+        assertThat(fresh.id()).isNotEqualTo(huud.id());
     }
 
     @Test void someoneRemovedCannotComeBackOrTalk() {
@@ -305,7 +349,7 @@ class HuudSpaceIT {
         assertThat(access.canTalk(rude, huud.voiceRoom()).block()).isFalse();
         assertThatThrownBy(() -> huuds.joinByCode(rude, huud.code()).block()).isInstanceOf(ResponseStatusException.class);
         assertThat(huuds.live(rude).collectList().block()).extracting("id").doesNotContain(huud.id());
-        assertThat(huuds.history(rude).collectList().block()).isEmpty();
+        assertThat(huuds.mine(rude).collectList().block()).isEmpty();
     }
 
     @Test void oneGameAtATimeAndTheHuudOutlivesIt() {

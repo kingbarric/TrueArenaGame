@@ -13,6 +13,7 @@ import '../chat/chat_list_screen.dart';
 import '../chat/conversation_screen.dart';
 import '../groups/groups_screen.dart';
 import '../huudspace/huud_kit.dart';
+import '../../widgets/nav_art.dart';
 import '../competitive/player_profile_screen.dart';
 import '../status/victory_status.dart';
 import 'invite_contacts_screen.dart';
@@ -371,17 +372,25 @@ class _FriendsScreenState extends State<FriendsScreen> {
               height: 46,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: active ? h.orange : Colors.transparent,
+                color: active ? h.orangeSoft : Colors.transparent,
                 borderRadius: BorderRadius.circular(23),
-                border: active ? Border.all(color: kCabinetInk, width: 2.2) : null,
+                border: active ? Border.all(color: h.orange, width: 2) : null,
               ),
               child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 Flexible(
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
-                    child: Text('$emoji $label',
-                        style:
-                            TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: active ? h.onOrange : n.mid)),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      // A tab picture where there is one (friends, messages); otherwise an emoji.
+                      if (const {'friends', 'messages'}.contains(emoji))
+                        NavArt(emoji, active: active, size: 22)
+                      else
+                        Text(emoji, style: const TextStyle(fontSize: 16)),
+                      const SizedBox(width: 6),
+                      Text(label,
+                          style: TextStyle(
+                              fontSize: 15, fontWeight: FontWeight.w900, color: active ? h.orangeText : n.mid)),
+                    ]),
                   ),
                 ),
                 if (badge > 0) ...[
@@ -410,8 +419,8 @@ class _FriendsScreenState extends State<FriendsScreen> {
           border: Border.all(color: n.line, width: 1.4),
         ),
         child: Row(children: [
-          tab(_Section.friends, '👫', 'Friends'),
-          tab(_Section.messages, '💬', 'Messages'),
+          tab(_Section.friends, 'friends', 'Friends'),
+          tab(_Section.messages, 'messages', 'Messages'),
           tab(_Section.requests, '✋', 'Requests', badge: _incoming.length),
         ]),
       ),

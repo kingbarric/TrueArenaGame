@@ -4,6 +4,7 @@ import '../../core/api_client.dart';
 import '../../core/app_state.dart';
 import '../../theme/neon_theme.dart';
 import '../onboarding/guest_gate.dart';
+import 'go_live_sheet.dart';
 import 'huud_kit.dart';
 import 'huud_space_models.dart';
 import 'huud_space_screen.dart';
@@ -395,6 +396,16 @@ Future<void> openHuudForGame(BuildContext context, String gameType, {VoidCallbac
     return;
   }
   var huud = HuudSpace.fromJson(current);
+  if (!huud.live) {
+    // Your Huud is offline — Go Live first, then the game goes on.
+    final live = await goLive(context, huud.id);
+    if (!context.mounted) return;
+    if (live == null) {
+      await openHuudSpace(context, huud.id, initial: huud);
+      return;
+    }
+    huud = live;
+  }
   final game = huud.currentGame;
   if (game == null || game.finished) {
     try {

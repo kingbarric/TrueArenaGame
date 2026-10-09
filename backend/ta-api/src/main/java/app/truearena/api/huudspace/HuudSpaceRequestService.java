@@ -37,7 +37,8 @@ public class HuudSpaceRequestService {
 
     /** "Can I play?" — for the game being set up right now. */
     public Mono<HuudSpaceView> askToPlay(UUID user, UUID id) {
-        return huuds.requireMember(id, user)
+        return huuds.requireMember(id, user).filter(HuudSpaceService.Space::live)
+                .switchIfEmpty(Mono.error(ApiExceptions.conflict("The Huud isn't live right now")))
                 .flatMap(s -> huuds.currentGame(s.currentRoomId(), user)
                         .switchIfEmpty(Mono.error(ApiExceptions.conflict("There's no game to play yet")))
                         .flatMap(game -> {
@@ -54,7 +55,8 @@ public class HuudSpaceRequestService {
 
     /** "Can I talk?" */
     public Mono<HuudSpaceView> askForMic(UUID user, UUID id) {
-        return huuds.requireMember(id, user)
+        return huuds.requireMember(id, user).filter(HuudSpaceService.Space::live)
+                .switchIfEmpty(Mono.error(ApiExceptions.conflict("The Huud isn't live right now")))
                 .flatMap(s -> huuds.membership(id, user).flatMap(m -> m.canSpeak() || s.ownerId().equals(user)
                         ? Mono.<Void>empty()
                         : huuds.upsertRequest(id, user, "mic", null)

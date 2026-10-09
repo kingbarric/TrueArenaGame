@@ -25,6 +25,7 @@ import '../huudspace/huud_kit.dart';
 import '../huudspace/huud_space_models.dart';
 import '../huudspace/huud_space_screen.dart';
 import '../huudspace/safety_sheet.dart';
+import '../../widgets/nav_art.dart';
 import '../huudspace/live_now_panel.dart';
 import 'huud_models.dart';
 
@@ -486,17 +487,21 @@ class _HuudScreenState extends State<HuudScreen> {
                 height: 46,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: active ? h.orange : Colors.transparent,
+                  color: active ? h.orangeSoft : Colors.transparent,
                   borderRadius: BorderRadius.circular(23),
-                  border: active ? Border.all(color: kCabinetInk, width: 2.2) : null,
+                  border: active ? Border.all(color: h.orange, width: 2) : null,
                 ),
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 6),
-                    child: Text('$emoji $label',
-                        style:
-                            TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: active ? h.onOrange : n.mid)),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      NavArt(emoji, active: active, size: 22),
+                      const SizedBox(width: 6),
+                      Text(label,
+                          style: TextStyle(
+                              fontSize: 15, fontWeight: FontWeight.w900, color: active ? h.orangeText : n.mid)),
+                    ]),
                   ),
                 ),
               ),
@@ -514,12 +519,12 @@ class _HuudScreenState extends State<HuudScreen> {
           border: Border.all(color: n.line, width: 1.4),
         ),
         child: Row(children: [
-          tab('live', '🔴', 'Live now', _liveNow, () {
+          tab('live', 'live', 'Live now', _liveNow, () {
             if (!_liveNow) setState(() => _liveNow = true);
           }),
-          tab(HuudTab.friends.wire, '👫', 'Friends', !_liveNow && _tab == HuudTab.friends,
+          tab(HuudTab.friends.wire, 'friends', 'Friends', !_liveNow && _tab == HuudTab.friends,
               () => _switchTab(HuudTab.friends)),
-          tab(HuudTab.forYou.wire, '✨', 'For you', !_liveNow && _tab == HuudTab.forYou,
+          tab(HuudTab.forYou.wire, 'foryou', 'For you', !_liveNow && _tab == HuudTab.forYou,
               () => _switchTab(HuudTab.forYou)),
         ]),
       ),

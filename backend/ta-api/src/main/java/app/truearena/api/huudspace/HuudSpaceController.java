@@ -8,7 +8,7 @@ import app.truearena.api.huudspace.HuudSpaceDtos.MicRequest;
 import app.truearena.api.huudspace.HuudSpaceDtos.SendMessage;
 import app.truearena.api.huudspace.HuudSpaceDtos.ShareRequest;
 import app.truearena.api.huudspace.HuudSpaceDtos.CreateRequest;
-import app.truearena.api.huudspace.HuudSpaceDtos.HistoryHuud;
+import app.truearena.api.huudspace.HuudSpaceDtos.MyHuud;
 import app.truearena.api.huudspace.HuudSpaceDtos.HuudSpaceView;
 import app.truearena.api.huudspace.HuudSpaceDtos.JoinRequest;
 import app.truearena.api.huudspace.HuudSpaceDtos.LiveHuud;
@@ -66,10 +66,10 @@ public class HuudSpaceController {
         return CurrentUser.id().flatMapMany(huuds::live);
     }
 
-    @GetMapping("/history")
-    @Operation(summary = "Huuds you made or joined, with who was there and what you played")
-    public Flux<HistoryHuud> history() {
-        return CurrentUser.id().flatMapMany(huuds::history);
+    @GetMapping("/mine")
+    @Operation(summary = "The Huuds you belong to — yours first, then Live ones")
+    public Flux<MyHuud> mine() {
+        return CurrentUser.id().flatMapMany(huuds::mine);
     }
 
     @PostMapping("/join")
@@ -184,10 +184,34 @@ public class HuudSpaceController {
         return CurrentUser.id().flatMap(user -> huuds.leave(user, id));
     }
 
+    @PostMapping("/{id}/live")
+    @Operation(summary = "Owner only: go Live, telling all members, online members only, or nobody")
+    public Mono<HuudSpaceView> goLive(@PathVariable UUID id, @RequestBody(required = false) HuudSpaceDtos.GoLiveRequest body) {
+        return CurrentUser.id().flatMap(user -> huuds.goLive(user, id, body == null ? null : body.tell()));
+    }
+
+    @DeleteMapping("/{id}/live")
+    @Operation(summary = "Host: end Live — the Huud, its members, chat and code stay")
+    public Mono<HuudSpaceView> endLive(@PathVariable UUID id) {
+        return CurrentUser.id().flatMap(user -> huuds.endLive(user, id));
+    }
+
     @PostMapping("/{id}/end")
-    @Operation(summary = "Host only: end the Huud for everyone")
+    @Operation(summary = "Same as DELETE /{id}/live (kept for older apps)")
     public Mono<Void> end(@PathVariable UUID id) {
-        return CurrentUser.id().flatMap(user -> huuds.end(user, id));
+        return CurrentUser.id().flatMap(user -> huuds.endLive(user, id)).then();
+    }
+
+    @PostMapping("/{id}/mute")
+    @Operation(summary = "Mute or unmute this Huud's Live notifications for you")
+    public Mono<HuudSpaceView> mute(@PathVariable UUID id, @RequestBody HuudSpaceDtos.MuteRequest body) {
+        return CurrentUser.id().flatMap(user -> huuds.mute(user, id, Boolean.TRUE.equals(body.muted())));
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Owner only: delete the Huud for good")
+    public Mono<Void> delete(@PathVariable UUID id) {
+        return CurrentUser.id().flatMap(user -> huuds.delete(user, id));
     }
 
     @PostMapping("/{id}/members/{userId}/remove")

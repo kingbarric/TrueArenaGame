@@ -75,7 +75,7 @@ void main() {
     await tapWhenThere(tester, find.byKey(const ValueKey('nav-Live')));
     await shot(tester, '01_live_now_dark');
     // Tap a live Huud → full-screen watching, swipe up for the next.
-    await tapWhenThere(tester, find.textContaining("Ludo Party"));
+    await tapWhenThere(tester, find.textContaining('Ludo Party'));
     await shot(tester, '01b_swipe_watch_dark');
     await tester.fling(find.byKey(const ValueKey('huud-swipe')), const Offset(0, -500), 1500);
     await wait(tester, 2000);
@@ -141,19 +141,15 @@ void main() {
     await tapWhenThere(tester, find.byKey(const ValueKey('huud-tab-friends')));
     await shot(tester, '17_feed_light');
 
-    // ----- End the Huud, then a game tap offers to make one with it picked
+    // ----- End Live: the Huud stays; a game tap asks to Go Live again
     await tapWhenThere(tester, find.byKey(const ValueKey('nav-Huud')));
     await tapWhenThere(tester, keyed((k) => k.startsWith('huud-go-in-')));
     await tapWhenThere(tester, find.byKey(const ValueKey('huud-end')));
-    await tapWhenThere(tester, find.text('End it for everyone'));
-    await wait(tester, 1500);
+    await tapWhenThere(tester, find.text('End Live').last);
+    await shot(tester, '18_after_end_live_light');
+    await tapWhenThere(tester, find.byKey(const ValueKey('huud-back')));
     await tapWhenThere(tester, find.byKey(const ValueKey('nav-Games')));
     await tapWhenThere(tester, find.byKey(const ValueKey('home-game-chess')));
-    await shot(tester, '18_create_from_games_light');
-    await tester.drag(find.byType(SingleChildScrollView).last, const Offset(0, -400));
-    await wait(tester, 600);
-    await tapWhenThere(tester, find.byKey(const ValueKey('huud-share-switch')));
-    await tester.drag(find.byType(SingleChildScrollView).last, const Offset(0, -300));
-    await shot(tester, '19_create_share_light');
+    await shot(tester, '19_game_asks_go_live_light');
   });
 }

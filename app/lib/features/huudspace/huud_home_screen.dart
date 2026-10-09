@@ -10,12 +10,14 @@ import '../../theme/neon_theme.dart';
 import '../../widgets/neon.dart';
 import '../lobby/joined_room_screen.dart';
 import 'create_huud_sheet.dart';
+import 'go_live_sheet.dart';
 import 'huud_kit.dart';
 import 'huud_space_models.dart';
 import 'huud_space_screen.dart';
 
-/// The Huud tab: make a Huud, hop into one with a code, and every Huud you
-/// made or joined — with the people who were there.
+/// The Huud tab: your Huud (Go Live, or step back in), a box for a friend's
+/// code, and every Huud you belong to — Live ones first. A Huud stays; going
+/// Live is when people hang out in it.
 class HuudHomeScreen extends StatefulWidget {
   const HuudHomeScreen({super.key});
 
@@ -23,15 +25,13 @@ class HuudHomeScreen extends StatefulWidget {
   State<HuudHomeScreen> createState() => _HuudHomeScreenState();
 }
 
-enum _HistoryFilter { all, mine, joined }
-
 class _HuudHomeScreenState extends State<HuudHomeScreen> {
-  List<HuudHistoryEntry>? _history;
+  List<MyHuud>? _huuds;
   String? _error;
   bool _loading = false;
-  _HistoryFilter _filter = _HistoryFilter.all;
   final _code = TextEditingController();
   bool _joining = false;
+  String? _goingLive;
   StreamSubscription? _events;
   Timer? _refresh;
   bool _started = false;
@@ -56,14 +56,13 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
 
   Future<void> _load() async {
     final app = AppScope.of(context);
-    if (app.api.bearer == null) return;
-    if (_loading) return;
+    if (app.api.bearer == null || _loading) return;
     _loading = true;
     try {
-      final raw = await app.api.get('/huud-spaces/history') as List;
+      final raw = await app.api.get('/huud-spaces/mine') as List;
       if (!mounted) return;
       setState(() {
-        _history = raw.map((e) => HuudHistoryEntry.fromJson((e as Map).cast<String, dynamic>())).toList();
+        _huuds = raw.map((e) => MyHuud.fromJson((e as Map).cast<String, dynamic>())).toList();
         _error = null;
       });
     } on ApiException catch (e) {
@@ -83,6 +82,16 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
   Future<void> _make() async {
     await startHuud(context);
     if (mounted) _load();
+  }
+
+  Future<void> _goLive(MyHuud huud) async {
+    setState(() => _goingLive = huud.id);
+    final live = await goLive(context, huud.id);
+    if (mounted) setState(() => _goingLive = null);
+    if (live != null && mounted) {
+      await openHuudSpace(context, live.id, initial: live);
+      if (mounted) _load();
+    }
   }
 
   Future<void> _joinWithCode() async {
@@ -126,17 +135,9 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final n = context.neon;
-    final history = _history ?? const <HuudHistoryEntry>[];
-    final liveNow = history.where((e) => e.live).toList();
-    final hosting = liveNow.any((e) => e.youAreHost);
-    final past = history
-        .where((e) => !e.live)
-        .where((e) => switch (_filter) {
-              _HistoryFilter.all => true,
-              _HistoryFilter.mine => e.youCreated,
-              _HistoryFilter.joined => !e.youCreated,
-            })
-        .toList();
+    final huuds = _huuds ?? const <MyHuud>[];
+    final mine = huuds.where((h) => h.youOwn).firstOrNull;
+    final others = huuds.where((h) => !h.youOwn).toList();
 
     return Scaffold(
       body: SafeArea(
@@ -152,54 +153,36 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
                 sliver: SliverList.list(children: [
-                  for (final e in liveNow) ...[_liveCard(e), const SizedBox(height: 14)],
-                  if (!hosting) ...[
-                    liveNow.isEmpty ? _makeHero() : _makeSmall(n),
-                    const SizedBox(height: 14),
-                  ],
-                  _codeCard(n),
-                  const SizedBox(height: 28),
-                  HuudSectionTitle('Your Huuds',
-                      emoji: '📚',
-                      trailing: _history == null
-                          ? null
-                          : HuudChip('${history.where((e) => !e.live).length}',
-                              color: HuudColors.of(context).orangeText)),
-                  _filters(n),
-                  const SizedBox(height: 14),
-                  if (_error != null && _history == null)
+                  if (_huuds == null && _error == null)
+                    const Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator()))
+                  else if (_huuds == null)
                     HuudFriendlyState(
                       emoji: '📡',
                       title: 'Hmm, no connection',
                       message: _error!,
                       action: HuudButton(label: 'Try again', icon: Icons.refresh_rounded, onPressed: _load),
                     )
-                  else if (_history == null)
-                    const Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator()))
-                  else if (past.isEmpty)
-                    HuudFriendlyState(
+                  else if (mine == null)
+                    _makeHero()
+                  else
+                    _yourHuud(mine),
+                  const SizedBox(height: 14),
+                  _codeCard(n),
+                  const SizedBox(height: 28),
+                  HuudSectionTitle("Huuds you're in",
+                      emoji: '🏠',
+                      trailing: others.isEmpty
+                          ? null
+                          : HuudChip('${others.length}', color: HuudColors.of(context).orangeText)),
+                  if (_huuds != null && others.isEmpty)
+                    const HuudFriendlyState(
                       emoji: '🌱',
-                      title: _filter == _HistoryFilter.all ? 'Nothing here yet' : 'None of these yet',
-                      message: 'Huuds you make or join will show up here, with everyone you played with.',
+                      title: 'None yet',
+                      message: "Join a friend's Huud with their code. You'll hear from it whenever it goes Live.",
                     ),
+                  for (final h in others) ...[_otherHuud(n, h), const SizedBox(height: 12)],
                 ]),
               ),
-              if (past.isNotEmpty)
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  sliver: SliverGrid(
-                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                      maxCrossAxisExtent: 220,
-                      mainAxisSpacing: 14,
-                      crossAxisSpacing: 14,
-                      mainAxisExtent: 230,
-                    ),
-                    delegate: SliverChildBuilderDelegate(
-                      (context, i) => _HistoryCard(entry: past[i], onTap: () => _showPast(past[i], hosting)),
-                      childCount: past.length,
-                    ),
-                  ),
-                ),
               // Clear of the shell's floating nav.
               const SliverToBoxAdapter(child: SizedBox(height: 130)),
             ],
@@ -216,7 +199,7 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
           Text('Huud', style: TextStyle(fontSize: 34, fontWeight: FontWeight.w900, color: n.ink, height: 1.05)),
         ]),
         const SizedBox(height: 4),
-        Text('Hang out, talk and play games together',
+        Text('Your place to hang out — it stays, you go Live',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: n.mid)),
       ]);
 
@@ -224,75 +207,104 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Image.asset(huudIcon, width: 60, height: 60),
           const SizedBox(height: 6),
-          const Text('Make a Huud',
+          const Text('Make your Huud',
               style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: kCabinetInk, height: 1.1)),
           const SizedBox(height: 6),
-          const Text('Your own place to hang out with friends and play game after game.',
+          const Text('Your own place for your people. Make it once — go Live whenever you want to hang out.',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: kCabinetInk, height: 1.3)),
           const SizedBox(height: 16),
-          _InkButton(
-            key: const ValueKey('huud-make'),
-            label: 'Make a Huud',
-            icon: Icons.add_rounded,
-            onTap: _make,
-          ),
+          _InkButton(key: const ValueKey('huud-make'), label: 'Make my Huud', icon: Icons.add_rounded, onTap: _make),
         ]),
       );
 
-  Widget _makeSmall(NeonColors n) {
-    final h = HuudColors.of(context);
-    return HuudCard(
-      onTap: _make,
-      child: Row(children: [
-        Container(
-          width: 52,
-          height: 52,
-          decoration: BoxDecoration(
-              color: h.orange, shape: BoxShape.circle, border: Border.all(color: kCabinetInk, width: 2.2)),
-          child: Icon(Icons.add_rounded, color: h.onOrange, size: 30),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Make your own Huud', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: n.ink)),
-            Text('You choose the games', style: TextStyle(fontSize: 14, color: n.mid)),
+  /// Your Huud: Live now, or offline with a big Go Live.
+  Widget _yourHuud(MyHuud h) {
+    final status = huudStatusLine(
+        live: h.live,
+        liveCount: h.liveCount,
+        memberCount: h.memberCount,
+        game: h.gameType == null ? null : huudGameName(h.gameType),
+        gameStatus: h.gameStatus);
+    return HuudBackdrop(
+      background: null,
+      child: HuudHeroCard(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            h.live
+                ? const HuudChip('Live', emoji: '🔴', onOrange: true)
+                : const HuudChip('Offline', emoji: '🌙', onOrange: true),
+            HuudChip(h.privacy.label, emoji: h.privacy.emoji, onOrange: true),
+            const HuudChip('Yours', emoji: '👑', onOrange: true),
           ]),
-        ),
-        Icon(Icons.chevron_right_rounded, color: h.orangeText, size: 30),
-      ]),
+          const SizedBox(height: 10),
+          Text(h.name,
+              key: ValueKey('your-huud-${h.id}'),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: kCabinetInk, height: 1.1)),
+          const SizedBox(height: 6),
+          Text(status, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: kCabinetInk)),
+          const SizedBox(height: 12),
+          HuudAvatarStack(people: h.members, total: h.memberCount, size: 34),
+          const SizedBox(height: 16),
+          Wrap(spacing: 10, runSpacing: 10, children: [
+            if (h.live)
+              _InkButton(
+                  key: ValueKey('huud-go-in-${h.id}'),
+                  label: 'Go in',
+                  icon: Icons.arrow_forward_rounded,
+                  onTap: () => _open(h.id))
+            else ...[
+              _InkButton(
+                  key: ValueKey('huud-go-live-${h.id}'),
+                  label: _goingLive == h.id ? 'Going Live…' : 'Go Live',
+                  icon: Icons.sensors_rounded,
+                  onTap: () => _goLive(h)),
+              _LightButton(key: ValueKey('huud-open-${h.id}'), label: 'Open', onTap: () => _open(h.id)),
+            ],
+          ]),
+        ]),
+      ),
     );
   }
 
-  Widget _liveCard(HuudHistoryEntry e) {
-    final here = e.participants;
-    return HuudHeroCard(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Wrap(spacing: 8, runSpacing: 8, children: [
-          const HuudChip("You're in", emoji: '🟢', onOrange: true),
-          if (e.youAreHost) const HuudChip('Host', emoji: '👑', onOrange: true),
-          HuudChip(e.privacy.label, emoji: e.privacy.emoji, onOrange: true),
-        ]),
-        const SizedBox(height: 10),
-        Text(e.name,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: kCabinetInk, height: 1.1)),
-        const SizedBox(height: 12),
-        Row(children: [
-          HuudAvatarStack(people: here, size: 34),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(here.length == 1 ? 'Just you so far' : '${here.length} people',
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: kCabinetInk)),
-          ),
-        ]),
-        const SizedBox(height: 16),
-        _InkButton(
-          key: ValueKey('huud-go-in-${e.id}'),
-          label: 'Go in',
-          icon: Icons.arrow_forward_rounded,
-          onTap: () => _open(e.id),
+  /// A Huud you belong to: Live (go in) or offline (you'll hear when it's Live).
+  Widget _otherHuud(NeonColors n, MyHuud h) {
+    final hc = HuudColors.of(context);
+    final status = huudStatusLine(
+        live: h.live,
+        liveCount: h.liveCount,
+        memberCount: h.memberCount,
+        game: h.gameType == null ? null : huudGameName(h.gameType),
+        gameStatus: h.gameStatus);
+    return HuudCard(
+      key: ValueKey('member-huud-${h.id}'),
+      highlight: h.live,
+      onTap: () => _open(h.id),
+      padding: const EdgeInsets.all(14),
+      child: Row(children: [
+        Avatar(h.host?.name ?? h.name, size: 46, imageUrl: h.host?.avatarUrl),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Flexible(
+                child: Text(h.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: n.ink)),
+              ),
+              if (h.muted) ...[const SizedBox(width: 6), const Text('🔕', style: TextStyle(fontSize: 14))],
+            ]),
+            const SizedBox(height: 2),
+            Text(status,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: h.live ? hc.orangeText : n.mute)),
+          ]),
         ),
+        const SizedBox(width: 8),
+        h.live ? const HuudLiveChip() : Icon(Icons.chevron_right_rounded, color: n.mute, size: 28),
       ]),
     );
   }
@@ -350,122 +362,6 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
       ]),
     );
   }
-
-  Widget _filters(NeonColors n) {
-    final h = HuudColors.of(context);
-    Widget chip(_HistoryFilter f, String label) {
-      final on = _filter == f;
-      return Padding(
-        padding: const EdgeInsets.only(right: 8),
-        child: Semantics(
-          selected: on,
-          button: true,
-          child: GestureDetector(
-            key: ValueKey('huud-filter-${f.name}'),
-            onTap: () => setState(() => _filter = f),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 160),
-              height: 44,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: on ? h.orange : n.panel,
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: on ? kCabinetInk : n.line, width: on ? 2.2 : 1.4),
-              ),
-              child: Text(label,
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: on ? h.onOrange : n.mid)),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(children: [
-        chip(_HistoryFilter.all, 'All'),
-        chip(_HistoryFilter.mine, 'Made by me'),
-        chip(_HistoryFilter.joined, 'Joined'),
-      ]),
-    );
-  }
-
-  Future<void> _showPast(HuudHistoryEntry e, bool hosting) => showHuudSheet<void>(
-        context,
-        builder: (sheet) {
-          final n = sheet.neon;
-          final h = HuudColors.of(sheet);
-          final me = AppScope.of(context).user?.id;
-          return SafeArea(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(sheet).height * 0.8),
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  Text(e.name,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: n.ink)),
-                  const SizedBox(height: 6),
-                  Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 8, children: [
-                    HuudChip(e.youCreated ? 'Made by you' : 'Joined',
-                        emoji: e.youCreated ? '⭐' : '🙌', color: h.orangeText),
-                    HuudChip(huudWhen(e.createdAt), emoji: '📅'),
-                    HuudChip(e.privacy.label, emoji: e.privacy.emoji),
-                  ]),
-                  const SizedBox(height: 18),
-                  Text('Games played', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: n.ink)),
-                  const SizedBox(height: 8),
-                  if (e.games.isEmpty)
-                    Text('No games this time — just hanging out 😄', style: TextStyle(fontSize: 15, color: n.mid))
-                  else
-                    Wrap(spacing: 10, runSpacing: 10, children: [
-                      for (final g in e.games)
-                        Column(mainAxisSize: MainAxisSize.min, children: [
-                          HuudGameArt(g, size: 52),
-                          const SizedBox(height: 4),
-                          Text(huudGameName(g),
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: n.mid)),
-                        ]),
-                    ]),
-                  const SizedBox(height: 18),
-                  Text('Who was there (${e.participants.length})',
-                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: n.ink)),
-                  const SizedBox(height: 8),
-                  for (final p in e.participants)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: Row(children: [
-                        Avatar(p.name, size: 42, imageUrl: p.avatarUrl),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(p.userId == me ? '${p.name} (you)' : p.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: n.ink)),
-                        ),
-                        if (p.host) const HuudChip('Host', emoji: '👑'),
-                      ]),
-                    ),
-                  if (!hosting) ...[
-                    const SizedBox(height: 18),
-                    HuudButton(
-                      label: 'Make a new Huud',
-                      icon: Icons.add_rounded,
-                      expand: true,
-                      big: true,
-                      onPressed: () {
-                        Navigator.of(sheet).pop();
-                        _make();
-                      },
-                    ),
-                  ],
-                ]),
-              ),
-            ),
-          );
-        },
-      );
 }
 
 /// Dark ink button for sitting on the orange hero card.
@@ -496,56 +392,30 @@ class _InkButton extends StatelessWidget {
       );
 }
 
-class _HistoryCard extends StatelessWidget {
-  const _HistoryCard({required this.entry, required this.onTap});
-  final HuudHistoryEntry entry;
+/// The quieter partner to [_InkButton] on the orange card.
+class _LightButton extends StatelessWidget {
+  const _LightButton({super.key, required this.label, required this.onTap});
+  final String label;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    final n = context.neon;
-    final h = HuudColors.of(context);
-    final e = entry;
-    return Semantics(
-      button: true,
-      label: '${e.name}, ${huudWhen(e.createdAt)}, ${e.participants.length} people',
-      excludeSemantics: true,
-      child: HuudCard(
-        key: ValueKey('huud-history-${e.id}'),
-        onTap: onTap,
-        padding: const EdgeInsets.all(14),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            if (e.games.isEmpty)
-              Container(
-                width: 40,
-                height: 40,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(color: h.orangeSoft, borderRadius: BorderRadius.circular(12)),
-                child: const Text('💬', style: TextStyle(fontSize: 20)),
-              )
-            else
-              for (final g in e.games.take(3))
-                Padding(padding: const EdgeInsets.only(right: 4), child: HuudGameArt(g, size: 40)),
-            const Spacer(),
-            if (e.youCreated) const Text('⭐', style: TextStyle(fontSize: 18)),
-          ]),
-          const SizedBox(height: 10),
-          Text(e.name,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 17, height: 1.15, fontWeight: FontWeight.w900, color: n.ink)),
-          const SizedBox(height: 4),
-          Text(huudWhen(e.createdAt), style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: n.mute)),
-          const Spacer(),
-          HuudAvatarStack(people: e.participants, size: 30, max: 4),
-          const SizedBox(height: 8),
-          Text(
-            e.gamesPlayed == 0 ? 'Hung out' : (e.gamesPlayed == 1 ? '1 game played' : '${e.gamesPlayed} games played'),
-            style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: h.orangeText),
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        label: label,
+        excludeSemantics: true,
+        child: Bouncy(
+          onTap: onTap,
+          child: Container(
+            height: 56,
+            padding: const EdgeInsets.symmetric(horizontal: 22),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.6),
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(color: kCabinetInk.withValues(alpha: 0.4), width: 1.4),
+            ),
+            child: Text(label, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: kCabinetInk)),
           ),
-        ]),
-      ),
-    );
-  }
+        ),
+      );
 }

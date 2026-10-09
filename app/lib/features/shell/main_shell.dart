@@ -11,7 +11,7 @@ import '../friends/friends_screen.dart';
 import '../home/home_screen.dart';
 import '../huud/huud_screen.dart';
 import '../huudspace/huud_home_screen.dart';
-import '../huudspace/huud_kit.dart' show huudIcon, huudIconSnack;
+import '../huudspace/huud_kit.dart' show huudIconSnack;
 import '../onboarding/guest_gate.dart';
 import '../profile/profile_screen.dart';
 
@@ -82,6 +82,7 @@ class _MainShellState extends State<MainShell> {
     'request': 'Someone is asking you something in your Huud ✋',
     'accepted-join': "You're in! The host let you into the Huud",
     'picked': "You're picked to play! Open the Huud and press Ready 🎮",
+    'live': 'A Huud you\'re in just went Live! 🔴',
   };
 
   /// Invites, requests and answers while you're on the main tabs — inside a
@@ -117,11 +118,11 @@ class _MainShellState extends State<MainShell> {
   final _built = <int, Widget>{};
 
   static const _tabs = [
-    _Tab(icon: Icons.live_tv_rounded, label: 'Live'),
-    _Tab(icon: Icons.groups_rounded, label: 'Huud', image: huudIcon),
-    _Tab(icon: Icons.sports_esports_rounded, label: 'Games'),
-    _Tab(icon: Icons.people_alt_rounded, label: 'Friends', needsAccount: true),
-    _Tab(icon: Icons.emoji_emotions_rounded, label: 'You'),
+    _Tab(icon: Icons.live_tv_rounded, label: 'Live', art: 'live'),
+    _Tab(icon: Icons.groups_rounded, label: 'Huud', art: 'huud'),
+    _Tab(icon: Icons.sports_esports_rounded, label: 'Games', art: 'games'),
+    _Tab(icon: Icons.people_alt_rounded, label: 'Friends', needsAccount: true, art: 'friends'),
+    _Tab(icon: Icons.emoji_emotions_rounded, label: 'You', art: 'you'),
   ];
 
   Widget _screenFor(int i) => _built.putIfAbsent(
@@ -174,7 +175,7 @@ class _MainShellState extends State<MainShell> {
                   items: [
                     for (var i = 0; i < _tabs.length; i++)
                       PlaygroundNavItem(
-                          icon: _tabs[i].icon, label: _tabs[i].label, image: _tabs[i].image, onTap: () => _select(i)),
+                          icon: _tabs[i].icon, label: _tabs[i].label, art: _tabs[i].art, onTap: () => _select(i)),
                   ],
                 ),
               ),
@@ -187,9 +188,9 @@ class _MainShellState extends State<MainShell> {
 }
 
 class _Tab {
-  const _Tab({required this.icon, required this.label, this.needsAccount = false, this.image});
+  const _Tab({required this.icon, required this.label, this.needsAccount = false, this.art});
   final IconData icon;
-  final String? image;
+  final String? art;
   final String label;
   final bool needsAccount;
 }

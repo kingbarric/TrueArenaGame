@@ -31,7 +31,8 @@ public class HuudSpaceAccess {
             return Mono.just(false);
         }
         return db.sql("SELECT EXISTS(SELECT 1 FROM huud_space_members m JOIN huud_spaces s ON s.id=m.huud_space_id "
-                        + "WHERE s.id=:id AND s.status='active' AND m.user_id=:user AND m.left_at IS NULL AND NOT m.removed "
+                        + "WHERE s.id=:id AND s.status='active' AND s.live_since IS NOT NULL AND m.user_id=:user "
+                        + "AND m.left_at IS NULL AND NOT m.removed AND m.live_at IS NOT NULL "
                         + "AND (s.owner_id=:user OR m.can_speak)) AS ok")
                 .bind("id", id).bind("user", user)
                 .map((r, m) -> Boolean.TRUE.equals(r.get("ok", Boolean.class))).one();
@@ -45,7 +46,8 @@ public class HuudSpaceAccess {
             return Mono.just(false);
         }
         return db.sql("SELECT EXISTS(SELECT 1 FROM huud_space_members m JOIN huud_spaces s ON s.id=m.huud_space_id "
-                        + "WHERE s.id=:id AND s.status='active' AND m.user_id=:user AND m.left_at IS NULL AND NOT m.removed) AS ok")
+                        + "WHERE s.id=:id AND s.status='active' AND s.live_since IS NOT NULL AND m.user_id=:user "
+                        + "AND m.left_at IS NULL AND NOT m.removed AND m.live_at IS NOT NULL) AS ok")
                 .bind("id", id).bind("user", user)
                 .map((r, m) -> Boolean.TRUE.equals(r.get("ok", Boolean.class))).one();
     }

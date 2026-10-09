@@ -57,8 +57,33 @@ public final class HuudSpaceDtos {
     public record AddGameRequest(@NotBlank String gameType, Boolean rematch) {
     }
 
+    /**
+     * Someone in a Huud. {@code here}: in the Live hangout right now. {@code host}:
+     * running it right now; {@code owner}: whose Huud it is, for good.
+     */
     public record Person(UUID userId, String displayName, String username, String avatarUrl,
-                         boolean host, boolean here, boolean canSpeak, Instant joinedAt) {
+                         boolean host, boolean here, boolean canSpeak, Instant joinedAt, boolean owner) {
+
+        public Person(UUID userId, String displayName, String username, String avatarUrl,
+                      boolean host, boolean here, boolean canSpeak, Instant joinedAt) {
+            this(userId, displayName, username, avatarUrl, host, here, canSpeak, joinedAt, false);
+        }
+    }
+
+    /** Going Live: who to tell — "all" members, "online" members only, or "none". */
+    public record GoLiveRequest(@com.fasterxml.jackson.annotation.JsonProperty("notify") String tell) {
+    }
+
+    public record MuteRequest(Boolean muted) {
+    }
+
+    /**
+     * A Huud you belong to, for the Huud tab: yours first, live ones on top.
+     * {@code liveCount}: people in the Live hangout now; {@code memberCount}: everyone.
+     */
+    public record MyHuud(UUID id, String name, String privacy, boolean live, boolean youOwn, boolean youAreHost,
+                         Person host, int memberCount, int liveCount, List<Person> members, String gameType,
+                         String gameStatus, String background, boolean muted, Instant liveSince) {
     }
 
     /**
@@ -91,7 +116,8 @@ public final class HuudSpaceDtos {
                                 boolean youAreIn, boolean youAreHost, boolean youCanSpeak, String voiceRoom,
                                 String joinRequest, String playRequest, String micRequest,
                                 List<PendingRequest> requests, boolean shared, String feedMessage,
-                                int watching, String background, Instant createdAt, Instant endedAt) {
+                                int watching, String background, Instant createdAt, Instant endedAt,
+                                boolean live, boolean youOwn, boolean muted, int memberCount, int liveCount) {
     }
 
     /** A card on the Live tab. The code stays out: only people inside see it. */
@@ -100,9 +126,4 @@ public final class HuudSpaceDtos {
                            boolean youAreIn, int watching, Instant createdAt) {
     }
 
-    /** A card in your Huud history — everyone who was there and what you played. */
-    public record HistoryHuud(UUID id, String name, String privacy, String status, boolean youCreated,
-                              boolean youAreHost, Person host, List<Person> participants,
-                              List<String> games, int gamesPlayed, Instant createdAt, Instant endedAt) {
-    }
 }

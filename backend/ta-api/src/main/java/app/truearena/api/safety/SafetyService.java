@@ -41,7 +41,7 @@ public class SafetyService {
                         .bind("me", me).bind("them", them).fetch().rowsUpdated())
                 // Out of the Huud you're hosting, if they're in it.
                 .then(db.sql("SELECT s.id FROM huud_spaces s JOIN huud_space_members m ON m.huud_space_id=s.id "
-                                + "WHERE s.owner_id=:me AND s.status='active' AND m.user_id=:them AND m.left_at IS NULL")
+                                + "WHERE s.created_by=:me AND s.status='active' AND m.user_id=:them AND m.left_at IS NULL")
                         .bind("me", me).bind("them", them).map((r, m) -> r.get("id", UUID.class)).one()
                         .flatMap(huud -> huuds.remove(me, huud, them).onErrorResume(e -> Mono.empty())))
                 .then();

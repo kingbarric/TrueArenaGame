@@ -13,6 +13,7 @@ import '../../widgets/neon.dart';
 import '../calls/call_screen.dart';
 import '../lobby/joined_room_screen.dart';
 import '../spectate/spectate_screen.dart';
+import 'go_live_sheet.dart';
 import 'huud_kit.dart';
 import 'huud_space_models.dart';
 import 'huud_roster.dart';
@@ -101,6 +102,15 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         huudSnack(context, 'The host took you out of this Huud.');
         Navigator.of(context).maybePop();
         return;
+      case 'deleted':
+        huudSnack(context, 'This Huud was deleted by its owner.');
+        Navigator.of(context).maybePop();
+        return;
+      case 'live':
+        if (data['by'] != _me) huudSnack(context, '${_huud?.name ?? 'The Huud'} is Live! 🔴');
+      case 'live-ended':
+        if (data['by'] != _me) huudSnack(context, 'Live has ended — the Huud is still here.');
+        if (HangoutState.instance.roomName == _huud?.voiceRoom) HangoutState.instance.leave?.call();
       case 'accepted-join':
         huudSnack(context, "You're in! Say hi 👋");
       case 'declined-join':
@@ -132,7 +142,8 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     try {
       final api = AppScope.of(context).api;
       // Looking in without joining counts as watching while the screen is open.
-      final watching = _huud != null && _huud!.active && !_huud!.youAreIn && _huud!.joinRequest != 'pending';
+      final watching =
+          _huud != null && _huud!.active && _huud!.live && !_huud!.youAreIn && _huud!.joinRequest != 'pending';
       final raw = (watching
           ? await api.post('/huud-spaces/${widget.id}/watch')
           : await api.get('/huud-spaces/${widget.id}')) as Map<String, dynamic>;
@@ -143,10 +154,12 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         _error = null;
       });
       if (huud.youAreIn && _chat == null) _loadChat();
-      if (!watching && huud.active && !huud.youAreIn && huud.joinRequest != 'pending') {
+      if (!watching && huud.active && huud.live && !huud.youAreIn && huud.joinRequest != 'pending') {
         api.post('/huud-spaces/${widget.id}/watch').catchError((Object _) => null);
       }
       if (!huud.youAreIn && _tab == _Tab.chat) setState(() => _tab = _Tab.play);
+      // No Play tab while offline.
+      if (!huud.live && _tab == _Tab.play) setState(() => _tab = huud.youAreIn ? _Tab.chat : _Tab.people);
       final say = thenSay?.call(huud);
       if (say != null) huudSnack(context, say);
     } on ApiException catch (e) {
@@ -340,18 +353,15 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     if (mounted) huudSnack(context, 'Code copied! Send it to a friend.');
   }
 
+  /// Leaving the Huud for good — not just stepping out. No more notifications from it.
   Future<void> _leave(HuudSpace huud) async {
-    final others = huud.members.length > 1;
     final ok = await confirmHuud(
       context,
       emoji: '👋',
       title: 'Leave ${huud.name}?',
-      message: huud.youAreHost
-          ? (others
-              ? "${_nextHost(huud)?.firstName ?? 'The next person'} will become the host so everyone can keep playing."
-              : "You're the only one here, so the Huud will close.")
-          : 'You can come back later.',
-      yes: 'Yes, leave',
+      message: "You won't be a member any more and you'll stop getting notifications from it. "
+          'You can join again with the code.',
+      yes: 'Yes, leave the Huud',
       danger: true,
     );
     if (!ok || !mounted) return;
@@ -365,28 +375,37 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     }
   }
 
-  HuudMember? _nextHost(HuudSpace huud) =>
-      huud.members.where((m) => !m.host).isEmpty ? null : huud.members.firstWhere((m) => !m.host);
-
+  /// End the Live hangout. The Huud stays — members, chat, code, background.
   Future<void> _end(HuudSpace huud) async {
     final ok = await confirmHuud(
       context,
-      emoji: '🛑',
-      title: 'End ${huud.name}?',
-      message: 'This closes the Huud for everyone. It will stay in your history.',
-      yes: 'End it for everyone',
+      emoji: '🌙',
+      title: 'End Live?',
+      message: 'The Huud stays — its members, chat and code are kept. The game and voice stop for now.',
+      yes: 'End Live',
       danger: true,
     );
     if (!ok || !mounted) return;
-    final done = await _run('end', (api) async {
-      await api.post('/huud-spaces/${widget.id}/end');
-      return true;
-    });
-    if (done == true && mounted) {
-      if (HangoutState.instance.roomName == huud.voiceRoom) await HangoutState.instance.leave?.call();
-      if (mounted) Navigator.of(context).maybePop();
+    if (HangoutState.instance.roomName == huud.voiceRoom) await HangoutState.instance.leave?.call();
+    if (!mounted) return;
+    await _update('end', (api) => api.delete('/huud-spaces/${widget.id}/live'),
+        say: 'Live has ended. Your Huud is still here 🏠');
+    if (mounted) setState(() => _tab = _Tab.chat);
+  }
+
+  Future<void> _goLive() async {
+    final live = await goLive(context, widget.id);
+    if (live != null && mounted) {
+      setState(() {
+        _huud = live;
+        _tab = _Tab.play;
+      });
     }
   }
+
+  Future<void> _toggleMute(HuudSpace huud) =>
+      _update('mute', (api) => api.post('/huud-spaces/${widget.id}/mute', {'muted': !huud.muted}),
+          say: huud.muted ? "You'll hear when it goes Live 🔔" : 'Muted — no notifications from this Huud 🔕');
 
   Future<void> _removePerson(HuudMember person) async {
     final ok = await confirmHuud(
@@ -459,8 +478,15 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
       );
 
   Future<void> _settings(HuudSpace huud) async {
-    final changed = await showHuudSheet<HuudSpace>(context, builder: (_) => _SettingsSheet(huud: huud));
-    if (changed != null && mounted) setState(() => _huud = changed);
+    final changed = await showHuudSheet<Object>(context, builder: (_) => _SettingsSheet(huud: huud));
+    if (!mounted) return;
+    if (changed is HuudSpace) setState(() => _huud = changed);
+    if (changed == _SettingsSheet.deleted) {
+      if (HangoutState.instance.roomName == huud.voiceRoom) await HangoutState.instance.leave?.call();
+      if (!mounted) return;
+      huudSnack(context, '${huud.name} was deleted');
+      Navigator.of(context).maybePop();
+    }
   }
 
   Future<void> _send() async {
@@ -529,8 +555,8 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                       if (!huud.active)
                         _box(HuudFriendlyState(
                           emoji: '👋',
-                          title: 'This Huud has ended',
-                          message: 'Thanks for hanging out! You can find it in Your Huuds any time.',
+                          title: 'This Huud was deleted',
+                          message: 'Its owner deleted it. Thanks for hanging out!',
                           action: HuudButton(
                               label: 'Back',
                               icon: Icons.arrow_back_rounded,
@@ -539,11 +565,22 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                       else if (!huud.youAreIn) ...[
                         _box(_door(n, huud)),
                         // Watching: see the game and who's here; chat and voice are for people inside.
+                        if (huud.live) ...[
+                          SliverPadding(
+                            padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
+                            sliver: SliverToBoxAdapter(child: _tabs(n, huud)),
+                          ),
+                          ...(_tab == _Tab.people ? _people(n, huud) : _play(n, huud)),
+                        ],
+                      ] else if (!huud.live) ...[
+                        // Offline: the Huud is still home — chat and people, and Go Live for the owner.
+                        _box(_offline(n, huud)),
+                        if (huud.youAreHost && huud.requests.isNotEmpty) _box(_asking(n, huud), top: 16),
                         SliverPadding(
                           padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
                           sliver: SliverToBoxAdapter(child: _tabs(n, huud)),
                         ),
-                        ...(_tab == _Tab.people ? _people(n, huud) : _play(n, huud)),
+                        ...(_tab == _Tab.people ? _people(n, huud) : _chatSlivers(n, huud)),
                       ] else ...[
                         SliverPadding(
                           padding: const EdgeInsets.fromLTRB(8, 18, 8, 0),
@@ -566,7 +603,11 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                 ),
               ),
             ),
-            if (huud != null && huud.youAreIn && huud.active && _tab == _Tab.chat) _chatInput(n),
+            if (huud != null &&
+                huud.youAreIn &&
+                huud.active &&
+                (_tab == _Tab.chat || (!huud.live && _tab != _Tab.people)))
+              _chatInput(n),
           ]),
         ),
       ),
@@ -596,6 +637,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
           ),
         );
     final hosting = huud != null && huud.youAreHost && huud.active;
+    final live = huud?.live ?? false;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
       child: Row(children: [
@@ -611,12 +653,20 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
             child: circle(Icons.tune_rounded, 'Huud settings', () => _settings(huud),
                 key: const ValueKey('huud-settings')),
           ),
-        if (hosting)
+        // Members: the bell — mute or unmute "it's Live" notifications.
+        if (huud != null && huud.active && huud.youAreIn && !huud.youOwn)
+          Padding(
+            padding: const EdgeInsets.only(left: 8),
+            child: circle(huud.muted ? Icons.notifications_off_rounded : Icons.notifications_active_rounded,
+                huud.muted ? 'Unmute notifications' : 'Mute notifications', () => _toggleMute(huud),
+                key: const ValueKey('huud-mute')),
+          ),
+        if (hosting && live)
           Padding(
             padding: const EdgeInsets.only(left: 8),
             child: Semantics(
               button: true,
-              label: 'End Huud',
+              label: 'End Live',
               excludeSemantics: true,
               child: Bouncy(
                 key: const ValueKey('huud-end'),
@@ -632,7 +682,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                   child: Row(children: [
                     Icon(Icons.stop_circle_rounded, color: n.danger, size: 20),
                     const SizedBox(width: 6),
-                    Text('End', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: n.danger)),
+                    Text('End Live', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: n.danger)),
                   ]),
                 ),
               ),
@@ -645,13 +695,17 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
   Widget _hero(HuudSpace huud) {
     final host = huud.host;
     final hostLine = huud.youAreHost
-        ? "You're the host"
-        : (host == null ? 'Looking for a host' : 'Host: ${host.userId == _me ? 'you' : host.firstName}');
+        ? (huud.youOwn && !huud.live ? "It's your Huud" : "You're the host")
+        : (host == null
+            ? 'Looking for a host'
+            : '${huud.live ? 'Host' : 'Owner'}: ${host.userId == _me ? 'you' : host.firstName}');
     return HuudHeroCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Wrap(spacing: 8, runSpacing: 8, children: [
           if (huud.active)
-            const HuudChip('Live', emoji: '🟢', onOrange: true)
+            huud.live
+                ? const HuudChip('Live', emoji: '🔴', onOrange: true)
+                : const HuudChip('Offline', emoji: '🌙', onOrange: true)
           else
             const HuudChip('Ended', emoji: '🌙', onOrange: true),
           HuudChip(huud.privacy.label, emoji: huud.privacy.emoji, onOrange: true),
@@ -670,7 +724,9 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              huud.members.length == 1 ? '1 person in here' : '${huud.members.length} people in here',
+              huud.live
+                  ? '${huud.liveCount} in Huud · ${huud.memberCount} ${huud.memberCount == 1 ? 'member' : 'members'}'
+                  : (huud.memberCount == 1 ? '1 member' : '${huud.memberCount} members'),
               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: kCabinetInk),
             ),
           ),
@@ -755,6 +811,49 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     );
   }
 
+  /// The Huud between hangouts: Go Live for the owner; for members, a note that they'll hear.
+  Widget _offline(NeonColors n, HuudSpace huud) {
+    final h = HuudColors.of(context);
+    if (huud.youOwn) {
+      return HuudCard(
+        key: const ValueKey('huud-offline-owner'),
+        highlight: true,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text('🌙 Your Huud is offline', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: n.ink)),
+          const SizedBox(height: 4),
+          Text('Go Live to hang out, talk and play. Your members, chat and code are all still here.',
+              style: TextStyle(fontSize: 15, height: 1.35, color: n.mid)),
+          const SizedBox(height: 14),
+          HuudButton(
+              key: const ValueKey('huud-go-live'),
+              label: 'Go Live',
+              icon: Icons.sensors_rounded,
+              big: true,
+              expand: true,
+              onPressed: _goLive),
+        ]),
+      );
+    }
+    return HuudCard(
+      key: const ValueKey('huud-offline-member'),
+      child: Row(children: [
+        const Text('🌙', style: TextStyle(fontSize: 30)),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Not Live right now', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: n.ink)),
+            const SizedBox(height: 2),
+            Text(
+                huud.muted
+                    ? "You've muted it — tap the bell to hear when it goes Live."
+                    : "You'll get a notification when ${huud.host?.firstName ?? 'the owner'} goes Live.",
+                style: TextStyle(fontSize: 14, height: 1.3, color: huud.muted ? n.mute : h.orangeText)),
+          ]),
+        ),
+      ]),
+    );
+  }
+
   Widget _actions(HuudSpace huud) {
     final inVoice = HangoutState.instance.roomName == huud.voiceRoom;
     final canSpeak = huud.youCanSpeak;
@@ -780,13 +879,14 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         label: 'Invite',
         onTap: () => _invite(huud),
       ),
-      HuudRoundAction(
-        key: const ValueKey('huud-leave'),
-        icon: Icons.logout_rounded,
-        label: 'Leave',
-        danger: true,
-        onTap: () => _leave(huud),
-      ),
+      if (!huud.youOwn)
+        HuudRoundAction(
+          key: const ValueKey('huud-leave'),
+          icon: Icons.logout_rounded,
+          label: 'Leave',
+          danger: true,
+          onTap: () => _leave(huud),
+        ),
     ]);
   }
 
@@ -909,7 +1009,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         border: Border.all(color: n.line, width: 1.4),
       ),
       child: Row(children: [
-        tab(_Tab.play, '🎮', 'Play'),
+        if (huud.live) tab(_Tab.play, '🎮', 'Play'),
         if (huud.youAreIn) tab(_Tab.chat, '💬', 'Chat', badge: _unread),
         tab(_Tab.people, '👥', 'People ${huud.members.length}'),
       ]),
@@ -1460,6 +1560,9 @@ class _InviteSheetState extends State<_InviteSheet> {
 /// Host only: rename the Huud, change who can join, and put it on the feed.
 class _SettingsSheet extends StatefulWidget {
   const _SettingsSheet({required this.huud});
+
+  /// What the sheet hands back when the owner deleted the Huud.
+  static const deleted = 'deleted';
   final HuudSpace huud;
 
   @override
@@ -1479,6 +1582,29 @@ class _SettingsSheetState extends State<_SettingsSheet> {
     _name.dispose();
     _message.dispose();
     super.dispose();
+  }
+
+  Future<void> _delete() async {
+    final ok = await confirmHuud(
+      context,
+      emoji: '🗑️',
+      title: 'Delete ${widget.huud.name}?',
+      message: 'This removes the Huud for everyone — its members, chat and code. You can\'t undo this.',
+      yes: 'Delete forever',
+      danger: true,
+    );
+    if (!ok || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await AppScope.of(context).api.delete('/huud-spaces/${widget.huud.id}');
+      if (mounted) Navigator.of(context).pop(_SettingsSheet.deleted);
+    } on ApiException catch (e) {
+      if (mounted) huudSnack(context, e.message);
+    } catch (_) {
+      if (mounted) huudSnack(context, "That didn't work — try again.");
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _save() async {
@@ -1622,6 +1748,19 @@ class _SettingsSheetState extends State<_SettingsSheet> {
             const SizedBox(height: 20),
             HuudButton(
                 label: 'Save', icon: Icons.check_rounded, expand: true, big: true, busy: _busy, onPressed: _save),
+            if (widget.huud.youOwn) ...[
+              const SizedBox(height: 22),
+              Divider(color: n.line),
+              const SizedBox(height: 10),
+              HuudButton(
+                key: const ValueKey('settings-delete'),
+                label: 'Delete Huud',
+                icon: Icons.delete_forever_rounded,
+                kind: HuudButtonKind.danger,
+                expand: true,
+                onPressed: _busy ? null : _delete,
+              ),
+            ],
           ]),
         ),
       ),

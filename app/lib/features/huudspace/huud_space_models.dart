@@ -40,7 +40,11 @@ class HuudMember {
     this.host = false,
     this.here = false,
     this.canSpeak = false,
+    this.owner = false,
   });
+
+  /// Whose Huud it is, for good (the host may be someone covering for them).
+  final bool owner;
 
   final String userId;
   final String displayName;
@@ -61,6 +65,7 @@ class HuudMember {
         host: j['host'] == true,
         here: j['here'] == true,
         canSpeak: j['canSpeak'] == true,
+        owner: j['owner'] == true,
       );
 }
 
@@ -142,7 +147,25 @@ class HuudSpace {
     this.feedMessage,
     this.watching = 0,
     this.background,
+    this.live = true,
+    this.youOwn = false,
+    this.muted = false,
+    this.memberCount = 0,
+    this.liveCount = 0,
   });
+
+  /// Live right now (a hangout is on) — or offline, waiting for the owner.
+  final bool live;
+
+  /// It's your Huud, for good.
+  final bool youOwn;
+
+  /// You've muted this Huud's "it's live" notifications.
+  final bool muted;
+
+  /// Everyone who belongs to the Huud, and how many are in the Live hangout.
+  final int memberCount;
+  final int liveCount;
 
   /// The host's backdrop: "lounge", "poolside", "club" — null for none.
   final String? background;
@@ -204,6 +227,11 @@ class HuudSpace {
         feedMessage: j['feedMessage'] as String?,
         watching: (j['watching'] as num?)?.toInt() ?? 0,
         background: j['background'] as String?,
+        live: j['live'] != false,
+        youOwn: j['youOwn'] == true,
+        muted: j['muted'] == true,
+        memberCount: (j['memberCount'] as num?)?.toInt() ?? 0,
+        liveCount: (j['liveCount'] as num?)?.toInt() ?? 0,
       );
 }
 
@@ -289,55 +317,69 @@ class LiveHuud {
       );
 }
 
-/// A card in "Your Huuds".
-class HuudHistoryEntry {
-  const HuudHistoryEntry({
+/// A Huud you belong to, for the Huud tab.
+class MyHuud {
+  const MyHuud({
     required this.id,
     required this.name,
     required this.privacy,
-    required this.status,
-    required this.youCreated,
-    required this.youAreHost,
-    required this.participants,
-    required this.games,
-    required this.gamesPlayed,
-    required this.createdAt,
-    this.endedAt,
+    required this.live,
+    required this.youOwn,
+    required this.memberCount,
+    required this.liveCount,
+    required this.members,
     this.host,
+    this.gameType,
+    this.gameStatus,
+    this.background,
+    this.muted = false,
   });
 
   final String id;
   final String name;
   final HuudPrivacy privacy;
-  final String status;
-  final bool youCreated;
-  final bool youAreHost;
+  final bool live;
+  final bool youOwn;
   final HuudMember? host;
-  final List<HuudMember> participants;
-  final List<String> games;
-  final int gamesPlayed;
-  final DateTime createdAt;
-  final DateTime? endedAt;
+  final int memberCount;
+  final int liveCount;
+  final List<HuudMember> members;
+  final String? gameType;
+  final String? gameStatus;
+  final String? background;
+  final bool muted;
 
-  bool get live => status == 'active';
-
-  factory HuudHistoryEntry.fromJson(Map<String, dynamic> j) => HuudHistoryEntry(
+  factory MyHuud.fromJson(Map<String, dynamic> j) => MyHuud(
         id: j['id'].toString(),
         name: j['name'] as String? ?? 'Huud',
         privacy: HuudPrivacyInfo.parse(j['privacy'] as String?),
-        status: j['status'] as String? ?? 'ended',
-        youCreated: j['youCreated'] == true,
-        youAreHost: j['youAreHost'] == true,
+        live: j['live'] == true,
+        youOwn: j['youOwn'] == true,
         host: j['host'] == null ? null : HuudMember.fromJson((j['host'] as Map).cast<String, dynamic>()),
-        participants: [
-          for (final m in (j['participants'] as List? ?? const []))
-            HuudMember.fromJson((m as Map).cast<String, dynamic>()),
+        memberCount: (j['memberCount'] as num?)?.toInt() ?? 0,
+        liveCount: (j['liveCount'] as num?)?.toInt() ?? 0,
+        members: [
+          for (final m in (j['members'] as List? ?? const [])) HuudMember.fromJson((m as Map).cast<String, dynamic>()),
         ],
-        games: [for (final g in (j['games'] as List? ?? const [])) g.toString()],
-        gamesPlayed: (j['gamesPlayed'] as num?)?.toInt() ?? 0,
-        createdAt: DateTime.tryParse(j['createdAt']?.toString() ?? '')?.toLocal() ?? DateTime.now(),
-        endedAt: DateTime.tryParse(j['endedAt']?.toString() ?? '')?.toLocal(),
+        gameType: j['gameType'] as String?,
+        gameStatus: j['gameStatus'] as String?,
+        background: j['background'] as String?,
+        muted: j['muted'] == true,
       );
+}
+
+/// "Live now · 8 in Huud · Playing Whot" — or "Offline · 12 members".
+String huudStatusLine(
+    {required bool live, required int liveCount, required int memberCount, String? game, String? gameStatus}) {
+  if (!live) return memberCount == 1 ? 'Offline · 1 member' : 'Offline · $memberCount members';
+  final doing = game == null
+      ? null
+      : switch (gameStatus) {
+          'playing' => 'Playing $game',
+          'waiting' => '$game starting soon',
+          _ => null,
+        };
+  return ['Live now', '$liveCount in Huud', if (doing != null) doing].join(' · ');
 }
 
 /// "Today", "Yesterday", "3 days ago", "12 Mar" — friendly, not a timestamp.

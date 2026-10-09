@@ -136,19 +136,19 @@ public class HuudService {
      */
     private Flux<FeedItem> sharedHuuds(UUID viewer, Tab tab) {
         String scope = tab == Tab.FRIENDS
-                ? "(s.owner_id = :uid OR " + friendOf("s.owner_id") + " OR me.user_id IS NOT NULL)"
+                ? "(s.created_by = :uid OR " + friendOf("s.created_by") + " OR me.user_id IS NOT NULL)"
                 : "s.privacy = 'public'";
-        return db.sql("SELECT s.id, s.name, s.privacy, s.feed_message, s.shared_at, s.owner_id, "
+        return db.sql("SELECT s.id, s.name, s.privacy, s.feed_message, s.shared_at, s.created_by AS owner_id, "
                         + "u.display_name, u.username, u.avatar_url, r.game_type, r.status AS room_status, "
                         + "(SELECT count(*) FROM room_members rm WHERE rm.room_id = r.id) AS players, "
-                        + "(SELECT count(*) FROM huud_space_members c WHERE c.huud_space_id = s.id AND c.left_at IS NULL) AS people, "
-                        + "(me.user_id IS NOT NULL) AS mine, " + friendOf("s.owner_id") + " AS friend "
-                        + "FROM huud_spaces s JOIN users u ON u.id = s.owner_id "
+                        + "(SELECT count(*) FROM huud_space_members c WHERE c.huud_space_id = s.id AND c.live_at IS NOT NULL) AS people, "
+                        + "(me.user_id IS NOT NULL) AS mine, " + friendOf("s.created_by") + " AS friend "
+                        + "FROM huud_spaces s JOIN users u ON u.id = s.created_by "
                         + "LEFT JOIN rooms r ON r.id = s.current_room_id "
                         + "LEFT JOIN huud_space_members me ON me.huud_space_id = s.id AND me.user_id = :uid AND me.left_at IS NULL "
-                        + "WHERE s.status = 'active' AND s.shared_at IS NOT NULL AND " + scope + " "
+                        + "WHERE s.status = 'active' AND s.live_since IS NOT NULL AND s.shared_at IS NOT NULL AND " + scope + " "
                         + "AND NOT EXISTS (SELECT 1 FROM huud_space_members x WHERE x.huud_space_id = s.id AND x.user_id = :uid AND x.removed) "
-                        + "AND NOT " + app.truearena.api.huudspace.HuudSpaceService.blockedSql("s.owner_id", ":uid") + " "
+                        + "AND NOT " + app.truearena.api.huudspace.HuudSpaceService.blockedSql("s.created_by", ":uid") + " "
                         + "ORDER BY s.shared_at DESC LIMIT " + PAGE)
                 .bind("uid", viewer)
                 .map((row, meta) -> {
@@ -551,6 +551,11 @@ public class HuudService {
             throw ApiExceptions.badRequest("unknown gameType: " + requested);
         }
         return type;
+    }
+
+    /** "Whot", "Word Bluff" — the name people know a game by. */
+    public static String gameName(String gameType) {
+        return GAME_NAMES.getOrDefault(gameType, "a game");
     }
 
     /** A game's natural table, for anything showing "2/4 playing". Unknown games count as 2. */
