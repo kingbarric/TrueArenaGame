@@ -48,3 +48,13 @@ export function presentEyes(body: Object3D, replacement: boolean) {
     if (object.name === 'face_eyes') object.visible = !replacement;
   });
 }
+
+/** Base underwear stays visible until a garment covers that part of the body. */
+export function presentUnderwear(body: Object3D, slots: Set<string>) {
+  const full = slots.has('outfit') || slots.has('dress');
+  const top = full || slots.has('tops') || slots.has('shirts');
+  const bottom = full || slots.has('trousers') || slots.has('skirts');
+  const bra = body.getObjectByName('starter_bra'), briefs = body.getObjectByName('starter_briefs');
+  if (bra) bra.visible = !top;
+  if (briefs) briefs.visible = !bottom;
+}

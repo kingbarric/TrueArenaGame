@@ -31,7 +31,11 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
   late SlayLook _look = SlayLook.initial(widget.initialBody);
   late final Set<String> _owned = {...widget.owned};
   final _stage = SlayStageController();
-  String _category = 'outfit';
+  String _category = 'outfit', _styleGroup = 'All';
+  SlayLook? _draft;
+  int? _coins;
+  bool _selecting = false;
+  int _walletRevision = 0;
   bool _busy = false, _performing = false;
   String? _error;
   Timer? _clock;
@@ -61,7 +65,10 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
         if (mounted) setState(() {});
       });
     }
-    WidgetsBinding.instance.addPostFrameCallback((_) => _restore());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _restore();
+      _wallet();
+    });
   }
 
   @override
@@ -116,15 +123,26 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
       final look =
           SlayLook.fromJson(Map<String, dynamic>.from(jsonDecode(raw)));
       final available = (widget.catalog['items'] as List)
-          .where((item) => item['assetUrl'] != null)
+          .where(
+              (item) => item['assetUrl'] != null && _owned.contains(item['id']))
           .map((item) => item['id'])
           .toSet();
       if (look.body == _look.body &&
           look.items.values.every(available.contains) &&
           mounted) {
-        setState(() => _look = look);
+        setState(() => _draft = look);
       }
     } catch (_) {}
+  }
+
+  Future<void> _wallet() async {
+    final revision = ++_walletRevision;
+    try {
+      final wallet = await AppScope.of(context).fetchWallet(limit: 0);
+      if (mounted && revision == _walletRevision) {
+        setState(() => _coins = wallet.balance);
+      }
+    } catch (_) {/* Purchases still use the server's balance check. */}
   }
 
   void _change(SlayLook look) {
@@ -138,40 +156,38 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
   }
 
   Future<void> _select(Map<String, dynamic> item) async {
+    if (_busy || _selecting) return;
+    setState(() => _selecting = true);
     final id = item['id'] as String;
-    if (!_owned.contains(id)) {
-      final purchase = await showDialog<bool>(
-          context: context,
-          builder: (c) => AlertDialog(
-                  title: Text('Add ${item['name']}?'),
-                  content: Text(
-                      '${item['coinCost']} earned coins. This item stays in your wardrobe.'),
-                  actions: [
-                    TextButton(
-                        onPressed: () => Navigator.pop(c, false),
-                        child: const Text('Later')),
-                    SlayButton(
-                        onPressed: () => Navigator.pop(c, true),
-                        child: const Text('Unlock'))
-                  ]));
-      if (purchase != true || !mounted) return;
-      try {
+    try {
+      if (!_owned.contains(id)) {
+        final cost = (item['coinCost'] as num).toInt();
+        final purchase =
+            await showSlayUnlock(context, item['name'], cost, _coins);
+        if (purchase != true || !mounted) return;
         await AppScope.of(context)
             .api
             .post('/slay/wardrobe/buy', {'itemId': id});
         if (!mounted) return;
-        setState(() => _owned.add(id));
-      } catch (e) {
-        if (mounted) setState(() => _error = e.toString());
-        return;
+        ++_walletRevision;
+        setState(() {
+          _owned.add(id);
+          if (_coins != null) _coins = _coins! - cost;
+        });
+        unawaited(_wallet());
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('${item['name']} unlocked!')));
       }
+      if (mounted) _change(_look.equip(item));
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _selecting = false);
     }
-    _change(_look.equip(item,
-        wardrobe: (widget.catalog['items'] as List).cast<Map>()));
   }
 
   Future<void> _submit() async {
-    if (_busy) return;
+    if (_busy || _selecting || !_look.isDressed) return;
     setState(() {
       _busy = true;
       _error = null;
@@ -278,14 +294,39 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
   Widget build(BuildContext context) => Theme(
       data: slayTheme(context),
       child: Builder(builder: (context) {
-        final items = (widget.catalog['items'] as List)
+        final clothing = [
+          'outfit',
+          'dress',
+          'tops',
+          'shirts',
+          'trousers',
+          'skirts'
+        ].contains(_category);
+        final categoryItems = (widget.catalog['items'] as List)
             .cast<Map>()
             .where((i) =>
                 i['assetUrl'] != null &&
                 i['category'] == _category &&
                 (i['body'] == 'unisex' || i['body'] == _look.body))
             .toList();
+        final groups = [
+          'All',
+          ...slayStyleGroups.keys
+              .where((g) => categoryItems.any((i) => slayMatchesStyle(i, g)))
+        ];
+        final selectedGroup =
+            groups.contains(_styleGroup) ? _styleGroup : 'All';
+        final items = categoryItems
+            .where((i) => !clothing || slayMatchesStyle(i, selectedGroup))
+            .toList();
         final canRemove = [
+          'outfit',
+          'dress',
+          'tops',
+          'shirts',
+          'trousers',
+          'skirts',
+          'shoes',
           'eyes',
           'makeup',
           'jewellery',
@@ -301,11 +342,11 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                   padding: const EdgeInsets.only(right: 16),
                   child: Center(
                       child: SlayLabel(widget.deadline == null
-                          ? 'Practice look'
+                          ? (_coins == null ? 'Practice look' : '$_coins coins')
                           : _timeLeft))),
               SlayGameMenu(
                   onBrief: _brief,
-                  onReset: _busy
+                  onReset: (_busy || _selecting)
                       ? null
                       : () => _change(SlayLook.initial(_look.body)),
                   exitLabel: 'Back to SlayHuud',
@@ -344,11 +385,15 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                                             ? Icons.female
                                             : Icons.male,
                                         selected: _look.body == body,
-                                        onPressed: _busy
+                                        onPressed: (_busy || _selecting)
                                             ? null
                                             : () {
-                                                setState(() => _look =
-                                                    SlayLook.initial(body));
+                                                setState(() {
+                                                  _look =
+                                                      SlayLook.initial(body);
+                                                  _draft = null;
+                                                  _styleGroup = 'All';
+                                                });
                                                 _restore();
                                               },
                                       ))),
@@ -462,6 +507,17 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                         scrollDirection: Axis.horizontal,
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         children: [
+                          if (_draft != null &&
+                              !_look.isDressed &&
+                              _draft!.isDressed) ...[
+                            SlayPill(
+                                label: 'Resume draft',
+                                icon: Icons.history_rounded,
+                                onPressed: (_busy || _selecting)
+                                    ? null
+                                    : () => _change(_draft!)),
+                            const SizedBox(width: 8),
+                          ],
                           SlayShowOffControl(
                               controller: _stage,
                               enabled: !_busy,
@@ -473,13 +529,15 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                           SlayPill(
                               label: 'Beauty',
                               icon: Icons.face_retouching_natural,
-                              onPressed: _busy ? null : () => _customise()),
+                              onPressed: (_busy || _selecting)
+                                  ? null
+                                  : () => _customise()),
                           const SizedBox(width: 8),
                           SlayPill(
                               label:
                                   'Pose · ${_look.pose[0].toUpperCase()}${_look.pose.substring(1)}',
                               icon: Icons.accessibility_new,
-                              onPressed: _busy
+                              onPressed: (_busy || _selecting)
                                   ? null
                                   : () =>
                                       _pick('pose', widget.catalog['poses'])),
@@ -487,7 +545,7 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                           SlayPill(
                               label: 'Scene',
                               icon: Icons.landscape_outlined,
-                              onPressed: _busy
+                              onPressed: (_busy || _selecting)
                                   ? null
                                   : () => _pick('background',
                                       widget.catalog['backgrounds'])),
@@ -509,11 +567,31 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                                 child: SlayPill(
                                     label: c.value,
                                     selected: _category == c.key,
-                                    onPressed: _busy
+                                    onPressed: (_busy || _selecting)
                                         ? null
-                                        : () =>
-                                            setState(() => _category = c.key)))
+                                        : () => setState(() {
+                                              _category = c.key;
+                                              _styleGroup = 'All';
+                                            })))
                         ])),
+                if (clothing)
+                  SizedBox(
+                      height: 36,
+                      child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          children: [
+                            for (final group in groups)
+                              Padding(
+                                  padding: const EdgeInsets.only(right: 6),
+                                  child: SlayPill(
+                                      label: group,
+                                      selected: selectedGroup == group,
+                                      onPressed: (_busy || _selecting)
+                                          ? null
+                                          : () => setState(
+                                              () => _styleGroup = group)))
+                          ])),
                 Expanded(
                     child: GridView.builder(
                         padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
@@ -533,7 +611,7 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                                 name: 'None',
                                 selected: !_look.items.containsKey(_category),
                                 owned: true,
-                                onTap: _busy
+                                onTap: (_busy || _selecting)
                                     ? null
                                     : () => _change(_look.copy(
                                         items: {..._look.items}
@@ -549,7 +627,9 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                             selected: selected,
                             owned: owned,
                             coins: (item['coinCost'] as num?)?.toInt() ?? 0,
-                            onTap: _busy ? null : () => _select(item),
+                            onTap: (_busy || _selecting)
+                                ? null
+                                : () => _select(item),
                           );
                         })),
                 if (_error != null)
@@ -566,26 +646,32 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                             valueListenable: _stage.ready,
                             builder: (context, ready, _) => SlayButton.icon(
                                 onPressed: _busy ||
+                                        _selecting ||
+                                        !_look.isDressed ||
                                         !ready ||
                                         (widget.deadline != null &&
                                             !DateTime.now()
                                                 .isBefore(widget.deadline!))
                                     ? null
                                     : _submit,
-                                icon: _busy
+                                icon: (_busy || _selecting)
                                     ? const SizedBox(
                                         width: 18,
                                         height: 18,
                                         child: CircularProgressIndicator(
                                             strokeWidth: 2))
                                     : const Icon(Icons.auto_awesome, size: 18),
-                                label: Text(_busy
-                                    ? (_performing
-                                        ? 'Taking the stage…'
-                                        : 'Saving your look…')
-                                    : widget.competitionId == null
-                                        ? 'Show off & see my score'
-                                        : 'Show off & submit'))))),
+                                label: Text(_selecting
+                                    ? 'Updating wardrobe…'
+                                    : _busy
+                                        ? (_performing
+                                            ? 'Taking the stage…'
+                                            : 'Saving your look…')
+                                        : !_look.isDressed
+                                            ? 'Add a look or top + bottoms'
+                                            : widget.competitionId == null
+                                                ? 'Show off & see my score'
+                                                : 'Show off & submit'))))),
               ]);
             })));
       }));

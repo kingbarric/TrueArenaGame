@@ -293,7 +293,13 @@ class _SlayHubScreenState extends State<SlayHubScreen> {
                                                             Radius.circular(0)),
                                                 child: SlayStage(
                                                     catalog: _catalog!,
-                                                    look: SlayLook.initial(),
+                                                    look: SlayLook.initial()
+                                                        .copy(items: {
+                                                      'outfit':
+                                                          'female-essential',
+                                                      'hair': 'female-hair-0',
+                                                      'shoes': 'shoe-1'
+                                                    }),
                                                     controller: _stage))),
                                         Padding(
                                             padding: const EdgeInsets.all(18),

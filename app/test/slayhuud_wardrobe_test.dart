@@ -9,16 +9,22 @@ void main() {
               'items'] as List)
           .cast<Map>();
 
-  test(
-      'each casual shirt replaces a full suit with a wearable shirt and trousers',
+  test('shirts and trousers are chosen separately from the underwear start',
       () {
     for (final shirt
         in wardrobe.where((i) => i['id'].toString().startsWith('male-tee-'))) {
-      final look = SlayLook.initial('male').equip(shirt, wardrobe: wardrobe);
+      final start = SlayLook.initial('male');
+      expect(start.items, {'hair': 'male-hair-0'});
+      expect(start.isDressed, isFalse);
+      final look = start.equip(shirt);
       expect(look.items['shirts'], shirt['id']);
-      expect(look.items['trousers'], 'male-trousers-classic');
+      expect(look.items.containsKey('trousers'), isFalse);
+      expect(look.isDressed, isFalse);
+      final dressed = look.equip(
+          wardrobe.firstWhere((i) => i['id'] == 'male-trousers-classic'));
+      expect(dressed.isDressed, isTrue);
       expect(look.items.containsKey('outfit'), isFalse);
-      expect(look.items['shoes'], 'shoe-1');
+      expect(look.items.containsKey('shoes'), isFalse);
       final restored =
           look.equip(wardrobe.firstWhere((i) => i['id'] == 'male-dinner-suit'));
       expect(restored.items.containsKey('shirts'), isFalse);
@@ -38,6 +44,36 @@ void main() {
     expect(look.items['watches'], 'watch-gold');
     expect(look.items.containsKey('trousers'), isFalse);
     expect(look.items.containsKey('tops'), isFalse);
+  });
+
+  test('female sets include ten extra choices with both free and priced items',
+      () {
+    for (final category in ['dress', 'skirts', 'tops', 'trousers']) {
+      final choices = wardrobe
+          .where((i) =>
+              i['id'].toString().startsWith('female-$category-collection-'))
+          .toList();
+      expect(choices, hasLength(10));
+      expect(choices.where((i) => i['isDefault'] == true), hasLength(4));
+      expect(
+          choices.where(
+              (i) => i['isDefault'] == false && (i['coinCost'] as int) > 0),
+          hasLength(6));
+      expect(choices.every((i) => i['assetUrl'] != null), isTrue);
+      expect(
+          choices.every(
+              (i) => slayStyleGroups.keys.any((g) => slayMatchesStyle(i, g))),
+          isTrue);
+    }
+    final top =
+        wardrobe.firstWhere((i) => i['id'] == 'female-tops-collection-1');
+    final skirt =
+        wardrobe.firstWhere((i) => i['id'] == 'female-skirts-collection-1');
+    final look = SlayLook.initial().equip(top).equip(skirt);
+    expect(look.isDressed, isTrue);
+    expect(slayMatchesStyle(top, 'Casual'), isTrue);
+    expect(slayMatchesStyle(top, 'Corporate'), isFalse);
+    expect(slayMatchesStyle(top, 'All'), isTrue);
   });
 
   test('optional beauty and accessories survive a look save and reload', () {

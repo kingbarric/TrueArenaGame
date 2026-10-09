@@ -132,6 +132,50 @@ class SlayHuudIT {
     }
 
     @Test
+    void newWardrobeDeductsCoinsOnceAndRejectsIncompleteStyling() {
+        UUID user = human();
+        String item = "female-skirts-collection-5";
+        assertThat(slay.wardrobe(user).block()).doesNotContain(item);
+        slay.buy(user, item).block();
+        assertThat(users.coinsOf(user).block()).isEqualTo(160L);
+        assertThat(slay.wardrobe(user).block()).contains(item);
+        assertThatThrownBy(() -> slay.buy(user, item).block()).hasMessageContaining("already own");
+        assertThat(users.coinsOf(user).block()).isEqualTo(160L);
+        assertThatThrownBy(
+                        () ->
+                                slay.saveLook(
+                                                user,
+                                                new Look(
+                                                        "female",
+                                                        "#623a27",
+                                                        "classic",
+                                                        Map.of("hair", "female-hair-0"),
+                                                        "signature",
+                                                        "studio"))
+                                        .block())
+                .hasMessageContaining("Complete your outfit");
+        Look separates =
+                new Look(
+                        "female",
+                        "#623a27",
+                        "classic",
+                        Map.of(
+                                "tops",
+                                "female-tops-collection-1",
+                                "skirts",
+                                "female-skirts-collection-1"),
+                        "signature",
+                        "studio");
+        assertThat(slay.saveLook(user, separates).block().look()).isEqualTo(separates);
+        slay.buy(user, "female-skirts-collection-10").block();
+        assertThat(users.coinsOf(user).block()).isEqualTo(10L);
+        assertThatThrownBy(() -> slay.buy(user, "female-trousers-collection-6").block())
+                .isInstanceOf(RuntimeException.class);
+        assertThat(slay.wardrobe(user).block()).doesNotContain("female-trousers-collection-6");
+        assertThat(users.coinsOf(user).block()).isEqualTo(10L);
+    }
+
+    @Test
     void battleKeepsLooksPrivateRejectsSelfAndDoubleVotesAndSettlesOnlyOnce() {
         UUID a = human(), b = human(), voter = human();
         UUID id =

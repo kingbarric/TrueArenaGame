@@ -18,6 +18,8 @@ Future<void> main() async {
       .where((i) => i['isDefault'] == true)
       .map((i) => i['id'])
       .toList();
+  int balance = 600;
+  final looks = <String, Map<String, dynamic>>{};
   final competitions = <String, Map<String, dynamic>>{};
   final api = ApiClient(client: MockClient((request) async {
     final path = request.url.path.replaceFirst('/api/v1', '');
@@ -25,7 +27,19 @@ Future<void> main() async {
         ? <String, dynamic>{}
         : Map<String, dynamic>.from(jsonDecode(request.body));
     dynamic result;
-    if (path == '/slay/catalog') {
+    if (path == '/me/wallet') {
+      result = {
+        'balance': balance,
+        'tier': {
+          'tier': 'Bronze',
+          'lifetimeCoins': 600,
+          'nextTier': 'Silver',
+          'coinsToNextTier': 400,
+          'tierProgress': .6
+        },
+        'recent': []
+      };
+    } else if (path == '/slay/catalog') {
       result = catalog;
     } else if (path == '/slay/profile') {
       result = {
@@ -89,9 +103,16 @@ Future<void> main() async {
       c['serverTime'] = DateTime.now().toUtc().toIso8601String();
       result = c;
     } else if (path == '/slay/looks') {
-      result = {'id': 'preview-look'};
+      final id = 'preview-look-${looks.length + 1}';
+      looks[id] = body;
+      result = {'id': id};
     } else if (path.endsWith('/snapshot')) {
       result = null;
+    } else if (path.startsWith('/slay/looks/') && request.method == 'GET') {
+      result = {
+        'look': looks[path.split('/').last],
+        'catalogVersion': catalog['version']
+      };
     } else if (path.startsWith('/slay/solo/')) {
       result = {
         'overall': 89.0,
@@ -103,6 +124,14 @@ Future<void> main() async {
         'missing': []
       };
     } else if (path == '/slay/wardrobe/buy') {
+      final item = (catalog['items'] as List)
+          .firstWhere((i) => i['id'] == body['itemId']);
+      final cost = (item['coinCost'] as num).toInt();
+      if (owned.contains(item['id']) || balance < cost) {
+        return http.Response(
+            '{"message":"Not enough coins or already owned"}', 409);
+      }
+      balance -= cost;
       owned.add(body['itemId']);
       result = null;
     } else if (path.startsWith('/championships/')) {

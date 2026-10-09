@@ -11,6 +11,8 @@ Community clothing and earrings — CC0
 
 MargaretToigo: cut-out dress, keyhole dress, strapless ruffle-top dress, dinner jacket suit, jacket-and-bowtie suit, male suit 3, basic tucked T-shirt, wool pants and pearl earrings. Existing collection also includes MargaretToigo's halter dresses and double-breasted/tie suits.
 
+Wardrobe expansion: MargaretToigo's shift, camisole, tiered and ruffle dresses; camisole, keyhole tank, turtleneck halter and bodice tops; tiered mini/midi, lace ruffle and long full skirts; and harem pants. Frankyaye: Mini Skirt 01 and 02. Cortu: cargo pants and jeans shorts. Joel Palmius: crude female T-shirt. Skalldyrssuppe: tube top. These items are from the CC0 clothing packs below; named colour/crop variants are SlayHuud adaptations of the same silhouettes.
+
 Elvaerwyn: crude male T-shirt.
 namuhekam: male polo shirt.
 EWS: hoop earrings.
@@ -23,6 +25,7 @@ https://static.makehumancommunity.org/assets/assetpacks/dress01.html
 https://static.makehumancommunity.org/assets/assetpacks/suits01.html
 https://static.makehumancommunity.org/assets/assetpacks/shirts01.html
 https://static.makehumancommunity.org/assets/assetpacks/pants01.html
+https://static.makehumancommunity.org/assets/assetpacks/skirts01.html
 https://static.makehumancommunity.org/assets/assetpacks/jewelry01.html
 License: https://creativecommons.org/publicdomain/zero/1.0/
 
@@ -44,3 +47,5 @@ SlayHuud additions
 Gold Chronograph, Steel & Leather and Night Smartwatch are original lightweight meshes authored for SlayHuud. Ruby Red, Soft Rose and Deep Plum lipstick are original colour materials on overlays derived from the CC0 female body, carrying matching face and expression morphs. Starter pose clips, garment coverage and fitting code are authored for SlayHuud.
 
 These starter models still need final art review and real-device performance testing before release.
+
+Starter sports bra and boxer briefs are fitted overlays derived from the CC0 body geometry, clipped at clean garment boundaries and bound to the same animation rig.

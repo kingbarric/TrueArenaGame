@@ -14,11 +14,7 @@ class SlayLook {
       body: body,
       skinTone: '#623a27',
       facePreset: 'classic',
-      items: {
-        'outfit': '$body-essential',
-        'hair': '$body-hair-0',
-        'shoes': 'shoe-1'
-      },
+      items: {'hair': '$body-hair-0'},
       pose: 'signature',
       background: 'studio');
   factory SlayLook.fromJson(Map<String, dynamic> j) => SlayLook(
@@ -49,6 +45,12 @@ class SlayLook {
           items: Map.unmodifiable(items ?? this.items),
           pose: pose ?? this.pose,
           background: background ?? this.background);
+  bool get isDressed =>
+      items.containsKey('outfit') ||
+      items.containsKey('dress') ||
+      ((items.containsKey('tops') || items.containsKey('shirts')) &&
+          (items.containsKey('trousers') || items.containsKey('skirts')));
+
   SlayLook equip(Map item, {Iterable<Map> wardrobe = const []}) {
     final next = {...items};
     final category = item['category'] as String;
@@ -69,14 +71,6 @@ class SlayLook {
     }
     if (['shirts', 'tops'].contains(category)) {
       next.remove(category == 'shirts' ? 'tops' : 'shirts');
-      if (!next.containsKey('trousers') && !next.containsKey('skirts')) {
-        final bottoms = wardrobe.where((i) =>
-            i['category'] == 'trousers' &&
-            i['body'] == body &&
-            i['assetUrl'] != null &&
-            i['isDefault'] == true);
-        if (bottoms.isNotEmpty) next['trousers'] = bottoms.first['id'];
-      }
     } else if (['trousers', 'skirts'].contains(category)) {
       next.remove(category == 'trousers' ? 'skirts' : 'trousers');
     }
@@ -84,6 +78,20 @@ class SlayLook {
     return copy(items: next);
   }
 }
+
+/// Wardrobe browsing uses the existing scoring tags; no second taxonomy in the DB.
+const slayStyleGroups = <String, Set<String>>{
+  'Casual': {'casual', 'streetwear', 'summer'},
+  'Corporate': {'corporate', 'business'},
+  'Date Night': {'romantic'},
+  'Party': {'party', 'night'},
+  'Formal': {'formal', 'elegant', 'luxury'},
+  'Traditional': {'traditional', 'african', 'bridal', 'royal'},
+};
+bool slayMatchesStyle(Map item, String group) =>
+    group == 'All' ||
+    (item['styleTags'] as List? ?? [])
+        .any((tag) => slayStyleGroups[group]?.contains(tag) == true);
 
 class SlayApi {
   SlayApi(this.client);

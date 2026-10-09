@@ -18,6 +18,40 @@ void main() {
                       .copyWith(textScaler: TextScaler.linear(textScale)),
                   child: Scaffold(body: child)))));
 
+  testWidgets('coin unlock asks Yes or No and prevents unaffordable purchases',
+      (tester) async {
+    bool? choice;
+    await tester.pumpWidget(game(Builder(
+        builder: (c) => SlayButton(
+            onPressed: () async {
+              choice = await showSlayUnlock(c, 'Lace Skirt', 40, 100);
+            },
+            child: const Text('Locked skirt')))));
+    await tester.tap(find.text('Locked skirt'));
+    await tester.pumpAndSettle();
+    expect(find.text('Unlock Lace Skirt?'), findsOneWidget);
+    await tester.tap(find.text('No'));
+    await tester.pumpAndSettle();
+    expect(choice, isFalse);
+    await tester.tap(find.text('Locked skirt'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Yes · 40 coins'));
+    await tester.pumpAndSettle();
+    expect(choice, isTrue);
+    await tester.pumpWidget(game(Builder(
+        builder: (c) => SlayButton(
+            onPressed: () => showSlayUnlock(c, 'Lace Skirt', 40, 10),
+            child: const Text('Try')))));
+    await tester.tap(find.text('Try'));
+    await tester.pumpAndSettle();
+    final yes = find.ancestor(
+        of: find.text('Yes · 40 coins'), matching: find.byType(FilledButton));
+    expect(tester.widget<FilledButton>(yes).onPressed, isNull);
+    expect(find.textContaining('Earn more coins'), findsOneWidget);
+    await tester.tap(find.text('No'));
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('raised submit button stays disabled until ready',
       (tester) async {
     var submitted = 0;

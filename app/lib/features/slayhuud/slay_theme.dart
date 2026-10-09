@@ -389,3 +389,26 @@ class SlayThumbnail extends StatelessWidget {
         : Image.network(url, fit: BoxFit.contain, errorBuilder: fallback);
   }
 }
+
+Future<bool?> showSlayUnlock(
+        BuildContext context, String name, int cost, int? balance) =>
+    showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28)),
+              title: Text('Unlock $name?'),
+              content: Text('$cost coins to add it to your wardrobe forever.'
+                  '${balance == null ? '' : '\nYour balance: $balance coins.'}'
+                  '${balance != null && balance < cost ? '\nEarn more coins to unlock this item.' : ''}'),
+              actions: [
+                SlayButton.tonal(
+                    onPressed: () => Navigator.pop(c, false),
+                    child: const Text('No')),
+                SlayButton(
+                    onPressed: balance != null && balance < cost
+                        ? null
+                        : () => Navigator.pop(c, true),
+                    child: Text('Yes · $cost coins'))
+              ],
+            ));

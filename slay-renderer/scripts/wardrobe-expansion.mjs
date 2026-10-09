@@ -1,4 +1,5 @@
 // Sources are downloaded MakeHuman packs; see docs/SLAYHUUD_ASSET_CREDITS.md.
+import {femaleWardrobe} from './female-wardrobe.mjs';
 export const expansion = {
   'female-date-cutout': ['female', 'clothes/toigo_cut_out_dress/dress_cut_outs.obj', 'clothes/toigo_cut_out_dress/cutOutDress.png'],
   'female-date-keyhole': ['female', 'clothes/toigo_keyhole_neck_dress/dress_keyhole_neck.obj', 'clothes/toigo_keyhole_neck_dress/ZebraD.png'],
@@ -9,7 +10,17 @@ export const expansion = {
   'male-tee-relaxed': ['male', 'clothes/elvs_crude_t-shirt_male/crude_male_shirt.obj', 'clothes/elvs_crude_t-shirt_male/crude_male_tex.png'],
   'male-tee-tucked': ['male', 'clothes/toigo_basic_tucked_t-shirt/t_shirt_basic_tucked.obj', 'clothes/toigo_basic_tucked_t-shirt/T-shirt_basic.png'],
   'male-tee-polo': ['male', 'clothes/namuhekam_male_polo_shirt/Polo_t-shirt.obj', 'clothes/namuhekam_male_polo_shirt/Polo_Base_Color.png'],
-  'male-trousers-classic': ['male', 'clothes/toigo_wool_pants/pants_wool.obj', 'clothes/toigo_wool_pants/Pants_wool.png'],
+  'male-trousers-cargo': ['male', 'clothes/cortu_cargo_pants/cargo_pants.obj', 'clothes/cortu_cargo_pants/cargo_pants_diff.png', {bottom: true}],
+  'male-trousers-harem': ['male', 'clothes/toigo_harem_pants/pants_harem.obj', 'clothes/toigo_harem_pants/HaremPants.png', {bottom: true}],
+  'male-trousers-denim-shorts': ['male', 'clothes/cortu_jeans_shorts/jean_shorts.obj', 'clothes/cortu_jeans_shorts/jean_shorts_diff.png', {bottom: true}],
+  'female-trousers-cargo': ['female', 'clothes/cortu_cargo_pants/cargo_pants.obj', 'clothes/cortu_cargo_pants/cargo_pants_diff.png', {bottom: true}],
+  'female-trousers-harem': ['female', 'clothes/toigo_harem_pants/pants_harem.obj', 'clothes/toigo_harem_pants/HaremPants.png', {bottom: true}],
+  'female-trousers-denim-shorts': ['female', 'clothes/cortu_jeans_shorts/jean_shorts.obj', 'clothes/cortu_jeans_shorts/jean_shorts_diff.png', {bottom: true}],
+  'female-trousers-tailored': ['female', 'clothes/toigo_wool_pants/pants_wool.obj', 'clothes/toigo_wool_pants/Pants_wool.png', {bottom: true}],
+  'female-top-camisole': ['female', 'clothes/toigo_camisole_top/camisole_top.obj', 'clothes/toigo_camisole_top/CamisoleTop.png'],
+  'female-top-keyhole': ['female', 'clothes/toigo_keyhole_tank_top/tank_keyhole_neck.obj', 'clothes/toigo_keyhole_tank_top/Giraffe.png'],
+  'female-top-tee': ['female', 'clothes/joepal_crude_t-shirt_female/crudefemaletshirt.obj', 'clothes/joepal_crude_t-shirt_female/CrudeFemaleTshirtDiffuse.png'],
+  'male-trousers-classic': ['male', 'clothes/toigo_wool_pants/pants_wool.obj', 'clothes/toigo_wool_pants/Pants_wool.png', {bottom: true}],
   'female-earrings-hoops': ['female', 'clothes/ews_hoop_earrings/hoop_earrings.obj', 'clothes/ews_hoop_earrings/metal.jpg', {earrings: true}],
   'female-earrings-pearls': ['female', 'clothes/toigo_pearl_earrings/pearl_earrings.obj', 'clothes/toigo_pearl_earrings/Earring.png', {earrings: true}],
   'female-earrings-lightning': ['female', 'clothes/culturalibre_heroine_lightning_earrings/heroine_lightning_earrings.obj', 'clothes/culturalibre_heroine_lightning_earrings/lightning.png', {earrings: true}],
@@ -23,3 +34,5 @@ for (const body of ['female', 'male']) for (const [name, texture] of [['hazel', 
 for (const [name, colour] of [['ruby', [.55, .015, .06, 1]], ['rose', [.68, .14, .25, 1]], ['plum', [.26, .025, .12, 1]]]) {
   expansion['female-lipstick-' + name] = ['female', 'proxymeshes/female1605/female1605.obj', null, {lips: true, colour}];
 }
+
+for (const item of femaleWardrobe) expansion[item.id] = item.asset;

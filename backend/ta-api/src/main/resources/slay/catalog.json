@@ -1,5 +1,5 @@
 {
-  "version": 13,
+  "version": 15,
   "developmentAssets": true,
   "avatars": [
     {
@@ -2539,10 +2539,7 @@
       "rarity": "common",
       "assetUrl": "assets/male-trousers-classic.glb",
       "thumbnailUrl": "assets/male-trousers-classic.png",
-      "hidesRegions": [
-        "upper_legs",
-        "legs"
-      ],
+      "hidesRegions": [],
       "attachmentBone": null,
       "isDefault": true,
       "coinCost": 0,
@@ -2992,6 +2989,1365 @@
       "coinCost": 0,
       "unlockWins": 0,
       "placeholder": "watches"
+    },
+    {
+      "id": "male-trousers-cargo",
+      "name": "Cargo Trousers",
+      "category": "trousers",
+      "body": "male",
+      "styleTags": [
+        "casual",
+        "streetwear"
+      ],
+      "colourTags": [
+        "green"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "streetwear"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/male-trousers-cargo.glb",
+      "thumbnailUrl": "assets/male-trousers-cargo.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "trousers"
+    },
+    {
+      "id": "male-trousers-harem",
+      "name": "Relaxed Harem Pants",
+      "category": "trousers",
+      "body": "male",
+      "styleTags": [
+        "casual",
+        "party"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "party"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/male-trousers-harem.glb",
+      "thumbnailUrl": "assets/male-trousers-harem.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "trousers"
+    },
+    {
+      "id": "male-trousers-denim-shorts",
+      "name": "Denim Shorts",
+      "category": "trousers",
+      "body": "male",
+      "styleTags": [
+        "casual",
+        "summer",
+        "streetwear"
+      ],
+      "colourTags": [
+        "blue"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "summer",
+        "streetwear"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/male-trousers-denim-shorts.glb",
+      "thumbnailUrl": "assets/male-trousers-denim-shorts.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "trousers"
+    },
+    {
+      "id": "female-trousers-cargo",
+      "name": "Cargo Trousers",
+      "category": "trousers",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "streetwear"
+      ],
+      "colourTags": [
+        "green"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "streetwear"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-trousers-cargo.glb",
+      "thumbnailUrl": "assets/female-trousers-cargo.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "trousers"
+    },
+    {
+      "id": "female-trousers-harem",
+      "name": "Relaxed Harem Pants",
+      "category": "trousers",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "party"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "party"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-trousers-harem.glb",
+      "thumbnailUrl": "assets/female-trousers-harem.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "trousers"
+    },
+    {
+      "id": "female-trousers-denim-shorts",
+      "name": "Denim Shorts",
+      "category": "trousers",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "summer",
+        "streetwear"
+      ],
+      "colourTags": [
+        "blue"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "summer",
+        "streetwear"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-trousers-denim-shorts.glb",
+      "thumbnailUrl": "assets/female-trousers-denim-shorts.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "trousers"
+    },
+    {
+      "id": "female-trousers-tailored",
+      "name": "Tailored Trousers",
+      "category": "trousers",
+      "body": "female",
+      "styleTags": [
+        "corporate",
+        "formal"
+      ],
+      "colourTags": [
+        "grey"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "corporate",
+        "formal"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-trousers-tailored.glb",
+      "thumbnailUrl": "assets/female-trousers-tailored.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "trousers"
+    },
+    {
+      "id": "female-top-camisole",
+      "name": "Satin Camisole",
+      "category": "tops",
+      "body": "female",
+      "styleTags": [
+        "romantic",
+        "elegant"
+      ],
+      "colourTags": [
+        "pink"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "romantic",
+        "elegant"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-top-camisole.glb",
+      "thumbnailUrl": "assets/female-top-camisole.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "tops"
+    },
+    {
+      "id": "female-top-keyhole",
+      "name": "Keyhole Tank",
+      "category": "tops",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "party"
+      ],
+      "colourTags": [
+        "brown"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "party"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-top-keyhole.glb",
+      "thumbnailUrl": "assets/female-top-keyhole.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "tops"
+    },
+    {
+      "id": "female-top-tee",
+      "name": "Everyday Tee",
+      "category": "tops",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "streetwear"
+      ],
+      "colourTags": [
+        "white"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "streetwear"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-top-tee.glb",
+      "thumbnailUrl": "assets/female-top-tee.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "tops"
+    },
+    {
+      "id": "female-dress-collection-1",
+      "name": "Weekend Shift",
+      "category": "dress",
+      "body": "female",
+      "styleTags": [
+        "casual"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-dress-collection-1.glb",
+      "thumbnailUrl": "assets/female-dress-collection-1.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "dress"
+    },
+    {
+      "id": "female-dress-collection-2",
+      "name": "Sunny Day Dress",
+      "category": "dress",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "summer",
+        "romantic"
+      ],
+      "colourTags": [
+        "purple"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "summer",
+        "romantic"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-dress-collection-2.glb",
+      "thumbnailUrl": "assets/female-dress-collection-2.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "dress"
+    },
+    {
+      "id": "female-dress-collection-3",
+      "name": "Tiered Day Dress",
+      "category": "dress",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "party"
+      ],
+      "colourTags": [
+        "white",
+        "pink"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "party"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-dress-collection-3.glb",
+      "thumbnailUrl": "assets/female-dress-collection-3.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "dress"
+    },
+    {
+      "id": "female-dress-collection-4",
+      "name": "Ruffle Mini Dress",
+      "category": "dress",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "romantic",
+        "party"
+      ],
+      "colourTags": [
+        "pink"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "romantic",
+        "party"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-dress-collection-4.glb",
+      "thumbnailUrl": "assets/female-dress-collection-4.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "dress"
+    },
+    {
+      "id": "female-dress-collection-5",
+      "name": "Office Shift",
+      "category": "dress",
+      "body": "female",
+      "styleTags": [
+        "corporate",
+        "casual"
+      ],
+      "colourTags": [
+        "grey"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "corporate",
+        "casual"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/female-dress-collection-5.glb",
+      "thumbnailUrl": "assets/female-dress-collection-5.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 40,
+      "unlockWins": 0,
+      "placeholder": "dress"
+    },
+    {
+      "id": "female-dress-collection-6",
+      "name": "Sunset Sundress",
+      "category": "dress",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "summer",
+        "romantic"
+      ],
+      "colourTags": [
+        "orange"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "summer",
+        "romantic"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/female-dress-collection-6.glb",
+      "thumbnailUrl": "assets/female-dress-collection-6.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 60,
+      "unlockWins": 0,
+      "placeholder": "dress"
+    },
+    {
+      "id": "female-dress-collection-7",
+      "name": "Cool Tiered Dress",
+      "category": "dress",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "party"
+      ],
+      "colourTags": [
+        "blue"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "party"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/female-dress-collection-7.glb",
+      "thumbnailUrl": "assets/female-dress-collection-7.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 80,
+      "unlockWins": 0,
+      "placeholder": "dress"
+    },
+    {
+      "id": "female-dress-collection-8",
+      "name": "Blush Ruffle Dress",
+      "category": "dress",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "romantic",
+        "party"
+      ],
+      "colourTags": [
+        "pink"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "romantic",
+        "party"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/female-dress-collection-8.glb",
+      "thumbnailUrl": "assets/female-dress-collection-8.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 100,
+      "unlockWins": 0,
+      "placeholder": "dress"
+    },
+    {
+      "id": "female-dress-collection-9",
+      "name": "Everyday Flapper",
+      "category": "dress",
+      "body": "female",
+      "styleTags": [
+        "casual"
+      ],
+      "colourTags": [
+        "green"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/female-dress-collection-9.glb",
+      "thumbnailUrl": "assets/female-dress-collection-9.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 120,
+      "unlockWins": 0,
+      "placeholder": "dress"
+    },
+    {
+      "id": "female-dress-collection-10",
+      "name": "Olive Weekend Dress",
+      "category": "dress",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "corporate"
+      ],
+      "colourTags": [
+        "green"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "corporate"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/female-dress-collection-10.glb",
+      "thumbnailUrl": "assets/female-dress-collection-10.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 150,
+      "unlockWins": 0,
+      "placeholder": "dress"
+    },
+    {
+      "id": "female-skirts-collection-1",
+      "name": "Plaid Mini",
+      "category": "skirts",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "streetwear"
+      ],
+      "colourTags": [
+        "red",
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "streetwear"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-skirts-collection-1.glb",
+      "thumbnailUrl": "assets/female-skirts-collection-1.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "skirts"
+    },
+    {
+      "id": "female-skirts-collection-2",
+      "name": "Side-split Mini",
+      "category": "skirts",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "party"
+      ],
+      "colourTags": [
+        "red",
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "party"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-skirts-collection-2.glb",
+      "thumbnailUrl": "assets/female-skirts-collection-2.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "skirts"
+    },
+    {
+      "id": "female-skirts-collection-3",
+      "name": "Tiered Leather Mini",
+      "category": "skirts",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "party"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "party"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-skirts-collection-3.glb",
+      "thumbnailUrl": "assets/female-skirts-collection-3.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "skirts"
+    },
+    {
+      "id": "female-skirts-collection-4",
+      "name": "Pink Tiered Skirt",
+      "category": "skirts",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "romantic"
+      ],
+      "colourTags": [
+        "pink"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "romantic"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-skirts-collection-4.glb",
+      "thumbnailUrl": "assets/female-skirts-collection-4.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "skirts"
+    },
+    {
+      "id": "female-skirts-collection-5",
+      "name": "Lace Ruffle Skirt",
+      "category": "skirts",
+      "body": "female",
+      "styleTags": [
+        "party",
+        "romantic"
+      ],
+      "colourTags": [
+        "white"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "party",
+        "romantic"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/female-skirts-collection-5.glb",
+      "thumbnailUrl": "assets/female-skirts-collection-5.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 40,
+      "unlockWins": 0,
+      "placeholder": "skirts"
+    },
+    {
+      "id": "female-skirts-collection-6",
+      "name": "Flowing Maxi Skirt",
+      "category": "skirts",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "summer"
+      ],
+      "colourTags": [
+        "purple"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "summer"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/female-skirts-collection-6.glb",
+      "thumbnailUrl": "assets/female-skirts-collection-6.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 60,
+      "unlockWins": 0,
+      "placeholder": "skirts"
+    },
+    {
+      "id": "female-skirts-collection-7",
+      "name": "Warm Plaid Mini",
+      "category": "skirts",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "streetwear"
+      ],
+      "colourTags": [
+        "brown"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "streetwear"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/female-skirts-collection-7.glb",
+      "thumbnailUrl": "assets/female-skirts-collection-7.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 80,
+      "unlockWins": 0,
+      "placeholder": "skirts"
+    },
+    {
+      "id": "female-skirts-collection-8",
+      "name": "Charcoal Split Mini",
+      "category": "skirts",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "party"
+      ],
+      "colourTags": [
+        "grey"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "party"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/female-skirts-collection-8.glb",
+      "thumbnailUrl": "assets/female-skirts-collection-8.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 100,
+      "unlockWins": 0,
+      "placeholder": "skirts"
+    },
+    {
+      "id": "female-skirts-collection-9",
+      "name": "Cool Tiered Skirt",
+      "category": "skirts",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "romantic"
+      ],
+      "colourTags": [
+        "purple"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "romantic"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/female-skirts-collection-9.glb",
+      "thumbnailUrl": "assets/female-skirts-collection-9.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 120,
+      "unlockWins": 0,
+      "placeholder": "skirts"
+    },
+    {
+      "id": "female-skirts-collection-10",
+      "name": "Sunset Maxi Skirt",
+      "category": "skirts",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "summer"
+      ],
+      "colourTags": [
+        "orange"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "summer"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/female-skirts-collection-10.glb",
+      "thumbnailUrl": "assets/female-skirts-collection-10.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 150,
+      "unlockWins": 0,
+      "placeholder": "skirts"
+    },
+    {
+      "id": "female-tops-collection-1",
+      "name": "Cropped Everyday Tee",
+      "category": "tops",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "streetwear"
+      ],
+      "colourTags": [
+        "white"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "streetwear"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-tops-collection-1.glb",
+      "thumbnailUrl": "assets/female-tops-collection-1.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "tops"
+    },
+    {
+      "id": "female-tops-collection-2",
+      "name": "Weekend Camisole",
+      "category": "tops",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "romantic"
+      ],
+      "colourTags": [
+        "pink"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "romantic"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-tops-collection-2.glb",
+      "thumbnailUrl": "assets/female-tops-collection-2.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "tops"
+    },
+    {
+      "id": "female-tops-collection-3",
+      "name": "Printed Tank",
+      "category": "tops",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "summer"
+      ],
+      "colourTags": [
+        "brown"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "summer"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-tops-collection-3.glb",
+      "thumbnailUrl": "assets/female-tops-collection-3.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "tops"
+    },
+    {
+      "id": "female-tops-collection-4",
+      "name": "Colour Pop Tube Top",
+      "category": "tops",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "party"
+      ],
+      "colourTags": [
+        "purple"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "party"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-tops-collection-4.glb",
+      "thumbnailUrl": "assets/female-tops-collection-4.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "tops"
+    },
+    {
+      "id": "female-tops-collection-5",
+      "name": "Halter Crop Top",
+      "category": "tops",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "party",
+        "romantic"
+      ],
+      "colourTags": [
+        "pink"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "party",
+        "romantic"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/female-tops-collection-5.glb",
+      "thumbnailUrl": "assets/female-tops-collection-5.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 40,
+      "unlockWins": 0,
+      "placeholder": "tops"
+    },
+    {
+      "id": "female-tops-collection-6",
+      "name": "Bodice Top",
+      "category": "tops",
+      "body": "female",
+      "styleTags": [
+        "romantic",
+        "party"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "romantic",
+        "party"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/female-tops-collection-6.glb",
+      "thumbnailUrl": "assets/female-tops-collection-6.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 60,
+      "unlockWins": 0,
+      "placeholder": "tops"
+    },
+    {
+      "id": "female-tops-collection-7",
+      "name": "Cool Crop Tee",
+      "category": "tops",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "streetwear"
+      ],
+      "colourTags": [
+        "blue"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "streetwear"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/female-tops-collection-7.glb",
+      "thumbnailUrl": "assets/female-tops-collection-7.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 80,
+      "unlockWins": 0,
+      "placeholder": "tops"
+    },
+    {
+      "id": "female-tops-collection-8",
+      "name": "Evening Camisole",
+      "category": "tops",
+      "body": "female",
+      "styleTags": [
+        "romantic",
+        "elegant"
+      ],
+      "colourTags": [
+        "orange"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "romantic",
+        "elegant"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/female-tops-collection-8.glb",
+      "thumbnailUrl": "assets/female-tops-collection-8.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 100,
+      "unlockWins": 0,
+      "placeholder": "tops"
+    },
+    {
+      "id": "female-tops-collection-9",
+      "name": "Muted Printed Tank",
+      "category": "tops",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "corporate"
+      ],
+      "colourTags": [
+        "grey"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "corporate"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/female-tops-collection-9.glb",
+      "thumbnailUrl": "assets/female-tops-collection-9.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 120,
+      "unlockWins": 0,
+      "placeholder": "tops"
+    },
+    {
+      "id": "female-tops-collection-10",
+      "name": "Warm Colour Pop Top",
+      "category": "tops",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "party"
+      ],
+      "colourTags": [
+        "orange"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "party"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/female-tops-collection-10.glb",
+      "thumbnailUrl": "assets/female-tops-collection-10.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 150,
+      "unlockWins": 0,
+      "placeholder": "tops"
+    },
+    {
+      "id": "female-trousers-collection-1",
+      "name": "Weekend Cargo Pants",
+      "category": "trousers",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "streetwear"
+      ],
+      "colourTags": [
+        "grey"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "streetwear"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-trousers-collection-1.glb",
+      "thumbnailUrl": "assets/female-trousers-collection-1.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "trousers"
+    },
+    {
+      "id": "female-trousers-collection-2",
+      "name": "Relaxed Lounge Pants",
+      "category": "trousers",
+      "body": "female",
+      "styleTags": [
+        "casual"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-trousers-collection-2.glb",
+      "thumbnailUrl": "assets/female-trousers-collection-2.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "trousers"
+    },
+    {
+      "id": "female-trousers-collection-3",
+      "name": "Weekend Denim Shorts",
+      "category": "trousers",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "summer"
+      ],
+      "colourTags": [
+        "blue"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "summer"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-trousers-collection-3.glb",
+      "thumbnailUrl": "assets/female-trousers-collection-3.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "trousers"
+    },
+    {
+      "id": "female-trousers-collection-4",
+      "name": "Office Wool Trousers",
+      "category": "trousers",
+      "body": "female",
+      "styleTags": [
+        "corporate",
+        "formal"
+      ],
+      "colourTags": [
+        "grey"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "corporate",
+        "formal"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-trousers-collection-4.glb",
+      "thumbnailUrl": "assets/female-trousers-collection-4.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "trousers"
+    },
+    {
+      "id": "female-trousers-collection-5",
+      "name": "Olive Cargo Pants",
+      "category": "trousers",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "streetwear"
+      ],
+      "colourTags": [
+        "green"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "streetwear"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/female-trousers-collection-5.glb",
+      "thumbnailUrl": "assets/female-trousers-collection-5.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 40,
+      "unlockWins": 0,
+      "placeholder": "trousers"
+    },
+    {
+      "id": "female-trousers-collection-6",
+      "name": "Warm Lounge Pants",
+      "category": "trousers",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "party"
+      ],
+      "colourTags": [
+        "brown"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "party"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/female-trousers-collection-6.glb",
+      "thumbnailUrl": "assets/female-trousers-collection-6.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 60,
+      "unlockWins": 0,
+      "placeholder": "trousers"
+    },
+    {
+      "id": "female-trousers-collection-7",
+      "name": "Warm Denim Shorts",
+      "category": "trousers",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "summer"
+      ],
+      "colourTags": [
+        "brown"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "summer"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/female-trousers-collection-7.glb",
+      "thumbnailUrl": "assets/female-trousers-collection-7.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 80,
+      "unlockWins": 0,
+      "placeholder": "trousers"
+    },
+    {
+      "id": "female-trousers-collection-8",
+      "name": "Evening Trousers",
+      "category": "trousers",
+      "body": "female",
+      "styleTags": [
+        "corporate",
+        "formal"
+      ],
+      "colourTags": [
+        "blue"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "corporate",
+        "formal"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/female-trousers-collection-8.glb",
+      "thumbnailUrl": "assets/female-trousers-collection-8.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 100,
+      "unlockWins": 0,
+      "placeholder": "trousers"
+    },
+    {
+      "id": "female-trousers-collection-9",
+      "name": "Charcoal Cargo Pants",
+      "category": "trousers",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "streetwear"
+      ],
+      "colourTags": [
+        "grey"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "streetwear"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/female-trousers-collection-9.glb",
+      "thumbnailUrl": "assets/female-trousers-collection-9.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 120,
+      "unlockWins": 0,
+      "placeholder": "trousers"
+    },
+    {
+      "id": "female-trousers-collection-10",
+      "name": "Cool Lounge Pants",
+      "category": "trousers",
+      "body": "female",
+      "styleTags": [
+        "casual"
+      ],
+      "colourTags": [
+        "blue"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/female-trousers-collection-10.glb",
+      "thumbnailUrl": "assets/female-trousers-collection-10.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 150,
+      "unlockWins": 0,
+      "placeholder": "trousers"
     }
   ],
   "themes": [

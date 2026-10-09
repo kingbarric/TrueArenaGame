@@ -12,6 +12,7 @@ import {execFileSync} from 'node:child_process';
 import {rigFor, skinWeights, poses, poseQuaternion} from './starter-rig.mjs';
 import {deletedVertices, proxyCoverage, coveredTriangles} from './makehuman-coverage.mjs';
 import {expansion} from './wardrobe-expansion.mjs';
+import {clipMesh, joinMeshes} from './clip-mesh.mjs';
 
 const root = resolve(new URL('..', import.meta.url).pathname);
 const source = process.argv[2] ? resolve(process.argv[2]) : resolve(root, 'source_assets/makehuman/starter');
@@ -169,6 +170,7 @@ function convert({id, body, obj, texture, isAvatar, options = {}}) {
   const sockIsland = isShoes ? (uv => id === 'shoe-0' ? uv[0] > .83 && uv[1] < .30 : uv[0] > .76 && uv[1] > .76) : null;
   const eyeOffset = body === 'male' ? -7.65 : -8.98;
   let mesh = parseObj(resolve(source, obj), [0, isHair ? headOffset : options.eyes ? eyeOffset * scale : 0, options.eyes ? -.20 * scale : 0], sockIsland);
+  if (options.crop) mesh = clipMesh(mesh, [p => p[1] - options.crop]);
   if (id === 'male-tee-polo') {
     // This community shirt was authored on a shorter shoulder line.
     // Lift its collar/shoulders, leaving its hem at the fitted waist.
@@ -241,10 +243,28 @@ function convert({id, body, obj, texture, isAvatar, options = {}}) {
     // MakeHuman origin. Male garments fit the taller male_generic body.
     const eyeOffset = body === 'male' ? -7.65 : -8.98;
     const browOffset = body === 'male' ? .71 : -.62;
+    const underwear = (name, boxes) => {
+      const fitted = joinMeshes(boxes.map(([low, high, left, right]) => clipMesh(mesh, [
+        p => p[1] - low, p => high - p[1], p => p[0] - left, p => right - p[0],
+      ])));
+      for (let i = 0; i < fitted.position.length; i++) fitted.position[i] += fitted.normal[i] * .002;
+      regions.push([name, fitted]);
+    };
+    underwear('starter_briefs', [[body === 'male' ? .77 : .83, body === 'male' ? 1.075 : .995, -.25, .25]]);
+    if (body === 'female') underwear('starter_bra', [
+      [1.245, 1.385, -.18, .18], [1.385, 1.465, .105, .14], [1.385, 1.465, -.14, -.105],
+    ]);
     regions.push(['face_eyes', parseObj(resolve(source, 'eyes/high-poly/high-poly.obj'), [0, eyeOffset * scale, -.20 * scale])]);
     regions.push(['face_brows', parseObj(resolve(source, 'eyebrows/eyebrow001/eyebrow001.obj'), [0, browOffset * scale, 0])]);
   }
   const meshes = [], nodes = [];
+  const bottomBounds = isAvatar ? Object.fromEntries(Object.entries(assets)
+    .filter(([, [fit, , , options]]) => fit === body && options?.bottom)
+    .map(([item, [, path]]) => {
+      const cloth = parseObj(resolve(source, path));
+      const heights = Array.from(cloth.position).filter((_, i) => i % 3 === 1);
+      return [item, [Math.min(...heights), Math.max(...heights)]];
+    })) : {};
   const coverage = isAvatar && body === 'female' ? Object.fromEntries(Object.entries(assets)
     .filter(([, [fit, path, , options]]) => fit === body && path.startsWith('clothes/') && !path.includes('shoes') && !options?.earrings && !options?.bag)
     .map(([item, [, path]]) => {
@@ -264,12 +284,12 @@ function convert({id, body, obj, texture, isAvatar, options = {}}) {
     const joints = new Uint16Array(region.position.length / 3 * 4), jointWeights = new Float32Array(region.position.length / 3 * 4);
     for (let vertex = 0; vertex < region.position.length / 3; vertex++) {
       const skin = options.bag === 'hand' ? {joints: [11, 0, 0, 0], weights: [1, 0, 0, 0]}
-        : skinWeights(region.position.slice(vertex * 3, vertex * 3 + 3), {body, headHeight, hair: isHair || name.startsWith('face_') || options.eyes || options.lips || options.earrings, shoes: isShoes, skirt: !isAvatar && /dress|flapper|kimono/.test(obj)});
+        : skinWeights(region.position.slice(vertex * 3, vertex * 3 + 3), {body, headHeight, hair: isHair || name.startsWith('face_') || options.eyes || options.lips || options.earrings, shoes: isShoes, skirt: !isAvatar && /dress|flapper|kimono|skirt/.test(obj)});
       joints.set(skin.joints, vertex * 4); jointWeights.set(skin.weights, vertex * 4);
     }
     const jointAccessor = add(joints, 5123, 'VEC4', joints.length / 4, 34962), weightAccessor = add(jointWeights, 5126, 'VEC4', jointWeights.length / 4, 34962);
     const indexAccessor = add(region.indices, 5125, 'SCALAR', region.indices.length, 34963);
-    const primitive = {attributes: {POSITION: positions, NORMAL: normals, TEXCOORD_0: uvs, JOINTS_0: jointAccessor, WEIGHTS_0: weightAccessor}, indices: indexAccessor, material: name === 'face_eyes' ? 1 : name === 'face_brows' ? 2 : 0};
+    const primitive = {attributes: {POSITION: positions, NORMAL: normals, TEXCOORD_0: uvs, JOINTS_0: jointAccessor, WEIGHTS_0: weightAccessor}, indices: indexAccessor, material: name.startsWith('starter_') ? 3 : name === 'face_eyes' ? 1 : name === 'face_brows' ? 2 : 0};
     if ((isAvatar && name === 'region_head') || options.lips) {
       primitive.targets = ['face_classic', 'face_soft', 'face_angular', 'expression_smile'].map(name => {
         const delta = new Float32Array(region.position.length);
@@ -287,7 +307,19 @@ function convert({id, body, obj, texture, isAvatar, options = {}}) {
     }
     meshes.push({name, primitives: [primitive], ...(((isAvatar && name === 'region_head') || options.lips) ? {extras: {targetNames: ['face_classic', 'face_soft', 'face_angular', 'expression_smile']}} : {})});
     const masks = name.startsWith('region_') ? Object.fromEntries(Object.entries(coverage)
-      .map(([item, weights]) => [item, coveredTriangles(rawRegion.sourceVertices, weights)])) : {};
+      .map(([item, weights]) => [item, coveredTriangles(rawRegion.sourceVertices, weights).filter(triangle => {
+        const crop = assets[item][3]?.crop;
+        return !crop || [0,3,6].every(v => rawRegion.position[triangle * 9 + v + 1] >= crop - .006);
+      })])) : {};
+    if (name.startsWith('region_')) for (const [item, [hem, waist]] of Object.entries(bottomBounds)) {
+      masks[item] ??= [];
+      // Mask complete triangles inside trousers, preserving bare ankles and
+      // the thighs below shorts, including on the male body without a proxy.
+      for (let i = 0; i < rawRegion.position.length; i += 9) {
+        if ([0, 3, 6].every(v => rawRegion.position[i + v + 1] > hem + .012 &&
+          rawRegion.position[i + v + 1] < waist + .008 && Math.abs(rawRegion.position[i + v]) < .34)) masks[item].push(i / 9);
+      }
+    }
     nodes.push({name, mesh: meshes.length - 1, skin: 0,
       ...((fitBody || Object.keys(masks).length) ? {extras: {...(fitBody ? {slayBody: fitBody} : {}),
         ...(Object.keys(masks).length ? {slayCoverage: masks} : {})}} : {})});
@@ -324,7 +356,8 @@ function convert({id, body, obj, texture, isAvatar, options = {}}) {
     });
     return {name, samplers, channels};
   }) : [];
-  const materials = images.map((_, index) => ({name: id + '-material-' + index, doubleSided: !isAvatar || index > 0, ...((isHair || index === 2 || options.eyes || (isAvatar && index === 1)) ? {alphaMode: 'MASK', alphaCutoff: .35} : {}), pbrMetallicRoughness: {baseColorTexture: {index}, metallicFactor: options.earrings ? .65 : 0, roughnessFactor: options.eyes || index === 1 ? .35 : .85}}));
+  const materials = images.map((_, index) => ({name: id + '-material-' + index, doubleSided: !isAvatar || index > 0, ...((isHair || index === 2 || options.eyes || (isAvatar && index === 1)) ? {alphaMode: 'MASK', alphaCutoff: .35} : {}), pbrMetallicRoughness: {baseColorTexture: {index}, ...(options.tint ? {baseColorFactor: options.tint} : {}), metallicFactor: options.earrings ? .65 : 0, roughnessFactor: options.eyes || index === 1 ? .35 : .85}}));
+  if (isAvatar) materials.push({name: body + '-base-underwear', doubleSided: true, pbrMetallicRoughness: {baseColorFactor: [.07, .055, .09, 1], metallicFactor: 0, roughnessFactor: .9}});
   if (!texture) materials.push({name: id + '-lip-colour', doubleSided: false, pbrMetallicRoughness: {baseColorFactor: options.colour, metallicFactor: 0, roughnessFactor: .38}});
   const document = {asset: {version: '2.0', generator: 'SlayHuud MakeHuman starter converter'}, scene: 0, scenes: [{nodes: [...meshes.keys(), firstBone]}], nodes, meshes, skins: [{name: 'slay-shared-rig-v1', inverseBindMatrices: inverseAccessor, joints: bones.map((_, index) => firstBone + index), skeleton: firstBone}], materials, textures: images.map((_, source) => ({source})), images, buffers: [{byteLength: viewChunks.reduce((sum, value) => sum + align(value.length), 0)}], bufferViews: views, accessors, animations};
   writeFileSync(resolve(output, id + '.glb'), encodeGlb(document, viewChunks));

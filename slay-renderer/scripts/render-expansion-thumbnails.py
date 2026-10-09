@@ -1,22 +1,33 @@
 """Render actual converted geometry, not placeholders or unrelated previews."""
 from pathlib import Path
 import json
+import sys
 import bpy
 from mathutils import Vector
 
 root = Path(__file__).resolve().parents[2]
 assets = root / 'app/assets/slay_renderer/assets'
 catalog = json.loads((root / 'backend/ta-api/src/main/resources/slay/catalog.json').read_text())
+wanted = set(json.loads(Path(sys.argv[sys.argv.index('--')+1]).read_text())) if '--' in sys.argv else None
 for item in catalog['items']:
-    if not item['assetUrl'] or not (item['id'].startswith(('female-date-', 'male-tee-', 'male-trousers-', 'male-dinner-', 'male-bowtie-', 'male-tailored-', 'female-earrings-', 'female-bag-', 'female-lipstick-', 'watch-'))): continue
+    if wanted is not None and item['id'] not in wanted: continue
+    if not item['assetUrl']: continue
+    if wanted is None and not item['id'].startswith(('female-date-', 'male-tee-', 'male-trousers-', 'male-dinner-', 'male-bowtie-', 'male-tailored-', 'female-earrings-', 'female-bag-', 'female-lipstick-', 'watch-')): continue
     bpy.ops.object.select_all(action='SELECT'); bpy.ops.object.delete(use_global=False)
     bpy.ops.import_scene.gltf(filepath=str(assets / (item['id']+'.glb')))
+    # Blender imports a large custom bone display mesh. It is an editor helper,
+    # not clothing, and must not influence the thumbnail's camera framing.
+    for obj in bpy.context.scene.objects:
+        if obj.type == 'ARMATURE':
+            for bone in obj.pose.bones:
+                if bone.custom_shape: bone.custom_shape.hide_render = True
     for obj in bpy.context.scene.objects:
         ancestor = obj
         while ancestor is not None:
             if ancestor.get('slayBody') == 'male': obj.hide_render = True
             ancestor = ancestor.parent
-    points = [obj.matrix_world @ Vector(corner) for obj in bpy.context.scene.objects if obj.type == 'MESH' and not obj.hide_render for corner in obj.bound_box]
+    bpy.context.view_layer.update()
+    points = [obj.matrix_world @ vertex.co for obj in bpy.context.scene.objects if obj.type == 'MESH' and not obj.hide_render for vertex in obj.data.vertices]
     low = Vector([min(p[a] for p in points) for a in range(3)])
     high = Vector([max(p[a] for p in points) for a in range(3)])
     target = (low+high)/2; height = max(high.z-low.z, (high.x-low.x)*1.15, .04)
