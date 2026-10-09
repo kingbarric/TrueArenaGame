@@ -10,6 +10,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../app.dart';
 import '../features/calls/incoming_call_screen.dart';
 import '../features/chat/conversation_screen.dart';
+import '../features/huudspace/huud_space_screen.dart';
 import '../features/lobby/joined_room_screen.dart';
 import '../features/shell/main_shell.dart';
 import 'app_state.dart';
@@ -194,6 +195,8 @@ class PushNotifications {
     } else if (type == 'HUUD_CHALLENGE' || type == 'HUUD_CHALLENGE_ANSWERED') {
       // Read by MainShell when it first mounts.
       MainShell.requestedTab.value = MainShell.liveTab;
+    } else if (type == 'HUUD_SPACE') {
+      _app.pendingHuudSpaceId = data['huudSpaceId'] as String?;
     }
     // BROADCAST: no deep link — the app just opens normally.
   }
@@ -214,7 +217,16 @@ class PushNotifications {
     } else if (type == 'HUUD_CHALLENGE' || type == 'HUUD_CHALLENGE_ANSWERED') {
       // The challenge card (Accept / Not now) lives at the top of Your Huud.
       MainShell.requestedTab.value = MainShell.liveTab;
+    } else if (type == 'HUUD_SPACE') {
+      // An invite, a request to answer, or the host's answer: straight into that Huud.
+      final id = data['huudSpaceId'] as String?;
+      if (id != null) openHuud(id);
     }
+  }
+
+  static void openHuud(String huudSpaceId) {
+    final nav = TrueArenaApp.navigatorKey.currentState;
+    nav?.push(MaterialPageRoute(builder: (_) => HuudSpaceScreen(id: huudSpaceId)));
   }
 
   /// Shared by the push tap handlers and _ResumeGate's cold-start

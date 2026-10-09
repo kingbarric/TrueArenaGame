@@ -24,6 +24,7 @@ import '../huudspace/create_huud_sheet.dart';
 import '../huudspace/huud_kit.dart';
 import '../huudspace/huud_space_models.dart';
 import '../huudspace/huud_space_screen.dart';
+import '../huudspace/safety_sheet.dart';
 import '../huudspace/live_now_panel.dart';
 import 'huud_models.dart';
 
@@ -69,6 +70,8 @@ class _HuudScreenState extends State<HuudScreen> {
   final _scroll = ScrollController();
 
   final _search = TextEditingController();
+  final _say = TextEditingController();
+  bool _saying = false;
   Timer? _searchDebounce;
   bool _searching = false;
   List<HuudPerson> _searchResults = const [];
@@ -117,6 +120,7 @@ class _HuudScreenState extends State<HuudScreen> {
     _searchDebounce?.cancel();
     _scroll.dispose();
     _search.dispose();
+    _say.dispose();
     super.dispose();
   }
 
@@ -390,6 +394,10 @@ class _HuudScreenState extends State<HuudScreen> {
                         else ...[
                           _filterChips(n),
                           const SizedBox(height: 12),
+                          if (_tab == HuudTab.friends && !isGuest) ...[
+                            _postBox(context, n, app),
+                            const SizedBox(height: 12),
+                          ],
                           _shareHuudCard(context, n),
                           if (_tab == HuudTab.friends) ...[
                             const SizedBox(height: 16),
@@ -581,6 +589,99 @@ class _HuudScreenState extends State<HuudScreen> {
             ),
         ]),
       );
+
+  /// A short text for your friends — they're the only ones who see it.
+  Widget _postBox(BuildContext context, NeonColors n, AppState app) {
+    final h = HuudColors.of(context);
+    final me = app.user?.username ?? app.user?.displayName ?? 'Player';
+    return HuudCard(
+      padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Avatar(me, size: 38, emoji: app.avatarEmoji, imagePath: app.avatarImagePath, imageUrl: app.user?.avatarUrl),
+          const SizedBox(width: 10),
+          Expanded(
+            child: TextField(
+              key: const ValueKey('feed-say'),
+              controller: _say,
+              maxLength: 280,
+              minLines: 1,
+              maxLines: 4,
+              textCapitalization: TextCapitalization.sentences,
+              onChanged: (_) => setState(() {}),
+              style: TextStyle(fontSize: 16, color: n.ink),
+              decoration: const InputDecoration(
+                hintText: 'Say something to your friends…',
+                counterText: '',
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                filled: false,
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(vertical: 10),
+              ),
+            ),
+          ),
+        ]),
+        Row(children: [
+          const SizedBox(width: 48),
+          Expanded(
+            child: Text('👫 Only your friends see it',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: h.orangeText)),
+          ),
+          HuudButton(
+            key: const ValueKey('feed-say-post'),
+            label: 'Post',
+            icon: Icons.send_rounded,
+            busy: _saying,
+            onPressed: _say.text.trim().isEmpty ? null : _postText,
+          ),
+        ]),
+      ]),
+    );
+  }
+
+  Future<void> _postText() async {
+    final text = _say.text.trim();
+    if (text.isEmpty || _saying) return;
+    setState(() => _saying = true);
+    try {
+      await AppScope.of(context).api.post('/huud/text-posts', {'body': text});
+      _say.clear();
+      FocusManager.instance.primaryFocus?.unfocus();
+      _cache.clear();
+      await _load();
+    } on ApiException catch (e) {
+      _snack(e.message);
+    } catch (_) {
+      _snack("That didn't post — try again.");
+    } finally {
+      if (mounted) setState(() => _saying = false);
+    }
+  }
+
+  Future<void> _postMenu(HuudItem item) async {
+    final mine = item.actor.userId == AppScope.of(context).user?.id;
+    final postId = item.id.startsWith('text:') ? item.id.substring(5) : item.id;
+    if (!mine) {
+      await showSafetySheet(context, userId: item.actor.userId, name: item.actor.name, postId: postId);
+      _cache.clear();
+      if (mounted) _load();
+      return;
+    }
+    final ok = await confirmHuud(context,
+        emoji: '🗑️', title: 'Delete this post?', message: 'It goes away for everyone.', yes: 'Delete', danger: true);
+    if (!ok || !mounted) return;
+    try {
+      await AppScope.of(context).api.delete('/huud/text-posts/$postId');
+      _cache.clear();
+      if (mounted) _load();
+    } on ApiException catch (e) {
+      _snack(e.message);
+    } catch (_) {
+      _snack('Could not reach the server');
+    }
+  }
 
   /// Where the "what do you want to play?" box used to be: games start in a
   /// Huud now, and a Huud can be shared here.
@@ -794,6 +895,7 @@ class _HuudScreenState extends State<HuudScreen> {
         _TournamentCard(item: item, onOpen: () => _openTournament(item.tournament!), onShare: () => _share(item)),
       'champion' => _ChampionCard(item: item, onOpen: () => _openTournament(item.tournament!)),
       'huud' => _SharedHuudCard(item: item, onOpen: () => _enterSharedHuud(item.huud!), onProfile: _profile),
+      'post' => _TextPostCard(item: item, onMenu: () => _postMenu(item), onProfile: _profile),
       _ => const SizedBox.shrink(),
     };
   }
@@ -1547,6 +1649,51 @@ class _SharedHuudCard extends StatelessWidget {
             icon: icon,
             onPressed: onOpen,
           ),
+        ),
+      ]),
+    );
+  }
+}
+
+/// A friend's short text on the feed.
+class _TextPostCard extends StatelessWidget {
+  const _TextPostCard({required this.item, required this.onMenu, required this.onProfile});
+  final HuudItem item;
+  final VoidCallback onMenu;
+  final void Function(HuudPerson) onProfile;
+
+  @override
+  Widget build(BuildContext context) {
+    final n = context.neon;
+    return HuudCard(
+      key: ValueKey('feed-post-${item.id}'),
+      padding: const EdgeInsets.fromLTRB(14, 12, 6, 14),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        GestureDetector(
+          onTap: () => onProfile(item.actor),
+          child: Avatar(item.actor.name, size: 40, imageUrl: item.actor.avatarUrl),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Flexible(
+                child: Text(item.actor.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: n.ink)),
+              ),
+              Text(' · ${huudAgo(item.at)}', style: TextStyle(fontSize: 13, color: n.mute)),
+            ]),
+            const SizedBox(height: 4),
+            Text(item.message ?? '', style: TextStyle(fontSize: 17, height: 1.35, color: n.ink)),
+          ]),
+        ),
+        IconButton(
+          key: ValueKey('feed-post-menu-${item.id}'),
+          tooltip: 'More',
+          icon: Icon(Icons.more_horiz_rounded, color: n.mute),
+          onPressed: onMenu,
         ),
       ]),
     );

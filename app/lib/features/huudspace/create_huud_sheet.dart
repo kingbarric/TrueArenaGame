@@ -215,7 +215,8 @@ class _CreateHuudSheetState extends State<CreateHuudSheet> {
         child: Text.rich(TextSpan(children: [
           TextSpan(text: text, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: n.ink)),
           if (optional)
-            TextSpan(text: '  (if you like)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: n.mute)),
+            TextSpan(
+                text: '  (if you like)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: n.mute)),
         ])),
       ),
     ]);

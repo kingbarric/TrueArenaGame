@@ -1,0 +1,280 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PlayHuud Reports</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#16100f; --panel:#241517; --plate:#1d1213; --line:#3a2429;
+    --ink:#f6eae3; --mid:#d6bfb6; --mute:#9c8078;
+    --gold:#d9a441; --brand:#c02b52; --jade:#7fcfa0;
+    --on-accent:#1b0e10;
+    --font-display:'Baloo 2',system-ui,sans-serif;
+    --font-body:'Archivo',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{
+    background:var(--bg); color:var(--ink); font-family:var(--font-body);
+    margin:0; padding:0 20px 60px; min-height:100vh;
+  }
+  h1,h2{font-family:var(--font-display); margin:0; text-wrap:balance}
+  ::selection{background:var(--brand); color:var(--ink)}
+
+  /* ---------- gate ---------- */
+  #gate{min-height:100vh; display:flex; align-items:center; justify-content:center}
+  #gate .card{
+    background:var(--panel); border:1px solid var(--line); border-radius:16px;
+    padding:36px 40px; width:min(360px,90vw); text-align:center;
+  }
+  #gate h1{font-size:22px; margin-bottom:6px}
+  #gate p{color:var(--mute); font-size:13px; margin:0 0 20px}
+  #gate input{
+    width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--line);
+    background:var(--plate); color:var(--ink); font-family:var(--font-body); font-size:14px;
+    margin-bottom:12px; letter-spacing:1px;
+  }
+  #gate input:focus{outline:2px solid var(--gold)}
+  #gate button, .btn{
+    padding:12px 14px; border-radius:10px; border:none; cursor:pointer;
+    background:var(--gold); color:var(--on-accent); font-family:var(--font-body); font-weight:700;
+    font-size:14px;
+  }
+  #gate button{width:100%}
+  #gate .err{color:var(--brand); font-size:13px; min-height:18px; margin-top:8px}
+
+  /* ---------- layout ---------- */
+  #dash{max-width:720px; margin:0 auto; display:none}
+  header.top{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:28px 0 18px; position:sticky; top:0; background:var(--bg); z-index:5;
+    border-bottom:1px solid var(--line);
+  }
+  header.top .brand{display:flex; align-items:center; gap:10px}
+  header.top .brand .dot{width:10px; height:10px; border-radius:50%; background:var(--jade)}
+  header.top h1{font-size:20px}
+  .iconbtn{
+    background:var(--panel); border:1px solid var(--line); color:var(--mid);
+    border-radius:8px; padding:8px 14px; font-family:var(--font-body); font-size:13px;
+    cursor:pointer; text-decoration:none; display:inline-flex; align-items:center;
+  }
+  .iconbtn:hover{border-color:var(--gold); color:var(--ink)}
+
+  section{margin-top:28px}
+  section > h2{font-size:15px; text-transform:uppercase; letter-spacing:.06em; color:var(--mute); margin-bottom:14px}
+
+  /* ---------- filters ---------- */
+  .filters{display:flex; gap:8px; flex-wrap:wrap}
+  .chip{
+    background:var(--panel); border:1px solid var(--line); color:var(--mid);
+    border-radius:999px; padding:7px 14px; font-size:13px; cursor:pointer; font-family:var(--font-body);
+  }
+  .chip.on{background:var(--gold); color:var(--on-accent); border-color:var(--gold); font-weight:700}
+
+  /* ---------- reports ---------- */
+  .report{
+    background:var(--panel); border:1px solid var(--line); border-radius:14px;
+    padding:16px 18px; margin-bottom:12px; display:flex; flex-direction:column; gap:10px;
+  }
+  .report .head{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+  .report .reason{font-family:var(--font-display); font-size:17px; font-weight:800}
+  .report .when{color:var(--mute); font-size:12px; margin-left:auto}
+  .report .who{color:var(--mid); font-size:13px}
+  .report .who b{color:var(--ink)}
+  .quote{
+    background:var(--plate); border-left:3px solid var(--brand); border-radius:8px;
+    padding:10px 12px; font-size:14px; white-space:pre-wrap; word-break:break-word;
+  }
+  .quote .label{display:block; color:var(--mute); font-size:11px; text-transform:uppercase; letter-spacing:.05em; margin-bottom:4px}
+  .details{color:var(--mid); font-size:13px; font-style:italic}
+  .count{font-size:12px; color:var(--mute)}
+  .count.hot{color:var(--brand); font-weight:700}
+  .pill{font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:3px 9px; border-radius:999px}
+  .pill.open{background:rgba(192,43,82,.18); color:var(--brand)}
+  .pill.reviewed{background:rgba(127,207,160,.18); color:var(--jade)}
+  .actions-row{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+  .actions-row input{
+    flex:1; min-width:180px; padding:9px 11px; border-radius:8px; border:1px solid var(--line);
+    background:var(--plate); color:var(--ink); font-family:var(--font-body); font-size:13px;
+  }
+  .ghost{background:transparent; border:1px solid var(--line); color:var(--mid); border-radius:8px; padding:9px 12px; font-size:13px; cursor:pointer}
+  .ghost:hover{border-color:var(--brand); color:var(--ink)}
+  .reviewed-note{color:var(--jade); font-size:13px}
+  .empty{color:var(--mute); font-size:13px; padding:30px 0; text-align:center}
+</style>
+
+<div id="gate">
+  <div class="card">
+    <h1>PlayHuud Reports</h1>
+    <p>Player reports from Huuds, chat and the feed. Enter the admin key to continue.</p>
+    <input id="keyInput" type="password" placeholder="Admin key" autocomplete="off">
+    <button id="unlockBtn">Unlock</button>
+    <div class="err" id="gateErr"></div>
+  </div>
+</div>
+
+<div id="dash">
+  <header class="top">
+    <div class="brand">
+      <span class="dot"></span>
+      <h1>PlayHuud Reports</h1>
+    </div>
+    <div class="actions">
+      <a class="iconbtn" href="../analytics/">Analytics</a>
+      <a class="iconbtn" href="../broadcasts/">Broadcasts</a>
+      <button class="iconbtn" id="refreshBtn">Refresh</button>
+      <button class="iconbtn" id="lockBtn">Lock</button>
+    </div>
+  </header>
+
+  <section>
+    <div class="filters" id="filters">
+      <button class="chip on" data-status="open">Open</button>
+      <button class="chip" data-status="reviewed">Reviewed</button>
+      <button class="chip" data-status="all">All</button>
+    </div>
+  </section>
+  <section>
+    <div class="actions-row" style="margin-bottom:14px">
+      <input id="byInput" type="text" maxlength="40" placeholder="Your name (saved with each review)">
+    </div>
+    <div id="list"></div>
+  </section>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var KEY_STORAGE = "playhuud_admin_key";
+  var BY_STORAGE = "playhuud_admin_name";
+  var REASONS = { mean: "😠 Being mean", unsafe: "⚠️ Made someone feel unsafe", spam: "📢 Spamming", other: "🤔 Something else" };
+  var status = "open";
+
+  function esc(s){
+    return (s==null?"":String(s)).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+  function fmtDate(iso){
+    if(!iso) return "";
+    var d = new Date(iso);
+    return d.toLocaleDateString(undefined,{month:"short",day:"numeric"}) + " " +
+           d.toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit"});
+  }
+  function store(k){ try { return localStorage.getItem(k) || ""; } catch(e){ return ""; } }
+  function save(k, v){ try { localStorage.setItem(k, v); } catch(e){} }
+  function forget(k){ try { localStorage.removeItem(k); } catch(e){} }
+
+  function api(path, options){
+    options = options || {};
+    var headers = Object.assign({ "X-Admin-Key": store(KEY_STORAGE) }, options.headers || {});
+    return fetch(path, Object.assign({}, options, { headers: headers })).then(function(res){
+      if(res.status === 401){
+        forget(KEY_STORAGE);
+        showGate("Key rejected — try again.");
+        throw new Error("unauthorized");
+      }
+      if(!res.ok) return res.text().then(function(t){ throw new Error(t || ("request failed: " + res.status)); });
+      return res.status === 204 || res.headers.get("content-length") === "0" ? null : res.json().catch(function(){ return null; });
+    });
+  }
+
+  function showGate(err){
+    document.getElementById("dash").style.display = "none";
+    document.getElementById("gate").style.display = "flex";
+    document.getElementById("gateErr").textContent = err || "";
+  }
+  function showDash(){
+    document.getElementById("gate").style.display = "none";
+    document.getElementById("dash").style.display = "block";
+  }
+  function unlock(){
+    var k = document.getElementById("keyInput").value.trim();
+    if(!k){ document.getElementById("gateErr").textContent = "Enter a key."; return; }
+    save(KEY_STORAGE, k);
+    boot();
+  }
+  document.getElementById("unlockBtn").addEventListener("click", unlock);
+  document.getElementById("keyInput").addEventListener("keydown", function(e){ if(e.key==="Enter") unlock(); });
+  document.getElementById("lockBtn").addEventListener("click", function(){ forget(KEY_STORAGE); showGate(""); });
+  document.getElementById("refreshBtn").addEventListener("click", load);
+  var byInput = document.getElementById("byInput");
+  byInput.value = store(BY_STORAGE);
+  byInput.addEventListener("change", function(){ save(BY_STORAGE, byInput.value.trim()); });
+  document.querySelectorAll("#filters .chip").forEach(function(chip){
+    chip.addEventListener("click", function(){
+      status = chip.getAttribute("data-status");
+      document.querySelectorAll("#filters .chip").forEach(function(c){ c.classList.toggle("on", c === chip); });
+      load();
+    });
+  });
+
+  function person(p){
+    return "<b>" + esc(p.displayName || p.username) + "</b> @" + esc(p.username);
+  }
+
+  function render(items){
+    var el = document.getElementById("list");
+    if(!items || !items.length){
+      el.innerHTML = '<div class="empty">' + (status === "open" ? "Nothing to review — all clear. 🎉" : "No reports here.") + '</div>';
+      return;
+    }
+    el.innerHTML = items.map(function(r){
+      var quote = "";
+      if(r.messageBody) quote += '<div class="quote"><span class="label">Huud chat message</span>' + esc(r.messageBody) + '</div>';
+      if(r.postBody) quote += '<div class="quote"><span class="label">Feed post' + (r.postRemoved ? " · taken down" : "") + '</span>' + esc(r.postBody) + '</div>';
+      var actions = r.status === "open"
+        ? '<div class="actions-row">' +
+            '<input class="note" data-id="' + esc(r.id) + '" maxlength="500" placeholder="Note (what you did)">' +
+            (r.postId && !r.postRemoved ? '<button class="ghost remove" data-id="' + esc(r.id) + '">Take post down &amp; mark reviewed</button>' : '') +
+            '<button class="btn review" data-id="' + esc(r.id) + '">Mark reviewed</button>' +
+          '</div>'
+        : '<div class="reviewed-note">Reviewed ' + esc(fmtDate(r.reviewedAt)) + (r.reviewedBy ? " by " + esc(r.reviewedBy) : "") +
+            (r.reviewNote ? " — " + esc(r.reviewNote) : "") + '</div>';
+      return '<div class="report">' +
+        '<div class="head">' +
+          '<span class="reason">' + esc(REASONS[r.reason] || r.reason) + '</span>' +
+          '<span class="pill ' + esc(r.status) + '">' + esc(r.status) + '</span>' +
+          '<span class="when">' + esc(fmtDate(r.createdAt)) + '</span>' +
+        '</div>' +
+        '<div class="who">' + person(r.reporter) + ' reported ' + person(r.reported) +
+          (r.huudName ? ' in <b>' + esc(r.huudName) + '</b>' : '') + '</div>' +
+        '<div class="count' + (r.reportsAgainst >= 3 ? " hot" : "") + '">' +
+          r.reportsAgainst + (r.reportsAgainst === 1 ? " report" : " reports") + " against this player in total</div>" +
+        (r.details ? '<div class="details">“' + esc(r.details) + '”</div>' : '') +
+        quote + actions +
+      '</div>';
+    }).join("");
+    el.querySelectorAll(".review").forEach(function(btn){
+      btn.addEventListener("click", function(){ review(btn.getAttribute("data-id"), false); });
+    });
+    el.querySelectorAll(".remove").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        if(confirm("Take this post down from the feed?")) review(btn.getAttribute("data-id"), true);
+      });
+    });
+  }
+
+  function review(id, removePost){
+    var note = document.querySelector('.note[data-id="' + id + '"]');
+    api("/api/v1/admin/reports/" + encodeURIComponent(id) + "/review", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ note: note ? note.value.trim() : null, by: byInput.value.trim() || null, removePost: removePost })
+    }).then(load).catch(function(e){ if(e.message !== "unauthorized") alert(e.message || "Could not save the review"); });
+  }
+
+  function load(){
+    api("/api/v1/admin/reports?status=" + encodeURIComponent(status)).then(render).catch(function(){});
+  }
+
+  function boot(){
+    if(!store(KEY_STORAGE)){ showGate(""); return; }
+    showDash();
+    load();
+  }
+  boot();
+})();
+</script>

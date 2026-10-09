@@ -35,6 +35,13 @@ public class HuudController {
 
     private final HuudService huud;
 
+    private FeedPostService textPosts;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setTextPosts(FeedPostService textPosts) {
+        this.textPosts = textPosts;
+    }
+
     public HuudController(HuudService huud) {
         this.huud = huud;
     }
@@ -46,6 +53,18 @@ public class HuudController {
         Tab t = parse(Tab.class, tab, "tab");
         Filter f = parse(Filter.class, filter, "filter");
         return CurrentUser.id().flatMapMany(uid -> huud.feed(uid, t, f));
+    }
+
+    @PostMapping("/text-posts")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Operation(summary = "Post a short text to your friends' feed")
+    public Mono<FeedItem> textPost(@RequestBody java.util.Map<String, String> body) {
+        return CurrentUser.id().flatMap(user -> textPosts.post(user, body.get("body")));
+    }
+
+    @DeleteMapping("/text-posts/{id}")
+    public Mono<Void> deleteTextPost(@PathVariable UUID id) {
+        return CurrentUser.id().flatMap(user -> textPosts.delete(user, id));
     }
 
     @PostMapping("/posts")

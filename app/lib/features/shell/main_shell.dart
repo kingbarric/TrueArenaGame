@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/app_state.dart';
+import '../../core/push_notifications.dart';
 import '../../widgets/hide_on_scroll_nav.dart';
 import '../../widgets/playground_nav_pill.dart';
 import '../friends/friends_screen.dart';
@@ -64,12 +68,39 @@ class _MainShellState extends State<MainShell> {
       }
     });
     MainShell.requestedTab.addListener(_onTabRequested);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _onTabRequested());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _onTabRequested();
+      _huudEvents = AppScope.of(context).huudSpaceEvents.listen(_onHuudEvent);
+    });
+  }
+
+  StreamSubscription? _huudEvents;
+
+  static const _bannerFor = {
+    'invited': "You're invited to a Huud! 🎉",
+    'request': 'Someone is asking you something in your Huud ✋',
+    'accepted-join': "You're in! The host let you into the Huud 🎉",
+  };
+
+  /// Invites, requests and answers while you're on the main tabs — inside a
+  /// Huud its own screen says so.
+  void _onHuudEvent(Map<String, dynamic> event) {
+    final data = (event['data'] as Map?)?.cast<String, dynamic>() ?? const {};
+    final text = _bannerFor[data['event']];
+    final id = data['huudSpaceId'] as String?;
+    if (text == null || id == null || !mounted || ModalRoute.of(context)?.isCurrent != true) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(text, style: const TextStyle(fontSize: 15)),
+        action: SnackBarAction(label: 'Open', onPressed: () => PushNotifications.openHuud(id)),
+      ));
   }
 
   @override
   void dispose() {
     MainShell.requestedTab.removeListener(_onTabRequested);
+    _huudEvents?.cancel();
     super.dispose();
   }
 

@@ -9,6 +9,7 @@ import app.truearena.api.huudspace.HuudSpaceDtos.Person;
 import app.truearena.api.huud.HuudService;
 import app.truearena.api.calls.VoiceSessionService;
 import app.truearena.api.inbox.InboxRegistry;
+import app.truearena.api.push.PushNotificationService;
 import app.truearena.api.room.RoomDtos.RoomView;
 import app.truearena.api.room.RoomService;
 import app.truearena.api.support.ApiExceptions;
@@ -64,12 +65,13 @@ public class HuudSpaceService {
     private final UserRepository users;
     private final VoiceSessionService voiceSessions;
     private final LiveKitRoomAdmin voice;
+    private final PushNotificationService push;
     private final Duration hostGrace;
     private final Duration memberTimeout;
 
     public HuudSpaceService(DatabaseClient db, ReactiveTransactionManager manager, InboxRegistry inbox,
                             RoomService rooms, UserRepository users, VoiceSessionService voiceSessions,
-                            LiveKitRoomAdmin voice,
+                            LiveKitRoomAdmin voice, PushNotificationService push,
                             @Value("${huud.host-grace:PT5M}") Duration hostGrace,
                             @Value("${huud.member-timeout:PT10M}") Duration memberTimeout) {
         this.db = db;
@@ -79,6 +81,7 @@ public class HuudSpaceService {
         this.users = users;
         this.voiceSessions = voiceSessions;
         this.voice = voice;
+        this.push = push;
         this.hostGrace = hostGrace;
         this.memberTimeout = memberTimeout;
     }
@@ -217,6 +220,37 @@ public class HuudSpaceService {
                                         .then(view(id, user))
                                     : askToJoin(s, user).then(view(id, user)));
                         }));
+    }
+
+    /**
+     * Look in without joining: see who's there and watch the game, but no
+     * chat, voice or seat. Counts towards "watching" while the app keeps
+     * calling it (every few seconds while the Huud is on screen).
+     */
+    public Mono<HuudSpaceView> watch(UUID user, UUID id) {
+        return space(id).filter(Space::active)
+                .switchIfEmpty(Mono.error(ApiExceptions.notFound("This Huud has ended")))
+                .flatMap(s -> blocked(user, s.ownerId()).flatMap(b -> b ? Mono.just(false) : canSee(s, user)
+                        .flatMap(see -> see ? Mono.just(true)
+                                : request(id, user, "join").map("accepted"::equals).defaultIfEmpty(false))))
+                .flatMap(ok -> ok ? Mono.just(true)
+                        : membership(id, user).map(Membership::in).defaultIfEmpty(false))
+                .flatMap(ok -> !ok ? Mono.error(ApiExceptions.forbidden("This Huud isn't open to you"))
+                        : db.sql("INSERT INTO huud_space_viewers(huud_space_id,user_id) VALUES(:id,:user) "
+                                        + "ON CONFLICT(huud_space_id,user_id) DO UPDATE SET last_seen_at=now()")
+                                .bind("id", id).bind("user", user).fetch().rowsUpdated().then(view(id, user)));
+    }
+
+    /** People looking in right now who aren't in the Huud. */
+    static String watchingSql(String huudId) {
+        return "(SELECT count(*) FROM huud_space_viewers v WHERE v.huud_space_id=" + huudId
+                + " AND v.last_seen_at > now() - interval '60 seconds' AND NOT EXISTS(SELECT 1 FROM huud_space_members wm "
+                + "WHERE wm.huud_space_id=v.huud_space_id AND wm.user_id=v.user_id AND wm.left_at IS NULL))";
+    }
+
+    private Mono<Integer> watching(UUID id) {
+        return db.sql("SELECT " + watchingSql(":id") + " AS n").bind("id", id)
+                .map((r, m) -> ((Number) r.get("n")).intValue()).one();
     }
 
     /** No asking needed: the host, anyone for a public Huud, the host's friends, or someone invited/let in. */
@@ -414,6 +448,29 @@ public class HuudSpaceService {
      * game that's waiting or being played has to finish (or be put away) first.
      */
     public Mono<RoomView> addGame(UUID host, UUID id, String gameType) {
+        return addGame(host, id, gameType, false);
+    }
+
+    /**
+     * With {@code rematch}, the last game's players who are still in the
+     * Huud get their seats back straight away; anyone missing just leaves a
+     * free seat for the queue.
+     */
+    public Mono<RoomView> addGame(UUID host, UUID id, String gameType, boolean rematch) {
+        Mono<List<UUID>> previous = !rematch ? Mono.just(List.of())
+                : space(id).flatMap(s -> currentGame(s.currentRoomId(), null))
+                        .map(game -> game.playerIds().stream().filter(p -> !p.equals(host)).toList())
+                        .flatMap(players -> Flux.fromIterable(players)
+                                .filterWhen(p -> membership(id, p).map(Membership::in).defaultIfEmpty(false))
+                                .collectList())
+                        .defaultIfEmpty(List.of());
+        return previous.flatMap(again -> addGameFresh(host, id, gameType)
+                .flatMap(room -> Flux.fromIterable(again)
+                        .concatMap(p -> rooms.join(room.code(), p, null).onErrorResume(e -> Mono.empty()))
+                        .then(rooms.get(room.id(), host))));
+    }
+
+    private Mono<RoomView> addGameFresh(UUID host, UUID id, String gameType) {
         return requireHost(id, host)
                 .flatMap(s -> currentGame(s.currentRoomId()).flatMap(game -> {
                             if (!"finished".equals(game.status())) {
@@ -509,18 +566,22 @@ public class HuudSpaceService {
                                         members(id, !s.active()).collectList(),
                                         currentGame(s.currentRoomId(), viewer).map(Optional::of).defaultIfEmpty(Optional.empty()),
                                         myRequests(id, viewer),
-                                        host ? pendingRequests(id).collectList() : Mono.just(List.<PendingRequest>of())))
+                                        host ? pendingRequests(id).collectList() : Mono.just(List.<PendingRequest>of()),
+                                        watching(id)))
                                         .map(t -> {
                                             List<Person> people = t.getT1();
                                             Person hostPerson = people.stream().filter(Person::host).findFirst()
                                                     .orElse(null);
                                             Map<String, String> mine = t.getT3();
                                             boolean canSpeak = host || (in && m.get().canSpeak());
+                                            CurrentGame game = t.getT2().map(g -> host || g.youArePlaying() ? g
+                                                    : new CurrentGame(g.roomId(), null, g.gameType(), g.status(), g.players(),
+                                                            g.seats(), g.playerIds(), false)).orElse(null);
                                             return new HuudSpaceView(s.id(), in ? s.code() : null, s.name(), s.privacy(),
-                                                    s.status(), hostPerson, people, t.getT2().orElse(null), in, host,
+                                                    s.status(), hostPerson, people, game, in, host,
                                                     canSpeak, HuudSpaceAccess.VOICE_PREFIX + s.id(),
                                                     in ? null : mine.get("join"), mine.get("play"), mine.get("mic"),
-                                                    t.getT4(), s.sharedAt() != null, s.feedMessage(),
+                                                    t.getT4(), s.sharedAt() != null, s.feedMessage(), t.getT5(),
                                                     s.createdAt(), s.endedAt());
                                         });
                             });
@@ -531,7 +592,8 @@ public class HuudSpaceService {
     public Flux<LiveHuud> live(UUID viewer) {
         return db.sql("SELECT s.id, s.name, s.privacy, s.created_at, r.game_type, r.status AS room_status, "
                         + "EXISTS(SELECT 1 FROM huud_space_members me WHERE me.huud_space_id=s.id AND me.user_id=:user AND me.left_at IS NULL) AS mine, "
-                        + "(SELECT count(*) FROM huud_space_members c WHERE c.huud_space_id=s.id AND c.left_at IS NULL) AS present "
+                        + "(SELECT count(*) FROM huud_space_members c WHERE c.huud_space_id=s.id AND c.left_at IS NULL) AS present, "
+                        + watchingSql("s.id") + " AS watching "
                         + "FROM huud_spaces s LEFT JOIN rooms r ON r.id=s.current_room_id "
                         + "WHERE s.status='active' "
                         + "AND NOT EXISTS(SELECT 1 FROM huud_space_members x WHERE x.huud_space_id=s.id AND x.user_id=:user AND x.removed) "
@@ -547,13 +609,14 @@ public class HuudSpaceService {
                 .map((r, m) -> new Object[]{r.get("id", UUID.class), r.get("name", String.class),
                         r.get("privacy", String.class), instant(r.get("created_at")), r.get("game_type", String.class),
                         r.get("room_status", String.class), Boolean.TRUE.equals(r.get("mine", Boolean.class)),
-                        ((Number) r.get("present")).intValue()})
+                        ((Number) r.get("present")).intValue(), ((Number) r.get("watching")).intValue()})
                 .all()
                 .concatMap(row -> members((UUID) row[0], false).collectList().map(people -> new LiveHuud(
                         (UUID) row[0], (String) row[1], (String) row[2],
                         people.stream().filter(Person::host).findFirst().orElse(null),
                         (int) row[7], people.stream().limit(6).toList(), (String) row[4],
-                        row[5] == null ? null : gameStatus((String) row[5]), (boolean) row[6], (Instant) row[3])));
+                        row[5] == null ? null : gameStatus((String) row[5]), (boolean) row[6], (int) row[8],
+                        (Instant) row[3])));
     }
 
     /**
@@ -722,5 +785,26 @@ public class HuudSpaceService {
     void notify(UUID user, UUID id, String event, UUID by) {
         inbox.notify(user, Map.of("type", "HUUD_SPACE",
                 "data", Map.of("huudSpaceId", id.toString(), "event", event, "by", by.toString())));
+        if (PUSHED.containsKey(event)) pushWhenAway(user, id, event, by);
+    }
+
+    /** What reaches a phone in someone's pocket, with {by} and {huud} filled in. */
+    static final Map<String, String> PUSHED = Map.of(
+            "invited", "{by} invited you to {huud} 🎉",
+            "request", "{by} is asking you something in {huud} ✋",
+            "accepted-join", "You're in {huud}! 🎉",
+            "accepted-play", "You're in the game in {huud}! 🎮",
+            "accepted-mic", "You can talk in {huud} now 🎙️");
+
+    private void pushWhenAway(UUID user, UUID id, String event, UUID by) {
+        if (push == null) return;
+        db.sql("SELECT (SELECT display_name FROM users WHERE id=:by) AS by_name, name FROM huud_spaces WHERE id=:id")
+                .bind("by", by).bind("id", id)
+                .map((r, m) -> PUSHED.get(event)
+                        .replace("{by}", String.valueOf(r.get("by_name", String.class)).split(" ")[0])
+                        .replace("{huud}", r.get("name", String.class)))
+                .one()
+                .subscribe(text -> push.sendToUserIfOffline(user, "PlayHuud", text,
+                        Map.of("type", "HUUD_SPACE", "huudSpaceId", id.toString(), "event", event)), e -> { });
     }
 }

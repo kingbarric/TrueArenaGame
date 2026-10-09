@@ -12,6 +12,7 @@ import 'create_huud_sheet.dart';
 import 'huud_kit.dart';
 import 'huud_space_models.dart';
 import 'huud_space_screen.dart';
+import 'huud_swipe_screen.dart';
 
 /// The Live tab's first page: Huuds going on right now (yours, your friends'
 /// and public ones) and games you can watch.
@@ -181,7 +182,9 @@ class _LiveNowPanelState extends State<LiveNowPanel> {
                     huud: huuds[i],
                     busy: _joining == huuds[i].id,
                     onEnter: () => _enter(huuds[i]),
-                    onPeek: () => openHuudSpace(context, huuds[i].id),
+                    onPeek: () => Navigator.of(context)
+                        .push(MaterialPageRoute(builder: (_) => HuudSwipeScreen(huuds: huuds, start: i)))
+                        .then((_) => _load()),
                   ),
                   childCount: huuds.length,
                 ),
@@ -291,8 +294,11 @@ class _LiveHuudCard extends StatelessWidget {
           HuudAvatarStack(people: huud.members, total: huud.memberCount, size: 30, max: 4),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(huud.memberCount == 1 ? '1 in here' : '${huud.memberCount} in here',
-                maxLines: 1, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: n.mid)),
+            child: Text(
+                (huud.memberCount == 1 ? '1 in here' : '${huud.memberCount} in here') +
+                    (huud.watching > 0 ? ' · ${huud.watching} 👀' : ''),
+                maxLines: 1,
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: n.mid)),
           ),
           HuudButton(
             key: ValueKey('live-enter-${huud.id}'),

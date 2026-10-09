@@ -50,7 +50,8 @@ public final class HuudSpaceDtos {
     public record JoinRequest(@NotBlank @Size(min = 6, max = 6) String code) {
     }
 
-    public record AddGameRequest(@NotBlank String gameType) {
+    /** {@code rematch}: seat the last game's players again (whoever's still in the Huud). */
+    public record AddGameRequest(@NotBlank String gameType, Boolean rematch) {
     }
 
     public record Person(UUID userId, String displayName, String username, String avatarUrl,
@@ -60,7 +61,9 @@ public final class HuudSpaceDtos {
     /**
      * The game being played (or set up) in the Huud right now. Being in the
      * Huud isn't being in the game: {@code youArePlaying} says whether you have
-     * a seat, {@code seats} how many there are.
+     * a seat, {@code seats} how many there are. {@code code} only goes to the
+     * players and the host — anyone else watches by {@code roomId}, so the
+     * host's roster can't be skipped.
      */
     public record CurrentGame(UUID roomId, String code, String gameType, String status, int players,
                               int seats, List<UUID> playerIds, boolean youArePlaying) {
@@ -77,13 +80,13 @@ public final class HuudSpaceDtos {
                                 boolean youAreIn, boolean youAreHost, boolean youCanSpeak, String voiceRoom,
                                 String joinRequest, String playRequest, String micRequest,
                                 List<PendingRequest> requests, boolean shared, String feedMessage,
-                                Instant createdAt, Instant endedAt) {
+                                int watching, Instant createdAt, Instant endedAt) {
     }
 
     /** A card on the Live tab. The code stays out: only people inside see it. */
     public record LiveHuud(UUID id, String name, String privacy, Person host, int memberCount,
                            List<Person> members, String gameType, String gameStatus,
-                           boolean youAreIn, Instant createdAt) {
+                           boolean youAreIn, int watching, Instant createdAt) {
     }
 
     /** A card in your Huud history — everyone who was there and what you played. */

@@ -50,6 +50,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   String? pendingConversationId;
   String? pendingRoomId;
 
+  /// A Huud notification tapped from a cold start — opened once the app is up.
+  String? pendingHuudSpaceId;
+
   /// A call push tapped while the app was closed — rung once the app is up.
   Map<String, dynamic>? pendingIncomingCall;
   GoogleSignIn? _googleClient;

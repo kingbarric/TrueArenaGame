@@ -436,4 +436,37 @@ void main() {
     expect(huudGrouped(999), '999');
     expect(huudArtworkId('wordbluff'), 'bluff');
   });
+
+  testWidgets('friends can post a short text, and others\' posts can be reported', (tester) async {
+    final calls = await pumpFeed(tester, (request) async {
+      if (request.url.path == '/api/v1/huud/feed') {
+        return _json([
+          {
+            'kind': 'post',
+            'id': 'text:p1',
+            'at': _now.subtract(const Duration(minutes: 3)).toIso8601String(),
+            'actor': _person('tobi', 'Tobi'),
+            'gameType': null,
+            'message': 'Ludo at 6?',
+          },
+        ]);
+      }
+      if (request.url.path == '/api/v1/huud/text-posts') return _json({'kind': 'post'}, 201);
+      return http.Response('', 200);
+    });
+    expect(find.byKey(const ValueKey('feed-say')), findsOneWidget);
+    expect(find.text('👫 Only your friends see it'), findsOneWidget);
+    expect(find.text('Ludo at 6?'), findsOneWidget);
+
+    await tester.enterText(find.byKey(const ValueKey('feed-say')), 'Who wants to play later?');
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('feed-say-post')));
+    await tester.pumpAndSettle();
+    expect(calls, contains('POST /api/v1/huud/text-posts'));
+
+    await tester.tap(find.byKey(const ValueKey('feed-post-menu-text:p1')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('safety-report')), findsOneWidget);
+  });
+
 }

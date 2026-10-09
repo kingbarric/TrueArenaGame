@@ -126,9 +126,13 @@ class HuudSpace {
     this.requests = const [],
     this.shared = false,
     this.feedMessage,
+    this.watching = 0,
   });
 
   final bool youCanSpeak;
+
+  /// People looking in without joining.
+  final int watching;
 
   /// Your own asks: "pending", "accepted", "declined" or null.
   final String? joinRequest, playRequest, micRequest;
@@ -180,6 +184,7 @@ class HuudSpace {
         ],
         shared: j['shared'] == true,
         feedMessage: j['feedMessage'] as String?,
+        watching: (j['watching'] as num?)?.toInt() ?? 0,
       );
 }
 
@@ -234,7 +239,10 @@ class LiveHuud {
     this.host,
     this.gameType,
     this.gameStatus,
+    this.watching = 0,
   });
+
+  final int watching;
 
   final String id;
   final String name;
@@ -258,6 +266,7 @@ class LiveHuud {
         gameType: j['gameType'] as String?,
         gameStatus: j['gameStatus'] as String?,
         youAreIn: j['youAreIn'] == true,
+        watching: (j['watching'] as num?)?.toInt() ?? 0,
       );
 }
 

@@ -14,6 +14,8 @@ import 'package:truearena/features/huudspace/huud_space_models.dart';
 import 'package:truearena/features/huudspace/huud_space_screen.dart';
 import 'package:truearena/features/huudspace/live_now_panel.dart';
 import 'package:truearena/features/huudspace/safety_sheet.dart';
+import 'package:truearena/features/huudspace/huud_swipe_screen.dart';
+import 'package:truearena/widgets/talking_row.dart';
 import 'package:truearena/theme/neon_theme.dart';
 
 http.Response _json(Object body, [int status = 200]) =>
@@ -496,6 +498,116 @@ void main() {
         calls,
         contains('POST /api/v1/huud-spaces {"name":"Eric\'s Huud","privacy":"friends","gameType":"whot",'
             '"share":true,"message":"Who wants to play Whot?"}'));
+  });
+
+  test('the call bar says who is talking in plain words', () {
+    expect(TalkingRow.said([]), '');
+    expect(TalkingRow.said(['Ada']), 'Ada is talking');
+    expect(TalkingRow.said(['Ada', 'Tobi']), 'Ada and Tobi are talking');
+    expect(TalkingRow.said(['Ada', 'Tobi', 'Chidi', 'Zara']), 'Ada, Tobi and 2 more are talking');
+  });
+
+  testWidgets('watching: Play and People but no Chat; a game on can be watched, one waiting needs joining', (tester) async {
+    var playing = false;
+    final calls = await pump(
+        tester,
+        const HuudSpaceScreen(id: 'h1'),
+        (r) async => _json({
+              ..._huud(host: false, inIt: false, privacy: 'public'),
+              'watching': 3,
+              'currentGame': {
+                'roomId': 'room1',
+                'code': null,
+                'gameType': 'whot',
+                'status': playing ? 'playing' : 'waiting',
+                'players': 2,
+                'seats': 4,
+              },
+            }));
+    expect(find.byKey(const ValueKey('huud-join')), findsOneWidget);
+    expect(find.byKey(const ValueKey('huud-tab-play')), findsOneWidget);
+    expect(find.byKey(const ValueKey('huud-tab-people')), findsOneWidget);
+    expect(find.byKey(const ValueKey('huud-tab-chat')), findsNothing);
+    expect(find.text('3 watching'), findsOneWidget);
+    expect(find.text('Join the Huud to ask to play'), findsOneWidget);
+    expect(find.byKey(const ValueKey('huud-ask-play')), findsNothing);
+    expect(calls.where((c) => c.startsWith('POST /api/v1/huud-spaces/h1/watch')), isNotEmpty);
+
+    playing = true;
+    await tester.pump(const Duration(seconds: 9));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byKey(const ValueKey('huud-watch')), findsOneWidget);
+  });
+
+  testWidgets('after a game the host can rematch with the same players', (tester) async {
+    final calls = await pump(
+        tester,
+        const HuudSpaceScreen(id: 'h1'),
+        (r) async => r.url.path.endsWith('/game')
+            ? _json({
+                'id': 'room2',
+                'code': 'ZZ12CD',
+                'hostId': 'me',
+                'status': 'lobby',
+                'gameType': 'ludo',
+                'stakeCoins': 0,
+                'createdAt': DateTime.now().toUtc().toIso8601String(),
+                'members': <dynamic>[],
+                'ranked': false,
+              })
+            : _json(_huud(game: {
+              'roomId': 'room1',
+              'code': 'AB12CD',
+              'gameType': 'ludo',
+              'status': 'finished',
+              'players': 3,
+              'seats': 4,
+              'playerIds': ['me', 'ada', 'chidi'],
+              'youArePlaying': true,
+            })));
+    expect(find.text('Rematch — same players'), findsOneWidget);
+    expect(find.text('Play Ludo with new players'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('huud-rematch')));
+    await tester.pump();
+    expect(calls, contains('POST /api/v1/huud-spaces/h1/game {"gameType":"ludo","rematch":true}'));
+  });
+
+  testWidgets('swiping: one Huud per screen, watched while on screen, swipe up for the next', (tester) async {
+    LiveHuud live(String id, String name) => LiveHuud(
+        id: id,
+        name: name,
+        privacy: HuudPrivacy.public,
+        memberCount: 2,
+        members: const [],
+        youAreIn: false,
+        host: const HuudMember(userId: 'ada', displayName: 'Ada', username: 'ada', host: true));
+    final calls = await pump(
+        tester,
+        HuudSwipeScreen(huuds: [live('h1', 'First Huud'), live('h2', 'Second Huud')]),
+        (r) async => _json({
+              ..._huud(host: false, inIt: false, privacy: 'public'),
+              'id': r.url.pathSegments[3],
+              'name': r.url.pathSegments[3] == 'h1' ? 'First Huud' : 'Second Huud',
+            }),
+        settle: false);
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(find.text('First Huud'), findsOneWidget);
+    expect(find.text('1 of 2'), findsOneWidget);
+    expect(find.text('Swipe up for the next Huud'), findsOneWidget);
+    expect(calls.where((c) => c.startsWith('POST /api/v1/huud-spaces/h1/watch')), isNotEmpty);
+
+    await tester.fling(find.byKey(const ValueKey('huud-swipe')), const Offset(0, -600), 2000);
+    for (var i = 0; i < 30; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.text('Second Huud'), findsOneWidget);
+    expect(find.text('2 of 2'), findsOneWidget);
+    expect(calls.where((c) => c.startsWith('POST /api/v1/huud-spaces/h2/watch')), isNotEmpty);
+
+    await tester.tap(find.byKey(const ValueKey('swipe-enter-h2')));
+    await tester.pump();
+    expect(calls.where((c) => c.startsWith('POST /api/v1/huud-spaces/h2/join')), hasLength(1));
   });
 
   test('privacy reads in kid-sized words and dates read like people talk', () {

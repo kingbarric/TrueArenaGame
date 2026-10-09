@@ -106,6 +106,12 @@ public class HuudSpaceController {
         return CurrentUser.id().flatMap(user -> huuds.unshare(user, id));
     }
 
+    @PostMapping("/{id}/watch")
+    @Operation(summary = "Look in without joining (counts as watching while called every few seconds)")
+    public Mono<HuudSpaceView> watch(@PathVariable UUID id) {
+        return CurrentUser.id().flatMap(user -> huuds.watch(user, id));
+    }
+
     @PostMapping("/{id}/play")
     @Operation(summary = "Ask the host for a seat in the game being set up")
     public Mono<HuudSpaceView> askToPlay(@PathVariable UUID id) {
@@ -175,7 +181,7 @@ public class HuudSpaceController {
     @PostMapping("/{id}/game")
     @Operation(summary = "Host only: set up the next game in the Huud")
     public Mono<RoomView> addGame(@PathVariable UUID id, @Valid @RequestBody AddGameRequest body) {
-        return CurrentUser.id().flatMap(user -> huuds.addGame(user, id, body.gameType()));
+        return CurrentUser.id().flatMap(user -> huuds.addGame(user, id, body.gameType(), Boolean.TRUE.equals(body.rematch())));
     }
 
     @DeleteMapping("/{id}/game")

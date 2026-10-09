@@ -74,6 +74,9 @@ public class HuudService {
     private final InboxRegistry inbox;
     private final PushNotificationService push;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private FeedPostService posts;
+
     public HuudService(DatabaseClient db, RoomService rooms, UserRepository users, InboxRegistry inbox,
                        PushNotificationService push) {
         this.db = db;
@@ -99,6 +102,9 @@ public class HuudService {
         }
         if (filter != Filter.OPEN) {
             sources.add(champions(viewer, tab));
+        }
+        if (filter == Filter.ALL && tab == Tab.FRIENDS && posts != null) {
+            sources.add(posts.friendsPosts(viewer, PAGE));
         }
         return Flux.merge(sources)
                 .collectSortedList(feedOrder(viewer))

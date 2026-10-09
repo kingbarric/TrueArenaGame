@@ -65,17 +65,24 @@ public class SafetyService {
     /** Report someone; with {@code alsoBlock} they're blocked in the same tap. */
     public Mono<Void> report(UUID me, UUID them, String reason, String details, UUID huudSpaceId, Long messageId,
                              boolean alsoBlock) {
+        return report(me, them, reason, details, huudSpaceId, messageId, null, alsoBlock);
+    }
+
+    public Mono<Void> report(UUID me, UUID them, String reason, String details, UUID huudSpaceId, Long messageId,
+                             UUID feedPostId, boolean alsoBlock) {
         if (me.equals(them)) return Mono.error(ApiExceptions.badRequest("You can't report yourself"));
         if (reason == null || !REASONS.contains(reason)) return Mono.error(ApiExceptions.badRequest("Pick a reason"));
         String note = details == null || details.isBlank() ? null : details.strip();
         if (note != null && note.length() > 300) note = note.substring(0, 300);
-        var sql = db.sql("INSERT INTO player_reports(reporter_id,reported_id,reason,details,huud_space_id,message_id,message_body) "
-                        + "VALUES(:me,:them,:reason,:details,:huud,:message,"
-                        + "(SELECT body FROM huud_space_messages WHERE id=:message AND user_id=:them))")
+        var sql = db.sql("INSERT INTO player_reports(reporter_id,reported_id,reason,details,huud_space_id,message_id,message_body,"
+                        + "feed_post_id,post_body) VALUES(:me,:them,:reason,:details,:huud,:message,"
+                        + "(SELECT body FROM huud_space_messages WHERE id=:message AND user_id=:them),"
+                        + ":post,(SELECT body FROM feed_posts WHERE id=:post AND author_id=:them))")
                 .bind("me", me).bind("them", them).bind("reason", reason);
         sql = note == null ? sql.bindNull("details", String.class) : sql.bind("details", note);
         sql = huudSpaceId == null ? sql.bindNull("huud", UUID.class) : sql.bind("huud", huudSpaceId);
         sql = messageId == null ? sql.bindNull("message", Long.class) : sql.bind("message", messageId);
+        sql = feedPostId == null ? sql.bindNull("post", UUID.class) : sql.bind("post", feedPostId);
         return sql.fetch().rowsUpdated().then(alsoBlock ? block(me, them) : Mono.empty());
     }
 }

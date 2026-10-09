@@ -24,7 +24,7 @@ import java.util.UUID;
 public class SafetyController {
 
     public record ReportRequest(@NotBlank String reason, @Size(max = 300) String details, UUID huudSpaceId,
-                                Long messageId, Boolean block) {
+                                Long messageId, UUID postId, Boolean block) {
     }
 
     private final SafetyService safety;
@@ -53,6 +53,6 @@ public class SafetyController {
     @Operation(summary = "Report a player to the PlayHuud team; block too with block=true")
     public Mono<Void> report(@PathVariable UUID id, @Valid @RequestBody ReportRequest body) {
         return CurrentUser.id().flatMap(me -> safety.report(me, id, body.reason(), body.details(), body.huudSpaceId(),
-                body.messageId(), Boolean.TRUE.equals(body.block())));
+                body.messageId(), body.postId(), Boolean.TRUE.equals(body.block())));
     }
 }

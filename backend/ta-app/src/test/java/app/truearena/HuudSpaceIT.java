@@ -5,6 +5,8 @@ import app.truearena.api.huudspace.HuudSpaceRequestService;
 import app.truearena.api.huudspace.HuudSpaceChatService;
 import app.truearena.api.huud.HuudDtos;
 import app.truearena.api.huud.HuudService;
+import app.truearena.api.huud.FeedPostService;
+import app.truearena.api.admin.AdminReportsController;
 import app.truearena.api.safety.SafetyService;
 import app.truearena.api.calls.CallRingService;
 import app.truearena.api.room.RoomService;
@@ -75,6 +77,8 @@ class HuudSpaceIT {
     @Autowired SafetyService safety;
     @Autowired HuudService feed;
     @Autowired HuudSpaceAccess access;
+    @Autowired FeedPostService posts;
+    @Autowired AdminReportsController adminReports;
     @Autowired UserRepository users;
     @Autowired FriendRepository friendRows;
     @Autowired DatabaseClient db;
@@ -440,5 +444,92 @@ class HuudSpaceIT {
         huuds.unshare(host, huud.id()).block();
         assertThat(feed.feed(friend, HuudDtos.Tab.FRIENDS, HuudDtos.Filter.ALL).collectList().block())
                 .extracting("kind").doesNotContain("huud");
+    }
+
+    @Test void watchingIsLookingInWithoutJoining() {
+        UUID host = person("Host"), player = person("Player"), viewer = person("Viewer");
+        var huud = huuds.create(host, null, "public", "draughts", null, false).block();
+        huuds.joinByCode(player, huud.code()).block();
+        requests.askToPlay(player, huud.id()).block();
+        requests.answer(host, huud.id(), player, "play", true).block();
+
+        var watching = huuds.watch(viewer, huud.id()).block();
+        assertThat(watching.youAreIn()).isFalse();
+        assertThat(watching.code()).isNull();
+        // Watchers see the game by its room, never its join code.
+        assertThat(watching.currentGame().roomId()).isNotNull();
+        assertThat(watching.currentGame().code()).isNull();
+        assertThat(huuds.view(huud.id(), player).block().currentGame().code()).isNotNull();
+        assertThat(huuds.view(huud.id(), host).block().watching()).isEqualTo(1);
+        assertThat(huuds.live(host).collectList().block().stream().filter(l -> l.id().equals(huud.id()))
+                .findFirst().orElseThrow().watching()).isEqualTo(1);
+        assertThatThrownBy(() -> chat.send(viewer, huud.id(), "hi").block()).isInstanceOf(ResponseStatusException.class);
+
+        // Joining turns a watcher into someone in the Huud.
+        huuds.join(viewer, huud.id()).block();
+        assertThat(huuds.view(huud.id(), host).block().watching()).isZero();
+
+        var secret = huuds.create(person("Secret host"), null, "private").block();
+        assertThatThrownBy(() -> huuds.watch(viewer, secret.id()).block()).isInstanceOf(ResponseStatusException.class);
+    }
+
+    @Test void rematchSeatsTheSamePlayersAgain() {
+        UUID host = person("Host"), ada = person("Ada"), chidi = person("Chidi"), late = person("Late");
+        var huud = huuds.create(host, null, "public", "whot", null, false).block();
+        for (UUID p : new UUID[]{ada, chidi, late}) huuds.joinByCode(p, huud.code()).block();
+        for (UUID p : new UUID[]{ada, chidi}) {
+            requests.askToPlay(p, huud.id()).block();
+            requests.answer(host, huud.id(), p, "play", true).block();
+        }
+        var first = huuds.view(huud.id(), host).block().currentGame();
+        db.sql("UPDATE rooms SET status='ended' WHERE id=:id").bind("id", first.roomId()).fetch().rowsUpdated().block();
+        huuds.leave(chidi, huud.id()).block();
+
+        var again = huuds.addGame(host, huud.id(), "whot", true).block();
+        assertThat(again.id()).isNotEqualTo(first.roomId());
+        var game = huuds.view(huud.id(), host).block().currentGame();
+        // Chidi left the Huud, so only Ada comes back with the host.
+        assertThat(game.playerIds()).containsExactlyInAnyOrder(host, ada);
+        assertThat(huuds.view(huud.id(), late).block().currentGame().youArePlaying()).isFalse();
+    }
+
+    @Test void textPostsGoToFriendsOnlyAndCanBeReportedAndTakenDown() {
+        UUID me = person("Me"), friend = person("Friend"), stranger = person("Stranger");
+        befriend(me, friend);
+        var post = posts.post(me, "  Anyone up for Ludo later?  ").block();
+        assertThat(post.message()).isEqualTo("Anyone up for Ludo later?");
+
+        assertThat(feed.feed(friend, HuudDtos.Tab.FRIENDS, HuudDtos.Filter.ALL).collectList().block())
+                .extracting("message").contains("Anyone up for Ludo later?");
+        assertThat(feed.feed(stranger, HuudDtos.Tab.FRIENDS, HuudDtos.Filter.ALL).collectList().block())
+                .extracting("kind").doesNotContain("post");
+        assertThat(feed.feed(stranger, HuudDtos.Tab.FOR_YOU, HuudDtos.Filter.ALL).collectList().block())
+                .extracting("kind").doesNotContain("post");
+        assertThatThrownBy(() -> posts.post(me, "   ").block()).isInstanceOf(ResponseStatusException.class);
+        for (int i = 0; i < 4; i++) posts.post(me, "post " + i).block();
+        assertThatThrownBy(() -> posts.post(me, "one too many").block()).isInstanceOf(ResponseStatusException.class);
+
+        UUID postId = UUID.fromString(post.id().substring("text:".length()));
+        safety.report(friend, me, "mean", null, null, null, postId, false).block();
+        var report = adminReports.list("open", 50).collectList().block().stream()
+                .filter(r -> postId.equals(r.postId())).findFirst().orElseThrow();
+        assertThat(report.postBody()).isEqualTo("Anyone up for Ludo later?");
+        assertThat(report.reported().id()).isEqualTo(me);
+        assertThat(report.reportsAgainst()).isGreaterThanOrEqualTo(1);
+
+        adminReports.review(report.id(), new AdminReportsController.ReviewRequest("removed, talked to them", "Eric", true)).block();
+        assertThat(adminReports.list("open", 50).collectList().block()).extracting("id").doesNotContain(report.id());
+        var reviewed = adminReports.list("reviewed", 50).collectList().block().stream()
+                .filter(r -> r.id().equals(report.id())).findFirst().orElseThrow();
+        assertThat(reviewed.postRemoved()).isTrue();
+        assertThat(reviewed.reviewNote()).isEqualTo("removed, talked to them");
+        assertThat(feed.feed(friend, HuudDtos.Tab.FRIENDS, HuudDtos.Filter.ALL).collectList().block())
+                .extracting("message").doesNotContain("Anyone up for Ludo later?");
+
+        // Your own post: yours to delete; nobody else's.
+        var mine = posts.post(friend, "gg").block();
+        UUID mineId = UUID.fromString(mine.id().substring("text:".length()));
+        assertThatThrownBy(() -> posts.delete(me, mineId).block()).isInstanceOf(ResponseStatusException.class);
+        posts.delete(friend, mineId).block();
     }
 }

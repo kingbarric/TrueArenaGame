@@ -12,7 +12,7 @@ import '../../theme/neon_theme.dart';
 import '../../widgets/neon.dart';
 import '../calls/call_screen.dart';
 import '../lobby/joined_room_screen.dart';
-import '../spectate/watch_live.dart';
+import '../spectate/spectate_screen.dart';
 import 'huud_kit.dart';
 import 'huud_space_models.dart';
 import 'safety_sheet.dart';
@@ -125,7 +125,12 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
 
   Future<void> _load({String? Function(HuudSpace)? thenSay}) async {
     try {
-      final raw = await AppScope.of(context).api.get('/huud-spaces/${widget.id}') as Map<String, dynamic>;
+      final api = AppScope.of(context).api;
+      // Looking in without joining counts as watching while the screen is open.
+      final watching = _huud != null && _huud!.active && !_huud!.youAreIn && _huud!.joinRequest != 'pending';
+      final raw = (watching
+          ? await api.post('/huud-spaces/${widget.id}/watch')
+          : await api.get('/huud-spaces/${widget.id}')) as Map<String, dynamic>;
       if (!mounted) return;
       final huud = HuudSpace.fromJson(raw);
       setState(() {
@@ -133,6 +138,10 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         _error = null;
       });
       if (huud.youAreIn && _chat == null) _loadChat();
+      if (!watching && huud.active && !huud.youAreIn && huud.joinRequest != 'pending') {
+        api.post('/huud-spaces/${widget.id}/watch').catchError((Object _) => null);
+      }
+      if (!huud.youAreIn && _tab == _Tab.chat) setState(() => _tab = _Tab.play);
       final say = thenSay?.call(huud);
       if (say != null) huudSnack(context, say);
     } on ApiException catch (e) {
@@ -226,6 +235,15 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     }
   }
 
+  /// The same game, the same players back in their seats.
+  Future<void> _rematch(String gameType) async {
+    final raw = await _run(
+        'rematch', (api) => api.post('/huud-spaces/${widget.id}/game', {'gameType': gameType, 'rematch': true}));
+    if (raw is Map && mounted) {
+      await _enterRoom(RoomView.fromJson(raw.cast<String, dynamic>()));
+    }
+  }
+
   /// Players go to their seat; everyone else watches once it's on.
   Future<void> _openGame(HuudGame game) async {
     if (_busy != null) return;
@@ -234,7 +252,9 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     try {
       if (!game.youArePlaying) {
         setState(() => _busy = null);
-        await watchHuudByCode(app, game.code, context: context);
+        await Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => SpectateScreen(
+                roomId: game.roomId, gameType: game.gameType, title: 'Watching ${huudGameName(game.gameType)}')));
         return;
       }
       final raw = await app.api.get('/rooms/${game.roomId}');
@@ -509,9 +529,15 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                             icon: Icons.arrow_back_rounded,
                             onPressed: () => Navigator.of(context).maybePop()),
                       ))
-                    else if (!huud.youAreIn)
-                      _box(_door(n, huud))
-                    else ...[
+                    else if (!huud.youAreIn) ...[
+                      _box(_door(n, huud)),
+                      // Watching: see the game and who's here; chat and voice are for people inside.
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
+                        sliver: SliverToBoxAdapter(child: _tabs(n, huud)),
+                      ),
+                      ...(_tab == _Tab.people ? _people(n, huud) : _play(n, huud)),
+                    ] else ...[
                       SliverPadding(
                         padding: const EdgeInsets.fromLTRB(8, 18, 8, 0),
                         sliver: SliverToBoxAdapter(child: _actions(huud)),
@@ -620,6 +646,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
             const HuudChip('Ended', emoji: '🌙', onOrange: true),
           HuudChip(huud.privacy.label, emoji: huud.privacy.emoji, onOrange: true),
           if (huud.shared && huud.active) const HuudChip('On the feed', emoji: '📣', onOrange: true),
+          if (huud.watching > 0 && huud.active) HuudChip('${huud.watching} watching', emoji: '👀', onOrange: true),
         ]),
         const SizedBox(height: 12),
         Text(huud.name,
@@ -873,7 +900,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
       ),
       child: Row(children: [
         tab(_Tab.play, '🎮', 'Play'),
-        tab(_Tab.chat, '💬', 'Chat', badge: _unread),
+        if (huud.youAreIn) tab(_Tab.chat, '💬', 'Chat', badge: _unread),
         tab(_Tab.people, '👥', 'People ${huud.members.length}'),
       ]),
     );
@@ -959,10 +986,20 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
       if (!huud.youAreHost) return [note('${huud.host?.firstName ?? 'The host'} is picking the next game…')];
       return [
         HuudButton(
-          key: const ValueKey('huud-play-again'),
-          label: 'Play $name again',
+          key: const ValueKey('huud-rematch'),
+          label: 'Rematch — same players',
           icon: Icons.replay_rounded,
           big: true,
+          expand: true,
+          busy: _busy == 'rematch',
+          onPressed: () => _rematch(game.gameType),
+        ),
+        const SizedBox(height: 10),
+        HuudButton(
+          key: const ValueKey('huud-play-again'),
+          label: 'Play $name with new players',
+          icon: Icons.group_add_rounded,
+          kind: HuudButtonKind.soft,
           expand: true,
           busy: _busy == 'game-${game.gameType}',
           onPressed: () => _pickGame(game.gameType),
@@ -977,6 +1014,21 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
           busy: _busy == 'clear',
           onPressed: _putGameAway,
         ),
+      ];
+    }
+    if (!huud.youAreIn) {
+      return [
+        game.playing
+            ? HuudButton(
+                key: const ValueKey('huud-watch'),
+                label: 'Watch',
+                icon: Icons.visibility_rounded,
+                big: true,
+                expand: true,
+                busy: _busy == 'open',
+                onPressed: () => _openGame(game),
+              )
+            : note('Join the Huud to ask to play'),
       ];
     }
     final main = game.youArePlaying

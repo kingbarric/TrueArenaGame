@@ -74,8 +74,19 @@ void main() {
     // ----- Live (first tab)
     await tapWhenThere(tester, find.byKey(const ValueKey('nav-Live')));
     await shot(tester, '01_live_now_dark');
+    // Tap a live Huud → full-screen watching, swipe up for the next.
+    await tapWhenThere(tester, find.textContaining("Ludo Party"));
+    await shot(tester, '01b_swipe_watch_dark');
+    await tester.fling(find.byKey(const ValueKey('huud-swipe')), const Offset(0, -500), 1500);
+    await wait(tester, 2000);
+    await shot(tester, '01c_swipe_next_dark');
+    await tapWhenThere(tester, find.byKey(const ValueKey('swipe-close')));
     await tapWhenThere(tester, find.byKey(const ValueKey('huud-tab-friends')));
     await shot(tester, '02_feed_shared_huud_dark');
+    await tester.drag(find.byType(CustomScrollView).first, const Offset(0, -700));
+    await shot(tester, '02b_feed_posts_dark');
+    await tester.drag(find.byType(CustomScrollView).first, const Offset(0, 700));
+    await wait(tester, 600);
 
     // ----- Huud tab → inside as host
     await tapWhenThere(tester, find.byKey(const ValueKey('nav-Huud')));

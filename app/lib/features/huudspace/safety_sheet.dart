@@ -14,10 +14,12 @@ Future<void> showSafetySheet(
   required String name,
   String? huudSpaceId,
   int? messageId,
+  String? postId,
 }) =>
     showHuudSheet<void>(
       context,
-      builder: (_) => _SafetySheet(userId: userId, name: name, huudSpaceId: huudSpaceId, messageId: messageId),
+      builder: (_) =>
+          _SafetySheet(userId: userId, name: name, huudSpaceId: huudSpaceId, messageId: messageId, postId: postId),
     );
 
 const _reasons = [
@@ -28,11 +30,12 @@ const _reasons = [
 ];
 
 class _SafetySheet extends StatefulWidget {
-  const _SafetySheet({required this.userId, required this.name, this.huudSpaceId, this.messageId});
+  const _SafetySheet({required this.userId, required this.name, this.huudSpaceId, this.messageId, this.postId});
   final String userId;
   final String name;
   final String? huudSpaceId;
   final int? messageId;
+  final String? postId;
 
   @override
   State<_SafetySheet> createState() => _SafetySheetState();
@@ -54,6 +57,7 @@ class _SafetySheetState extends State<_SafetySheet> {
         'reason': _reason,
         if (widget.huudSpaceId != null) 'huudSpaceId': widget.huudSpaceId,
         if (widget.messageId != null) 'messageId': widget.messageId,
+        if (widget.postId != null) 'postId': widget.postId,
         'block': _alsoBlock,
       });
       if (!mounted) return;

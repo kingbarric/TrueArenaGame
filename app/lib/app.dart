@@ -285,6 +285,13 @@ class _ResumeGateState extends State<_ResumeGate> {
           .addPostFrameCallback((_) => IncomingCalls.present(pendingCall));
       return;
     }
+    final pendingHuud = widget.state.pendingHuudSpaceId;
+    if (pendingHuud != null) {
+      widget.state.pendingHuudSpaceId = null;
+      if (mounted) setState(() => _checking = false);
+      WidgetsBinding.instance.addPostFrameCallback((_) => PushNotifications.openHuud(pendingHuud));
+      return;
+    }
     final pendingRoom = widget.state.pendingRoomId;
     if (pendingRoom != null) {
       widget.state.pendingRoomId = null;
