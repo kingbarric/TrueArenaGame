@@ -141,14 +141,14 @@ class _SlayCompetitionScreenState extends State<SlayCompetitionScreen>
                       if ((_state!['theme']['bodyEligibility'] as List)
                           .contains('female'))
                         Expanded(
-                            child: FilledButton.tonal(
+                            child: SlayButton.tonal(
                                 onPressed: () => Navigator.pop(c, 'female'),
                                 child: const Text('Female avatar'))),
                       const SizedBox(width: 12),
                       if ((_state!['theme']['bodyEligibility'] as List)
                           .contains('male'))
                         Expanded(
-                            child: FilledButton.tonal(
+                            child: SlayButton.tonal(
                                 onPressed: () => Navigator.pop(c, 'male'),
                                 child: const Text('Male avatar')))
                     ]),
@@ -389,7 +389,7 @@ class _SlayCompetitionScreenState extends State<SlayCompetitionScreen>
           if (role == 'spectator') ...[
             SizedBox(
                 width: double.infinity,
-                child: FilledButton(
+                child: SlayButton(
                     onPressed: _busy ? null : () => _join('contestant'),
                     child: const Text('Take a contestant seat'))),
             if (s['mode'] == 'slay_or_pass')
@@ -410,7 +410,7 @@ class _SlayCompetitionScreenState extends State<SlayCompetitionScreen>
             const SizedBox(height: 12),
             SizedBox(
                 width: double.infinity,
-                child: FilledButton(
+                child: SlayButton(
                     onPressed: _busy ? null : () => _action('start'),
                     child: const Text('Start the challenge')))
           ],
@@ -433,7 +433,7 @@ class _SlayCompetitionScreenState extends State<SlayCompetitionScreen>
               child: Column(children: [
             const Text('Enter whenever inspiration strikes.'),
             const SizedBox(height: 16),
-            FilledButton(
+            SlayButton(
                 onPressed: _busy ? null : () => _join('contestant'),
                 child: const Text('Enter this challenge'))
           ]))
@@ -467,7 +467,7 @@ class _SlayCompetitionScreenState extends State<SlayCompetitionScreen>
               const SizedBox(height: 24),
               SizedBox(
                   width: double.infinity,
-                  child: FilledButton(
+                  child: SlayButton(
                       onPressed: _busy ? null : _style,
                       child: const Text('Open my wardrobe')))
             ]
@@ -502,7 +502,7 @@ class _SlayCompetitionScreenState extends State<SlayCompetitionScreen>
                                           _report(entry['lookId'])))),
                           const SizedBox(height: 12),
                           if (role == 'judge' && s['judged'] != true)
-                            FilledButton(
+                            SlayButton(
                                 onPressed: _busy
                                     ? null
                                     : () => _action(
@@ -534,7 +534,7 @@ class _SlayCompetitionScreenState extends State<SlayCompetitionScreen>
           if (role == 'judge' && s['judged'] != true)
             Row(children: [
               Expanded(
-                  child: FilledButton.icon(
+                  child: SlayButton.icon(
                       onPressed: _busy
                           ? null
                           : () => _action(
@@ -589,7 +589,7 @@ class _SlayCompetitionScreenState extends State<SlayCompetitionScreen>
             const SizedBox(height: 24),
             SizedBox(
                 width: double.infinity,
-                child: FilledButton(
+                child: SlayButton(
                     onPressed: _busy ? null : _nextBallot,
                     child: const Text('Start voting')))
           ]))
@@ -618,7 +618,7 @@ class _SlayCompetitionScreenState extends State<SlayCompetitionScreen>
                       const SizedBox(height: 12),
                       SizedBox(
                           width: double.infinity,
-                          child: FilledButton(
+                          child: SlayButton(
                               onPressed: _busy
                                   ? null
                                   : () => _vote(_ballot!['entry$side']),
@@ -710,7 +710,7 @@ class _SlayCompetitionScreenState extends State<SlayCompetitionScreen>
                   ]))),
         const SizedBox(height: 8),
         if (!['daily', 'weekly'].contains(s['mode']))
-          FilledButton(
+          SlayButton(
               onPressed: _busy
                   ? null
                   : () async {

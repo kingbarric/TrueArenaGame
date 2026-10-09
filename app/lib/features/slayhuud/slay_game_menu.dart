@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'slay_theme.dart';
 import '../../theme/neon_theme.dart';
 
 /// The same gear-menu pattern used by Chess and Whot, on every Slay screen.
@@ -58,7 +59,7 @@ class SlayGameMenu extends StatelessWidget {
                         const SizedBox(height: 20),
                         SizedBox(
                             width: double.infinity,
-                            child: FilledButton(
+                            child: SlayButton(
                                 onPressed: () => Navigator.pop(sheet),
                                 child: const Text('Got it'))),
                       ]))));

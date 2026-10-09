@@ -204,6 +204,13 @@ Backend verification uses normal Maven reactor checks. `SlayHuudIT` supports eit
 - iPhone 16e simulator: verified the supplied game icon, hub/studio gear menus, help, exit/re-entry, wardrobe thumbnails, female outfit/hair changes, male body switching, camera presets, fresh look, draft restoration and PNG submission into the fixture score sheet. Fixture scores/rewards are simulated; this session does not verify live multiplayer or production settlement.
 - SlayHuud now runs separately on the iPhone 17 Pro simulator because another preview replaced the app on the shared iPhone 16e during testing. Verified the studio's explicit rotation controls through a full 360° turn. Drag/pinch is routed directly to the WebView; automation did not establish touch-gesture behaviour, so that still needs a manual/device check. Physical-device frame rate, memory and thermal measurements remain outstanding.
 
+### Playful interface refinement (9 October 2026)
+
+- Added raised pill buttons with press feedback across the hub, studio, competitions, cups and help. Retained the selected PlayHuud palette and fonts.
+- Compact wardrobe tiles fit four columns on a typical phone, with selection badges, larger thumbnails and labels that grow with accessibility text settings. Camera, avatar and category controls use rounded pills; hub modes have individual colour accents and bounce feedback.
+- Focused Flutter suite: 12 passing tests covering navigation, anonymous voting, theme behavior, disabled submissions, keyboard wardrobe selection and large text in light/dark themes. Feature analysis is clean.
+- Visually reviewed the hub and studio in the dedicated iPhone 17 Pro simulator. The Mac locked before further outfit tap testing; keyboard activation was verified by a widget test. This is still the fixture UI preview, with simulated scores/rewards.
+
 ### Recorded checks (8 October 2026)
 
 - Backend: 107 relevant checks passed (68 unit tests; 39 PostgreSQL/Redis integration tests across SlayHuud, competitive ratings and Huud).

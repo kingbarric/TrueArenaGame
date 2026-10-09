@@ -149,7 +149,7 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                     TextButton(
                         onPressed: () => Navigator.pop(c, false),
                         child: const Text('Later')),
-                    FilledButton(
+                    SlayButton(
                         onPressed: () => Navigator.pop(c, true),
                         child: const Text('Unlock'))
                   ]));
@@ -237,7 +237,7 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                       const SizedBox(height: 20),
                       SizedBox(
                           width: double.infinity,
-                          child: FilledButton(
+                          child: SlayButton(
                               onPressed: () => Navigator.pop(c),
                               child: const Text('Back to the studio'))),
                     ]))));
@@ -282,44 +282,42 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                   (constraints.maxHeight * .43).clamp(180.0, 400.0);
               return Column(children: [
                 Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
                     child: Row(children: [
                       Expanded(
                           child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                            const SlayLabel('The brief'),
+                            const SlayLabel('Your challenge'),
                             const SizedBox(height: 4),
                             Text(widget.theme['title'],
                                 style:
                                     Theme.of(context).textTheme.headlineMedium)
                           ])),
                       if (widget.competitionId == null)
-                        SegmentedButton<String>(
-                            segments: [
-                              if ((widget.theme['bodyEligibility'] as List)
-                                  .contains('female'))
-                                const ButtonSegment(
-                                    value: 'female',
-                                    icon: Icon(Icons.female),
-                                    tooltip: 'Female avatar'),
-                              if ((widget.theme['bodyEligibility'] as List)
-                                  .contains('male'))
-                                const ButtonSegment(
-                                    value: 'male',
-                                    icon: Icon(Icons.male),
-                                    tooltip: 'Male avatar')
-                            ],
-                            selected: {
-                              _look.body
-                            },
-                            onSelectionChanged: _busy
-                                ? null
-                                : (v) {
-                                    setState(() =>
-                                        _look = SlayLook.initial(v.first));
-                                    _restore();
-                                  })
+                        Row(mainAxisSize: MainAxisSize.min, children: [
+                          for (final body in ['female', 'male'])
+                            if ((widget.theme['bodyEligibility'] as List)
+                                .contains(body))
+                              Padding(
+                                  padding: const EdgeInsets.only(left: 6),
+                                  child: Tooltip(
+                                      message: '$body avatar',
+                                      child: SlayPill(
+                                        label: body == 'female' ? 'Her' : 'Him',
+                                        icon: body == 'female'
+                                            ? Icons.female
+                                            : Icons.male,
+                                        selected: _look.body == body,
+                                        onPressed: _busy
+                                            ? null
+                                            : () {
+                                                setState(() => _look =
+                                                    SlayLook.initial(body));
+                                                _restore();
+                                              },
+                                      ))),
+                        ])
                     ])),
                 SizedBox(
                     height: stageHeight,
@@ -336,23 +334,25 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                             for (final preset in ['full', 'face', 'back'])
                               Padding(
                                   padding: const EdgeInsets.only(bottom: 8),
-                                  child: Material(
-                                      color: context.neon.panel
-                                          .withValues(alpha: .94),
-                                      borderRadius: BorderRadius.circular(12),
-                                      child: IconButton(
-                                          tooltip: preset == 'back'
-                                              ? 'Back view'
-                                              : preset == 'face'
-                                                  ? 'Face close-up'
-                                                  : 'Full look',
+                                  child: Tooltip(
+                                      message: preset == 'back'
+                                          ? 'Back view'
+                                          : preset == 'face'
+                                              ? 'Face close-up'
+                                              : 'Full look',
+                                      child: SlayButton.tonal(
+                                          compact: true,
                                           onPressed: () => _stage.request(
                                                   'setCamera', {
                                                 'preset': preset
-                                              }).catchError((_) {
-                                                return <String, dynamic>{};
-                                              }),
-                                          icon: Icon(
+                                              }).catchError(
+                                                  (_) => <String, dynamic>{}),
+                                          child: Icon(
+                                              semanticLabel: preset == 'back'
+                                                  ? 'Back view'
+                                                  : preset == 'face'
+                                                      ? 'Face close-up'
+                                                      : 'Full look',
                                               preset == 'back'
                                                   ? Icons.rotate_right
                                                   : preset == 'face'
@@ -363,9 +363,18 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                       Positioned(
                           bottom: 12,
                           left: 14,
-                          child: Material(
-                              color: context.neon.panel.withValues(alpha: .94),
-                              borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                              decoration: BoxDecoration(
+                                  color:
+                                      context.neon.panel.withValues(alpha: .94),
+                                  borderRadius: BorderRadius.circular(100),
+                                  border: Border.all(
+                                      color: context.neon.line, width: 1.5),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                        color: kCabinetInk,
+                                        offset: Offset(0, 3))
+                                  ]),
                               child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
@@ -396,25 +405,20 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                         scrollDirection: Axis.horizontal,
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         children: [
-                          ActionChip(
-                              label: const Text('Skin & face'),
-                              avatar: const Icon(Icons.face_retouching_natural,
-                                  size: 16),
+                          SlayPill(
+                              label: 'Beauty',
+                              icon: Icons.face_retouching_natural,
                               onPressed: () => _customise()),
                           const SizedBox(width: 8),
-                          ActionChip(
-                              label: Text(_look.pose[0].toUpperCase() +
-                                  _look.pose.substring(1)),
-                              avatar:
-                                  const Icon(Icons.accessibility_new, size: 16),
+                          SlayPill(
+                              label: 'Pose',
+                              icon: Icons.accessibility_new,
                               onPressed: () =>
                                   _pick('pose', widget.catalog['poses'])),
                           const SizedBox(width: 8),
-                          ActionChip(
-                              label: Text(_look.background[0].toUpperCase() +
-                                  _look.background.substring(1)),
-                              avatar: const Icon(Icons.landscape_outlined,
-                                  size: 16),
+                          SlayPill(
+                              label: 'Scene',
+                              icon: Icons.landscape_outlined,
                               onPressed: () => _pick(
                                   'background', widget.catalog['backgrounds'])),
                         ])),
@@ -432,101 +436,39 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                                       i['body'] == _look.body))))
                             Padding(
                                 padding: const EdgeInsets.only(right: 8),
-                                child: ChoiceChip(
-                                    label: Text(c.value),
+                                child: SlayPill(
+                                    label: c.value,
                                     selected: _category == c.key,
-                                    onSelected: _busy
+                                    onPressed: _busy
                                         ? null
-                                        : (_) =>
+                                        : () =>
                                             setState(() => _category = c.key)))
                         ])),
                 Expanded(
                     child: GridView.builder(
                         padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-                        gridDelegate:
-                            const SliverGridDelegateWithMaxCrossAxisExtent(
-                                maxCrossAxisExtent: 150,
-                                mainAxisExtent: 130,
-                                crossAxisSpacing: 10,
-                                mainAxisSpacing: 10),
+                        gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: 104,
+                            mainAxisExtent: 112 +
+                                (MediaQuery.textScalerOf(context).scale(10) -
+                                            10)
+                                        .clamp(0, 30) *
+                                    3,
+                            crossAxisSpacing: 8,
+                            mainAxisSpacing: 8),
                         itemCount: items.length,
                         itemBuilder: (context, i) {
                           final item = Map<String, dynamic>.from(items[i]);
                           final selected = _look.items[_category] == item['id'],
                               owned = _owned.contains(item['id']);
-                          return InkWell(
-                              borderRadius: BorderRadius.circular(16),
-                              onTap: _busy ? null : () => _select(item),
-                              child: Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                      color: selected
-                                          ? context.neon.brand
-                                              .withValues(alpha: .14)
-                                          : context.neon.panel,
-                                      borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(
-                                          color: selected
-                                              ? context.neon.brand
-                                              : context.neon.line,
-                                          width: selected ? 1.5 : 1)),
-                                  child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Expanded(
-                                            child: Center(
-                                                child: item['thumbnailUrl'] !=
-                                                        null
-                                                    ? SlayThumbnail(
-                                                        url: item[
-                                                            'thumbnailUrl'])
-                                                    : Icon(
-                                                        _category == 'hair'
-                                                            ? Icons.face
-                                                            : _category ==
-                                                                    'shoes'
-                                                                ? Icons
-                                                                    .ice_skating_outlined
-                                                                : _category ==
-                                                                        'bags'
-                                                                    ? Icons
-                                                                        .shopping_bag_outlined
-                                                                    : Icons
-                                                                        .checkroom_rounded,
-                                                        color: selected
-                                                            ? context.neon.brand
-                                                            : context.neon.mute,
-                                                        size: 32))),
-                                        Text(item['name'],
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w600)),
-                                        const SizedBox(height: 3),
-                                        Row(children: [
-                                          Expanded(
-                                              child: Text(
-                                                  owned
-                                                      ? (selected
-                                                          ? 'Wearing'
-                                                          : 'In wardrobe')
-                                                      : '${item['coinCost']} coins',
-                                                  style: TextStyle(
-                                                      fontSize: 10,
-                                                      color:
-                                                          context.neon.mute))),
-                                          if (selected)
-                                            Icon(Icons.check_circle,
-                                                size: 14,
-                                                color: context.neon.brand)
-                                          else if (!owned)
-                                            Icon(Icons.lock_outline,
-                                                size: 13,
-                                                color: context.neon.mute)
-                                        ])
-                                      ])));
+                          return SlayWardrobeTile(
+                            name: item['name'],
+                            thumbnail: item['thumbnailUrl'],
+                            selected: selected,
+                            owned: owned,
+                            coins: (item['coinCost'] as num?)?.toInt() ?? 0,
+                            onTap: _busy ? null : () => _select(item),
+                          );
                         })),
                 if (_error != null)
                   Padding(
@@ -540,7 +482,7 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                         width: double.infinity,
                         child: ValueListenableBuilder<bool>(
                             valueListenable: _stage.ready,
-                            builder: (context, ready, _) => FilledButton.icon(
+                            builder: (context, ready, _) => SlayButton.icon(
                                 onPressed: _busy ||
                                         !ready ||
                                         (widget.deadline != null &&

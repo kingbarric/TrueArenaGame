@@ -80,7 +80,7 @@ class _SlayCupsScreenState extends State<SlayCupsScreen> {
                       TextButton(
                           onPressed: () => Navigator.pop(c),
                           child: const Text('Cancel')),
-                      FilledButton(
+                      SlayButton(
                           onPressed: () => Navigator.pop(c, {
                                 'name': name.text,
                                 'size': size,
@@ -149,7 +149,7 @@ class _SlayCupsScreenState extends State<SlayCupsScreen> {
                                   trailing: match['roomId'] != null &&
                                           [match['playerA'], match['playerB']]
                                               .contains(self)
-                                      ? FilledButton(
+                                      ? SlayButton(
                                           onPressed: () {
                                             Navigator.pop(c);
                                             Navigator.push(
@@ -190,7 +190,7 @@ class _SlayCupsScreenState extends State<SlayCupsScreen> {
                         'Knockout Style Battles, permanent badges and a place in PlayHuud history.',
                         style: TextStyle(color: context.neon.mute)),
                     const SizedBox(height: 20),
-                    FilledButton.icon(
+                    SlayButton.icon(
                         onPressed: _busy ? null : _create,
                         icon: const Icon(Icons.add),
                         label: const Text('Create a Fashion Cup')),
@@ -225,7 +225,7 @@ class _SlayCupsScreenState extends State<SlayCupsScreen> {
                                       child: const Text('View bracket')),
                                   const SizedBox(width: 12),
                                   if (cup['status'] == 'lobby')
-                                    FilledButton(
+                                    SlayButton(
                                         onPressed: () => _join(cup),
                                         child: const Text('Join cup'))
                                 ])

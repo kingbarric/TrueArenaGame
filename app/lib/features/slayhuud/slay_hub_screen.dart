@@ -9,6 +9,7 @@ import 'slay_studio_screen.dart';
 import 'slay_competition_screen.dart';
 import 'slay_cups_screen.dart';
 import 'slay_game_menu.dart';
+import '../../widgets/neon.dart';
 
 class SlayHubScreen extends StatefulWidget {
   const SlayHubScreen({super.key});
@@ -151,7 +152,7 @@ class _SlayHubScreenState extends State<SlayHubScreen> {
                           const SizedBox(height: 24),
                           SizedBox(
                               width: double.infinity,
-                              child: FilledButton(
+                              child: SlayButton(
                                   onPressed: () => Navigator.pop(c, true),
                                   child: const Text('Create the room'))),
                         ])))));
@@ -200,7 +201,7 @@ class _SlayHubScreenState extends State<SlayHubScreen> {
                                 Padding(
                                     padding: const EdgeInsets.all(24),
                                     child: Text(_error!)),
-                                FilledButton(
+                                SlayButton(
                                     onPressed: () {
                                       setState(() => _loading = true);
                                       _load();
@@ -239,50 +240,34 @@ class _SlayHubScreenState extends State<SlayHubScreen> {
                                       style:
                                           TextStyle(color: context.neon.mute)),
                                   const SizedBox(height: 14),
-                                  Row(children: [
+                                  Wrap(spacing: 8, runSpacing: 8, children: [
                                     for (final stat in {
-                                      'Slay rating': _profile!['competitive']
+                                      '★ Slay': _profile!['competitive']
                                                   ?['rating']
                                               ?.toString() ??
                                           'Unrated',
-                                      'Wins':
+                                      '🏆 Wins':
                                           '${_profile!['stats']?['wins'] ?? 0}',
-                                      'Top 3':
+                                      '✦ Top 3':
                                           '${_profile!['stats']?['top_three'] ?? 0}',
                                     }.entries)
-                                      Expanded(
-                                          child: Padding(
-                                              padding: const EdgeInsets.only(
-                                                  right: 8),
-                                              child: Container(
-                                                  padding: const EdgeInsets
-                                                      .symmetric(
-                                                      horizontal: 10,
-                                                      vertical: 10),
-                                                  decoration: BoxDecoration(
-                                                      color: context.neon.panel,
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              14)),
-                                                  child: Column(
-                                                      mainAxisSize:
-                                                          MainAxisSize.min,
-                                                      children: [
-                                                        Text(stat.value,
-                                                            style: const TextStyle(
-                                                                fontSize: 16,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w800)),
-                                                        const SizedBox(
-                                                            height: 3),
-                                                        Text(stat.key,
-                                                            style: TextStyle(
-                                                                fontSize: 10,
-                                                                color: context
-                                                                    .neon
-                                                                    .mute)),
-                                                      ])))),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 12, vertical: 7),
+                                        decoration: BoxDecoration(
+                                            color: context.neon.panel,
+                                            borderRadius:
+                                                BorderRadius.circular(30),
+                                            border: Border.all(
+                                                color: context.neon.gold
+                                                    .withValues(alpha: .4))),
+                                        child: Text(
+                                            '${stat.key}  ${stat.value}',
+                                            style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w800,
+                                                color: context.neon.ink)),
+                                      ),
                                   ]),
                                   const SizedBox(height: 14),
                                   SlayPanel(
@@ -294,13 +279,13 @@ class _SlayHubScreenState extends State<SlayHubScreen> {
                                             child: Row(children: [
                                               const Expanded(
                                                   child: SlayLabel(
-                                                      'Your personal studio')),
+                                                      'Your dressing room')),
                                               Icon(Icons.auto_awesome_outlined,
                                                   size: 17,
                                                   color: context.neon.gold)
                                             ])),
                                         SizedBox(
-                                            height: 260,
+                                            height: 220,
                                             child: ClipRRect(
                                                 borderRadius:
                                                     const BorderRadius.vertical(
@@ -331,7 +316,7 @@ class _SlayHubScreenState extends State<SlayHubScreen> {
                                                             color: context
                                                                 .neon.mute))
                                                   ])),
-                                              FilledButton(
+                                              SlayButton(
                                                   onPressed: () => _studio(Map<
                                                           String, dynamic>.from(
                                                       (_catalog!['themes']
@@ -340,10 +325,10 @@ class _SlayHubScreenState extends State<SlayHubScreen> {
                                                               t['id'] ==
                                                               'first-date'))),
                                                   child: const Text(
-                                                      'Style a look'))
+                                                      'Let’s style!'))
                                             ])),
                                       ])),
-                                  const SizedBox(height: 26),
+                                  const SizedBox(height: 20),
                                   Row(children: [
                                     Expanded(
                                         child: Text('Take the stage',
@@ -363,24 +348,21 @@ class _SlayHubScreenState extends State<SlayHubScreen> {
                                                     'Solo challenges',
                                                     'Play at your pace. Earn stars.',
                                                     Icons.auto_awesome_outlined,
-                                                    context.neon.gold
-                                                        .withValues(alpha: .12),
+                                                    context.neon.gold,
                                                     () => _themes()),
                                                 _mode(
                                                     size.maxWidth,
                                                     'Style Battle',
                                                     'Challenge one other stylist.',
                                                     Icons.bolt_outlined,
-                                                    context.neon.brand
-                                                        .withValues(alpha: .12),
+                                                    context.neon.brand,
                                                     () => _create('battle')),
                                                 _mode(
                                                     size.maxWidth,
                                                     'Group challenge',
                                                     'Style together. Vote for the best.',
                                                     Icons.groups_outlined,
-                                                    context.neon.jade
-                                                        .withValues(alpha: .12),
+                                                    context.neon.jade,
                                                     () => _create('group')),
                                                 _mode(
                                                     size.maxWidth,
@@ -388,8 +370,7 @@ class _SlayHubScreenState extends State<SlayHubScreen> {
                                                     'Judges vote. One stylist wins.',
                                                     Icons
                                                         .local_fire_department_outlined,
-                                                    context.neon.brand
-                                                        .withValues(alpha: .08),
+                                                    context.neon.danger,
                                                     () => _create(
                                                         'slay_or_pass')),
                                               ])),
@@ -520,36 +501,61 @@ class _SlayHubScreenState extends State<SlayHubScreen> {
           Color colour, VoidCallback onTap) =>
       SizedBox(
           width: (width - 12) / 2,
-          child: InkWell(
-              onTap: onTap,
-              borderRadius: BorderRadius.circular(20),
-              child: Container(
-                  padding: const EdgeInsets.all(16),
-                  constraints: const BoxConstraints(minHeight: 130),
-                  decoration: BoxDecoration(
-                      color: context.neon.panel,
-                      border: Border.all(color: context.neon.line),
-                      borderRadius: BorderRadius.circular(20)),
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(children: [
-                          Icon(icon, color: context.neon.brand, size: 25),
-                          const Spacer(),
-                          Icon(Icons.north_east,
-                              size: 16, color: context.neon.mute)
-                        ]),
-                        const SizedBox(height: 14),
-                        Text(title,
-                            style: const TextStyle(
-                                fontSize: 15, fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 6),
-                        Text(subtitle,
-                            style: TextStyle(
-                                fontSize: 11,
-                                height: 1.4,
-                                color: context.neon.mute))
-                      ]))));
+          child: Semantics(
+              button: true,
+              label: title,
+              child: Bouncy(
+                  onTap: onTap,
+                  child: Container(
+                      padding: const EdgeInsets.all(12),
+                      constraints: const BoxConstraints(minHeight: 112),
+                      decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Color.alphaBlend(colour.withValues(alpha: .19),
+                                    context.neon.panel),
+                                context.neon.panel
+                              ]),
+                          border: Border.all(
+                              color: colour.withValues(alpha: .65), width: 1.5),
+                          boxShadow: [
+                            BoxShadow(
+                                color: colour.withValues(alpha: .32),
+                                offset: const Offset(0, 4))
+                          ],
+                          borderRadius: BorderRadius.circular(24)),
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(children: [
+                              Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 5),
+                                  decoration: BoxDecoration(
+                                      color: colour,
+                                      borderRadius: BorderRadius.circular(30)),
+                                  child: Icon(icon,
+                                      color: colour == context.neon.brand
+                                          ? Colors.white
+                                          : context.neon.onAccent,
+                                      size: 20)),
+                              const Spacer(),
+                              Icon(Icons.play_arrow_rounded,
+                                  size: 20, color: colour)
+                            ]),
+                            const SizedBox(height: 9),
+                            Text(title,
+                                style: const TextStyle(
+                                    fontSize: 14, fontWeight: FontWeight.w800)),
+                            const SizedBox(height: 3),
+                            Text(subtitle,
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    height: 1.4,
+                                    color: context.neon.mute))
+                          ])))));
   String _modeName(String mode) => switch (mode) {
         'battle' => 'Style Battle',
         'group' => 'Group competition',

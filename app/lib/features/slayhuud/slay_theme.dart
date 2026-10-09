@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/neon_theme.dart';
-import '../../widgets/neon.dart';
 
-// SlayHuud follows the player's chosen PlayHuud theme, including its design family.
+// Keep PlayHuud's chosen palette and fonts, with arcade pills for SlayHuud.
 ThemeData slayTheme(BuildContext context) => Theme.of(context).copyWith(
       textTheme: Theme.of(context).textTheme.copyWith(
             displaySmall: Theme.of(context).textTheme.displaySmall?.copyWith(
@@ -20,20 +19,284 @@ ThemeData slayTheme(BuildContext context) => Theme.of(context).copyWith(
         shape:
             const StadiumBorder(side: BorderSide(color: kCabinetInk, width: 2)),
       )),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+        minimumSize: const Size(0, 44),
+        shape: const StadiumBorder(),
+        side: BorderSide(color: context.neon.brand, width: 2),
+        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+      )),
+      chipTheme: Theme.of(context).chipTheme.copyWith(
+            shape: const StadiumBorder(),
+            side: BorderSide(color: context.neon.line),
+            selectedColor: context.neon.gold,
+            labelStyle: TextStyle(color: context.neon.ink, fontSize: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+          ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+          style: SegmentedButton.styleFrom(
+        shape: const StadiumBorder(),
+        selectedBackgroundColor: context.neon.brand,
+        selectedForegroundColor: Colors.white,
+        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+      )),
     );
+
+/// A raised arcade pill using a native button for focus, keyboard and semantics.
+class SlayButton extends StatelessWidget {
+  const SlayButton(
+      {super.key,
+      required this.onPressed,
+      required this.child,
+      this.colour,
+      this.compact = false})
+      : icon = null,
+        tonal = false;
+  const SlayButton.tonal(
+      {super.key,
+      required this.onPressed,
+      required this.child,
+      this.colour,
+      this.compact = false})
+      : icon = null,
+        tonal = true;
+  const SlayButton.icon(
+      {super.key,
+      required this.onPressed,
+      required Widget label,
+      required this.icon,
+      this.colour,
+      this.compact = false})
+      : child = label,
+        tonal = false;
+  final VoidCallback? onPressed;
+  final Widget child;
+  final Widget? icon;
+  final Color? colour;
+  final bool compact, tonal;
+
+  @override
+  Widget build(BuildContext context) {
+    final n = context.neon;
+    final fill = colour ?? (tonal ? n.panel : n.brand);
+    final foreground = colour != null
+        ? n.onAccent
+        : tonal
+            ? n.ink
+            : Colors.white;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: FilledButton(
+        onPressed: onPressed,
+        style: FilledButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          foregroundColor: foreground,
+          disabledForegroundColor: n.mute,
+          disabledBackgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          elevation: 0,
+          minimumSize: Size(0, compact ? 40 : 48),
+          padding:
+              EdgeInsets.symmetric(horizontal: compact ? 12 : 20, vertical: 8),
+          shape: const StadiumBorder(),
+          textStyle: TextStyle(
+              fontSize: compact ? 12 : 14, fontWeight: FontWeight.w800),
+        ).copyWith(backgroundBuilder: (context, states, child) {
+          final pressed = states.contains(WidgetState.pressed);
+          final disabled = states.contains(WidgetState.disabled);
+          return AnimatedContainer(
+            duration: MediaQuery.disableAnimationsOf(context)
+                ? Duration.zero
+                : const Duration(milliseconds: 90),
+            transform: Matrix4.translationValues(0, pressed ? 3 : 0, 0),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(100),
+              gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: disabled
+                      ? [n.plate, n.plate]
+                      : [Color.lerp(fill, Colors.white, .10)!, fill]),
+              border:
+                  Border.all(color: tonal ? n.line : kCabinetInk, width: 1.5),
+              boxShadow: disabled
+                  ? []
+                  : [
+                      BoxShadow(
+                          color: Color.lerp(fill, kCabinetInk, .65)!,
+                          offset: Offset(0, pressed ? 1 : 4),
+                          blurRadius: 0)
+                    ],
+            ),
+            child: child,
+          );
+        }),
+        child: icon == null
+            ? child
+            : Row(mainAxisSize: MainAxisSize.min, children: [
+                icon!,
+                const SizedBox(width: 7),
+                Flexible(child: child)
+              ]),
+      ),
+    );
+  }
+}
+
+class SlayPill extends StatelessWidget {
+  const SlayPill(
+      {super.key,
+      required this.label,
+      required this.onPressed,
+      this.icon,
+      this.selected = false});
+  final String label;
+  final IconData? icon;
+  final VoidCallback? onPressed;
+  final bool selected;
+  @override
+  Widget build(BuildContext context) => Semantics(
+        selected: selected,
+        child: SlayButton.tonal(
+            onPressed: onPressed,
+            compact: true,
+            colour: selected ? context.neon.gold : null,
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              if (icon != null) ...[
+                Icon(icon, size: 16),
+                const SizedBox(width: 5)
+              ],
+              Text(label),
+            ])),
+      );
+}
 
 class SlayLabel extends StatelessWidget {
   const SlayLabel(this.text, {super.key, this.colour});
   final String text;
   final Color? colour;
   @override
-  Widget build(BuildContext context) => Text(text.toUpperCase(),
+  Widget build(BuildContext context) => Text(text,
       style: TextStyle(
-        fontSize: 10,
+        fontSize: 11,
         fontWeight: FontWeight.w800,
-        letterSpacing: 1.6,
+        letterSpacing: .2,
         color: colour ?? context.neon.mute,
       ));
+}
+
+class SlayWardrobeTile extends StatelessWidget {
+  const SlayWardrobeTile(
+      {super.key,
+      required this.name,
+      required this.selected,
+      required this.owned,
+      required this.onTap,
+      this.thumbnail,
+      this.coins = 0});
+  final String name;
+  final String? thumbnail;
+  final bool selected, owned;
+  final int coins;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final n = context.neon;
+    return Tooltip(
+        message: name,
+        excludeFromSemantics: true,
+        child: Semantics(
+          button: true,
+          selected: selected,
+          enabled: onTap != null,
+          label:
+              '$name, ${selected ? 'wearing' : owned ? 'owned' : '$coins coins'}',
+          child: TextButton(
+              onPressed: onTap,
+              style: TextButton.styleFrom(
+                foregroundColor: n.ink,
+                textStyle: Theme.of(context)
+                    .textTheme
+                    .labelLarge
+                    ?.copyWith(letterSpacing: 0),
+                padding: EdgeInsets.zero,
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18)),
+              ).copyWith(
+                  backgroundBuilder: (context, states, child) => AnimatedScale(
+                        scale: states.contains(WidgetState.pressed) ? .95 : 1,
+                        duration: MediaQuery.disableAnimationsOf(context)
+                            ? Duration.zero
+                            : const Duration(milliseconds: 140),
+                        curve: Curves.easeOutBack,
+                        child: child,
+                      )),
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: selected
+                      ? Color.alphaBlend(n.gold.withValues(alpha: .16), n.panel)
+                      : n.panel,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                      color: selected ? n.gold : n.line,
+                      width: selected ? 2 : 1),
+                  boxShadow: [
+                    BoxShadow(
+                        color: selected
+                            ? n.gold.withValues(alpha: .35)
+                            : kCabinetInk.withValues(alpha: .4),
+                        offset: const Offset(0, 3))
+                  ],
+                ),
+                child: ExcludeSemantics(
+                    child: Column(children: [
+                  Expanded(
+                      child: Stack(children: [
+                    Positioned.fill(
+                        child: thumbnail != null
+                            ? SlayThumbnail(url: thumbnail!)
+                            : Icon(Icons.checkroom_rounded,
+                                color: n.mute, size: 28)),
+                    if (selected || !owned)
+                      Positioned(
+                          top: 0,
+                          right: 0,
+                          child: Container(
+                              padding: const EdgeInsets.all(3),
+                              decoration: BoxDecoration(
+                                  color: selected ? n.gold : n.plate,
+                                  shape: BoxShape.circle),
+                              child: Icon(
+                                  selected
+                                      ? Icons.check_rounded
+                                      : Icons.lock_rounded,
+                                  size: 12,
+                                  color: selected ? n.onAccent : n.mute))),
+                  ])),
+                  const SizedBox(height: 3),
+                  Text(name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                          fontSize: 10,
+                          height: 1.1,
+                          fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 3),
+                  if (selected || !owned)
+                    Text(selected ? 'On!' : '● $coins',
+                        style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            color: n.gold)),
+                ])),
+              )),
+        ));
+  }
 }
 
 class SlayPanel extends StatelessWidget {
@@ -41,13 +304,26 @@ class SlayPanel extends StatelessWidget {
       {super.key,
       required this.child,
       this.colour,
-      this.padding = const EdgeInsets.all(20)});
+      this.padding = const EdgeInsets.all(16)});
   final Widget child;
   final Color? colour;
   final EdgeInsets padding;
   @override
-  Widget build(BuildContext context) =>
-      NeonCard(padding: padding, accent: colour, glass: false, child: child);
+  Widget build(BuildContext context) => Container(
+        padding: padding,
+        decoration: BoxDecoration(
+          color: context.neon.panel,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: colour ?? context.neon.line, width: 1.5),
+          boxShadow: [
+            BoxShadow(
+                color: kCabinetInk.withValues(alpha: .35),
+                offset: const Offset(0, 4),
+                blurRadius: 0)
+          ],
+        ),
+        child: child,
+      );
 }
 
 class SlayImage extends StatelessWidget {
