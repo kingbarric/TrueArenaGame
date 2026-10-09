@@ -82,6 +82,7 @@ class HuudSpaceIT {
     @Autowired UserRepository users;
     @Autowired FriendRepository friendRows;
     @Autowired DatabaseClient db;
+    @Autowired UserNotificationRepository notes;
     @org.springframework.boot.test.mock.mockito.SpyBean InboxRegistry inbox;
     @MockBean LiveKitRoomAdmin livekit;
 
@@ -648,5 +649,18 @@ class HuudSpaceIT {
                 .isInstanceOf(ResponseStatusException.class);
         assertThatThrownBy(() -> huuds.update(host, huud.id(), null, null, "space").block())
                 .isInstanceOf(ResponseStatusException.class);
+    }
+
+    @Test void aNotificationSwipedAwayIsGoneButOnlyYoursCanBe() {
+        UUID ada = person("Ada Obi");
+        UUID tobi = person("Tobi Ade");
+        UUID note = db.sql("INSERT INTO user_notifications(user_id,type,title,body) VALUES(:u,'HUUD_SPACE','PlayHuud','Ada is live') RETURNING id")
+                .bind("u", ada).map((r, m) -> r.get("id", UUID.class)).one().block();
+
+        notes.deleteOwn(note, tobi).block();
+        assertThat(notes.findTop50ByUserIdOrderByCreatedAtDesc(ada).collectList().block()).hasSize(1);
+
+        notes.deleteOwn(note, ada).block();
+        assertThat(notes.findTop50ByUserIdOrderByCreatedAtDesc(ada).collectList().block()).isEmpty();
     }
 }

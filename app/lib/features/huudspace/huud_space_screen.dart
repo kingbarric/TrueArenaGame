@@ -20,7 +20,13 @@ import 'huud_roster.dart';
 import 'safety_sheet.dart';
 
 Future<void> openHuudSpace(BuildContext context, String id, {HuudSpace? initial}) =>
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => HuudSpaceScreen(id: id, initial: initial)));
+    Navigator.of(context).push(huudRoute(id, initial: initial));
+
+/// Named so a finished game can find its way back to the Huud (`leaveGame`).
+String huudRouteName(String id) => 'huud/$id';
+
+Route<void> huudRoute(String id, {HuudSpace? initial}) => MaterialPageRoute(
+    settings: RouteSettings(name: huudRouteName(id)), builder: (_) => HuudSpaceScreen(id: id, initial: initial));
 
 /// Inside a Huud: who's here, what's being played, and the chat.
 ///

@@ -15,12 +15,12 @@ import '../../widgets/how_to_play_dialog.dart';
 import '../../widgets/neon.dart';
 import '../../widgets/table_chat.dart';
 import '../../widgets/game_voice_control.dart';
-import '../shell/main_shell.dart';
 import '../status/victory_status.dart';
 import '../onboarding/guest_save_session_card.dart';
 import 'draughts_rules.dart';
 import 'draughts_theme.dart';
 import 'draughts_var.dart';
+import '../huudspace/leave_game.dart';
 
 /// International (10x10, 20-piece) Draughts — driven by the same
 /// SNAPSHOT/PHASE/EVENT-in, PLAYER_ACTION-out contract as the other two
@@ -1066,8 +1066,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
       if (widget.championshipId != null) {
         Navigator.of(context).pop();
       } else {
-        Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const MainShell()), (r) => false);
+        await leaveGame(context, widget.socket.roomId);
       }
     }
   }
@@ -1854,9 +1853,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
               if (widget.championshipId != null) {
                 Navigator.of(context).pop();
               } else {
-                Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (_) => const MainShell()),
-                    (r) => false);
+                leaveGame(context, widget.socket.roomId);
               }
             }),
             const GuestSaveSessionCard(),

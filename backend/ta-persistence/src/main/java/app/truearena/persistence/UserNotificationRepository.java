@@ -14,6 +14,9 @@ public interface UserNotificationRepository extends ReactiveCrudRepository<UserN
     @Query("UPDATE user_notifications SET read_at = now() WHERE id = :id AND user_id = :userId RETURNING 1")
     Mono<Long> markRead(UUID id, UUID userId);
 
+    @Query("DELETE FROM user_notifications WHERE id = :id AND user_id = :userId RETURNING 1")
+    Mono<Long> deleteOwn(UUID id, UUID userId);
+
     @Query("SELECT count(*) FROM user_notifications WHERE user_id = :userId AND read_at IS NULL")
     Mono<Long> countUnread(UUID userId);
 }

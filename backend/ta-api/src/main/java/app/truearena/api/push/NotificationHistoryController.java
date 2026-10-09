@@ -7,6 +7,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -66,5 +67,11 @@ public class NotificationHistoryController {
     @Operation(summary = "Mark one of the signed-in user's own notifications read")
     public Mono<Void> markRead(@PathVariable UUID id) {
         return CurrentUser.id().flatMap(uid -> history.markRead(id, uid)).then();
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Delete one of the signed-in user's own notifications (swiped away)")
+    public Mono<Void> delete(@PathVariable UUID id) {
+        return CurrentUser.id().flatMap(uid -> history.deleteOwn(id, uid)).then();
     }
 }

@@ -15,10 +15,10 @@ import '../../core/game_sfx.dart';
 import '../../widgets/neon.dart';
 import '../../widgets/table_chat.dart';
 import '../../widgets/game_voice_control.dart';
-import '../shell/main_shell.dart';
 import '../../widgets/how_to_play_dialog.dart';
 import '../onboarding/guest_save_session_card.dart';
 import '../status/victory_status.dart';
+import '../huudspace/leave_game.dart';
 
 /// The 20 wheel categories, in the exact order the backend's `Category` enum
 /// declares them (`ta-game-wordbluff/.../Category.java`) — the wheel's slice
@@ -923,8 +923,7 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
         return;
       }
       if (!mounted) return;
-      Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const MainShell()), (r) => false);
+      await leaveGame(context, widget.socket.roomId);
     }
   }
 
@@ -1737,9 +1736,7 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
         if (widget.spectating) {
           Navigator.of(context).pop();
         } else {
-          Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (_) => const MainShell()),
-              (r) => false);
+          leaveGame(context, widget.socket.roomId);
         }
       }),
       const GuestSaveSessionCard(),

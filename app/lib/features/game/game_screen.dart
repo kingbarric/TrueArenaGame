@@ -12,9 +12,9 @@ import '../../widgets/neon.dart';
 import '../../widgets/table_chat.dart';
 import '../../widgets/game_voice_control.dart';
 import '../../widgets/neon_form.dart';
-import '../shell/main_shell.dart';
 import '../status/victory_status.dart';
 import '../onboarding/guest_save_session_card.dart';
+import '../huudspace/leave_game.dart';
 
 /// The actual game loop — role reveal through results — driven entirely by
 /// server frames over the socket the lobby already opened. This screen holds
@@ -181,8 +181,7 @@ class _GameScreenState extends State<GameScreen> {
       ),
     );
     if (leave == true && mounted) {
-      Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const MainShell()), (r) => false);
+      await leaveGame(context, widget.socket.roomId);
     }
   }
 
@@ -1330,8 +1329,7 @@ class _GameScreenState extends State<GameScreen> {
       if (won) VictoryShareButton(roomId: widget.socket.roomId,
           gameType: 'truearena', detail: 'The ${winningSide == 'traitors' ? 'Traitors' : 'Faithful'} win'),
       NeonButton('Back to home', onPressed: () {
-        Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const MainShell()), (r) => false);
+        leaveGame(context, widget.socket.roomId);
       }),
       const GuestSaveSessionCard(),
     ]);

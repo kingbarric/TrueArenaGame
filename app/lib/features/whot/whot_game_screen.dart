@@ -11,10 +11,10 @@ import '../../widgets/how_to_play_dialog.dart';
 import '../../widgets/neon.dart';
 import '../../widgets/table_chat.dart';
 import '../../widgets/game_voice_control.dart';
-import '../shell/main_shell.dart';
 import '../status/victory_status.dart';
 import 'whot_lobby_screen.dart';
 import 'whot_card.dart';
+import '../huudspace/leave_game.dart';
 
 class WhotGameScreen extends StatefulWidget {
   const WhotGameScreen(
@@ -779,8 +779,7 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
       }
       if (!mounted) return;
       _socket.close();
-      Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const MainShell()), (_) => false);
+      await leaveGame(context, widget.roomId);
     }
   }
 
@@ -1757,8 +1756,7 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
                             else if (_finished)
                               _smallAction(
                                   'BACK TO GAMES',
-                                  () => Navigator.of(context)
-                                      .popUntil((route) => route.isFirst))
+                                  () => leaveGame(context, widget.roomId))
                             else if (_deal && dealer) ...[
                               _smallAction('SHUFFLE', () => _action('SHUFFLE')),
                               _smallAction('DEAL', () => _action('DEAL')),
@@ -1936,9 +1934,7 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
               ],
               NeonButton('Play another game',
                   style: NeonStyle.ghost,
-                  onPressed: () => Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(builder: (_) => const MainShell()),
-                      (_) => false)),
+                  onPressed: () => leaveGame(context, widget.roomId)),
             ]),
           ),
         ]),
@@ -2261,8 +2257,7 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
                                 : 'The players have muted spectator chat'),
                         if (_finished)
                           NeonButton('Back to games',
-                              onPressed: () => Navigator.of(context)
-                                  .popUntil((r) => r.isFirst)),
+                              onPressed: () => leaveGame(context, widget.roomId)),
                       ]),
                 )),
     );

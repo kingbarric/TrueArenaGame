@@ -14,12 +14,12 @@ import '../../widgets/how_to_play_dialog.dart';
 import '../../widgets/neon.dart';
 import '../../widgets/table_chat.dart';
 import '../onboarding/guest_save_session_card.dart';
-import '../shell/main_shell.dart';
 import '../status/victory_status.dart';
 import '../../widgets/var_tv_icon.dart';
 import 'chess_piece.dart';
 import 'chess_var.dart';
 import 'chess_view.dart';
+import '../huudspace/leave_game.dart';
 
 /// Standard chess, played against the server's `ChessModule`. The same
 /// SNAPSHOT/PHASE/EVENT-in, PLAYER_ACTION-out contract as Draughts and Macala.
@@ -584,8 +584,7 @@ class _ChessGameScreenState extends State<ChessGameScreen>
       await app.clearActiveRoom(widget.socket.roomId).catchError((_) {});
     }
     if (!mounted) return;
-    Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const MainShell()), (r) => false);
+    await leaveGame(context, widget.socket.roomId);
   }
 
   void _togglePause() => widget.socket.send('PAUSE_TOGGLE');

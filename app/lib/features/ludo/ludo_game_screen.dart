@@ -14,6 +14,7 @@ import '../../widgets/copyable_huud_code.dart';
 import '../../widgets/game_voice_control.dart';
 import '../../widgets/how_to_play_dialog.dart';
 import '../../widgets/table_chat.dart';
+import '../huudspace/leave_game.dart';
 
 enum _LudoBoardTheme { classic, glass, wood }
 
@@ -451,7 +452,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
           await app.api.post('/rooms/${widget.socket.roomId}/leave-ludo');
         }
         await app.clearActiveRoom(widget.socket.roomId);
-        if (mounted) Navigator.of(context).pop();
+        if (mounted) await leaveGame(context, widget.socket.roomId);
       } catch (_) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -463,7 +464,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
 
   Future<void> _returnToGames() async {
     await AppScope.of(context).clearActiveRoom(widget.socket.roomId);
-    if (mounted) Navigator.of(context).pop();
+    if (mounted) await leaveGame(context, widget.socket.roomId);
   }
 
   void _showHelp() {
