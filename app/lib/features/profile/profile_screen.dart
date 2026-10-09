@@ -35,6 +35,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) { _loadStats(); _loadBadges(); _loadCompetitive(); });
   }
 
+  bool _hydrated = false;
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_hydrated) return;
+    _hydrated = true;
+    final api = AppScope.of(context).api;
+    final stats = api.cached('/me/stats');
+    if (stats is Map) _stats = StatsView.fromJson(stats.cast<String, dynamic>());
+    final competitive = api.cached('/me/competitive');
+    if (competitive is Map) _competitive = CompetitiveProfile.fromJson(competitive.cast<String, dynamic>());
+    final games = api.cached('/competitive/games');
+    if (games is List) _ratedGames = games.cast<String>();
+    final badges = api.cached('/championships/badges/mine');
+    if (badges is List) _championshipBadges = badges.map((e) => (e as Map).cast<String, dynamic>()).toList();
+  }
+
   /// PlayHuud number, founding status, location and per-game ratings. Never
   /// blocks the rest of the profile — on failure the section just doesn't show.
   Future<void> _loadCompetitive() async {

@@ -26,6 +26,17 @@ class _SocialHuudHomeState extends State<SocialHuudHome> {
     super.didChangeDependencies();
     if (_started) return;
     _started = true;
+    final api = AppScope.of(context).api;
+    final saved = api.cached('/huuds/sessions');
+    final owned = api.cached('/huuds/sessions/owned');
+    if (saved is List) {
+      _huuds = saved
+          .map((h) => SocialHuud.fromJson((h as Map).cast<String, dynamic>()))
+          .toList();
+    }
+    if (owned is Map) {
+      _owned = SocialHuud.fromJson(owned.cast<String, dynamic>());
+    }
     _load();
     _timer = Timer.periodic(const Duration(seconds: 15), (_) => _load());
   }

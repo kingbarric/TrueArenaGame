@@ -111,11 +111,13 @@ class _HuudScreenState extends State<HuudScreen> {
   Future<void> _load() async {
     final generation = ++_loadGeneration;
     final key = _key;
+    final app = AppScope.of(context);
+    final saved = app.api.cached('/huud/feed?tab=${_tab.wire}&filter=${_filter.wire}');
+    if (saved is List) _cache[key] = saved.map((e) => HuudItem.fromJson((e as Map).cast<String, dynamic>())).toList();
     setState(() {
-      _loading = true;
+      _loading = _cache[key] == null;
       _error = null;
     });
-    final app = AppScope.of(context);
     try {
       final raw = await app.api.get('/huud/feed?tab=${_tab.wire}&filter=${_filter.wire}') as List;
       final items = raw.map((e) => HuudItem.fromJson((e as Map).cast<String, dynamic>())).toList();

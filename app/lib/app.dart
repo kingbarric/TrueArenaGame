@@ -48,7 +48,7 @@ class TrueArenaApp extends StatelessWidget {
             },
             themeMode: state.themeMode,
             home: state.identity != Identity.anonymous
-                ? _ResumeGate(state: state)
+                ? _ResumeGate(key: ValueKey(state.user?.id), state: state)
                 : const WelcomeScreen(),
             onGenerateRoute: (settings) {
               final huudMatch = RegExp(r'^/huuds/([A-HJ-NP-Z2-9]{6})$', caseSensitive: false)
@@ -70,13 +70,25 @@ class TrueArenaApp extends StatelessWidget {
               final content = DismissKeyboardOnOutsideTap(
                   child: PersistentHangout(child: HuudInviteOverlay(state: state, child: _GameInviteOverlay(
                       state: state, child: child ?? const SizedBox.shrink()))));
-              if (state.visualTheme == VisualTheme.palmWine) return content;
+              final cachedContent = ValueListenableBuilder<bool>(
+                valueListenable: state.api.offline,
+                builder: (context, offline, _) => Stack(children: [
+                  content,
+                  if (offline) Positioned(top: 0, left: 0, right: 0,
+                    child: IgnorePointer(child: SafeArea(child: Center(child: Material(
+                      borderRadius: BorderRadius.circular(20), color: Theme.of(context).colorScheme.surface,
+                      child: const Padding(padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        child: Text('Offline · Saved pages', style: TextStyle(fontSize: 12))),
+                    ))))),
+                ]),
+              );
+              if (state.visualTheme == VisualTheme.palmWine) return cachedContent;
               final design = context.neonDesign.kind;
               return DecoratedBox(
                 decoration: BoxDecoration(
                     gradient: NeonTheme.backdrop(
                         design, Theme.of(context).brightness)),
-                child: content,
+                child: cachedContent,
               );
             },
           );
@@ -258,7 +270,7 @@ class _GameInviteOverlayState extends State<_GameInviteOverlay> {
 /// Restore the last live room after a process restart. The server decides
 /// whether it is still active; the saved room ID only tells us where to ask.
 class _ResumeGate extends StatefulWidget {
-  const _ResumeGate({required this.state});
+  const _ResumeGate({super.key, required this.state});
   final AppState state;
 
   @override
@@ -266,7 +278,7 @@ class _ResumeGate extends StatefulWidget {
 }
 
 class _ResumeGateState extends State<_ResumeGate> {
-  bool _checking = true;
+  bool _checking = false;
   String? _error;
 
   @override

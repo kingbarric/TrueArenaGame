@@ -58,7 +58,7 @@ class _SocialHuudScreenState extends State<SocialHuudScreen> {
     final c = _controller!;
     if (!mounted) return;
     setState(() {});
-    if (c.huud.playing &&
+    if (c.liveConfirmed && c.huud.playing &&
         !_matchOpen &&
         c.huud.currentRoomId != _lastOpened &&
         !c.unavailable) {

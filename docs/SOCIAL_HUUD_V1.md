@@ -101,12 +101,13 @@ These are operational queries, not a new analytics dashboard.
 
 ## SlayHuud merge
 
-No SlayHuud implementation files were copied, modified, or committed here. The
-other agent's branch/workspace remains separate. Seven existing engines use this
+The SlayHuud game implementation remains on its separate branch. Its exact
+committed V37 migration (from `8213d54`) is included here for schema ordering
+on the shared backend; no SlayHuud engine or UI is integrated. Seven existing engines use this
 contract now; SlayHuud must be connected after its branch is ready to merge.
 
-- V37 is reserved for SlayHuud; this branch adds **V38**. Merge both migrations
-  before deployment so V37 runs before V38. V38 uses `CREATE TABLE IF NOT EXISTS
+- The backend ships SlayHuud **V37** followed by social Huud **V38**, so a later
+  SlayHuud merge retains the same migration checksum and order. V38 uses `CREATE TABLE IF NOT EXISTS
   user_blocks`, with the same blocker/blocked key and cascading user references
   as the current SlayHuud V37 schema. Huud reports retain their social context.
 - Keep SlayHuud's catalogue/hub/studio/daily/cup additions when resolving
@@ -151,3 +152,29 @@ and select `SocialHuudIT` plus existing integration suites as appropriate. Their
 external-service properties are `it.r2dbc.url`, `it.jdbc.url`, `it.db.user`,
 `it.db.password`, and `it.redis.port`. In `app/`, run `flutter test --no-pub` and
 `flutter analyze --no-pub` after resolving Flutter dependencies.
+
+## Phone release and offline pages
+
+The 2026-10-09 phone release targets the existing HTTPS backend at
+`https://vps-8030ec94.vps.ovh.net`, using the existing iOS bundle identifier.
+Only the connected iPhone is installed; this is not an App Store or TestFlight release.
+
+Home, activity feeds, Friends, conversation lists/messages, Profile statistics,
+and Huud details/chat use account- and server-scoped persisted snapshots. Pages
+hydrate from local storage immediately and refresh in the background. Saved
+identity and tab selection also survive restarts. Session validation and game
+recovery run after the app opens; temporary network failure preserves the login
+and saved game reference. Failed session validation retries after 15 seconds and
+on foreground resume. Fonts are bundled, with runtime font downloads disabled.
+
+Snapshots expire after seven days and are bounded to 40 entries, 256 KiB per
+entry and 2 MiB total. Signing out clears the account's page snapshots. HTTP
+401/403/404/410 evicts the affected snapshot; transport failures and server
+outages can fall back to saved content. Credentials, voice tokens and private
+match state are excluded. Offline state has a small indicator; actions fail
+visibly and are never queued for replay. Cached Huud data cannot automatically
+launch a live match. Live games, sending messages and voice require connectivity.
+
+Backend deployment keeps a private pre-migration database backup and previous
+Docker image on the VPS. V37 is the exact SlayHuud migration from `8213d54`, so
+V37 and V38 apply in order and a later SlayHuud merge retains the checksum.

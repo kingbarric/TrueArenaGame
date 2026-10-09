@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'dart:async';
+import 'page_cache.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -144,10 +145,18 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         notifyListeners();
       } else if (payload?['type'] == 'NEW_MESSAGE') {
         _chatController.add((payload!['data'] as Map).cast<String, dynamic>());
-      } else if (const {'CALL_INCOMING', 'CALL_CANCELLED', 'CALL_DECLINED', 'NUDGE',
-        'VOICE_USER_JOINED', 'VOICE_USER_LEFT', 'VOICE_HOST_CHANGED', 'VOICE_ENDED',
-        'VOICE_JOIN_REQUEST', 'VOICE_JOIN_ANSWERED'}
-          .contains(payload?['type'])) {
+      } else if (const {
+        'CALL_INCOMING',
+        'CALL_CANCELLED',
+        'CALL_DECLINED',
+        'NUDGE',
+        'VOICE_USER_JOINED',
+        'VOICE_USER_LEFT',
+        'VOICE_HOST_CHANGED',
+        'VOICE_ENDED',
+        'VOICE_JOIN_REQUEST',
+        'VOICE_JOIN_ANSWERED'
+      }.contains(payload?['type'])) {
         _callController.add(payload!);
       } else if (const {'HUUD_CHALLENGE', 'HUUD_CHALLENGE_ANSWERED'}
           .contains(payload?['type'])) {
@@ -265,6 +274,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      unawaited(_reconcileSession());
       _refreshPresence();
       if (api.bearer != null) _chatController.add({'type': 'sync'});
       inbox?.send('APP_FOREGROUND');
@@ -332,20 +342,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     final access = await _readSessionSecret(_kAccess, prefs);
     if (access != null && access.isNotEmpty) {
       api.bearer = access;
-      try {
-        await _loadMe();
-      } on ApiException catch (error) {
-        if (error.status == 401) {
-          // ApiClient already tried the stored refresh token. A final 401
-          // means the account session is no longer valid.
-          await signOut();
-        } else {
-          _restoreCachedUser(prefs);
-        }
-      } catch (_) {
-        // A temporary network outage must not erase a month-long session or
-        // the room the player intends to resume.
-        _restoreCachedUser(prefs);
+      _restoreCachedUser(prefs);
+      if (user != null) {
+        api.pageCache = PageCache(prefs, ApiClient.base, user!.id);
       }
     }
     final savedRoom = prefs.getString(_kActiveRoom);
@@ -361,6 +360,28 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       await clearActiveRoom();
     }
     notifyListeners();
+    unawaited(_reconcileSession());
+  }
+
+  bool _disposed = false;
+  int _sessionEpoch = 0;
+  Timer? _sessionRetry;
+  bool _reconciling = false;
+  Future<void> _reconcileSession() async {
+    if (api.bearer == null || _disposed || _reconciling) return;
+    _reconciling = true;
+    try {
+      await _loadMe();
+      if (!_disposed) notifyListeners();
+    } on ApiException catch (e) {
+      if (e.status == 401 && !_disposed) await signOut();
+    } catch (_) {/* Saved pages remain available during an outage. */} finally {
+      _reconciling = false;
+      _sessionRetry?.cancel();
+      if (!_disposed && api.bearer != null && api.offline.value) {
+        _sessionRetry = Timer(const Duration(seconds: 15), _reconcileSession);
+      }
+    }
   }
 
   /// Exchanges the stored refresh token for a fresh pair and updates the
@@ -369,12 +390,14 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   /// `api.refreshHandler = _tryRefresh` and `ApiClient._send`).
   Future<bool> _tryRefresh() async {
     final prefs = await SharedPreferences.getInstance();
+    final epoch = _sessionEpoch;
     final refreshToken = await _readSessionSecret(_kRefresh, prefs);
     if (refreshToken == null || refreshToken.isEmpty) return false;
     try {
       final res =
           await api.post('/auth/refresh', {'refreshToken': refreshToken})
               as Map<String, dynamic>;
+      if (_disposed || epoch != _sessionEpoch) return false;
       await _completeSignIn(AuthTokens.fromJson(res));
       return true;
     } catch (_) {
@@ -383,10 +406,14 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> _loadMe() async {
+    final epoch = _sessionEpoch;
     final me = await api.get('/me') as Map<String, dynamic>;
+    if (_disposed || epoch != _sessionEpoch) return;
     user = UserView.fromJson(me);
     identity = user!.isGuest ? Identity.guest : Identity.account;
     await _cacheUser(user!);
+    final prefs = await SharedPreferences.getInstance();
+    api.pageCache ??= PageCache(prefs, ApiClient.base, user!.id);
     _connectInbox();
     _ensurePublicKey();
     onSignedIn?.call();
@@ -561,6 +588,12 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   /// the caller assuming it, so e.g. an OTP verify that upgraded a guest in
   /// place correctly flips this device from guest to account.
   Future<void> _completeSignIn(AuthTokens tokens) async {
+    if (_disposed) return;
+    if (user?.id != tokens.user.id) {
+      _sessionEpoch++;
+      await api.pageCache?.clear();
+      api.pageCache = null;
+    }
     api.bearer = tokens.access;
     user = tokens.user;
     identity = tokens.user.isGuest ? Identity.guest : Identity.account;
@@ -568,6 +601,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     await _writeSessionSecret(_kAccess, tokens.access, prefs);
     await _writeSessionSecret(_kRefresh, tokens.refresh, prefs);
     await _cacheUser(tokens.user);
+    api.pageCache ??= PageCache(prefs, ApiClient.base, tokens.user.id);
     _connectInbox();
     _ensurePublicKey();
     onSignedIn?.call();
@@ -646,14 +680,21 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> signOut() async {
+    _sessionEpoch++;
+    _sessionRetry?.cancel();
     await HangoutState.instance.leave?.call();
     if (HangoutState.instance.active) return;
-    if (onSignedOut != null) await onSignedOut!(); // before api.bearer is cleared below
+    if (onSignedOut != null) {
+      await onSignedOut!(); // before api.bearer is cleared below
+    }
     try {
       await _googleClient?.signOut();
     } catch (_) {
       // The app session can still be cleared if the provider is unavailable.
     }
+    final cache = api.pageCache;
+    api.pageCache = null;
+    await cache?.clear();
     api.bearer = null;
     ++_inboxGeneration;
     _inboxRetry?.cancel();
@@ -679,6 +720,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _disposed = true;
+    _sessionRetry?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _presenceTimer?.cancel();
     onlineFriends.dispose();

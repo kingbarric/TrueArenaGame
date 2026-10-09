@@ -79,6 +79,7 @@ class ConversationScreen extends StatefulWidget {
 class _ConversationScreenState extends State<ConversationScreen> {
   List<ChatMessage> _messages = [];
   bool _loading = true;
+  bool _hasSnapshot = false;
   String? _error;
   bool _joining = false;
   bool _sending = false;
@@ -105,7 +106,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await _setUpEncryption();
+      unawaited(_setUpEncryption());
       await _load();
     });
   }
@@ -117,8 +118,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
   Future<void> _setUpEncryption() async {
     final app = AppScope.of(context);
     try {
-      final conv = await app.api.get('/conversations/${widget.conversationId}')
-          as Map<String, dynamic>;
+      final path = '/conversations/${widget.conversationId}';
+      final conv = (app.api.cached(path) ?? await app.api.get(path)) as Map<String, dynamic>;
       if (conv['type'] != 'dm') return;
       final other = (conv['other'] as Map?)?.cast<String, dynamic>();
       if (mounted) setState(() => _otherUserId = other?['userId'] as String?);
@@ -129,6 +130,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
         _secret = secret;
         _encrypted = true;
       });
+      await _decryptPending(_messages);
     } catch (_) {
       // no key / no lookup — stay plaintext
     }
@@ -166,6 +168,12 @@ class _ConversationScreenState extends State<ConversationScreen> {
     if (_started) return;
     _started = true;
     _app = AppScope.of(context);
+    final saved = _app!.api.cached('/conversations/${widget.conversationId}/messages');
+    if (saved is Map) {
+      _messages = ((saved['messages'] as List?) ?? []).map((e) => ChatMessage.fromJson((e as Map).cast<String, dynamic>())).toList();
+      _loading = false;
+      _hasSnapshot = true;
+    }
     _chatSub = _app!.chatMessages.listen(_onPush);
   }
 
@@ -205,7 +213,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
   }
 
   Future<void> _load({bool silent = false}) async {
-    if (!silent) setState(() => _loading = true);
+    if (!silent) setState(() => _loading = !_hasSnapshot);
     final app = AppScope.of(context);
     try {
       final res =
@@ -227,6 +235,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
         _messages = byId.values.toList()
           ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
         _error = null;
+        _hasSnapshot = true;
       });
       await _decryptPending(_messages);
       if (wasAtBottom) {

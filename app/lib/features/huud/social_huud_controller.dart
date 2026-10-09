@@ -5,7 +5,15 @@ import 'social_huud_models.dart';
 
 /// Session screen and game drawer share this controller. Navigation never leaves membership.
 class SocialHuudController extends ChangeNotifier {
-  SocialHuudController(this.api, this.userId, this.huud);
+  SocialHuudController(this.api, this.userId, this.huud) {
+    final saved = api.cached(path);
+    if (saved is Map) huud = SocialHuud.fromJson(saved.cast<String, dynamic>());
+    final chat = api.cached('$path/chat');
+    if (chat is List) {
+      messages = chat.map((m) => (m as Map).cast<String, dynamic>()).toList();
+    }
+  }
+  bool liveConfirmed = false;
   final ApiClient api;
   final String userId;
   SocialHuud huud;
@@ -25,21 +33,30 @@ class SocialHuudController extends ChangeNotifier {
   Future<void> refresh() async {
     if (_refreshing || _disposed || unavailable || busy) return;
     _refreshing = true;
+    liveConfirmed = false;
     final generation = _generation;
     try {
-      await api.post('$path/heartbeat');
       final view = await api.get(path) as Map;
       final chat = await api.get('$path/chat') as List;
       if (_disposed || generation != _generation) return;
       huud = SocialHuud.fromJson(view.cast<String, dynamic>());
       messages = chat.map((m) => (m as Map).cast<String, dynamic>()).toList();
-      error = null;
+      liveConfirmed = !api.usedSavedResponse(path) &&
+          !api.usedSavedResponse('$path/chat') &&
+          !api.offline.value;
+      error = api.offline.value ? 'Offline · Showing your saved Huud' : null;
+      if (liveConfirmed) {
+        await api.post('$path/heartbeat');
+        if (_disposed || generation != _generation) return;
+      }
     } on ApiException catch (e) {
       if (_disposed || generation != _generation) return;
+      liveConfirmed = false;
       error = e.message;
       if (e.status == 403 || e.status == 404) unavailable = true;
     } catch (_) {
       if (_disposed || generation != _generation) return;
+      liveConfirmed = false;
       error = 'Connection lost. Reconnecting to your Huud…';
     } finally {
       _refreshing = false;

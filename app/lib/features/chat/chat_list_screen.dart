@@ -87,6 +87,12 @@ class _ChatListScreenState extends State<ChatListScreen> {
     super.didChangeDependencies();
     if (_started) return;
     _started = true;
+    final saved = AppScope.of(context).api.cached('/conversations');
+    if (saved is List) {
+      _conversations = saved.map((e) => _ConversationSummary.fromJson((e as Map).cast<String, dynamic>())).toList()
+        ..sort((a,b) => (b.lastMessageAt ?? DateTime(1970)).compareTo(a.lastMessageAt ?? DateTime(1970)));
+      _loading = false;
+    }
     // Any live message anywhere reorders/refreshes previews — cheap enough
     // (one list call) and keeps "newest activity first" honest without a
     // per-conversation diff.
@@ -100,7 +106,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
   }
 
   Future<void> _load({bool silent = false}) async {
-    if (!silent) setState(() { _loading = true; _error = null; });
+    if (!silent) setState(() { _loading = _conversations == null; _error = null; });
     final app = AppScope.of(context);
     try {
       final res = await app.api.get('/conversations') as List;
@@ -145,7 +151,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
             ? const Center(child: CircularProgressIndicator())
             : RefreshIndicator(
                 onRefresh: _load,
-                child: _error != null
+                child: _error != null && _conversations == null
                     ? ListView(children: [
                         Padding(
                           padding: const EdgeInsets.all(20),

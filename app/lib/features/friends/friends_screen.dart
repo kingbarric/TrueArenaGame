@@ -113,6 +113,25 @@ class _FriendsScreenState extends State<FriendsScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
+  bool _hydrated = false;
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_hydrated) return;
+    _hydrated = true;
+    final api = AppScope.of(context).api;
+    final saved = api.cached('/friends');
+    if (saved is List) {
+      _friends = saved.map((e) => FriendUser.fromJson((e as Map).cast<String, dynamic>())).toList();
+      _loading = false;
+    }
+    final requests = api.cached('/friends/requests');
+    if (requests is Map) {
+      _incoming = ((requests['incoming'] as List?) ?? []).map((e) => FriendRequest.fromJson((e as Map).cast<String, dynamic>())).toList();
+      _outgoing = ((requests['outgoing'] as List?) ?? []).map((e) => FriendRequest.fromJson((e as Map).cast<String, dynamic>())).toList();
+    }
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -122,7 +141,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
 
   Future<void> _load() async {
     setState(() {
-      _loading = true;
+      _loading = _friends == null;
       _error = null;
     });
     final app = AppScope.of(context);
