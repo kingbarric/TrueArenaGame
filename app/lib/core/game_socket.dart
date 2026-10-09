@@ -6,6 +6,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:flutter/foundation.dart';
 
 import 'api_client.dart';
+import 'keep_awake.dart';
 
 /// A room connection that survives short network outages. A reconnect sends
 /// the highest event `seq` this socket has actually seen, so the server can
@@ -79,6 +80,8 @@ class GameSocket {
     }
     socket._loadAgentIds();
     socket._open();
+    // In a game the screen stays on, so nobody's phone sleeps mid-turn.
+    KeepAwake.hold(socket);
     return socket;
   }
 
@@ -251,6 +254,7 @@ class GameSocket {
   Future<void> close() async {
     if (_closed) return;
     _closed = true;
+    KeepAwake.release(this);
     if (_playerSockets.remove(this)) _track();
     _generation++;
     _retry?.cancel();

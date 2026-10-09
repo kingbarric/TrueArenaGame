@@ -56,11 +56,12 @@ class _HuudRosterState extends State<HuudRoster> {
     }
   }
 
+  /// Seat someone or let them watch. No banner — the list itself changes,
+  /// and a banner would sit right over Start game.
   Future<void> _toggle(HuudMember person, bool seated) async {
     if (seated) {
       await _run(
-          'p-${person.userId}', (api) => api.delete('/huud-spaces/${widget.huud.id}/game/players/${person.userId}'),
-          say: '${person.handle} will watch this one');
+          'p-${person.userId}', (api) => api.delete('/huud-spaces/${widget.huud.id}/game/players/${person.userId}'));
       return;
     }
     if (widget.seated.length >= widget.seats) {
@@ -71,8 +72,7 @@ class _HuudRosterState extends State<HuudRoster> {
         'p-${person.userId}',
         (api) => api.post('/huud-spaces/${widget.huud.id}/game/players', {
               'userIds': [person.userId]
-            }),
-        say: '${person.handle} is playing! 🎮');
+            }));
   }
 
   Future<void> _removeAgent(HuudSeat bot) async {

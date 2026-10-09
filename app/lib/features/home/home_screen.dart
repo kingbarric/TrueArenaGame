@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../core/app_state.dart';
-import '../../core/models.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/coin_tier_badge.dart';
 import '../../widgets/game_badge.dart';
@@ -15,8 +14,6 @@ import '../games/game_select_screen.dart';
 import '../goosi/goosi_lobby_screen.dart';
 import '../huud/huud_models.dart' show huudGameNames;
 import '../huudspace/create_huud_sheet.dart';
-import '../lobby/join_room_screen.dart';
-import '../lobby/joined_room_screen.dart';
 import '../modes/mode_select_screen.dart';
 import '../onboarding/guest_gate.dart';
 import '../profile/profile_screen.dart';
@@ -117,15 +114,7 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 18),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 22),
-            child: NeonButton('Join a huud', style: NeonStyle.ghost,
-                onPressed: () {
-              Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const JoinRoomScreen()));
-            }),
-          ),
+          // Only games here: joining or reopening a Huud lives on the Huud tab.
           const SizedBox(height: 24),
           // The badge row *is* the picker — there used to be a "New game"
           // button here too, which opened a screen listing these same four
@@ -141,12 +130,13 @@ class HomeScreen extends StatelessWidget {
           const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
-            child: Text('Pick one game to open a huud',
+            child: Text('Tap a game to play',
+                key: const ValueKey('home-tap-to-play'),
                 textAlign: TextAlign.center,
                 style: Theme.of(context)
                     .textTheme
-                    .labelMedium
-                    ?.copyWith(color: n.mute)),
+                    .titleMedium
+                    ?.copyWith(color: n.ink, fontWeight: FontWeight.w800)),
           ),
           // Two to a row, so each game's artwork is big enough to read.
           Padding(
@@ -166,14 +156,6 @@ class HomeScreen extends StatelessWidget {
               ]);
             }),
           ),
-          if (app.activeRoomId != null) ...[
-            const SizedBox(height: 14),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 22),
-              child: NeonButton('Resume your huud',
-                  onPressed: () => _resumeGame(context, app)),
-            ),
-          ],
           if (isGuest) ...[
             const SizedBox(height: 10),
             Padding(
@@ -202,33 +184,6 @@ class HomeScreen extends StatelessWidget {
     ));
   }
 
-  Future<void> _resumeGame(BuildContext context, AppState app) async {
-    final roomId = app.activeRoomId;
-    if (roomId == null) return;
-    try {
-      final raw = await app.api.get('/rooms/$roomId') as Map<String, dynamic>;
-      final room = RoomView.fromJson(raw);
-      if ((room.status != 'lobby' && room.status != 'in_game') ||
-          !room.members.any((member) => member.userId == app.user?.id)) {
-        await app.clearActiveRoom(roomId);
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('That huud has ended.')));
-        }
-        return;
-      }
-      if (!context.mounted) return;
-      Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => JoinedRoomScreen(room: room)));
-    } catch (_) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Could not reconnect to your huud. Try again.')));
-      }
-    }
-  }
-
-  /// Home gives the game art the full tile width and keeps the name below it.
   Widget _gameTile(BuildContext context, NeonColors n, GameCatalogEntry g) {
     final artwork = GameBadge.artworkFor(g.id);
     final content = Column(

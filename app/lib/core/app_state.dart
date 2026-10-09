@@ -114,6 +114,10 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   final _huudSpaceController = StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get huudSpaceEvents => _huudSpaceController.stream;
 
+  /// Tests: deliver a Huud event as if it came over the inbox.
+  @visibleForTesting
+  void debugHuudSpaceEvent(Map<String, dynamic> event) => _huudSpaceController.add(event);
+
   /// "Still here" for every Huud you're in, while the app is open. A host whose
   /// app goes quiet for a few minutes hands their Huud to the next person.
   Timer? _huudHeartbeat;

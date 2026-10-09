@@ -711,6 +711,8 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('roster-chidi')));
     await tester.pumpAndSettle();
     expect(calls, contains('POST /api/v1/huud-spaces/h1/game/players {"userIds":["chidi"]}'));
+    // No "… is playing!" banner covering Start game.
+    expect(find.textContaining('is playing'), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('roster-ada')));
     await tester.pumpAndSettle();
@@ -809,5 +811,49 @@ void main() {
     expect(huudChatTime(DateTime(2026, 10, 9, 15, 42), now: now), '3:42 pm');
     expect(huudChatTime(DateTime(2026, 10, 8, 9, 5), now: now), 'Yesterday 9:05 am');
     expect(huudChatTime(DateTime(2026, 3, 12, 0, 15), now: now), '12 Mar 12:15 am');
+  });
+
+  testWidgets('a new chat message glows for everyone, and chat sits in its own scrolling box', (tester) async {
+    final mock = MockClient((r) async {
+      if (r.url.path.endsWith('/messages')) {
+        return _json([
+          for (var i = 1; i <= 12; i++)
+            {'id': i, 'from': _member('ada', 'Ada'), 'body': 'Message $i', 'at': DateTime.now().toUtc().toIso8601String()},
+        ]);
+      }
+      return _json(_huud());
+    });
+    final state = AppState(ApiClient(client: mock)..bearer = 'token')
+      ..user = const UserView(id: 'me', displayName: 'Eric Barima', username: 'eric')
+      ..identity = Identity.account;
+    await tester.binding.setSurfaceSize(const Size(390, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+        AppScope(state: state, child: MaterialApp(theme: NeonTheme.light, home: const HuudSpaceScreen(id: 'h1'))));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    // On the Play tab, Ada says something.
+    state.debugHuudSpaceEvent({
+      'type': 'HUUD_SPACE',
+      'data': {
+        'huudSpaceId': 'h1',
+        'event': 'chat',
+        'message': {'id': 13, 'from': _member('ada', 'Ada'), 'body': 'Ready?', 'at': DateTime.now().toUtc().toIso8601String()},
+      },
+    });
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byKey(const ValueKey('huud-unread-chip')), findsOneWidget);
+    expect(find.text('💬 1 new message'), findsOneWidget);
+    expect(find.byKey(const ValueKey('huud-tab-chat-unread')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('huud-unread-chip')));
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 200));
+    }
+    expect(find.byKey(const ValueKey('huud-unread-chip')), findsNothing);
+    final box = tester.getSize(find.byKey(const ValueKey('huud-chat-box')));
+    expect(box.height, lessThanOrEqualTo(380), reason: 'a fixed box, not the whole page');
+    expect(find.descendant(of: find.byKey(const ValueKey('huud-chat-box')), matching: find.byType(ListView)),
+        findsOneWidget);
   });
 }

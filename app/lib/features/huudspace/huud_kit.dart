@@ -350,6 +350,56 @@ class _HuudLiveChipState extends State<HuudLiveChip> with SingleTickerProviderSt
   }
 }
 
+/// A soft orange glow that breathes — for "there's something new for you
+/// here" (an unread chat message). Steady when the phone asks for less motion.
+class HuudGlow extends StatefulWidget {
+  const HuudGlow({super.key, required this.child, this.radius = 999});
+  final Widget child;
+  final double radius;
+
+  @override
+  State<HuudGlow> createState() => _HuudGlowState();
+}
+
+class _HuudGlowState extends State<HuudGlow> with SingleTickerProviderStateMixin {
+  late final _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 900), value: 1);
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) {
+      _pulse.value = 1;
+    } else if (!_pulse.isAnimating) {
+      _pulse.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final h = HuudColors.of(context);
+    return AnimatedBuilder(
+      animation: _pulse,
+      builder: (context, child) => DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(widget.radius),
+          boxShadow: [
+            BoxShadow(
+                color: h.orange.withValues(alpha: 0.35 + 0.45 * _pulse.value), blurRadius: 6 + 12 * _pulse.value),
+          ],
+        ),
+        child: child,
+      ),
+      child: widget.child,
+    );
+  }
+}
+
 /// Overlapping faces, then "+3".
 class HuudAvatarStack extends StatelessWidget {
   const HuudAvatarStack({super.key, required this.people, this.total, this.size = 32, this.max = 5});

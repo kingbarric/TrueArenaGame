@@ -18,6 +18,7 @@ import 'huud_voice.dart';
 import 'huud_space_models.dart';
 import 'huud_roster.dart';
 import 'safety_sheet.dart';
+import '../../core/keep_awake.dart';
 
 Future<void> openHuudSpace(BuildContext context, String id, {HuudSpace? initial}) =>
     Navigator.of(context).push(huudRoute(id, initial: initial));
@@ -61,6 +62,9 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
   final _say = TextEditingController();
   final _scroll = ScrollController();
 
+  /// The chat box scrolls on its own, inside the page.
+  final _chatScroll = ScrollController();
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -75,6 +79,8 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     }
     if (_started) return;
     _started = true;
+    // Inside a Huud the screen stays on — chat, voice and games keep going.
+    KeepAwake.hold(this);
     final app = AppScope.of(context);
     _events = app.huudSpaceEvents.listen(_onEvent);
     _poll = Timer.periodic(const Duration(seconds: 8), (_) => _load());
@@ -87,6 +93,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     _events?.cancel();
     _poll?.cancel();
     HangoutState.instance.removeListener(_onVoice);
+    KeepAwake.release(this);
     final room = _huud?.voiceRoom;
     if (room != null) {
       if (HangoutState.instance.foreground == room) HangoutState.instance.foreground = null;
@@ -95,6 +102,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     }
     _say.dispose();
     _scroll.dispose();
+    _chatScroll.dispose();
     super.dispose();
   }
 
@@ -113,11 +121,12 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         final raw = (data['message'] as Map?)?.cast<String, dynamic>();
         if (raw == null) return;
         final message = HuudChatMessage.fromJson(raw);
+        final reading = _tab == _Tab.chat && _chatAtBottom;
         setState(() {
           if (_chat != null && !_chat!.any((m) => m.id == message.id)) _chat = [..._chat!, message];
-          if (_tab != _Tab.chat && message.from.userId != _me) _unread++;
+          if (!reading && message.from.userId != _me) _unread++;
         });
-        _toBottom();
+        if (reading || message.from.userId == _me) _toBottom();
         return;
       case 'removed':
         huudSnack(context, 'The host took you out of this Huud.');
@@ -201,14 +210,23 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     }
   }
 
+  /// Looking at the newest messages (or the box isn't up yet).
+  bool get _chatAtBottom =>
+      !_chatScroll.hasClients || _chatScroll.position.maxScrollExtent - _chatScroll.position.pixels < 48;
+
   void _toBottom() {
-    if (_tab != _Tab.chat) return;
+    if (_tab != _Tab.chat && !(_huud != null && !_huud!.live)) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scroll.hasClients) {
-        _scroll.animateTo(_scroll.position.maxScrollExtent,
+      if (_chatScroll.hasClients) {
+        _chatScroll.animateTo(_chatScroll.position.maxScrollExtent,
             duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
       }
     });
+  }
+
+  void _readNewest() {
+    setState(() => _unread = 0);
+    _toBottom();
   }
 
   void _openTab(_Tab tab) {
@@ -797,6 +815,19 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
           if (huud.shared && huud.active) const HuudChip('On the feed', emoji: '📣', onOrange: true),
           if (huud.watching > 0 && huud.active) HuudChip('${huud.watching} watching', emoji: '👀', onOrange: true),
           if (_talkingNow(huud) case final talking?) talking,
+          if (_unread > 0 && huud.youAreIn)
+            HuudGlow(
+              child: GestureDetector(
+                key: const ValueKey('huud-unread-chip'),
+                onTap: () => _openTab(_Tab.chat),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(color: kCabinetInk, borderRadius: BorderRadius.circular(999)),
+                  child: Text(_unread == 1 ? '💬 1 new message' : '💬 $_unread new messages',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Colors.white)),
+                ),
+              ),
+            ),
         ]),
         const SizedBox(height: 12),
         Text(huud.name,
@@ -1079,11 +1110,14 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                 ),
                 if (badge > 0) ...[
                   const SizedBox(width: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                    decoration: BoxDecoration(color: n.danger, borderRadius: BorderRadius.circular(10)),
-                    child: Text('$badge',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.white)),
+                  HuudGlow(
+                    child: Container(
+                      key: ValueKey('huud-tab-${tab.name}-unread'),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                      decoration: BoxDecoration(color: h.orange, borderRadius: BorderRadius.circular(10)),
+                      child: Text('$badge',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: h.onOrange)),
+                    ),
                   ),
                 ],
               ]),
@@ -1340,18 +1374,69 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
             top: 0),
       ];
     }
+    // A box of its own: a fixed height (about four to six messages), scrolling
+    // inside the page, newest at the bottom.
+    final height = (MediaQuery.sizeOf(context).height * 0.4).clamp(240.0, 380.0);
+    final h = HuudColors.of(context);
     return [
       SliverPadding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        sliver: SliverList.builder(
-          itemCount: chat.length,
-          // A new header when someone else speaks, or after a 5-minute pause.
-          itemBuilder: (context, i) => _bubble(n, chat[i],
-              showName: i == 0 ||
-                  chat[i - 1].from.userId != chat[i].from.userId ||
-                  chat[i].at.difference(chat[i - 1].at).inMinutes >= 5),
+        sliver: SliverToBoxAdapter(
+          child: Container(
+            key: const ValueKey('huud-chat-box'),
+            height: height,
+            decoration: BoxDecoration(
+              color: n.panel,
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: n.line, width: 1.4),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Stack(children: [
+              NotificationListener<ScrollNotification>(
+                onNotification: (_) {
+                  if (_unread > 0 && _chatAtBottom) setState(() => _unread = 0);
+                  return false;
+                },
+                child: ListView.builder(
+                  controller: _chatScroll,
+                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                  itemCount: chat.length,
+                  // A new header when someone else speaks, or after a 5-minute pause.
+                  itemBuilder: (context, i) => _bubble(n, chat[i],
+                      showName: i == 0 ||
+                          chat[i - 1].from.userId != chat[i].from.userId ||
+                          chat[i].at.difference(chat[i - 1].at).inMinutes >= 5),
+                ),
+              ),
+              if (_unread > 0)
+                Positioned(
+                  bottom: 10,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: HuudGlow(
+                      child: Material(
+                        color: h.orange,
+                        shape: const StadiumBorder(),
+                        child: InkWell(
+                          key: const ValueKey('huud-chat-newest'),
+                          customBorder: const StadiumBorder(),
+                          onTap: _readNewest,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                            child: Text('New messages ↓',
+                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: h.onOrange)),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ]),
+          ),
         ),
       ),
+      const SliverToBoxAdapter(child: SizedBox(height: 16)),
     ];
   }
 
