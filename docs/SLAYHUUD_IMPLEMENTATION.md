@@ -235,3 +235,8 @@ Backend verification uses normal Maven reactor checks. `SlayHuudIT` supports eit
 - iOS: fixture preview built and ran on iPhone 16e simulator; inspected studio, outfit swapping, back camera and PNG submission/score flow. This does not substitute for real asset/device measurements or a signed release.
 
 Android uses a locally vendored stable `flutter_inappwebview_android` 1.1.3 with two upstream ProGuard filename fixes for AGP 9.1. See `app/vendor/flutter_inappwebview_android/PATCHES.md`; the shared Pub cache is untouched. All other WebView platforms remain on the stable release.
+
+### Ankle continuity repair (9 October 2026)
+
+- The shoe coverage mask removed the female ankle above the low shoe opening. Catalogue v11 retains the real foot/ankle inside both fitted shoe styles instead of hiding the entire foot region. Toe, heel and ankle fit was checked from front, side, back and an angle on both bodies in Three.js.
+- All 26 renderer tests pass, including a new actual-catalogue check that skin remains visible and rays through both ankle openings reach skin below the old cutoff. The Mac was locked during this inspection; browser review was available.

@@ -1,5 +1,5 @@
 {
-  "version": 10,
+  "version": 11,
   "developmentAssets": true,
   "avatars": [
     {
@@ -1313,7 +1313,7 @@
       "rarity": "common",
       "assetUrl": "assets/shoe-0.glb",
       "thumbnailUrl": "assets/shoe-0.png",
-      "hidesRegions": ["feet"],
+      "hidesRegions": [],
       "attachmentBone": null,
       "isDefault": true,
       "coinCost": 0,
@@ -1340,7 +1340,7 @@
       "rarity": "common",
       "assetUrl": "assets/shoe-1.glb",
       "thumbnailUrl": "assets/shoe-1.png",
-      "hidesRegions": ["feet"],
+      "hidesRegions": [],
       "attachmentBone": null,
       "isDefault": true,
       "coinCost": 0,

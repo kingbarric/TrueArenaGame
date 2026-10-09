@@ -12,7 +12,7 @@ The engine and wardrobe catalogue are ready to receive production artwork. Suppl
 
 ## Starter shoes and poses
 
-Catalogue v10 uses fitted upper-body rigs for the two starter avatars. Clothing matches its body's bind skeleton; foot joints remain compatible across the two bodies. Each shoe GLB contains male/female fit meshes tagged with `extras.slayBody`; the renderer displays the matching mesh. The converter removes the source socks by their UV islands, preserves the shoe collar, fits the toe/heel/width to each body, and adds a `region_feet` mask so covered skin cannot poke through. Exposed legs remain visible.
+Catalogue v11 uses fitted upper-body rigs for the two starter avatars. Clothing matches its body's bind skeleton; foot joints remain compatible across the two bodies. Each shoe GLB contains male/female fit meshes tagged with `extras.slayBody`; the renderer displays the matching mesh. The converter removes the source socks by their UV islands, preserves the shoe collar, fits the toe/heel/width to each body, and retains the real ankle/foot inside the fitted shoe. The two enabled shoes leave `hidesRegions` empty: hiding the coarse foot region cuts the ankle above the low shoe collar and creates a hollow gap. The `region_feet` region remains available for future footwear with a reviewed mask.
 
 The starter pose clips now animate arms, head and torso with a gentle breathing cycle: relaxed signature, hand-on-hip confidence, editorial turn and raised-arm celebration. They key every joint so switching poses resets the previous stance. These are automatically weighted starter assets; commissioned artwork still needs artist-reviewed deformation and fabric detail.
 

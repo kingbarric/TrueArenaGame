@@ -1,11 +1,12 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {AnimationMixer, Bone, Group, SkinnedMesh, Vector3} from 'three';
+import {AnimationMixer, Bone, Group, Raycaster, SkinnedMesh, Vector3} from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {applyPose, selectBodyFit} from '../src/poses.ts';
 import {bindGarment} from '../src/rig.ts';
 import {presentBody} from '../src/presentation.ts';
+import {coverBody} from '../src/coverage.ts';
 
 async function load(id) {
   const file = readFileSync(new URL(`../../app/assets/slay_renderer/assets/${id}.glb`, import.meta.url));
@@ -47,6 +48,7 @@ test('all fashion poses move limbs on both avatars and reset when changed', asyn
 });
 
 test('both shoe styles have sock-free body fits and follow the avatar bones', async () => {
+  const catalog = JSON.parse(readFileSync(new URL('../../backend/ta-api/src/main/resources/slay/catalog.json', import.meta.url)));
   for (const shoe of ['shoe-0', 'shoe-1']) for (const body of ['female', 'male']) {
     const avatar = await load(body), garment = await load(shoe), root = new Group();
     root.add(avatar.scene, garment.scene); root.updateMatrixWorld(true);
@@ -60,9 +62,20 @@ test('both shoe styles have sock-free body fits and follow the avatar bones', as
     for (let i = 0; i < vertices.count; i++) maxHeight = Math.max(maxHeight, vertices.getY(i));
     assert.ok(maxHeight < .145, 'sock shaft must be removed without cutting off the shoe collar');
     assert.ok(fit.skeleton.bones.every(bone => bones.get(bone.name) === bone), 'shoe must share the live avatar skeleton');
-    presentBody(avatar.scene, '#623a27', new Set(['feet']));
-    assert.equal(avatar.scene.getObjectByName('region_feet').visible, false);
-    assert.equal(avatar.scene.getObjectByName('region_legs').visible, true, 'mask the covered foot, not the exposed leg');
+    const item = catalog.items.find(item => item.id === shoe);
+    presentBody(avatar.scene, '#623a27', new Set(item.hidesRegions));
+    coverBody(avatar.scene, [shoe]);
+    const footSkin = avatar.scene.getObjectByName('region_feet');
+    assert.equal(footSkin.visible, true, 'fitted shoes must retain the real ankle inside the opening');
+    assert.equal(avatar.scene.getObjectByName('region_legs').visible, true);
+    // The previous mask cut the female ankle at ~10 cm while the shoe collar
+    // sits at ~6–9 cm. A view through the collar must hit skin at 7.5 cm.
+    avatar.scene.updateMatrixWorld(true);
+    const ankleX = body === 'female' ? .19 : .225;
+    for (const side of [-1, 1]) {
+      const ray = new Raycaster(new Vector3(ankleX * side, .075, .3), new Vector3(0, 0, -1));
+      assert.ok(ray.intersectObject(footSkin).length > 0, `${body}/${shoe}: the shoe opening must contain ankle skin`);
+    }
     applyPose(new AnimationMixer(avatar.scene), avatar.animations, 'editorial');
     root.updateMatrixWorld(true); fit.skeleton.update();
     for (let i = 0; i < vertices.count; i += 29) {
