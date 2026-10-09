@@ -52,8 +52,11 @@ class HuudPerson {
   final String? avatarUrl;
   final bool friend;
 
+  /// Full name — only for their profile card.
   String get name => displayName.isNotEmpty ? displayName : username;
-  String get firstName => name.split(' ').first;
+
+  /// How they're shown everywhere else: their username.
+  String get handle => username.isNotEmpty ? username : name.split(' ').first;
 
   factory HuudPerson.fromJson(Map<String, dynamic> j) => HuudPerson(
         userId: j['userId'].toString(),

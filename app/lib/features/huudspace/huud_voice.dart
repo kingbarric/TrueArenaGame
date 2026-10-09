@@ -146,24 +146,38 @@ class HuudVoice {
     }
   }
 
-  /// Mic on or off. Returns false when you can't talk (the host hasn't
-  /// handed you the mic) or the phone's microphone is switched off.
-  Future<bool> setMuted(bool muted) async {
+  /// Mic on or off, and why not when it can't be.
+  Future<MicResult> setMuted(bool muted) async {
     final room = _room;
-    if (room == null) return false;
+    if (room == null) return MicResult.notConnected;
     if (!muted) {
-      if (!_canSpeak) return false;
-      if (!(await Permission.microphone.request()).isGranted) return false;
+      if (!_canSpeak) return MicResult.noMic;
+      final status = await Permission.microphone.request();
+      if (!status.isGranted) {
+        debugPrint('HuudVoice: microphone permission is $status');
+        return MicResult.noPermission;
+      }
     }
-    try {
-      await room.localParticipant?.setMicrophoneEnabled(!muted);
-    } catch (_) {
-      return false;
+    // iOS can refuse the first try ("session activation failed") while it
+    // moves audio over — e.g. AirPods switching from listening to talking.
+    // A moment later it works, so try a few times before giving up.
+    for (var attempt = 1;; attempt++) {
+      try {
+        await room.localParticipant?.setMicrophoneEnabled(!muted);
+        break;
+      } catch (e) {
+        debugPrint('HuudVoice: setMicrophoneEnabled(${!muted}) try $attempt failed: $e');
+        if (attempt == 4) {
+          if (!muted) await room.localParticipant?.setMicrophoneEnabled(false).catchError((Object _) => null);
+          return MicResult.failed;
+        }
+        await Future<void>.delayed(Duration(milliseconds: 350 * attempt));
+      }
     }
     _state.muted = muted;
     _state.changed();
     _api?.post('/calls/sessions/mute', {'muted': muted}).catchError((Object _) => null);
-    return true;
+    return MicResult.ok;
   }
 
   Future<void> _leave() async {
@@ -194,3 +208,5 @@ class HuudVoice {
     }
   }
 }
+
+enum MicResult { ok, notConnected, noMic, noPermission, failed }

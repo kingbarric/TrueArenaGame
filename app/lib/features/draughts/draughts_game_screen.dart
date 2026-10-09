@@ -1481,6 +1481,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
                         // squares and paint the rest near-black, so the grid
                         // never read clearly on any colour scheme.)
                         dark: true,
+                        longDiagonal: row + col == 9,
                         seed: sq,
                         selected: sq == _selected,
                         armed: _chain.contains(sq),
@@ -1626,8 +1627,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
     final bool waiting;
     if (_amSpectator) {
       // Watching: say whose turn it is, by name.
-      final who = label(_actorFor(turnSide));
-      text = "${who.toUpperCase()}'S TURN";
+      text = "${label(_actorFor(turnSide)).toUpperCase()}'S TURN";
       fill = const Color(0xff3a2410);
       ink = const Color(0xfff0d8a8);
       icon = Icons.visibility_rounded;
@@ -1639,13 +1639,14 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
       icon = Icons.priority_high_rounded;
       waiting = false;
     } else if (myTurn) {
-      text = 'YOUR TURN';
+      // Names, not "you"/"opponent", so anyone looking can tell who's up.
+      text = "${label(widget.selfId).toUpperCase()}'S TURN";
       fill = const Color(0xffffc233);
       ink = const Color(0xff241708);
       icon = Icons.touch_app_rounded;
       waiting = false;
     } else {
-      text = 'OPPONENT IS THINKING';
+      text = "${label(_actorFor(turnSide)).toUpperCase()}'S TURN";
       fill = const Color(0xff3a2410);
       ink = const Color(0xfff0d8a8);
       icon = Icons.hourglass_top_rounded;
@@ -1900,16 +1901,23 @@ class _WoodFrame extends StatelessWidget {
 /// A single board square: solid worn-plank color with procedural grain, no
 /// image asset needed. Only the selected piece and the square the player
 /// actually tapped are highlighted; legal destinations remain unmarked.
+const _diagonalYellow = Color(0xffe6b422);
+const _diagonalGrain = Color(0xffd9a91c);
+
 class _PlankCell extends StatelessWidget {
   const _PlankCell(
       {required this.palette,
       required this.dark,
+      this.longDiagonal = false,
       this.seed = 0,
       this.selected = false,
       this.armed = false,
       this.inert = false});
   final BoardPalette palette;
   final bool dark;
+
+  /// On the long diagonal, corner to corner — painted yellow so it stands out.
+  final bool longDiagonal;
   final int seed;
   final bool selected;
   final bool armed;
@@ -1923,8 +1931,8 @@ class _PlankCell extends StatelessWidget {
     final n = context.neon;
     // Clean tiles: each board's grain colour sits close to its square colour,
     // so the pattern stays faint and the two square colours stay easy to tell apart.
-    final base = dark ? palette.darkSquare : palette.lightSquare;
-    final grain = dark ? palette.darkGrain : palette.lightGrain;
+    final base = longDiagonal ? _diagonalYellow : (dark ? palette.darkSquare : palette.lightSquare);
+    final grain = longDiagonal ? _diagonalGrain : (dark ? palette.darkGrain : palette.lightGrain);
     return CustomPaint(
       painter:
           _WoodPainter(base: base, grain: grain, seed: seed + 1, calm: true),
@@ -2120,6 +2128,7 @@ class _VarReplaySheetState extends State<_VarReplaySheet> {
                               return _PlankCell(
                                 palette: widget.boardPalette,
                                 dark: true, // same checkerboard as the live board
+                                longDiagonal: row + col == 9,
                                 seed: square,
                               );
                             },

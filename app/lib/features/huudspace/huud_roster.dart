@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../core/api_client.dart';
 import '../../core/app_state.dart';
 import '../../theme/neon_theme.dart';
-import '../../widgets/cyber_agent_sheet.dart';
 import '../../widgets/neon.dart';
 import 'huud_kit.dart';
 import 'huud_space_models.dart';
@@ -61,7 +60,7 @@ class _HuudRosterState extends State<HuudRoster> {
     if (seated) {
       await _run(
           'p-${person.userId}', (api) => api.delete('/huud-spaces/${widget.huud.id}/game/players/${person.userId}'),
-          say: '${person.firstName} will watch this one');
+          say: '${person.handle} will watch this one');
       return;
     }
     if (widget.seated.length >= widget.seats) {
@@ -73,13 +72,13 @@ class _HuudRosterState extends State<HuudRoster> {
         (api) => api.post('/huud-spaces/${widget.huud.id}/game/players', {
               'userIds': [person.userId]
             }),
-        say: '${person.firstName} is playing! 🎮');
+        say: '${person.handle} is playing! 🎮');
   }
 
   Future<void> _removeAgent(HuudSeat bot) async {
     final ok = await confirmHuud(context,
         emoji: '🤖',
-        title: 'Remove ${bot.firstName}?',
+        title: 'Remove ${bot.handle}?',
         message: 'Their seat becomes free.',
         yes: 'Remove',
         danger: true);
@@ -87,13 +86,11 @@ class _HuudRosterState extends State<HuudRoster> {
     await _run('p-${bot.userId}', (api) => api.delete('/rooms/${widget.roomId}/bots/${bot.userId}'));
   }
 
+  /// One tap, one agent: named Cyber 1, Cyber 2… at medium — no questions, no banner.
   Future<void> _addAgent() async {
     final bots = widget.seated.where((s) => s.bot).length;
-    final choice = await showCyberAgentPicker(context, defaultName: 'Cyber ${bots + 1}');
-    if (choice == null || !mounted) return;
     await _run('agent',
-        (api) => api.post('/rooms/${widget.roomId}/bots', {'name': choice.name, 'difficulty': choice.difficulty}),
-        say: '${choice.name} is playing 🤖');
+        (api) => api.post('/rooms/${widget.roomId}/bots', {'name': 'Cyber ${bots + 1}', 'difficulty': 'medium'}));
   }
 
   @override
@@ -183,7 +180,7 @@ class _HuudRosterState extends State<HuudRoster> {
           return row(
             key: ValueKey('roster-${p.userId}'),
             face: Avatar(p.name, size: 36, imageUrl: p.avatarUrl),
-            name: p.userId == _me ? 'You' : p.firstName,
+            name: p.userId == _me ? 'You' : p.handle,
             status: playing ? seatStatus(seat) : '👀 Watching',
             statusColor: playing ? (seat.ready ? h.live : n.mid) : n.mute,
             playing: playing,
@@ -201,7 +198,7 @@ class _HuudRosterState extends State<HuudRoster> {
             decoration: BoxDecoration(color: h.orangeSoft, shape: BoxShape.circle),
             child: const Text('🤖', style: TextStyle(fontSize: 20)),
           ),
-          name: '${b.firstName} (Cyber Agent)',
+          name: '${b.handle} (Cyber Agent)',
           status: '✅ Ready',
           statusColor: h.live,
           playing: true,

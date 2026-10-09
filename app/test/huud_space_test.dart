@@ -331,7 +331,7 @@ void main() {
       return _json(_huud(host: false, live: false, muted: muted));
     });
     expect(find.byKey(const ValueKey('huud-offline-member')), findsOneWidget);
-    expect(find.textContaining("You'll get a notification when Ada goes Live"), findsOneWidget);
+    expect(find.textContaining("You'll get a notification when ada goes Live"), findsOneWidget);
     expect(find.byKey(const ValueKey('huud-go-live')), findsNothing);
     await tester.tap(find.byKey(const ValueKey('huud-mute')));
     await tester.pumpAndSettle();
@@ -518,7 +518,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('huud-tab-chat')));
     await tester.pumpAndSettle();
     expect(find.text('Rematch!'), findsOneWidget);
-    expect(find.text('Ada'), findsOneWidget);
+    expect(find.text('ada obi'), findsOneWidget);
 
     await tester.enterText(find.byKey(const ValueKey('chat-input')), 'Yes!');
     await tester.tap(find.byKey(const ValueKey('chat-send')));
@@ -713,6 +713,12 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('roster-ada')));
     await tester.pumpAndSettle();
     expect(calls, contains('DELETE /api/v1/huud-spaces/h1/game/players/ada'));
+
+    // One tap adds an agent — no picker, no "is playing" banner.
+    await tester.tap(find.byKey(const ValueKey('roster-add-agent')));
+    await tester.pumpAndSettle();
+    expect(calls.where((c) => c.contains('/bots {"name":"Cyber 1","difficulty":"medium"}')), hasLength(1));
+    expect(find.textContaining('is playing'), findsNothing);
   });
 
   testWidgets('the game lobby of a Huud game lists the Huud instead of a room code', (tester) async {

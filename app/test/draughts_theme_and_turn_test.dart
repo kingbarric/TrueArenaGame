@@ -81,7 +81,7 @@ void main() {
 
     test('colour choices saved from the old brown set fall back to the new default', () {
       expect(boardPaletteById('walnut').id, 'classic');
-      expect(piecePaletteById('terracotta_ivory').id, 'red_white');
+      expect(piecePaletteById('terracotta_ivory').id, 'red_blue');
     });
   });
 
@@ -97,7 +97,7 @@ void main() {
           home: DraughtsGameScreen(
             socket: socket,
             selfId: selfId,
-            nicknames: const {'me': 'You', 'opponent': 'Ada'},
+            nicknames: const {'me': 'eric', 'opponent': 'ada'},
           ),
         ),
       ));
@@ -116,23 +116,24 @@ void main() {
     double textSize(WidgetTester tester) =>
         tester.widget<Text>(find.byKey(const ValueKey('draughts-turn-text'))).style!.fontSize!;
 
-    testWidgets('"your turn" is big and bold, on a bright banner', (tester) async {
+    testWidgets('your turn says your name, big and bold, on a bright banner', (tester) async {
       final socket = await open(tester, 'me');
       socket.snapshot(snap('TurnA'));
       await tester.pump();
 
-      expect(find.text('YOUR TURN'), findsOneWidget);
+      expect(find.text("ERIC'S TURN"), findsOneWidget);
       expect(textSize(tester), greaterThanOrEqualTo(20), reason: 'it was 9pt before');
       final banner = tester.widget<AnimatedContainer>(find.byKey(const ValueKey('draughts-turn-banner')));
       expect((banner.decoration as BoxDecoration).color, const Color(0xffffc233));
     });
 
-    testWidgets('"opponent is thinking" is just as readable', (tester) async {
+    testWidgets("the other player's turn says their name, just as readable", (tester) async {
       final socket = await open(tester, 'me');
       socket.snapshot(snap('TurnB'));
       await tester.pump();
 
-      expect(find.text('OPPONENT IS THINKING'), findsOneWidget);
+      expect(find.text("ADA'S TURN"), findsOneWidget);
+      expect(find.text('OPPONENT IS THINKING'), findsNothing);
       expect(textSize(tester), greaterThanOrEqualTo(20));
       expect(find.byType(CircularProgressIndicator), findsWidgets, reason: 'a spinner says it is working');
     });
@@ -160,7 +161,7 @@ void main() {
       socket.snapshot(snap('TurnB'));
       await tester.pump();
       expect(tester.takeException(), isNull);
-      expect(find.text('OPPONENT IS THINKING'), findsOneWidget);
+      expect(find.text("ADA'S TURN"), findsOneWidget);
     });
   });
 }

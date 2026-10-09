@@ -99,6 +99,11 @@ public class CallRingService {
     // ------------------------------------------------------- in the call
 
     /** A token for a call room you belong to or were invited into — how an answered ring joins. */
+    /** How people are named in voice ("Ada is talking"): their username, else their display name. */
+    static String shownName(app.truearena.persistence.UserRow user) {
+        return user.username() != null && !user.username().isBlank() ? user.username() : user.displayName();
+    }
+
     public Mono<CallToken> joinToken(UUID userId, String roomName) {
         return (sessions == null ? canJoin(userId, roomName) :
                 sessions.removed(userId,roomName).flatMap(removed -> removed ? Mono.just(false) :
@@ -112,7 +117,7 @@ public class CallRingService {
                 .flatMap(self -> (huudSpaces != null && roomName.startsWith(app.truearena.api.huudspace.HuudSpaceAccess.VOICE_PREFIX)
                         ? huudSpaces.canSpeak(userId, roomName) : Mono.just(true))
                         .map(speak -> new CallToken(roomName,
-                                tokens.mintToken(roomName, self.id().toString(), self.displayName(), speak), tokens.wsUrl())));
+                                tokens.mintToken(roomName, self.id().toString(), shownName(self), speak), tokens.wsUrl())));
     }
 
     /**

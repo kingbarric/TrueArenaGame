@@ -217,7 +217,7 @@ class _WatchPageState extends State<_WatchPage> {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 30, height: 1.1, fontWeight: FontWeight.w900, color: n.ink)),
               const SizedBox(height: 6),
-              Text(host == null ? '' : '👑 Host: ${host.firstName}',
+              Text(host == null ? '' : '👑 Host: ${host.handle}',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: n.mid)),
               const SizedBox(height: 14),

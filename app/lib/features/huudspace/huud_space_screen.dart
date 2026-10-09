@@ -325,7 +325,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
 
   Future<void> _setMic(HuudMember person, bool allowed) => _update('mic-${person.userId}',
       (api) => api.post('/huud-spaces/${widget.id}/members/${person.userId}/mic', {'allowed': allowed}),
-      say: allowed ? '${person.firstName} can talk now 🎙️' : "${person.firstName}'s mic is off");
+      say: allowed ? '${person.handle} can talk now 🎙️' : "${person.handle}'s mic is off");
 
   Future<void> _putGameAway() => _update('clear', (api) => api.delete('/huud-spaces/${widget.id}/game'));
 
@@ -369,15 +369,19 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
               : 'Tap Ask mic — the host hands out the mic ✋');
       return;
     }
-    final muted = HangoutState.instance.muted;
-    final ok = await voice.setMuted(!muted);
+    final result = await voice.setMuted(!HangoutState.instance.muted);
     if (!mounted) return;
-    if (!ok && muted) {
-      huudSnack(
-          context,
-          voice.canSpeak
-              ? 'Turn on the microphone for PlayHuud in your phone settings.'
-              : "The host hasn't handed you the mic yet ✋");
+    switch (result) {
+      case MicResult.ok:
+        break;
+      case MicResult.noPermission:
+        huudSnack(context, 'Turn on the microphone for PlayHuud in your phone settings.');
+      case MicResult.noMic:
+        huudSnack(context, "The host hasn't handed you the mic yet ✋");
+      case MicResult.notConnected:
+      case MicResult.failed:
+        huudSnack(context, "Your mic didn't switch on — try again in a moment.");
+        _syncVoice(huud);
     }
     setState(() {});
   }
@@ -460,8 +464,8 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     final ok = await confirmHuud(
       context,
       emoji: '🚪',
-      title: 'Take ${person.firstName} out?',
-      message: "${person.firstName} will leave this Huud and won't be able to come back in.",
+      title: 'Take ${person.handle} out?',
+      message: "${person.handle} will leave this Huud and won't be able to come back in.",
       yes: 'Take them out',
       danger: true,
     );
@@ -480,9 +484,13 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
               child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 Center(child: Avatar(person.name, size: 64, imageUrl: person.avatarUrl)),
                 const SizedBox(height: 8),
+                // Their card: the one place the full name shows.
                 Text(person.name,
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: n.ink)),
+                if (person.username.isNotEmpty && person.username != person.name)
+                  Text('@${person.username}',
+                      textAlign: TextAlign.center, style: TextStyle(fontSize: 15, color: n.mute)),
                 const SizedBox(height: 16),
                 if (huud.youAreHost) ...[
                   HuudButton(
@@ -748,7 +756,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     final me = call.room?.localParticipant;
     final names = [
       for (final p in call.participants)
-        if (p.isSpeaking) p == me ? 'You' : (p.name.isEmpty ? 'Someone' : p.name.split(' ').first),
+        if (p.isSpeaking) p == me ? 'You' : (p.name.isEmpty ? 'Someone' : p.name),
     ];
     if (names.isEmpty) return null;
     final text = switch (names) {
@@ -775,7 +783,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         ? (huud.youOwn && !huud.live ? "It's your Huud" : "You're the host")
         : (host == null
             ? 'Looking for a host'
-            : '${huud.live ? 'Host' : 'Owner'}: ${host.userId == _me ? 'you' : host.firstName}');
+            : '${huud.live ? 'Host' : 'Owner'}: ${host.userId == _me ? 'you' : host.handle}');
     return HuudHeroCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Wrap(spacing: 8, runSpacing: 8, children: [
@@ -867,7 +875,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         key: const ValueKey('huud-waiting'),
         emoji: '⏳',
         title: 'Waiting for the host',
-        message: "You asked to come in. You'll get in as soon as ${huud.host?.firstName ?? 'the host'} says yes.",
+        message: "You asked to come in. You'll get in as soon as ${huud.host?.handle ?? 'the host'} says yes.",
       );
     }
     if (huud.joinRequest == 'declined') {
@@ -924,7 +932,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
             Text(
                 huud.muted
                     ? "You've muted it — tap the bell to hear when it goes Live."
-                    : "You'll get a notification when ${huud.host?.firstName ?? 'the owner'} goes Live.",
+                    : "You'll get a notification when ${huud.host?.handle ?? 'the owner'} goes Live.",
                 style: TextStyle(fontSize: 14, height: 1.3, color: huud.muted ? n.mute : h.orangeText)),
           ]),
         ),
@@ -997,7 +1005,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(r.from.firstName,
+                  Text(r.from.handle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: n.ink)),
@@ -1019,7 +1027,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     final busy = _busy == 'answer-${r.from.userId}-${r.kind}';
     return Semantics(
       button: true,
-      label: '${yes ? 'Yes' : 'No'} to ${r.from.firstName}',
+      label: '${yes ? 'Yes' : 'No'} to ${r.from.handle}',
       excludeSemantics: true,
       child: Bouncy(
         key: ValueKey('answer-${r.kind}-${r.from.userId}-${yes ? 'yes' : 'no'}'),
@@ -1114,7 +1122,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
               child: HuudFriendlyState(
                 emoji: '🎲',
                 title: 'No game yet',
-                message: '${huud.host?.firstName ?? 'The host'} will pick a game soon. Chat while you wait!',
+                message: '${huud.host?.handle ?? 'The host'} will pick a game soon. Chat while you wait!',
               ),
             ),
           ),
@@ -1162,7 +1170,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
             HuudAvatarStack(people: players, size: 30, max: 6),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(players.map((p) => p.userId == _me ? 'You' : p.firstName).join(', '),
+              child: Text(players.map((p) => p.userId == _me ? 'You' : p.handle).join(', '),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: n.mid)),
@@ -1180,7 +1188,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     Widget note(String text) => Text(text,
         textAlign: TextAlign.center, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: h.orangeText));
     if (game.finished) {
-      if (!huud.youAreHost) return [note('${huud.host?.firstName ?? 'The host'} is picking the next game…')];
+      if (!huud.youAreHost) return [note('${huud.host?.handle ?? 'The host'} is picking the next game…')];
       return [
         HuudButton(
           key: const ValueKey('huud-rematch'),
@@ -1254,7 +1262,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                 onPressed: () => _openGame(game),
               )
             : huud.playRequest == 'pending'
-                ? note("✋ You asked to play — waiting for ${huud.host?.firstName ?? 'the host'}")
+                ? note("✋ You asked to play — waiting for ${huud.host?.handle ?? 'the host'}")
                 : game.full
                     ? note('All the seats are taken — you can watch when it starts')
                     : HuudButton(
@@ -1268,7 +1276,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                       );
     return [
       if (game.youArePlaying && game.waiting && !huud.youAreHost && ready) ...[
-        note('You\'re ready ✅ — waiting for ${huud.host?.firstName ?? 'the host'} to start'),
+        note('You\'re ready ✅ — waiting for ${huud.host?.handle ?? 'the host'} to start'),
         const SizedBox(height: 10),
       ],
       main,
@@ -1378,7 +1386,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
               if (showName && !mine)
                 Padding(
                   padding: const EdgeInsets.only(left: 4, bottom: 3),
-                  child: Text(m.from.firstName,
+                  child: Text(m.from.handle,
                       style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: n.mute)),
                 ),
               mine
@@ -1491,7 +1499,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                       const Positioned(top: -10, left: -6, child: Text('🎙️', style: TextStyle(fontSize: 18))),
                   ]),
                   const SizedBox(height: 8),
-                  Text(p.userId == _me ? 'You' : p.firstName,
+                  Text(p.userId == _me ? 'You' : p.handle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: n.ink)),
@@ -1608,7 +1616,7 @@ class _InviteSheetState extends State<_InviteSheet> {
                   Avatar(f.name, size: 42, imageUrl: f.avatarUrl),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Text(f.name,
+                    child: Text(f.handle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: n.ink)),

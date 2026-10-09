@@ -270,7 +270,7 @@ class _LiveHuudCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: n.ink)),
-              Text(huud.host == null ? '' : 'Host: ${huud.host!.firstName}',
+              Text(huud.host == null ? '' : 'Host: ${huud.host!.handle}',
                   maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 14, color: n.mid)),
             ]),
           ),

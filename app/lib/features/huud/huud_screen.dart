@@ -276,7 +276,7 @@ class _HuudScreenState extends State<HuudScreen> {
     final game = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => _GamePickerSheet(title: 'Challenge ${person.firstName}', suggested: suggestedGame),
+      builder: (_) => _GamePickerSheet(title: 'Challenge ${person.handle}', suggested: suggestedGame),
     );
     if (game == null || !mounted) return;
     try {
@@ -285,7 +285,7 @@ class _HuudScreenState extends State<HuudScreen> {
         'gameType': game,
       }) as Map<String, dynamic>;
       _cache.clear();
-      _snack('Challenge sent to ${person.firstName}');
+      _snack('Challenge sent to ${person.handle}');
       await _enterRoom(RoomView.fromJson((raw['room'] as Map).cast<String, dynamic>()));
     } on ApiException catch (e) {
       _snack(e.message);
@@ -337,7 +337,7 @@ class _HuudScreenState extends State<HuudScreen> {
     final text = switch (item.kind) {
       'game_request' => item.game!.mine
           ? 'Join my ${item.gameName} huud on PlayHuud — huud code ${item.game!.roomCode}'
-          : '${item.actor.firstName} is looking for a ${item.gameName} game on PlayHuud — huud code ${item.game!.roomCode}',
+          : '${item.actor.handle} is looking for a ${item.gameName} game on PlayHuud — huud code ${item.game!.roomCode}',
       'win' => item.win!.streak >= 3
           ? '${item.actor.name} won ${item.win!.streak} ${item.gameName} games in a row on PlayHuud'
           : '${item.actor.name} won at ${item.gameName} on PlayHuud',
@@ -787,7 +787,7 @@ class _HuudScreenState extends State<HuudScreen> {
             child: ListView(scrollDirection: Axis.horizontal, children: [
               for (final f in here)
                 _StripPerson(
-                  label: f.firstName,
+                  label: f.handle,
                   onTap: () => _friendSheet(f),
                   child: OnlineAvatar(f.name, online: true, size: 52, imageUrl: f.avatarUrl),
                 ),
@@ -837,7 +837,7 @@ class _HuudScreenState extends State<HuudScreen> {
               ),
             ]),
             const SizedBox(height: 18),
-            NeonButton('Challenge ${f.firstName}', onPressed: () {
+            NeonButton('Challenge ${f.handle}', onPressed: () {
               Navigator.pop(sheet);
               _challenge(f);
             }),
@@ -1076,8 +1076,8 @@ class _Byline extends StatelessWidget {
         Expanded(
           child: Text.rich(
             TextSpan(children: [
-              TextSpan(text: person.name, style: TextStyle(color: n.ink, fontWeight: FontWeight.w800, fontSize: 14)),
-              TextSpan(text: '  @${person.username} · ${huudAgo(at)}'),
+              TextSpan(text: person.handle, style: TextStyle(color: n.ink, fontWeight: FontWeight.w800, fontSize: 14)),
+              TextSpan(text: '  · ${huudAgo(at)}'),
             ]),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -1284,8 +1284,8 @@ class _ChallengeCard extends StatelessWidget {
     final forMe = g.target?.userId == viewerId;
     final rematch = g.lastOutcome != null;
     final lastLine = switch (g.lastOutcome) {
-      'won' => forMe ? 'You won the last one.' : '${g.target?.firstName} won the last one.',
-      'lost' => forMe ? '${item.actor.firstName} won the last one.' : 'You won the last one.',
+      'won' => forMe ? 'You won the last one.' : '${g.target?.handle} won the last one.',
+      'lost' => forMe ? '${item.actor.handle} won the last one.' : 'You won the last one.',
       'tied' => 'The last one was a draw.',
       _ => null,
     };
@@ -1300,7 +1300,7 @@ class _ChallengeCard extends StatelessWidget {
         const SizedBox(height: 10),
         Text.rich(
           TextSpan(children: [
-            TextSpan(text: forMe ? 'Challenged you to ' : 'You challenged ${g.target?.firstName ?? 'them'} to '),
+            TextSpan(text: forMe ? 'Challenged you to ' : 'You challenged ${g.target?.handle ?? 'them'} to '),
             TextSpan(
                 text: rematch ? 'a ${item.gameName} rematch' : item.gameName,
                 style: TextStyle(color: n.gold, fontWeight: FontWeight.w800)),

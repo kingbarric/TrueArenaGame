@@ -54,8 +54,11 @@ class HuudMember {
   final bool here;
   final bool canSpeak;
 
+  /// Full name — only for their profile card.
   String get name => displayName.isNotEmpty ? displayName : username;
-  String get firstName => name.split(' ').first;
+
+  /// How they're shown everywhere else: their username.
+  String get handle => username.isNotEmpty ? username : name.split(' ').first;
 
   factory HuudMember.fromJson(Map<String, dynamic> j) => HuudMember(
         userId: j['userId'].toString(),
@@ -405,7 +408,7 @@ class HuudSeat {
   final bool bot;
   final bool ready;
 
-  String get firstName => name.split(' ').first;
+  String get handle => name;
 
   factory HuudSeat.fromJson(Map<String, dynamic> j) => HuudSeat(
         userId: j['userId'].toString(),
