@@ -20,6 +20,7 @@ class SlayStageController {
 
   InAppWebViewController? _web;
   int _sequence = 0;
+  int _indicatorRevision = 0;
   final Map<String, Completer<Map<String, dynamic>>> _pending = {};
   Completer<void> _ready = Completer<void>();
   Future<Map<String, dynamic>> request(
@@ -50,10 +51,22 @@ class SlayStageController {
   Future<String> snapshot() async =>
       (await request('snapshot', {'width': 600, 'height': 900}))['pngBase64']
           as String;
-  void _reset() {
-    ready.value = false;
-    showingOff.value = false;
-    showcasePhase.value = '';
+  void _reset({bool deferIndicators = false}) {
+    final revision = ++_indicatorRevision;
+    void resetIndicators() {
+      if (revision != _indicatorRevision) return;
+      ready.value = false;
+      showingOff.value = false;
+      showcasePhase.value = '';
+    }
+
+    // Disposing a stage can leave its parent's listeners mounted while the
+    // widget tree is locked. Notify after unmount, unless a new stage reset it.
+    if (deferIndicators) {
+      scheduleMicrotask(resetIndicators);
+    } else {
+      resetIndicators();
+    }
     for (final c in _pending.values) {
       if (!c.isCompleted) c.completeError(StateError('The 3D stage restarted'));
     }
@@ -227,7 +240,7 @@ class _SlayStageState extends State<SlayStage> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    widget.controller._reset();
+    widget.controller._reset(deferIndicators: true);
     widget.controller._web = null;
     super.dispose();
   }

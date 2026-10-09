@@ -171,6 +171,61 @@ class SlayPill extends StatelessWidget {
       );
 }
 
+/// Flat browsing controls distinguish wardrobe navigation from raised actions.
+class SlayTab extends StatelessWidget {
+  const SlayTab(
+      {super.key,
+      required this.label,
+      required this.selected,
+      required this.onPressed,
+      this.pill = false});
+  final String label;
+  final bool selected, pill;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final n = context.neon;
+    return Semantics(
+      selected: selected,
+      child: Container(
+        decoration: pill
+            ? null
+            : BoxDecoration(
+                border: Border(
+                    bottom: BorderSide(
+                        color: selected ? n.gold : Colors.transparent,
+                        width: 3))),
+        child: TextButton(
+          onPressed: onPressed,
+          style: TextButton.styleFrom(
+            foregroundColor: selected ? n.gold : n.mute,
+            backgroundColor: pill
+                ? (selected
+                    ? n.gold.withValues(alpha: .14)
+                    : n.plate.withValues(alpha: .5))
+                : Colors.transparent,
+            minimumSize: Size(0, pill ? 32 : 40),
+            padding:
+                EdgeInsets.symmetric(horizontal: pill ? 12 : 14, vertical: 6),
+            shape: pill
+                ? StadiumBorder(
+                    side: BorderSide(
+                        color:
+                            selected ? n.gold.withValues(alpha: .65) : n.line))
+                : RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+            textStyle: TextStyle(
+                fontSize: pill ? 12 : 13,
+                fontWeight: selected ? FontWeight.w800 : FontWeight.w600),
+          ),
+          child: Text(label),
+        ),
+      ),
+    );
+  }
+}
+
 class SlayLabel extends StatelessWidget {
   const SlayLabel(this.text, {super.key, this.colour});
   final String text;

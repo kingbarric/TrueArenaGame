@@ -28,7 +28,10 @@ class SlayStudioScreen extends StatefulWidget {
 }
 
 class _SlayStudioScreenState extends State<SlayStudioScreen> {
-  late SlayLook _look = SlayLook.initial(widget.initialBody);
+  late SlayLook _look = SlayLook.initial(
+      (widget.theme['bodyEligibility'] as List).contains(widget.initialBody)
+          ? widget.initialBody
+          : (widget.theme['bodyEligibility'] as List).first as String);
   late final Set<String> _owned = {...widget.owned};
   final _stage = SlayStageController();
   String _category = 'outfit', _styleGroup = 'All';
@@ -355,7 +358,7 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
             body:
                 SafeArea(child: LayoutBuilder(builder: (context, constraints) {
               final stageHeight =
-                  (constraints.maxHeight * .43).clamp(180.0, 400.0);
+                  (constraints.maxHeight * .41).clamp(180.0, 400.0);
               return Column(children: [
                 Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
@@ -371,136 +374,181 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                                     Theme.of(context).textTheme.headlineMedium)
                           ])),
                       if (widget.competitionId == null)
-                        Row(mainAxisSize: MainAxisSize.min, children: [
-                          for (final body in ['female', 'male'])
-                            if ((widget.theme['bodyEligibility'] as List)
-                                .contains(body))
-                              Padding(
-                                  padding: const EdgeInsets.only(left: 6),
-                                  child: Tooltip(
-                                      message: '$body avatar',
-                                      child: SlayPill(
-                                        label: body == 'female' ? 'Her' : 'Him',
-                                        icon: body == 'female'
+                        SegmentedButton<String>(
+                          showSelectedIcon: false,
+                          segments: [
+                            for (final body in ['female', 'male'])
+                              if ((widget.theme['bodyEligibility'] as List)
+                                  .contains(body))
+                                ButtonSegment(
+                                    value: body,
+                                    icon: Icon(
+                                        body == 'female'
                                             ? Icons.female
                                             : Icons.male,
-                                        selected: _look.body == body,
-                                        onPressed: (_busy || _selecting)
-                                            ? null
-                                            : () {
-                                                setState(() {
-                                                  _look =
-                                                      SlayLook.initial(body);
-                                                  _draft = null;
-                                                  _styleGroup = 'All';
-                                                });
-                                                _restore();
-                                              },
-                                      ))),
-                        ])
+                                        size: 16),
+                                    label:
+                                        Text(body == 'female' ? 'Her' : 'Him')),
+                          ],
+                          selected: {_look.body},
+                          style: SegmentedButton.styleFrom(
+                            backgroundColor: context.neon.panel,
+                            foregroundColor: context.neon.mute,
+                            selectedBackgroundColor: context.neon.gold,
+                            selectedForegroundColor: context.neon.onAccent,
+                            side: BorderSide(color: context.neon.line),
+                            shape: const StadiumBorder(),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                            textStyle: const TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.w800),
+                          ),
+                          onSelectionChanged: (_busy || _selecting)
+                              ? null
+                              : (selected) {
+                                  setState(() {
+                                    _look = SlayLook.initial(selected.single);
+                                    _category = 'outfit';
+                                    _draft = null;
+                                    _styleGroup = 'All';
+                                  });
+                                  _restore();
+                                },
+                        )
                     ])),
-                SizedBox(
-                    height: stageHeight,
-                    child: Stack(children: [
-                      Positioned.fill(
-                          child: SlayStage(
-                              catalog: widget.catalog,
-                              look: _look,
-                              controller: _stage)),
-                      Positioned(
-                          top: 12,
-                          left: 14,
-                          child: ValueListenableBuilder<bool>(
-                              valueListenable: _stage.showingOff,
-                              builder: (_, playing, __) => playing
-                                  ? ValueListenableBuilder<String>(
-                                      valueListenable: _stage.showcasePhase,
-                                      builder: (_, phase, __) =>
-                                          SlayLabel(phase))
-                                  : const SizedBox.shrink())),
-                      Positioned(
-                          top: 12,
-                          right: 14,
-                          child: Column(children: [
-                            for (final preset in [
-                              'full',
-                              'face',
-                              'back',
-                              'feet'
-                            ])
-                              Padding(
-                                  padding: const EdgeInsets.only(bottom: 8),
-                                  child: Tooltip(
-                                      message: preset == 'feet'
-                                          ? 'Shoe close-up'
-                                          : preset == 'back'
-                                              ? 'Back view'
-                                              : preset == 'face'
-                                                  ? 'Face close-up'
-                                                  : 'Full look',
-                                      child: SlayButton.tonal(
-                                          compact: true,
-                                          onPressed: () => _stage.request(
-                                                  'setCamera', {
-                                                'preset': preset
-                                              }).catchError(
-                                                  (_) => <String, dynamic>{}),
-                                          child: Icon(
-                                              semanticLabel: preset == 'feet'
+                Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: SizedBox(
+                            height: stageHeight,
+                            child: Stack(children: [
+                              Positioned.fill(
+                                  child: SlayStage(
+                                      catalog: widget.catalog,
+                                      look: _look,
+                                      controller: _stage)),
+                              Positioned(
+                                  top: 12,
+                                  left: 14,
+                                  child: ValueListenableBuilder<bool>(
+                                      valueListenable: _stage.showingOff,
+                                      builder: (_, playing, __) => playing
+                                          ? ValueListenableBuilder<String>(
+                                              valueListenable:
+                                                  _stage.showcasePhase,
+                                              builder: (_, phase, __) =>
+                                                  SlayLabel(phase))
+                                          : const SizedBox.shrink())),
+                              Positioned(
+                                  top: 12,
+                                  right: 14,
+                                  child: Column(children: [
+                                    for (final preset in [
+                                      'full',
+                                      'face',
+                                      'back',
+                                      'feet'
+                                    ])
+                                      Padding(
+                                          padding:
+                                              const EdgeInsets.only(bottom: 8),
+                                          child: Tooltip(
+                                              message: preset == 'feet'
                                                   ? 'Shoe close-up'
                                                   : preset == 'back'
                                                       ? 'Back view'
                                                       : preset == 'face'
                                                           ? 'Face close-up'
                                                           : 'Full look',
-                                              preset == 'feet'
-                                                  ? Icons.ice_skating_outlined
-                                                  : preset == 'back'
-                                                      ? Icons.rotate_right
-                                                      : preset == 'face'
-                                                          ? Icons.face_outlined
-                                                          : Icons.open_in_full,
-                                              size: 20))))
-                          ])),
-                      Positioned(
-                          bottom: 12,
-                          left: 14,
-                          child: Container(
-                              decoration: BoxDecoration(
-                                  color:
-                                      context.neon.panel.withValues(alpha: .94),
-                                  borderRadius: BorderRadius.circular(100),
-                                  border: Border.all(
-                                      color: context.neon.line, width: 1.5),
-                                  boxShadow: const [
-                                    BoxShadow(
-                                        color: kCabinetInk,
-                                        offset: Offset(0, 3))
-                                  ]),
-                              child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                        tooltip: 'Turn left',
-                                        icon: const Icon(Icons.rotate_left,
-                                            size: 20),
-                                        onPressed: () => _stage.request(
-                                                'rotateCamera', {
-                                              'radians': -.785398
-                                            }).catchError(
-                                                (_) => <String, dynamic>{})),
-                                    const SlayLabel('Rotate'),
-                                    IconButton(
-                                        tooltip: 'Turn right',
-                                        icon: const Icon(Icons.rotate_right,
-                                            size: 20),
-                                        onPressed: () => _stage.request(
-                                                'rotateCamera', {
-                                              'radians': .785398
-                                            }).catchError(
-                                                (_) => <String, dynamic>{})),
-                                  ])))
-                    ])),
+                                              child: IconButton.filledTonal(
+                                                  style: IconButton.styleFrom(
+                                                    backgroundColor: context
+                                                        .neon.panel
+                                                        .withValues(alpha: .94),
+                                                    foregroundColor:
+                                                        context.neon.ink,
+                                                    minimumSize:
+                                                        const Size(40, 40),
+                                                    shape: CircleBorder(
+                                                        side: BorderSide(
+                                                            color: context
+                                                                .neon.line)),
+                                                  ),
+                                                  onPressed: () => _stage
+                                                          .request(
+                                                              'setCamera', {
+                                                        'preset': preset
+                                                      }).catchError((_) =>
+                                                              <String,
+                                                                  dynamic>{}),
+                                                  icon: Icon(
+                                                      semanticLabel: preset ==
+                                                              'feet'
+                                                          ? 'Shoe close-up'
+                                                          : preset == 'back'
+                                                              ? 'Back view'
+                                                              : preset == 'face'
+                                                                  ? 'Face close-up'
+                                                                  : 'Full look',
+                                                      preset == 'feet'
+                                                          ? Icons
+                                                              .ice_skating_outlined
+                                                          : preset == 'back'
+                                                              ? Icons
+                                                                  .rotate_right
+                                                              : preset == 'face'
+                                                                  ? Icons
+                                                                      .face_outlined
+                                                                  : Icons
+                                                                      .open_in_full,
+                                                      size: 20))))
+                                  ])),
+                              Positioned(
+                                  bottom: 12,
+                                  left: 14,
+                                  child: Container(
+                                      decoration: BoxDecoration(
+                                          color: context.neon.panel
+                                              .withValues(alpha: .94),
+                                          borderRadius:
+                                              BorderRadius.circular(100),
+                                          border: Border.all(
+                                              color: context.neon.line,
+                                              width: 1.5),
+                                          boxShadow: const [
+                                            BoxShadow(
+                                                color: kCabinetInk,
+                                                blurRadius: 6,
+                                                offset: Offset(0, 2))
+                                          ]),
+                                      child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            IconButton(
+                                                tooltip: 'Turn left',
+                                                icon: const Icon(
+                                                    Icons.rotate_left,
+                                                    size: 20),
+                                                onPressed: () => _stage.request(
+                                                        'rotateCamera', {
+                                                      'radians': -.785398
+                                                    }).catchError((_) =>
+                                                        <String, dynamic>{})),
+                                            const SlayLabel('Rotate'),
+                                            IconButton(
+                                                tooltip: 'Turn right',
+                                                icon: const Icon(
+                                                    Icons.rotate_right,
+                                                    size: 20),
+                                                onPressed: () => _stage.request(
+                                                        'rotateCamera', {
+                                                      'radians': .785398
+                                                    }).catchError((_) =>
+                                                        <String, dynamic>{})),
+                                          ])))
+                            ])))),
+                const SizedBox(height: 12),
                 SizedBox(
                     height: 48,
                     child: ListView(
@@ -550,8 +598,15 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                                   : () => _pick('background',
                                       widget.catalog['backgrounds'])),
                         ])),
+                const SizedBox(height: 4),
+                Divider(
+                    height: 16,
+                    thickness: 1,
+                    indent: 16,
+                    endIndent: 16,
+                    color: context.neon.line),
                 SizedBox(
-                    height: 48,
+                    height: 42,
                     child: ListView(
                         scrollDirection: Axis.horizontal,
                         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -563,8 +618,8 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                                   (i['body'] == 'unisex' ||
                                       i['body'] == _look.body))))
                             Padding(
-                                padding: const EdgeInsets.only(right: 8),
-                                child: SlayPill(
+                                padding: const EdgeInsets.only(right: 4),
+                                child: SlayTab(
                                     label: c.value,
                                     selected: _category == c.key,
                                     onPressed: (_busy || _selecting)
@@ -574,7 +629,8 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                                               _styleGroup = 'All';
                                             })))
                         ])),
-                if (clothing)
+                if (clothing) ...[
+                  const SizedBox(height: 8),
                   SizedBox(
                       height: 36,
                       child: ListView(
@@ -584,7 +640,8 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                             for (final group in groups)
                               Padding(
                                   padding: const EdgeInsets.only(right: 6),
-                                  child: SlayPill(
+                                  child: SlayTab(
+                                      pill: true,
                                       label: group,
                                       selected: selectedGroup == group,
                                       onPressed: (_busy || _selecting)
@@ -592,6 +649,7 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                                           : () => setState(
                                               () => _styleGroup = group)))
                           ])),
+                ],
                 Expanded(
                     child: GridView.builder(
                         padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
