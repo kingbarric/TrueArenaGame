@@ -10,11 +10,11 @@ import '../../core/hangout_state.dart';
 import '../../core/models.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/neon.dart';
-import '../calls/call_screen.dart';
 import '../lobby/joined_room_screen.dart';
 import '../spectate/spectate_screen.dart';
 import 'go_live_sheet.dart';
 import 'huud_kit.dart';
+import 'huud_voice.dart';
 import 'huud_space_models.dart';
 import 'huud_roster.dart';
 import 'safety_sheet.dart';
@@ -64,6 +64,15 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    // While this screen is on top, its own mic button stands in for the call bar.
+    final onTop = ModalRoute.of(context)?.isCurrent ?? true;
+    final room = _huud?.voiceRoom;
+    final hangout = HangoutState.instance;
+    if (onTop && room != null) {
+      hangout.foreground = room;
+    } else if (!onTop && hangout.foreground == room) {
+      hangout.foreground = null;
+    }
     if (_started) return;
     _started = true;
     final app = AppScope.of(context);
@@ -78,6 +87,12 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     _events?.cancel();
     _poll?.cancel();
     HangoutState.instance.removeListener(_onVoice);
+    final room = _huud?.voiceRoom;
+    if (room != null) {
+      if (HangoutState.instance.foreground == room) HangoutState.instance.foreground = null;
+      // Back out of the Huud: its voice goes quiet too. (Games on top keep it.)
+      if (HuudVoice.instance.isIn(room) || HuudVoice.instance.isConnecting(room)) HuudVoice.instance.leave();
+    }
     _say.dispose();
     _scroll.dispose();
     super.dispose();
@@ -126,7 +141,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
       case 'declined-play':
         huudSnack(context, 'Not this time — you can watch and ask again next game.');
       case 'accepted-mic':
-        huudSnack(context, 'You can talk now! Tap Talk 🎙️');
+        huudSnack(context, 'You can talk now! Tap the mic 🎙️');
       case 'mic-off':
         huudSnack(context, 'The host turned your mic off.');
       case 'picked':
@@ -159,6 +174,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         _huud = huud;
         _error = null;
       });
+      _syncVoice(huud);
       if (huud.youAreIn && _chat == null) _loadChat();
       if (!watching && huud.active && huud.live && !huud.youAreIn && huud.joinRequest != 'pending') {
         api.post('/huud-spaces/${widget.id}/watch').catchError((Object _) => null);
@@ -313,30 +329,57 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
 
   Future<void> _putGameAway() => _update('clear', (api) => api.delete('/huud-spaces/${widget.id}/game'));
 
+  /// In a Live Huud you're always connected — muted until you tap the mic.
+  void _syncVoice(HuudSpace huud) {
+    final voice = HuudVoice.instance;
+    final room = huud.voiceRoom;
+    if (ModalRoute.of(context)?.isCurrent ?? true) HangoutState.instance.foreground = room;
+    final belong = huud.active && huud.live && huud.youAreIn;
+    if (belong && !voice.isIn(room) && !voice.isConnecting(room)) {
+      voice.join(
+        api: AppScope.of(context).api,
+        roomName: room,
+        title: huud.name,
+        openHuud: () => _backToHuud(huud.id),
+      );
+    } else if (!belong && (voice.isIn(room) || voice.isConnecting(room))) {
+      voice.leave();
+    }
+  }
+
+  void _backToHuud(String id) {
+    final nav = HangoutState.instance.navigationKey.currentState ?? Navigator.maybeOf(context);
+    nav?.popUntil((r) => r.settings.name == huudRouteName(id) || r.isFirst);
+  }
+
+  /// The mic button: muted ↔ talking, right here — no call screen.
   Future<void> _talk(HuudSpace huud) async {
-    final hangout = HangoutState.instance;
-    if (hangout.roomName == huud.voiceRoom) {
-      hangout.show();
+    final voice = HuudVoice.instance;
+    if (!voice.isIn(huud.voiceRoom)) {
+      if (voice.isConnecting(huud.voiceRoom)) return;
+      _syncVoice(huud);
+      huudSnack(context, 'Connecting to the Huud…');
       return;
     }
-    final path = '/calls/rooms/${huud.voiceRoom}/token';
-    final token = await _run('talk', (api) => api.post(path));
-    if (token is! Map || !mounted) return;
-    final api = AppScope.of(context).api;
-    await CallScreen.open(
-      context,
-      CallScreen(
-        roomName: huud.voiceRoom,
-        token: token['token'] as String,
-        livekitUrl: token['livekitUrl'] as String,
-        title: huud.name,
-        refreshToken: () async => ((await api.post(path) as Map<String, dynamic>)['token'] as String),
-        onAskToSpeak: () async {
-          await api.post('/huud-spaces/${widget.id}/mic').catchError((Object _) => null);
-          if (mounted) _load();
-        },
-      ),
-    );
+    if (!voice.canSpeak && !huud.youCanSpeak) {
+      huudSnack(
+          context,
+          huud.micRequest == 'pending'
+              ? 'You asked for the mic — wait for the host ✋'
+              : 'Tap Ask mic — the host hands out the mic ✋');
+      return;
+    }
+    final muted = HangoutState.instance.muted;
+    final ok = await voice.setMuted(!muted);
+    if (!mounted) return;
+    if (!ok && muted) {
+      huudSnack(
+          context,
+          voice.canSpeak
+              ? 'Turn on the microphone for PlayHuud in your phone settings.'
+              : "The host hasn't handed you the mic yet ✋");
+    }
+    setState(() {});
   }
 
   Future<void> _invite(HuudSpace huud) async {
@@ -698,6 +741,34 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     );
   }
 
+  /// Whoever is speaking right now, in a small dark box beside the chips.
+  Widget? _talkingNow(HuudSpace huud) {
+    final call = HangoutState.instance;
+    if (call.roomName != huud.voiceRoom) return null;
+    final me = call.room?.localParticipant;
+    final names = [
+      for (final p in call.participants)
+        if (p.isSpeaking) p == me ? 'You' : (p.name.isEmpty ? 'Someone' : p.name.split(' ').first),
+    ];
+    if (names.isEmpty) return null;
+    final text = switch (names) {
+      ['You'] => "You're talking",
+      [final one] => '$one is talking',
+      [final a, final b] => '$a & $b are talking',
+      _ => '${names.first} +${names.length - 1} talking',
+    };
+    return Container(
+      key: const ValueKey('huud-talking'),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(color: kCabinetInk, borderRadius: BorderRadius.circular(999)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(Icons.graphic_eq_rounded, size: 16, color: HuudColors.of(context).orange),
+        const SizedBox(width: 6),
+        Text(text, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Colors.white)),
+      ]),
+    );
+  }
+
   Widget _hero(HuudSpace huud) {
     final host = huud.host;
     final hostLine = huud.youAreHost
@@ -717,6 +788,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
           HuudChip(huud.privacy.label, emoji: huud.privacy.emoji, onOrange: true),
           if (huud.shared && huud.active) const HuudChip('On the feed', emoji: '📣', onOrange: true),
           if (huud.watching > 0 && huud.active) HuudChip('${huud.watching} watching', emoji: '👀', onOrange: true),
+          if (_talkingNow(huud) case final talking?) talking,
         ]),
         const SizedBox(height: 12),
         Text(huud.name,
@@ -861,14 +933,20 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
   }
 
   Widget _actions(HuudSpace huud) {
-    final inVoice = HangoutState.instance.roomName == huud.voiceRoom;
-    final canSpeak = huud.youCanSpeak;
+    final voice = HuudVoice.instance;
+    final connected = voice.isIn(huud.voiceRoom);
+    final canSpeak = huud.youCanSpeak || voice.canSpeak;
+    final talking = connected && !HangoutState.instance.muted;
     return Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
       HuudRoundAction(
         key: const ValueKey('huud-talk'),
-        icon: inVoice ? Icons.graphic_eq_rounded : (canSpeak ? Icons.mic_rounded : Icons.headphones_rounded),
-        label: inVoice ? (canSpeak ? 'Talking' : 'Listening') : (canSpeak ? 'Talk' : 'Listen'),
-        active: inVoice,
+        icon: talking ? Icons.mic_rounded : Icons.mic_off_rounded,
+        label: voice.isConnecting(huud.voiceRoom)
+            ? 'Joining…'
+            : talking
+                ? 'Talking'
+                : 'Muted',
+        active: talking,
         onTap: () => _talk(huud),
       ),
       if (!canSpeak)

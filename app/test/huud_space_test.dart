@@ -13,6 +13,8 @@ import 'package:truearena/features/huudspace/create_huud_sheet.dart';
 import 'package:truearena/features/huudspace/huud_home_screen.dart';
 import 'package:truearena/features/huudspace/huud_space_models.dart';
 import 'package:truearena/features/huudspace/huud_space_screen.dart';
+import 'package:truearena/features/huudspace/huud_voice.dart';
+import 'package:truearena/core/hangout_state.dart';
 import 'package:truearena/features/huudspace/live_now_panel.dart';
 import 'package:truearena/features/huudspace/safety_sheet.dart';
 import 'package:truearena/features/huudspace/huud_swipe_screen.dart';
@@ -69,7 +71,11 @@ Map<String, dynamic> _huud({
 }
 
 void main() {
-  setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
+  setUp(() {
+    GoogleFonts.config.allowRuntimeFetching = false;
+    HuudVoice.instance.reset();
+    HangoutState.instance.clear();
+  });
 
   Future<List<String>> pump(WidgetTester tester, Widget home, Future<http.Response> Function(http.Request) routes,
       {bool guest = false, bool settle = true}) async {
@@ -240,7 +246,8 @@ void main() {
       expect(find.byKey(ValueKey('huud-pick-$g')), findsOneWidget);
     }
     // Talk and Invite — each a picture and a word. It's your Huud, so no Leave.
-    for (final word in ['Talk', 'Invite']) {
+    // The mic starts muted; voice is joined on its own (no call screen).
+    for (final word in ['Muted', 'Invite']) {
       expect(find.text(word), findsOneWidget);
     }
     expect(find.byKey(const ValueKey('huud-leave')), findsNothing);
@@ -469,7 +476,9 @@ void main() {
         game: {'roomId': 'room1', 'code': 'AB12CD', 'gameType': 'whot', 'status': 'waiting', 'players': 1, 'seats': 4},
       ));
     });
-    expect(find.text('Listen'), findsOneWidget);
+    // In a Live Huud you're connected to its voice straight away, muted.
+    expect(calls, contains('POST /api/v1/calls/rooms/huud-h1/token {}'));
+    expect(find.text('Muted'), findsOneWidget);
     expect(find.byKey(const ValueKey('huud-ask-mic')), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('huud-ask-play')));
     await tester.pumpAndSettle();

@@ -9,6 +9,8 @@ import 'package:truearena/core/api_client.dart';
 import 'package:truearena/core/app_state.dart';
 import 'package:truearena/core/models.dart';
 import 'package:truearena/features/huudspace/huud_space_screen.dart';
+import 'package:truearena/features/huudspace/huud_voice.dart';
+import 'package:truearena/core/hangout_state.dart';
 import 'package:truearena/features/huudspace/leave_game.dart';
 import 'package:truearena/features/notifications/notifications_screen.dart';
 import 'package:truearena/theme/neon_theme.dart';
@@ -38,7 +40,11 @@ final _huud = {
 final _navKey = GlobalKey<NavigatorState>();
 
 void main() {
-  setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
+  setUp(() {
+    GoogleFonts.config.allowRuntimeFetching = false;
+    HuudVoice.instance.reset();
+    HangoutState.instance.clear();
+  });
 
   Future<List<String>> pump(
       WidgetTester tester, Widget home, Future<http.Response> Function(http.Request) routes) async {

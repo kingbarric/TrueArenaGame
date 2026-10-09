@@ -205,7 +205,12 @@ class _GameVoiceControlState extends State<GameVoiceControl> {
   Future<void> _connect() async {
     if (_joining || (widget.spectating && (!_approved || _serverMuted))) return;
     if (HangoutState.instance.active) {
-      HangoutState.instance.show();
+      // A Huud's voice has no call screen — the button is just the mic.
+      if (HangoutState.instance.onOpen != null) {
+        await HangoutState.instance.toggleMute?.call();
+      } else {
+        HangoutState.instance.show();
+      }
       return;
     }
     setState(() => _joining = true);
