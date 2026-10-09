@@ -1702,16 +1702,24 @@ public class GameOrchestrator {
         // Roles as they ended, not as they were dealt: a Faithful recruited mid-game
         // (Hidden Legacy, Double Agent) played and won or lost as a Traitor, but the
         // roles table only holds the starting deal.
+        // Everyone with a result counts — every game type, not just the ones
+        // that deal roles (that's how Whot, Draughts & co. never counted).
+        // Agents don't keep stats.
         Map<String, String> finalRoles = rt.roleByUser();
         return roleRows.findByGameSessionId(rt.gameSessionId)
-                .concatMap(role -> {
-                    boolean won = "won".equals(perPlayerOutcome.get(role.userId().toString()));
-                    String endedAs = finalRoles.getOrDefault(role.userId().toString(), role.roleType());
-                    boolean wasTraitor = "traitor".equals(endedAs) || "recruited_traitor".equals(endedAs);
-                    return statsRows.findByUserIdAndGroupIdIsNull(role.userId())
-                            .defaultIfEmpty(PlayerStatsRow.lifetimeZero(role.userId()))
-                            .flatMap(row -> statsRows.save(row.plusGame(won, wasTraitor)));
-                })
+                .collectMap(role -> role.userId().toString(), role -> role.roleType())
+                .flatMapMany(dealt -> Flux.fromIterable(perPlayerOutcome.entrySet())
+                        .filter(e -> parseUuid(e.getKey()) != null)
+                        .concatMap(e -> {
+                            UUID userId = parseUuid(e.getKey());
+                            boolean won = "won".equals(e.getValue());
+                            String endedAs = finalRoles.getOrDefault(e.getKey(), dealt.get(e.getKey()));
+                            boolean wasTraitor = "traitor".equals(endedAs) || "recruited_traitor".equals(endedAs);
+                            return users.findById(userId).filter(u -> !u.isBot())
+                                    .flatMap(u -> statsRows.findByUserIdAndGroupIdIsNull(userId)
+                                            .defaultIfEmpty(PlayerStatsRow.lifetimeZero(userId))
+                                            .flatMap(row -> statsRows.save(row.plusGame(won, wasTraitor))));
+                        }))
                 .then()
                 .onErrorResume(e -> {
                     log.warn("stats update failed for session {}: {}", rt.gameSessionId, e.toString());

@@ -155,8 +155,10 @@ public class RatingService {
 
     /**
      * An unrated match still keeps its participants (bots included — "who did
-     * you play" is part of the history), with no rating columns. A casual game
-     * between people bumps {@code casual_games}; nothing else moves.
+     * you play" is part of the history), with no rating columns. Every person
+     * in it (not agents, not guests) gets the game counted — played, won, lost,
+     * streaks — so the profile reflects everything they play; a casual game
+     * between people also bumps {@code casual_games}. Ratings don't move.
      */
     private Mono<Void> recordUnrated(UUID matchId, FinishedGame game, Map<String, String> outcome, List<Seat> seats,
                                      Set<String> forfeited, UnrankedReason reason) {
@@ -165,6 +167,8 @@ public class RatingService {
                 .concatMap(seat -> insertParticipant(matchId, seat.userId(), outcome.get(seat.userId()),
                         forfeited.contains(seat.userId()), !game.connectedAtEnd().contains(seat.userId()),
                         null, null, null)
+                        .then(seat.bot() || seat.guest() ? Mono.empty()
+                                : countGame(UUID.fromString(seat.userId()), game.gameType(), outcome.get(seat.userId())))
                         .then(humansOnly && !seat.guest() && settings.isRated(game.gameType())
                                 ? db.sql("INSERT INTO player_game_stats (user_id, game_type, casual_games, last_played_at) "
                                         + "VALUES (:uid, :g, 1, now()) ON CONFLICT (user_id, game_type) DO UPDATE "
@@ -249,6 +253,27 @@ public class RatingService {
                 // RatedMatchPolicy: only a verified human ever reaches this line.
                 .bind("eligible", !provisional)
                 .bind("id", r.before().id())
+                .fetch().rowsUpdated().then();
+    }
+
+    /** One more game on someone's per-game record, rated or not. */
+    private Mono<Void> countGame(UUID userId, String gameType, String result) {
+        int win = PairwiseOutcomes.WON.equals(result) ? 1 : 0;
+        int draw = PairwiseOutcomes.TIED.equals(result) ? 1 : 0;
+        return db.sql("INSERT INTO player_game_stats (user_id, game_type, games_played, wins, losses, draws, "
+                        + "current_win_streak, best_win_streak, last_played_at) "
+                        + "VALUES (:uid, :g, 1, :w, :l, :d, :w, :w, now()) "
+                        + "ON CONFLICT (user_id, game_type) DO UPDATE SET "
+                        + "games_played = player_game_stats.games_played + 1, "
+                        + "wins = player_game_stats.wins + :w, "
+                        + "losses = player_game_stats.losses + :l, "
+                        + "draws = player_game_stats.draws + :d, "
+                        + "current_win_streak = CASE WHEN :w = 1 THEN player_game_stats.current_win_streak + 1 ELSE 0 END, "
+                        + "best_win_streak = GREATEST(player_game_stats.best_win_streak, "
+                        + "    CASE WHEN :w = 1 THEN player_game_stats.current_win_streak + 1 ELSE 0 END), "
+                        + "last_played_at = now(), updated_at = now()")
+                .bind("uid", userId).bind("g", gameType)
+                .bind("w", win).bind("l", 1 - win - draw).bind("d", draw)
                 .fetch().rowsUpdated().then();
     }
 

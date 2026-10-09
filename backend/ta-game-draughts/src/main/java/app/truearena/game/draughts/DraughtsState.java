@@ -46,6 +46,19 @@ public final class DraughtsState implements GameState {
     final WinResult win;
     final String pendingDrawOffer;
 
+    // Undo: the turn that's under way began from this board (a turn can be a
+    // chain of several captures), and the last finished turn — who played it
+    // and what came before — is kept so its player can ask to take it back.
+    final Piece[] turnStartBoard;
+    final int turnStartRequired;
+    final Piece[] undoBoard;
+    final int undoRequired;
+    final String undoPhase;
+    final int undoRound;
+    final String lastMover;
+    /** The player asking to take back their last turn, waiting on the other's answer. */
+    final String pendingUndo;
+
     private DraughtsState(Draft d) {
         this.phase = d.phase;
         this.round = d.round;
@@ -61,6 +74,14 @@ public final class DraughtsState implements GameState {
         this.seq = d.seq;
         this.win = d.win;
         this.pendingDrawOffer = d.pendingDrawOffer;
+        this.turnStartBoard = d.turnStartBoard == null ? null : d.turnStartBoard.clone();
+        this.turnStartRequired = d.turnStartRequired;
+        this.undoBoard = d.undoBoard == null ? null : d.undoBoard.clone();
+        this.undoRequired = d.undoRequired;
+        this.undoPhase = d.undoPhase;
+        this.undoRound = d.undoRound;
+        this.lastMover = d.lastMover;
+        this.pendingUndo = d.pendingUndo;
     }
 
     @Override public String phase() { return phase; }
@@ -115,6 +136,14 @@ public final class DraughtsState implements GameState {
         long seq;
         WinResult win;
         String pendingDrawOffer;
+        Piece[] turnStartBoard;
+        int turnStartRequired;
+        Piece[] undoBoard;
+        int undoRequired;
+        String undoPhase;
+        int undoRound;
+        String lastMover;
+        String pendingUndo;
 
         Draft() {
         }
@@ -134,6 +163,14 @@ public final class DraughtsState implements GameState {
             this.seq = s.seq;
             this.win = s.win;
             this.pendingDrawOffer = s.pendingDrawOffer;
+            this.turnStartBoard = s.turnStartBoard == null ? null : s.turnStartBoard.clone();
+            this.turnStartRequired = s.turnStartRequired;
+            this.undoBoard = s.undoBoard == null ? null : s.undoBoard.clone();
+            this.undoRequired = s.undoRequired;
+            this.undoPhase = s.undoPhase;
+            this.undoRound = s.undoRound;
+            this.lastMover = s.lastMover;
+            this.pendingUndo = s.pendingUndo;
         }
 
         DraughtsState build() {

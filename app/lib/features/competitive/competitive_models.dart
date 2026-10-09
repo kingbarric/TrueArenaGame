@@ -113,7 +113,7 @@ class GameStats {
     this.casualGames = 0,
   });
 
-  /// Ranked games only — W/L/D and streaks are the competitive stat line.
+  /// Every finished game — rated or not.
   final int gamesPlayed;
   final int wins;
   final int losses;
@@ -124,6 +124,14 @@ class GameStats {
   final int top100Wins;
   final int tournamentWins;
   final int casualGames;
+
+  /// Grows with every game you finish: +20 a win, +8 a draw, +3 a loss
+  /// (resigning is a loss). It never goes down — playing always counts.
+  int get strength => wins * strengthPerWin + draws * strengthPerDraw + losses * strengthPerLoss;
+
+  static const strengthPerWin = 20;
+  static const strengthPerDraw = 8;
+  static const strengthPerLoss = 3;
 
   factory GameStats.fromJson(Object? raw) {
     if (raw is! Map) return const GameStats();

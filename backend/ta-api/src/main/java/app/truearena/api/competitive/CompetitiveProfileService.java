@@ -148,7 +148,7 @@ public class CompetitiveProfileService {
             Set<String> gameTypes = new LinkedHashSet<>(t.getT1().keySet());
             gameTypes.addAll(t.getT2().keySet());
             gameTypes.addAll(t.getT3().keySet());
-            gameTypes.retainAll(settings.ratedGameTypes());
+            // Every game you've played gets its record — rated or not.
             return Flux.fromIterable(gameTypes)
                     .concatMap(g -> {
                         PlayerGameRatingRow r = t.getT1().get(g);

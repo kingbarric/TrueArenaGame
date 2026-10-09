@@ -126,6 +126,12 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
 
   bool _paused = false;
   String? _pendingDrawOffer;
+
+  /// Someone asked to take back their last move (their id), waiting on the other player.
+  String? _pendingUndo;
+
+  /// Who may ask for an undo right now — whoever just moved, until the other side plays.
+  String? _undoableBy;
   String? _awayPlayer;
   int? _reconnectSeconds;
 
@@ -388,6 +394,8 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
       _spectatorCount = p['spectatorCount'] as int? ?? _spectatorCount;
       _mandatoryCapture = p['mandatoryCapture'] as bool? ?? _mandatoryCapture;
       _pendingDrawOffer = p['pendingDrawOffer'] as String?;
+      _pendingUndo = p['pendingUndo'] as String?;
+      _undoableBy = p['undoableBy'] as String?;
     });
   }
 
@@ -615,6 +623,24 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
           GameMusic.playOutcome(won: winningSide == mySide);
         case 'DRAW_OFFERED':
           _pendingDrawOffer = data['by']?.toString();
+        case 'UNDO_REQUESTED':
+          _pendingUndo = data['by']?.toString();
+          _undoableBy = null;
+        case 'UNDO_DECLINED':
+          if (_pendingUndo == widget.selfId) {
+            ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('${label(data['by']?.toString() ?? '')} said no — your move stays.')));
+          }
+          _pendingUndo = null;
+        case 'UNDO_ACCEPTED':
+          _pendingUndo = null;
+          _undoableBy = null;
+          board = (data['board'] as List).map((e) => e as String?).toList();
+          _serverLegal = null;
+          _selected = null;
+          _chain = const [];
+          activeSquare = null;
+          _rebuildPiecesFromBoard();
         case 'RECONNECT_WAIT':
           _applyReconnectWait(data);
       }
@@ -647,6 +673,12 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
 
   String? _describe(String type, Map<String, dynamic> data) {
     switch (type) {
+      case 'UNDO_REQUESTED':
+        return '${label(data['by']?.toString() ?? '')} asked to undo their move.';
+      case 'UNDO_ACCEPTED':
+        return '${label(data['by']?.toString() ?? '')} allowed the undo.';
+      case 'UNDO_DECLINED':
+        return '${label(data['by']?.toString() ?? '')} said no to the undo.';
       case 'TURN_GRACE':
         final who = label(_actorFor(data['side'] as String));
         final secs = data['seconds'] as int? ?? 0;
@@ -1321,6 +1353,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
           );
         }),
       ),
+      if (!_amSpectator && _pendingUndo != null && _pendingUndo != widget.selfId) _undoAsk(),
       if (!_amSpectator) _actionBar(),
       if (widget.championshipId == null || !_amSpectator) _chatPanel(n),
     ]);
@@ -1379,13 +1412,58 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
     );
   }
 
-  /// Draughts has no real undo — like Macala's, this is a nudge to your
-  /// opponent, not an action the server will act on.
+  /// Ask to take back the move you just played. The other player gets an
+  /// Allow / No box; the board only goes back if they allow it.
   void _requestUndo() {
-    widget.socket
-        .send('CHAT_SEND', {'channel': 'table', 'text': 'requests an undo.'});
-    ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Request sent to your opponent.')));
+    final messenger = ScaffoldMessenger.of(context);
+    final other = label(_actorFor(mySide == 'A' ? 'B' : 'A'));
+    if (_pendingUndo == widget.selfId) {
+      messenger.showSnackBar(SnackBar(content: Text('Waiting for $other to answer…')));
+      return;
+    }
+    if (_undoableBy != widget.selfId) {
+      messenger.showSnackBar(SnackBar(
+          content: Text('You can undo only right after your move, before $other plays.')));
+      return;
+    }
+    widget.socket.send('PLAYER_ACTION', {'action': 'REQUEST_UNDO', 'data': {}});
+    messenger.showSnackBar(SnackBar(content: Text('Asked $other to let you undo.')));
+  }
+
+  /// The other player asked to undo: a box you can't miss, with two big answers.
+  Widget _undoAsk() {
+    final who = label(_pendingUndo!);
+    void answer(bool yes) =>
+        widget.socket.send('PLAYER_ACTION', {'action': yes ? 'ACCEPT_UNDO' : 'DECLINE_UNDO', 'data': {}});
+    return Container(
+      key: const ValueKey('draughts-undo-ask'),
+      margin: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+      padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+      decoration: BoxDecoration(
+        color: const Color(0xffffc233),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [BoxShadow(color: const Color(0xffffc233).withValues(alpha: 0.45), blurRadius: 12)],
+      ),
+      child: Row(children: [
+        const Icon(Icons.undo_rounded, color: Color(0xff241708)),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text('$who wants to undo their move',
+              style: const TextStyle(color: Color(0xff241708), fontWeight: FontWeight.w900, fontSize: 15)),
+        ),
+        TextButton(
+          key: const ValueKey('draughts-undo-no'),
+          onPressed: () => answer(false),
+          child: const Text('No', style: TextStyle(color: Color(0xff241708), fontWeight: FontWeight.w800)),
+        ),
+        FilledButton(
+          key: const ValueKey('draughts-undo-yes'),
+          style: FilledButton.styleFrom(backgroundColor: const Color(0xff241708)),
+          onPressed: () => answer(true),
+          child: const Text('Allow', style: TextStyle(fontWeight: FontWeight.w900)),
+        ),
+      ]),
+    );
   }
 
   void _offerOrAcceptDraw(bool pendingFromOpponent, bool offeredByMe) {

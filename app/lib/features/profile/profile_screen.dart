@@ -7,6 +7,7 @@ import '../../widgets/neon.dart';
 import '../notifications/notifications_screen.dart';
 import '../onboarding/guest_save_session_card.dart';
 import '../settings/settings_screen.dart';
+import '../shell/main_shell.dart';
 import '../wallet/wallet_screen.dart';
 import '../draughts/championships_screen.dart';
 import '../competitive/competitive_api.dart';
@@ -28,12 +29,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
   List<Map<String, dynamic>> _championshipBadges = const [];
   CompetitiveProfile? _competitive;
   List<String> _ratedGames = const ['draughts'];
+  List<MatchHistoryEntry>? _matches;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) { _loadStats(); _loadBadges(); _loadCompetitive(); });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _reload());
+    MainShell.shownTab.addListener(_onTab);
   }
+
+  @override
+  void dispose() {
+    MainShell.shownTab.removeListener(_onTab);
+    super.dispose();
+  }
+
+  /// Back on You after a game: show the new numbers.
+  void _onTab() {
+    if (MainShell.shownTab.value == MainShell.youTab && mounted) _reload();
+  }
+
+  Future<void> _reload() => Future.wait([_loadStats(), _loadBadges(), _loadCompetitive(), _loadMatches()]);
 
   /// PlayHuud number, founding status, location and per-game ratings. Never
   /// blocks the rest of the profile — on failure the section just doesn't show.
@@ -52,14 +68,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (_) {/* optional section */}
   }
 
+  /// Your last games of every kind, newest first.
+  Future<void> _loadMatches() async {
+    final app = AppScope.of(context);
+    if (app.identity == Identity.anonymous) return;
+    try {
+      final matches = await CompetitiveApi(app.api).myMatches(limit: 15);
+      if (mounted) setState(() => _matches = matches);
+    } catch (_) {
+      if (mounted) setState(() => _matches = const []);
+    }
+  }
+
   Future<void> _loadBadges() async {
     try {
       final rows = await AppScope.of(context).api.get('/championships/badges/mine') as List;
       if (mounted) {
-        setState(() => _championshipBadges = rows
-            .map((e) => (e as Map).cast<String, dynamic>()).toList());
+        setState(() => _championshipBadges = rows.map((e) => (e as Map).cast<String, dynamic>()).toList());
       }
-    } catch (_) { /* Badges do not block the rest of the profile. */ }
+    } catch (_) {/* Badges do not block the rest of the profile. */}
   }
 
   Future<void> _loadStats() async {
@@ -88,8 +115,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           IconButton(
             tooltip: 'Notifications',
             icon: const Icon(Icons.notifications_outlined),
-            onPressed: () => Navigator.of(context)
-                .push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
           ),
           IconButton(
             tooltip: 'Settings',
@@ -99,92 +125,115 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
       ),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            // Order: the player cards, then "complete your profile", then the
-            // wallet, then everything else. (Photo, username, theme and sign
-            // out live in Settings.)
-            if (_competitive != null)
-              CompetitiveRecordSection(
-                key: const ValueKey('profile-competitive-record'),
-                profile: _competitive!,
-                own: true,
-                ratedGames: _ratedGames,
-                onChanged: _loadCompetitive,
-                horizontalPadding: 0, // this list is already padded
-                belowPrompt: Bouncy(
-      pressScale: 0.98,
-      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WalletScreen())),
-      child: NeonCard(
-        accent: n.jade,
-        child: Row(children: [
-          Icon(Icons.diamond_rounded, color: n.jade, size: 22),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Wallet', style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
-              Text('Coins, tier, and history', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute)),
-            ]),
-          ),
-          Icon(Icons.chevron_right, color: n.mute, size: 20),
-        ]),
-      ),
-    ),
-              )
-            else
-              Bouncy(
-      pressScale: 0.98,
-      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WalletScreen())),
-      child: NeonCard(
-        accent: n.jade,
-        child: Row(children: [
-          Icon(Icons.diamond_rounded, color: n.jade, size: 22),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Wallet', style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
-              Text('Coins, tier, and history', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute)),
-            ]),
-          ),
-          Icon(Icons.chevron_right, color: n.mute, size: 20),
-        ]),
-      ),
-    ),
-            const SizedBox(height: 28),
-            if (_championshipBadges.isNotEmpty) ...[
-              Text('CHAMPIONSHIP BADGES', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: n.gold)),
-              const SizedBox(height: 8),
-              ..._championshipBadges.map((badge) => Card(child: ListTile(
-                leading: const Text('🏆', style: TextStyle(fontSize: 25)),
-                title: Text('${badge['name']} Champion'),
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => ChampionshipDetailScreen(id: badge['championshipId'] as String))),
-              ))),
-              const SizedBox(height: 16),
-            ],
-            Text('MATCH HISTORY', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: n.gold)),
-            const SizedBox(height: 12),
-            if (isGuest) ...[
-              const GuestSaveSessionCard(),
+        child: RefreshIndicator(
+          onRefresh: _reload,
+          child: ListView(
+            padding: const EdgeInsets.all(20),
+            children: [
+              // Order: the player cards, then "complete your profile", then the
+              // wallet, then everything else. (Photo, username, theme and sign
+              // out live in Settings.)
+              if (_competitive != null)
+                CompetitiveRecordSection(
+                  key: const ValueKey('profile-competitive-record'),
+                  profile: _competitive!,
+                  own: true,
+                  // Your photo straight from this phone, so a new one shows at once.
+                  avatarUrl: app.user?.avatarUrl,
+                  avatarPath: app.avatarImagePath,
+                  ratedGames: _ratedGames,
+                  onChanged: _loadCompetitive,
+                  horizontalPadding: 0, // this list is already padded
+                  belowPrompt: Bouncy(
+                    pressScale: 0.98,
+                    onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WalletScreen())),
+                    child: NeonCard(
+                      accent: n.jade,
+                      child: Row(children: [
+                        Icon(Icons.diamond_rounded, color: n.jade, size: 22),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text('Wallet',
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+                            Text('Coins, tier, and history',
+                                style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute)),
+                          ]),
+                        ),
+                        Icon(Icons.chevron_right, color: n.mute, size: 20),
+                      ]),
+                    ),
+                  ),
+                )
+              else
+                Bouncy(
+                  pressScale: 0.98,
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WalletScreen())),
+                  child: NeonCard(
+                    accent: n.jade,
+                    child: Row(children: [
+                      Icon(Icons.diamond_rounded, color: n.jade, size: 22),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text('Wallet',
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+                          Text('Coins, tier, and history',
+                              style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute)),
+                        ]),
+                      ),
+                      Icon(Icons.chevron_right, color: n.mute, size: 20),
+                    ]),
+                  ),
+                ),
+              const SizedBox(height: 28),
+              if (_championshipBadges.isNotEmpty) ...[
+                Text('CHAMPIONSHIP BADGES', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: n.gold)),
+                const SizedBox(height: 8),
+                ..._championshipBadges.map((badge) => Card(
+                        child: ListTile(
+                      leading: const Text('🏆', style: TextStyle(fontSize: 25)),
+                      title: Text('${badge['name']} Champion'),
+                      onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => ChampionshipDetailScreen(id: badge['championshipId'] as String))),
+                    ))),
+                const SizedBox(height: 16),
+              ],
+              Text('MATCH HISTORY', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: n.gold)),
               const SizedBox(height: 12),
+              if (isGuest) ...[
+                const GuestSaveSessionCard(),
+                const SizedBox(height: 12),
+              ],
+              if (_statsError != null)
+                NeonCard(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(_statsError!, style: TextStyle(color: n.danger, fontSize: 12)),
+                    const SizedBox(height: 10),
+                    NeonButton('Retry', style: NeonStyle.ghost, expand: false, onPressed: () {
+                      setState(() => _statsError = null);
+                      _loadStats();
+                    }),
+                  ]),
+                )
+              else if (_stats == null)
+                const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator()))
+              else
+                _statsGrid(n, _stats!),
+              const SizedBox(height: 14),
+              if (_matches == null)
+                const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator()))
+              else if (_matches!.isEmpty)
+                Text('No games yet — your games will show up here.',
+                    key: const ValueKey('profile-no-matches'), style: TextStyle(color: n.mute))
+              else
+                for (final m in _matches!)
+                  Padding(
+                      key: ValueKey('profile-match-${m.matchId}'),
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: MatchRow(match: m)),
             ],
-            if (_statsError != null)
-              NeonCard(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(_statsError!, style: TextStyle(color: n.danger, fontSize: 12)),
-                  const SizedBox(height: 10),
-                  NeonButton('Retry', style: NeonStyle.ghost, expand: false, onPressed: () {
-                    setState(() => _statsError = null);
-                    _loadStats();
-                  }),
-                ]),
-              )
-            else if (_stats == null)
-              const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator()))
-            else
-              _statsGrid(n, _stats!),
-          ],
+          ),
         ),
       ),
     );
@@ -202,7 +251,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const SizedBox(height: 10),
         Row(children: [
           Expanded(
-            child: _statTile(n, 'AS TRAITOR', s.traitorGames == 0 ? '—' : '${s.traitorWins}/${s.traitorGames}', n.brand),
+            child:
+                _statTile(n, 'AS TRAITOR', s.traitorGames == 0 ? '—' : '${s.traitorWins}/${s.traitorGames}', n.brand),
           ),
           const SizedBox(width: 10),
           Expanded(

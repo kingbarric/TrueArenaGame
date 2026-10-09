@@ -236,7 +236,7 @@ class CompetitiveRatingIT {
     }
 
     @Test
-    void casualMatchIsRecordedButMovesNoRating() {
+    void casualMatchIsRecordedAndCountedButMovesNoRating() {
         UUID ada = human("ada");
         UUID bola = human("bola");
         UUID session = session(ada, false);
@@ -244,7 +244,8 @@ class CompetitiveRatingIT {
         play(session, ada, bola);
 
         assertThat(rating(ada)).isNull();
-        assertThat(stats(ada)).containsEntry("games_played", 0).containsEntry("casual_games", 1);
+        // Every game counts on your record (games played, wins, strength) — rated or not.
+        assertThat(stats(ada)).containsEntry("games_played", 1).containsEntry("casual_games", 1);
         Map<String, Object> match = db.sql("SELECT ranked, unranked_reason FROM match_records WHERE game_session_id = :s")
                 .bind("s", session).fetch().one().block();
         assertThat(match).containsEntry("ranked", false).containsEntry("unranked_reason", "casual_room");
@@ -259,6 +260,7 @@ class CompetitiveRatingIT {
         play(session, ada, bot);
 
         assertThat(rating(ada)).isNull();
+        assertThat(stats(ada)).containsEntry("games_played", 1); // playing an agent still counts
         Map<String, Object> match = db.sql("SELECT unranked_reason, player_count FROM match_records WHERE game_session_id = :s")
                 .bind("s", session).fetch().one().block();
         assertThat(match).containsEntry("unranked_reason", "vs_agent").containsEntry("player_count", 2);

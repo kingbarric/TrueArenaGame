@@ -28,8 +28,9 @@ class _Socket implements GameSocket {
   int get lastSeq => 0;
   @override
   String get roomId => '00000000-0000-0000-0000-000000000001';
+  final sent = <String>[];
   @override
-  void send(String type, [Map<String, dynamic>? payload]) {}
+  void send(String type, [Map<String, dynamic>? payload]) => sent.add('$type ${payload?['action'] ?? ''}');
   @override
   Future<void> close() => frames.close();
   void snapshot(Map<String, dynamic> payload) => frames.add({'type': 'SNAPSHOT', 'payload': payload});
@@ -145,6 +146,23 @@ void main() {
 
       expect(find.text("ADA'S TURN"), findsOneWidget);
       expect(find.text('OPPONENT IS THINKING'), findsNothing);
+    });
+
+    testWidgets('when the other player asks to undo, you see it and can allow it', (tester) async {
+      final socket = await open(tester, 'me');
+      socket.snapshot({...snap('TurnB'), 'pendingUndo': 'opponent'});
+      await tester.pump();
+      expect(find.byKey(const ValueKey('draughts-undo-ask')), findsOneWidget);
+      expect(find.text('ada wants to undo their move'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('draughts-undo-yes')));
+      expect(socket.sent, contains('PLAYER_ACTION ACCEPT_UNDO'));
+    });
+
+    testWidgets('your own undo request does not ask you', (tester) async {
+      final socket = await open(tester, 'me');
+      socket.snapshot({...snap('TurnB'), 'pendingUndo': 'me'});
+      await tester.pump();
+      expect(find.byKey(const ValueKey('draughts-undo-ask')), findsNothing);
     });
 
     testWidgets('the banner fits a small phone without overflowing', (tester) async {

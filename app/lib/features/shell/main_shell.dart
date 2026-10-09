@@ -48,6 +48,10 @@ class MainShell extends StatefulWidget {
   /// navigator — and picked up by whichever shell is mounted.
   static final requestedTab = ValueNotifier<int?>(null);
 
+  /// The tab on screen — so a kept-alive tab (like You) can refresh when it's opened again.
+  static final shownTab = ValueNotifier<int?>(null);
+  static const youTab = 4;
+
   @override
   State<MainShell> createState() => _MainShellState();
 }
@@ -143,6 +147,7 @@ class _MainShellState extends State<MainShell> {
     if (_tabs[i].needsAccount && !await canUseFriendsOrPromptToVerify(context)) return;
     if (!mounted) return;
     setState(() => _index = i);
+    MainShell.shownTab.value = i;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_tabKey, i);
   }

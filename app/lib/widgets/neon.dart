@@ -678,9 +678,9 @@ class Avatar extends StatelessWidget {
       );
     } else if (imageUrl?.startsWith('data:image/') == true) {
       try {
-        content = ClipOval(child: Image.memory(
-          base64Decode(imageUrl!.split(',').last),
-          width: size, height: size, fit: BoxFit.cover,
+        content = ClipOval(child: Image(
+          image: _photoFromData(imageUrl!),
+          width: size, height: size, fit: BoxFit.cover, gaplessPlayback: true,
         ));
       } catch (_) {
         content = Text(name.isEmpty ? '?' : name.characters.first.toUpperCase(),
@@ -838,4 +838,17 @@ Future<T?> showNeonSheet<T>(
     transitionAnimationController: null,
     builder: (ctx) => NeonGlass(child: builder(ctx)),
   );
+}
+
+/// Profile photos travel as data URLs. Decoding one gives a new image every
+/// time, so the same photo was re-decoded on every rebuild (and blinked while
+/// it did). Keep the last few by their text so a photo decodes once.
+final _photoCache = <String, MemoryImage>{};
+
+MemoryImage _photoFromData(String dataUrl) {
+  final cached = _photoCache.remove(dataUrl);
+  if (cached != null) return _photoCache[dataUrl] = cached;
+  final image = MemoryImage(base64Decode(dataUrl.split(',').last));
+  if (_photoCache.length >= 24) _photoCache.remove(_photoCache.keys.first);
+  return _photoCache[dataUrl] = image;
 }

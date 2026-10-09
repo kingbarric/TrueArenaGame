@@ -1,8 +1,10 @@
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
 import '../../theme/neon_theme.dart';
+import '../../widgets/neon.dart' show Avatar;
 import '../games/game_select_screen.dart' show gameCatalog;
 import 'competitive_models.dart';
 import 'competitive_widgets.dart';
@@ -88,6 +90,7 @@ class PlayerCardData {
     required this.stats,
     this.gameType,
     this.avatarUrl,
+    this.avatarPath,
     this.playhuudId,
     this.founding,
     this.blank = false,
@@ -109,6 +112,10 @@ class PlayerCardData {
   /// Null for the Overall card.
   final String? gameType;
   final String? avatarUrl;
+
+  /// Your own photo as it sits on this phone — shown the moment you pick it,
+  /// before the upload comes back.
+  final String? avatarPath;
   final String? playhuudId;
   final FoundingTier? founding;
   final bool blank;
@@ -121,14 +128,15 @@ class PlayerCardData {
 /// The cards for a profile: Overall first, then one per rated game.
 ///
 /// Overall is deliberately NOT a blended skill rating — there is no universal
-/// rating by design. Its corner shows the player's best game rating, labelled
-/// with that game, and the rest is career totals.
+/// rating by design. Its corner shows your strength (see [GameStats.strength]),
+/// which every finished game adds to, and the rest is career totals.
 ///
 /// Every game gets a card, played or not — a game with no data shows its
 /// card blank, in its own colours. Ranked games come first (Draughts leads),
 /// then the rest in catalog order.
 List<PlayerCardData> buildPlayerCards(CompetitiveProfile p,
-    {List<String> ratedGames = const ['draughts'], List<String>? allGames}) {
+    {List<String> ratedGames = const ['draughts'], List<String>? allGames, String? avatarUrl, String? avatarPath}) {
+  final photo = avatarUrl ?? p.avatarUrl;
   final catalog = allGames ?? [for (final g in gameCatalog) if (g.available) g.id];
   final order = <String>[
     for (final g in ratedGames) g,
@@ -144,10 +152,8 @@ List<PlayerCardData> buildPlayerCards(CompetitiveProfile p,
   ];
   final name = p.displayName;
 
-  final rated = records.where((r) => r.hasRating).toList()
-    ..sort((a, b) => (b.rating ?? 0).compareTo(a.rating ?? 0));
-  final best = rated.isEmpty ? null : rated.first;
   final games = records.fold<int>(0, (s, r) => s + r.stats.gamesPlayed);
+  final strength = records.fold<int>(0, (s, r) => s + r.stats.strength);
   final wins = records.fold<int>(0, (s, r) => s + r.stats.wins);
   final titles = records.fold<int>(0, (s, r) => s + r.stats.tournamentWins);
   final bestStreak = records.fold<int>(0, (s, r) => math.max(s, r.stats.bestWinStreak));
@@ -158,16 +164,18 @@ List<PlayerCardData> buildPlayerCards(CompetitiveProfile p,
     if (rank != null && (bestCountryRank == null || rank < bestCountryRank)) bestCountryRank = rank;
   }
 
+  // The corner is your strength: every game you finish adds to it.
   final overall = PlayerCardData(
     title: 'OVERALL',
     theme: PlayerCardTheme.overall,
-    bigValue: best?.rating?.toString() ?? '—',
-    bigLabel: best == null ? 'OVR' : _code(best.gameType),
+    bigValue: games == 0 ? '—' : _compact(strength),
+    bigLabel: 'STRENGTH',
     name: name,
-    avatarUrl: p.avatarUrl,
+    avatarUrl: photo,
+    avatarPath: avatarPath,
     playhuudId: p.playhuudId,
     founding: p.founding,
-    blank: best == null && games == 0,
+    blank: games == 0,
     stats: [
       CardStat(games == 0 ? '—' : _compact(games), 'GMS'),
       CardStat(games == 0 ? '—' : '${(wins * 100 / games).round()}%', 'WIN'),
@@ -182,11 +190,14 @@ List<PlayerCardData> buildPlayerCards(CompetitiveProfile p,
     overall,
     for (final r in records)
       _gameCard(p, r, name,
+          photo: photo,
+          photoPath: avatarPath,
           ranked: ratedGames.contains(r.gameType) || (r.gameType == 'bluff' && ratedGames.contains('wordbluff'))),
   ];
 }
 
-PlayerCardData _gameCard(CompetitiveProfile p, GameRecord r, String name, {required bool ranked}) {
+PlayerCardData _gameCard(CompetitiveProfile p, GameRecord r, String name,
+    {required bool ranked, String? photo, String? photoPath}) {
   final s = r.stats;
   final String label;
   if (!r.hasRating) {
@@ -201,17 +212,20 @@ PlayerCardData _gameCard(CompetitiveProfile p, GameRecord r, String name, {requi
     label = 'RATED';
   }
   final played = s.gamesPlayed > 0;
+  // A rated game shows its rating; every other game shows your strength in it.
+  final showRating = r.hasRating;
   return PlayerCardData(
     title: r.name.toUpperCase(),
     theme: PlayerCardTheme.forGame(r.gameType),
     gameType: r.gameType,
-    bigValue: r.rating?.toString() ?? '—',
-    bigLabel: label,
+    bigValue: showRating ? r.rating.toString() : (played ? _compact(s.strength) : '—'),
+    bigLabel: showRating || !played ? label : 'STRENGTH',
     name: name,
-    avatarUrl: p.avatarUrl,
+    avatarUrl: photo,
+    avatarPath: photoPath,
     playhuudId: p.playhuudId,
     founding: p.founding,
-    blank: !r.hasRating,
+    blank: !r.hasRating && !played,
     ranked: ranked,
     stats: [
       CardStat(played ? _compact(s.gamesPlayed) : '—', 'GMS'),
@@ -488,7 +502,9 @@ class _CardPortrait extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = data.theme;
     final url = data.avatarUrl;
-    final hasPicture = url != null && url.isNotEmpty;
+    final path = data.avatarPath;
+    final hasLocal = path != null && File(path).existsSync();
+    final hasPicture = hasLocal || (url != null && url.isNotEmpty);
     return Container(
       width: size,
       height: size,
@@ -505,7 +521,9 @@ class _CardPortrait extends StatelessWidget {
       child: hasPicture
           ? Padding(
               padding: EdgeInsets.all(size * 0.025),
-              child: PlayerAvatar(name: data.name, avatarUrl: url, size: size * 0.95),
+              child: hasLocal
+                  ? Avatar(data.name, size: size * 0.95, imagePath: path)
+                  : PlayerAvatar(name: data.name, avatarUrl: url, size: size * 0.95),
             )
           : Text(
               data.name.isEmpty ? '?' : data.name.characters.first.toUpperCase(),
