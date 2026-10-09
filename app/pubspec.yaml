@@ -47,6 +47,7 @@ flutter:
     - assets/music/
     - assets/sfx/
     - assets/slay_renderer/
+    - assets/slay_renderer/assets/
     - assets/slay_renderer/basis/
 
 dependency_overrides:
