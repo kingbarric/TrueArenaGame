@@ -1,5 +1,5 @@
 {
-  "version": 9,
+  "version": 10,
   "developmentAssets": true,
   "avatars": [
     {
@@ -34,7 +34,7 @@
       "rarity": "common",
       "assetUrl": "assets/female-essential.glb",
       "thumbnailUrl": "assets/female-essential.png",
-      "hidesRegions": ["torso"],
+      "hidesRegions": [],
       "attachmentBone": null,
       "isDefault": true,
       "coinCost": 0,
@@ -63,7 +63,7 @@
       "rarity": "common",
       "assetUrl": "assets/female-executive.glb",
       "thumbnailUrl": "assets/female-executive.png",
-      "hidesRegions": ["torso"],
+      "hidesRegions": [],
       "attachmentBone": null,
       "isDefault": true,
       "coinCost": 0,
@@ -417,7 +417,7 @@
       "rarity": "rare",
       "assetUrl": "assets/female-business.glb",
       "thumbnailUrl": "assets/female-business.png",
-      "hidesRegions": ["torso"],
+      "hidesRegions": [],
       "attachmentBone": null,
       "isDefault": false,
       "coinCost": 136,

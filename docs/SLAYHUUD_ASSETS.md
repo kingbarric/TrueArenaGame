@@ -12,7 +12,7 @@ The engine and wardrobe catalogue are ready to receive production artwork. Suppl
 
 ## Starter shoes and poses
 
-Catalogue v9 uses fitted upper-body rigs for the two starter avatars. Clothing matches its body's bind skeleton; foot joints remain compatible across the two bodies. Each shoe GLB contains male/female fit meshes tagged with `extras.slayBody`; the renderer displays the matching mesh. The converter removes the source socks by their UV islands, preserves the shoe collar, fits the toe/heel/width to each body, and adds a `region_feet` mask so covered skin cannot poke through. Exposed legs remain visible.
+Catalogue v10 uses fitted upper-body rigs for the two starter avatars. Clothing matches its body's bind skeleton; foot joints remain compatible across the two bodies. Each shoe GLB contains male/female fit meshes tagged with `extras.slayBody`; the renderer displays the matching mesh. The converter removes the source socks by their UV islands, preserves the shoe collar, fits the toe/heel/width to each body, and adds a `region_feet` mask so covered skin cannot poke through. Exposed legs remain visible.
 
 The starter pose clips now animate arms, head and torso with a gentle breathing cycle: relaxed signature, hand-on-hip confidence, editorial turn and raised-arm celebration. They key every joint so switching poses resets the previous stance. These are automatically weighted starter assets; commissioned artwork still needs artist-reviewed deformation and fabric detail.
 
@@ -23,6 +23,12 @@ Blender --background --factory-startup --python slay-renderer/scripts/render-sho
 ```
 
 Then run the renderer build to refresh Flutter's catalogue and embedded script.
+
+## Starter dress coverage
+
+The female starter body's region nodes include `extras.slayCoverage`, a map from outfit ID to covered triangle ordinals within that region's index buffer. The converter reads each clothing author's `.mhclo` `delete_verts` ranges and transfers them through the female1605 proxy's barycentric hm08 references. It retains partially exposed boundary triangles. This fixes skin clipping at the hips/waist without removing halter shoulders, open backs or exposed legs.
+
+The renderer filters body indices on wardrobe changes and restores the original indices when switching/unequipping. This is precomputed masking, with no per-frame raycasting or cloth simulation. The seven enabled female outfits use these masks instead of hiding the entire torso. Male starter suits retain their existing coarse region masks. If topology, outfits or body proportions change, regenerate coverage and increase the catalogue version; these starter masks do not automatically fit replacement artwork.
 
 ## First delivery: enough to replace the mannequins
 

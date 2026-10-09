@@ -10,6 +10,7 @@ import {mkdirSync, readFileSync, writeFileSync, readdirSync, copyFileSync} from 
 import {dirname, resolve} from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {rigFor, skinWeights, poses, poseQuaternion} from './starter-rig.mjs';
+import {deletedVertices, proxyCoverage, coveredTriangles} from './makehuman-coverage.mjs';
 
 const root = resolve(new URL('..', import.meta.url).pathname);
 const source = process.argv[2] ? resolve(process.argv[2]) : resolve(root, 'source_assets/makehuman/starter');
@@ -60,7 +61,7 @@ function parseObj(path, offset = [0, 0, 0], sockIsland) {
       if (faces[i].every(([, uv]) => sockIsland(uvs[uv - 1]))) faces.splice(i, 1);
     }
   }
-  const position = [], normal = [], uv = [];
+  const position = [], normal = [], uv = [], sourceVertices = [];
   // Every garment shares the source body's origin. Grounding each garment
   // individually moves hair to the feet and makes clothing miss its body.
   const transform = value => [value[0] * scale + offset[0], (value[1] + 8.184) * scale + offset[1], value[2] * scale + offset[2]];
@@ -81,6 +82,7 @@ function parseObj(path, offset = [0, 0, 0], sockIsland) {
   for (const triangle of faces) {
     const fallback = faceNormal(triangle);
     for (const [vertexIndex, uvIndex, normalIndex] of triangle) {
+      sourceVertices.push(vertexIndex - 1);
       position.push(...transform(positions[vertexIndex - 1]));
       const direction = smooth.get(vertexIndex) ?? fallback;
       const length = Math.hypot(...direction) || 1;
@@ -88,7 +90,7 @@ function parseObj(path, offset = [0, 0, 0], sockIsland) {
       uv.push(...(uvIndex ? uvs[uvIndex - 1] : [0, 0]));
     }
   }
-  return {position: new Float32Array(position), normal: new Float32Array(normal), uv: new Float32Array(uv)};
+  return {position: new Float32Array(position), normal: new Float32Array(normal), uv: new Float32Array(uv), sourceVertices};
 }
 
 function fittedShoe(mesh, body) {
@@ -138,15 +140,16 @@ function indexed(mesh) {
   return {position: new Float32Array(position), normal: new Float32Array(normal), uv: new Float32Array(uv), indices: new Uint32Array(indices)};
 }
 function selectTriangles(mesh, accepts) {
-  const position = [], normal = [], uv = [];
+  const position = [], normal = [], uv = [], sourceVertices = [];
   for (let offset = 0; offset < mesh.position.length; offset += 9) {
     const centre = [0, 1, 2].map(axis => (mesh.position[offset + axis] + mesh.position[offset + 3 + axis] + mesh.position[offset + 6 + axis]) / 3);
     if (!accepts(centre)) continue;
     position.push(...mesh.position.slice(offset, offset + 9));
     normal.push(...mesh.normal.slice(offset, offset + 9));
     const uvOffset = offset / 3 * 2; uv.push(...mesh.uv.slice(uvOffset, uvOffset + 6));
+    sourceVertices.push(...mesh.sourceVertices.slice(offset / 3, offset / 3 + 3));
   }
-  return {position: new Float32Array(position), normal: new Float32Array(normal), uv: new Float32Array(uv)};
+  return {position: new Float32Array(position), normal: new Float32Array(normal), uv: new Float32Array(uv), sourceVertices};
 }
 function encodeGlb(document, chunks) {
   const json = Buffer.from(JSON.stringify(document));
@@ -190,6 +193,15 @@ function convert({id, body, obj, texture, isAvatar}) {
     regions.push(['face_brows', parseObj(resolve(source, 'eyebrows/eyebrow001/eyebrow001.obj'), [0, browOffset * scale, 0])]);
   }
   const meshes = [], nodes = [];
+  const coverage = isAvatar && body === 'female' ? Object.fromEntries(Object.entries(assets)
+    .filter(([, [fit, path]]) => fit === body && path.startsWith('clothes/') && !path.includes('shoes'))
+    .map(([item, [, path]]) => {
+      const folder = resolve(source, dirname(path));
+      const clothes = readdirSync(folder).find(file => file.endsWith('.mhclo'));
+      const weights = proxyCoverage(readFileSync(resolve(source, 'proxymeshes/female1605/female1605.proxy'), 'utf8'),
+        deletedVertices(readFileSync(resolve(folder, clothes), 'utf8')));
+      return [item, weights];
+    })) : {};
   for (const [name, rawRegion, fitBody] of regions) {
     const region = indexed(rawRegion);
     const positions = add(region.position, 5126, 'VEC3', region.position.length / 3, 34962);
@@ -221,7 +233,11 @@ function convert({id, body, obj, texture, isAvatar}) {
       });
     }
     meshes.push({name, primitives: [primitive], ...(isAvatar && name === 'region_head' ? {extras: {targetNames: ['face_classic', 'face_soft', 'face_angular', 'expression_smile']}} : {})});
-    nodes.push({name, mesh: meshes.length - 1, skin: 0, ...(fitBody ? {extras: {slayBody: fitBody}} : {})});
+    const masks = name.startsWith('region_') ? Object.fromEntries(Object.entries(coverage)
+      .map(([item, weights]) => [item, coveredTriangles(rawRegion.sourceVertices, weights)])) : {};
+    nodes.push({name, mesh: meshes.length - 1, skin: 0,
+      ...((fitBody || Object.keys(masks).length) ? {extras: {...(fitBody ? {slayBody: fitBody} : {}),
+        ...(Object.keys(masks).length ? {slayCoverage: masks} : {})}} : {})});
   }
   const inverse = new Float32Array(worldPositions.flatMap(mat4Translation)); const inverseAccessor = add(inverse, 5126, 'MAT4', bones.length);
   const textures = isAvatar ? [texture, 'eyes/materials/brown_eye.png', 'eyebrows/eyebrow001/eyebrow001.png'] : [texture];

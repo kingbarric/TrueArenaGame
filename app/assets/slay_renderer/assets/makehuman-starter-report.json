@@ -1,11 +1,11 @@
 {
   "source": "MakeHuman Community CC0 asset packs",
-  "generatedAt": "2026-10-09T17:20:35.965Z",
+  "generatedAt": "2026-10-09T17:37:20.385Z",
   "assets": [
     {
       "id": "female",
       "triangles": 3168,
-      "bytes": 2468232
+      "bytes": 2481792
     },
     {
       "id": "male",

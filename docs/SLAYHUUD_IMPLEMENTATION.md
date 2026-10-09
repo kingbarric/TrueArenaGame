@@ -216,8 +216,15 @@ Backend verification uses normal Maven reactor checks. `SlayHuudIT` supports eit
 - Removed the downloaded shoe models' sock UV islands and generated separate male/female fits within each shoe GLB. Matching fit meshes are selected by `extras.slayBody`. Added a foot-only skin mask, kept exposed legs visible, and rendered accurate sock-free wardrobe thumbnails with Blender.
 - Replaced the root-only turns with four articulated starter fashion poses and a subtle breathing cycle. Fitted shoulder/head joints for each body and added blended weights at joints. All joints are keyed to prevent stale poses; the selected pose is evaluated immediately for screenshots.
 - Catalogue v9 / starter rigs v2 invalidate old cached assets. The studio displays the selected pose, describes each stance, and provides a shoe close-up camera button.
+
 - Verification: 23 renderer tests passed, including loaded-GLB limb movement, pose reset, skin deformation, body-fit selection and grounded shoe skinning. Nine focused Flutter tests passed and feature analysis is clean. All 21 bundled models pass partial structural validation; 55 future items remain skipped and 11 existing size-budget warnings remain.
 - Visually checked both body fits and articulated stances in Three.js, including shoe side/heel views. Rebuilt the iPhone 17 Pro preview and verified the pose chooser applies a visibly different hand-on-hip stance and the shoe camera opens a close-up. Scores/rewards in this preview remain fixtures.
+
+### Dress clipping repair (9 October 2026)
+
+- Reproduced skin patches at the waist/hips of the halter dresses. Transferred the clothing authors' MakeHuman coverage masks through the low-poly female proxy and embedded per-outfit triangle masks in the base GLB. The renderer removes covered skin faces on equip and restores them when switching outfits. Exposed shoulders, open backs and short-dress legs remain visible.
+- All seven enabled female outfits now use precise coverage instead of coarse torso hiding. Catalogue v10 invalidates the previous cached body. No per-frame coverage calculation is added.
+- Verification: 26 renderer tests pass, TypeScript/Vite build passes, and all 21 delivered GLBs validate (the existing 11 size warnings remain). Reviewed the seven female outfits from front/back in all four poses in Three.js, and checked First Impression in the dedicated iPhone 17 Pro simulator. This remains the fixture preview; physical-device performance and live multiplayer are outside this repair.
 
 ### Recorded checks (8 October 2026)
 

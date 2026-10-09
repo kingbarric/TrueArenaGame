@@ -7,6 +7,7 @@ import { bindGarment } from './rig';
 import { assetBytes } from './cache';
 import { presentBody, presentFace } from './presentation';
 import { applyPose, selectBodyFit } from './poses';
+import { coverBody } from './coverage';
 
 const palette:Record<string,string>={gold:'#c39b55',navy:'#283d54',pink:'#c98491',red:'#a53541',purple:'#674269',green:'#397c65',black:'#28262a',white:'#eee5d6',blue:'#48879a',grey:'#8e8c87',orange:'#c5773d',yellow:'#ddba55'};
 function material(colour:string){return new T.MeshStandardMaterial({color:colour,roughness:.72,metalness:.05});}
@@ -87,6 +88,7 @@ export class Wardrobe {
     for(const [slot,e] of this.equipped){if(look.items[slot]!==e.id){e.root.removeFromParent();dispose(e.root);this.equipped.delete(slot);}}
     for(const [slot,e] of staged){const item=catalog.items.find(i=>i.id===e.id)!;const parent=item.attachmentBone?this.bones.get(item.attachmentBone):this.root;(parent??this.root).add(e.root);this.equipped.set(slot,e);}
     const hidden=new Set(Object.values(look.items).flatMap(id=>catalog.items.find(i=>i.id===id)!.hidesRegions));
+    coverBody(body,Object.values(look.items));
     presentBody(body,look.skinTone,hidden);
     presentFace(this.root,look.facePreset,look.pose);
     this.pose(look.pose);
