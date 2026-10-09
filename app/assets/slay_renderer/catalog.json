@@ -1,15 +1,15 @@
 {
-  "version": 1,
+  "version": 2,
   "developmentAssets": true,
   "avatars": [
     {
       "body": "female",
-      "assetUrl": null,
+      "assetUrl": "assets/female.glb",
       "rigVersion": "slay-female-v1"
     },
     {
       "body": "male",
-      "assetUrl": null,
+      "assetUrl": "assets/male.glb",
       "rigVersion": "slay-male-v1"
     }
   ],
@@ -32,8 +32,8 @@
         "streetwear"
       ],
       "rarity": "common",
-      "assetUrl": null,
-      "thumbnailUrl": null,
+      "assetUrl": "assets/female-essential.glb",
+      "thumbnailUrl": "assets/female-essential.png",
       "hidesRegions": [
         "torso",
         "upper_legs"
@@ -64,8 +64,8 @@
         "elegant"
       ],
       "rarity": "common",
-      "assetUrl": null,
-      "thumbnailUrl": null,
+      "assetUrl": "assets/female-executive.glb",
+      "thumbnailUrl": "assets/female-executive.png",
       "hidesRegions": [
         "torso",
         "upper_legs"
@@ -134,8 +134,8 @@
         "evening"
       ],
       "rarity": "common",
-      "assetUrl": null,
-      "thumbnailUrl": null,
+      "assetUrl": "assets/female-redcarpet.glb",
+      "thumbnailUrl": "assets/female-redcarpet.png",
       "hidesRegions": [
         "torso",
         "upper_legs"
@@ -166,8 +166,8 @@
         "elegant"
       ],
       "rarity": "common",
-      "assetUrl": null,
-      "thumbnailUrl": null,
+      "assetUrl": "assets/female-romantic.glb",
+      "thumbnailUrl": "assets/female-romantic.png",
       "hidesRegions": [
         "torso",
         "upper_legs"
@@ -336,8 +336,8 @@
         "luxury"
       ],
       "rarity": "rare",
-      "assetUrl": null,
-      "thumbnailUrl": null,
+      "assetUrl": "assets/female-night.glb",
+      "thumbnailUrl": "assets/female-night.png",
       "hidesRegions": [
         "torso",
         "upper_legs"
@@ -430,8 +430,8 @@
         "elegant"
       ],
       "rarity": "rare",
-      "assetUrl": null,
-      "thumbnailUrl": null,
+      "assetUrl": "assets/female-business.glb",
+      "thumbnailUrl": "assets/female-business.png",
       "hidesRegions": [
         "torso",
         "upper_legs"
@@ -464,8 +464,8 @@
         "muted"
       ],
       "rarity": "rare",
-      "assetUrl": null,
-      "thumbnailUrl": null,
+      "assetUrl": "assets/female-dinner.glb",
+      "thumbnailUrl": "assets/female-dinner.png",
       "hidesRegions": [
         "torso",
         "upper_legs"
@@ -526,8 +526,8 @@
         "formal"
       ],
       "rarity": "common",
-      "assetUrl": null,
-      "thumbnailUrl": null,
+      "assetUrl": "assets/female-hair-0.glb",
+      "thumbnailUrl": "assets/female-hair-0.png",
       "hidesRegions": [],
       "attachmentBone": null,
       "isDefault": true,
@@ -553,8 +553,8 @@
         "formal"
       ],
       "rarity": "common",
-      "assetUrl": null,
-      "thumbnailUrl": null,
+      "assetUrl": "assets/female-hair-1.glb",
+      "thumbnailUrl": "assets/female-hair-1.png",
       "hidesRegions": [],
       "attachmentBone": null,
       "isDefault": true,
@@ -580,8 +580,8 @@
         "formal"
       ],
       "rarity": "rare",
-      "assetUrl": null,
-      "thumbnailUrl": null,
+      "assetUrl": "assets/female-hair-2.glb",
+      "thumbnailUrl": "assets/female-hair-2.png",
       "hidesRegions": [],
       "attachmentBone": null,
       "isDefault": false,
@@ -688,8 +688,8 @@
         "streetwear"
       ],
       "rarity": "common",
-      "assetUrl": null,
-      "thumbnailUrl": null,
+      "assetUrl": "assets/male-essential.glb",
+      "thumbnailUrl": "assets/male-essential.png",
       "hidesRegions": [
         "torso",
         "upper_legs"
@@ -720,8 +720,8 @@
         "elegant"
       ],
       "rarity": "common",
-      "assetUrl": null,
-      "thumbnailUrl": null,
+      "assetUrl": "assets/male-executive.glb",
+      "thumbnailUrl": "assets/male-executive.png",
       "hidesRegions": [
         "torso",
         "upper_legs"
@@ -790,8 +790,8 @@
         "evening"
       ],
       "rarity": "common",
-      "assetUrl": null,
-      "thumbnailUrl": null,
+      "assetUrl": "assets/male-redcarpet.glb",
+      "thumbnailUrl": "assets/male-redcarpet.png",
       "hidesRegions": [
         "torso",
         "upper_legs"
@@ -1086,8 +1086,8 @@
         "elegant"
       ],
       "rarity": "rare",
-      "assetUrl": null,
-      "thumbnailUrl": null,
+      "assetUrl": "assets/male-business.glb",
+      "thumbnailUrl": "assets/male-business.png",
       "hidesRegions": [
         "torso",
         "upper_legs"
@@ -1182,8 +1182,8 @@
         "formal"
       ],
       "rarity": "common",
-      "assetUrl": null,
-      "thumbnailUrl": null,
+      "assetUrl": "assets/male-hair-0.glb",
+      "thumbnailUrl": "assets/male-hair-0.png",
       "hidesRegions": [],
       "attachmentBone": null,
       "isDefault": true,
@@ -1209,8 +1209,8 @@
         "formal"
       ],
       "rarity": "common",
-      "assetUrl": null,
-      "thumbnailUrl": null,
+      "assetUrl": "assets/male-hair-1.glb",
+      "thumbnailUrl": "assets/male-hair-1.png",
       "hidesRegions": [],
       "attachmentBone": null,
       "isDefault": true,
@@ -1236,8 +1236,8 @@
         "formal"
       ],
       "rarity": "rare",
-      "assetUrl": null,
-      "thumbnailUrl": null,
+      "assetUrl": "assets/male-hair-2.glb",
+      "thumbnailUrl": "assets/male-hair-2.png",
       "hidesRegions": [],
       "attachmentBone": null,
       "isDefault": false,
@@ -1344,8 +1344,8 @@
         "elegant"
       ],
       "rarity": "common",
-      "assetUrl": null,
-      "thumbnailUrl": null,
+      "assetUrl": "assets/shoe-0.glb",
+      "thumbnailUrl": "assets/shoe-0.png",
       "hidesRegions": [],
       "attachmentBone": null,
       "isDefault": true,
@@ -1371,8 +1371,8 @@
         "streetwear"
       ],
       "rarity": "common",
-      "assetUrl": null,
-      "thumbnailUrl": null,
+      "assetUrl": "assets/shoe-1.glb",
+      "thumbnailUrl": "assets/shoe-1.png",
       "hidesRegions": [],
       "attachmentBone": null,
       "isDefault": true,

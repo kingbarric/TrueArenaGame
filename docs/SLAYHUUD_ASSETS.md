@@ -1,5 +1,11 @@
 # SlayHuud: 3D asset delivery guide
 
+## Included MakeHuman starter collection
+
+The development bundle includes a CC0 MakeHuman starter collection: two dark-skinned base avatars, selected suits and dresses, three hairstyles per body, and two shoe models. It exists to make the studio, submissions and voting flow playable before commissioned art arrives. The source archives remain outside Git; generated runtime GLBs and thumbnails are bundled under `app/assets/slay_renderer/assets`.
+
+The collection does not represent Nigerian or other African ceremonial fashion. Owambe, Ankara, bridal, royal and other culturally specific catalogue slots deliberately remain placeholders until we acquire original or appropriately licensed, reviewed assets. Keep `developmentAssets=true` until the full wardrobe has passed art, fit and device review.
+
 The engine and wardrobe catalogue are ready to receive production artwork. Supply a coherent shared rig for each avatar body. Separate purchased garments made for unrelated characters will not automatically fit.
 
 ## First delivery: enough to replace the mannequins
@@ -8,7 +14,7 @@ The engine and wardrobe catalogue are ready to receive production artwork. Suppl
 - Five complete looks for each body: filenames match the existing catalogue IDs, such as `female-essential.glb`, `female-executive.glb`, `female-owambe.glb`, `female-premiere.glb`, `female-date.glb` and their male equivalents.
 - Matching hair and shoes; start with `female-hair-0.glb`, `male-hair-0.glb`, `shoe-0.glb`.
 - Accessories including `accessory-0.glb` (check the catalogue's category before modelling).
-- Portrait wardrobe thumbnails: `<item-id>.webp`.
+- Portrait wardrobe thumbnails: `<item-id>.webp` (preferred) or `<item-id>.png` for the included starter collection.
 
 The complete list of IDs/categories/tags lives in `backend/ta-api/src/main/resources/slay/catalog.json`. This manifest is shared with Flutter and the standalone renderer. Its current catalogue is 74 items; the initial delivery can be smaller while `developmentAssets` remains enabled. Missing production items must be completed or removed from the enabled catalogue before switching that flag off.
 
@@ -40,7 +46,7 @@ Put these named animation clips in each base avatar GLB: `idle`, `signature`, `c
 
 Preferred: compressed GLB with Meshopt geometry and KTX2/Basis textures. The Meshopt decoder and KTX2 transcoders are already bundled. Draco-compressed meshes require adding a decoder first.
 
-Initial targets, to be refined on real devices: base avatar below ~40k triangles, ordinary outfit below ~20k, accessory below ~5k; 1k/2k textures for most items; avatar GLB around 3–5 MB and ordinary garments below ~2 MB. These are content targets, not guarantees of device performance. The current hard loader limit is 32 MB per GLB and the persistent GLB cache is 32 MB total.
+Initial targets, to be refined on real devices: base avatar below ~40k triangles, ordinary outfit below ~20k, accessory below ~5k; 1k/2k textures for most items; avatar GLB around 3–5 MB and ordinary garments below ~2 MB. These are content targets, not guarantees of device performance. The included uncompressed MakeHuman starter files exceed several of these targets, so replace or texture-compress them before release. The current hard loader limit is 32 MB per GLB and the persistent GLB cache is 32 MB total.
 
 Avoid hidden duplicate bodies inside clothing, unnecessary material slots, large transparent layers and 4k maps on small accessories. Export previews from front, side and back. Use consistent lighting in thumbnails so the wardrobe feels like one collection.
 

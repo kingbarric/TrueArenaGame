@@ -41,7 +41,8 @@ export function validateDelivery(root, catalog, {partial = false} = {}) {
       if (item.attachmentBone && !rig.bones.has(item.attachmentBone)) throw Error('attachment bone absent in ' + body + ': ' + item.attachmentBone);
       for (const region of item.hidesRegions ?? []) if (!rig.regions.has(region)) record.warnings.push(body + ' body mask missing: region_' + region);
     }
-    if (!existsSync(resolve(root, item.id + '.webp'))) record.warnings.push('thumbnail missing: ' + item.id + '.webp');
+    const thumbnail = ['.webp', '.png'].find(extension => existsSync(resolve(root, item.id + extension)));
+    if (!thumbnail) record.warnings.push('thumbnail missing: ' + item.id + ' (.webp or .png)');
     const target = item.category === 'outfit' ? 2 : 1;
     if (record.bytes > target * 1024 * 1024) record.warnings.push('above suggested ' + target + ' MB item budget');
   });

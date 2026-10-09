@@ -1,0 +1,111 @@
+{
+  "source": "MakeHuman Community CC0 asset packs",
+  "generatedAt": "2026-10-09T08:26:53.619Z",
+  "assets": [
+    {
+      "id": "female",
+      "triangles": 3168,
+      "bytes": 5134316
+    },
+    {
+      "id": "male",
+      "triangles": 3140,
+      "bytes": 3678176
+    },
+    {
+      "id": "female-essential",
+      "triangles": 12846,
+      "bytes": 3486452
+    },
+    {
+      "id": "female-executive",
+      "triangles": 4192,
+      "bytes": 2706768
+    },
+    {
+      "id": "female-redcarpet",
+      "triangles": 6432,
+      "bytes": 3554696
+    },
+    {
+      "id": "female-romantic",
+      "triangles": 3936,
+      "bytes": 1335892
+    },
+    {
+      "id": "female-night",
+      "triangles": 5184,
+      "bytes": 6633440
+    },
+    {
+      "id": "female-dinner",
+      "triangles": 6922,
+      "bytes": 1971064
+    },
+    {
+      "id": "female-business",
+      "triangles": 10062,
+      "bytes": 4258180
+    },
+    {
+      "id": "male-essential",
+      "triangles": 16672,
+      "bytes": 8338568
+    },
+    {
+      "id": "male-executive",
+      "triangles": 14956,
+      "bytes": 4463880
+    },
+    {
+      "id": "male-redcarpet",
+      "triangles": 10062,
+      "bytes": 4312248
+    },
+    {
+      "id": "male-business",
+      "triangles": 19202,
+      "bytes": 3496572
+    },
+    {
+      "id": "female-hair-0",
+      "triangles": 2192,
+      "bytes": 5191372
+    },
+    {
+      "id": "female-hair-1",
+      "triangles": 5518,
+      "bytes": 3548208
+    },
+    {
+      "id": "female-hair-2",
+      "triangles": 3678,
+      "bytes": 2977988
+    },
+    {
+      "id": "male-hair-0",
+      "triangles": 2192,
+      "bytes": 5191364
+    },
+    {
+      "id": "male-hair-1",
+      "triangles": 3678,
+      "bytes": 2977980
+    },
+    {
+      "id": "male-hair-2",
+      "triangles": 5518,
+      "bytes": 3548204
+    },
+    {
+      "id": "shoe-0",
+      "triangles": 3320,
+      "bytes": 1899440
+    },
+    {
+      "id": "shoe-1",
+      "triangles": 3064,
+      "bytes": 1802720
+    }
+  ]
+}

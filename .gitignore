@@ -44,6 +44,8 @@ website/downloads/
 # SlayHuud renderer development dependencies/build intermediates
 slay-renderer/node_modules/
 slay-renderer/dist/
+slay-renderer/source_assets/
+app/assets/slay_renderer/.vite/
 
 app/android/build/
 app/android/.kotlin/
