@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'slay_models.dart';
@@ -233,6 +234,12 @@ class _SlayStageState extends State<SlayStage> with WidgetsBindingObserver {
     // removes the controller that retry needs to reload.
     return Stack(fit: StackFit.expand, children: [
       InAppWebView(
+          // The 3D viewport owns drag/pinch. Flutter scroll views and route
+          // gestures must not take these touches from OrbitControls.
+          gestureRecognizers: {
+            Factory<OneSequenceGestureRecognizer>(
+                () => EagerGestureRecognizer())
+          },
           initialUrlRequest:
               URLRequest(url: WebUri('http://localhost:8187/index.html')),
           initialSettings: InAppWebViewSettings(

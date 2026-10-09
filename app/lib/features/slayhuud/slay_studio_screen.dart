@@ -360,10 +360,35 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                                                       : Icons.open_in_full,
                                               size: 20))))
                           ])),
-                      const Positioned(
-                          bottom: 24,
-                          left: 16,
-                          child: SlayLabel('Drag to rotate · pinch to zoom'))
+                      Positioned(
+                          bottom: 12,
+                          left: 14,
+                          child: Material(
+                              color: context.neon.panel.withValues(alpha: .94),
+                              borderRadius: BorderRadius.circular(12),
+                              child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                        tooltip: 'Turn left',
+                                        icon: const Icon(Icons.rotate_left,
+                                            size: 20),
+                                        onPressed: () => _stage.request(
+                                                'rotateCamera', {
+                                              'radians': -.785398
+                                            }).catchError(
+                                                (_) => <String, dynamic>{})),
+                                    const SlayLabel('Rotate'),
+                                    IconButton(
+                                        tooltip: 'Turn right',
+                                        icon: const Icon(Icons.rotate_right,
+                                            size: 20),
+                                        onPressed: () => _stage.request(
+                                                'rotateCamera', {
+                                              'radians': .785398
+                                            }).catchError(
+                                                (_) => <String, dynamic>{})),
+                                  ])))
                     ])),
                 SizedBox(
                     height: 48,

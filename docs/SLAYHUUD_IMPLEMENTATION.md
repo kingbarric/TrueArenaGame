@@ -77,7 +77,7 @@ Bridge envelope:
 
 | Direction | Messages |
 |---|---|
-| Flutter → JS | `init` (catalog, tier), `applyLook`, `setCamera`, `setPose`, `snapshot`, `pause`, `dispose` |
+| Flutter → JS | `init` (catalog, tier), `applyLook`, `setCamera`, `rotateCamera` (radians), `setPose`, `snapshot`, `pause`, `dispose` |
 | JS → Flutter | `ready`, `ack`, `snapshotResult` (PNG base64), `error`, `perf`, `contextLost` |
 
 Commands execute serially and responses match request IDs. Requests time out rather than silently submitting missing imagery. Snapshot export requires a fully applied look; a failed replacement invalidates export until a successful retry. Foreground/background transitions and covered routes pause rendering, and performance samples restart on resume so inactive time does not lower the quality tier. WebGL context loss reloads and reapplies the look. Low measured frame rate reduces pixel density through high/standard/low 3D tiers; there is no 2D replacement. Physical-device performance targets still require real assets and profiling.
@@ -202,7 +202,7 @@ Backend verification uses normal Maven reactor checks. `SlayHuudIT` supports eit
 - Flutter: eight related navigation, anonymous voting and theme tests passed. Focused feature, route, preview and badge analysis is clean.
 - Renderer: TypeScript/Vite build and 21 tests passed, including GLB structure, bind-pose skinning and eye-height regressions. All 21 delivered GLBs validate; 55 undelivered catalogue slots are skipped and 11 asset-size budget warnings remain.
 - iPhone 16e simulator: verified the supplied game icon, hub/studio gear menus, help, exit/re-entry, wardrobe thumbnails, female outfit/hair changes, male body switching, camera presets, fresh look, draft restoration and PNG submission into the fixture score sheet. Fixture scores/rewards are simulated; this session does not verify live multiplayer or production settlement.
-- SlayHuud now runs separately on the iPhone 17 Pro simulator because another preview replaced the app on the shared iPhone 16e during testing. Physical-device frame rate, memory and thermal measurements remain outstanding.
+- SlayHuud now runs separately on the iPhone 17 Pro simulator because another preview replaced the app on the shared iPhone 16e during testing. Verified the studio's explicit rotation controls through a full 360° turn. Drag/pinch is routed directly to the WebView; automation did not establish touch-gesture behaviour, so that still needs a manual/device check. Physical-device frame rate, memory and thermal measurements remain outstanding.
 
 ### Recorded checks (8 October 2026)
 
