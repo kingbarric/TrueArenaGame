@@ -83,6 +83,7 @@ class HuudSpaceIT {
     @Autowired FriendRepository friendRows;
     @Autowired DatabaseClient db;
     @Autowired UserNotificationRepository notes;
+    @Autowired app.truearena.api.coins.GiftController gifts;
     @org.springframework.boot.test.mock.mockito.SpyBean InboxRegistry inbox;
     @MockBean LiveKitRoomAdmin livekit;
 
@@ -662,5 +663,37 @@ class HuudSpaceIT {
 
         notes.deleteOwn(note, ada).block();
         assertThat(notes.findTop50ByUserIdOrderByCreatedAtDesc(ada).collectList().block()).isEmpty();
+    }
+
+    long coins(UUID user, String column) {
+        return db.sql("SELECT " + column + " FROM users WHERE id = :u").bind("u", user)
+                .map((r, m) -> r.get(column, Long.class)).one().block();
+    }
+
+    @Test void giftingMovesThreeCoinsAndTellsThemButNeverRaisesTheirTier() {
+        UUID ada = person("Ada Obi");
+        UUID tobi = person("Tobi Ade");
+        db.sql("UPDATE users SET coins = 10 WHERE id = :u").bind("u", ada).fetch().rowsUpdated().block();
+        long tobiLifetime = coins(tobi, "lifetime_coins");
+
+        var gift = gifts.give(ada, tobi).block();
+        assertThat(gift.coins()).isEqualTo(3);
+        assertThat(gift.balance()).isEqualTo(7);
+        assertThat(coins(ada, "coins")).isEqualTo(7);
+        assertThat(coins(tobi, "coins")).isEqualTo(3 + 0);
+        assertThat(coins(tobi, "lifetime_coins")).isEqualTo(tobiLifetime);
+        verify(inbox).notify(eq(tobi), argThat(e -> e.toString().contains("COIN_GIFT")));
+
+        // Not enough left after two more: nothing moves on the third.
+        gifts.give(ada, tobi).block();
+        gifts.give(ada, tobi).block();
+        assertThatThrownBy(() -> gifts.give(ada, tobi).block()).isInstanceOf(ResponseStatusException.class);
+        assertThat(coins(ada, "coins")).isEqualTo(1);
+        assertThat(coins(tobi, "coins")).isEqualTo(9);
+
+        assertThatThrownBy(() -> gifts.give(ada, ada).block()).isInstanceOf(ResponseStatusException.class);
+        safety.block(tobi, ada).block();
+        db.sql("UPDATE users SET coins = 10 WHERE id = :u").bind("u", ada).fetch().rowsUpdated().block();
+        assertThatThrownBy(() -> gifts.give(ada, tobi).block()).isInstanceOf(ResponseStatusException.class);
     }
 }

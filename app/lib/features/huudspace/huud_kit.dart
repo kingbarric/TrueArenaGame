@@ -351,6 +351,61 @@ class _HuudLiveChipState extends State<HuudLiveChip> with SingleTickerProviderSt
   }
 }
 
+/// The Huud's mic: impossible to mistake. Muted is a red ring with a red,
+/// crossed-out mic; talking is a bold, deep-green button with a white mic.
+class HuudMicButton extends StatelessWidget {
+  const HuudMicButton({super.key, required this.talking, required this.label, required this.onTap});
+  final bool talking;
+  final String label;
+  final VoidCallback? onTap;
+
+  static const talkingGreen = Color(0xff0f8a3c);
+  static const mutedRed = Color(0xffe5484d);
+
+  @override
+  Widget build(BuildContext context) {
+    final n = context.neon;
+    return Semantics(
+      button: true,
+      label: talking ? 'Mic on — tap to mute' : 'Muted — tap to talk',
+      excludeSemantics: true,
+      child: Bouncy(
+        onTap: onTap,
+        child: SizedBox(
+          width: 76,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              width: 58,
+              height: 58,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: talking ? talkingGreen : mutedRed.withValues(alpha: 0.1),
+                border: Border.all(color: talking ? const Color(0xff0a5c28) : mutedRed, width: talking ? 2.6 : 3),
+                boxShadow: talking
+                    ? [BoxShadow(color: talkingGreen.withValues(alpha: 0.55), blurRadius: 16, spreadRadius: 1)]
+                    : null,
+              ),
+              child: Icon(talking ? Icons.mic_rounded : Icons.mic_off_rounded,
+                  key: ValueKey(talking ? 'mic-on' : 'mic-off'),
+                  color: talking ? Colors.white : mutedRed,
+                  size: talking ? 30 : 28),
+            ),
+            const SizedBox(height: 6),
+            Text(label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                    color: talking ? talkingGreen : (label == 'Muted' ? mutedRed : n.ink))),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
 /// A soft orange glow that breathes — for "there's something new for you
 /// here" (an unread chat message). Steady when the phone asks for less motion.
 class HuudGlow extends StatefulWidget {

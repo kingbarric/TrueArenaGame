@@ -19,6 +19,9 @@ import 'package:truearena/features/huudspace/live_now_panel.dart';
 import 'package:truearena/features/huudspace/safety_sheet.dart';
 import 'package:truearena/features/huudspace/huud_swipe_screen.dart';
 import 'package:truearena/widgets/talking_row.dart';
+import 'package:truearena/widgets/gift_splash.dart';
+import 'package:truearena/features/huudspace/huud_kit.dart';
+import 'dart:async';
 import 'package:truearena/theme/neon_theme.dart';
 
 http.Response _json(Object body, [int status = 200]) =>
@@ -873,5 +876,70 @@ void main() {
     expect(box.height, lessThanOrEqualTo(380), reason: 'a fixed box, not the whole page');
     expect(find.descendant(of: find.byKey(const ValueKey('huud-chat-box')), matching: find.byType(ListView)),
         findsOneWidget);
+  });
+
+  testWidgets("someone's card: profile, add friend (or Friends), and gift 3 coins", (tester) async {
+    final calls = await pump(tester, const HuudSpaceScreen(id: 'h1'), (r) async {
+      if (r.url.path == '/api/v1/friends') return _json([{'userId': 'chidi', 'displayName': 'Chidi', 'username': 'chidi'}]);
+      if (r.url.path == '/api/v1/players/ada/gift') return _json({'coins': 3, 'balance': 17});
+      if (r.url.path == '/api/v1/friends/requests/user/ada') return http.Response('', 201);
+      return _json(_huud());
+    });
+    await tester.tap(find.byKey(const ValueKey('huud-tab-people')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('huud-person-chidi')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('person-profile')), findsOneWidget);
+    expect(find.byKey(const ValueKey('person-friends')), findsOneWidget, reason: 'already friends');
+    expect(find.byKey(const ValueKey('person-gift')), findsOneWidget);
+    await tester.tapAt(const Offset(20, 40));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('huud-person-ada')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('person-gift')));
+    await tester.pumpAndSettle();
+    expect(calls, contains('POST /api/v1/players/ada/gift {}'));
+    expect(find.textContaining('You gave ada 3 coins'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('huud-person-ada')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('person-add-friend')));
+    await tester.pumpAndSettle();
+    expect(calls, contains('POST /api/v1/friends/requests/user/ada {}'));
+  });
+
+  testWidgets('a gift shows a small splash in the corner that never blocks taps', (tester) async {
+    final gifts = StreamController<Map<String, dynamic>>.broadcast();
+    addTearDown(gifts.close);
+    var tapped = 0;
+    await tester.pumpWidget(MaterialApp(
+      home: GiftSplashHost(
+        gifts: gifts.stream,
+        child: Scaffold(body: SizedBox.expand(child: TextButton(onPressed: () => tapped++, child: const Text('board')))),
+      ),
+    ));
+    gifts.add({'fromName': 'eric', 'coins': 3});
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('eric sent you 3 coins!'), findsOneWidget);
+    // Tapping right where the splash is still reaches the game underneath.
+    await tester.tapAt(tester.getCenter(find.byKey(const ValueKey('gift-splash'))));
+    expect(tapped, 1);
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pump(const Duration(milliseconds: 400));
+  });
+
+  testWidgets('the mic: muted is a red crossed-out mic, talking is a bold green one', (tester) async {
+    Future<void> show(bool talking) => tester.pumpWidget(MaterialApp(
+        theme: NeonTheme.light,
+        home: Scaffold(body: Center(child: HuudMicButton(talking: talking, label: talking ? 'Talking' : 'Muted', onTap: () {})))));
+    await show(false);
+    expect(tester.widget<Icon>(find.byKey(const ValueKey('mic-off'))).color, HuudMicButton.mutedRed);
+    await show(true);
+    expect(tester.widget<Icon>(find.byKey(const ValueKey('mic-on'))).color, Colors.white);
+    final circle = tester.widget<AnimatedContainer>(find.byType(AnimatedContainer));
+    expect((circle.decoration as BoxDecoration).color, HuudMicButton.talkingGreen);
   });
 }

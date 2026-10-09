@@ -112,6 +112,10 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   /// Something changed in a Huud space you're in (someone joined, a game was
   /// picked, the host moved on…) — the payload's `data.huudSpaceId` says which.
   final _huudSpaceController = StreamController<Map<String, dynamic>>.broadcast();
+
+  /// Coin gifts that just arrived for you — `{from, fromName, coins}`.
+  final _coinGiftController = StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get coinGifts => _coinGiftController.stream;
   Stream<Map<String, dynamic>> get huudSpaceEvents => _huudSpaceController.stream;
 
   /// Tests: deliver a Huud event as if it came over the inbox.
@@ -178,6 +182,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         _huudController.add(payload!);
       } else if (payload?['type'] == 'HUUD_SPACE') {
         _huudSpaceController.add(payload!);
+      } else if (payload?['type'] == 'COIN_GIFT') {
+        _coinGiftController.add((payload!['data'] as Map).cast<String, dynamic>());
       }
     }, onDone: () => _scheduleInboxReconnect(generation));
     client.ready.then((_) {

@@ -19,6 +19,7 @@ import 'huud_space_models.dart';
 import 'huud_roster.dart';
 import 'safety_sheet.dart';
 import '../../core/keep_awake.dart';
+import '../competitive/player_profile_screen.dart';
 
 Future<void> openHuudSpace(BuildContext context, String id, {HuudSpace? initial}) =>
     Navigator.of(context).push(huudRoute(id, initial: initial));
@@ -58,6 +59,10 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
   bool _started = false;
 
   List<HuudChatMessage>? _chat;
+
+  /// Your friends, so a person's card can say "Add friend" or "Friends".
+  Set<String> _friendIds = const {};
+  final _friendAsked = <String>{};
   int _unread = 0;
   final _say = TextEditingController();
   final _scroll = ScrollController();
@@ -85,7 +90,49 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     _events = app.huudSpaceEvents.listen(_onEvent);
     _poll = Timer.periodic(const Duration(seconds: 8), (_) => _load());
     HangoutState.instance.addListener(_onVoice);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _load();
+      _loadFriends();
+    });
+  }
+
+  Future<void> _loadFriends() async {
+    try {
+      final rows = await AppScope.of(context).api.get('/friends') as List;
+      if (mounted) {
+        setState(() => _friendIds = {for (final f in rows) (f as Map)['userId'].toString()});
+      }
+    } catch (_) {
+      // Unknown — the card just offers "Add friend" and the server says if you already are.
+    }
+  }
+
+  Future<void> _addFriend(HuudMember person) async {
+    try {
+      await AppScope.of(context).api.post('/friends/requests/user/${person.userId}');
+      if (!mounted) return;
+      setState(() => _friendAsked.add(person.userId));
+      huudSnack(context, 'Friend request sent to ${person.handle} 🤝');
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      if (e.message.contains('already friends')) setState(() => _friendIds = {..._friendIds, person.userId});
+      huudSnack(context, e.message.contains('already friends') ? "You're already friends 💛" : e.message);
+    } catch (_) {
+      if (mounted) huudSnack(context, "That didn't work — check your internet and try again.");
+    }
+  }
+
+  /// Three of your coins to them; they see a little splash wherever they are.
+  Future<void> _giftCoins(HuudMember person) async {
+    try {
+      final raw = await AppScope.of(context).api.post('/players/${person.userId}/gift') as Map;
+      if (!mounted) return;
+      huudSnack(context, '🎁 You gave ${person.handle} ${raw['coins'] ?? 3} coins! You have ${raw['balance']} left.');
+    } on ApiException catch (e) {
+      if (mounted) huudSnack(context, e.message);
+    } catch (_) {
+      if (mounted) huudSnack(context, "That didn't work — check your internet and try again.");
+    }
   }
 
   @override
@@ -509,6 +556,46 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                 if (person.username.isNotEmpty && person.username != person.name)
                   Text('@${person.username}',
                       textAlign: TextAlign.center, style: TextStyle(fontSize: 15, color: n.mute)),
+                const SizedBox(height: 16),
+                Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+                  HuudRoundAction(
+                    key: const ValueKey('person-profile'),
+                    icon: Icons.person_rounded,
+                    label: 'Profile',
+                    onTap: person.username.isEmpty
+                        ? null
+                        : () {
+                            Navigator.of(sheet).pop();
+                            Navigator.of(context).push(MaterialPageRoute(
+                                builder: (_) => PlayerProfileScreen(username: person.username)));
+                          },
+                  ),
+                  if (_friendIds.contains(person.userId))
+                    const HuudRoundAction(
+                        key: ValueKey('person-friends'), icon: Icons.favorite_rounded, label: 'Friends', active: true, onTap: null)
+                  else if (_friendAsked.contains(person.userId))
+                    const HuudRoundAction(
+                        key: ValueKey('person-friend-asked'), icon: Icons.hourglass_top_rounded, label: 'Asked', onTap: null)
+                  else
+                    HuudRoundAction(
+                      key: const ValueKey('person-add-friend'),
+                      icon: Icons.person_add_alt_1_rounded,
+                      label: 'Add friend',
+                      onTap: () {
+                        Navigator.of(sheet).pop();
+                        _addFriend(person);
+                      },
+                    ),
+                  HuudRoundAction(
+                    key: const ValueKey('person-gift'),
+                    icon: Icons.card_giftcard_rounded,
+                    label: 'Gift 3 coins',
+                    onTap: () {
+                      Navigator.of(sheet).pop();
+                      _giftCoins(person);
+                    },
+                  ),
+                ]),
                 const SizedBox(height: 16),
                 if (huud.youAreHost) ...[
                   HuudButton(
@@ -977,15 +1064,14 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     final canSpeak = huud.youCanSpeak || voice.canSpeak;
     final talking = connected && !HangoutState.instance.muted;
     return Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-      HuudRoundAction(
+      HuudMicButton(
         key: const ValueKey('huud-talk'),
-        icon: talking ? Icons.mic_rounded : Icons.mic_off_rounded,
+        talking: talking,
         label: voice.isConnecting(huud.voiceRoom)
             ? 'Joining…'
             : talking
                 ? 'Talking'
                 : 'Muted',
-        active: talking,
         onTap: () => _talk(huud),
       ),
       if (!canSpeak)
