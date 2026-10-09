@@ -89,6 +89,7 @@ public class HuudService {
         List<Flux<FeedItem>> sources = new ArrayList<>();
         if (filter == Filter.ALL || filter == Filter.OPEN) {
             sources.add(openGames(viewer, tab));
+            sources.add(sharedHuuds(viewer, tab));
         }
         if (filter == Filter.ALL || filter == Filter.WINS) {
             sources.add(wins(viewer, tab));
@@ -120,6 +121,56 @@ public class HuudService {
         return "EXISTS (SELECT 1 FROM friends f WHERE f.status = 'accepted'"
                 + " AND f.low_user_id = LEAST(:uid, " + column + ")"
                 + " AND f.high_user_id = GREATEST(:uid, " + column + "))";
+    }
+
+    /**
+     * Huuds their hosts shared. Friends: your own, your friends' and ones
+     * you're in (whatever the privacy — a private one says "Ask to join").
+     * For you: public ones. Never from someone either of you blocked.
+     */
+    private Flux<FeedItem> sharedHuuds(UUID viewer, Tab tab) {
+        String scope = tab == Tab.FRIENDS
+                ? "(s.owner_id = :uid OR " + friendOf("s.owner_id") + " OR me.user_id IS NOT NULL)"
+                : "s.privacy = 'public'";
+        return db.sql("SELECT s.id, s.name, s.privacy, s.feed_message, s.shared_at, s.owner_id, "
+                        + "u.display_name, u.username, u.avatar_url, r.game_type, r.status AS room_status, "
+                        + "(SELECT count(*) FROM room_members rm WHERE rm.room_id = r.id) AS players, "
+                        + "(SELECT count(*) FROM huud_space_members c WHERE c.huud_space_id = s.id AND c.left_at IS NULL) AS people, "
+                        + "(me.user_id IS NOT NULL) AS mine, " + friendOf("s.owner_id") + " AS friend "
+                        + "FROM huud_spaces s JOIN users u ON u.id = s.owner_id "
+                        + "LEFT JOIN rooms r ON r.id = s.current_room_id "
+                        + "LEFT JOIN huud_space_members me ON me.huud_space_id = s.id AND me.user_id = :uid AND me.left_at IS NULL "
+                        + "WHERE s.status = 'active' AND s.shared_at IS NOT NULL AND " + scope + " "
+                        + "AND NOT EXISTS (SELECT 1 FROM huud_space_members x WHERE x.huud_space_id = s.id AND x.user_id = :uid AND x.removed) "
+                        + "AND NOT " + app.truearena.api.huudspace.HuudSpaceService.blockedSql("s.owner_id", ":uid") + " "
+                        + "ORDER BY s.shared_at DESC LIMIT " + PAGE)
+                .bind("uid", viewer)
+                .map((row, meta) -> {
+                    UUID owner = row.get("owner_id", UUID.class);
+                    String privacy = row.get("privacy", String.class);
+                    boolean mine = Boolean.TRUE.equals(row.get("mine", Boolean.class));
+                    boolean friend = Boolean.TRUE.equals(row.get("friend", Boolean.class));
+                    String access = mine ? "in"
+                            : owner.equals(viewer) || "public".equals(privacy) || ("friends".equals(privacy) && friend)
+                            ? "join" : "ask";
+                    String gameType = row.get("game_type", String.class);
+                    String roomStatus = row.get("room_status", String.class);
+                    var huud = new HuudDtos.SharedHuud(row.get("id", UUID.class), row.get("name", String.class), privacy,
+                            ((Number) row.get("people")).intValue(),
+                            roomStatus == null ? null : app.truearena.api.huudspace.HuudSpaceService.gameStatus(roomStatus),
+                            ((Number) row.get("players")).intValue(), seatsFor(gameType), access);
+                    var host = new PersonView(owner, row.get("display_name", String.class), row.get("username", String.class),
+                            row.get("avatar_url", String.class), friend);
+                    return new FeedItem("huud", "huud:" + huud.huudSpaceId(), instant(row.get("shared_at")), host,
+                            gameType, row.get("feed_message", String.class), null, null, null, huud);
+                })
+                .all();
+    }
+
+    private static Instant instant(Object value) {
+        if (value == null) return null;
+        if (value instanceof Instant i) return i;
+        return ((java.time.OffsetDateTime) value).toInstant();
     }
 
     /**
@@ -260,7 +311,7 @@ public class HuudService {
                 row.get("rating", Double.class), row.get("week_delta", Double.class),
                 beaten == null ? List.of() : Arrays.asList(beaten));
         return new FeedItem("win", "win:" + matchId + ":" + actor.userId(), row.get("completed_at", Instant.class),
-                actor, row.get("game_type", String.class), null, null, win, null);
+                actor, row.get("game_type", String.class), null, null, win, null, null);
     }
 
     /** Wins in a row at the front of a newest-first result list. */
@@ -341,7 +392,7 @@ public class HuudService {
                 "champion".equals(kind) ? person : null,
                 Boolean.TRUE.equals(row.get("viewer_joined", Boolean.class)));
         return new FeedItem(kind, kind + ":" + id, at, person, row.get("game_type", String.class), message,
-                null, null, t);
+                null, null, t, null);
     }
 
     // ---------------------------------------------------------------- writing
@@ -496,6 +547,11 @@ public class HuudService {
         return type;
     }
 
+    /** A game's natural table, for anything showing "2/4 playing". Unknown games count as 2. */
+    public static int seatsFor(String gameType) {
+        return gameType == null || !DEFAULT_SEATS.containsKey(gameType) ? 2 : seatsFor(gameType, null);
+    }
+
     /** Head-to-head games are always two; Ludo tops out at four; anything else 2–16. */
     static int seatsFor(String gameType, Integer requested) {
         if (HEAD_TO_HEAD.contains(gameType)) {
@@ -543,7 +599,7 @@ public class HuudService {
             boolean filled = players.size() >= seats || "in_game".equals(roomStatus);
             OpenGame game = new OpenGame(id, roomId, code, ranked, players.size(), seats, players, expiresAt,
                     joined, viewer.equals(authorId), target, lastOutcome, filled);
-            return new FeedItem(kind, "post:" + id, createdAt, author, gameType, message, game, null, null);
+            return new FeedItem(kind, "post:" + id, createdAt, author, gameType, message, game, null, null, null);
         }
     }
 }

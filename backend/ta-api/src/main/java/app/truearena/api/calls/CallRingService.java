@@ -108,8 +108,11 @@ public class CallRingService {
                 .switchIfEmpty(Mono.error(ApiExceptions.forbidden("you're not part of that call")))
                 .then(users.findById(userId))
                 .switchIfEmpty(Mono.error(ApiExceptions.notFound("no such user")))
-                .map(self -> new CallToken(roomName,
-                        tokens.mintToken(roomName, self.id().toString(), self.displayName()), tokens.wsUrl()));
+                // In a Huud you listen until the host hands you the mic.
+                .flatMap(self -> (huudSpaces != null && roomName.startsWith(app.truearena.api.huudspace.HuudSpaceAccess.VOICE_PREFIX)
+                        ? huudSpaces.canSpeak(userId, roomName) : Mono.just(true))
+                        .map(speak -> new CallToken(roomName,
+                                tokens.mintToken(roomName, self.id().toString(), self.displayName(), speak), tokens.wsUrl())));
     }
 
     /**

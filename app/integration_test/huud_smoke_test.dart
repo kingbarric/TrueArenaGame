@@ -9,13 +9,16 @@ import 'package:truearena/app.dart';
 import 'package:truearena/core/api_client.dart';
 import 'package:truearena/core/app_state.dart';
 
-/// Walks the Live and Huud tabs on a real device against a local backend
-/// (local profile, so `000000` signs in) and saves screenshots along the way.
+/// Walks Live, Huud, Games and Friends on a real device against a local
+/// backend (local profile, so `000000` signs in) and saves screenshots.
 ///
 ///   flutter drive --driver=test_driver/integration_test.dart \
 ///     --target=integration_test/huud_smoke_test.dart \
 ///     --dart-define=API_BASE=http://localhost:8091 \
-///     --dart-define=SMOKE_EMAIL=eric@huud.test -d <simulator>
+///     --dart-define=SMOKE_PRIVATE_CODE=<code of someone else's private Huud> -d <simulator>
+///
+/// Expects `eric@huud.test` hosting a shared public Huud with a pending play
+/// request and some chat (see docs/HUUD_SPACES.md).
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
@@ -39,16 +42,26 @@ void main() {
     await wait(tester, 1200);
   }
 
-  testWidgets('Live and Huud tabs', (tester) async {
+  Finder keyed(bool Function(String key) test) => find.byWidgetPredicate((w) {
+        final key = w.key;
+        return key is ValueKey<String> && test(key.value);
+      });
+
+  Future<void> closeSheet(WidgetTester tester) async {
+    await tester.tapAt(const Offset(20, 80));
+    await wait(tester);
+  }
+
+  testWidgets('Live, Huud, Games and Friends', (tester) async {
     const email = String.fromEnvironment('SMOKE_EMAIL', defaultValue: 'eric@huud.test');
+    const privateCode = String.fromEnvironment('SMOKE_PRIVATE_CODE');
     const base = '${ApiClient.base}/api/v1';
     await http.post(Uri.parse('$base/auth/otp/request'),
         headers: {'content-type': 'application/json'}, body: jsonEncode({'email': email}));
     final verified = jsonDecode((await http.post(Uri.parse('$base/auth/otp/verify'),
             headers: {'content-type': 'application/json'}, body: jsonEncode({'email': email, 'code': '000000'})))
         .body) as Map<String, dynamic>;
-    const secure = FlutterSecureStorage(
-        iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock_this_device));
+    const secure = FlutterSecureStorage(iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock_this_device));
     await secure.write(key: 'ta_access', value: verified['accessToken'] as String);
     await secure.write(key: 'ta_refresh', value: verified['refreshToken'] as String);
 
@@ -57,58 +70,79 @@ void main() {
     await state.setThemeMode(ThemeMode.dark);
     await tester.pumpWidget(TrueArenaApp(state: state));
     await wait(tester, 4000);
-    await binding.convertFlutterSurfaceToImage().catchError((Object _) {});
 
-    // ----- Huud tab (dark)
-    await tapWhenThere(tester, find.byKey(const ValueKey('nav-Huud')));
-    await shot(tester, '01_huud_tab_dark');
-    await tester.drag(find.byType(CustomScrollView).first, const Offset(0, -500));
-    await shot(tester, '02_huud_history_dark');
-    await tapWhenThere(tester, find.text('Saturday Whot'));
-    await shot(tester, '03_history_detail_dark');
-    await tester.tapAt(const Offset(20, 60)); // close the sheet
-    await wait(tester);
-    await tester.drag(find.byType(CustomScrollView).first, const Offset(0, 800));
-    await wait(tester);
-
-    // ----- Make a Huud
-    await tapWhenThere(tester, find.byKey(const ValueKey('huud-make')));
-    await shot(tester, '04_create_sheet_dark');
-    await tapWhenThere(tester, find.byKey(const ValueKey('huud-create')));
-    await wait(tester, 2000);
-    await shot(tester, '05_inside_host_dark');
-    await tester.drag(find.byType(CustomScrollView).first, const Offset(0, -500));
-    await shot(tester, '06_inside_games_dark');
-    await tapWhenThere(tester, find.byKey(const ValueKey('huud-tab-people')));
-    await shot(tester, '07_inside_people_dark');
-    await tapWhenThere(tester, find.byKey(const ValueKey('huud-leave')));
-    await shot(tester, '08_leave_confirm_dark');
-    await tapWhenThere(tester, find.text('No, stay'));
-    await tapWhenThere(tester, find.byKey(const ValueKey('huud-back')));
-    await wait(tester, 1500);
-    await shot(tester, '09_huud_tab_hosting_dark');
-
-    // ----- Live tab (dark)
+    // ----- Live (first tab)
     await tapWhenThere(tester, find.byKey(const ValueKey('nav-Live')));
-    await shot(tester, '10_live_now_dark');
+    await shot(tester, '01_live_now_dark');
     await tapWhenThere(tester, find.byKey(const ValueKey('huud-tab-friends')));
-    await shot(tester, '11_feed_friends_dark');
-    await tapWhenThere(tester, find.byKey(const ValueKey('huud-tab-live')));
+    await shot(tester, '02_feed_shared_huud_dark');
 
-    // ----- Light theme
-    await state.setThemeMode(ThemeMode.light);
-    await wait(tester, 1200);
-    await shot(tester, '12_live_now_light');
-    await tapWhenThere(tester, find.textContaining('Zara'));
-    await shot(tester, '13_peek_light');
-    await tapWhenThere(tester, find.byKey(const ValueKey('huud-join')));
-    await wait(tester, 1500);
-    await shot(tester, '14_inside_member_light');
-    await tapWhenThere(tester, find.byKey(const ValueKey('huud-back')));
-    await wait(tester, 1200);
+    // ----- Huud tab → inside as host
     await tapWhenThere(tester, find.byKey(const ValueKey('nav-Huud')));
-    await shot(tester, '15_huud_tab_light');
-    await tester.drag(find.byType(CustomScrollView).first, const Offset(0, -600));
-    await shot(tester, '16_huud_history_light');
+    await shot(tester, '03_huud_tab_dark');
+    await tapWhenThere(tester, keyed((k) => k.startsWith('huud-go-in-')));
+    await shot(tester, '04_host_asking_dark');
+    await tapWhenThere(tester, keyed((k) => k.startsWith('answer-play-') && k.endsWith('-yes')));
+    await shot(tester, '05_after_yes_dark');
+    await tester.drag(find.byType(CustomScrollView).first, const Offset(0, -450));
+    await shot(tester, '06_game_seats_dark');
+    await tapWhenThere(tester, find.byKey(const ValueKey('huud-tab-chat')));
+    await shot(tester, '07_chat_dark');
+    await tapWhenThere(tester, find.byKey(const ValueKey('huud-tab-people')));
+    await shot(tester, '08_people_dark');
+    await tapWhenThere(tester, keyed((k) => k.startsWith('huud-person-')).last);
+    await shot(tester, '09_person_sheet_dark');
+    await tapWhenThere(tester, find.byKey(const ValueKey('person-safety')));
+    await tapWhenThere(tester, find.byKey(const ValueKey('safety-report')));
+    await tapWhenThere(tester, find.byKey(const ValueKey('safety-reason-unsafe')));
+    await shot(tester, '10_report_dark');
+    await closeSheet(tester);
+    await tapWhenThere(tester, find.byKey(const ValueKey('huud-back')));
+
+    // ----- Games tab: a game tap goes through your Huud
+    await tapWhenThere(tester, find.byKey(const ValueKey('nav-Games')));
+    await shot(tester, '11_games_dark');
+    await tapWhenThere(tester, find.byKey(const ValueKey('home-game-chess')));
+    await shot(tester, '12_games_tap_opens_huud_dark');
+    await tapWhenThere(tester, find.byKey(const ValueKey('huud-back')));
+
+    // ----- Friends (retry: the tap can land while the last screen is still closing)
+    for (var i = 0; i < 5 && find.byKey(const ValueKey('friends-tab-requests')).hitTestable().evaluate().isEmpty; i++) {
+      await tapWhenThere(tester, find.byKey(const ValueKey('nav-Friends')));
+    }
+    await shot(tester, '13_friends_dark');
+    await tapWhenThere(tester, find.byKey(const ValueKey('friends-tab-requests')));
+    await shot(tester, '14_requests_dark');
+    await tapWhenThere(tester, find.byKey(const ValueKey('friends-tab-messages')));
+    await shot(tester, '15_messages_dark');
+
+    // ----- Light: a private Huud by code → ask → wait
+    await state.setThemeMode(ThemeMode.light);
+    await tapWhenThere(tester, find.byKey(const ValueKey('nav-Huud')));
+    if (privateCode.isNotEmpty) {
+      await tester.enterText(find.byKey(const ValueKey('huud-code-input')), privateCode);
+      await wait(tester, 500);
+      await tapWhenThere(tester, find.byKey(const ValueKey('huud-code-join')));
+      await shot(tester, '16_private_waiting_light');
+      await tapWhenThere(tester, find.byKey(const ValueKey('huud-back')));
+    }
+    await tapWhenThere(tester, find.byKey(const ValueKey('nav-Live')));
+    await tapWhenThere(tester, find.byKey(const ValueKey('huud-tab-friends')));
+    await shot(tester, '17_feed_light');
+
+    // ----- End the Huud, then a game tap offers to make one with it picked
+    await tapWhenThere(tester, find.byKey(const ValueKey('nav-Huud')));
+    await tapWhenThere(tester, keyed((k) => k.startsWith('huud-go-in-')));
+    await tapWhenThere(tester, find.byKey(const ValueKey('huud-end')));
+    await tapWhenThere(tester, find.text('End it for everyone'));
+    await wait(tester, 1500);
+    await tapWhenThere(tester, find.byKey(const ValueKey('nav-Games')));
+    await tapWhenThere(tester, find.byKey(const ValueKey('home-game-chess')));
+    await shot(tester, '18_create_from_games_light');
+    await tester.drag(find.byType(SingleChildScrollView).last, const Offset(0, -400));
+    await wait(tester, 600);
+    await tapWhenThere(tester, find.byKey(const ValueKey('huud-share-switch')));
+    await tester.drag(find.byType(SingleChildScrollView).last, const Offset(0, -300));
+    await shot(tester, '19_create_share_light');
   });
 }

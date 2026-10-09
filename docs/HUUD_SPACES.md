@@ -1,39 +1,51 @@
 # Huud spaces
 
-A Huud space is the persistent place people hang out and play one game after another. The game (an ordinary room) comes and goes; the Huud, its code, its people and its voice room stay until the host ends it or everyone has gone.
+A Huud space is the persistent place people hang out and play one game after another. Feed = people and content; Huud = the social room; Game = the activity inside the Huud. The game (an ordinary room) comes and goes; the Huud, its code, its people, its chat and its voice room stay until the host ends it or everyone has gone.
 
 ## App
 
-- **Live tab** (`HuudScreen`): three tabs on one page — **Live now** (`LiveNowPanel`: live Huuds you can see, plus games to watch from `/rooms/discoverable`), **Friends** and **For you** (the existing feed). The old Watch tab is folded into Live now.
-- **Huud tab** (`HuudHomeScreen`): the Huuds you're in right now, **Make a Huud** (name + privacy only — Friends · Private · Public, Friends by default), a 6-letter code box (falls back to a game code), and **Your Huuds**: past Huuds with who was there and what was played, filterable by Made by me / Joined.
-- **Inside a Huud** (`HuudSpaceScreen`): orange card with name, host, people and code; Talk / Invite / People / Leave; **Play** (host picks from the game grid, members join the game; after a game: play again or pick another) and **People** (host crown, here/away, host can take someone out). Back and End are pinned at the top.
-- Styling lives in `huud_kit.dart` and `theme/huud_colors.dart`: orange fills always carry dark ink, deeper `orangeText` for words on the page, 52pt+ tap targets, every button has an icon and a word, solid bottom sheets, friendly confirmations before Leave / End / take out. The nav pill shows a label under every icon.
-- The app heartbeats `POST /huud-spaces/heartbeat` every 45s while in the foreground (stopped in the background), and `HUUD_SPACE` inbox events refresh open screens.
+Bottom menu: **Live · Huud · Games · Friends · You** (labels under every icon).
 
-## Rules (server, `HuudSpaceService`)
+- **Live** (`HuudScreen`): **Live now** (`LiveNowPanel`: live Huuds you can see + games to watch), **Friends** and **For you** feeds. The feed has no game-request composer any more; it shows people content (wins, challenges, tournaments) and **shared Huuds** — "Who wants to play Whot?" · Eric's Huud · Whot · 2/4 playing · Join Huud / Ask to join / Go in.
+- **Huud** (`HuudHomeScreen`): the Huuds you're in, **Make a Huud**, a code box, and **Your Huuds** history with who was there and what was played.
+- **Make a Huud** (`CreateHuudSheet`): name + Friends/Private/Public, then optional: a first game, and "Show it on the feed" with a short line.
+- **Games**: tapping a game (signed-in accounts) opens your Huud — the game becomes the next one if nothing's on, never replacing one that is — or Make a Huud with that game picked. "Just play a quick game instead" keeps the old lobby (bots, solo). Guests and signed-out players go straight to the old lobby.
+- **Friends**: tabs **Friends · Messages · Requests** (Messages is the old Chats list; Requests carries a count).
+- **Inside a Huud** (`HuudSpaceScreen`): orange card (name, host, people, code), Talk/Listen · Ask mic · Invite · Leave, the host's **asking** box (join/play/mic requests with big ✓/✗), and tabs **Play · Chat · People**. Play: host picks the game; members **Ask to play**; players open their seat; others **Watch** once it starts. Chat: Huud chat, long-press a message to report. People: tap someone for mic on/off, take out (host) and **Report or block** (everyone).
+- **Safety** (`showSafetySheet`): report with a reason (mean / unsafe / spam / other), "Also block" on by default, a "tell a grown-up" note for unsafe; block keeps you apart.
+- **Voice**: `CallScreen` joins listen-only when the token can't publish; the mic button becomes "Ask to talk"; a host grant flips live (`setCanPublish`) and the player taps the mic when ready.
+- **Startup**: only the game screen the app was closed on is reopened (`GameSocket.currentPlayerRoom` → `ta_resume_room`); a lobby you backed out of no longer pops open on launch.
 
-- One live Huud per host (`huud_spaces_one_owned`); Create returns the existing one. Guests can join but not make one.
-- Privacy decides discovery: Public → everyone, Friends → the host's friends. The code always works (it is the invitation) and is only shown to people inside.
-- **Host succession**: when the host leaves, or their app is quiet for `huud.host-grace` (default 5 min), the Huud goes to the earliest-joined person still in it — skipping guests and anyone already hosting a live Huud. Someone who left and came back rejoins the end of the line. No eligible person → leaving ends the Huud.
-- Members quiet for `huud.member-timeout` (default 10 min) are marked gone; a Huud with nobody left ends. Expiry runs every 30s.
-- One game at a time: a waiting or playing game must finish or be put away (a waiting one is cancelled with stakes refunded) before another is picked.
-- Removed people can't rejoin, see it on Live, use its voice room (`huud-<id>`, authorized in `CallRingService.canJoin` via `HuudSpaceAccess`) or see it in history.
-- History leaves out finished Huuds that nobody else joined and nothing was played in.
+## Rules (server)
+
+`HuudSpaceService` (core), `HuudSpaceRequestService` (asks/answers/invites/mic), `HuudSpaceChatService`, `SafetyService` (`/api/v1/players/{id}/block|report`).
+
+- One live Huud per host; Create reopens it. Guests can join but not make one.
+- **Joining**: Public → anyone straight in; Friends → the host's friends straight in; everyone else, and everyone for Private, **asks** (`huud_space_requests` kind `join`) unless invited by the host or let in before. The code finds a Huud; it doesn't bypass the rules. Declined askers wait 5 minutes before asking again.
+- **Joining the Huud is not joining the game.** Members ask to play (`kind=play`, tied to the current room); the host's yes seats them via `RoomService.join` (full games refuse). A new game clears the queue. The host plays by default (they create the room).
+- **Mic**: members listen; the host and anyone handed the mic (`huud_space_members.can_speak`) speak. Huud voice tokens are minted with `canPublish` accordingly.
+- **Chat**: members only, 300 characters, 5 messages per 10 seconds, delivered over the inbox; blocked senders are filtered.
+- **Block**: no joining or seeing each other's Huuds (Live, feed, view), chat hidden, friendship removed, removed from the blocker's live Huud. **Report**: stored in `player_reports` with the reported message's text.
+- **Host succession**: host leaves or is quiet for `huud.host-grace` (5 min) → the earliest-joined person still in it (no guests, nobody already hosting).
+- Members quiet for `huud.member-timeout` (10 min) are marked gone; an empty Huud ends. Ending cancels a waiting game and clears the feed share.
 
 ## Schema
 
-`V39__huud_spaces.sql`: `huud_spaces`, `huud_space_members` (rows outlive the Huud for history), `rooms.huud_space_id`. Numbered 39 because 37 (`slayhuud`) and 38 (`social_huud_sessions`) exist on other branches; Flyway here does not run out of order, so those must be applied before this one on any shared database.
+- `V39__huud_spaces.sql`: `huud_spaces`, `huud_space_members`, `rooms.huud_space_id`.
+- `V40__huud_space_social.sql`: feed share columns, `can_speak`, `huud_space_requests`, `huud_space_messages`, `player_blocks`, `player_reports` (named `player_*` because production carries an unused `user_blocks` from a dropped branch).
+- `spring.flyway.ignore-migration-patterns: "*:missing"`: production has V37/V38 applied from that dropped branch.
 
 ## Validation
 
-- `HuudSpaceIT` (12 tests): defaults and reopen, guests, privacy vs code, host hand-off on leave and on silence, rejoin order, expiry and ending, removal, history, one game at a time.
-- `test/huud_space_test.dart`: create sheet (no description, Friends default), Huud tab and history, code join, host/member/preview views, leave confirmation, People tab, Live now.
-- `integration_test/huud_smoke_test.dart` drives the real app on a simulator against a local backend and saves screenshots:
+- `HuudSpaceIT` (19): join rules per privacy, private ask/invite/decline, roster selection and seats, mic, chat + flood limit, block/report, feed sharing, plus lifecycle/succession/history.
+- `test/huud_space_test.dart`, `test/huud_feed_test.dart`, `test/game_resume_test.dart`, `test/friends_search_test.dart`.
+- `integration_test/huud_smoke_test.dart` drives the real app on a simulator against a local backend (19 screenshots):
 
 ```bash
 flutter drive --driver=test_driver/integration_test.dart \
   --target=integration_test/huud_smoke_test.dart \
-  --dart-define=API_BASE=http://localhost:8091 -d <simulator>
+  --dart-define=API_BASE=http://localhost:8091 \
+  --dart-define=SMOKE_PRIVATE_CODE=<someone else's private Huud code> -d <simulator>
 ```
 
-It expects a `local`-profile backend (OTP `000000`) with `eric@huud.test` seeded, a past Huud named "Saturday Whot", and a live public Huud whose name contains "Zara".
+It expects a `local`-profile backend (OTP `000000`) where `eric@huud.test` hosts a shared public Whot Huud with a pending play request, a mic request and some chat, and has friends plus one incoming friend request.

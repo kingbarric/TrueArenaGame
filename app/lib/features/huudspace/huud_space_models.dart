@@ -22,9 +22,9 @@ extension HuudPrivacyInfo on HuudPrivacy {
 
   /// One short line a ten-year-old can read at a glance.
   String get explain => switch (this) {
-        HuudPrivacy.friends => 'Your friends can find it and join',
-        HuudPrivacy.private => 'Only people you give the code to',
-        HuudPrivacy.public => 'Anyone on PlayHuud can find it',
+        HuudPrivacy.friends => 'Your friends can come straight in',
+        HuudPrivacy.private => 'Only people you invite or let in',
+        HuudPrivacy.public => 'Anyone on PlayHuud can come in',
       };
 
   static HuudPrivacy parse(String? wire) =>
@@ -39,6 +39,7 @@ class HuudMember {
     this.avatarUrl,
     this.host = false,
     this.here = false,
+    this.canSpeak = false,
   });
 
   final String userId;
@@ -47,6 +48,7 @@ class HuudMember {
   final String? avatarUrl;
   final bool host;
   final bool here;
+  final bool canSpeak;
 
   String get name => displayName.isNotEmpty ? displayName : username;
   String get firstName => name.split(' ').first;
@@ -58,6 +60,7 @@ class HuudMember {
         avatarUrl: j['avatarUrl'] as String?,
         host: j['host'] == true,
         here: j['here'] == true,
+        canSpeak: j['canSpeak'] == true,
       );
 }
 
@@ -69,6 +72,9 @@ class HuudGame {
     required this.gameType,
     required this.status,
     required this.players,
+    this.seats = 2,
+    this.playerIds = const [],
+    this.youArePlaying = false,
   });
 
   final String roomId;
@@ -76,6 +82,13 @@ class HuudGame {
   final String gameType;
   final String status;
   final int players;
+  final int seats;
+  final List<String> playerIds;
+
+  /// In the Huud isn't in the game: this is having a seat.
+  final bool youArePlaying;
+
+  bool get full => players >= seats;
 
   bool get waiting => status == 'waiting';
   bool get playing => status == 'playing';
@@ -87,6 +100,9 @@ class HuudGame {
         gameType: j['gameType'] as String? ?? 'draughts',
         status: j['status'] as String? ?? 'waiting',
         players: (j['players'] as num?)?.toInt() ?? 0,
+        seats: (j['seats'] as num?)?.toInt() ?? 2,
+        playerIds: [for (final id in (j['playerIds'] as List? ?? const [])) id.toString()],
+        youArePlaying: j['youArePlaying'] == true,
       );
 }
 
@@ -103,7 +119,24 @@ class HuudSpace {
     this.code,
     this.host,
     this.currentGame,
+    this.youCanSpeak = false,
+    this.joinRequest,
+    this.playRequest,
+    this.micRequest,
+    this.requests = const [],
+    this.shared = false,
+    this.feedMessage,
   });
+
+  final bool youCanSpeak;
+
+  /// Your own asks: "pending", "accepted", "declined" or null.
+  final String? joinRequest, playRequest, micRequest;
+
+  /// What the host has to answer (empty for everyone else).
+  final List<HuudRequest> requests;
+  final bool shared;
+  final String? feedMessage;
 
   final String id;
 
@@ -137,6 +170,55 @@ class HuudSpace {
         youAreIn: j['youAreIn'] == true,
         youAreHost: j['youAreHost'] == true,
         voiceRoom: j['voiceRoom'] as String? ?? 'huud-${j['id']}',
+        youCanSpeak: j['youCanSpeak'] == true,
+        joinRequest: j['joinRequest'] as String?,
+        playRequest: j['playRequest'] as String?,
+        micRequest: j['micRequest'] as String?,
+        requests: [
+          for (final r in (j['requests'] as List? ?? const []))
+            HuudRequest.fromJson((r as Map).cast<String, dynamic>()),
+        ],
+        shared: j['shared'] == true,
+        feedMessage: j['feedMessage'] as String?,
+      );
+}
+
+/// Someone asking the host: to come in ("join"), to play ("play"), or to talk ("mic").
+class HuudRequest {
+  const HuudRequest({required this.from, required this.kind});
+  final HuudMember from;
+  final String kind;
+
+  String get ask => switch (kind) {
+        'join' => 'wants to come in',
+        'play' => 'wants to play',
+        _ => 'wants to talk',
+      };
+
+  String get emoji => switch (kind) {
+        'join' => '🚪',
+        'play' => '🎮',
+        _ => '🎙️',
+      };
+
+  factory HuudRequest.fromJson(Map<String, dynamic> j) => HuudRequest(
+        from: HuudMember.fromJson((j['from'] as Map).cast<String, dynamic>()),
+        kind: j['kind'] as String? ?? 'join',
+      );
+}
+
+class HuudChatMessage {
+  const HuudChatMessage({required this.id, required this.from, required this.body, required this.at});
+  final int id;
+  final HuudMember from;
+  final String body;
+  final DateTime at;
+
+  factory HuudChatMessage.fromJson(Map<String, dynamic> j) => HuudChatMessage(
+        id: (j['id'] as num).toInt(),
+        from: HuudMember.fromJson((j['from'] as Map).cast<String, dynamic>()),
+        body: j['body'] as String? ?? '',
+        at: DateTime.tryParse(j['at']?.toString() ?? '')?.toLocal() ?? DateTime.now(),
       );
 }
 

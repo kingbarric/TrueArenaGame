@@ -293,21 +293,14 @@ class _ResumeGateState extends State<_ResumeGate> {
       return;
     }
 
-    var roomId = widget.state.activeRoomId;
+    // Only the game screen the app was closed on comes back — a lobby you
+    // backed out of days ago stays put until you go to it.
+    final String? roomId = widget.state.resumeRoomId;
+    widget.state.resumeRoomId = null;
     try {
       if (roomId == null) {
-        // An older build may have a live game but no saved room ID yet.
-        final recovered = await widget.state.api.get('/rooms/active')
-            .timeout(const Duration(seconds: 5));
-        if (recovered is! Map) {
-          if (mounted) setState(() => _checking = false);
-          return;
-        }
-        roomId = recovered['id'] as String?;
-        if (roomId == null) {
-          if (mounted) setState(() => _checking = false);
-          return;
-        }
+        if (mounted) setState(() => _checking = false);
+        return;
       }
       final raw = await widget.state.api.get('/rooms/$roomId') as Map<String, dynamic>;
       final room = RoomView.fromJson(raw);

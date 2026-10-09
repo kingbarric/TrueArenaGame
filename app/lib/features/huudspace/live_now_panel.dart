@@ -37,9 +37,20 @@ class _LiveNowPanelState extends State<LiveNowPanel> {
     super.didChangeDependencies();
     if (_started) return;
     _started = true;
-    _events = AppScope.of(context).huudSpaceEvents.listen((_) => _load());
+    _events = AppScope.of(context).huudSpaceEvents.listen(_onEvent);
     _poll = Timer.periodic(const Duration(seconds: 20), (_) => _load());
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  void _onEvent(Map<String, dynamic> event) {
+    _load();
+    final data = (event['data'] as Map?)?.cast<String, dynamic>() ?? const {};
+    if (data['event'] != 'invited' || !mounted) return;
+    final id = data['huudSpaceId'] as String;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: const Text("You're invited to a Huud! 🎉", style: TextStyle(fontSize: 15)),
+      action: SnackBarAction(label: 'Open', onPressed: () => openHuudSpace(context, id)),
+    ));
   }
 
   @override
@@ -85,6 +96,7 @@ class _LiveNowPanelState extends State<LiveNowPanel> {
       if (!mounted) return;
       setState(() => _joining = null);
       final joined = HuudSpace.fromJson(raw);
+      if (!joined.youAreIn) huudSnack(context, "Asked the host — you'll get in when they say yes ⏳");
       await openHuudSpace(context, joined.id, initial: joined);
     } on ApiException catch (e) {
       if (mounted) huudSnack(context, e.message);

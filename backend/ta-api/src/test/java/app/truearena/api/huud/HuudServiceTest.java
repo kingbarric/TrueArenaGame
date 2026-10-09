@@ -63,7 +63,7 @@ class HuudServiceTest {
         UUID tobi = UUID.randomUUID();
         Instant t0 = Instant.parse("2026-10-07T10:00:00Z");
         FeedItem olderChallenge = challenge(tobi, me, t0);
-        FeedItem newerWin = new FeedItem("win", "w", t0.plusSeconds(600), person(tobi), "whot", null, null, null, null);
+        FeedItem newerWin = new FeedItem("win", "w", t0.plusSeconds(600), person(tobi), "whot", null, null, null, null, null);
         FeedItem myOwnChallenge = challenge(me, tobi, t0.plusSeconds(900));
 
         List<FeedItem> items = new ArrayList<>(List.of(newerWin, myOwnChallenge, olderChallenge));
@@ -75,7 +75,7 @@ class HuudServiceTest {
     private static FeedItem challenge(UUID from, UUID to, Instant at) {
         OpenGame game = new OpenGame(UUID.randomUUID(), UUID.randomUUID(), "ABCDEF", false, 1, 2,
                 List.of(person(from)), at.plusSeconds(600), false, false, person(to), null, false);
-        return new FeedItem("challenge", "c" + at, at, person(from), "whot", null, game, null, null);
+        return new FeedItem("challenge", "c" + at, at, person(from), "whot", null, game, null, null, null);
     }
 
     private static PersonView person(UUID id) {

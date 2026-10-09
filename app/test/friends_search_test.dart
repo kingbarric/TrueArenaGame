@@ -125,6 +125,9 @@ void main() {
       child: MaterialApp(theme: NeonTheme.dark, home: const FriendsScreen()),
     ));
     await tester.pumpAndSettle();
+    // Sent and received requests live under the Requests tab.
+    await tester.tap(find.byKey(const ValueKey('friends-tab-requests')));
+    await tester.pumpAndSettle();
 
     expect(find.text('Waiting on @other'), findsOneWidget);
     await tester.tap(find.text('CANCEL'));

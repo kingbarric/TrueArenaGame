@@ -9,7 +9,10 @@ import '../../widgets/compact_list_row.dart';
 import '../../widgets/neon.dart';
 import '../calls/call_screen.dart';
 import '../games/game_select_screen.dart';
+import '../chat/chat_list_screen.dart';
 import '../chat/conversation_screen.dart';
+import '../groups/groups_screen.dart';
+import '../huudspace/huud_kit.dart';
 import '../competitive/player_profile_screen.dart';
 import '../status/victory_status.dart';
 import 'invite_contacts_screen.dart';
@@ -41,8 +44,7 @@ class FriendUser {
 }
 
 class FriendRequest {
-  const FriendRequest(
-      {required this.id, required this.from, required this.createdAt});
+  const FriendRequest({required this.id, required this.from, required this.createdAt});
   final String id;
   final FriendUser from;
   final DateTime createdAt;
@@ -50,8 +52,7 @@ class FriendRequest {
   factory FriendRequest.fromJson(Map<String, dynamic> j) => FriendRequest(
         id: j['id'] as String,
         from: FriendUser.fromJson((j['from'] as Map).cast<String, dynamic>()),
-        createdAt: DateTime.tryParse(j['createdAt']?.toString() ?? '') ??
-            DateTime.now(),
+        createdAt: DateTime.tryParse(j['createdAt']?.toString() ?? '') ?? DateTime.now(),
       );
 }
 
@@ -107,6 +108,9 @@ class _FriendsScreenState extends State<FriendsScreen> {
   int _searchToken = 0;
   final Set<String> _requestingUserIds = {};
 
+  /// Friends · Messages · Requests.
+  _Section _section = _Section.friends;
+
   @override
   void initState() {
     super.initState();
@@ -127,22 +131,17 @@ class _FriendsScreenState extends State<FriendsScreen> {
     });
     final app = AppScope.of(context);
     try {
-      final results = await Future.wait(
-          [app.api.get('/friends'), app.api.get('/friends/requests')]);
+      final results = await Future.wait([app.api.get('/friends'), app.api.get('/friends/requests')]);
       final friendsJson = results[0] as List;
       final requestsJson = (results[1] as Map).cast<String, dynamic>();
       if (!mounted) return;
       setState(() {
-        _friends = friendsJson
-            .map((e) => FriendUser.fromJson((e as Map).cast<String, dynamic>()))
-            .toList();
+        _friends = friendsJson.map((e) => FriendUser.fromJson((e as Map).cast<String, dynamic>())).toList();
         _incoming = ((requestsJson['incoming'] as List?) ?? const [])
-            .map((e) =>
-                FriendRequest.fromJson((e as Map).cast<String, dynamic>()))
+            .map((e) => FriendRequest.fromJson((e as Map).cast<String, dynamic>()))
             .toList();
         _outgoing = ((requestsJson['outgoing'] as List?) ?? const [])
-            .map((e) =>
-                FriendRequest.fromJson((e as Map).cast<String, dynamic>()))
+            .map((e) => FriendRequest.fromJson((e as Map).cast<String, dynamic>()))
             .toList();
       });
     } on ApiException catch (e) {
@@ -172,13 +171,10 @@ class _FriendsScreenState extends State<FriendsScreen> {
     final token = ++_searchToken;
     final app = AppScope.of(context);
     try {
-      final raw = await app.api
-          .get('/friends/search?q=${Uri.encodeQueryComponent(query)}') as List;
+      final raw = await app.api.get('/friends/search?q=${Uri.encodeQueryComponent(query)}') as List;
       if (!mounted || token != _searchToken) return;
       setState(() {
-        _suggestions = raw
-            .map((e) => UserSearchResult.fromJson((e as Map).cast<String, dynamic>()))
-            .toList();
+        _suggestions = raw.map((e) => UserSearchResult.fromJson((e as Map).cast<String, dynamic>())).toList();
         _searching = false;
       });
     } catch (_) {
@@ -205,19 +201,16 @@ class _FriendsScreenState extends State<FriendsScreen> {
                   : s)
               .toList();
         });
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Friend request sent')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Friend request sent')));
       }
       await _load();
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
       }
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not send the request')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not send the request')));
       }
     } finally {
       if (mounted) setState(() => _requestingUserIds.remove(u.userId));
@@ -227,13 +220,10 @@ class _FriendsScreenState extends State<FriendsScreen> {
   Future<void> _respond(FriendRequest req, bool accept) async {
     final app = AppScope.of(context);
     try {
-      await app.api
-          .post('/friends/requests/${req.id}/${accept ? 'accept' : 'decline'}');
+      await app.api.post('/friends/requests/${req.id}/${accept ? 'accept' : 'decline'}');
       await _load();
     } on ApiException catch (e) {
-      if (mounted)
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     }
   }
 
@@ -243,9 +233,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
       await app.api.post('/friends/requests/${req.id}/cancel');
       await _load();
     } on ApiException catch (e) {
-      if (mounted)
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     }
   }
 
@@ -256,12 +244,8 @@ class _FriendsScreenState extends State<FriendsScreen> {
       builder: (_) => AlertDialog(
         title: Text('Remove ${f.displayName}?'),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel')),
-          TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Remove')),
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Remove')),
         ],
       ),
     );
@@ -270,9 +254,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
       await app.api.delete('/friends/${f.userId}');
       await _load();
     } on ApiException catch (e) {
-      if (mounted)
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     }
   }
 
@@ -281,18 +263,16 @@ class _FriendsScreenState extends State<FriendsScreen> {
     try {
       await app.api.post('/friends/${f.userId}/nudge');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('👋 Nudged ${f.displayName} — their phone is buzzing')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('👋 Nudged ${f.displayName} — their phone is buzzing')));
       }
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
       }
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not send the nudge')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not send the nudge')));
       }
     }
   }
@@ -300,50 +280,40 @@ class _FriendsScreenState extends State<FriendsScreen> {
   Future<void> _call(FriendUser f) async {
     final app = AppScope.of(context);
     try {
-      final res = await app.api.post('/calls/dm/${f.userId}/token')
-          as Map<String, dynamic>;
+      final res = await app.api.post('/calls/dm/${f.userId}/token') as Map<String, dynamic>;
       if (!mounted) return;
-      await CallScreen.open(context, CallScreen(
-          roomName: res['roomName'] as String,
-          token: res['token'] as String,
-          livekitUrl: res['livekitUrl'] as String,
-          title: f.displayName,
-          peerPublicKey: f.publicKey, // 1:1 → end-to-end encrypted media
-          ringPeerId: f.userId, // makes their phone ring
-          refreshToken: () async =>
-              ((await app.api.post('/calls/dm/${f.userId}/token')
-                  as Map<String, dynamic>)['token'] as String),
-        ));
+      await CallScreen.open(
+          context,
+          CallScreen(
+            roomName: res['roomName'] as String,
+            token: res['token'] as String,
+            livekitUrl: res['livekitUrl'] as String,
+            title: f.displayName,
+            peerPublicKey: f.publicKey, // 1:1 → end-to-end encrypted media
+            ringPeerId: f.userId, // makes their phone ring
+            refreshToken: () async =>
+                ((await app.api.post('/calls/dm/${f.userId}/token') as Map<String, dynamic>)['token'] as String),
+          ));
     } on ApiException catch (e) {
-      if (mounted)
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } catch (_) {
       if (mounted)
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not start the call')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not start the call')));
     }
   }
 
   Future<void> _message(FriendUser f) async {
     final app = AppScope.of(context);
     try {
-      final res = await app.api.post('/conversations/dm/${f.userId}')
-          as Map<String, dynamic>;
+      final res = await app.api.post('/conversations/dm/${f.userId}') as Map<String, dynamic>;
       if (!mounted) return;
       Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => ConversationScreen(
-            conversationId: res['conversationId'] as String,
-            title: f.displayName),
+        builder: (_) => ConversationScreen(conversationId: res['conversationId'] as String, title: f.displayName),
       ));
     } on ApiException catch (e) {
-      if (mounted)
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } catch (_) {
-      if (mounted)
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not open the chat')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open the chat')));
     }
   }
 
@@ -355,137 +325,200 @@ class _FriendsScreenState extends State<FriendsScreen> {
         IconButton(
             tooltip: 'Victory statuses',
             icon: const Icon(Icons.auto_stories_rounded),
-            onPressed: () => Navigator.of(context)
-                .push(MaterialPageRoute(builder: (_) => const StatusScreen()))),
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const StatusScreen()))),
+        IconButton(
+          tooltip: 'Groups',
+          icon: const Icon(Icons.groups_rounded),
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GroupsScreen())),
+        ),
         IconButton(
           tooltip: 'Start a game',
           icon: Icon(Icons.sports_esports_rounded, color: n.jade),
-          onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const GameSelectScreen())),
-        ),
-        IconButton(
-          tooltip: 'Invite from contacts',
-          icon: const Icon(Icons.contact_page_outlined),
-          onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const InviteContactsScreen())),
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GameSelectScreen())),
         ),
       ]),
       body: SafeArea(
-        child: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : RefreshIndicator(
-                onRefresh: _load,
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-                  children: [
-                    if (_error != null) ...[
-                      NeonCard(
-                        accent: n.danger,
-                        child: Row(children: [
-                          Expanded(
-                              child: Text(_error!,
-                                  style: TextStyle(color: n.mid))),
-                          TextButton(
-                              onPressed: _load, child: const Text('Retry')),
-                        ]),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                    Text('ADD A FRIEND',
-                        style: Theme.of(context)
-                            .textTheme
-                            .labelSmall
-                            ?.copyWith(color: n.mute, letterSpacing: 2)),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _searchController,
-                      decoration: InputDecoration(
-                        hintText: 'Search by username or name',
-                        suffixIcon: _searching
-                            ? const Padding(
-                                padding: EdgeInsets.all(12),
-                                child: SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2)))
-                            : (_searchController.text.isNotEmpty
-                                ? IconButton(
-                                    icon: const Icon(Icons.close_rounded),
-                                    onPressed: () {
-                                      _searchController.clear();
-                                      _onSearchChanged('');
-                                    })
-                                : null),
-                      ),
-                      onChanged: _onSearchChanged,
-                    ),
-                    if (_suggestions.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      for (final s in _suggestions) _suggestionTile(n, s),
-                    ] else if (!_searching &&
-                        _searchController.text.trim().isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Text('No one matches that search',
-                            style: TextStyle(color: n.mute)),
-                      ),
-                    ],
-                    const SizedBox(height: 8),
-                    Bouncy(
-                      onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                          builder: (_) => const InviteContactsScreen())),
-                      child: Row(children: [
-                        Icon(Icons.contact_page_outlined,
-                            size: 14, color: n.gold),
-                        const SizedBox(width: 6),
-                        Text('Find friends from your contacts',
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelSmall
-                                ?.copyWith(color: n.gold)),
-                      ]),
-                    ),
-                    if (_incoming.isNotEmpty) ...[
-                      const SizedBox(height: 24),
-                      Text('REQUESTS',
-                          style: Theme.of(context)
-                              .textTheme
-                              .labelSmall
-                              ?.copyWith(color: n.mute, letterSpacing: 2)),
-                      const SizedBox(height: 8),
-                      for (final r in _incoming) _requestTile(n, r),
-                    ],
-                    if (_outgoing.isNotEmpty) ...[
-                      const SizedBox(height: 24),
-                      Text('SENT',
-                          style: Theme.of(context)
-                              .textTheme
-                              .labelSmall
-                              ?.copyWith(color: n.mute, letterSpacing: 2)),
-                      const SizedBox(height: 8),
-                      for (final r in _outgoing) _pendingTile(n, r),
-                    ],
-                    const SizedBox(height: 24),
-                    Text('YOUR FRIENDS',
-                        style: Theme.of(context)
-                            .textTheme
-                            .labelSmall
-                            ?.copyWith(color: n.mute, letterSpacing: 2)),
-                    const SizedBox(height: 8),
-                    if ((_friends ?? const []).isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        child: Text(
-                            'No friends yet — search for one above.',
-                            style: TextStyle(color: n.mute)),
-                      )
-                    else
-                      for (final f in _friends!) _friendTile(n, f),
-                  ],
-                ),
+        child: Column(children: [
+          _sectionTabs(n),
+          Expanded(
+            child: IndexedStack(index: _section.index, sizing: StackFit.expand, children: [
+              _friendsList(n),
+              const ChatListScreen(embedded: true),
+              _requestsList(n),
+            ]),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  /// Big pill tabs; Requests carries a count while anyone is waiting on you.
+  Widget _sectionTabs(NeonColors n) {
+    final h = HuudColors.of(context);
+    Widget tab(_Section section, String emoji, String label, {int badge = 0}) {
+      final active = _section == section;
+      return Expanded(
+        child: Semantics(
+          selected: active,
+          button: true,
+          label: label,
+          excludeSemantics: true,
+          child: GestureDetector(
+            key: ValueKey('friends-tab-${section.name}'),
+            onTap: () => setState(() => _section = section),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              height: 46,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: active ? h.orange : Colors.transparent,
+                borderRadius: BorderRadius.circular(23),
+                border: active ? Border.all(color: kCabinetInk, width: 2.2) : null,
               ),
+              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text('$emoji $label',
+                        style:
+                            TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: active ? h.onOrange : n.mid)),
+                  ),
+                ),
+                if (badge > 0) ...[
+                  const SizedBox(width: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    decoration: BoxDecoration(color: n.danger, borderRadius: BorderRadius.circular(10)),
+                    child: Text('$badge',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.white)),
+                  ),
+                ],
+              ]),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: n.panel,
+          borderRadius: BorderRadius.circular(27),
+          border: Border.all(color: n.line, width: 1.4),
+        ),
+        child: Row(children: [
+          tab(_Section.friends, '👫', 'Friends'),
+          tab(_Section.messages, '💬', 'Messages'),
+          tab(_Section.requests, '✋', 'Requests', badge: _incoming.length),
+        ]),
+      ),
+    );
+  }
+
+  Widget _errorCard(NeonColors n) => NeonCard(
+        accent: n.danger,
+        child: Row(children: [
+          Expanded(child: Text(_error!, style: TextStyle(color: n.mid))),
+          TextButton(onPressed: _load, child: const Text('Retry')),
+        ]),
+      );
+
+  Widget _friendsList(NeonColors n) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
+        children: [
+          if (_error != null) ...[_errorCard(n), const SizedBox(height: 16)],
+          Text('ADD A FRIEND',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute, letterSpacing: 2)),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              hintText: 'Search by username or name',
+              suffixIcon: _searching
+                  ? const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)))
+                  : (_searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.close_rounded),
+                          onPressed: () {
+                            _searchController.clear();
+                            _onSearchChanged('');
+                          })
+                      : null),
+            ),
+            onChanged: _onSearchChanged,
+          ),
+          if (_suggestions.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            for (final s in _suggestions) _suggestionTile(n, s),
+          ] else if (!_searching && _searchController.text.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text('No one matches that search', style: TextStyle(color: n.mute)),
+            ),
+          ],
+          const SizedBox(height: 8),
+          Bouncy(
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const InviteContactsScreen())),
+            child: Row(children: [
+              Icon(Icons.contact_page_outlined, size: 14, color: n.gold),
+              const SizedBox(width: 6),
+              Text('Find friends from your contacts',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.gold)),
+            ]),
+          ),
+          const SizedBox(height: 24),
+          Text('YOUR FRIENDS',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute, letterSpacing: 2)),
+          const SizedBox(height: 8),
+          if ((_friends ?? const []).isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text('No friends yet — search for one above.', style: TextStyle(color: n.mute)),
+            )
+          else
+            for (final f in _friends!) _friendTile(n, f),
+        ],
+      ),
+    );
+  }
+
+  Widget _requestsList(NeonColors n) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
+        children: [
+          if (_error != null) ...[_errorCard(n), const SizedBox(height: 16)],
+          if (_incoming.isEmpty && _outgoing.isEmpty)
+            const HuudFriendlyState(
+              emoji: '📭',
+              title: 'No requests right now',
+              message: 'When someone wants to be your friend, they show up here.',
+            ),
+          if (_incoming.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            Text('REQUESTS', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute, letterSpacing: 2)),
+            const SizedBox(height: 8),
+            for (final r in _incoming) _requestTile(n, r),
+          ],
+          if (_outgoing.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            Text('SENT', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute, letterSpacing: 2)),
+            const SizedBox(height: 8),
+            for (final r in _outgoing) _pendingTile(n, r),
+          ],
+        ],
       ),
     );
   }
@@ -493,32 +526,21 @@ class _FriendsScreenState extends State<FriendsScreen> {
   Widget _suggestionTile(NeonColors n, UserSearchResult s) {
     final requesting = _requestingUserIds.contains(s.userId);
     return CompactListRow(
-      leading: Avatar(s.displayName.isEmpty ? s.username : s.displayName,
-          size: 32, imageUrl: s.avatarUrl),
+      leading: Avatar(s.displayName.isEmpty ? s.username : s.displayName, size: 32, imageUrl: s.avatarUrl),
       title: Text(s.displayName.isEmpty ? '@${s.username}' : s.displayName,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: Theme.of(context)
-              .textTheme
-              .bodyMedium
-              ?.copyWith(fontWeight: FontWeight.w700)),
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
       subtitle: Text('@${s.username}',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style:
-              Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute)),
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute)),
       trailing: s.isFriend
-          ? Text('FRIENDS',
-              style: TextStyle(
-                  color: n.jade, fontSize: 9, fontWeight: FontWeight.w800))
+          ? Text('FRIENDS', style: TextStyle(color: n.jade, fontSize: 9, fontWeight: FontWeight.w800))
           : s.requestPending
-              ? Text('PENDING',
-                  style: TextStyle(
-                      color: n.mute, fontSize: 9, fontWeight: FontWeight.w800))
+              ? Text('PENDING', style: TextStyle(color: n.mute, fontSize: 9, fontWeight: FontWeight.w800))
               : NeonButton(requesting ? '…' : 'Add',
-                  style: NeonStyle.ghost,
-                  expand: false,
-                  onPressed: requesting ? null : () => _sendRequestTo(s)),
+                  style: NeonStyle.ghost, expand: false, onPressed: requesting ? null : () => _sendRequestTo(s)),
     );
   }
 
@@ -528,24 +550,18 @@ class _FriendsScreenState extends State<FriendsScreen> {
       title: Text(r.from.displayName,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: Theme.of(context)
-              .textTheme
-              .bodyMedium
-              ?.copyWith(fontWeight: FontWeight.w700)),
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
       subtitle: Text('@${r.from.username}',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style:
-              Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute)),
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute)),
       trailing: Row(mainAxisSize: MainAxisSize.min, children: [
         IconButton(
             icon: Icon(Icons.check_circle, color: n.jade),
             tooltip: 'Accept request',
             onPressed: () => _respond(r, true)),
         IconButton(
-            icon: Icon(Icons.cancel, color: n.mute),
-            tooltip: 'Decline request',
-            onPressed: () => _respond(r, false)),
+            icon: Icon(Icons.cancel, color: n.mute), tooltip: 'Decline request', onPressed: () => _respond(r, false)),
       ]),
     );
   }
@@ -554,36 +570,29 @@ class _FriendsScreenState extends State<FriendsScreen> {
     return CompactListRow(
       leading: Avatar(r.from.displayName, size: 32),
       title: Text('Waiting on @${r.from.username}',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(color: n.mid)),
+          maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: n.mid)),
       trailing: TextButton(
         onPressed: () => _cancel(r),
-        child: Text('CANCEL',
-            style: TextStyle(
-                color: n.danger, fontSize: 9, fontWeight: FontWeight.w800)),
+        child: Text('CANCEL', style: TextStyle(color: n.danger, fontSize: 9, fontWeight: FontWeight.w800)),
       ),
     );
   }
 
   Widget _friendTile(NeonColors n, FriendUser f) {
     return CompactListRow(
-      onTap: () => Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) => PlayerProfileScreen(username: f.username, statusUserId: f.userId))),
+      onTap: () => Navigator.of(context)
+          .push(MaterialPageRoute(builder: (_) => PlayerProfileScreen(username: f.username, statusUserId: f.userId))),
       leading: ValueListenableBuilder<Set<String>>(
         valueListenable: AppScope.of(context).onlineFriends,
-        builder: (_, online, __) => OnlineAvatar(f.displayName,
-            size: 32, imageUrl: f.avatarUrl, online: online.contains(f.userId)),
+        builder: (_, online, __) =>
+            OnlineAvatar(f.displayName, size: 32, imageUrl: f.avatarUrl, online: online.contains(f.userId)),
       ),
       title: Row(children: [
         Flexible(
           child: Text(f.displayName,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(fontWeight: FontWeight.w700)),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
         ),
         const SizedBox(width: 6),
         // Right by their name: buzz their phone to come online.
@@ -600,9 +609,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: n.gold.withValues(alpha: 0.6)),
               ),
-              child: Text('👋 Nudge',
-                  style: TextStyle(
-                      color: n.gold, fontSize: 10, fontWeight: FontWeight.w800)),
+              child: Text('👋 Nudge', style: TextStyle(color: n.gold, fontSize: 10, fontWeight: FontWeight.w800)),
             ),
           ),
         ),
@@ -610,22 +617,17 @@ class _FriendsScreenState extends State<FriendsScreen> {
       subtitle: Text('@${f.username} · View profile',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style:
-              Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute)),
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute)),
       trailing: Row(mainAxisSize: MainAxisSize.min, children: [
         IconButton(
             icon: Icon(Icons.chat_bubble_rounded, color: n.gold, size: 20),
             tooltip: 'Message',
             onPressed: () => _message(f)),
-        IconButton(
-            icon: Icon(Icons.call_rounded, color: n.jade),
-            tooltip: 'Call',
-            onPressed: () => _call(f)),
-        IconButton(
-            icon: Icon(Icons.more_horiz, color: n.mute),
-            tooltip: 'More options',
-            onPressed: () => _unfriend(f)),
+        IconButton(icon: Icon(Icons.call_rounded, color: n.jade), tooltip: 'Call', onPressed: () => _call(f)),
+        IconButton(icon: Icon(Icons.more_horiz, color: n.mute), tooltip: 'More options', onPressed: () => _unfriend(f)),
       ]),
     );
   }
 }
+
+enum _Section { friends, messages, requests }

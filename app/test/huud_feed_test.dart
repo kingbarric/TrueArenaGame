@@ -195,25 +195,52 @@ void main() {
     expect(find.text('Nigeria Draughts Championship'), findsNothing);
   });
 
-  testWidgets('posting sends the game, message and ranked flag', (tester) async {
-    Map<String, dynamic>? posted;
-    await pumpFeed(tester, (request) async {
-      if (request.url.path == '/api/v1/huud/feed') return _json([]);
-      if (request.method == 'POST' && request.url.path == '/api/v1/huud/posts') {
-        posted = jsonDecode(request.body) as Map<String, dynamic>;
-        return _json({'message': 'not enough coins'}, 409);
+  testWidgets('the feed has no game-request box — it points to making a Huud instead', (tester) async {
+    await pumpFeed(tester, (request) async => _json([]));
+    expect(find.byKey(const ValueKey('huud-composer')), findsNothing);
+    expect(find.text('What do you want to play?'), findsNothing);
+    expect(find.byKey(const ValueKey('feed-make-huud')), findsOneWidget);
+  });
+
+  testWidgets('a shared Huud shows its line, the game and seats, and Join Huud', (tester) async {
+    final calls = await pumpFeed(tester, (request) async {
+      if (request.url.path == '/api/v1/huud/feed') {
+        return _json([
+          {
+            'kind': 'huud',
+            'id': 'huud:h1',
+            'at': _now.subtract(const Duration(minutes: 1)).toIso8601String(),
+            'actor': _person('eric', 'Eric'),
+            'gameType': 'whot',
+            'message': 'Who wants to play Whot?',
+            'huud': {
+              'huudSpaceId': 'h1',
+              'name': "Eric's Huud",
+              'privacy': 'friends',
+              'people': 3,
+              'players': 2,
+              'seats': 4,
+              'access': 'join',
+              'gameStatus': 'waiting',
+            },
+          },
+        ]);
       }
+      if (request.url.path == '/api/v1/huud-spaces/h1/join') return http.Response('{}', 500);
       return http.Response('not found', 404);
-    });
+    }, settle: false);
+    await tester.pump(const Duration(milliseconds: 500));
 
-    await tester.enterText(find.byKey(const ValueKey('huud-composer')), 'Winner stays on.');
-    await tester.tap(find.text('Casual')); // draughts is rated → toggle to ranked
+    expect(find.text('“Who wants to play Whot?”'), findsOneWidget);
+    expect(find.text("Eric's Huud"), findsOneWidget);
+    expect(find.text('Whot · 2/4 playing'), findsOneWidget);
+    expect(find.byKey(const ValueKey('feed-huud-open-h1')), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const ValueKey('feed-huud-open-h1')), matching: find.text('Join Huud')),
+        findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('feed-huud-open-h1')));
     await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('huud-post')));
-    await tester.pumpAndSettle();
-
-    expect(posted, {'gameType': 'draughts', 'message': 'Winner stays on.', 'ranked': true});
-    expect(find.text('not enough coins'), findsOneWidget);
+    expect(calls, contains('POST /api/v1/huud-spaces/h1/join'));
   });
 
   Map<String, dynamic> requestNo(int i, {int taken = 1, int seats = 4, bool? filled, Duration left = const Duration(minutes: 8)}) => {

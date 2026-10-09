@@ -10,6 +10,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'api_client.dart';
+import 'game_socket.dart';
 import 'hangout_state.dart';
 import 'device_id.dart';
 import 'e2e_crypto.dart';
@@ -56,6 +57,12 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   Identity identity = Identity.anonymous;
   UserView? user;
   String? activeRoomId;
+
+  /// The game screen the app was closed on, if it was closed on one — the
+  /// only room startup reopens. Leaving a lobby (without cancelling it)
+  /// keeps it as [activeRoomId] for Home's "your game" banner, but it no
+  /// longer jumps back open every time the app starts.
+  String? resumeRoomId;
   ThemeMode themeMode = ThemeMode.system;
   VisualTheme visualTheme = VisualTheme.palmWine;
 
@@ -227,6 +234,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   static const _kVoiceMatchEnabled = 'ta_voice_match_enabled';
   static const _kVoiceMatchThreshold = 'ta_voice_match_threshold';
   static const _kActiveRoom = 'ta_active_room';
+  static const _kResumeRoom = 'ta_resume_room';
   static const _kActiveRoomUser = 'ta_active_room_user';
   static const _kActiveRoomSavedAt = 'ta_active_room_saved_at';
   static const _kCachedUser = 'ta_cached_user';
@@ -297,6 +305,20 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  /// Written as game screens open and close, so a closed app reopens on
+  /// the screen it was closed on — and nowhere else.
+  Future<void> _saveResumeRoom() async {
+    final room = GameSocket.currentPlayerRoom.value;
+    final prefs = await SharedPreferences.getInstance();
+    if (room == null) {
+      await prefs.remove(_kResumeRoom);
+    } else {
+      await prefs.setString(_kResumeRoom, room);
+      final userId = user?.id;
+      if (userId != null) await prefs.setString(_kActiveRoomUser, userId);
+    }
+  }
+
   Future<void> rememberActiveRoom(String roomId) async {
     final userId = user?.id;
     if (userId == null) return;
@@ -363,6 +385,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         _restoreCachedUser(prefs);
       }
     }
+    final resume = prefs.getString(_kResumeRoom);
+    resumeRoomId = resume != null && user?.id == prefs.getString(_kActiveRoomUser) ? resume : null;
+    GameSocket.currentPlayerRoom.addListener(_saveResumeRoom);
     final savedRoom = prefs.getString(_kActiveRoom);
     final savedAt = prefs.getInt(_kActiveRoomSavedAt);
     if (savedRoom != null &&

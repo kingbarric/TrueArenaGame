@@ -1,6 +1,11 @@
 package app.truearena;
 import app.truearena.api.huudspace.HuudSpaceAccess;
 import app.truearena.api.huudspace.HuudSpaceService;
+import app.truearena.api.huudspace.HuudSpaceRequestService;
+import app.truearena.api.huudspace.HuudSpaceChatService;
+import app.truearena.api.huud.HuudDtos;
+import app.truearena.api.huud.HuudService;
+import app.truearena.api.safety.SafetyService;
 import app.truearena.api.calls.CallRingService;
 import app.truearena.api.room.RoomService;
 import app.truearena.api.ws.GameOrchestrator;
@@ -65,6 +70,10 @@ class HuudSpaceIT {
 
 
     @Autowired HuudSpaceService huuds;
+    @Autowired HuudSpaceRequestService requests;
+    @Autowired HuudSpaceChatService chat;
+    @Autowired SafetyService safety;
+    @Autowired HuudService feed;
     @Autowired HuudSpaceAccess access;
     @Autowired UserRepository users;
     @Autowired FriendRepository friendRows;
@@ -73,6 +82,7 @@ class HuudSpaceIT {
 
     @BeforeEach void media() {
         when(livekit.remove(anyString(), anyString())).thenReturn(Mono.empty());
+        when(livekit.setCanPublish(anyString(), anyString(), anyBoolean())).thenReturn(Mono.empty());
     }
 
     UUID person(String name) {
@@ -114,31 +124,63 @@ class HuudSpaceIT {
     @Test void guestsCanJoinButNotMakeAHuud() {
         UUID kid = guest("Guest");
         assertThatThrownBy(() -> huuds.create(kid, null, null).block()).isInstanceOf(ResponseStatusException.class);
-        var huud = huuds.create(person("Host"), null, null).block();
+        var huud = huuds.create(person("Host"), null, "public").block();
         assertThat(huuds.joinByCode(kid, huud.code().toLowerCase()).block().youAreIn()).isTrue();
     }
 
-    @Test void privacyDecidesWhoCanFindAHuudButTheCodeAlwaysWorks() {
+    @Test void friendsWalkIntoAFriendsHuudAndEveryoneElseAsks() {
         UUID host = person("Host"), friend = person("Friend"), stranger = person("Stranger");
         befriend(host, friend);
         var huud = huuds.create(host, "Friends only", "friends").block();
 
         assertThat(huuds.live(friend).collectList().block()).extracting("id").contains(huud.id());
         assertThat(huuds.live(stranger).collectList().block()).extracting("id").doesNotContain(huud.id());
-        assertThatThrownBy(() -> huuds.join(stranger, huud.id()).block()).isInstanceOf(ResponseStatusException.class);
         // Looking in from Live shows the Huud but never its code.
         assertThat(huuds.view(huud.id(), friend).block().code()).isNull();
-
         assertThat(huuds.join(friend, huud.id()).block().code()).isEqualTo(huud.code());
-        assertThat(huuds.joinByCode(stranger, huud.code()).block().members()).hasSize(3);
 
+        // A code finds the Huud; it doesn't open the door.
+        var asked = huuds.joinByCode(stranger, huud.code()).block();
+        assertThat(asked.youAreIn()).isFalse();
+        assertThat(asked.code()).isNull();
+        assertThat(asked.joinRequest()).isEqualTo("pending");
+        var hostView = huuds.view(huud.id(), host).block();
+        assertThat(hostView.requests()).extracting("kind").containsExactly("join");
+        assertThat(huuds.view(huud.id(), friend).block().requests()).isEmpty();
+
+        requests.answer(host, huud.id(), stranger, "join", true).block();
+        var in = huuds.view(huud.id(), stranger).block();
+        assertThat(in.youAreIn()).isTrue();
+        assertThat(in.members()).hasSize(3);
+    }
+
+    @Test void aPrivateHuudIsInviteOrApprovalOnly() {
+        UUID host = person("Host"), friend = person("Friend"), other = person("Other");
+        befriend(host, friend);
+        befriend(host, other);
+        var huud = huuds.create(host, null, "private").block();
+        assertThat(huuds.live(friend).collectList().block()).extracting("id").doesNotContain(huud.id());
+        assertThat(huuds.joinByCode(friend, huud.code()).block().joinRequest()).isEqualTo("pending");
+
+        requests.invite(host, huud.id(), other).block();
+        assertThat(huuds.join(other, huud.id()).block().youAreIn()).isTrue();
+
+        requests.answer(host, huud.id(), friend, "join", false).block();
+        assertThat(huuds.view(huud.id(), friend).block().joinRequest()).isEqualTo("declined");
+        // Not straight back at the host's door.
+        assertThatThrownBy(() -> huuds.joinByCode(friend, huud.code()).block()).isInstanceOf(ResponseStatusException.class);
+    }
+
+    @Test void publicHuudsLetAnyoneIn() {
         var open = huuds.create(person("Public host"), null, "public").block();
+        UUID stranger = person("Stranger");
         assertThat(huuds.live(stranger).collectList().block()).extracting("id").contains(open.id());
+        assertThat(huuds.joinByCode(stranger, open.code()).block().youAreIn()).isTrue();
     }
 
     @Test void aLeavingHostHandsTheHuudToTheNextJoinerSkippingGuests() {
         UUID host = person("Host"), guestKid = guest("Guest"), second = person("Second"), third = person("Third");
-        var huud = huuds.create(host, null, null).block();
+        var huud = huuds.create(host, null, "public").block();
         huuds.joinByCode(guestKid, huud.code()).block();
         huuds.joinByCode(second, huud.code()).block();
         huuds.joinByCode(third, huud.code()).block();
@@ -151,12 +193,12 @@ class HuudSpaceIT {
         assertThat(after.members()).extracting("userId").doesNotContain(host);
         assertThat(huuds.current(second).block().id()).isEqualTo(huud.id());
         // The old host is free to make a new one.
-        assertThat(huuds.create(host, null, null).block().id()).isNotEqualTo(huud.id());
+        assertThat(huuds.create(host, null, "public").block().id()).isNotEqualTo(huud.id());
     }
 
     @Test void aHostWhoseAppWentQuietIsReplacedByTheNextJoiner() {
         UUID host = person("Host"), second = person("Second"), third = person("Third");
-        var huud = huuds.create(host, null, null).block();
+        var huud = huuds.create(host, null, "public").block();
         huuds.joinByCode(second, huud.code()).block();
         huuds.joinByCode(third, huud.code()).block();
 
@@ -174,7 +216,7 @@ class HuudSpaceIT {
 
     @Test void someoneWhoLeftAndCameBackGoesToTheEndOfTheHostLine() {
         UUID host = person("Host"), early = person("Early"), late = person("Late");
-        var huud = huuds.create(host, null, null).block();
+        var huud = huuds.create(host, null, "public").block();
         huuds.joinByCode(early, huud.code()).block();
         huuds.joinByCode(late, huud.code()).block();
         huuds.leave(early, huud.id()).block();
@@ -186,7 +228,7 @@ class HuudSpaceIT {
 
     @Test void theLastPersonLeavingEndsTheHuudAndItStaysInEveryonesHistory() {
         UUID host = person("Host"), friend = person("Friend");
-        var huud = huuds.create(host, "Saturday", null).block();
+        var huud = huuds.create(host, "Saturday", "public").block();
         huuds.joinByCode(friend, huud.code()).block();
         huuds.leave(friend, huud.id()).block();
         huuds.leave(host, huud.id()).block();
@@ -207,7 +249,7 @@ class HuudSpaceIT {
 
     @Test void membersWhoVanishAreDroppedAndAnEmptyHuudEnds() {
         UUID host = person("Host"), friend = person("Friend");
-        var huud = huuds.create(host, null, null).block();
+        var huud = huuds.create(host, null, "public").block();
         huuds.joinByCode(friend, huud.code()).block();
         quiet(huud.id(), host, "11 minutes");
         quiet(huud.id(), friend, "11 minutes");
@@ -218,12 +260,12 @@ class HuudSpaceIT {
 
     @Test void aHuudNobodyCameToAndNothingWasPlayedInStaysOutOfHistory() {
         UUID host = person("Host");
-        var lonely = huuds.create(host, null, null).block();
+        var lonely = huuds.create(host, null, "public").block();
         assertThat(huuds.history(host).collectList().block()).extracting("id").containsExactly(lonely.id());
         huuds.end(host, lonely.id()).block();
         assertThat(huuds.history(host).collectList().block()).isEmpty();
 
-        var played = huuds.create(host, null, null).block();
+        var played = huuds.create(host, null, "public").block();
         var room = huuds.addGame(host, played.id(), "draughts").block();
         db.sql("INSERT INTO game_sessions(room_id,game_type,config,catalog_version,rng_seed) "
                 + "VALUES(:room,'draughts','{}',1,1)").bind("room", room.id()).fetch().rowsUpdated().block();
@@ -234,7 +276,7 @@ class HuudSpaceIT {
 
     @Test void endingClosesTheHuudForEveryoneAndOnlyTheHostCanEnd() {
         UUID host = person("Host"), friend = person("Friend");
-        var huud = huuds.create(host, null, null).block();
+        var huud = huuds.create(host, null, "public").block();
         huuds.joinByCode(friend, huud.code()).block();
         assertThatThrownBy(() -> huuds.end(friend, huud.id()).block()).isInstanceOf(ResponseStatusException.class);
         huuds.end(host, huud.id()).block();
@@ -260,7 +302,7 @@ class HuudSpaceIT {
 
     @Test void oneGameAtATimeAndTheHuudOutlivesIt() {
         UUID host = person("Host"), friend = person("Friend");
-        var huud = huuds.create(host, null, null).block();
+        var huud = huuds.create(host, null, "public").block();
         huuds.joinByCode(friend, huud.code()).block();
         assertThatThrownBy(() -> huuds.addGame(friend, huud.id(), "draughts").block())
                 .isInstanceOf(ResponseStatusException.class);
@@ -279,5 +321,124 @@ class HuudSpaceIT {
         assertThat(huuds.view(huud.id(), friend).block().members()).hasSize(2);
 
         assertThat(huuds.clearGame(host, huud.id()).block().currentGame()).isNull();
+    }
+
+    @Test void beingInTheHuudIsNotASeatTheHostPicksWhoPlays() {
+        UUID host = person("Host"), ada = person("Ada"), chidi = person("Chidi");
+        var huud = huuds.create(host, null, "public", "draughts", null, false).block();
+        huuds.joinByCode(ada, huud.code()).block();
+        huuds.joinByCode(chidi, huud.code()).block();
+
+        var adaView = huuds.view(huud.id(), ada).block();
+        assertThat(adaView.currentGame().gameType()).isEqualTo("draughts");
+        assertThat(adaView.currentGame().seats()).isEqualTo(2);
+        assertThat(adaView.currentGame().youArePlaying()).isFalse();
+        assertThat(huuds.view(huud.id(), host).block().currentGame().youArePlaying()).isTrue();
+
+        assertThat(requests.askToPlay(ada, huud.id()).block().playRequest()).isEqualTo("pending");
+        requests.askToPlay(chidi, huud.id()).block();
+        assertThat(huuds.view(huud.id(), host).block().requests()).extracting("kind").containsExactly("play", "play");
+
+        var after = requests.answer(host, huud.id(), ada, "play", true).block();
+        assertThat(after.currentGame().players()).isEqualTo(2);
+        assertThat(huuds.view(huud.id(), ada).block().currentGame().youArePlaying()).isTrue();
+        // Draughts is two players: no seat left for Chidi.
+        assertThatThrownBy(() -> requests.answer(host, huud.id(), chidi, "play", true).block())
+                .isInstanceOf(ResponseStatusException.class);
+
+        // A new game starts a fresh queue.
+        db.sql("UPDATE rooms SET status='ended' WHERE id=:id").bind("id", after.currentGame().roomId()).fetch().rowsUpdated().block();
+        huuds.addGame(host, huud.id(), "whot").block();
+        assertThat(huuds.view(huud.id(), chidi).block().playRequest()).isNull();
+    }
+
+    @Test void everyoneListensAndTheHostHandsOutTheMic() {
+        UUID host = person("Host"), kid = person("Kid");
+        var huud = huuds.create(host, null, "public").block();
+        huuds.joinByCode(kid, huud.code()).block();
+        assertThat(access.canTalk(kid, huud.voiceRoom()).block()).isTrue();
+        assertThat(access.canSpeak(kid, huud.voiceRoom()).block()).isFalse();
+        assertThat(access.canSpeak(host, huud.voiceRoom()).block()).isTrue();
+
+        assertThat(requests.askForMic(kid, huud.id()).block().micRequest()).isEqualTo("pending");
+        requests.answer(host, huud.id(), kid, "mic", true).block();
+        assertThat(access.canSpeak(kid, huud.voiceRoom()).block()).isTrue();
+        assertThat(huuds.view(huud.id(), kid).block().youCanSpeak()).isTrue();
+
+        requests.setMic(host, huud.id(), kid, false).block();
+        assertThat(access.canSpeak(kid, huud.voiceRoom()).block()).isFalse();
+        verify(livekit, atLeastOnce()).setCanPublish(huud.voiceRoom(), kid.toString(), false);
+    }
+
+    @Test void huudChatIsForPeopleInsideAndSlowsDownFloods() {
+        UUID host = person("Host"), friend = person("Friend"), outsider = person("Outsider");
+        var huud = huuds.create(host, null, "public").block();
+        huuds.joinByCode(friend, huud.code()).block();
+
+        chat.send(friend, huud.id(), "  Who wants Whot next?  ").block();
+        var messages = chat.messages(host, huud.id(), null).collectList().block();
+        assertThat(messages).extracting("body").containsExactly("Who wants Whot next?");
+        assertThat(messages.get(0).from().userId()).isEqualTo(friend);
+        assertThatThrownBy(() -> chat.send(outsider, huud.id(), "hi").block()).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(() -> chat.messages(outsider, huud.id(), null).collectList().block())
+                .isInstanceOf(ResponseStatusException.class);
+
+        for (int i = 0; i < 4; i++) chat.send(friend, huud.id(), "msg " + i).block();
+        assertThatThrownBy(() -> chat.send(friend, huud.id(), "one too many").block())
+                .isInstanceOf(ResponseStatusException.class);
+    }
+
+    @Test void blockingKeepsPeopleApartAndHidesTheirChat() {
+        UUID host = person("Host"), bully = person("Bully"), friend = person("Friend");
+        befriend(host, bully);
+        var huud = huuds.create(host, null, "public").block();
+        huuds.joinByCode(bully, huud.code()).block();
+        huuds.joinByCode(friend, huud.code()).block();
+        var said = chat.send(bully, huud.id(), "you're bad at this").block();
+
+        safety.report(friend, bully, "mean", "kept being rude", huud.id(), said.id(), true).block();
+        assertThat(chat.messages(friend, huud.id(), null).collectList().block()).isEmpty();
+        assertThat(chat.messages(host, huud.id(), null).collectList().block()).hasSize(1);
+        assertThat(db.sql("SELECT message_body FROM player_reports WHERE reporter_id=:me").bind("me", friend)
+                .map((r, m) -> r.get("message_body", String.class)).one().block()).isEqualTo("you're bad at this");
+
+        // The host blocks them: out of the Huud, no friendship, can't come back or see it.
+        safety.block(host, bully).block();
+        assertThat(huuds.view(huud.id(), host).block().members()).extracting("userId").doesNotContain(bully);
+        assertThat(db.sql("SELECT count(*) AS n FROM friends WHERE (low_user_id=:a OR high_user_id=:a)").bind("a", bully)
+                .map((r, m) -> ((Number) r.get("n")).intValue()).one().block()).isZero();
+        assertThat(huuds.live(bully).collectList().block()).extracting("id").doesNotContain(huud.id());
+
+        var other = huuds.create(person("Other host"), null, "public").block();
+        UUID otherHost = other.host().userId();
+        safety.block(otherHost, friend).block();
+        assertThatThrownBy(() -> huuds.joinByCode(friend, other.code()).block()).isInstanceOf(ResponseStatusException.class);
+        safety.unblock(otherHost, friend).block();
+        assertThat(huuds.joinByCode(friend, other.code()).block().youAreIn()).isTrue();
+    }
+
+    @Test void aSharedHuudShowsOnTheFeedWithItsLineAndSeats() {
+        UUID host = person("Eric"), friend = person("Friend"), stranger = person("Stranger");
+        befriend(host, friend);
+        var huud = huuds.create(host, null, "friends", "whot", "Who wants to play Whot?", true).block();
+        assertThat(huud.shared()).isTrue();
+
+        var item = feed.feed(friend, HuudDtos.Tab.FRIENDS, HuudDtos.Filter.ALL).collectList().block().stream()
+                .filter(i -> "huud".equals(i.kind())).findFirst().orElseThrow();
+        assertThat(item.message()).isEqualTo("Who wants to play Whot?");
+        assertThat(item.gameType()).isEqualTo("whot");
+        assertThat(item.huud().players()).isEqualTo(1);
+        assertThat(item.huud().seats()).isEqualTo(4);
+        assertThat(item.huud().access()).isEqualTo("join");
+        assertThat(feed.feed(stranger, HuudDtos.Tab.FOR_YOU, HuudDtos.Filter.ALL).collectList().block())
+                .extracting("kind").doesNotContain("huud");
+
+        huuds.update(host, huud.id(), null, "public").block();
+        assertThat(feed.feed(stranger, HuudDtos.Tab.FOR_YOU, HuudDtos.Filter.ALL).collectList().block().stream()
+                .filter(i -> "huud".equals(i.kind())).findFirst().orElseThrow().huud().access()).isEqualTo("join");
+
+        huuds.unshare(host, huud.id()).block();
+        assertThat(feed.feed(friend, HuudDtos.Tab.FRIENDS, HuudDtos.Filter.ALL).collectList().block())
+                .extracting("kind").doesNotContain("huud");
     }
 }

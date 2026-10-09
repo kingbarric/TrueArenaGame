@@ -198,9 +198,10 @@ class HuudItem {
     this.game,
     this.win,
     this.tournament,
+    this.huud,
   });
 
-  /// game_request | challenge | win | tournament | champion
+  /// game_request | challenge | win | tournament | champion | huud
   final String kind;
   final String id;
   final DateTime at;
@@ -210,6 +211,7 @@ class HuudItem {
   final HuudOpenGame? game;
   final HuudWin? win;
   final HuudTournament? tournament;
+  final HuudShared? huud;
 
   String get gameName => huudGameNames[gameType] ?? gameType;
 
@@ -227,6 +229,42 @@ class HuudItem {
         tournament: j['tournament'] == null
             ? null
             : HuudTournament.fromJson((j['tournament'] as Map).cast<String, dynamic>()),
+        huud: j['huud'] == null ? null : HuudShared.fromJson((j['huud'] as Map).cast<String, dynamic>()),
+      );
+}
+
+/// A Huud its host shared to the feed. [access]: "in" (you're in it), "join"
+/// (walk straight in) or "ask" (the host lets you in).
+class HuudShared {
+  const HuudShared({
+    required this.huudSpaceId,
+    required this.name,
+    required this.privacy,
+    required this.people,
+    required this.players,
+    required this.seats,
+    required this.access,
+    this.gameStatus,
+  });
+
+  final String huudSpaceId;
+  final String name;
+  final String privacy;
+  final int people;
+  final int players;
+  final int seats;
+  final String access;
+  final String? gameStatus;
+
+  factory HuudShared.fromJson(Map<String, dynamic> j) => HuudShared(
+        huudSpaceId: j['huudSpaceId'].toString(),
+        name: j['name'] as String? ?? 'Huud',
+        privacy: j['privacy'] as String? ?? 'friends',
+        people: (j['people'] as num?)?.toInt() ?? 0,
+        players: (j['players'] as num?)?.toInt() ?? 0,
+        seats: (j['seats'] as num?)?.toInt() ?? 2,
+        access: j['access'] as String? ?? 'join',
+        gameStatus: j['gameStatus'] as String?,
       );
 }
 

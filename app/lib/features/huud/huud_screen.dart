@@ -20,7 +20,10 @@ import '../notifications/notifications_screen.dart';
 import '../onboarding/guest_gate.dart';
 import '../profile/profile_screen.dart';
 import '../calls/hangouts_screen.dart';
+import '../huudspace/create_huud_sheet.dart';
 import '../huudspace/huud_kit.dart';
+import '../huudspace/huud_space_models.dart';
+import '../huudspace/huud_space_screen.dart';
 import '../huudspace/live_now_panel.dart';
 import 'huud_models.dart';
 
@@ -62,14 +65,8 @@ class _HuudScreenState extends State<HuudScreen> {
   int _loadGeneration = 0;
 
   List<HuudPerson> _friends = const [];
-  Set<String> _ratedGames = const {'draughts'};
 
   final _scroll = ScrollController();
-  final _composer = TextEditingController();
-  final _composerFocus = FocusNode();
-  String _composerGame = 'draughts';
-  bool _ranked = false;
-  bool _posting = false;
 
   final _search = TextEditingController();
   Timer? _searchDebounce;
@@ -79,6 +76,8 @@ class _HuudScreenState extends State<HuudScreen> {
   /// Re-renders "8 min left" and drops expired requests between reloads.
   Timer? _tick;
   StreamSubscription? _events;
+  StreamSubscription? _spaceEvents;
+  Timer? _spaceRefresh;
   bool _started = false;
 
   String get _key => '${_tab.wire}-${_filter.wire}';
@@ -91,24 +90,32 @@ class _HuudScreenState extends State<HuudScreen> {
     _started = true;
     final app = AppScope.of(context);
     _events = app.huudEvents.listen(_onHuudEvent);
+    // A shared Huud's card shows live seats — refresh (gently) when one changes.
+    _spaceEvents = app.huudSpaceEvents.listen((event) {
+      if ((event['data'] as Map?)?['event'] == 'chat') return;
+      _spaceRefresh?.cancel();
+      _spaceRefresh = Timer(const Duration(milliseconds: 600), () {
+        _cache.clear();
+        if (mounted && !_liveNow) _load();
+      });
+    });
     _tick = Timer.periodic(const Duration(seconds: 30), (_) {
       if (mounted) setState(() {});
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _load();
       _loadFriends();
-      _loadRatedGames();
     });
   }
 
   @override
   void dispose() {
     _events?.cancel();
+    _spaceEvents?.cancel();
+    _spaceRefresh?.cancel();
     _tick?.cancel();
     _searchDebounce?.cancel();
     _scroll.dispose();
-    _composer.dispose();
-    _composerFocus.dispose();
     _search.dispose();
     super.dispose();
   }
@@ -151,15 +158,6 @@ class _HuudScreenState extends State<HuudScreen> {
           .toList());
     } catch (_) {
       // the strip just stays empty — the feed itself still works
-    }
-  }
-
-  Future<void> _loadRatedGames() async {
-    try {
-      final raw = await AppScope.of(context).api.get('/competitive/games') as List;
-      if (mounted) setState(() => _ratedGames = raw.map((e) => e.toString()).toSet());
-    } catch (_) {
-      // keep the default
     }
   }
 
@@ -247,41 +245,6 @@ class _HuudScreenState extends State<HuudScreen> {
     if (mounted) _load();
   }
 
-  Future<void> _post() async {
-    if (_posting) return;
-    if (!await canHostOrPromptToVerify(context)) return;
-    if (!mounted) return;
-    setState(() => _posting = true);
-    final app = AppScope.of(context);
-    try {
-      final raw = await app.api.post('/huud/posts', {
-        'gameType': _composerGame,
-        if (_composer.text.trim().isNotEmpty) 'message': _composer.text.trim(),
-        if (_ranked && _ratedGames.contains(_composerGame)) 'ranked': true,
-      }) as Map<String, dynamic>;
-      _composer.clear();
-      _composerFocus.unfocus();
-      _cache.clear();
-      await _enterRoom(RoomView.fromJson((raw['room'] as Map).cast<String, dynamic>()));
-    } on ApiException catch (e) {
-      _snack(e.message);
-    } catch (_) {
-      _snack('Could not post your game');
-    } finally {
-      if (mounted) setState(() => _posting = false);
-    }
-  }
-
-  /// The floating Post button: back to the top, cursor in the composer.
-  void _startPost() {
-    if (_search.text.isNotEmpty) {
-      _search.clear();
-      _onSearchChanged('');
-    }
-    _scroll.animateTo(0, duration: const Duration(milliseconds: 280), curve: Curves.easeOut);
-    _composerFocus.requestFocus();
-  }
-
   Future<void> _join(HuudOpenGame game) async {
     final app = AppScope.of(context);
     try {
@@ -308,8 +271,7 @@ class _HuudScreenState extends State<HuudScreen> {
     final game = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => _GamePickerSheet(
-          title: 'Challenge ${person.firstName}', suggested: suggestedGame),
+      builder: (_) => _GamePickerSheet(title: 'Challenge ${person.firstName}', suggested: suggestedGame),
     );
     if (game == null || !mounted) return;
     try {
@@ -363,8 +325,8 @@ class _HuudScreenState extends State<HuudScreen> {
     }
   }
 
-  void _profile(HuudPerson person) => Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => PlayerProfileScreen(username: person.username, statusUserId: person.userId)));
+  void _profile(HuudPerson person) => Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => PlayerProfileScreen(username: person.username, statusUserId: person.userId)));
 
   void _share(HuudItem item) {
     final text = switch (item.kind) {
@@ -382,10 +344,10 @@ class _HuudScreenState extends State<HuudScreen> {
   }
 
   void _openTournament(HuudTournament t) => Navigator.of(context)
-      .push(MaterialPageRoute(builder: (_) => ChampionshipDetailScreen(id: t.championshipId)))
-      .then((_) {
-    if (mounted) _load();
-  });
+          .push(MaterialPageRoute(builder: (_) => ChampionshipDetailScreen(id: t.championshipId)))
+          .then((_) {
+        if (mounted) _load();
+      });
 
   // ---------------------------------------------------------------- build
 
@@ -395,23 +357,10 @@ class _HuudScreenState extends State<HuudScreen> {
     final app = AppScope.of(context);
     final isGuest = app.identity == Identity.guest;
     final searchingNow = _search.text.trim().isNotEmpty;
-    final items = (_items ?? const <HuudItem>[])
-        .where((i) => i.game == null || i.game!.expiresAt.isAfter(clock.now()))
-        .toList();
+    final items =
+        (_items ?? const <HuudItem>[]).where((i) => i.game == null || i.game!.expiresAt.isAfter(clock.now())).toList();
 
     return Scaffold(
-      floatingActionButton: _liveNow ? null : Padding(
-        // Clear of the shell's floating nav pill.
-        padding: const EdgeInsets.only(bottom: 78),
-        child: FloatingActionButton(
-          heroTag: 'huud-post',
-          tooltip: 'Post a game request',
-          backgroundColor: n.gold,
-          foregroundColor: kCabinetInk,
-          onPressed: _startPost,
-          child: const Icon(Icons.add_rounded, size: 28),
-        ),
-      ),
       body: SafeArea(
         child: Column(children: [
           _header(context, n, app),
@@ -419,61 +368,61 @@ class _HuudScreenState extends State<HuudScreen> {
           if (_liveNow)
             const Expanded(child: LiveNowPanel())
           else
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: () async {
-                await Future.wait([_load(), _loadFriends()]);
-              },
-              // Slivers so only the cards on screen are built — a full page
-              // is 40 cards with game art, and building them all up front is
-              // what made a long feed hitch on open and on tab switch.
-              child: CustomScrollView(
-                controller: _scroll,
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                    sliver: SliverList.list(children: [
-                      _searchField(n),
-                      const SizedBox(height: 10),
-                      if (searchingNow)
-                        ..._searchSection(context, n)
-                      else ...[
-                        _filterChips(n),
-                        const SizedBox(height: 12),
-                        _composerCard(context, n, app),
-                        if (_tab == HuudTab.friends) ...[
-                          const SizedBox(height: 16),
-                          if (isGuest) _guestCard(context, n) else _friendsOnline(context, n, app),
-                        ],
-                        const SizedBox(height: 16),
-                        if (_error != null) _errorCard(n),
-                        if (_items == null && _loading)
-                          const Padding(
-                              padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator()))
-                        else if (items.isEmpty && _error == null)
-                          _emptyState(context, n),
-                      ],
-                    ]),
-                  ),
-                  if (!searchingNow)
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: () async {
+                  await Future.wait([_load(), _loadFriends()]);
+                },
+                // Slivers so only the cards on screen are built — a full page
+                // is 40 cards with game art, and building them all up front is
+                // what made a long feed hitch on open and on tab switch.
+                child: CustomScrollView(
+                  controller: _scroll,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
                     SliverPadding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      sliver: SliverList.builder(
-                        itemCount: items.length,
-                        itemBuilder: (context, i) => Padding(
-                          key: ValueKey(items[i].id),
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _card(context, n, items[i]),
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                      sliver: SliverList.list(children: [
+                        _searchField(n),
+                        const SizedBox(height: 10),
+                        if (searchingNow)
+                          ..._searchSection(context, n)
+                        else ...[
+                          _filterChips(n),
+                          const SizedBox(height: 12),
+                          _shareHuudCard(context, n),
+                          if (_tab == HuudTab.friends) ...[
+                            const SizedBox(height: 16),
+                            if (isGuest) _guestCard(context, n) else _friendsOnline(context, n, app),
+                          ],
+                          const SizedBox(height: 16),
+                          if (_error != null) _errorCard(n),
+                          if (_items == null && _loading)
+                            const Padding(
+                                padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator()))
+                          else if (items.isEmpty && _error == null)
+                            _emptyState(context, n),
+                        ],
+                      ]),
+                    ),
+                    if (!searchingNow)
+                      SliverPadding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        sliver: SliverList.builder(
+                          itemCount: items.length,
+                          itemBuilder: (context, i) => Padding(
+                            key: ValueKey(items[i].id),
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: _card(context, n, items[i]),
+                          ),
                         ),
                       ),
-                    ),
-                  // Room to scroll the last card clear of the nav pill and the Post button.
-                  const SliverToBoxAdapter(child: SizedBox(height: 128)),
-                ],
+                    // Room to scroll the last card clear of the nav pill and the Post button.
+                    const SliverToBoxAdapter(child: SizedBox(height: 128)),
+                  ],
+                ),
               ),
             ),
-          ),
         ]),
       ),
     );
@@ -491,10 +440,7 @@ class _HuudScreenState extends State<HuudScreen> {
             button: true,
             label: 'Your profile',
             child: Avatar(me,
-                size: 36,
-                emoji: app.avatarEmoji,
-                imagePath: app.avatarImagePath,
-                imageUrl: app.user?.avatarUrl),
+                size: 36, emoji: app.avatarEmoji, imagePath: app.avatarImagePath, imageUrl: app.user?.avatarUrl),
           ),
         ),
         Expanded(
@@ -502,13 +448,14 @@ class _HuudScreenState extends State<HuudScreen> {
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
         ),
-        IconButton(tooltip: 'Hangouts', icon: const Icon(Icons.headset_rounded),
-          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const HangoutsScreen()))),
+        IconButton(
+            tooltip: 'Hangouts',
+            icon: const Icon(Icons.headset_rounded),
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const HangoutsScreen()))),
         IconButton(
           tooltip: 'Notifications',
           icon: const Icon(Icons.notifications_none_rounded),
-          onPressed: () =>
-              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
         ),
       ]),
     );
@@ -540,8 +487,8 @@ class _HuudScreenState extends State<HuudScreen> {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 6),
                     child: Text('$emoji $label',
-                        style: TextStyle(
-                            fontSize: 15, fontWeight: FontWeight.w900, color: active ? h.onOrange : n.mid)),
+                        style:
+                            TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: active ? h.onOrange : n.mid)),
                   ),
                 ),
               ),
@@ -635,68 +582,55 @@ class _HuudScreenState extends State<HuudScreen> {
         ]),
       );
 
-  Widget _composerCard(BuildContext context, NeonColors n, AppState app) {
-    final me = app.user?.username ?? app.user?.displayName ?? 'Player';
-    final canRank = _ratedGames.contains(_composerGame);
-    return NeonCard(
-      glass: false,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Avatar(me, size: 40, emoji: app.avatarEmoji, imagePath: app.avatarImagePath, imageUrl: app.user?.avatarUrl),
+  /// Where the "what do you want to play?" box used to be: games start in a
+  /// Huud now, and a Huud can be shared here.
+  Widget _shareHuudCard(BuildContext context, NeonColors n) {
+    final h = HuudColors.of(context);
+    return HuudCard(
+      key: const ValueKey('feed-make-huud'),
+      onTap: () async {
+        await startHuud(context, share: true);
+        if (mounted) _load();
+      },
+      child: Row(children: [
+        Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+              color: h.orange, shape: BoxShape.circle, border: Border.all(color: kCabinetInk, width: 2.2)),
+          child: Icon(Icons.campaign_rounded, color: h.onOrange, size: 26),
+        ),
         const SizedBox(width: 12),
         Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            TextField(
-              key: const ValueKey('huud-composer'),
-              controller: _composer,
-              focusNode: _composerFocus,
-              maxLength: 280,
-              minLines: 1,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                hintText: 'What do you want to play?',
-                counterText: '',
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                filled: false,
-                isDense: true,
-                contentPadding: EdgeInsets.symmetric(vertical: 8),
-              ),
-            ),
-            const SizedBox(height: 8),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(children: [
-                for (final g in _postableGames)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: _FeedPill(huudGameNames[g]!,
-                        key: ValueKey('huud-game-$g'),
-                        small: true,
-                        outlined: true,
-                        quiet: _composerGame != g,
-                        onTap: () => setState(() => _composerGame = g)),
-                  ),
-              ]),
-            ),
-            const SizedBox(height: 10),
-            Row(children: [
-              if (canRank)
-                _FeedPill(_ranked ? 'Ranked' : 'Casual',
-                    small: true,
-                    outlined: true,
-                    quiet: !_ranked,
-                    icon: _ranked ? Icons.military_tech_rounded : Icons.sports_esports_outlined,
-                    onTap: () => setState(() => _ranked = !_ranked)),
-              const Spacer(),
-              _FeedPill(_posting ? 'Posting…' : 'Post',
-                  key: const ValueKey('huud-post'), onTap: _posting ? null : _post),
-            ]),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Want people to play with?',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: n.ink)),
+            Text('Make a Huud and share it here', style: TextStyle(fontSize: 14, color: n.mid)),
           ]),
         ),
+        Icon(Icons.chevron_right_rounded, color: h.orangeText, size: 28),
       ]),
     );
+  }
+
+  Future<void> _enterSharedHuud(HuudShared huud) async {
+    if (huud.access == 'in') {
+      await openHuudSpace(context, huud.huudSpaceId);
+      if (mounted) _load();
+      return;
+    }
+    try {
+      final raw = await AppScope.of(context).api.post('/huud-spaces/${huud.huudSpaceId}/join') as Map<String, dynamic>;
+      if (!mounted) return;
+      final space = HuudSpace.fromJson(raw);
+      if (!space.youAreIn) _snack("Asked the host — you'll get in when they say yes ⏳");
+      await openHuudSpace(context, space.id, initial: space);
+      if (mounted) _load();
+    } on ApiException catch (e) {
+      _snack(e.message);
+    } catch (_) {
+      _snack('Could not reach the server');
+    }
   }
 
   Widget _guestCard(BuildContext context, NeonColors n) => NeonCard(
@@ -725,10 +659,7 @@ class _HuudScreenState extends State<HuudScreen> {
             ),
             if (_friends.isNotEmpty)
               Text('${here.length} of ${_friends.length}',
-                  style: Theme.of(context)
-                      .textTheme
-                      .labelSmall
-                      ?.copyWith(color: n.jade, fontWeight: FontWeight.w800)),
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.jade, fontWeight: FontWeight.w800)),
           ]),
           const SizedBox(height: 10),
           SizedBox(
@@ -751,8 +682,8 @@ class _HuudScreenState extends State<HuudScreen> {
               _StripPerson(
                 label: 'Invite',
                 labelColor: n.gold,
-                onTap: () => Navigator.of(context)
-                    .push(MaterialPageRoute(builder: (_) => const InviteContactsScreen())),
+                onTap: () =>
+                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const InviteContactsScreen())),
                 child: Container(
                   width: 52,
                   height: 52,
@@ -859,9 +790,10 @@ class _HuudScreenState extends State<HuudScreen> {
           onChallenge: () => _challenge(item.actor, suggestedGame: item.gameType),
           onProfile: _profile,
           onShare: () => _share(item)),
-      'tournament' => _TournamentCard(
-          item: item, onOpen: () => _openTournament(item.tournament!), onShare: () => _share(item)),
+      'tournament' =>
+        _TournamentCard(item: item, onOpen: () => _openTournament(item.tournament!), onShare: () => _share(item)),
       'champion' => _ChampionCard(item: item, onOpen: () => _openTournament(item.tournament!)),
+      'huud' => _SharedHuudCard(item: item, onOpen: () => _enterSharedHuud(item.huud!), onProfile: _profile),
       _ => const SizedBox.shrink(),
     };
   }
@@ -872,15 +804,13 @@ class _HuudScreenState extends State<HuudScreen> {
 /// The feed's small rounded button — filled gold for the main action,
 /// outlined for the rest. The nav pill's gold, at button size.
 class _FeedPill extends StatelessWidget {
-  const _FeedPill(this.label,
-      {super.key, this.onTap, this.outlined = false, this.quiet = false, this.small = false, this.icon});
+  const _FeedPill(this.label, {super.key, this.onTap, this.outlined = false, this.quiet = false, this.icon});
   final String label;
   final VoidCallback? onTap;
   final bool outlined;
 
   /// Outlined in the neutral line colour rather than gold — an unselected chip.
   final bool quiet;
-  final bool small;
   final IconData? icon;
 
   @override
@@ -895,21 +825,17 @@ class _FeedPill extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         onTap: onTap,
         child: Container(
-          constraints: BoxConstraints(minHeight: small ? 34 : 40),
-          padding: EdgeInsets.symmetric(horizontal: small ? 12 : 16),
+          constraints: const BoxConstraints(minHeight: 40),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
             color: outlined ? (quiet ? Colors.transparent : n.gold.withValues(alpha: 0.10)) : n.gold,
             borderRadius: BorderRadius.circular(999),
-            border: Border.all(
-                color: outlined ? (quiet ? n.line : n.gold) : kCabinetInk, width: outlined ? 1.2 : 2),
+            border: Border.all(color: outlined ? (quiet ? n.line : n.gold) : kCabinetInk, width: outlined ? 1.2 : 2),
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             if (icon != null) ...[Icon(icon, size: 15, color: fg), const SizedBox(width: 5)],
             Text(label,
-                style: TextStyle(
-                    color: fg,
-                    fontWeight: quiet ? FontWeight.w600 : FontWeight.w800,
-                    fontSize: small ? 12 : 13)),
+                style: TextStyle(color: fg, fontWeight: quiet ? FontWeight.w600 : FontWeight.w800, fontSize: 13)),
           ]),
         ),
       ),
@@ -1028,9 +954,7 @@ class _Byline extends StatelessWidget {
         Expanded(
           child: Text.rich(
             TextSpan(children: [
-              TextSpan(
-                  text: person.name,
-                  style: TextStyle(color: n.ink, fontWeight: FontWeight.w800, fontSize: 14)),
+              TextSpan(text: person.name, style: TextStyle(color: n.ink, fontWeight: FontWeight.w800, fontSize: 14)),
               TextSpan(text: '  @${person.username} · ${huudAgo(at)}'),
             ]),
             maxLines: 1,
@@ -1182,8 +1106,8 @@ class _GameRequestCard extends StatelessWidget {
           action: g.mine || g.joined
               ? _FeedPill('Open lobby', outlined: true, onTap: onJoin)
               : g.filled
-                  ? const _FeedPill('Filled', key: ValueKey('huud-filled'), outlined: true, quiet: true,
-                      icon: Icons.check_rounded)
+                  ? const _FeedPill('Filled',
+                      key: ValueKey('huud-filled'), outlined: true, quiet: true, icon: Icons.check_rounded)
                   : _FeedPill(g.seatsLeft == 1 && g.seats > 2 ? 'Take last seat' : 'Join game', onTap: onJoin),
           footer: g.filled ? null : _TimeLeftBar(expiresAt: g.expiresAt, ttl: _requestTtl),
         ),
@@ -1338,8 +1262,8 @@ class _WinCard extends StatelessWidget {
         const SizedBox(height: 10),
         Container(
           padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-              color: n.plate, borderRadius: BorderRadius.circular(16), border: Border.all(color: n.line)),
+          decoration:
+              BoxDecoration(color: n.plate, borderRadius: BorderRadius.circular(16), border: Border.all(color: n.line)),
           child: Row(children: [
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1347,8 +1271,10 @@ class _WinCard extends StatelessWidget {
                     style: TextStyle(color: n.mute, fontSize: 11, fontWeight: FontWeight.w600)),
                 Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
                   Text(w.rating != null ? huudGrouped(w.rating!) : (w.streak > 1 ? '${w.streak} wins' : 'Win'),
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w800, fontFeatures: const [FontFeature.tabularFigures()])),
+                      style: Theme.of(context)
+                          .textTheme
+                          .headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.w800, fontFeatures: const [FontFeature.tabularFigures()])),
                   if (w.weekDelta != null && w.weekDelta!.round() != 0) ...[
                     const SizedBox(width: 6),
                     Text('${w.weekDelta! > 0 ? '+' : ''}${w.weekDelta!.round()}',
@@ -1425,7 +1351,9 @@ class _TournamentCard extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-                color: n.gold, borderRadius: BorderRadius.circular(12), border: Border.all(color: kCabinetInk, width: 2)),
+                color: n.gold,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: kCabinetInk, width: 2)),
             child: const Icon(Icons.emoji_events_rounded, color: kCabinetInk, size: 22),
           ),
           const SizedBox(width: 12),
@@ -1433,8 +1361,7 @@ class _TournamentCard extends StatelessWidget {
             child: Text.rich(
               TextSpan(children: [
                 TextSpan(
-                    text: item.actor.name,
-                    style: TextStyle(color: n.ink, fontWeight: FontWeight.w800, fontSize: 14)),
+                    text: item.actor.name, style: TextStyle(color: n.ink, fontWeight: FontWeight.w800, fontSize: 14)),
                 TextSpan(text: '  opened a tournament · ${huudAgo(item.at)}'),
               ]),
               maxLines: 1,
@@ -1457,8 +1384,8 @@ class _TournamentCard extends StatelessWidget {
             child: Container(
               height: 44,
               alignment: Alignment.center,
-              decoration: BoxDecoration(
-                  color: n.gold.withValues(alpha: 0.08), border: Border(top: BorderSide(color: n.line))),
+              decoration:
+                  BoxDecoration(color: n.gold.withValues(alpha: 0.08), border: Border(top: BorderSide(color: n.line))),
               child: Text(t.viewerJoined ? 'You\'re in · View tournament' : 'View tournament',
                   style: TextStyle(color: n.gold, fontWeight: FontWeight.w800, fontSize: 13)),
             ),
@@ -1539,6 +1466,89 @@ class _GamePickerSheet extends StatelessWidget {
             ),
         ]),
       ),
+    );
+  }
+}
+
+/// "Who wants to play Whot?" — Eric's Huud · Whot · 2/4 playing · Join Huud.
+class _SharedHuudCard extends StatelessWidget {
+  const _SharedHuudCard({required this.item, required this.onOpen, required this.onProfile});
+  final HuudItem item;
+  final VoidCallback onOpen;
+  final void Function(HuudPerson) onProfile;
+
+  @override
+  Widget build(BuildContext context) {
+    final n = context.neon;
+    final h = HuudColors.of(context);
+    final huud = item.huud!;
+    final privacy = HuudPrivacyInfo.parse(huud.privacy);
+    final game = item.gameType.isEmpty ? null : item.gameType;
+    final doing =
+        game == null ? 'Hanging out · ${huud.people} in' : '${item.gameName} · ${huud.players}/${huud.seats} playing';
+    final (label, icon) = switch (huud.access) {
+      'in' => ('Go in', Icons.arrow_forward_rounded),
+      'ask' => ('Ask to join', Icons.front_hand_rounded),
+      _ => ('Join Huud', Icons.login_rounded),
+    };
+    return HuudCard(
+      key: ValueKey('feed-huud-${huud.huudSpaceId}'),
+      onTap: onOpen,
+      highlight: true,
+      padding: const EdgeInsets.all(14),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          GestureDetector(
+            onTap: () => onProfile(item.actor),
+            child: Avatar(item.actor.name, size: 40, imageUrl: item.actor.avatarUrl),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(item.actor.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: n.ink)),
+              Text('shared a Huud · ${huudAgo(item.at)}', style: TextStyle(fontSize: 13, color: n.mute)),
+            ]),
+          ),
+          const HuudLiveChip(),
+        ]),
+        if (item.message != null && item.message!.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Text('“${item.message}”',
+              style: TextStyle(fontSize: 19, height: 1.25, fontWeight: FontWeight.w900, color: n.ink)),
+        ],
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(color: h.orangeSoft, borderRadius: BorderRadius.circular(18)),
+          child: Row(children: [
+            if (game != null) HuudGameArt(game, size: 44) else const Text('💬', style: TextStyle(fontSize: 30)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(huud.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: n.ink)),
+                Text(doing, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: h.orangeText)),
+              ]),
+            ),
+            HuudChip(privacy.label, emoji: privacy.emoji),
+          ]),
+        ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerRight,
+          child: HuudButton(
+            key: ValueKey('feed-huud-open-${huud.huudSpaceId}'),
+            label: label,
+            icon: icon,
+            onPressed: onOpen,
+          ),
+        ),
+      ]),
     );
   }
 }

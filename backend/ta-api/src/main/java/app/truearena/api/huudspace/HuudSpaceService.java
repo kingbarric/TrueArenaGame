@@ -4,7 +4,9 @@ import app.truearena.api.huudspace.HuudSpaceDtos.CurrentGame;
 import app.truearena.api.huudspace.HuudSpaceDtos.HistoryHuud;
 import app.truearena.api.huudspace.HuudSpaceDtos.HuudSpaceView;
 import app.truearena.api.huudspace.HuudSpaceDtos.LiveHuud;
+import app.truearena.api.huudspace.HuudSpaceDtos.PendingRequest;
 import app.truearena.api.huudspace.HuudSpaceDtos.Person;
+import app.truearena.api.huud.HuudService;
 import app.truearena.api.calls.VoiceSessionService;
 import app.truearena.api.inbox.InboxRegistry;
 import app.truearena.api.room.RoomDtos.RoomView;
@@ -82,13 +84,14 @@ public class HuudSpaceService {
     }
 
     record Space(UUID id, String code, String name, String privacy, UUID ownerId, UUID createdBy,
-                 String status, UUID currentRoomId, Instant createdAt, Instant endedAt) {
+                 String status, UUID currentRoomId, String feedMessage, Instant sharedAt,
+                 Instant createdAt, Instant endedAt) {
         boolean active() {
             return "active".equals(status);
         }
     }
 
-    record Membership(Instant leftAt, boolean removed) {
+    record Membership(Instant leftAt, boolean removed, boolean canSpeak) {
         boolean in() {
             return leftAt == null && !removed;
         }
@@ -101,6 +104,15 @@ public class HuudSpaceService {
      * host, so tapping Create twice never makes two.
      */
     public Mono<HuudSpaceView> create(UUID user, String requestedName, String requestedPrivacy) {
+        return create(user, requestedName, requestedPrivacy, null, null, false);
+    }
+
+    /**
+     * Makes the Huud, then — if asked — sets up a first game and shares it to
+     * the feed. Joining the Huud never puts anyone in that game.
+     */
+    public Mono<HuudSpaceView> create(UUID user, String requestedName, String requestedPrivacy,
+                                      String gameType, String message, boolean share) {
         String privacy = privacyOrDefault(requestedPrivacy);
         return users.findById(user)
                 .switchIfEmpty(Mono.error(ApiExceptions.unauthorized("unknown user")))
@@ -119,7 +131,11 @@ public class HuudSpaceService {
                                     .map((r, m) -> r.get("id", UUID.class)).one())))
                             .flatMap(id -> admitRow(id, user).thenReturn(id)));
                 })
-                .flatMap(id -> view(id, user));
+                .flatMap(id -> (gameType == null || gameType.isBlank() ? Mono.<Void>empty()
+                                : space(id).filter(s -> s.currentRoomId() == null)
+                                        .flatMap(s -> addGame(user, id, gameType)).then())
+                        .then(share ? share(user, id, message).then() : Mono.<Void>empty())
+                        .then(view(id, user)));
     }
 
     /** The Huud you host right now, if any. */
@@ -169,21 +185,22 @@ public class HuudSpaceService {
 
     // ------------------------------------------------------------ joining
 
+    /** With a code. The same rules as anywhere else: the code finds the Huud, it doesn't open every door. */
     public Mono<HuudSpaceView> joinByCode(UUID user, String code) {
         String normalized = code == null ? "" : code.trim().toUpperCase();
         return db.sql("SELECT id FROM huud_spaces WHERE code=:code AND status='active'")
                 .bind("code", normalized).map((r, m) -> r.get("id", UUID.class)).one()
                 .switchIfEmpty(Mono.error(ApiExceptions.notFound("No Huud has that code — check it and try again")))
-                // The code is the invitation: it works whatever the privacy.
-                .flatMap(id -> admit(id, user, true));
+                .flatMap(id -> join(user, id));
     }
 
-    /** Joining from the Live tab, without a code. */
+    /**
+     * Public → straight in. Friends → the host's friends straight in. Anyone
+     * else (and everyone, for a private Huud) asks the host, unless they were
+     * invited or let in before. Being in the Huud is listening, chatting and
+     * watching — not a seat in the game.
+     */
     public Mono<HuudSpaceView> join(UUID user, UUID id) {
-        return admit(id, user, false);
-    }
-
-    private Mono<HuudSpaceView> admit(UUID id, UUID user, boolean withCode) {
         return space(id).filter(Space::active)
                 .switchIfEmpty(Mono.error(ApiExceptions.notFound("This Huud has ended")))
                 .flatMap(s -> membership(id, user).map(Optional::of).defaultIfEmpty(Optional.empty())
@@ -191,17 +208,63 @@ public class HuudSpaceService {
                             if (m.isPresent() && m.get().removed()) {
                                 return Mono.error(ApiExceptions.forbidden("You can't join this Huud"));
                             }
-                            Mono<Boolean> allowed = withCode || m.isPresent() ? Mono.just(true) : canSee(s, user);
-                            return allowed.flatMap(ok -> ok
+                            Mono<Boolean> straightIn = m.isPresent() ? Mono.just(true) : mayWalkIn(s, user);
+                            return blocked(user, s.ownerId()).flatMap(b -> b
+                                    ? Mono.error(ApiExceptions.forbidden("You can't join this Huud"))
+                                    : straightIn).flatMap(ok -> ok
                                     ? tx.transactional(lock("huud-space:" + id).then(admitRow(id, user)))
                                         .doOnSuccess(v -> { if (m.isEmpty() || !m.get().in()) notifyMembers(id, "joined", user); })
                                         .then(view(id, user))
-                                    : Mono.error(ApiExceptions.forbidden("This Huud is just for the host's friends — ask for the code")));
+                                    : askToJoin(s, user).then(view(id, user)));
                         }));
     }
 
+    /** No asking needed: the host, anyone for a public Huud, the host's friends, or someone invited/let in. */
+    Mono<Boolean> mayWalkIn(Space s, UUID user) {
+        if (s.ownerId().equals(user) || "public".equals(s.privacy())) return Mono.just(true);
+        Mono<Boolean> letIn = request(s.id(), user, "join").map("accepted"::equals).defaultIfEmpty(false);
+        if (!"friends".equals(s.privacy())) return letIn;
+        return friends(user, s.ownerId()).flatMap(friend -> friend ? Mono.just(true) : letIn);
+    }
+
+    /** Knock on the door. A host who just said no isn't asked again straight away. */
+    private Mono<Void> askToJoin(Space s, UUID user) {
+        return db.sql("SELECT status, answered_at > now() - interval '5 minutes' AS recent FROM huud_space_requests "
+                        + "WHERE huud_space_id=:id AND user_id=:user AND kind='join'")
+                .bind("id", s.id()).bind("user", user)
+                .map((r, m) -> "declined".equals(r.get("status", String.class))
+                        && Boolean.TRUE.equals(r.get("recent", Boolean.class)))
+                .one().defaultIfEmpty(false)
+                .flatMap(tooSoon -> tooSoon
+                        ? Mono.error(ApiExceptions.conflict("The host said not right now — try again in a few minutes"))
+                        : upsertRequest(s.id(), user, "join", null)
+                                .doOnSuccess(v -> notify(s.ownerId(), s.id(), "request", user)));
+    }
+
+    Mono<Void> upsertRequest(UUID id, UUID user, String kind, UUID roomId) {
+        var sql = db.sql("INSERT INTO huud_space_requests(huud_space_id,user_id,kind,room_id) VALUES(:id,:user,:kind,:room) "
+                        + "ON CONFLICT(huud_space_id,user_id,kind) DO UPDATE SET status='pending',room_id=EXCLUDED.room_id,"
+                        + "created_at=now(),answered_at=NULL")
+                .bind("id", id).bind("user", user).bind("kind", kind);
+        return (roomId == null ? sql.bindNull("room", UUID.class) : sql.bind("room", roomId)).fetch().rowsUpdated().then();
+    }
+
+    Mono<Void> answerRow(UUID id, UUID user, String kind, boolean accepted) {
+        return db.sql("INSERT INTO huud_space_requests(huud_space_id,user_id,kind,status,answered_at) "
+                        + "VALUES(:id,:user,:kind,:status,now()) ON CONFLICT(huud_space_id,user_id,kind) "
+                        + "DO UPDATE SET status=EXCLUDED.status,answered_at=now()")
+                .bind("id", id).bind("user", user).bind("kind", kind).bind("status", accepted ? "accepted" : "declined")
+                .fetch().rowsUpdated().then();
+    }
+
+    Mono<String> request(UUID id, UUID user, String kind) {
+        return db.sql("SELECT status FROM huud_space_requests WHERE huud_space_id=:id AND user_id=:user AND kind=:kind")
+                .bind("id", id).bind("user", user).bind("kind", kind)
+                .map((r, m) -> r.get("status", String.class)).one();
+    }
+
     /** Back in (or in for the first time). Someone returning after leaving goes to the end of the host line. */
-    private Mono<Void> admitRow(UUID id, UUID user) {
+    Mono<Void> admitRow(UUID id, UUID user) {
         return db.sql("INSERT INTO huud_space_members(huud_space_id,user_id) VALUES(:id,:user) "
                         + "ON CONFLICT(huud_space_id,user_id) DO UPDATE SET "
                         + "joined_at=CASE WHEN huud_space_members.left_at IS NULL THEN huud_space_members.joined_at ELSE now() END, "
@@ -215,7 +278,19 @@ public class HuudSpaceService {
         return friends(user, s.ownerId());
     }
 
-    private Mono<Boolean> friends(UUID a, UUID b) {
+    /** Either of the two has blocked the other. */
+    public static String blockedSql(String a, String b) {
+        return "EXISTS(SELECT 1 FROM player_blocks pb WHERE (pb.blocker_id=" + a + " AND pb.blocked_id=" + b + ") "
+                + "OR (pb.blocker_id=" + b + " AND pb.blocked_id=" + a + "))";
+    }
+
+    Mono<Boolean> blocked(UUID a, UUID b) {
+        if (a.equals(b)) return Mono.just(false);
+        return db.sql("SELECT " + blockedSql(":a", ":b") + " AS blocked").bind("a", a).bind("b", b)
+                .map((r, m) -> Boolean.TRUE.equals(r.get("blocked", Boolean.class))).one();
+    }
+
+    Mono<Boolean> friends(UUID a, UUID b) {
         return db.sql("SELECT EXISTS(SELECT 1 FROM friends WHERE status='accepted' "
                         + "AND low_user_id=LEAST(:a,:b) AND high_user_id=GREATEST(:a,:b)) AS ok")
                 .bind("a", a).bind("b", b).map((r, m) -> Boolean.TRUE.equals(r.get("ok", Boolean.class))).one();
@@ -249,7 +324,7 @@ public class HuudSpaceService {
 
     private Mono<Void> finish(UUID id, UUID by) {
         return members(id, false).collectList().flatMap(people -> tx.transactional(
-                        db.sql("UPDATE huud_spaces SET status='ended',ended_at=now(),current_room_id=NULL "
+                        db.sql("UPDATE huud_spaces SET status='ended',ended_at=now(),current_room_id=NULL,shared_at=NULL "
                                         + "WHERE id=:id AND status='active'")
                                 .bind("id", id).fetch().rowsUpdated()
                                 .then(db.sql("UPDATE huud_space_members SET left_at=now() "
@@ -325,7 +400,7 @@ public class HuudSpaceService {
                         .concatMap(absent -> tx.transactional(lock("huud-space:" + absent.getKey()).then(handOff(absent.getKey())))
                                 .doOnNext(next -> notifyMembers(absent.getKey(), "host", absent.getValue())))
                         .then())
-                .then(db.sql("UPDATE huud_spaces s SET status='ended',ended_at=now(),current_room_id=NULL "
+                .then(db.sql("UPDATE huud_spaces s SET status='ended',ended_at=now(),current_room_id=NULL,shared_at=NULL "
                                 + "WHERE s.status='active' AND NOT EXISTS(SELECT 1 FROM huud_space_members m "
                                 + "WHERE m.huud_space_id=s.id AND m.left_at IS NULL)")
                         .fetch().rowsUpdated())
@@ -352,6 +427,7 @@ public class HuudSpaceService {
                         .bind("id", id).bind("room", room.id()).fetch().rowsUpdated()
                         .then(db.sql("UPDATE huud_spaces SET current_room_id=:room WHERE id=:id")
                                 .bind("room", room.id()).bind("id", id).fetch().rowsUpdated())
+                        .then(clearPlayQueue(id))
                         .thenReturn(room))
                 .doOnSuccess(room -> notifyMembers(id, "game", host));
     }
@@ -364,8 +440,39 @@ public class HuudSpaceService {
                                 ? Mono.error(ApiExceptions.conflict("The game is still being played"))
                                 : cancelWaitingGame(s, host))
                         .then(db.sql("UPDATE huud_spaces SET current_room_id=NULL WHERE id=:id")
-                                .bind("id", id).fetch().rowsUpdated()))
+                                .bind("id", id).fetch().rowsUpdated())
+                        .then(clearPlayQueue(id)))
                 .doOnSuccess(n -> notifyMembers(id, "game", host))
+                .then(view(id, host));
+    }
+
+    /** A new game, a new queue: nobody's old "can I play?" carries over. */
+    private Mono<Void> clearPlayQueue(UUID id) {
+        return db.sql("DELETE FROM huud_space_requests WHERE huud_space_id=:id AND kind='play'")
+                .bind("id", id).fetch().rowsUpdated().then();
+    }
+
+    // ------------------------------------------------------------ the feed
+
+    /** Host only: put the Huud on the feed, with an optional line like "Who wants to play Whot?". */
+    public Mono<HuudSpaceView> share(UUID host, UUID id, String message) {
+        String line = message == null || message.isBlank() ? null : message.strip().replaceAll("\\s+", " ");
+        if (line != null && line.length() > 140) line = line.substring(0, 140).strip();
+        String feedMessage = line;
+        return requireHost(id, host)
+                .flatMap(s -> {
+                    var sql = db.sql("UPDATE huud_spaces SET shared_at=now(),feed_message=:message WHERE id=:id")
+                            .bind("id", id);
+                    return (feedMessage == null ? sql.bindNull("message", String.class) : sql.bind("message", feedMessage))
+                            .fetch().rowsUpdated();
+                })
+                .then(view(id, host));
+    }
+
+    /** Host only: take it off the feed. */
+    public Mono<HuudSpaceView> unshare(UUID host, UUID id) {
+        return requireHost(id, host)
+                .flatMap(s -> db.sql("UPDATE huud_spaces SET shared_at=NULL WHERE id=:id").bind("id", id).fetch().rowsUpdated())
                 .then(view(id, host));
     }
 
@@ -385,9 +492,14 @@ public class HuudSpaceService {
                 .flatMap(s -> membership(id, viewer).map(Optional::of).defaultIfEmpty(Optional.empty())
                         .flatMap(m -> {
                             boolean in = m.isPresent() && m.get().in() && s.active();
+                            boolean host = s.ownerId().equals(viewer) && s.active();
+                            // Someone who asked to come in can see the door they're waiting at.
                             Mono<Boolean> allowed = m.isPresent()
                                     ? Mono.just(!m.get().removed())
-                                    : s.active() ? canSee(s, viewer) : Mono.just(false);
+                                    : !s.active() ? Mono.just(false)
+                                    : blocked(viewer, s.ownerId()).flatMap(b -> b ? Mono.just(false)
+                                            : canSee(s, viewer).flatMap(see -> see ? Mono.just(true)
+                                            : request(id, viewer, "join").map(r -> true).defaultIfEmpty(false)));
                             return allowed.flatMap(ok -> {
                                 if (!ok) return Mono.error(ApiExceptions.forbidden("This Huud isn't open to you"));
                                 Mono<Void> touch = in ? db.sql("UPDATE huud_space_members SET last_seen_at=now() "
@@ -395,15 +507,21 @@ public class HuudSpaceService {
                                         .bind("id", id).bind("user", viewer).fetch().rowsUpdated().then() : Mono.empty();
                                 return touch.then(Mono.zip(
                                         members(id, !s.active()).collectList(),
-                                        currentGame(s.currentRoomId()).map(Optional::of).defaultIfEmpty(Optional.empty())))
+                                        currentGame(s.currentRoomId(), viewer).map(Optional::of).defaultIfEmpty(Optional.empty()),
+                                        myRequests(id, viewer),
+                                        host ? pendingRequests(id).collectList() : Mono.just(List.<PendingRequest>of())))
                                         .map(t -> {
                                             List<Person> people = t.getT1();
-                                            Person host = people.stream().filter(Person::host).findFirst()
+                                            Person hostPerson = people.stream().filter(Person::host).findFirst()
                                                     .orElse(null);
+                                            Map<String, String> mine = t.getT3();
+                                            boolean canSpeak = host || (in && m.get().canSpeak());
                                             return new HuudSpaceView(s.id(), in ? s.code() : null, s.name(), s.privacy(),
-                                                    s.status(), host, people, t.getT2().orElse(null), in,
-                                                    s.ownerId().equals(viewer) && s.active(),
-                                                    "huud-" + s.id(), s.createdAt(), s.endedAt());
+                                                    s.status(), hostPerson, people, t.getT2().orElse(null), in, host,
+                                                    canSpeak, HuudSpaceAccess.VOICE_PREFIX + s.id(),
+                                                    in ? null : mine.get("join"), mine.get("play"), mine.get("mic"),
+                                                    t.getT4(), s.sharedAt() != null, s.feedMessage(),
+                                                    s.createdAt(), s.endedAt());
                                         });
                             });
                         }));
@@ -417,9 +535,11 @@ public class HuudSpaceService {
                         + "FROM huud_spaces s LEFT JOIN rooms r ON r.id=s.current_room_id "
                         + "WHERE s.status='active' "
                         + "AND NOT EXISTS(SELECT 1 FROM huud_space_members x WHERE x.huud_space_id=s.id AND x.user_id=:user AND x.removed) "
+                        + "AND NOT " + blockedSql("s.owner_id", ":user") + " "
                         + "AND EXISTS(SELECT 1 FROM huud_space_members p WHERE p.huud_space_id=s.id AND p.left_at IS NULL) "
                         + "AND (s.privacy='public' "
                         + "  OR EXISTS(SELECT 1 FROM huud_space_members me WHERE me.huud_space_id=s.id AND me.user_id=:user AND me.left_at IS NULL) "
+                        + "  OR EXISTS(SELECT 1 FROM huud_space_requests q WHERE q.huud_space_id=s.id AND q.user_id=:user AND q.kind='join' AND q.status='accepted') "
                         + "  OR (s.privacy='friends' AND EXISTS(SELECT 1 FROM friends f WHERE f.status='accepted' "
                         + "      AND f.low_user_id=LEAST(s.owner_id,:user) AND f.high_user_id=GREATEST(s.owner_id,:user)))) "
                         + "ORDER BY mine DESC, present DESC, s.created_at DESC LIMIT " + LIST_LIMIT)
@@ -458,6 +578,30 @@ public class HuudSpaceService {
                                 s.createdAt(), s.endedAt())));
     }
 
+    private Mono<Map<String, String>> myRequests(UUID id, UUID viewer) {
+        return db.sql("SELECT kind, status FROM huud_space_requests WHERE huud_space_id=:id AND user_id=:user")
+                .bind("id", id).bind("user", viewer)
+                .map((r, m) -> Map.entry(r.get("kind", String.class), r.get("status", String.class))).all()
+                .collectMap(Map.Entry::getKey, Map.Entry::getValue);
+    }
+
+    /** What the host has to answer, oldest first — only from people still around. */
+    Flux<PendingRequest> pendingRequests(UUID id) {
+        return db.sql("SELECT q.kind, q.created_at, u.id AS user_id, u.display_name, u.username, u.avatar_url, "
+                        + "COALESCE(m.can_speak,false) AS can_speak "
+                        + "FROM huud_space_requests q JOIN users u ON u.id=q.user_id "
+                        + "LEFT JOIN huud_space_members m ON m.huud_space_id=q.huud_space_id AND m.user_id=q.user_id "
+                        + "WHERE q.huud_space_id=:id AND q.status='pending' AND (m.removed IS NULL OR NOT m.removed) "
+                        + "AND (q.kind='join' OR m.left_at IS NULL) ORDER BY q.created_at")
+                .bind("id", id)
+                .map((r, m) -> new PendingRequest(new Person(r.get("user_id", UUID.class),
+                        r.get("display_name", String.class), r.get("username", String.class),
+                        r.get("avatar_url", String.class), false, true,
+                        Boolean.TRUE.equals(r.get("can_speak", Boolean.class)), null),
+                        r.get("kind", String.class), instant(r.get("created_at"))))
+                .all();
+    }
+
     private Mono<Map<String, Integer>> gamesPlayed(UUID id) {
         return db.sql("SELECT g.game_type, count(*) AS n, max(g.started_at) AS last FROM game_sessions g "
                         + "JOIN rooms r ON r.id=g.room_id WHERE r.huud_space_id=:id GROUP BY g.game_type ORDER BY last DESC")
@@ -468,9 +612,10 @@ public class HuudSpaceService {
     }
 
     /** People in the Huud (or, with {@code everyone}, everyone who ever was), in arrival order. */
-    private Flux<Person> members(UUID id, boolean everyone) {
+    Flux<Person> members(UUID id, boolean everyone) {
         return db.sql("SELECT m.user_id, m.joined_at, (m.left_at IS NULL AND m.last_seen_at > now() - make_interval(secs => :here)) AS here, "
-                        + "(s.owner_id=m.user_id) AS host, u.display_name, u.username, u.avatar_url "
+                        + "(s.owner_id=m.user_id) AS host, (s.owner_id=m.user_id OR m.can_speak) AS can_speak, "
+                        + "u.display_name, u.username, u.avatar_url "
                         + "FROM huud_space_members m JOIN users u ON u.id=m.user_id JOIN huud_spaces s ON s.id=m.huud_space_id "
                         + "WHERE m.huud_space_id=:id AND NOT m.removed AND (:everyone OR m.left_at IS NULL) "
                         + "ORDER BY (s.owner_id=m.user_id) DESC, m.joined_at")
@@ -478,23 +623,34 @@ public class HuudSpaceService {
                 .map((r, m) -> new Person(r.get("user_id", UUID.class), r.get("display_name", String.class),
                         r.get("username", String.class), r.get("avatar_url", String.class),
                         Boolean.TRUE.equals(r.get("host", Boolean.class)),
-                        Boolean.TRUE.equals(r.get("here", Boolean.class)), instant(r.get("joined_at"))))
+                        Boolean.TRUE.equals(r.get("here", Boolean.class)),
+                        Boolean.TRUE.equals(r.get("can_speak", Boolean.class)), instant(r.get("joined_at"))))
                 .all();
     }
 
     private Mono<CurrentGame> currentGame(UUID roomId) {
+        return currentGame(roomId, null);
+    }
+
+    Mono<CurrentGame> currentGame(UUID roomId, UUID viewer) {
         if (roomId == null) return Mono.empty();
         return db.sql("SELECT r.id, r.code, r.game_type, r.status, "
-                        + "(SELECT count(*) FROM room_members rm WHERE rm.room_id=r.id) AS players FROM rooms r WHERE r.id=:id")
+                        + "ARRAY(SELECT rm.user_id FROM room_members rm WHERE rm.room_id=r.id ORDER BY rm.joined_at) AS players "
+                        + "FROM rooms r WHERE r.id=:id")
                 .bind("id", roomId)
-                .map((r, m) -> new CurrentGame(r.get("id", UUID.class), r.get("code", String.class),
-                        r.get("game_type", String.class), gameStatus(r.get("status", String.class)),
-                        ((Number) r.get("players")).intValue()))
+                .map((r, m) -> {
+                    UUID[] players = r.get("players", UUID[].class);
+                    List<UUID> ids = players == null ? List.of() : List.of(players);
+                    String type = r.get("game_type", String.class);
+                    return new CurrentGame(r.get("id", UUID.class), r.get("code", String.class), type,
+                            gameStatus(r.get("status", String.class)), ids.size(), HuudService.seatsFor(type),
+                            ids, viewer != null && ids.contains(viewer));
+                })
                 .one();
     }
 
     /** Words the app can show as they are: waiting → playing → finished. */
-    static String gameStatus(String roomStatus) {
+    public static String gameStatus(String roomStatus) {
         return switch (roomStatus) {
             case "lobby" -> "waiting";
             case "in_game" -> "playing";
@@ -504,7 +660,7 @@ public class HuudSpaceService {
 
     // ------------------------------------------------------------ helpers
 
-    private Mono<Space> requireHost(UUID id, UUID user) {
+    Mono<Space> requireHost(UUID id, UUID user) {
         return space(id).filter(s -> s.active() && s.ownerId().equals(user))
                 .switchIfEmpty(Mono.error(ApiExceptions.forbidden("Only the host can do that")));
     }
@@ -513,21 +669,32 @@ public class HuudSpaceService {
         return db.sql("SELECT * FROM huud_spaces WHERE id=:id").bind("id", id).fetch().one().map(HuudSpaceService::toSpace);
     }
 
-    private Mono<Membership> membership(UUID id, UUID user) {
-        return db.sql("SELECT left_at, removed FROM huud_space_members WHERE huud_space_id=:id AND user_id=:user")
+    Mono<Membership> membership(UUID id, UUID user) {
+        return db.sql("SELECT left_at, removed, can_speak FROM huud_space_members WHERE huud_space_id=:id AND user_id=:user")
                 .bind("id", id).bind("user", user)
-                .map((r, m) -> new Membership(instant(r.get("left_at")), Boolean.TRUE.equals(r.get("removed", Boolean.class))))
+                .map((r, m) -> new Membership(instant(r.get("left_at")), Boolean.TRUE.equals(r.get("removed", Boolean.class)),
+                        Boolean.TRUE.equals(r.get("can_speak", Boolean.class))))
                 .one();
+    }
+
+    /** In the Huud right now, or a clear "join first". */
+    Mono<Space> requireMember(UUID id, UUID user) {
+        return space(id).filter(Space::active)
+                .switchIfEmpty(Mono.error(ApiExceptions.notFound("This Huud has ended")))
+                .flatMap(s -> membership(id, user).filter(Membership::in)
+                        .switchIfEmpty(Mono.error(ApiExceptions.forbidden("Join the Huud first")))
+                        .thenReturn(s));
     }
 
     private static Space toSpace(Map<String, Object> row) {
         return new Space((UUID) row.get("id"), (String) row.get("code"), (String) row.get("name"),
                 (String) row.get("privacy"), (UUID) row.get("owner_id"), (UUID) row.get("created_by"),
                 (String) row.get("status"), (UUID) row.get("current_room_id"),
+                (String) row.get("feed_message"), instant(row.get("shared_at")),
                 instant(row.get("created_at")), instant(row.get("ended_at")));
     }
 
-    private static Instant instant(Object value) {
+    static Instant instant(Object value) {
         if (value == null) return null;
         if (value instanceof Instant i) return i;
         if (value instanceof OffsetDateTime o) return o.toInstant();
@@ -542,17 +709,17 @@ public class HuudSpaceService {
                 .then(voiceSessions.removeMembership(user, room).onErrorResume(e -> Mono.empty()));
     }
 
-    private Mono<Void> lock(String key) {
+    Mono<Void> lock(String key) {
         return db.sql("SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(:key,0))")
                 .bind("key", key).fetch().all().then();
     }
 
     /** Everyone in the Huud refreshes it — what changed is in {@code event}. */
-    private void notifyMembers(UUID id, String event, UUID by) {
+    void notifyMembers(UUID id, String event, UUID by) {
         members(id, false).subscribe(p -> notify(p.userId(), id, event, by), e -> { });
     }
 
-    private void notify(UUID user, UUID id, String event, UUID by) {
+    void notify(UUID user, UUID id, String event, UUID by) {
         inbox.notify(user, Map.of("type", "HUUD_SPACE",
                 "data", Map.of("huudSpaceId", id.toString(), "event", event, "by", by.toString())));
     }

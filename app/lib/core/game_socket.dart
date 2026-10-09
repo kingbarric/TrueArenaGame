@@ -58,11 +58,25 @@ class GameSocket {
   int get lastSeq => _lastSeq;
   String get roomId => _roomId;
 
+  /// The room whose lobby or game is on screen right now, as a player —
+  /// the screen to come back to if the app is closed here. Lobby and game
+  /// screens hold a player socket exactly while they're open; watching
+  /// doesn't count.
+  static final currentPlayerRoom = ValueNotifier<String?>(null);
+  static final List<GameSocket> _playerSockets = [];
+
+  static void _track() =>
+      currentPlayerRoom.value = _playerSockets.isEmpty ? null : _playerSockets.last._roomId;
+
   static GameSocket connect(ApiClient api, String roomId,
       {bool spectate = false,
       String baseUrl = ApiClient.base,
       Duration retryBase = const Duration(seconds: 1)}) {
     final socket = GameSocket._(api, roomId, spectate, baseUrl, retryBase);
+    if (!spectate) {
+      _playerSockets.add(socket);
+      _track();
+    }
     socket._loadAgentIds();
     socket._open();
     return socket;
@@ -237,6 +251,7 @@ class GameSocket {
   Future<void> close() async {
     if (_closed) return;
     _closed = true;
+    if (_playerSockets.remove(this)) _track();
     _generation++;
     _retry?.cancel();
     _heartbeat?.cancel();

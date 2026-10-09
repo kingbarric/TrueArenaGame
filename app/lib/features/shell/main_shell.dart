@@ -3,7 +3,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../widgets/hide_on_scroll_nav.dart';
 import '../../widgets/playground_nav_pill.dart';
-import '../chat/chat_list_screen.dart';
 import '../friends/friends_screen.dart';
 import '../home/home_screen.dart';
 import '../huud/huud_screen.dart';
@@ -29,10 +28,16 @@ class MainShell extends StatefulWidget {
 
   /// Live (what's on now + the feed), for anything that wants to open it — a
   /// challenge push tapped while the app was in the background.
-  static const liveTab = 1;
+  static const liveTab = 0;
 
   /// Making a Huud and your Huud history.
-  static const huudSpacesTab = 2;
+  static const huudSpacesTab = 1;
+
+  /// The game catalogue.
+  static const gamesTab = 2;
+
+  /// Friends, messages and friend requests.
+  static const friendsTab = 3;
 
   /// Set from outside the widget tree — a push tap only has the root
   /// navigator — and picked up by whichever shell is mounted.
@@ -44,10 +49,10 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   late int _index = widget.initialIndex;
-  // v3: Live (feed + watching) and Huud (make + history) replaced the feed
-  // and Watch tabs, which shifted every saved index — a fresh key rather
-  // than reopening someone on the tab next to theirs.
-  static const _tabKey = 'ta_main_tab_v3';
+  // v4: Live · Huud · Games · Friends · You (Chats moved inside Friends),
+  // which shifted every saved index — a fresh key rather than reopening
+  // someone on the tab next to theirs.
+  static const _tabKey = 'ta_main_tab_v4';
 
   @override
   void initState() {
@@ -81,20 +86,18 @@ class _MainShellState extends State<MainShell> {
   final _built = <int, Widget>{};
 
   static const _tabs = [
-    _Tab(icon: Icons.sports_esports_rounded, label: 'Games'),
     _Tab(icon: Icons.live_tv_rounded, label: 'Live'),
     _Tab(icon: Icons.groups_rounded, label: 'Huud'),
-    _Tab(icon: Icons.chat_bubble_rounded, label: 'Chats', needsAccount: true),
+    _Tab(icon: Icons.sports_esports_rounded, label: 'Games'),
     _Tab(icon: Icons.people_alt_rounded, label: 'Friends', needsAccount: true),
     _Tab(icon: Icons.emoji_emotions_rounded, label: 'You'),
   ];
 
   Widget _screenFor(int i) => _built.putIfAbsent(i, () => switch (i) {
-        0 => const HomeScreen(),
-        1 => const HuudScreen(),
-        2 => const HuudHomeScreen(),
-        3 => const ChatListScreen(),
-        4 => const FriendsScreen(),
+        0 => const HuudScreen(),
+        1 => const HuudHomeScreen(),
+        2 => const HomeScreen(),
+        3 => const FriendsScreen(),
         _ => const ProfileScreen(),
       });
 
@@ -128,8 +131,7 @@ class _MainShellState extends State<MainShell> {
         nav: Center(
           child: SafeArea(
             top: false,
-            // Six labelled tabs are ~340 wide — shrink rather than overflow
-            // on the narrowest phones.
+            // Labelled tabs — shrink rather than overflow on the narrowest phones.
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: FittedBox(

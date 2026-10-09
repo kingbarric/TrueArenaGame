@@ -27,10 +27,20 @@ public final class HuudDtos {
     /**
      * One feed card. {@code kind} picks which of the three detail blocks is set:
      * {@code game_request} / {@code challenge} → {@code game}; {@code win} → {@code win};
-     * {@code tournament} / {@code champion} → {@code tournament}.
+     * {@code tournament} / {@code champion} → {@code tournament}; {@code huud} → {@code huud}.
      */
     public record FeedItem(String kind, String id, Instant at, PersonView actor, String gameType, String message,
-                           OpenGame game, Win win, Tournament tournament) {
+                           OpenGame game, Win win, Tournament tournament, SharedHuud huud) {
+    }
+
+    /**
+     * A Huud its host shared to the feed ("Who wants to play Whot?").
+     * {@code access}: "in" — you're already in it; "join" — you can walk in;
+     * "ask" — the host lets you in. {@code players}/{@code seats} describe the
+     * game being set up or played, when there is one.
+     */
+    public record SharedHuud(UUID huudSpaceId, String name, String privacy, int people, String gameStatus,
+                             int players, int seats, String access) {
     }
 
     /**

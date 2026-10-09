@@ -13,6 +13,8 @@ import '../chess/chess_lobby_screen.dart';
 import '../draughts/draughts_mode_screen.dart';
 import '../games/game_select_screen.dart';
 import '../goosi/goosi_lobby_screen.dart';
+import '../huud/huud_models.dart' show huudGameNames;
+import '../huudspace/create_huud_sheet.dart';
 import '../lobby/join_room_screen.dart';
 import '../lobby/joined_room_screen.dart';
 import '../modes/mode_select_screen.dart';
@@ -297,6 +299,20 @@ class HomeScreen extends StatelessWidget {
           .showSnackBar(SnackBar(content: Text('${g.name} is coming soon')));
       return;
     }
+    // Games are played in a Huud. Only an account can host one, so guests
+    // (and anyone signed out) keep the quick lobby: bots, a friend's code.
+    final app = AppScope.of(context);
+    if (app.identity == Identity.account && huudGameNames.containsKey(_huudType(g.id))) {
+      await openHuudForGame(context, _huudType(g.id), quickPlay: () => _openQuickLobby(context, g));
+      return;
+    }
+    await _openQuickLobby(context, g);
+  }
+
+  static String _huudType(String catalogId) => catalogId == 'bluff' ? 'wordbluff' : catalogId;
+
+  /// The game's own lobby: play a bot, open a quick table, join by code.
+  Future<void> _openQuickLobby(BuildContext context, GameCatalogEntry g) async {
     if (g.id == 'draughts') {
       Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => const DraughtsModeScreen(),

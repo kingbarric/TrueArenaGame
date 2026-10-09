@@ -141,6 +141,8 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
   void dispose() {
     _sub?.cancel();
     _ticker?.cancel();
+    // Backing out must hang up too, not only the Leave button.
+    widget.socket.close();
     GameMusic.stop();
     _theme?.removeListener(_onThemeChanged);
     super.dispose();
