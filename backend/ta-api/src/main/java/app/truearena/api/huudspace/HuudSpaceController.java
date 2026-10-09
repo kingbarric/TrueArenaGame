@@ -98,7 +98,7 @@ public class HuudSpaceController {
     @PatchMapping("/{id}")
     @Operation(summary = "Host only: rename the Huud or change who can find it")
     public Mono<HuudSpaceView> update(@PathVariable UUID id, @Valid @RequestBody UpdateRequest body) {
-        return CurrentUser.id().flatMap(user -> huuds.update(user, id, body.name(), body.privacy()));
+        return CurrentUser.id().flatMap(user -> huuds.update(user, id, body.name(), body.privacy(), body.background()));
     }
 
     @PostMapping("/{id}/share")

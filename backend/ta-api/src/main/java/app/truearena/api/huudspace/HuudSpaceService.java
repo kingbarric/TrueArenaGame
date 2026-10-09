@@ -87,7 +87,7 @@ public class HuudSpaceService {
     }
 
     record Space(UUID id, String code, String name, String privacy, UUID ownerId, UUID createdBy,
-                 String status, UUID currentRoomId, String feedMessage, Instant sharedAt,
+                 String status, UUID currentRoomId, String feedMessage, Instant sharedAt, String background,
                  Instant createdAt, Instant endedAt) {
         boolean active() {
             return "active".equals(status);
@@ -382,11 +382,22 @@ public class HuudSpaceService {
     }
 
     public Mono<HuudSpaceView> update(UUID host, UUID id, String name, String privacy) {
+        return update(host, id, name, privacy, null);
+    }
+
+    /** Host only: name, privacy and backdrop; anything left null stays as it is. */
+    public Mono<HuudSpaceView> update(UUID host, UUID id, String name, String privacy, String background) {
+        if (background != null && !"default".equals(background) && !HuudSpaceDtos.BACKGROUNDS.contains(background)) {
+            return Mono.error(ApiExceptions.badRequest("Pick one of the backgrounds"));
+        }
         return requireHost(id, host).flatMap(s -> {
             String nextPrivacy = privacy == null ? s.privacy() : privacyOrDefault(privacy);
             String nextName = name == null ? s.name() : nameOrDefault(name, s.name());
-            return db.sql("UPDATE huud_spaces SET name=:name,privacy=:privacy WHERE id=:id")
-                    .bind("name", nextName).bind("privacy", nextPrivacy).bind("id", id).fetch().rowsUpdated();
+            String nextBackground = background == null ? s.background() : ("default".equals(background) ? null : background);
+            var sql = db.sql("UPDATE huud_spaces SET name=:name,privacy=:privacy,background=:background WHERE id=:id")
+                    .bind("name", nextName).bind("privacy", nextPrivacy).bind("id", id);
+            return (nextBackground == null ? sql.bindNull("background", String.class) : sql.bind("background", nextBackground))
+                    .fetch().rowsUpdated();
         }).doOnSuccess(n -> notifyMembers(id, "updated", host)).then(view(id, host));
     }
 
@@ -591,7 +602,7 @@ public class HuudSpaceService {
                                                     canSpeak, HuudSpaceAccess.VOICE_PREFIX + s.id(),
                                                     in ? null : mine.get("join"), mine.get("play"), mine.get("mic"),
                                                     t.getT4(), s.sharedAt() != null, s.feedMessage(), t.getT5(),
-                                                    s.createdAt(), s.endedAt());
+                                                    s.background(), s.createdAt(), s.endedAt());
                                         });
                             });
                         }));
@@ -781,7 +792,7 @@ public class HuudSpaceService {
         return new Space((UUID) row.get("id"), (String) row.get("code"), (String) row.get("name"),
                 (String) row.get("privacy"), (UUID) row.get("owner_id"), (UUID) row.get("created_by"),
                 (String) row.get("status"), (UUID) row.get("current_room_id"),
-                (String) row.get("feed_message"), instant(row.get("shared_at")),
+                (String) row.get("feed_message"), instant(row.get("shared_at")), (String) row.get("background"),
                 instant(row.get("created_at")), instant(row.get("ended_at")));
     }
 

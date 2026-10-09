@@ -492,80 +492,83 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     final n = context.neon;
     final huud = _huud;
     return Scaffold(
-      body: SafeArea(
-        // The top bar stays put so Back and End are always one tap away.
-        child: Column(children: [
-          _topBar(n, huud),
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: _load,
-              child: CustomScrollView(
-                controller: _scroll,
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  if (huud == null)
-                    SliverPadding(
-                      padding: const EdgeInsets.all(16),
-                      sliver: SliverToBoxAdapter(
-                        child: _error == null
-                            ? const Padding(
-                                padding: EdgeInsets.all(48), child: Center(child: CircularProgressIndicator()))
-                            : HuudFriendlyState(
-                                emoji: '🙈',
-                                title: "We can't open this Huud",
-                                message: _error!,
-                                action: HuudButton(
-                                    label: 'Try again', icon: Icons.refresh_rounded, onPressed: () => _load()),
-                              ),
-                      ),
-                    )
-                  else ...[
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-                      sliver: SliverToBoxAdapter(child: _hero(huud)),
-                    ),
-                    if (!huud.active)
-                      _box(HuudFriendlyState(
-                        emoji: '👋',
-                        title: 'This Huud has ended',
-                        message: 'Thanks for hanging out! You can find it in Your Huuds any time.',
-                        action: HuudButton(
-                            label: 'Back',
-                            icon: Icons.arrow_back_rounded,
-                            onPressed: () => Navigator.of(context).maybePop()),
-                      ))
-                    else if (!huud.youAreIn) ...[
-                      _box(_door(n, huud)),
-                      // Watching: see the game and who's here; chat and voice are for people inside.
+      body: HuudBackdrop(
+        background: huud?.background,
+        child: SafeArea(
+          // The top bar stays put so Back and End are always one tap away.
+          child: Column(children: [
+            _topBar(n, huud),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: _load,
+                child: CustomScrollView(
+                  controller: _scroll,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    if (huud == null)
                       SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
-                        sliver: SliverToBoxAdapter(child: _tabs(n, huud)),
-                      ),
-                      ...(_tab == _Tab.people ? _people(n, huud) : _play(n, huud)),
-                    ] else ...[
+                        padding: const EdgeInsets.all(16),
+                        sliver: SliverToBoxAdapter(
+                          child: _error == null
+                              ? const Padding(
+                                  padding: EdgeInsets.all(48), child: Center(child: CircularProgressIndicator()))
+                              : HuudFriendlyState(
+                                  emoji: '🙈',
+                                  title: "We can't open this Huud",
+                                  message: _error!,
+                                  action: HuudButton(
+                                      label: 'Try again', icon: Icons.refresh_rounded, onPressed: () => _load()),
+                                ),
+                        ),
+                      )
+                    else ...[
                       SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(8, 18, 8, 0),
-                        sliver: SliverToBoxAdapter(child: _actions(huud)),
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                        sliver: SliverToBoxAdapter(child: _hero(huud)),
                       ),
-                      if (huud.youAreHost && huud.requests.isNotEmpty) _box(_asking(n, huud), top: 16),
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
-                        sliver: SliverToBoxAdapter(child: _tabs(n, huud)),
-                      ),
-                      ...switch (_tab) {
-                        _Tab.play => _play(n, huud),
-                        _Tab.chat => _chatSlivers(n, huud),
-                        _Tab.people => _people(n, huud),
-                      },
+                      if (!huud.active)
+                        _box(HuudFriendlyState(
+                          emoji: '👋',
+                          title: 'This Huud has ended',
+                          message: 'Thanks for hanging out! You can find it in Your Huuds any time.',
+                          action: HuudButton(
+                              label: 'Back',
+                              icon: Icons.arrow_back_rounded,
+                              onPressed: () => Navigator.of(context).maybePop()),
+                        ))
+                      else if (!huud.youAreIn) ...[
+                        _box(_door(n, huud)),
+                        // Watching: see the game and who's here; chat and voice are for people inside.
+                        SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
+                          sliver: SliverToBoxAdapter(child: _tabs(n, huud)),
+                        ),
+                        ...(_tab == _Tab.people ? _people(n, huud) : _play(n, huud)),
+                      ] else ...[
+                        SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(8, 18, 8, 0),
+                          sliver: SliverToBoxAdapter(child: _actions(huud)),
+                        ),
+                        if (huud.youAreHost && huud.requests.isNotEmpty) _box(_asking(n, huud), top: 16),
+                        SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
+                          sliver: SliverToBoxAdapter(child: _tabs(n, huud)),
+                        ),
+                        ...switch (_tab) {
+                          _Tab.play => _play(n, huud),
+                          _Tab.chat => _chatSlivers(n, huud),
+                          _Tab.people => _people(n, huud),
+                        },
+                      ],
+                      const SliverToBoxAdapter(child: SizedBox(height: 120)),
                     ],
-                    const SliverToBoxAdapter(child: SizedBox(height: 120)),
                   ],
-                ],
+                ),
               ),
             ),
-          ),
-          if (huud != null && huud.youAreIn && huud.active && _tab == _Tab.chat) _chatInput(n),
-        ]),
+            if (huud != null && huud.youAreIn && huud.active && _tab == _Tab.chat) _chatInput(n),
+          ]),
+        ),
       ),
     );
   }
@@ -1468,6 +1471,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
   late final _message = TextEditingController(text: widget.huud.feedMessage ?? '');
   late HuudPrivacy _privacy = widget.huud.privacy;
   late bool _shared = widget.huud.shared;
+  late String? _background = widget.huud.background;
   bool _busy = false;
 
   @override
@@ -1484,6 +1488,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
       var raw = await api.patch('/huud-spaces/${widget.huud.id}', {
         'name': _name.text.trim(),
         'privacy': _privacy.wire,
+        'background': _background ?? 'default',
       }) as Map<String, dynamic>;
       if (_shared) {
         raw = await api.post('/huud-spaces/${widget.huud.id}/share', {
@@ -1546,7 +1551,52 @@ class _SettingsSheetState extends State<_SettingsSheet> {
             ]),
             const SizedBox(height: 6),
             Text(_privacy.explain, style: TextStyle(fontSize: 14, color: n.mid)),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
+            Text('Background', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: n.ink)),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 128,
+              child: ListView(scrollDirection: Axis.horizontal, children: [
+                for (final (wire, label, asset) in huudBackgrounds)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 10),
+                    child: Semantics(
+                      button: true,
+                      selected: _background == wire,
+                      label: '$label background',
+                      excludeSemantics: true,
+                      child: GestureDetector(
+                        key: ValueKey('bg-${wire ?? 'default'}'),
+                        onTap: () => setState(() => _background = wire),
+                        child: Column(children: [
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            width: 70,
+                            height: 96,
+                            decoration: BoxDecoration(
+                              color: n.plate,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                  color: _background == wire ? h.orange : n.line, width: _background == wire ? 3 : 1.4),
+                              image:
+                                  asset == null ? null : DecorationImage(image: AssetImage(asset), fit: BoxFit.cover),
+                            ),
+                            alignment: Alignment.center,
+                            child: asset == null ? Icon(Icons.block_rounded, color: n.mute) : null,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(label,
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: _background == wire ? FontWeight.w900 : FontWeight.w700,
+                                  color: _background == wire ? h.orangeText : n.mid)),
+                        ]),
+                      ),
+                    ),
+                  ),
+              ]),
+            ),
+            const SizedBox(height: 10),
             SwitchListTile(
               key: const ValueKey('settings-share'),
               contentPadding: EdgeInsets.zero,

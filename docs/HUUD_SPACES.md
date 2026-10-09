@@ -21,6 +21,7 @@ Bottom menu: **Live · Huud · Games · Friends · You** (labels under every ico
 - **Rematch**: after a game the host gets "Rematch — same players" (the last players still in the Huud are seated straight away) or "Play … with new players".
 - **Feed text posts**: "Say something to your friends…" on the Friends tab only (`/huud/text-posts`); posts show to you and your friends, never For you; ⋯ → delete yours / report others'.
 - **Push**: invites, requests to the host and the host's yes go to phones that are away (`sendToUserIfOffline`); tapping opens the Huud. On the main tabs the same events show an in-app banner with Open.
+- **Backgrounds**: the host picks Default (none), Lounge, Poolside or Club in Huud settings (`PATCH … {background}`, V43); `HuudBackdrop` shows it under the Huud screen and the swipe page with a page-coloured wash so cards stay readable. Pictures in `assets/images/huud_backgrounds/`.
 - **Huud icon**: `assets/images/branding/huud_icon.png` (`huudIcon`) on the Huud tab, Huud headers, Make a Huud and Huud banners.
 - **Startup**: a notification that opened the app counts once and only while it's under an hour old (iOS can replay an old "Your turn" on every launch); only the game screen the app was closed on is reopened (`GameSocket.currentPlayerRoom` → `ta_resume_room`); a lobby you backed out of no longer pops open on launch.
 
@@ -48,6 +49,7 @@ Bottom menu: **Live · Huud · Games · Friends · You** (labels under every ico
 - `V40__huud_space_social.sql`: feed share columns, `can_speak`, `huud_space_requests`, `huud_space_messages`, `player_blocks`, `player_reports` (named `player_*` because production carries an unused `user_blocks` from a dropped branch).
 - `V41__huud_watch_posts_review.sql`: `huud_space_viewers`, `feed_posts`, report review columns + `feed_post_id`/`post_body`.
 - `V42__feed_post_reactions.sql`: `feed_post_reactions`.
+- `V43__huud_background.sql`: `huud_spaces.background`.
 - `spring.flyway.ignore-migration-patterns: "*:missing"`: production has V37/V38 applied from that dropped branch.
 
 ## Validation

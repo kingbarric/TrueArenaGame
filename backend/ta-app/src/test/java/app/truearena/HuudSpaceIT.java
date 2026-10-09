@@ -589,4 +589,20 @@ class HuudSpaceIT {
         assertThat(huuds.view(huud.id(), chidi).block().currentGame().youArePlaying()).isTrue();
         assertThatThrownBy(() -> requests.unpick(host, huud.id(), host).block()).isInstanceOf(ResponseStatusException.class);
     }
+
+    @Test void theHostPicksABackdropEveryoneSees() {
+        UUID host = person("Host"), friend = person("Friend");
+        var huud = huuds.create(host, null, "public").block();
+        huuds.joinByCode(friend, huud.code()).block();
+        assertThat(huud.background()).isNull();
+        assertThat(huuds.update(host, huud.id(), null, null, "club").block().background()).isEqualTo("club");
+        assertThat(huuds.view(huud.id(), friend).block().background()).isEqualTo("club");
+        // Changing the name leaves the backdrop alone; "default" clears it.
+        assertThat(huuds.update(host, huud.id(), "Party", null, null).block().background()).isEqualTo("club");
+        assertThat(huuds.update(host, huud.id(), null, null, "default").block().background()).isNull();
+        assertThatThrownBy(() -> huuds.update(friend, huud.id(), null, null, "lounge").block())
+                .isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(() -> huuds.update(host, huud.id(), null, null, "space").block())
+                .isInstanceOf(ResponseStatusException.class);
+    }
 }

@@ -141,7 +141,11 @@ class HuudSpace {
     this.shared = false,
     this.feedMessage,
     this.watching = 0,
+    this.background,
   });
+
+  /// The host's backdrop: "lounge", "poolside", "club" — null for none.
+  final String? background;
 
   final bool youCanSpeak;
 
@@ -199,6 +203,7 @@ class HuudSpace {
         shared: j['shared'] == true,
         feedMessage: j['feedMessage'] as String?,
         watching: (j['watching'] as num?)?.toInt() ?? 0,
+        background: j['background'] as String?,
       );
 }
 

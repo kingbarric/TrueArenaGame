@@ -44,8 +44,11 @@ public final class HuudSpaceDtos {
     public record PendingRequest(Person from, String kind, Instant at) {
     }
 
-    public record UpdateRequest(@Size(max = 40) String name, String privacy) {
+    /** {@code background}: "lounge", "poolside", "club", or "default" for none. Null fields stay as they are. */
+    public record UpdateRequest(@Size(max = 40) String name, String privacy, String background) {
     }
+
+    public static final List<String> BACKGROUNDS = List.of("lounge", "poolside", "club");
 
     public record JoinRequest(@NotBlank @Size(min = 6, max = 6) String code) {
     }
@@ -88,7 +91,7 @@ public final class HuudSpaceDtos {
                                 boolean youAreIn, boolean youAreHost, boolean youCanSpeak, String voiceRoom,
                                 String joinRequest, String playRequest, String micRequest,
                                 List<PendingRequest> requests, boolean shared, String feedMessage,
-                                int watching, Instant createdAt, Instant endedAt) {
+                                int watching, String background, Instant createdAt, Instant endedAt) {
     }
 
     /** A card on the Live tab. The code stays out: only people inside see it. */

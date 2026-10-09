@@ -193,94 +193,100 @@ class _WatchPageState extends State<_WatchPage> {
             _ => 'Just played ${huudGameName(gameType)}',
           };
 
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [h.orange.withValues(alpha: 0.35), n.bg, n.bg],
+    return HuudBackdrop(
+      background: huud?.background,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: huud?.background == null
+                ? [h.orange.withValues(alpha: 0.35), n.bg, n.bg]
+                : [Colors.transparent, Colors.transparent],
+          ),
         ),
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 72, 20, 16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Center(child: Avatar(host?.name ?? live.name, size: 96, imageUrl: host?.avatarUrl)),
-            const SizedBox(height: 14),
-            Text(live.name,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 30, height: 1.1, fontWeight: FontWeight.w900, color: n.ink)),
-            const SizedBox(height: 6),
-            Text(host == null ? '' : '👑 Host: ${host.firstName}',
-                textAlign: TextAlign.center, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: n.mid)),
-            const SizedBox(height: 14),
-            Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 8, children: [
-              const HuudLiveChip(),
-              HuudChip(live.privacy.label, emoji: live.privacy.emoji),
-              HuudChip(people == 1 ? '1 in here' : '$people in here', emoji: '👥'),
-              if (watching > 0) HuudChip('$watching watching', emoji: '👀'),
-            ]),
-            const SizedBox(height: 20),
-            HuudCard(
-              highlight: status == 'playing',
-              padding: const EdgeInsets.all(16),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                Row(children: [
-                  gameType == null
-                      ? const SizedBox(
-                          width: 72, height: 72, child: Center(child: Text('💬', style: TextStyle(fontSize: 40))))
-                      : HuudGameArt(gameType, size: 72),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      if (status == 'playing') const HuudLiveChip(label: 'Playing'),
-                      const SizedBox(height: 4),
-                      Text(doing, style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: n.ink)),
-                      if (game != null && !game.finished)
-                        Text('${game.players} / ${game.seats} seats taken',
-                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: n.mid)),
-                    ]),
-                  ),
-                ]),
-                if (game != null && game.playing) ...[
-                  const SizedBox(height: 14),
-                  HuudButton(
-                    key: ValueKey('swipe-watch-${live.id}'),
-                    label: 'Watch the game',
-                    icon: Icons.visibility_rounded,
-                    kind: HuudButtonKind.soft,
-                    expand: true,
-                    onPressed: () => _watchGame(game),
-                  ),
-                ],
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 72, 20, 16),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Center(child: Avatar(host?.name ?? live.name, size: 96, imageUrl: host?.avatarUrl)),
+              const SizedBox(height: 14),
+              Text(live.name,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 30, height: 1.1, fontWeight: FontWeight.w900, color: n.ink)),
+              const SizedBox(height: 6),
+              Text(host == null ? '' : '👑 Host: ${host.firstName}',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: n.mid)),
+              const SizedBox(height: 14),
+              Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 8, children: [
+                const HuudLiveChip(),
+                HuudChip(live.privacy.label, emoji: live.privacy.emoji),
+                HuudChip(people == 1 ? '1 in here' : '$people in here', emoji: '👥'),
+                if (watching > 0) HuudChip('$watching watching', emoji: '👀'),
               ]),
-            ),
-            const SizedBox(height: 16),
-            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              HuudAvatarStack(people: members, total: people, size: 40, max: 6),
+              const SizedBox(height: 20),
+              HuudCard(
+                highlight: status == 'playing',
+                padding: const EdgeInsets.all(16),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Row(children: [
+                    gameType == null
+                        ? const SizedBox(
+                            width: 72, height: 72, child: Center(child: Text('💬', style: TextStyle(fontSize: 40))))
+                        : HuudGameArt(gameType, size: 72),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        if (status == 'playing') const HuudLiveChip(label: 'Playing'),
+                        const SizedBox(height: 4),
+                        Text(doing, style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: n.ink)),
+                        if (game != null && !game.finished)
+                          Text('${game.players} / ${game.seats} seats taken',
+                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: n.mid)),
+                      ]),
+                    ),
+                  ]),
+                  if (game != null && game.playing) ...[
+                    const SizedBox(height: 14),
+                    HuudButton(
+                      key: ValueKey('swipe-watch-${live.id}'),
+                      label: 'Watch the game',
+                      icon: Icons.visibility_rounded,
+                      kind: HuudButtonKind.soft,
+                      expand: true,
+                      onPressed: () => _watchGame(game),
+                    ),
+                  ],
+                ]),
+              ),
+              const SizedBox(height: 16),
+              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                HuudAvatarStack(people: members, total: people, size: 40, max: 6),
+              ]),
+              const Spacer(),
+              HuudButton(
+                key: ValueKey('swipe-enter-${live.id}'),
+                label: label,
+                icon: icon,
+                big: true,
+                expand: true,
+                busy: _busy,
+                onPressed: _enter,
+              ),
+              const SizedBox(height: 14),
+              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Icon(widget.last ? Icons.keyboard_arrow_down_rounded : Icons.keyboard_arrow_up_rounded, color: n.mute),
+                const SizedBox(width: 4),
+                Flexible(
+                    child: Text(
+                        widget.last ? 'That was the last one — swipe down to go back' : 'Swipe up for the next Huud',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: n.mute))),
+              ]),
             ]),
-            const Spacer(),
-            HuudButton(
-              key: ValueKey('swipe-enter-${live.id}'),
-              label: label,
-              icon: icon,
-              big: true,
-              expand: true,
-              busy: _busy,
-              onPressed: _enter,
-            ),
-            const SizedBox(height: 14),
-            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Icon(widget.last ? Icons.keyboard_arrow_down_rounded : Icons.keyboard_arrow_up_rounded, color: n.mute),
-              const SizedBox(width: 4),
-              Flexible(
-                  child: Text(
-                      widget.last ? 'That was the last one — swipe down to go back' : 'Swipe up for the next Huud',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: n.mute))),
-            ]),
-          ]),
+          ),
         ),
       ),
     );

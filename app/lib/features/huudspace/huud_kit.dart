@@ -16,6 +16,52 @@ export '../../theme/huud_colors.dart';
 /// The Huud's own picture: three friends under one roof.
 const huudIcon = 'assets/images/branding/huud_icon.png';
 
+/// Backdrops a host can give their Huud: (wire, label, picture). The first
+/// is the default — no picture at all.
+const huudBackgrounds = <(String?, String, String?)>[
+  (null, 'Default', null),
+  ('lounge', 'Lounge', 'assets/images/huud_backgrounds/lounge.jpg'),
+  ('poolside', 'Poolside', 'assets/images/huud_backgrounds/poolside.jpg'),
+  ('club', 'Club', 'assets/images/huud_backgrounds/club.jpg'),
+];
+
+String? huudBackgroundAsset(String? wire) =>
+    wire == null ? null : huudBackgrounds.where((b) => b.$1 == wire).map((b) => b.$3).firstOrNull;
+
+/// The Huud's backdrop behind [child]: the picture, washed over with the
+/// page colour so it sets a mood without getting in the way of anything.
+/// No picture (the default) is just the page as it always was.
+class HuudBackdrop extends StatelessWidget {
+  const HuudBackdrop({super.key, required this.background, required this.child});
+  final String? background;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final asset = huudBackgroundAsset(background);
+    if (asset == null) return child;
+    final n = context.neon;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Stack(fit: StackFit.expand, children: [
+      Image.asset(asset, key: ValueKey('backdrop-$background'), fit: BoxFit.cover),
+      DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              n.bg.withValues(alpha: dark ? 0.55 : 0.72),
+              n.bg.withValues(alpha: dark ? 0.78 : 0.86),
+              n.bg.withValues(alpha: dark ? 0.9 : 0.94),
+            ],
+          ),
+        ),
+      ),
+      child,
+    ]);
+  }
+}
+
 const huudGameOrder = ['whot', 'draughts', 'chess', 'ludo', 'wordbluff', 'truearena', 'goosi'];
 
 const huudGameEmoji = {

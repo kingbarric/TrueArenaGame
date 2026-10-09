@@ -696,6 +696,29 @@ void main() {
     expect(find.byKey(const ValueKey('unseat-ada')), findsNothing);
   });
 
+  testWidgets('the host picks a background in settings; the Huud shows it faded behind everything', (tester) async {
+    var background = 'default';
+    final calls = await pump(tester, const HuudSpaceScreen(id: 'h1'), (r) async {
+      if (r.method == 'PATCH') background = (jsonDecode(r.body) as Map)['background'] as String;
+      return _json({..._huud(), 'background': background == 'default' ? null : background});
+    });
+    expect(find.byKey(const ValueKey('backdrop-club')), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('huud-settings')));
+    await tester.pumpAndSettle();
+    expect(find.text('Background'), findsOneWidget);
+    for (final b in ['default', 'lounge', 'poolside', 'club']) {
+      expect(find.byKey(ValueKey('bg-$b')), findsOneWidget);
+    }
+    await tester.tap(find.byKey(const ValueKey('bg-club')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Save'));
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(calls.where((c) => c.startsWith('PATCH /api/v1/huud-spaces/h1') && c.contains('"background":"club"')), hasLength(1));
+    expect(find.byKey(const ValueKey('backdrop-club')), findsOneWidget);
+  });
+
   test('privacy reads in kid-sized words and dates read like people talk', () {
     expect(HuudPrivacy.values.map((p) => p.label), ['Friends', 'Private', 'Public']);
     expect(HuudPrivacyInfo.parse(null), HuudPrivacy.friends);
