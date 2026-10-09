@@ -39,7 +39,7 @@ window.slayReceive=async(message:Message)=>{
    case 'applyLook':{if(!catalog)throw Error('Initialise the catalog first');const oldBody=look?.body;await lookState.apply(p.look as Look,async()=>{await wardrobe.apply(p.look as Look,catalog);});look=p.look as Look;if(oldBody!==look.body)setCamera('full');scene.background=new T.Color(({studio:'#eee9e2',runway:'#d8d4e0',lagos:'#ddcfb6',sunset:'#e7bb9e',royal:'#d3c5d3'} as Record<string,string>)[look.background]??'#eee9e2');break;}
    case 'setCamera':setCamera(String(p.preset));break;
    case 'rotateCamera':{const angle=Number(p.radians);if(!Number.isFinite(angle)||Math.abs(angle)>Math.PI)throw Error('Invalid camera rotation');camera.position.sub(controls.target).applyAxisAngle(new T.Vector3(0,1,0),angle).add(controls.target);controls.update();break;}
-   case 'setPose':wardrobe.pose(String(p.poseId));break;
+   case 'setPose':wardrobe.pose(String(p.poseId));if(look)look={...look,pose:String(p.poseId)};break;
    case 'snapshot':{
       lookState.requireRendered();const width=Math.max(256,Math.min(1024,Number(p.width)||600)),height=Math.max(256,Math.min(1536,Number(p.height)||900));
       const position=camera.position.clone(),target=controls.target.clone(),size=renderer.getSize(new T.Vector2()),ratio=renderer.getPixelRatio(),aspect=camera.aspect;

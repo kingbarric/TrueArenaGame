@@ -10,6 +10,20 @@ The collection does not represent Nigerian or other African ceremonial fashion. 
 
 The engine and wardrobe catalogue are ready to receive production artwork. Supply a coherent shared rig for each avatar body. Separate purchased garments made for unrelated characters will not automatically fit.
 
+## Starter shoes and poses
+
+Catalogue v9 uses fitted upper-body rigs for the two starter avatars. Clothing matches its body's bind skeleton; foot joints remain compatible across the two bodies. Each shoe GLB contains male/female fit meshes tagged with `extras.slayBody`; the renderer displays the matching mesh. The converter removes the source socks by their UV islands, preserves the shoe collar, fits the toe/heel/width to each body, and adds a `region_feet` mask so covered skin cannot poke through. Exposed legs remain visible.
+
+The starter pose clips now animate arms, head and torso with a gentle breathing cycle: relaxed signature, hand-on-hip confidence, editorial turn and raised-arm celebration. They key every joint so switching poses resets the previous stance. These are automatically weighted starter assets; commissioned artwork still needs artist-reviewed deformation and fabric detail.
+
+After converting, regenerate the sock-free thumbnails with installed Blender:
+
+```sh
+Blender --background --factory-startup --python slay-renderer/scripts/render-shoe-thumbnails.py
+```
+
+Then run the renderer build to refresh Flutter's catalogue and embedded script.
+
 ## First delivery: enough to replace the mannequins
 
 - `female.glb`, `male.glb`: fully rigged base avatars, clothed in a neutral modest base layer.

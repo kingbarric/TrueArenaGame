@@ -211,6 +211,14 @@ Backend verification uses normal Maven reactor checks. `SlayHuudIT` supports eit
 - Focused Flutter suite: 12 passing tests covering navigation, anonymous voting, theme behavior, disabled submissions, keyboard wardrobe selection and large text in light/dark themes. Feature analysis is clean.
 - Visually reviewed the hub and studio in the dedicated iPhone 17 Pro simulator. The Mac locked before further outfit tap testing; keyboard activation was verified by a widget test. This is still the fixture UI preview, with simulated scores/rewards.
 
+### Shoe fit and real poses (9 October 2026)
+
+- Removed the downloaded shoe models' sock UV islands and generated separate male/female fits within each shoe GLB. Matching fit meshes are selected by `extras.slayBody`. Added a foot-only skin mask, kept exposed legs visible, and rendered accurate sock-free wardrobe thumbnails with Blender.
+- Replaced the root-only turns with four articulated starter fashion poses and a subtle breathing cycle. Fitted shoulder/head joints for each body and added blended weights at joints. All joints are keyed to prevent stale poses; the selected pose is evaluated immediately for screenshots.
+- Catalogue v9 / starter rigs v2 invalidate old cached assets. The studio displays the selected pose, describes each stance, and provides a shoe close-up camera button.
+- Verification: 23 renderer tests passed, including loaded-GLB limb movement, pose reset, skin deformation, body-fit selection and grounded shoe skinning. Nine focused Flutter tests passed and feature analysis is clean. All 21 bundled models pass partial structural validation; 55 future items remain skipped and 11 existing size-budget warnings remain.
+- Visually checked both body fits and articulated stances in Three.js, including shoe side/heel views. Rebuilt the iPhone 17 Pro preview and verified the pose chooser applies a visibly different hand-on-hip stance and the shoe camera opens a close-up. Scores/rewards in this preview remain fixtures.
+
 ### Recorded checks (8 October 2026)
 
 - Backend: 107 relevant checks passed (68 unit tests; 39 PostgreSQL/Redis integration tests across SlayHuud, competitive ratings and Huud).

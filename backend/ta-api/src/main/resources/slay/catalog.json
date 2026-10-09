@@ -1,16 +1,16 @@
 {
-  "version": 7,
+  "version": 9,
   "developmentAssets": true,
   "avatars": [
     {
       "body": "female",
       "assetUrl": "assets/female.glb",
-      "rigVersion": "slay-female-v1"
+      "rigVersion": "slay-female-v2"
     },
     {
       "body": "male",
       "assetUrl": "assets/male.glb",
-      "rigVersion": "slay-male-v1"
+      "rigVersion": "slay-male-v2"
     }
   ],
   "items": [
@@ -1313,7 +1313,7 @@
       "rarity": "common",
       "assetUrl": "assets/shoe-0.glb",
       "thumbnailUrl": "assets/shoe-0.png",
-      "hidesRegions": [],
+      "hidesRegions": ["feet"],
       "attachmentBone": null,
       "isDefault": true,
       "coinCost": 0,
@@ -1340,7 +1340,7 @@
       "rarity": "common",
       "assetUrl": "assets/shoe-1.glb",
       "thumbnailUrl": "assets/shoe-1.png",
-      "hidesRegions": [],
+      "hidesRegions": ["feet"],
       "attachmentBone": null,
       "isDefault": true,
       "coinCost": 0,

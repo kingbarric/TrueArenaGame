@@ -1,111 +1,111 @@
 {
   "source": "MakeHuman Community CC0 asset packs",
-  "generatedAt": "2026-10-09T15:01:18.851Z",
+  "generatedAt": "2026-10-09T17:20:35.965Z",
   "assets": [
     {
       "id": "female",
       "triangles": 3168,
-      "bytes": 2444576
+      "bytes": 2468232
     },
     {
       "id": "male",
       "triangles": 27300,
-      "bytes": 3440152
+      "bytes": 3436288
     },
     {
       "id": "female-essential",
       "triangles": 12846,
-      "bytes": 1827948
+      "bytes": 1826220
     },
     {
       "id": "female-executive",
       "triangles": 4192,
-      "bytes": 1147684
+      "bytes": 1145956
     },
     {
       "id": "female-redcarpet",
       "triangles": 6432,
-      "bytes": 1616660
+      "bytes": 1614932
     },
     {
       "id": "female-romantic",
       "triangles": 3936,
-      "bytes": 1480300
+      "bytes": 1478572
     },
     {
       "id": "female-night",
       "triangles": 5184,
-      "bytes": 2170932
+      "bytes": 2169204
     },
     {
       "id": "female-dinner",
       "triangles": 6922,
-      "bytes": 972828
+      "bytes": 971112
     },
     {
       "id": "female-business",
       "triangles": 10062,
-      "bytes": 2347492
+      "bytes": 2345764
     },
     {
       "id": "male-essential",
       "triangles": 16672,
-      "bytes": 1894844
+      "bytes": 1893084
     },
     {
       "id": "male-executive",
       "triangles": 14956,
-      "bytes": 1431380
+      "bytes": 1429616
     },
     {
       "id": "male-redcarpet",
       "triangles": 10062,
-      "bytes": 2173924
+      "bytes": 2172164
     },
     {
       "id": "male-business",
       "triangles": 19202,
-      "bytes": 953068
+      "bytes": 951320
     },
     {
       "id": "female-hair-0",
       "triangles": 2192,
-      "bytes": 1710576
+      "bytes": 1708848
     },
     {
       "id": "female-hair-1",
       "triangles": 5518,
-      "bytes": 1339520
+      "bytes": 1337792
     },
     {
       "id": "female-hair-2",
       "triangles": 3678,
-      "bytes": 1272072
+      "bytes": 1270344
     },
     {
       "id": "male-hair-0",
       "triangles": 2192,
-      "bytes": 1710568
+      "bytes": 1708808
     },
     {
       "id": "male-hair-1",
       "triangles": 3678,
-      "bytes": 1272064
+      "bytes": 1270304
     },
     {
       "id": "male-hair-2",
       "triangles": 5518,
-      "bytes": 1339512
+      "bytes": 1337752
     },
     {
       "id": "shoe-0",
-      "triangles": 3320,
-      "bytes": 1485252
+      "triangles": 2816,
+      "bytes": 1581816
     },
     {
       "id": "shoe-1",
-      "triangles": 3064,
-      "bytes": 1422416
+      "triangles": 2560,
+      "bytes": 1509864
     }
   ]
 }

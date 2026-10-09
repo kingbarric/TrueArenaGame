@@ -331,15 +331,22 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                           top: 12,
                           right: 14,
                           child: Column(children: [
-                            for (final preset in ['full', 'face', 'back'])
+                            for (final preset in [
+                              'full',
+                              'face',
+                              'back',
+                              'feet'
+                            ])
                               Padding(
                                   padding: const EdgeInsets.only(bottom: 8),
                                   child: Tooltip(
-                                      message: preset == 'back'
-                                          ? 'Back view'
-                                          : preset == 'face'
-                                              ? 'Face close-up'
-                                              : 'Full look',
+                                      message: preset == 'feet'
+                                          ? 'Shoe close-up'
+                                          : preset == 'back'
+                                              ? 'Back view'
+                                              : preset == 'face'
+                                                  ? 'Face close-up'
+                                                  : 'Full look',
                                       child: SlayButton.tonal(
                                           compact: true,
                                           onPressed: () => _stage.request(
@@ -348,16 +355,20 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                                               }).catchError(
                                                   (_) => <String, dynamic>{}),
                                           child: Icon(
-                                              semanticLabel: preset == 'back'
-                                                  ? 'Back view'
-                                                  : preset == 'face'
-                                                      ? 'Face close-up'
-                                                      : 'Full look',
-                                              preset == 'back'
-                                                  ? Icons.rotate_right
-                                                  : preset == 'face'
-                                                      ? Icons.face_outlined
-                                                      : Icons.open_in_full,
+                                              semanticLabel: preset == 'feet'
+                                                  ? 'Shoe close-up'
+                                                  : preset == 'back'
+                                                      ? 'Back view'
+                                                      : preset == 'face'
+                                                          ? 'Face close-up'
+                                                          : 'Full look',
+                                              preset == 'feet'
+                                                  ? Icons.ice_skating_outlined
+                                                  : preset == 'back'
+                                                      ? Icons.rotate_right
+                                                      : preset == 'face'
+                                                          ? Icons.face_outlined
+                                                          : Icons.open_in_full,
                                               size: 20))))
                           ])),
                       Positioned(
@@ -411,7 +422,8 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                               onPressed: () => _customise()),
                           const SizedBox(width: 8),
                           SlayPill(
-                              label: 'Pose',
+                              label:
+                                  'Pose · ${_look.pose[0].toUpperCase()}${_look.pose.substring(1)}',
                               icon: Icons.accessibility_new,
                               onPressed: () =>
                                   _pick('pose', widget.catalog['poses'])),
@@ -506,6 +518,12 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
             })));
       }));
   Future<void> _pick(String category, List<dynamic> options) async {
+    const poseDescriptions = {
+      'signature': 'Relaxed arms with a little attitude',
+      'confident': 'Hand on hip, ready for the spotlight',
+      'editorial': 'A turned waist and tilted head',
+      'celebrate': 'Arms up — own your win',
+    };
     final chosen = await showModalBottomSheet<String>(
         context: context,
         backgroundColor: context.neon.bg,
@@ -515,7 +533,23 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                 ListTile(
                     title: Text(option.toString()[0].toUpperCase() +
                         option.toString().substring(1)),
-                    trailing: const Icon(Icons.chevron_right),
+                    subtitle: category == 'pose'
+                        ? Text(poseDescriptions[option] ?? '')
+                        : null,
+                    leading: category == 'pose'
+                        ? const Icon(Icons.accessibility_new_rounded)
+                        : null,
+                    trailing: Icon(
+                        (category == 'pose' ? _look.pose : _look.background) ==
+                                option
+                            ? Icons.check_circle_rounded
+                            : Icons.chevron_right,
+                        color: (category == 'pose'
+                                    ? _look.pose
+                                    : _look.background) ==
+                                option
+                            ? context.neon.gold
+                            : null),
                     onTap: () => Navigator.pop(c, option))
             ])));
     if (chosen != null && mounted) {

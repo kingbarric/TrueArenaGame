@@ -6,6 +6,7 @@ import type { Look,Item,Catalog } from './types';
 import { bindGarment } from './rig';
 import { assetBytes } from './cache';
 import { presentBody, presentFace } from './presentation';
+import { applyPose, selectBodyFit } from './poses';
 
 const palette:Record<string,string>={gold:'#c39b55',navy:'#283d54',pink:'#c98491',red:'#a53541',purple:'#674269',green:'#397c65',black:'#28262a',white:'#eee5d6',blue:'#48879a',grey:'#8e8c87',orange:'#c5773d',yellow:'#ddba55'};
 function material(colour:string){return new T.MeshStandardMaterial({color:colour,roughness:.72,metalness:.05});}
@@ -56,12 +57,12 @@ export class Wardrobe {
     const version=++this.revision;
     this.assetVersion=catalog.version;
     const avatar=catalog.avatars.find(a=>a.body===look.body);if(!avatar)throw Error('Unknown avatar');
-    if(this.bodyKey!==look.body+':'+avatar.assetUrl){
+    if(this.bodyKey!==look.body+':'+avatar.assetUrl+':'+catalog.version){
       if(!avatar.assetUrl&&!catalog.developmentAssets)throw Error('Missing production avatar asset');
       const gltf=avatar.assetUrl?await this.load(avatar.assetUrl):null;
       const body=gltf?.scene??mannequin(look);if(version!==this.revision){dispose(body);return;}
       presentBody(body,look.skinTone,new Set());
-      this.clear();this.body=body;this.bodyKey=look.body+':'+avatar.assetUrl;this.root.add(body);
+      this.clear();this.body=body;this.bodyKey=look.body+':'+avatar.assetUrl+':'+catalog.version;this.root.add(body);
       this.clips=gltf?.animations??[];this.mixer=new T.AnimationMixer(body);this.bones.clear();
       body.traverse(o=>{if(o instanceof T.Bone)this.bones.set(o.name,o);});
     }
@@ -76,6 +77,7 @@ export class Wardrobe {
         if(version!==this.revision){dispose(garment);for(const e of staged.values())dispose(e.root);return;}
         staged.set(slot,{id,root:garment});
         if(item.assetUrl){
+          selectBodyFit(garment,look.body);
           bindGarment(garment,this.bones);
           if(item.attachmentBone){const bone=this.bones.get(item.attachmentBone);if(!bone)throw Error('Missing attachment bone: '+item.attachmentBone);}
         }
@@ -89,7 +91,11 @@ export class Wardrobe {
     presentFace(this.root,look.facePreset,look.pose);
     this.pose(look.pose);
   }
-  pose(id:string){this.root.traverse(o=>{if(o instanceof T.Mesh&&o.morphTargetDictionary&&o.morphTargetInfluences){for(const [name,index] of Object.entries(o.morphTargetDictionary))if(name.startsWith('expression_'))o.morphTargetInfluences[index]=name==='expression_smile'&&['confident','celebrate'].includes(id)?1:0;}});this.root.rotation.z=0;if(!this.mixer)return;const clip=this.clips.find(c=>c.name===id)??this.clips.find(c=>c.name==='idle');if(clip){this.mixer.stopAllAction();this.mixer.clipAction(clip).reset().play();}else this.root.rotation.z=id==='editorial'?.025:0;}
+  pose(id:string){
+    this.root.traverse(o=>{if(o instanceof T.Mesh&&o.morphTargetDictionary&&o.morphTargetInfluences){for(const [name,index] of Object.entries(o.morphTargetDictionary))if(name.startsWith('expression_'))o.morphTargetInfluences[index]=name==='expression_smile'&&['confident','celebrate'].includes(id)?1:0;}});
+    if(this.mixer && this.clips.length) applyPose(this.mixer,this.clips,id);
+    this.root.updateMatrixWorld(true);
+  }
   update(seconds:number){this.mixer?.update(seconds);}
   clear(){this.mixer?.stopAllAction();if(this.body)this.mixer?.uncacheRoot(this.body);this.body?.removeFromParent();if(this.body)dispose(this.body);for(const item of this.equipped.values()){item.root.removeFromParent();dispose(item.root);}this.equipped.clear();this.bodyKey='';}
   destroy(){this.revision++;this.clear();this.ktx.dispose();}
