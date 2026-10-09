@@ -399,6 +399,22 @@ String huudWhen(DateTime when, {DateTime? now}) {
 
 DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
+/// When a chat message was sent: "just now", "5 min ago" while it's fresh,
+/// then the clock time — "3:42 pm", "Yesterday 3:42 pm", "12 Mar 3:42 pm".
+String huudChatTime(DateTime at, {DateTime? now}) {
+  final current = now ?? DateTime.now();
+  final gap = current.difference(at);
+  if (gap.inMinutes < 1) return 'just now';
+  if (gap.inMinutes < 60) return '${gap.inMinutes} min ago';
+  final hour = at.hour % 12 == 0 ? 12 : at.hour % 12;
+  final clock = '$hour:${at.minute.toString().padLeft(2, '0')} ${at.hour < 12 ? 'am' : 'pm'}';
+  final days = _dateOnly(current).difference(_dateOnly(at)).inDays;
+  if (days <= 0) return clock;
+  if (days == 1) return 'Yesterday $clock';
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return '${at.day} ${months[at.month - 1]} $clock';
+}
+
 /// Someone at the game's table and whether they're ready.
 class HuudSeat {
   const HuudSeat({required this.userId, required this.name, this.avatarUrl, this.bot = false, this.ready = false});

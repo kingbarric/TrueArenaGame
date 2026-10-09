@@ -1345,61 +1345,59 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         sliver: SliverList.builder(
           itemCount: chat.length,
-          itemBuilder: (context, i) =>
-              _bubble(n, chat[i], showName: i == 0 || chat[i - 1].from.userId != chat[i].from.userId),
+          // A new header when someone else speaks, or after a 5-minute pause.
+          itemBuilder: (context, i) => _bubble(n, chat[i],
+              showName: i == 0 ||
+                  chat[i - 1].from.userId != chat[i].from.userId ||
+                  chat[i].at.difference(chat[i - 1].at).inMinutes >= 5),
         ),
       ),
     ];
   }
 
+  /// One chat message, kept small so plenty fit on screen. Each run of
+  /// messages from the same person starts with their face, username and when.
   Widget _bubble(NeonColors n, HuudChatMessage m, {required bool showName}) {
     final h = HuudColors.of(context);
     final mine = m.from.userId == _me;
     final bubble = Container(
-      constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.72),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.78),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
       decoration: BoxDecoration(
         color: mine ? h.orange : n.panel,
-        borderRadius: BorderRadius.only(
-          topLeft: const Radius.circular(20),
-          topRight: const Radius.circular(20),
-          bottomLeft: Radius.circular(mine ? 20 : 6),
-          bottomRight: Radius.circular(mine ? 6 : 20),
-        ),
-        border: Border.all(color: mine ? kCabinetInk : n.line, width: mine ? 1.8 : 1.2),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: mine ? kCabinetInk : n.line, width: mine ? 1.4 : 1),
       ),
-      child: Text(m.body, style: TextStyle(fontSize: 16, height: 1.3, color: mine ? h.onOrange : n.ink)),
+      child: Text(m.body, style: TextStyle(fontSize: 14.5, height: 1.25, color: mine ? h.onOrange : n.ink)),
     );
     return Padding(
       key: ValueKey('chat-${m.id}'),
-      padding: EdgeInsets.only(top: showName ? 10 : 3),
-      child: Row(
-        mainAxisAlignment: mine ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          if (!mine) ...[
-            showName ? Avatar(m.from.name, size: 30, imageUrl: m.from.avatarUrl) : const SizedBox(width: 30),
-            const SizedBox(width: 8),
-          ],
-          Flexible(
-            child: Column(crossAxisAlignment: mine ? CrossAxisAlignment.end : CrossAxisAlignment.start, children: [
-              if (showName && !mine)
-                Padding(
-                  padding: const EdgeInsets.only(left: 4, bottom: 3),
-                  child: Text(m.from.handle,
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: n.mute)),
-                ),
-              mine
-                  ? bubble
-                  : GestureDetector(
-                      onLongPress: () => showSafetySheet(context,
-                          userId: m.from.userId, name: m.from.name, huudSpaceId: widget.id, messageId: m.id),
-                      child: bubble,
-                    ),
+      padding: EdgeInsets.only(top: showName ? 9 : 3),
+      child: Column(crossAxisAlignment: mine ? CrossAxisAlignment.end : CrossAxisAlignment.start, children: [
+        if (showName)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 3),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Avatar(m.from.name, size: 20, imageUrl: m.from.avatarUrl),
+              const SizedBox(width: 6),
+              Text(mine ? 'You' : m.from.handle,
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: mine ? h.orangeText : n.ink)),
+              const SizedBox(width: 6),
+              Text(huudChatTime(m.at),
+                  key: ValueKey('chat-time-${m.id}'), style: TextStyle(fontSize: 12, color: n.mute)),
             ]),
           ),
-        ],
-      ),
+        Padding(
+          padding: EdgeInsets.only(left: mine ? 0 : 26),
+          child: mine
+              ? bubble
+              : GestureDetector(
+                  onLongPress: () => showSafetySheet(context,
+                      userId: m.from.userId, name: m.from.handle, huudSpaceId: widget.id, messageId: m.id),
+                  child: bubble,
+                ),
+        ),
+      ]),
     );
   }
 

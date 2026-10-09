@@ -519,6 +519,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Rematch!'), findsOneWidget);
     expect(find.text('ada obi'), findsOneWidget);
+    expect(find.byKey(const ValueKey('chat-time-1')), findsOneWidget);
+    expect(find.text('just now'), findsWidgets);
 
     await tester.enterText(find.byKey(const ValueKey('chat-input')), 'Yes!');
     await tester.tap(find.byKey(const ValueKey('chat-send')));
@@ -798,5 +800,14 @@ void main() {
     expect(huudWhen(DateTime(2026, 10, 8, 23), now: now), 'Yesterday');
     expect(huudWhen(DateTime(2026, 10, 5), now: now), '4 days ago');
     expect(huudWhen(DateTime(2026, 9, 1), now: now), '1 Sep');
+  });
+
+  test('chat times say "ago" while fresh, then the clock time', () {
+    final now = DateTime(2026, 10, 9, 21, 30);
+    expect(huudChatTime(now.subtract(const Duration(seconds: 20)), now: now), 'just now');
+    expect(huudChatTime(now.subtract(const Duration(minutes: 5)), now: now), '5 min ago');
+    expect(huudChatTime(DateTime(2026, 10, 9, 15, 42), now: now), '3:42 pm');
+    expect(huudChatTime(DateTime(2026, 10, 8, 9, 5), now: now), 'Yesterday 9:05 am');
+    expect(huudChatTime(DateTime(2026, 3, 12, 0, 15), now: now), '12 Mar 12:15 am');
   });
 }
