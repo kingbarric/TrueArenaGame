@@ -336,7 +336,8 @@ function convert({id, body, obj, texture, isAvatar, options = {}}) {
 
 mkdirSync(output, {recursive: true});
 const report = [];
-for (const [body, entry] of Object.entries(bodySources)) report.push(convert({id: body, body, ...entry, isAvatar: true}));
-for (const [id, [body, obj, texture, options]] of Object.entries(assets)) report.push(convert({id, body, obj, texture, options, isAvatar: false}));
-writeFileSync(resolve(output, 'makehuman-starter-report.json'), JSON.stringify({source: 'MakeHuman Community CC0 and attributed CC-BY asset packs; see credits.txt', generatedAt: new Date().toISOString(), assets: report}, null, 2) + '\n');
+const selected = process.argv.find(arg => arg.startsWith('--only='))?.slice(7).split(',');
+for (const [body, entry] of Object.entries(bodySources).filter(([id]) => !selected || selected.includes(id))) report.push(convert({id: body, body, ...entry, isAvatar: true}));
+for (const [id, [body, obj, texture, options]] of Object.entries(assets).filter(([id]) => !selected || selected.includes(id))) report.push(convert({id, body, obj, texture, options, isAvatar: false}));
+if (!selected) writeFileSync(resolve(output, 'makehuman-starter-report.json'), JSON.stringify({source: 'MakeHuman Community CC0 and attributed CC-BY asset packs; see credits.txt', generatedAt: new Date().toISOString(), assets: report}, null, 2) + '\n');
 console.log(JSON.stringify(report, null, 2));

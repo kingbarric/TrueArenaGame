@@ -36,7 +36,7 @@ SlayHuud opens from both the home tiles and the game picker. Existing room invit
 
 Screens inherit the selected PlayHuud theme: Palm Wine, Nebula or Supercar, in light/dark mode. They reuse `NeonColors`, typography and `NeonCard`; buttons follow the shared accent and stadium treatment. Wine, gold and existing backgrounds remain the default visual language. Production item thumbnails replace the temporary wardrobe icons when supplied. The hub shows Slay rating, wins and top-three finishes using existing competitive profile data.
 
-The studio has a large 3D stage, rotate/pinch controls, front/back/face camera shortcuts, avatar body selection in solo play, wardrobe categories, skin/face selection, poses and backgrounds. A brief sheet shows requirements/style tags, and competitive styling shows its deadline. Draft selections persist locally. Submission waits for the renderer, exports a fixed portrait, saves the look and image, then scores or submits it.
+The studio has a large 3D stage, rotate/pinch controls, front/back/face camera shortcuts, avatar body selection in solo play, wardrobe categories, skin/face selection, poses and backgrounds. A brief sheet shows requirements/style tags, and competitive styling shows its deadline. Draft selections persist locally. The primary action is **Show off & see my score** in solo play and **Show off & submit** in competition. It waits for the exact outfit to load, plays an 8.6-second approach, pose and full turn, exports the final portrait, then saves and scores/submits. The default signature stance finishes confident; another selected pose is preserved. Stop, leaving the studio, changing outfits or backgrounding during the walk cancels the pending submission. Competition deadlines continue during the animation; late finishes are rejected. A separate pill previews the show without saving.
 
 The separate `lib/slayhuud_preview.dart` entrypoint uses local fixture API responses and a UI PREVIEW banner. It starts on SlayHuud with the game picker underneath, so exit works in the preview too. It runs the actual WebView renderer but does not authenticate or write to a PlayHuud server. Its scores are fixtures, not backend verification.
 
@@ -63,7 +63,7 @@ Snapshots are stored as PostgreSQL `BYTEA` for the working V1; no external stora
 
 Source: `slay-renderer/`. Runtime: bundled single HTML/JS file in `app/assets/slay_renderer/`, served on device loopback port 8187 by `flutter_inappwebview`.
 
-Three.js supplies orbit controls, portrait camera, lighting, stage, GLTF loading, named skeleton binding, body-region masking, pose/idle animation and morph presets. GLB with Meshopt compression and KTX2 textures is supported. Draco is not currently configured. The renderer loads only the avatar and selected items, retains equipped objects and releases replaced geometry/materials/textures. Immutable GLBs have a bounded 32 MB IndexedDB cache; cache failures still permit network loading.
+Three.js supplies orbit controls, portrait camera, lighting, stage, GLTF loading, named skeleton binding, body-region masking, skeletal catwalk/pose animation and morph presets. The starter catwalk uses two-bone leg IK and level foot joints; garments and shoes share the live skeleton. Skirt weights bridge smoothly across both walking legs. This is authored motion, not cloth simulation. GLB with Meshopt compression and KTX2 textures is supported. Draco is not currently configured. The renderer loads only the avatar and selected items, retains equipped objects and releases replaced geometry/materials/textures. Immutable GLBs have a bounded 32 MB IndexedDB cache; cache failures still permit network loading.
 
 Bridge envelope:
 
@@ -77,10 +77,10 @@ Bridge envelope:
 
 | Direction | Messages |
 |---|---|
-| Flutter → JS | `init` (catalog, tier), `applyLook`, `setCamera`, `rotateCamera` (radians), `setPose`, `snapshot`, `pause`, `dispose` |
-| JS → Flutter | `ready`, `ack`, `snapshotResult` (PNG base64), `error`, `perf`, `contextLost` |
+| Flutter → JS | `init` (catalog, tier), `applyLook`, `setCamera`, `rotateCamera` (radians), `setPose`, `showcase`, `stopShowcase`, `snapshot`, `pause`, `dispose` |
+| JS → Flutter | `ready`, `ack`, `snapshotResult` (PNG base64), `error`, `showcaseState` (playing, phase), `perf`, `contextLost` |
 
-Commands execute serially and responses match request IDs. Requests time out rather than silently submitting missing imagery. Snapshot export requires a fully applied look; a failed replacement invalidates export until a successful retry. Foreground/background transitions and covered routes pause rendering, and performance samples restart on resume so inactive time does not lower the quality tier. WebGL context loss reloads and reapplies the look. Low measured frame rate reduces pixel density through high/standard/low 3D tiers; there is no 2D replacement. Physical-device performance targets still require real assets and profiling.
+Commands execute serially and responses match request IDs. `showcase` releases the command queue immediately and acknowledges only after the final pose; cancellation rejects that pending request so Stop/Pause remain responsive. Snapshot export is blocked during motion. Requests time out rather than silently submitting missing imagery. Snapshot export requires a fully applied look; a failed replacement invalidates export until a successful retry. Foreground/background transitions and covered routes pause rendering, and performance samples restart on resume so inactive time does not lower the quality tier. WebGL context loss reloads and reapplies the look. Low measured frame rate reduces pixel density through high/standard/low 3D tiers; there is no 2D replacement. Physical-device performance targets still require real assets and profiling.
 
 Grouped body meshes and all matching body regions support skin tint/masking. Skin materials are isolated to avoid recolouring shared clothing materials; supplied makeup overlays receive matching face/expression morph weights. Replaced skeleton GPU textures and animation bindings are released. Self-contained GLB structure is checked before parsing network or cached bytes; external texture/buffer URLs are rejected.
 
@@ -93,6 +93,10 @@ lobby → styling → voting → results
                       ↘ round_result → styling (Slay or Pass)
 expired empty lobby / no submissions → cancelled
 ```
+
+Spectator judging replays immutable submitted 3D looks **one at a time**. Battle/group ballots show A then B and unlock pairwise choices after both performances. Slay or Pass shows only the server-revealed contestant and unlocks Slay/Pass after their performance; the final two are also shown sequentially. Replay is available. Older/failed 3D submissions offer a saved-photo fallback. There is one WebView per judging sequence, released when the ballot or revealed entry changes. This is per-viewer replay within the existing voting window, not a synchronized live broadcast; contestant animations are not streamed over WebSockets.
+
+`GET /api/v1/slay/looks/{id}` returns only canonical `look` and `catalogVersion` for rendering. It shares image authorization: owner access, eligible competition visibility, private-room/block protections and elimination reveal restrictions. It never exposes owner identity or changes scoring/reward rules.
 
 Server timestamps control every window. Missing looks forfeit; closing a client never auto-submits its draft.
 

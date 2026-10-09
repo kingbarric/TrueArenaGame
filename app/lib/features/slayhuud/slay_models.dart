@@ -113,6 +113,11 @@ class SlayApi {
         'contestantBody': body,
         'ranked': true
       }));
+  Future<SlayLook> runwayLook(String id) async {
+    final value = await client.get('/slay/looks/$id');
+    return SlayLook.fromJson(Map<String, dynamic>.from(value['look']));
+  }
+
   Future<String> save(SlayLook look, String image) async {
     final saved = await client.post('/slay/looks', look.toJson());
     final id = saved['id'] as String;

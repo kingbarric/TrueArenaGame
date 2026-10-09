@@ -48,7 +48,15 @@ export function skinWeights([x, y], {hair = false, shoes = false, skirt = false,
     return blend(7 + side, 8 + side, (distance - .48) / .10);
   }
   if (y < .88) {
-    if (skirt) return blend(1, 1, 0);
+    if (skirt) {
+      // A skirt hem follows each leg, smoothly bridged across the centre.
+      // Hip-only weights leave the walking thighs outside the fabric.
+      const amount = clamp((.88 - y) / .19), left = clamp(.5 + x / .22);
+      const knee = clamp((.57 - y) / .16);
+      return {joints: [1, 12, 15, x >= 0 ? 13 : 16],
+        weights: [1 - amount, amount * (1 - knee) * left,
+          amount * (1 - knee) * (1 - left), amount * knee]};
+    }
     if (y < .20) return blend(14 + side, 13 + side, (y - .10) / .12);
     if (y < .55) return blend(13 + side, 12 + side, (y - .42) / .18);
     return blend(12 + side, 1, (y - .73) / .16);

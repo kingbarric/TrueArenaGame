@@ -8,6 +8,7 @@ import 'slay_theme.dart';
 import '../../theme/neon_theme.dart';
 import 'slay_studio_screen.dart';
 import 'slay_game_menu.dart';
+import 'slay_runway.dart';
 
 class SlayCompetitionScreen extends StatefulWidget {
   const SlayCompetitionScreen({super.key, this.competitionId, this.roomId})
@@ -23,6 +24,26 @@ class _SlayCompetitionScreenState extends State<SlayCompetitionScreen>
   String? _error;
   bool _busy = false, _refreshing = false;
   String _body = 'female';
+  final Set<String> _reviewed = {};
+  String _runwayKey = '';
+  Widget _runway(List<Map<String, dynamic>> entries, String key) {
+    if (_runwayKey != key) {
+      _runwayKey = key;
+      _reviewed.clear();
+    }
+    return SlayRunway(
+        key: ValueKey(key),
+        catalog: _catalog!,
+        entries: entries,
+        api: _api,
+        onReviewed: (id) {
+          if (mounted) setState(() => _reviewed.add(id));
+        },
+        onReport: _report);
+  }
+
+  bool _seen(Iterable<dynamic> entries) =>
+      entries.every((e) => _reviewed.contains(e['id']));
   Timer? _timer;
   GameSocket? _socket;
   StreamSubscription? _events;
@@ -485,32 +506,28 @@ class _SlayCompetitionScreenState extends State<SlayCompetitionScreen>
             const Center(
                 child: SlayLabel('Final two · choose who slayed the theme')),
             const SizedBox(height: 16),
-            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            _runway([
               for (final entry in entries)
-                Expanded(
-                    child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 5),
-                        child: Column(children: [
-                          AspectRatio(
-                              aspectRatio: 2 / 3,
-                              child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(18),
-                                  child: SlayImage(
-                                      url: _api.imageUrl(entry['image']),
-                                      headers: _api.imageHeaders,
-                                      onReport: () =>
-                                          _report(entry['lookId'])))),
-                          const SizedBox(height: 12),
-                          if (role == 'judge' && s['judged'] != true)
-                            SlayButton(
-                                onPressed: _busy
-                                    ? null
-                                    : () => _action(
-                                        'final-vote', {'entryId': entry['id']}),
-                                child:
-                                    Text('Look ${entries.indexOf(entry) + 1}')),
-                        ])))
-            ]),
+                {
+                  ...Map<String, dynamic>.from(entry),
+                  'label': 'Look ${entries.indexOf(entry) + 1}'
+                }
+            ], 'final-${s['round']}-${entries.map((e) => e['id']).join('-')}'),
+            const SizedBox(height: 12),
+            if (role == 'judge' && s['judged'] != true)
+              Row(children: [
+                for (final entry in entries)
+                  Expanded(
+                      child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 5),
+                          child: SlayButton(
+                              onPressed: _busy || !_seen(entries)
+                                  ? null
+                                  : () => _action(
+                                      'final-vote', {'entryId': entry['id']}),
+                              child:
+                                  Text('Look ${entries.indexOf(entry) + 1}'))))
+              ]),
             if (s['judged'] == true)
               const Padding(
                   padding: EdgeInsets.all(16),
@@ -522,20 +539,15 @@ class _SlayCompetitionScreenState extends State<SlayCompetitionScreen>
         return [
           const SlayLabel('Judge the style · theme fit · creativity'),
           const SizedBox(height: 12),
-          AspectRatio(
-              aspectRatio: 2 / 3,
-              child: ClipRRect(
-                  borderRadius: BorderRadius.circular(22),
-                  child: SlayImage(
-                      url: _api.imageUrl(entry['image']),
-                      onReport: () => _report(entry['lookId']),
-                      headers: _api.imageHeaders))),
+          _runway([
+            {...Map<String, dynamic>.from(entry), 'label': 'On stage'}
+          ], 'round-${s['round']}-${entry['id']}'),
           const SizedBox(height: 20),
           if (role == 'judge' && s['judged'] != true)
             Row(children: [
               Expanded(
                   child: SlayButton.icon(
-                      onPressed: _busy
+                      onPressed: _busy || !_seen(entries)
                           ? null
                           : () => _action(
                               'judge', {'entryId': entry['id'], 'slay': true}),
@@ -544,7 +556,7 @@ class _SlayCompetitionScreenState extends State<SlayCompetitionScreen>
               const SizedBox(width: 12),
               Expanded(
                   child: OutlinedButton(
-                      onPressed: _busy
+                      onPressed: _busy || !_seen(entries)
                           ? null
                           : () => _action(
                               'judge', {'entryId': entry['id'], 'slay': false}),
@@ -598,32 +610,28 @@ class _SlayCompetitionScreenState extends State<SlayCompetitionScreen>
       return [
         const Center(child: SlayLabel('Who slayed the theme better?')),
         const SizedBox(height: 18),
-        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _runway([
+          for (final side in ['A', 'B'])
+            {
+              'id': _ballot!['entry$side'],
+              'label': 'Look $side',
+              'image': _ballot!['image$side'],
+              'lookId': (_ballot!['image$side'] as String).split('/')[3],
+            }
+        ], 'ballot-${_ballot!['id']}'),
+        const SizedBox(height: 12),
+        Row(children: [
           for (final side in ['A', 'B'])
             Expanded(
                 child: Padding(
-                    padding: EdgeInsets.only(
-                        right: side == 'A' ? 6 : 0, left: side == 'B' ? 6 : 0),
-                    child: Column(children: [
-                      AspectRatio(
-                          aspectRatio: 2 / 3,
-                          child: ClipRRect(
-                              borderRadius: BorderRadius.circular(18),
-                              child: SlayImage(
-                                  url: _api.imageUrl(_ballot!['image$side']),
-                                  onReport: () => _report(
-                                      (_ballot!['image$side'] as String)
-                                          .split('/')[3]),
-                                  headers: _api.imageHeaders))),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                          width: double.infinity,
-                          child: SlayButton(
-                              onPressed: _busy
-                                  ? null
-                                  : () => _vote(_ballot!['entry$side']),
-                              child: Text('Look $side')))
-                    ])))
+                    padding: const EdgeInsets.symmetric(horizontal: 5),
+                    child: SlayButton(
+                        onPressed: _busy ||
+                                !_reviewed.contains(_ballot!['entryA']) ||
+                                !_reviewed.contains(_ballot!['entryB'])
+                            ? null
+                            : () => _vote(_ballot!['entry$side']),
+                        child: Text('Look $side'))))
         ]),
         const SizedBox(height: 14),
         Center(

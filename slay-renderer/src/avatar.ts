@@ -8,6 +8,7 @@ import { assetBytes } from './cache';
 import { presentBody, presentFace, presentEyes } from './presentation';
 import { applyPose, selectBodyFit } from './poses';
 import { coverBody } from './coverage';
+import { Showcase } from './showcase';
 
 const palette:Record<string,string>={gold:'#c39b55',navy:'#283d54',pink:'#c98491',red:'#a53541',purple:'#674269',green:'#397c65',black:'#28262a',white:'#eee5d6',blue:'#48879a',grey:'#8e8c87',orange:'#c5773d',yellow:'#ddba55'};
 function material(colour:string){return new T.MeshStandardMaterial({color:colour,roughness:.72,metalness:.05});}
@@ -51,10 +52,12 @@ export class Wardrobe {
   root=new T.Group();private body?:T.Group;private bodyKey='';private equipped=new Map<string,{id:string,root:T.Group}>();
   private revision=0;private loader:GLTFLoader;private ktx:KTX2Loader;private mixer?:T.AnimationMixer;private clips:T.AnimationClip[]=[];
   private bones=new Map<string,T.Bone>();
-  private assetVersion=0;
+  private assetVersion=0;private performance?:Showcase;private currentPose='signature';
+  onShowcaseState:(playing:boolean,phase:string)=>void=()=>{};
   constructor(renderer:T.WebGLRenderer){this.ktx=new KTX2Loader().setTranscoderPath('basis/').detectSupport(renderer);this.loader=new GLTFLoader().setKTX2Loader(this.ktx).setMeshoptDecoder(MeshoptDecoder);}
   private async load(url:string){const address=new URL(url,location.href);if(address.protocol!=='https:' && address.origin!==location.origin)throw Error('Asset URL must be HTTPS or bundled');address.searchParams.set('catalogVersion',String(this.assetVersion));const bytes=await assetBytes(address.href);return this.loader.parseAsync(bytes,new URL('.',address).href);}
   async apply(look:Look,catalog:Catalog){
+    this.stopShowcase('Show off cancelled: look changed');
     const version=++this.revision;
     this.assetVersion=catalog.version;
     const avatar=catalog.avatars.find(a=>a.body===look.body);if(!avatar)throw Error('Unknown avatar');
@@ -95,12 +98,20 @@ export class Wardrobe {
     presentFace(this.root,look.facePreset,look.pose);
     this.pose(look.pose);
   }
+  showOff(){
+    if(!this.body||!this.mixer)throw Error('Wait for your avatar to load');
+    this.performance??=new Showcase(this.root,this.body,this.mixer,this.clips,(playing,phase)=>this.onShowcaseState(playing,phase));
+    return this.performance.play(this.currentPose==='signature'?'confident':this.currentPose).then(pose=>{this.pose(pose);return pose;});
+  }
+  get showingOff(){return this.performance?.playing??false;}
+  stopShowcase(reason?:string){this.performance?.stop(reason);}
   pose(id:string){
+    this.stopShowcase();this.currentPose=id;
     this.root.traverse(o=>{if(o instanceof T.Mesh&&o.morphTargetDictionary&&o.morphTargetInfluences){for(const [name,index] of Object.entries(o.morphTargetDictionary))if(name.startsWith('expression_'))o.morphTargetInfluences[index]=name==='expression_smile'&&['confident','celebrate'].includes(id)?1:0;}});
     if(this.mixer && this.clips.length) applyPose(this.mixer,this.clips,id);
     this.root.updateMatrixWorld(true);
   }
-  update(seconds:number){this.mixer?.update(seconds);}
-  clear(){this.mixer?.stopAllAction();if(this.body)this.mixer?.uncacheRoot(this.body);this.body?.removeFromParent();if(this.body)dispose(this.body);for(const item of this.equipped.values()){item.root.removeFromParent();dispose(item.root);}this.equipped.clear();this.bodyKey='';}
+  update(seconds:number){if(this.performance?.playing)this.performance.update(seconds);else this.mixer?.update(seconds);}
+  clear(){this.stopShowcase('Show off cancelled: stage closed');this.performance=undefined;this.mixer?.stopAllAction();if(this.body)this.mixer?.uncacheRoot(this.body);this.body?.removeFromParent();if(this.body)dispose(this.body);for(const item of this.equipped.values()){item.root.removeFromParent();dispose(item.root);}this.equipped.clear();this.bodyKey='';}
   destroy(){this.revision++;this.clear();this.ktx.dispose();}
 }

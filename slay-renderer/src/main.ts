@@ -18,6 +18,8 @@ scene.add(new T.HemisphereLight('#ffffff','#b4a99b',2.2));const key=new T.Direct
 const rim=new T.DirectionalLight('#d5dfff',1.5);rim.position.set(-2,2,-2);scene.add(rim);
 const platform=new T.Mesh(new T.CylinderGeometry(.49,.52,.065,64),new T.MeshStandardMaterial({color:'#d4cabe',roughness:.65}));platform.position.y=-.025;scene.add(platform);
 const wardrobe=new Wardrobe(renderer);scene.add(wardrobe.root);
+const runway=new T.Mesh(new T.BoxGeometry(1.05,.065,1.75),new T.MeshStandardMaterial({color:'#d4cabe',roughness:.65}));runway.position.set(0,-.025,-.45);runway.visible=false;scene.add(runway);
+wardrobe.onShowcaseState=(playing,phase)=>{runway.visible=playing;platform.visible=!playing;send('showcaseState',{playing,phase});};
 function setCamera(preset:string){
  const male=look?.body==='male',height=male?1.05:.95,distance=male?3.95:3.5,face=male?1.82:1.68;
  camera.position.set(preset==='back'?-.01:0,preset==='face'?face:preset==='feet'?.25:height+.15,preset==='back'?-distance:preset==='face'?1.1:preset==='feet'?1.8:distance);
@@ -37,17 +39,25 @@ window.slayReceive=async(message:Message)=>{
   switch(message.type){
    case 'init':catalog=p.catalog as Catalog;tier=String(p.tier??'high');renderer.setPixelRatio(p.tier==='low'?1:p.tier==='standard'?1.5:Math.min(devicePixelRatio,2));break;
    case 'applyLook':{if(!catalog)throw Error('Initialise the catalog first');const oldBody=look?.body;await lookState.apply(p.look as Look,async()=>{await wardrobe.apply(p.look as Look,catalog);});look=p.look as Look;if(oldBody!==look.body)setCamera('full');scene.background=new T.Color(({studio:'#eee9e2',runway:'#d8d4e0',lagos:'#ddcfb6',sunset:'#e7bb9e',royal:'#d3c5d3'} as Record<string,string>)[look.background]??'#eee9e2');break;}
+   case 'showcase':{
+     lookState.requireRendered();setCamera('full');
+     // Return from the command queue immediately: Stop, Pause and outfit
+     // changes must still be handled while Flutter awaits the performance.
+     void wardrobe.showOff().then(async pose=>{look={...look,pose};await lookState.apply(look,async()=>{});send('ack',{pose},message.id);})
+       .catch(error=>send('error',{code:'SHOWCASE_INTERRUPTED',message:String(error)},message.id));return;
+   }
+   case 'stopShowcase':wardrobe.stopShowcase();break;
    case 'setCamera':setCamera(String(p.preset));break;
    case 'rotateCamera':{const angle=Number(p.radians);if(!Number.isFinite(angle)||Math.abs(angle)>Math.PI)throw Error('Invalid camera rotation');camera.position.sub(controls.target).applyAxisAngle(new T.Vector3(0,1,0),angle).add(controls.target);controls.update();break;}
    case 'setPose':wardrobe.pose(String(p.poseId));if(look)look={...look,pose:String(p.poseId)};break;
    case 'snapshot':{
-      lookState.requireRendered();const width=Math.max(256,Math.min(1024,Number(p.width)||600)),height=Math.max(256,Math.min(1536,Number(p.height)||900));
+      lookState.requireRendered();if(wardrobe.showingOff)throw Error('Finish your show off before saving');const width=Math.max(256,Math.min(1024,Number(p.width)||600)),height=Math.max(256,Math.min(1536,Number(p.height)||900));
       const position=camera.position.clone(),target=controls.target.clone(),size=renderer.getSize(new T.Vector2()),ratio=renderer.getPixelRatio(),aspect=camera.aspect;
       try{renderer.setPixelRatio(1);renderer.setSize(width,height,false);camera.aspect=width/height;camera.updateProjectionMatrix();setCamera('full');renderer.render(scene,camera);
        send('snapshotResult',{pngBase64:renderer.domElement.toDataURL('image/png').split(',')[1]},message.id);
       }finally{renderer.setPixelRatio(ratio);renderer.setSize(size.x,size.y,false);camera.aspect=aspect;camera.position.copy(position);controls.target.copy(target);camera.updateProjectionMatrix();controls.update();}return;
    }
-   case 'pause':paused=Boolean(p.paused);previous=sampleAt=performance.now();frames=slowSamples=0;break;
+   case 'pause':paused=Boolean(p.paused);if(paused)wardrobe.stopShowcase('Show off cancelled: studio paused');previous=sampleAt=performance.now();frames=slowSamples=0;break;
    case 'dispose':disposed=true;renderer.setAnimationLoop(null);controls.dispose();wardrobe.destroy();renderer.dispose();break;
    default:throw Error('Unknown bridge command');
   }

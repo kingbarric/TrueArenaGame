@@ -148,12 +148,21 @@ class SlayHuudIT {
         slay.start(a, id).block();
         UUID first = saved(a, "female"), second = saved(b, "male");
         assertThatThrownBy(() -> slay.image(b, first).block()).hasMessageContaining("unavailable");
+        assertThat(slay.runwayLook(a, first).block().look()).isEqualTo(outfit("female"));
+        assertThatThrownBy(() -> slay.runwayLook(voter, first).block())
+                .hasMessageContaining("unavailable");
         slay.submit(a, id, first).block();
         assertThat((List<?>) slay.get(b, id).block().get("entries")).isEmpty();
         assertThatThrownBy(() -> slay.submit(a, id, first).block())
                 .hasMessageContaining("already submitted");
         slay.submit(b, id, second).block();
         assertThat(slay.image(voter, first).block()).isNotEmpty();
+        var runway = slay.runwayLook(voter, first).block();
+        assertThat(runway.look()).isEqualTo(outfit("female"));
+        assertThat(runway.catalogVersion()).isPositive();
+        assertThat(json.valueToTree(runway).fieldNames())
+                .toIterable()
+                .containsExactlyInAnyOrder("look", "catalogVersion");
         assertThatThrownBy(() -> slay.ballot(a, id).block()).hasMessageContaining("cannot vote");
         var ballot = slay.ballot(voter, id).block();
         assertThat(ballot).isNotNull();
@@ -338,6 +347,21 @@ class SlayHuudIT {
                                 saved(UUID.fromString(m.userId()), "male"))
                         .block();
             var entries = state(id).currentEntries();
+            if (entries.size() > 2) {
+                assertThat(
+                                slay.runwayLook(
+                                                judges.get(0),
+                                                UUID.fromString(entries.get(0).lookId))
+                                        .block())
+                        .isNotNull();
+                assertThatThrownBy(
+                                () ->
+                                        slay.runwayLook(
+                                                        judges.get(0),
+                                                        UUID.fromString(entries.get(1).lookId))
+                                                .block())
+                        .hasMessageContaining("unavailable");
+            }
             if (entries.size() == 2) {
                 for (UUID judge : judges) slay.finalVote(judge, id, entries.get(0).id).block();
             } else

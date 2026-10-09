@@ -401,7 +401,31 @@ public class SlayService {
                                                                                                                             + " are immutable")))));
     }
 
+    public record RunwayLook(Look look, int catalogVersion) {}
+
+    public Mono<RunwayLook> runwayLook(UUID viewer, UUID id) {
+        return visibleLook(
+                viewer,
+                id,
+                db.sql(
+                                "SELECT look,catalog_version FROM slay_looks WHERE id=:id AND"
+                                    + " snapshot IS NOT NULL")
+                        .bind("id", id)
+                        .map(
+                                r ->
+                                        new RunwayLook(
+                                                read(
+                                                        r.get("look", Json.class).asString(),
+                                                        Look.class),
+                                                r.get("catalog_version", Integer.class)))
+                        .one());
+    }
+
     public Mono<byte[]> image(UUID viewer, UUID id) {
+        return visibleLook(viewer, id, image(id));
+    }
+
+    private <T> Mono<T> visibleLook(UUID viewer, UUID id, Mono<T> content) {
         return db.sql("SELECT user_id FROM slay_looks WHERE id=:id")
                 .bind("id", id)
                 .map(r -> r.get("user_id", UUID.class))
@@ -409,7 +433,7 @@ public class SlayService {
                 .flatMap(
                         owner ->
                                 owner.equals(viewer)
-                                        ? image(id)
+                                        ? content
                                         : db.sql(
                                                         "SELECT state FROM slay_competitions WHERE"
                                                             + " status"
@@ -457,8 +481,8 @@ public class SlayService {
                                                 .concatMap(c -> allowed(viewer, c))
                                                 .filter(Boolean::booleanValue)
                                                 .next()
-                                                .flatMap(ok -> image(id)))
-                .switchIfEmpty(Mono.error(ApiExceptions.notFound("Image unavailable")));
+                                                .flatMap(ok -> content))
+                .switchIfEmpty(Mono.error(ApiExceptions.notFound("Look unavailable")));
     }
 
     public Mono<byte[]> image(UUID id) {

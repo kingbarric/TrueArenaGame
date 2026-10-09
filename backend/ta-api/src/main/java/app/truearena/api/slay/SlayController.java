@@ -58,6 +58,11 @@ public class SlayController {
         return CurrentUser.id().flatMap(u -> slay.saveLook(u, look));
     }
 
+    @GetMapping("/looks/{id}")
+    public Mono<SlayService.RunwayLook> runwayLook(@PathVariable UUID id) {
+        return CurrentUser.id().flatMap(u -> slay.runwayLook(u, id));
+    }
+
     @PostMapping("/looks/{id}/snapshot")
     public Mono<Void> snapshot(@PathVariable UUID id, @RequestBody Snapshot body) {
         return CurrentUser.id().flatMap(u -> slay.snapshot(u, id, body.pngBase64()));

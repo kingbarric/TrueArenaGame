@@ -5,10 +5,19 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'slay_models.dart';
+import 'slay_theme.dart';
 import '../../theme/neon_theme.dart';
 
 class SlayStageController {
   final ready = ValueNotifier<bool>(false);
+  final showingOff = ValueNotifier<bool>(false);
+  final showcasePhase = ValueNotifier<String>('');
+  Future<String> showOff() async =>
+      (await request('showcase', {}))['pose'] as String;
+  Future<void> stopShowOff() async {
+    await request('stopShowcase', {});
+  }
+
   InAppWebViewController? _web;
   int _sequence = 0;
   final Map<String, Completer<Map<String, dynamic>>> _pending = {};
@@ -43,6 +52,8 @@ class SlayStageController {
           as String;
   void _reset() {
     ready.value = false;
+    showingOff.value = false;
+    showcasePhase.value = '';
     for (final c in _pending.values) {
       if (!c.isCompleted) c.completeError(StateError('The 3D stage restarted'));
     }
@@ -158,7 +169,11 @@ class _SlayStageState extends State<SlayStage> with WidgetsBindingObserver {
       }
       return;
     }
-    if (type == 'ready' && !_booting) {
+    if (type == 'showcaseState') {
+      widget.controller.showingOff.value = payload['playing'] == true;
+      widget.controller.showcasePhase.value =
+          payload['phase']?.toString() ?? '';
+    } else if (type == 'ready' && !_booting) {
       _initialised = false;
       widget.controller.ready.value = false;
       _booting = true;
@@ -294,4 +309,62 @@ class _SlayStageState extends State<SlayStage> with WidgetsBindingObserver {
                             ])))),
     ]);
   }
+}
+
+/// Shared playful control; the long-running bridge request remains cancellable.
+class SlayShowOffControl extends StatefulWidget {
+  const SlayShowOffControl(
+      {super.key,
+      required this.controller,
+      this.enabled = true,
+      this.onFinished,
+      this.onError});
+  final SlayStageController controller;
+  final bool enabled;
+  final ValueChanged<String>? onFinished;
+  final ValueChanged<Object>? onError;
+  @override
+  State<SlayShowOffControl> createState() => _SlayShowOffControlState();
+}
+
+class _SlayShowOffControlState extends State<SlayShowOffControl> {
+  bool _starting = false;
+  Future<void> _play() async {
+    try {
+      if (widget.controller.showingOff.value) {
+        await widget.controller.stopShowOff();
+      } else {
+        if (_starting) return;
+        setState(() => _starting = true);
+        final pose = await widget.controller.showOff();
+        if (mounted) widget.onFinished?.call(pose);
+      }
+    } catch (error) {
+      if (mounted &&
+          !error.toString().contains('cancelled') &&
+          !error.toString().contains('restarted')) {
+        widget.onError?.call(error);
+      }
+    } finally {
+      if (mounted) setState(() => _starting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+      listenable: Listenable.merge(
+          [widget.controller.ready, widget.controller.showingOff]),
+      builder: (_, __) {
+        final playing = widget.controller.showingOff.value;
+        return SlayPill(
+            label: playing ? 'Stop show off' : 'Show off',
+            icon: playing ? Icons.stop_rounded : Icons.directions_walk_rounded,
+            selected: playing,
+            onPressed: playing ||
+                    (widget.enabled &&
+                        widget.controller.ready.value &&
+                        !_starting)
+                ? _play
+                : null);
+      });
 }

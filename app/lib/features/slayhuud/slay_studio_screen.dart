@@ -32,7 +32,7 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
   late final Set<String> _owned = {...widget.owned};
   final _stage = SlayStageController();
   String _category = 'outfit';
-  bool _busy = false;
+  bool _busy = false, _performing = false;
   String? _error;
   Timer? _clock;
   static const _categories = {
@@ -178,10 +178,26 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
     });
     try {
       final api = SlayApi(AppScope.of(context).api);
+      var submittedLook = _look;
       // Wait for the renderer to acknowledge the exact outfit before exporting its image.
-      await _stage.request('applyLook', {'look': _look.toJson()});
+      await _stage.request('applyLook', {'look': submittedLook.toJson()});
+      if (!mounted) return;
+      setState(() => _performing = true);
+      final pose = await _stage.showOff();
+      if (!mounted) return;
+      if (widget.deadline != null &&
+          !DateTime.now().isBefore(widget.deadline!)) {
+        throw StateError(
+            'Styling time has ended. This look was not submitted.');
+      }
+      submittedLook = submittedLook.copy(pose: pose);
+      setState(() {
+        _performing = false;
+        _look = submittedLook;
+      });
       final image = await _stage.snapshot();
-      final id = await api.save(_look, image);
+      if (!mounted) return;
+      final id = await api.save(submittedLook, image);
       if (widget.competitionId != null) {
         await api.action(widget.competitionId!, 'submit', {'lookId': id});
         if (mounted) Navigator.pop(context, true);
@@ -245,9 +261,16 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                     ]))));
       }
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted && !e.toString().contains('cancelled')) {
+        setState(() => _error = e.toString());
+      }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _performing = false;
+        });
+      }
     }
   }
 
@@ -341,6 +364,17 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                               controller: _stage)),
                       Positioned(
                           top: 12,
+                          left: 14,
+                          child: ValueListenableBuilder<bool>(
+                              valueListenable: _stage.showingOff,
+                              builder: (_, playing, __) => playing
+                                  ? ValueListenableBuilder<String>(
+                                      valueListenable: _stage.showcasePhase,
+                                      builder: (_, phase, __) =>
+                                          SlayLabel(phase))
+                                  : const SizedBox.shrink())),
+                      Positioned(
+                          top: 12,
                           right: 14,
                           child: Column(children: [
                             for (final preset in [
@@ -428,23 +462,35 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                         scrollDirection: Axis.horizontal,
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         children: [
+                          SlayShowOffControl(
+                              controller: _stage,
+                              enabled: !_busy,
+                              onFinished: (pose) =>
+                                  _change(_look.copy(pose: pose)),
+                              onError: (error) =>
+                                  setState(() => _error = error.toString())),
+                          const SizedBox(width: 8),
                           SlayPill(
                               label: 'Beauty',
                               icon: Icons.face_retouching_natural,
-                              onPressed: () => _customise()),
+                              onPressed: _busy ? null : () => _customise()),
                           const SizedBox(width: 8),
                           SlayPill(
                               label:
                                   'Pose · ${_look.pose[0].toUpperCase()}${_look.pose.substring(1)}',
                               icon: Icons.accessibility_new,
-                              onPressed: () =>
-                                  _pick('pose', widget.catalog['poses'])),
+                              onPressed: _busy
+                                  ? null
+                                  : () =>
+                                      _pick('pose', widget.catalog['poses'])),
                           const SizedBox(width: 8),
                           SlayPill(
                               label: 'Scene',
                               icon: Icons.landscape_outlined,
-                              onPressed: () => _pick(
-                                  'background', widget.catalog['backgrounds'])),
+                              onPressed: _busy
+                                  ? null
+                                  : () => _pick('background',
+                                      widget.catalog['backgrounds'])),
                         ])),
                 SizedBox(
                     height: 48,
@@ -534,10 +580,12 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                                             strokeWidth: 2))
                                     : const Icon(Icons.auto_awesome, size: 18),
                                 label: Text(_busy
-                                    ? 'Saving your look…'
+                                    ? (_performing
+                                        ? 'Taking the stage…'
+                                        : 'Saving your look…')
                                     : widget.competitionId == null
-                                        ? 'Submit & see my score'
-                                        : 'Submit this look'))))),
+                                        ? 'Show off & see my score'
+                                        : 'Show off & submit'))))),
               ]);
             })));
       }));

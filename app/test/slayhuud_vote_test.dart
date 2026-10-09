@@ -26,7 +26,9 @@ void main() {
         result = {'items': []};
       else if (path.endsWith('/profile'))
         result = {'owned': []};
-      else if (path.endsWith('/ballot') && request.method == 'GET')
+      else if (path.startsWith('/api/v1/slay/looks/')) {
+        return http.Response('{"message":"Legacy photo only"}', 404);
+      } else if (path.endsWith('/ballot') && request.method == 'GET')
         result = {
           'id': 'ballot',
           'entryA': 'entry-a',
@@ -71,7 +73,7 @@ void main() {
       };
 
   testWidgets(
-      'community voting displays two anonymous looks and keeps the selected PlayHuud theme',
+      'community voting reviews two anonymous looks sequentially and keeps the selected PlayHuud theme',
       (tester) async {
     final posted = <String>[];
     await open(tester, competition(), posted, NeonTheme.supercarDark);
@@ -82,8 +84,33 @@ void main() {
         NeonColors.supercarDark.bg);
     await tester.tap(find.text('Start voting'));
     await tester.pumpAndSettle();
-    expect(find.text('Look A'), findsOneWidget);
-    expect(find.text('Look B'), findsOneWidget);
+    expect(find.text('Look A · 1/2'), findsOneWidget);
+    // Choices stay locked until both anonymous runway appearances are reviewed.
+    await tester.scrollUntilVisible(find.text('Look A'), 80,
+        scrollable: find.byType(Scrollable).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Look A'));
+    await tester.pump();
+    expect(posted, isEmpty);
+    await tester.scrollUntilVisible(find.text('View submitted photo'), -80,
+        scrollable: find.byType(Scrollable).first);
+    await tester.ensureVisible(find.text('View submitted photo'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('View submitted photo'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Next look'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Next look'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('View submitted photo'), -80,
+        scrollable: find.byType(Scrollable).first);
+    await tester.ensureVisible(find.text('View submitted photo'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('View submitted photo'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Look A'), 80,
+        scrollable: find.byType(Scrollable).first);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Look A'));
     await tester.pumpAndSettle();
     expect(jsonDecode(posted.single)['entryId'], 'entry-a');
@@ -114,6 +141,25 @@ void main() {
       });
     final posted = <String>[];
     await open(tester, state, posted, NeonTheme.light);
+    await tester.scrollUntilVisible(find.text('View submitted photo'), -80,
+        scrollable: find.byType(Scrollable).first);
+    await tester.ensureVisible(find.text('View submitted photo'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('View submitted photo'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Next look'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Next look'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('View submitted photo'), -80,
+        scrollable: find.byType(Scrollable).first);
+    await tester.ensureVisible(find.text('View submitted photo'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('View submitted photo'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Look 1'), 80,
+        scrollable: find.byType(Scrollable).first);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Look 1'));
     await tester.pumpAndSettle();
     expect(posted, hasLength(1));
