@@ -199,9 +199,10 @@ class HuudItem {
     this.win,
     this.tournament,
     this.huud,
+    this.reactions,
   });
 
-  /// game_request | challenge | win | tournament | champion | huud
+  /// game_request | challenge | win | tournament | champion | huud | post
   final String kind;
   final String id;
   final DateTime at;
@@ -212,6 +213,7 @@ class HuudItem {
   final HuudWin? win;
   final HuudTournament? tournament;
   final HuudShared? huud;
+  final HuudReactions? reactions;
 
   String get gameName => huudGameNames[gameType] ?? gameType;
 
@@ -230,6 +232,27 @@ class HuudItem {
             ? null
             : HuudTournament.fromJson((j['tournament'] as Map).cast<String, dynamic>()),
         huud: j['huud'] == null ? null : HuudShared.fromJson((j['huud'] as Map).cast<String, dynamic>()),
+        reactions:
+            j['reactions'] == null ? null : HuudReactions.fromJson((j['reactions'] as Map).cast<String, dynamic>()),
+      );
+}
+
+/// The reactions a post can get, in the order they're offered.
+const huudReactionEmoji = ['❤️', '👍', '😂', '😮', '🔥', '👏'];
+
+/// Reactions on a text post: how many of each, the total, and yours.
+class HuudReactions {
+  const HuudReactions({this.total = 0, this.counts = const {}, this.mine});
+  final int total;
+  final Map<String, int> counts;
+  final String? mine;
+
+  factory HuudReactions.fromJson(Map<String, dynamic> j) => HuudReactions(
+        total: (j['total'] as num?)?.toInt() ?? 0,
+        counts: {
+          for (final e in ((j['counts'] as Map?) ?? const {}).entries) e.key.toString(): (e.value as num).toInt(),
+        },
+        mine: j['mine'] as String?,
       );
 }
 

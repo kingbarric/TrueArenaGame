@@ -66,7 +66,15 @@ public final class HuudSpaceDtos {
      * host's roster can't be skipped.
      */
     public record CurrentGame(UUID roomId, String code, String gameType, String status, int players,
-                              int seats, List<UUID> playerIds, boolean youArePlaying) {
+                              int seats, List<UUID> playerIds, boolean youArePlaying, List<UUID> readyIds,
+                              List<Seat> table) {
+    }
+
+    /** Someone at the table — a person from the Huud or a Cyber Agent — and whether they're ready. */
+    public record Seat(UUID userId, String displayName, String avatarUrl, boolean bot, boolean ready) {
+    }
+
+    public record PickRequest(@jakarta.validation.constraints.NotNull List<UUID> userIds) {
     }
 
     /**

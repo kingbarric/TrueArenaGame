@@ -58,6 +58,57 @@ public class FeedPostService {
                 .flatMap(n -> n == 0 ? Mono.error(ApiExceptions.notFound("No post of yours to delete")) : Mono.<Void>empty());
     }
 
+    /** ❤️ 👍 😂 😮 🔥 👏 — the same emoji again takes it back. */
+    static final java.util.List<String> EMOJI = java.util.List.of("❤️", "👍", "😂", "😮", "🔥", "👏");
+
+    /**
+     * React to a post you can see (yours or a friend's). One reaction each:
+     * a different emoji replaces yours, the same one removes it.
+     */
+    public Mono<HuudDtos.Reactions> react(UUID user, UUID postId, String emoji) {
+        if (emoji == null || !EMOJI.contains(emoji)) return Mono.error(ApiExceptions.badRequest("Pick one of the reactions"));
+        return db.sql("SELECT EXISTS(SELECT 1 FROM feed_posts p WHERE p.id=:post AND p.deleted_at IS NULL "
+                        + "AND (p.author_id=:uid OR EXISTS(SELECT 1 FROM friends f WHERE f.status='accepted' "
+                        + "AND f.low_user_id=LEAST(:uid,p.author_id) AND f.high_user_id=GREATEST(:uid,p.author_id))) "
+                        + "AND NOT " + HuudSpaceService.blockedSql("p.author_id", ":uid") + ") AS ok")
+                .bind("post", postId).bind("uid", user).map((r, m) -> Boolean.TRUE.equals(r.get("ok", Boolean.class))).one()
+                .flatMap(ok -> !ok ? Mono.error(ApiExceptions.notFound("That post isn't here any more"))
+                        : db.sql("SELECT emoji FROM feed_post_reactions WHERE post_id=:post AND user_id=:uid")
+                                .bind("post", postId).bind("uid", user).map((r, m) -> r.get("emoji", String.class)).one()
+                                .map(java.util.Optional::of).defaultIfEmpty(java.util.Optional.empty())
+                                .flatMap(current -> current.filter(emoji::equals).isPresent()
+                                        ? db.sql("DELETE FROM feed_post_reactions WHERE post_id=:post AND user_id=:uid")
+                                                .bind("post", postId).bind("uid", user).fetch().rowsUpdated()
+                                        : db.sql("INSERT INTO feed_post_reactions(post_id,user_id,emoji) VALUES(:post,:uid,:emoji) "
+                                                        + "ON CONFLICT(post_id,user_id) DO UPDATE SET emoji=EXCLUDED.emoji, created_at=now()")
+                                                .bind("post", postId).bind("uid", user).bind("emoji", emoji).fetch().rowsUpdated()))
+                .then(reactions(postId, user));
+    }
+
+    Mono<HuudDtos.Reactions> reactions(UUID postId, UUID viewer) {
+        return db.sql("SELECT emoji, count(*) AS n, bool_or(user_id=:uid) AS mine FROM feed_post_reactions "
+                        + "WHERE post_id=:post GROUP BY emoji")
+                .bind("post", postId).bind("uid", viewer)
+                .map((r, m) -> new Object[]{r.get("emoji", String.class), ((Number) r.get("n")).intValue(),
+                        Boolean.TRUE.equals(r.get("mine", Boolean.class))})
+                .all().collectList()
+                .map(rows -> {
+                    var counts = new java.util.LinkedHashMap<String, Integer>();
+                    String mine = null;
+                    int total = 0;
+                    for (String e : EMOJI) {
+                        for (Object[] row : rows) {
+                            if (e.equals(row[0])) {
+                                counts.put(e, (int) row[1]);
+                                total += (int) row[1];
+                                if ((boolean) row[2]) mine = e;
+                            }
+                        }
+                    }
+                    return new HuudDtos.Reactions(total, counts, mine);
+                });
+    }
+
     /** The Friends tab: your posts and your friends'. */
     Flux<FeedItem> friendsPosts(UUID viewer, int limit) {
         return db.sql("SELECT p.id, p.body, p.created_at, u.id AS user_id, u.display_name, u.username, u.avatar_url, "
@@ -73,7 +124,10 @@ public class FeedPostService {
                                 r.get("username", String.class), r.get("avatar_url", String.class),
                                 Boolean.TRUE.equals(r.get("friend", Boolean.class))),
                         null, r.get("body", String.class), null, null, null, null))
-                .all();
+                .all()
+                .concatMap(item -> reactions(UUID.fromString(item.id().substring("text:".length())), viewer)
+                        .map(reactions -> new FeedItem(item.kind(), item.id(), item.at(), item.actor(), item.gameType(),
+                                item.message(), null, null, null, null, reactions)));
     }
 
 }

@@ -84,6 +84,12 @@ public class HuudSpaceController {
         return CurrentUser.id().flatMap(huuds::heartbeat);
     }
 
+    @GetMapping("/by-room/{roomId}")
+    @Operation(summary = "The Huud a game room belongs to (empty when it's not in one)")
+    public Mono<HuudSpaceView> forRoom(@PathVariable UUID roomId) {
+        return CurrentUser.id().flatMap(user -> huuds.forRoom(roomId, user));
+    }
+
     @GetMapping("/{id}")
     public Mono<HuudSpaceView> one(@PathVariable UUID id) {
         return CurrentUser.id().flatMap(user -> huuds.view(id, user));
@@ -110,6 +116,18 @@ public class HuudSpaceController {
     @Operation(summary = "Look in without joining (counts as watching while called every few seconds)")
     public Mono<HuudSpaceView> watch(@PathVariable UUID id) {
         return CurrentUser.id().flatMap(user -> huuds.watch(user, id));
+    }
+
+    @PostMapping("/{id}/game/players")
+    @Operation(summary = "Host only: put people from the Huud into the game's seats")
+    public Mono<HuudSpaceView> pick(@PathVariable UUID id, @Valid @RequestBody HuudSpaceDtos.PickRequest body) {
+        return CurrentUser.id().flatMap(user -> requests.pick(user, id, body.userIds()));
+    }
+
+    @DeleteMapping("/{id}/game/players/{userId}")
+    @Operation(summary = "Host only: free someone's seat before the game starts")
+    public Mono<HuudSpaceView> unpick(@PathVariable UUID id, @PathVariable UUID userId) {
+        return CurrentUser.id().flatMap(user -> requests.unpick(user, id, userId));
     }
 
     @PostMapping("/{id}/play")

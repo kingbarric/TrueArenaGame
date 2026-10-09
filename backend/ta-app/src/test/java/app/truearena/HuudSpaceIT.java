@@ -255,11 +255,15 @@ class HuudSpaceIT {
         UUID host = person("Host"), friend = person("Friend");
         var huud = huuds.create(host, null, "public").block();
         huuds.joinByCode(friend, huud.code()).block();
+        var waiting = huuds.addGame(host, huud.id(), "chess").block();
         quiet(huud.id(), host, "11 minutes");
         quiet(huud.id(), friend, "11 minutes");
         huuds.expire().block();
         assertThat(huuds.history(host).collectList().block().get(0).status()).isEqualTo("ended");
         assertThat(huuds.current(host).block()).isNull();
+        // Its waiting game went with it instead of lingering as an open lobby.
+        assertThat(db.sql("SELECT count(*) AS n FROM rooms WHERE id=:id AND status='lobby'").bind("id", waiting.id())
+                .map((r, m) -> ((Number) r.get("n")).intValue()).one().block()).isZero();
     }
 
     @Test void aHuudNobodyCameToAndNothingWasPlayedInStaysOutOfHistory() {
@@ -531,5 +535,58 @@ class HuudSpaceIT {
         UUID mineId = UUID.fromString(mine.id().substring("text:".length()));
         assertThatThrownBy(() -> posts.delete(me, mineId).block()).isInstanceOf(ResponseStatusException.class);
         posts.delete(friend, mineId).block();
+    }
+
+    @Test void friendsReactToPostsOneReactionEachAndTheSameOneTakesItBack() {
+        UUID me = person("Me"), ada = person("Ada"), tobi = person("Tobi"), stranger = person("Stranger");
+        befriend(me, ada);
+        befriend(me, tobi);
+        var post = posts.post(me, "GG all").block();
+        UUID id = UUID.fromString(post.id().substring("text:".length()));
+
+        posts.react(ada, id, "❤️").block();
+        var after = posts.react(tobi, id, "😂").block();
+        assertThat(after.total()).isEqualTo(2);
+        assertThat(after.counts()).containsEntry("❤️", 1).containsEntry("😂", 1);
+        assertThat(after.mine()).isEqualTo("😂");
+
+        // A different one replaces yours; the same one again takes it back.
+        assertThat(posts.react(ada, id, "🔥").block().counts()).containsEntry("🔥", 1).doesNotContainKey("❤️");
+        assertThat(posts.react(ada, id, "🔥").block().total()).isEqualTo(1);
+
+        assertThatThrownBy(() -> posts.react(stranger, id, "👍").block()).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(() -> posts.react(ada, id, "💩").block()).isInstanceOf(ResponseStatusException.class);
+
+        var item = feed.feed(me, HuudDtos.Tab.FRIENDS, HuudDtos.Filter.ALL).collectList().block().stream()
+                .filter(i -> i.id().equals(post.id())).findFirst().orElseThrow();
+        assertThat(item.reactions().total()).isEqualTo(1);
+        assertThat(item.reactions().mine()).isNull();
+    }
+
+    @Test void theHostPicksPlayersFromTheHuudUpToTheSeatsAndCanChangeTheirMind() {
+        UUID host = person("Host"), ada = person("Ada"), chidi = person("Chidi"), outsider = person("Outsider");
+        var huud = huuds.create(host, null, "public", "draughts", null, false).block();
+        huuds.joinByCode(ada, huud.code()).block();
+        huuds.joinByCode(chidi, huud.code()).block();
+
+        assertThatThrownBy(() -> requests.pick(host, huud.id(), java.util.List.of(outsider)).block())
+                .isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(() -> requests.pick(ada, huud.id(), java.util.List.of(chidi)).block())
+                .isInstanceOf(ResponseStatusException.class);
+        // Draughts seats two: the host and one more.
+        assertThatThrownBy(() -> requests.pick(host, huud.id(), java.util.List.of(ada, chidi)).block())
+                .isInstanceOf(ResponseStatusException.class);
+
+        var picked = requests.pick(host, huud.id(), java.util.List.of(ada)).block();
+        assertThat(picked.currentGame().playerIds()).containsExactlyInAnyOrder(host, ada);
+        assertThat(picked.currentGame().table()).extracting("displayName").contains("Ada");
+        assertThat(picked.currentGame().readyIds()).isEmpty();
+        assertThat(huuds.view(huud.id(), ada).block().currentGame().youArePlaying()).isTrue();
+
+        var swapped = requests.unpick(host, huud.id(), ada).block();
+        assertThat(swapped.currentGame().playerIds()).containsExactly(host);
+        requests.pick(host, huud.id(), java.util.List.of(chidi)).block();
+        assertThat(huuds.view(huud.id(), chidi).block().currentGame().youArePlaying()).isTrue();
+        assertThatThrownBy(() -> requests.unpick(host, huud.id(), host).block()).isInstanceOf(ResponseStatusException.class);
     }
 }

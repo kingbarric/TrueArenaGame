@@ -15,6 +15,7 @@ import '../lobby/joined_room_screen.dart';
 import '../spectate/spectate_screen.dart';
 import 'huud_kit.dart';
 import 'huud_space_models.dart';
+import 'huud_roster.dart';
 import 'safety_sheet.dart';
 
 Future<void> openHuudSpace(BuildContext context, String id, {HuudSpace? initial}) =>
@@ -112,6 +113,10 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         huudSnack(context, 'You can talk now! Tap Talk 🎙️');
       case 'mic-off':
         huudSnack(context, 'The host turned your mic off.');
+      case 'picked':
+        huudSnack(context, "You're playing! Open the game and press Ready 🎮");
+      case 'unpicked':
+        huudSnack(context, 'The host changed the players — you can watch this one.');
       case 'request':
         if (_huud?.youAreHost == true) huudSnack(context, 'Someone is asking you something ✋');
       case 'host':
@@ -594,6 +599,8 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         circle(Icons.arrow_back_rounded, 'Back', () => Navigator.of(context).maybePop(),
             key: const ValueKey('huud-back')),
         const SizedBox(width: 12),
+        Image.asset(huudIcon, width: 30, height: 30),
+        const SizedBox(width: 8),
         Expanded(child: Text('Huud', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: n.ink))),
         if (hosting)
           Padding(
@@ -959,7 +966,10 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
             ]),
           ),
         ]),
-        if (players.isNotEmpty && !game.finished) ...[
+        if (game.waiting) ...[
+          const SizedBox(height: 14),
+          HuudRoster(huud: huud, roomId: game.roomId, seated: game.table, seats: game.seats, onChanged: _load),
+        ] else if (players.isNotEmpty && !game.finished) ...[
           const SizedBox(height: 12),
           Row(children: [
             HuudAvatarStack(people: players, size: 30, max: 6),
@@ -1031,10 +1041,15 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
             : note('Join the Huud to ask to play'),
       ];
     }
+    final ready = game.readyIds.contains(_me);
     final main = game.youArePlaying
         ? HuudButton(
             key: const ValueKey('huud-open-game'),
-            label: game.playing ? 'Back to the game' : 'Open the game',
+            label: game.playing
+                ? 'Back to the game'
+                : huud.youAreHost
+                    ? 'Open the game to start'
+                    : (ready ? 'Open the game' : 'Open the game & ready up'),
             icon: Icons.sports_esports_rounded,
             big: true,
             expand: true,
@@ -1065,6 +1080,10 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                         onPressed: _askToPlay,
                       );
     return [
+      if (game.youArePlaying && game.waiting && !huud.youAreHost && ready) ...[
+        note('You\'re ready ✅ — waiting for ${huud.host?.firstName ?? 'the host'} to start'),
+        const SizedBox(height: 10),
+      ],
       main,
       if (huud.youAreHost && game.waiting) ...[
         const SizedBox(height: 10),

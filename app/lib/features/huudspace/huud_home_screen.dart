@@ -210,7 +210,11 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
   }
 
   Widget _header(NeonColors n) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('Huud', style: TextStyle(fontSize: 34, fontWeight: FontWeight.w900, color: n.ink, height: 1.05)),
+        Row(children: [
+          Image.asset(huudIcon, width: 44, height: 44),
+          const SizedBox(width: 10),
+          Text('Huud', style: TextStyle(fontSize: 34, fontWeight: FontWeight.w900, color: n.ink, height: 1.05)),
+        ]),
         const SizedBox(height: 4),
         Text('Hang out, talk and play games together',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: n.mid)),
@@ -218,7 +222,7 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
 
   Widget _makeHero() => HuudHeroCard(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('🎉', style: TextStyle(fontSize: 40)),
+          Image.asset(huudIcon, width: 60, height: 60),
           const SizedBox(height: 6),
           const Text('Make a Huud',
               style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: kCabinetInk, height: 1.1)),

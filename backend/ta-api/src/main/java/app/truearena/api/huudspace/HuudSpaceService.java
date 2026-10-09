@@ -434,10 +434,13 @@ public class HuudSpaceService {
                         .concatMap(absent -> tx.transactional(lock("huud-space:" + absent.getKey()).then(handOff(absent.getKey())))
                                 .doOnNext(next -> notifyMembers(absent.getKey(), "host", absent.getValue())))
                         .then())
-                .then(db.sql("UPDATE huud_spaces s SET status='ended',ended_at=now(),current_room_id=NULL,shared_at=NULL "
-                                + "WHERE s.status='active' AND NOT EXISTS(SELECT 1 FROM huud_space_members m "
-                                + "WHERE m.huud_space_id=s.id AND m.left_at IS NULL)")
-                        .fetch().rowsUpdated())
+                // Nobody left: end it the same way the host would — a game still
+                // waiting for players is cancelled (stakes refunded), not left open.
+                .thenMany(db.sql("SELECT s.id FROM huud_spaces s WHERE s.status='active' AND NOT EXISTS("
+                                + "SELECT 1 FROM huud_space_members m WHERE m.huud_space_id=s.id AND m.left_at IS NULL)")
+                        .map((r, m) -> r.get("id", UUID.class)).all())
+                .concatMap(id -> space(id).flatMap(s -> cancelWaitingGame(s, s.ownerId()).then(finish(id, s.ownerId())))
+                        .onErrorResume(e -> Mono.empty()))
                 .then();
     }
 
@@ -533,12 +536,18 @@ public class HuudSpaceService {
                 .then(view(id, host));
     }
 
-    /** A game nobody has started yet goes away with its stakes refunded; the room's host must ask. */
+    /**
+     * A game nobody has started yet goes away with its stakes refunded. Asked
+     * as the room's own host — after a hand-off that isn't the Huud's host.
+     */
     private Mono<Void> cancelWaitingGame(Space s, UUID by) {
         if (s.currentRoomId() == null) return Mono.empty();
         return currentGame(s.currentRoomId())
                 .filter(game -> "waiting".equals(game.status()))
-                .flatMap(game -> rooms.abandon(game.roomId(), by).onErrorResume(e -> Mono.empty()));
+                .flatMap(game -> db.sql("SELECT host_id FROM rooms WHERE id=:id").bind("id", game.roomId())
+                        .map((r, m) -> r.get("host_id", UUID.class)).one().defaultIfEmpty(by)
+                        .flatMap(roomHost -> rooms.abandon(game.roomId(), roomHost)))
+                .onErrorResume(e -> Mono.empty());
     }
 
     // ------------------------------------------------------------ reading
@@ -576,7 +585,7 @@ public class HuudSpaceService {
                                             boolean canSpeak = host || (in && m.get().canSpeak());
                                             CurrentGame game = t.getT2().map(g -> host || g.youArePlaying() ? g
                                                     : new CurrentGame(g.roomId(), null, g.gameType(), g.status(), g.players(),
-                                                            g.seats(), g.playerIds(), false)).orElse(null);
+                                                            g.seats(), g.playerIds(), false, g.readyIds(), g.table())).orElse(null);
                                             return new HuudSpaceView(s.id(), in ? s.code() : null, s.name(), s.privacy(),
                                                     s.status(), hostPerson, people, game, in, host,
                                                     canSpeak, HuudSpaceAccess.VOICE_PREFIX + s.id(),
@@ -586,6 +595,13 @@ public class HuudSpaceService {
                                         });
                             });
                         }));
+    }
+
+    /** The Huud a game room belongs to, as the viewer sees it — empty for a room outside any Huud. */
+    public Mono<HuudSpaceView> forRoom(UUID roomId, UUID viewer) {
+        return db.sql("SELECT huud_space_id FROM rooms WHERE id=:id AND huud_space_id IS NOT NULL")
+                .bind("id", roomId).map((r, m) -> r.get("huud_space_id", UUID.class)).one()
+                .flatMap(id -> view(id, viewer));
     }
 
     /** Live Huuds you can look into: yours, your friends' and public ones. */
@@ -698,18 +714,30 @@ public class HuudSpaceService {
     Mono<CurrentGame> currentGame(UUID roomId, UUID viewer) {
         if (roomId == null) return Mono.empty();
         return db.sql("SELECT r.id, r.code, r.game_type, r.status, "
-                        + "ARRAY(SELECT rm.user_id FROM room_members rm WHERE rm.room_id=r.id ORDER BY rm.joined_at) AS players "
+                        + "ARRAY(SELECT rm.user_id FROM room_members rm WHERE rm.room_id=r.id ORDER BY rm.joined_at) AS players, "
+                        + "ARRAY(SELECT rm.user_id FROM room_members rm WHERE rm.room_id=r.id AND rm.ready_state) AS ready "
                         + "FROM rooms r WHERE r.id=:id")
                 .bind("id", roomId)
                 .map((r, m) -> {
                     UUID[] players = r.get("players", UUID[].class);
+                    UUID[] ready = r.get("ready", UUID[].class);
                     List<UUID> ids = players == null ? List.of() : List.of(players);
                     String type = r.get("game_type", String.class);
                     return new CurrentGame(r.get("id", UUID.class), r.get("code", String.class), type,
                             gameStatus(r.get("status", String.class)), ids.size(), HuudService.seatsFor(type),
-                            ids, viewer != null && ids.contains(viewer));
+                            ids, viewer != null && ids.contains(viewer), ready == null ? List.of() : List.of(ready),
+                            List.<HuudSpaceDtos.Seat>of());
                 })
-                .one();
+                .one()
+                .flatMap(game -> db.sql("SELECT u.id, u.display_name, u.avatar_url, u.is_bot, rm.ready_state "
+                                + "FROM room_members rm JOIN users u ON u.id=rm.user_id WHERE rm.room_id=:id ORDER BY rm.joined_at")
+                        .bind("id", game.roomId())
+                        .map((r, m) -> new HuudSpaceDtos.Seat(r.get("id", UUID.class), r.get("display_name", String.class),
+                                r.get("avatar_url", String.class), Boolean.TRUE.equals(r.get("is_bot", Boolean.class)),
+                                Boolean.TRUE.equals(r.get("ready_state", Boolean.class))))
+                        .all().collectList()
+                        .map(table -> new CurrentGame(game.roomId(), game.code(), game.gameType(), game.status(),
+                                game.players(), game.seats(), game.playerIds(), game.youArePlaying(), game.readyIds(), table)));
     }
 
     /** Words the app can show as they are: waiting → playing → finished. */
@@ -794,7 +822,8 @@ public class HuudSpaceService {
             "request", "{by} is asking you something in {huud} ✋",
             "accepted-join", "You're in {huud}! 🎉",
             "accepted-play", "You're in the game in {huud}! 🎮",
-            "accepted-mic", "You can talk in {huud} now 🎙️");
+            "accepted-mic", "You can talk in {huud} now 🎙️",
+            "picked", "{by} picked you to play in {huud}! Tap to get ready 🎮");
 
     private void pushWhenAway(UUID user, UUID id, String event, UUID by) {
         if (push == null) return;

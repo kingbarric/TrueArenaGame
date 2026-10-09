@@ -30,7 +30,20 @@ public final class HuudDtos {
      * {@code tournament} / {@code champion} → {@code tournament}; {@code huud} → {@code huud}.
      */
     public record FeedItem(String kind, String id, Instant at, PersonView actor, String gameType, String message,
-                           OpenGame game, Win win, Tournament tournament, SharedHuud huud) {
+                           OpenGame game, Win win, Tournament tournament, SharedHuud huud,
+                           Reactions reactions) {
+
+        public FeedItem(String kind, String id, Instant at, PersonView actor, String gameType, String message,
+                        OpenGame game, Win win, Tournament tournament, SharedHuud huud) {
+            this(kind, id, at, actor, gameType, message, game, win, tournament, huud, null);
+        }
+    }
+
+    /**
+     * Reactions on a text post: how many of each emoji, the total, and the
+     * viewer's own (null when they haven't reacted).
+     */
+    public record Reactions(int total, java.util.Map<String, Integer> counts, String mine) {
     }
 
     /**

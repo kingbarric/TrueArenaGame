@@ -16,10 +16,13 @@ Bottom menu: **Live · Huud · Games · Friends · You** (labels under every ico
 - **Voice**: `CallScreen` joins listen-only when the token can't publish; the mic button becomes "Ask to talk"; a host grant flips live (`setCanPublish`) and the player taps the mic when ready.
 - **Watching**: anyone allowed to see a Huud (public, host's friends, invited) can look in without joining (`POST /huud-spaces/{id}/watch`, refreshed while on screen): Play and People tabs, Watch the game by room id — no chat, voice or seat. The Huud and Live cards show "N watching". Tapping a Live card opens `HuudSwipeScreen`: one Huud per screen, swipe up/down, a big Join / Ask to join / Go in.
 - **Who's talking**: the minimized call bar (`PersistentHangout`, above every game screen) shows `TalkingRow` — faces with an orange glow on whoever's speaking and "Ada is talking".
+- **Choosing players**: when a game is on in a Huud, its Play card and the game's own lobby list everyone in the Huud (`HuudRoster`). The host taps people to seat them or let them watch, up to the seats; seated players show ✅ Ready / ⏳ Not ready yet; Add Cyber Agent is the only button (`/rooms/{id}/bots`). Picked players get a push/banner, open the game and Ready up; the host Starts; everyone else watches and chats. The lobby of a Huud game doesn't show the room code.
+- **Reactions**: ❤️ 👍 😂 😮 🔥 👏 on text posts — one each, the same one again takes it back, counts on the post (`POST /huud/text-posts/{id}/reaction`, V42).
 - **Rematch**: after a game the host gets "Rematch — same players" (the last players still in the Huud are seated straight away) or "Play … with new players".
 - **Feed text posts**: "Say something to your friends…" on the Friends tab only (`/huud/text-posts`); posts show to you and your friends, never For you; ⋯ → delete yours / report others'.
 - **Push**: invites, requests to the host and the host's yes go to phones that are away (`sendToUserIfOffline`); tapping opens the Huud. On the main tabs the same events show an in-app banner with Open.
-- **Startup**: only the game screen the app was closed on is reopened (`GameSocket.currentPlayerRoom` → `ta_resume_room`); a lobby you backed out of no longer pops open on launch.
+- **Huud icon**: `assets/images/branding/huud_icon.png` (`huudIcon`) on the Huud tab, Huud headers, Make a Huud and Huud banners.
+- **Startup**: a notification that opened the app counts once and only while it's under an hour old (iOS can replay an old "Your turn" on every launch); only the game screen the app was closed on is reopened (`GameSocket.currentPlayerRoom` → `ta_resume_room`); a lobby you backed out of no longer pops open on launch.
 
 ## Reports (web admin)
 
@@ -44,6 +47,7 @@ Bottom menu: **Live · Huud · Games · Friends · You** (labels under every ico
 - `V39__huud_spaces.sql`: `huud_spaces`, `huud_space_members`, `rooms.huud_space_id`.
 - `V40__huud_space_social.sql`: feed share columns, `can_speak`, `huud_space_requests`, `huud_space_messages`, `player_blocks`, `player_reports` (named `player_*` because production carries an unused `user_blocks` from a dropped branch).
 - `V41__huud_watch_posts_review.sql`: `huud_space_viewers`, `feed_posts`, report review columns + `feed_post_id`/`post_body`.
+- `V42__feed_post_reactions.sql`: `feed_post_reactions`.
 - `spring.flyway.ignore-migration-patterns: "*:missing"`: production has V37/V38 applied from that dropped branch.
 
 ## Validation

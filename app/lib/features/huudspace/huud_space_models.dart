@@ -75,7 +75,17 @@ class HuudGame {
     this.seats = 2,
     this.playerIds = const [],
     this.youArePlaying = false,
+    this.readyIds = const [],
+    this.table = const [],
   });
+
+  /// Seated players who've pressed Ready.
+  final List<String> readyIds;
+
+  /// Everyone seated — people from the Huud and Cyber Agents.
+  final List<HuudSeat> table;
+
+  int get seatsLeft => (seats - players).clamp(0, seats);
 
   final String roomId;
   final String code;
@@ -103,6 +113,10 @@ class HuudGame {
         seats: (j['seats'] as num?)?.toInt() ?? 2,
         playerIds: [for (final id in (j['playerIds'] as List? ?? const [])) id.toString()],
         youArePlaying: j['youArePlaying'] == true,
+        readyIds: [for (final id in (j['readyIds'] as List? ?? const [])) id.toString()],
+        table: [
+          for (final t in (j['table'] as List? ?? const [])) HuudSeat.fromJson((t as Map).cast<String, dynamic>()),
+        ],
       );
 }
 
@@ -334,3 +348,23 @@ String huudWhen(DateTime when, {DateTime? now}) {
 }
 
 DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
+/// Someone at the game's table and whether they're ready.
+class HuudSeat {
+  const HuudSeat({required this.userId, required this.name, this.avatarUrl, this.bot = false, this.ready = false});
+  final String userId;
+  final String name;
+  final String? avatarUrl;
+  final bool bot;
+  final bool ready;
+
+  String get firstName => name.split(' ').first;
+
+  factory HuudSeat.fromJson(Map<String, dynamic> j) => HuudSeat(
+        userId: j['userId'].toString(),
+        name: j['displayName'] as String? ?? 'Player',
+        avatarUrl: j['avatarUrl'] as String?,
+        bot: j['bot'] == true,
+        ready: j['ready'] == true,
+      );
+}

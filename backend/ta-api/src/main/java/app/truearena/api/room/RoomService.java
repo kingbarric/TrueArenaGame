@@ -253,6 +253,27 @@ public class RoomService {
      * stake through the normal win/loss payout instead of a refund.
      */
     @org.springframework.transaction.annotation.Transactional
+    /**
+     * The room's host frees someone's seat before the game starts (a Huud host
+     * changing who plays). Everyone in the lobby refreshes; the person who
+     * lost the seat is told.
+     */
+    public Mono<Void> removeFromLobby(UUID roomId, UUID hostId, UUID userId) {
+        return rooms.findById(roomId)
+                .switchIfEmpty(Mono.error(ApiExceptions.notFound("huud not found")))
+                .flatMap(room -> {
+                    if (!room.hostId().equals(hostId)) return Mono.error(ApiExceptions.forbidden("only the host can do that"));
+                    if (room.hostId().equals(userId)) return Mono.error(ApiExceptions.badRequest("the host keeps their seat"));
+                    boolean started = runtimes.find(roomId).map(RoomRuntime::started).orElse(false);
+                    if (started || !"lobby".equals(room.status())) {
+                        return Mono.error(ApiExceptions.conflict("the game has already started"));
+                    }
+                    return members.deleteByRoomIdAndUserId(roomId, userId)
+                            .doOnSuccess(v -> runtimes.find(roomId).ifPresent(rt -> rt.bus.tryEmitNext(
+                                    new app.truearena.room.LobbyBroadcast("MEMBER_REMOVED", Map.of("userId", userId.toString())))));
+                });
+    }
+
     public Mono<Void> abandon(UUID roomId, UUID callerId) {
         return rooms.findById(roomId)
                 .switchIfEmpty(Mono.error(ApiExceptions.notFound("huud not found")))

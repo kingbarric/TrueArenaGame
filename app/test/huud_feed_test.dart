@@ -469,4 +469,46 @@ void main() {
     expect(find.byKey(const ValueKey('safety-report')), findsOneWidget);
   });
 
+
+  testWidgets('posts show reactions with counts, and tapping a reaction sends it', (tester) async {
+    final calls = await pumpFeed(tester, (request) async {
+      if (request.url.path == '/api/v1/huud/feed') {
+        return _json([
+          {
+            'kind': 'post',
+            'id': 'text:p1',
+            'at': _now.subtract(const Duration(minutes: 3)).toIso8601String(),
+            'actor': _person('tobi', 'Tobi'),
+            'message': 'Ludo at 6?',
+            'reactions': {
+              'total': 3,
+              'counts': {'❤️': 2, '😂': 1},
+              'mine': null,
+            },
+          },
+        ]);
+      }
+      if (request.url.path == '/api/v1/huud/text-posts/p1/reaction') {
+        return _json({
+          'total': 4,
+          'counts': {'❤️': 3, '😂': 1},
+          'mine': '❤️',
+        });
+      }
+      return http.Response('', 200);
+    });
+    expect(find.text('❤️ 2'), findsOneWidget);
+    expect(find.text('😂 1'), findsOneWidget);
+    expect(find.text('3 reactions'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('react-text:p1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('react-pick-❤️')));
+    await tester.pumpAndSettle();
+    expect(calls, contains('POST /api/v1/huud/text-posts/p1/reaction'));
+    expect(find.text('❤️ 3'), findsOneWidget);
+    expect(find.text('4 reactions'), findsOneWidget);
+    expect(find.text('Change'), findsOneWidget);
+  });
+
 }

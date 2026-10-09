@@ -660,6 +660,20 @@ class _HuudScreenState extends State<HuudScreen> {
     }
   }
 
+  /// React (or change / take back your reaction); answers with the post's new tally.
+  Future<HuudReactions?> _react(HuudItem item, String emoji) async {
+    final postId = item.id.startsWith('text:') ? item.id.substring(5) : item.id;
+    try {
+      final raw = await AppScope.of(context).api.post('/huud/text-posts/$postId/reaction', {'emoji': emoji});
+      return HuudReactions.fromJson((raw as Map).cast<String, dynamic>());
+    } on ApiException catch (e) {
+      _snack(e.message);
+    } catch (_) {
+      _snack('Could not reach the server');
+    }
+    return null;
+  }
+
   Future<void> _postMenu(HuudItem item) async {
     final mine = item.actor.userId == AppScope.of(context).user?.id;
     final postId = item.id.startsWith('text:') ? item.id.substring(5) : item.id;
@@ -895,7 +909,8 @@ class _HuudScreenState extends State<HuudScreen> {
         _TournamentCard(item: item, onOpen: () => _openTournament(item.tournament!), onShare: () => _share(item)),
       'champion' => _ChampionCard(item: item, onOpen: () => _openTournament(item.tournament!)),
       'huud' => _SharedHuudCard(item: item, onOpen: () => _enterSharedHuud(item.huud!), onProfile: _profile),
-      'post' => _TextPostCard(item: item, onMenu: () => _postMenu(item), onProfile: _profile),
+      'post' => _TextPostCard(
+          item: item, onMenu: () => _postMenu(item), onProfile: _profile, onReact: (emoji) => _react(item, emoji)),
       _ => const SizedBox.shrink(),
     };
   }
@@ -1655,45 +1670,168 @@ class _SharedHuudCard extends StatelessWidget {
   }
 }
 
-/// A friend's short text on the feed.
-class _TextPostCard extends StatelessWidget {
-  const _TextPostCard({required this.item, required this.onMenu, required this.onProfile});
+/// A friend's short text on the feed, with reactions under it.
+class _TextPostCard extends StatefulWidget {
+  const _TextPostCard({required this.item, required this.onMenu, required this.onProfile, required this.onReact});
   final HuudItem item;
   final VoidCallback onMenu;
   final void Function(HuudPerson) onProfile;
+  final Future<HuudReactions?> Function(String emoji) onReact;
+
+  @override
+  State<_TextPostCard> createState() => _TextPostCardState();
+}
+
+class _TextPostCardState extends State<_TextPostCard> {
+  late HuudReactions _reactions = widget.item.reactions ?? const HuudReactions();
+  bool _busy = false;
+
+  @override
+  void didUpdateWidget(covariant _TextPostCard old) {
+    super.didUpdateWidget(old);
+    if (widget.item.reactions != old.item.reactions && widget.item.reactions != null) {
+      _reactions = widget.item.reactions!;
+    }
+  }
+
+  Future<void> _tap(String emoji) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final next = await widget.onReact(emoji);
+    if (mounted) {
+      setState(() {
+        if (next != null) _reactions = next;
+        _busy = false;
+      });
+    }
+  }
+
+  Future<void> _pick() async {
+    final emoji = await showHuudSheet<String>(context, builder: (sheet) {
+      final n = sheet.neon;
+      final h = HuudColors.of(sheet);
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text('React', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: n.ink)),
+            const SizedBox(height: 14),
+            Wrap(alignment: WrapAlignment.center, spacing: 12, runSpacing: 12, children: [
+              for (final e in huudReactionEmoji)
+                Semantics(
+                  button: true,
+                  selected: _reactions.mine == e,
+                  label: 'React $e',
+                  child: GestureDetector(
+                    key: ValueKey('react-pick-$e'),
+                    onTap: () => Navigator.of(sheet).pop(e),
+                    child: Container(
+                      width: 64,
+                      height: 64,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: _reactions.mine == e ? h.orangeSoft : n.plate,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: _reactions.mine == e ? h.orange : n.line, width: 2),
+                      ),
+                      child: Text(e, style: const TextStyle(fontSize: 32)),
+                    ),
+                  ),
+                ),
+            ]),
+          ]),
+        ),
+      );
+    });
+    if (emoji != null) await _tap(emoji);
+  }
 
   @override
   Widget build(BuildContext context) {
     final n = context.neon;
+    final h = HuudColors.of(context);
+    final item = widget.item;
+    final shown = [
+      for (final e in huudReactionEmoji)
+        if ((_reactions.counts[e] ?? 0) > 0) e
+    ];
     return HuudCard(
       key: ValueKey('feed-post-${item.id}'),
-      padding: const EdgeInsets.fromLTRB(14, 12, 6, 14),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        GestureDetector(
-          onTap: () => onProfile(item.actor),
-          child: Avatar(item.actor.name, size: 40, imageUrl: item.actor.avatarUrl),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Flexible(
-                child: Text(item.actor.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: n.ink)),
-              ),
-              Text(' · ${huudAgo(item.at)}', style: TextStyle(fontSize: 13, color: n.mute)),
+      padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          GestureDetector(
+            onTap: () => widget.onProfile(item.actor),
+            child: Avatar(item.actor.name, size: 40, imageUrl: item.actor.avatarUrl),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Flexible(
+                  child: Text(item.actor.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: n.ink)),
+                ),
+                Text(' · ${huudAgo(item.at)}', style: TextStyle(fontSize: 13, color: n.mute)),
+              ]),
+              const SizedBox(height: 4),
+              Text(item.message ?? '', style: TextStyle(fontSize: 17, height: 1.35, color: n.ink)),
             ]),
-            const SizedBox(height: 4),
-            Text(item.message ?? '', style: TextStyle(fontSize: 17, height: 1.35, color: n.ink)),
+          ),
+          IconButton(
+            key: ValueKey('feed-post-menu-${item.id}'),
+            tooltip: 'More',
+            icon: Icon(Icons.more_horiz_rounded, color: n.mute),
+            onPressed: widget.onMenu,
+          ),
+        ]),
+        const SizedBox(height: 10),
+        Padding(
+          padding: const EdgeInsets.only(left: 50, right: 8),
+          child: Row(children: [
+            Expanded(
+              child: Wrap(spacing: 6, runSpacing: 6, children: [
+                for (final e in shown)
+                  GestureDetector(
+                    key: ValueKey('reaction-${item.id}-$e'),
+                    onTap: () => _tap(e),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: _reactions.mine == e ? h.orangeSoft : n.plate,
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: _reactions.mine == e ? h.orange : n.line, width: 1.6),
+                      ),
+                      child: Text('$e ${_reactions.counts[e]}',
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: n.ink)),
+                    ),
+                  ),
+                GestureDetector(
+                  key: ValueKey('react-${item.id}'),
+                  onTap: _pick,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: n.line, width: 1.6),
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.add_reaction_outlined, size: 18, color: h.orangeText),
+                      const SizedBox(width: 4),
+                      Text(_reactions.mine == null ? 'React' : 'Change',
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: h.orangeText)),
+                    ]),
+                  ),
+                ),
+              ]),
+            ),
+            if (_reactions.total > 0)
+              Text(_reactions.total == 1 ? '1 reaction' : '${_reactions.total} reactions',
+                  key: ValueKey('reactions-total-${item.id}'),
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: n.mute)),
           ]),
-        ),
-        IconButton(
-          key: ValueKey('feed-post-menu-${item.id}'),
-          tooltip: 'More',
-          icon: Icon(Icons.more_horiz_rounded, color: n.mute),
-          onPressed: onMenu,
         ),
       ]),
     );

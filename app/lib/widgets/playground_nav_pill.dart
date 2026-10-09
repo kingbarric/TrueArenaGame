@@ -67,19 +67,18 @@ class PlaygroundNavPill extends StatelessWidget {
                   color: active ? n.gold : Colors.transparent,
                   shape: BeveledRectangleBorder(
                     borderRadius: BorderRadius.circular(13),
-                    side: BorderSide(color: active ? n.gold : n.line,
-                        width: active ? 1.4 : 0.8),
+                    side: BorderSide(color: active ? n.gold : n.line, width: active ? 1.4 : 0.8),
                   ),
                 )
               : BoxDecoration(
-                  shape: design == NeonDesignKind.nebula
-                      ? BoxShape.rectangle : BoxShape.circle,
-                  borderRadius: design == NeonDesignKind.nebula
-                      ? BorderRadius.circular(16) : null,
+                  shape: design == NeonDesignKind.nebula ? BoxShape.rectangle : BoxShape.circle,
+                  borderRadius: design == NeonDesignKind.nebula ? BorderRadius.circular(16) : null,
                   color: active ? n.gold : Colors.transparent,
-                  border: active ? Border.all(
-                      color: design == NeonDesignKind.nebula ? n.brand : kCabinetInk,
-                      width: design == NeonDesignKind.nebula ? 1.2 : 2.4) : null,
+                  border: active
+                      ? Border.all(
+                          color: design == NeonDesignKind.nebula ? n.brand : kCabinetInk,
+                          width: design == NeonDesignKind.nebula ? 1.2 : 2.4)
+                      : null,
                   boxShadow: active
                       ? (design == NeonDesignKind.nebula
                           ? [BoxShadow(color: n.brand.withValues(alpha: 0.38), blurRadius: 14)]
@@ -94,8 +93,7 @@ class PlaygroundNavPill extends StatelessWidget {
   }
 }
 
-Widget _labelledItem(
-    BuildContext context, NeonColors n, PlaygroundNavItem item, bool active, NeonDesignKind design) {
+Widget _labelledItem(BuildContext context, NeonColors n, PlaygroundNavItem item, bool active, NeonDesignKind design) {
   final h = HuudColors.of(context);
   final fill = design == NeonDesignKind.cabinet ? h.orange : n.gold;
   return Semantics(
@@ -123,7 +121,12 @@ Widget _labelledItem(
               border: active && design != NeonDesignKind.nebula ? Border.all(color: kCabinetInk, width: 2) : null,
             ),
             alignment: Alignment.center,
-            child: Icon(item.icon, size: active ? 21 : 20, color: active ? kCabinetInk : n.mute),
+            child: item.image != null
+                ? Opacity(
+                    opacity: active ? 1 : 0.75,
+                    child: Image.asset(item.image!, width: active ? 26 : 24, height: active ? 26 : 24),
+                  )
+                : Icon(item.icon, size: active ? 21 : 20, color: active ? kCabinetInk : n.mute),
           ),
           const SizedBox(height: 3),
           Text(item.label!,
@@ -141,8 +144,11 @@ Widget _labelledItem(
 }
 
 class PlaygroundNavItem {
-  const PlaygroundNavItem({required this.icon, required this.onTap, this.label});
+  const PlaygroundNavItem({required this.icon, required this.onTap, this.label, this.image});
   final IconData icon;
+
+  /// A picture to use instead of [icon] (the Huud tab's own icon).
+  final String? image;
   final VoidCallback onTap;
 
   /// Shown under the icon — a word beside every picture, so a young player

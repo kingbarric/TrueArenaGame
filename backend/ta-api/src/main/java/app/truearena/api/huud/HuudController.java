@@ -62,6 +62,12 @@ public class HuudController {
         return CurrentUser.id().flatMap(user -> textPosts.post(user, body.get("body")));
     }
 
+    @PostMapping("/text-posts/{id}/reaction")
+    @Operation(summary = "React to a post (❤️ 👍 😂 😮 🔥 👏); the same emoji again takes it back")
+    public Mono<HuudDtos.Reactions> react(@PathVariable UUID id, @RequestBody java.util.Map<String, String> body) {
+        return CurrentUser.id().flatMap(user -> textPosts.react(user, id, body.get("emoji")));
+    }
+
     @DeleteMapping("/text-posts/{id}")
     public Mono<Void> deleteTextPost(@PathVariable UUID id) {
         return CurrentUser.id().flatMap(user -> textPosts.delete(user, id));

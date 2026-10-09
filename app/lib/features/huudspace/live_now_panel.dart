@@ -48,10 +48,8 @@ class _LiveNowPanelState extends State<LiveNowPanel> {
     final data = (event['data'] as Map?)?.cast<String, dynamic>() ?? const {};
     if (data['event'] != 'invited' || !mounted) return;
     final id = data['huudSpaceId'] as String;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: const Text("You're invited to a Huud! 🎉", style: TextStyle(fontSize: 15)),
-      action: SnackBarAction(label: 'Open', onPressed: () => openHuudSpace(context, id)),
-    ));
+    ScaffoldMessenger.of(context).showSnackBar(huudIconSnack("You're invited to a Huud!",
+        action: SnackBarAction(label: 'Open', onPressed: () => openHuudSpace(context, id))));
   }
 
   @override

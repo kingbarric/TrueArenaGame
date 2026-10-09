@@ -13,6 +13,9 @@ export '../../theme/huud_colors.dart';
 // every button has a word *and* a picture, every tap target is at least
 // 52 tall, and orange is the one colour that means "you can tap this".
 
+/// The Huud's own picture: three friends under one roof.
+const huudIcon = 'assets/images/branding/huud_icon.png';
+
 const huudGameOrder = ['whot', 'draughts', 'chess', 'ludo', 'wordbluff', 'truearena', 'goosi'];
 
 const huudGameEmoji = {
@@ -38,10 +41,14 @@ class HuudButton extends StatelessWidget {
     this.expand = false,
     this.busy = false,
     this.big = false,
+    this.image,
   });
 
   final String label;
   final IconData icon;
+
+  /// A picture in place of [icon] (the Huud icon on "Make my Huud").
+  final String? image;
   final VoidCallback? onPressed;
   final HuudButtonKind kind;
   final bool expand;
@@ -66,6 +73,8 @@ class HuudButton extends StatelessWidget {
       children: [
         if (busy)
           SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.5, color: fg))
+        else if (image != null)
+          Image.asset(image!, width: big ? 30 : 26, height: big ? 30 : 26)
         else
           Icon(icon, size: big ? 24 : 21, color: fg),
         const SizedBox(width: 10),
@@ -518,6 +527,16 @@ Future<bool> confirmHuud(
   );
   return answer == true;
 }
+
+/// A Huud message with the Huud icon in front ("You're invited to a Huud!").
+SnackBar huudIconSnack(String message, {SnackBarAction? action}) => SnackBar(
+      content: Row(children: [
+        Image.asset(huudIcon, width: 26, height: 26),
+        const SizedBox(width: 10),
+        Expanded(child: Text(message, style: const TextStyle(fontSize: 15))),
+      ]),
+      action: action,
+    );
 
 void huudSnack(BuildContext context, String message) {
   if (!context.mounted) return;

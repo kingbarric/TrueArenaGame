@@ -18,6 +18,8 @@ import '../goosi/goosi_game_screen.dart';
 import '../whot/whot_game_screen.dart';
 import '../ludo/ludo_game_screen.dart';
 import '../wordbluff/wordbluff_game_screen.dart';
+import '../huudspace/huud_roster.dart';
+import '../huudspace/huud_space_models.dart';
 
 /// The lobby for a room this device *joined* rather than created — same live
 /// roster/ready/socket wiring as `LobbyScreen`/`WordBluffLobbyScreen`, but
@@ -41,11 +43,23 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
   bool _ready = false;
   late AppState _app;
 
+  /// The Huud this game belongs to, if any — then everyone in the Huud is
+  /// listed and the host just taps who plays.
+  HuudSpace? _huud;
+  StreamSubscription? _huudEvents;
+
   @override
   void initState() {
     super.initState();
     _room = widget.room;
-    WidgetsBinding.instance.addPostFrameCallback((_) => _connect());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _connect();
+      _loadHuud();
+      _huudEvents = _app.huudSpaceEvents.listen((event) {
+        final id = (event['data'] as Map?)?['huudSpaceId'];
+        if (_huud != null && id == _huud!.id) _loadHuud();
+      });
+    });
   }
 
   @override
@@ -57,6 +71,7 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
   @override
   void dispose() {
     _sub?.cancel();
+    _huudEvents?.cancel();
     if (!_handedOff) _socket?.close();
     super.dispose();
   }
@@ -99,11 +114,34 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
     socket.send('HELLO', {'lastSeq': 0});
   }
 
+  Future<void> _loadHuud() async {
+    try {
+      final raw = await _app.api.get('/huud-spaces/by-room/${_room.id}');
+      if (!mounted || raw is! Map || raw.isEmpty) return;
+      setState(() => _huud = HuudSpace.fromJson(raw.cast<String, dynamic>()));
+    } catch (_) {
+      // Not a Huud game — the ordinary lobby it is.
+    }
+  }
+
   void _applyLobbySnapshot(Map<String, dynamic> p) {
     final members = ((p['members'] as List?) ?? const [])
         .map((e) => RoomMember.fromJson((e as Map).cast<String, dynamic>()))
         .toList();
     if (!mounted) return;
+    // A Huud host can free a seat before the game starts: then this isn't
+    // your lobby any more — back to the Huud to watch.
+    final self = _selfId();
+    if ((p['status'] as String? ?? 'lobby') == 'lobby' &&
+        self.isNotEmpty &&
+        !members.any((m) => m.userId == self)) {
+      _handedOff = false;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              'The host changed the players — you can watch this one from the Huud.')));
+      Navigator.of(context).maybePop();
+      return;
+    }
     setState(() {
       _gameMode = p['mode'] as String? ?? _gameMode;
       _room = RoomView(
@@ -212,15 +250,16 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
         }),
         actions: [
           CancelHuudButton(room: _room),
-          IconButton(
-            tooltip: 'Copy code',
-            icon: const Icon(Icons.copy_all_outlined, size: 18),
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: _room.code));
-              ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Copied ${_room.code}')));
-            },
-          ),
+          if (_huud == null)
+            IconButton(
+              tooltip: 'Copy code',
+              icon: const Icon(Icons.copy_all_outlined, size: 18),
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: _room.code));
+                ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Copied ${_room.code}')));
+              },
+            ),
         ],
       ),
       body: SafeArea(
@@ -231,61 +270,89 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
                     ? 'OWARE ABAPA  •  CAPTURE 2 OR 3  •  WAITING ON HOST'
                     : 'RELAY FOUR  •  COLLECT FOUR  •  WAITING ON HOST'
                 : 'YOU\'RE IN  •  READY UP  •  WAITING ON THE HOST TO START'),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
-              child: NeonCard(
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('HUUD CODE',
-                          style: Theme.of(context)
-                              .textTheme
-                              .labelSmall
-                              ?.copyWith(color: n.mute, letterSpacing: 2)),
-                      const SizedBox(height: 4),
-                      CopyableHuudCode(
-                        code: _room.code,
-                        child: Text(_room.code,
+            if (_huud != null)
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                  child: HuudRoster(
+                    key: const ValueKey('lobby-roster'),
+                    huud: _huud!,
+                    roomId: _room.id,
+                    // The lobby's own live snapshot: who's seated and ready right now.
+                    seated: [
+                      for (final m in _room.members)
+                        HuudSeat(
+                            userId: m.userId,
+                            name: m.nickname ?? 'Player',
+                            avatarUrl: m.avatarUrl,
+                            bot: m.isBot,
+                            ready: m.ready),
+                    ],
+                    seats: _huud!.currentGame?.seats ?? _room.members.length,
+                    onChanged: () {
+                      _socket?.send('HELLO', {'lastSeq': 0});
+                      _loadHuud();
+                    },
+                  ),
+                ),
+              ),
+            if (_huud == null) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+                child: NeonCard(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('HUUD CODE',
                             style: Theme.of(context)
                                 .textTheme
-                                .displayLarge
-                                ?.copyWith(
-                                    fontSize: 40,
-                                    letterSpacing: 6,
-                                    shadows: [
-                                  Shadow(
-                                      color: n.gold.withValues(alpha: 0.4),
-                                      blurRadius: 30)
-                                ])),
-                      ),
-                    ]),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text("WHO'S IN THE HUUD?",
-                    style: Theme.of(context)
-                        .textTheme
-                        .labelLarge
-                        ?.copyWith(color: n.gold)),
-              ),
-            ),
-            Expanded(
-              child: GridView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  mainAxisSpacing: 18,
-                  crossAxisSpacing: 8,
-                  childAspectRatio: 0.76,
+                                .labelSmall
+                                ?.copyWith(color: n.mute, letterSpacing: 2)),
+                        const SizedBox(height: 4),
+                        CopyableHuudCode(
+                          code: _room.code,
+                          child: Text(_room.code,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .displayLarge
+                                  ?.copyWith(
+                                      fontSize: 40,
+                                      letterSpacing: 6,
+                                      shadows: [
+                                    Shadow(
+                                        color: n.gold.withValues(alpha: 0.4),
+                                        blurRadius: 30)
+                                  ])),
+                        ),
+                      ]),
                 ),
-                itemCount: _room.members.length,
-                itemBuilder: (context, i) =>
-                    _memberTile(_room.members[i], _room.hostId),
               ),
-            ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text("WHO'S IN THE HUUD?",
+                      style: Theme.of(context)
+                          .textTheme
+                          .labelLarge
+                          ?.copyWith(color: n.gold)),
+                ),
+              ),
+              Expanded(
+                child: GridView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    mainAxisSpacing: 18,
+                    crossAxisSpacing: 8,
+                    childAspectRatio: 0.76,
+                  ),
+                  itemCount: _room.members.length,
+                  itemBuilder: (context, i) =>
+                      _memberTile(_room.members[i], _room.hostId),
+                ),
+              ),
+            ],
             _bottomBar(),
           ],
         ),

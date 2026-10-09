@@ -6,8 +6,10 @@ import app.truearena.api.support.ApiExceptions;
 import app.truearena.voice.LiveKitRoomAdmin;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -107,6 +109,51 @@ public class HuudSpaceRequestService {
                                 ? Mono.error(ApiExceptions.conflict("You took them out of this Huud"))
                                 : huuds.answerRow(id, friend, "join", true))
                         .doOnSuccess(v -> huuds.notify(friend, id, "invited", host)))
+                .then(huuds.view(id, host));
+    }
+
+    /**
+     * Host only: put people from the Huud into the game's seats — no asking
+     * needed. Only people in the Huud, only while the game is waiting, never
+     * past the seats. Each one is told to get ready.
+     */
+    public Mono<HuudSpaceView> pick(UUID host, UUID id, List<UUID> people) {
+        return huuds.requireHost(id, host)
+                .flatMap(s -> huuds.currentGame(s.currentRoomId(), host)
+                        .filter(game -> "waiting".equals(game.status()))
+                        .switchIfEmpty(Mono.error(ApiExceptions.conflict("Pick a game first — or wait for this one to end")))
+                        .flatMap(game -> {
+                            var fresh = people.stream().distinct().filter(p -> !game.playerIds().contains(p)).toList();
+                            if (game.players() + fresh.size() > game.seats()) {
+                                return Mono.error(ApiExceptions.conflict(
+                                        game.seats() - game.players() <= 0 ? "Every seat is taken"
+                                                : "Only " + (game.seats() - game.players()) + " more can play"));
+                            }
+                            return Flux.fromIterable(fresh)
+                                    .concatMap(p -> huuds.membership(id, p).filter(HuudSpaceService.Membership::in)
+                                            .switchIfEmpty(Mono.error(ApiExceptions.badRequest("Players have to be in the Huud")))
+                                            .then(rooms.join(game.code(), p, null))
+                                            .then(huuds.request(id, p, "play").filter("pending"::equals)
+                                                    .flatMap(q -> huuds.answerRow(id, p, "play", true)))
+                                            .doOnSuccess(v -> huuds.notify(p, id, "picked", host)))
+                                    .then();
+                        })
+                        .doOnSuccess(v -> huuds.notifyMembers(id, "game", host)))
+                .then(huuds.view(id, host));
+    }
+
+    /** Host only: free someone's seat before the game starts. */
+    public Mono<HuudSpaceView> unpick(UUID host, UUID id, UUID player) {
+        return huuds.requireHost(id, host)
+                .flatMap(s -> huuds.currentGame(s.currentRoomId(), host)
+                        .switchIfEmpty(Mono.error(ApiExceptions.conflict("There's no game to change")))
+                        .flatMap(game -> db.sql("SELECT host_id FROM rooms WHERE id=:id").bind("id", game.roomId())
+                                .map((r, m) -> r.get("host_id", UUID.class)).one()
+                                .flatMap(roomHost -> rooms.removeFromLobby(game.roomId(), roomHost, player)))
+                        .doOnSuccess(v -> {
+                            huuds.notify(player, id, "unpicked", host);
+                            huuds.notifyMembers(id, "game", host);
+                        }))
                 .then(huuds.view(id, host));
     }
 

@@ -8,6 +8,7 @@ import 'package:http/testing.dart';
 import 'package:truearena/core/api_client.dart';
 import 'package:truearena/core/app_state.dart';
 import 'package:truearena/core/models.dart';
+import 'package:truearena/features/lobby/joined_room_screen.dart';
 import 'package:truearena/features/huudspace/create_huud_sheet.dart';
 import 'package:truearena/features/huudspace/huud_home_screen.dart';
 import 'package:truearena/features/huudspace/huud_space_models.dart';
@@ -608,6 +609,91 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('swipe-enter-h2')));
     await tester.pump();
     expect(calls.where((c) => c.startsWith('POST /api/v1/huud-spaces/h2/join')), hasLength(1));
+  });
+
+  testWidgets('everyone in the Huud is listed and the host taps who plays; Cyber Agent is the only button',
+      (tester) async {
+    final calls = await pump(
+        tester,
+        const HuudSpaceScreen(id: 'h1'),
+        (r) async => _json(_huud(game: {
+              'roomId': 'room1',
+              'code': 'AB12CD',
+              'gameType': 'whot',
+              'status': 'waiting',
+              'players': 2,
+              'seats': 4,
+              'playerIds': ['me', 'ada'],
+              'readyIds': ['ada'],
+              'youArePlaying': true,
+              'table': [
+                {'userId': 'me', 'displayName': 'Eric', 'bot': false, 'ready': false},
+                {'userId': 'ada', 'displayName': 'Ada Obi', 'bot': false, 'ready': true},
+              ],
+            })));
+    await tester.drag(find.byType(CustomScrollView).first, const Offset(0, -400));
+    await tester.pumpAndSettle();
+    expect(find.text("Who's playing?"), findsOneWidget);
+    expect(find.text('2 / 4 playing'), findsOneWidget);
+    expect(find.text('✅ Ready'), findsOneWidget);
+    expect(find.text('👑 Host'), findsOneWidget);
+    expect(find.text('👀 Watching'), findsOneWidget); // Chidi
+    expect(find.byKey(const ValueKey('huud-add-players')), findsNothing);
+    expect(find.byKey(const ValueKey('roster-add-agent')), findsOneWidget);
+    expect(find.text('Open the game to start'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('roster-chidi')));
+    await tester.pumpAndSettle();
+    expect(calls, contains('POST /api/v1/huud-spaces/h1/game/players {"userIds":["chidi"]}'));
+
+    await tester.tap(find.byKey(const ValueKey('roster-ada')));
+    await tester.pumpAndSettle();
+    expect(calls, contains('DELETE /api/v1/huud-spaces/h1/game/players/ada'));
+  });
+
+  testWidgets('the game lobby of a Huud game lists the Huud instead of a room code', (tester) async {
+    await pump(
+        tester,
+        const JoinedRoomScreen(
+            room: RoomView(id: 'room1', code: 'AB12CD', hostId: 'me', status: 'lobby', gameType: 'whot', members: [
+          RoomMember(userId: 'me', nickname: 'Eric', ready: false, connected: true),
+        ])),
+        (r) async => r.url.path == '/api/v1/huud-spaces/by-room/room1'
+            ? _json(_huud(game: {'roomId': 'room1', 'gameType': 'whot', 'status': 'waiting', 'players': 1, 'seats': 4}))
+            : http.Response('', 200),
+        settle: false);
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.byKey(const ValueKey('lobby-roster')), findsOneWidget);
+    expect(find.text('AB12CD'), findsNothing);
+    expect(find.text('👀 Watching'), findsNWidgets(2)); // Ada and Chidi
+    expect(find.text('Ready up'), findsOneWidget);
+    expect(find.text('Start'), findsOneWidget);
+  });
+
+  testWidgets('a picked player is told to open the game and ready up', (tester) async {
+    await pump(
+        tester,
+        const HuudSpaceScreen(id: 'h1'),
+        (r) async => _json(_huud(host: false, game: {
+              'roomId': 'room1',
+              'code': 'AB12CD',
+              'gameType': 'whot',
+              'status': 'waiting',
+              'players': 2,
+              'seats': 4,
+              'playerIds': ['ada', 'me'],
+              'readyIds': <String>[],
+              'youArePlaying': true,
+              'table': [
+                {'userId': 'ada', 'displayName': 'Ada', 'ready': false},
+                {'userId': 'me', 'displayName': 'Eric', 'ready': false},
+              ],
+            })));
+    expect(find.text('Open the game & ready up'), findsOneWidget);
+    expect(find.byKey(const ValueKey('huud-add-players')), findsNothing);
+    expect(find.byKey(const ValueKey('unseat-ada')), findsNothing);
   });
 
   test('privacy reads in kid-sized words and dates read like people talk', () {

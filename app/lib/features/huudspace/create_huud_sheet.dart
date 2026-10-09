@@ -101,7 +101,7 @@ class _CreateHuudSheetState extends State<CreateHuudSheet> {
         padding: EdgeInsets.fromLTRB(20, 0, 20, 16 + MediaQuery.viewInsetsOf(context).bottom),
         child: SingleChildScrollView(
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            const Text('🎉', textAlign: TextAlign.center, style: TextStyle(fontSize: 44)),
+            Center(child: Image.asset(huudIcon, width: 72, height: 72)),
             const SizedBox(height: 4),
             Text('Make a Huud',
                 textAlign: TextAlign.center, style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: n.ink)),
@@ -174,7 +174,8 @@ class _CreateHuudSheetState extends State<CreateHuudSheet> {
             HuudButton(
               key: const ValueKey('huud-create'),
               label: 'Make my Huud',
-              icon: Icons.celebration_rounded,
+              icon: Icons.add_rounded,
+              image: huudIcon,
               big: true,
               expand: true,
               busy: _busy,
