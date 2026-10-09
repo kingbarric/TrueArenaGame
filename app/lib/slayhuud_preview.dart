@@ -7,6 +7,7 @@ import 'package:http/testing.dart';
 import 'core/api_client.dart';
 import 'core/app_state.dart';
 import 'features/slayhuud/slay_hub_screen.dart';
+import 'features/games/game_select_screen.dart';
 import 'theme/neon_theme.dart';
 
 Future<void> main() async {
@@ -125,5 +126,7 @@ Future<void> main() async {
               location: BannerLocation.topEnd,
               color: NeonColors.dark.brand,
               child: child!),
-          home: const SlayHubScreen())));
+          home: const GameSelectScreen(),
+          initialRoute: '/slayhuud',
+          routes: {'/slayhuud': (_) => const SlayHubScreen()})));
 }

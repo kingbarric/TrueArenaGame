@@ -55,6 +55,7 @@ class GameBadge extends StatelessWidget {
     'whot': 'assets/images/game_icons/whot.png',
     'ludo': 'assets/images/game_icons/ludo.png',
     'chess': 'assets/images/game_icons/chess.png',
+    'slayhuud': 'assets/images/game_icons/slayhuud.png',
   };
 
   static String? artworkFor(String gameId) => _artwork[gameId];

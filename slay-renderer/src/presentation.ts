@@ -20,7 +20,13 @@ export function presentBody(body: Object3D, skinTone: string, hiddenRegions: Set
     const materials: Material[] = Array.isArray(object.material) ? object.material : [object.material];
     for (const material of materials) {
       const colour = (material as Material & {color?: Color}).color;
-      colour?.set(skinTone);
+      // Baked skin already contains its base colour. Multiplying it by a
+      // second dark brown makes the face nearly black; tint relative to the
+      // source skin's tone instead, while keeping its facial detail.
+      if ((material as Material & {map?: unknown}).map) {
+        const chosen = new Color(skinTone), base = new Color('#623a27');
+        colour?.setRGB(chosen.r / base.r, chosen.g / base.g, chosen.b / base.b);
+      } else colour?.set(skinTone);
     }
   });
 }

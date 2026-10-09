@@ -21,6 +21,7 @@ import '../profile/profile_screen.dart';
 import '../wordbluff/wordbluff_lobby_screen.dart';
 import '../whot/whot_lobby_screen.dart';
 import '../ludo/ludo_lobby_screen.dart';
+import '../slayhuud/slay_hub_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -158,10 +159,10 @@ class HomeScreen extends StatelessWidget {
                   runSpacing: 12,
                   alignment: WrapAlignment.center,
                   children: [
-                for (final game in gameCatalog)
-                  SizedBox(
-                      width: tileWidth, child: _gameTile(context, n, game)),
-              ]);
+                    for (final game in gameCatalog)
+                      SizedBox(
+                          width: tileWidth, child: _gameTile(context, n, game)),
+                  ]);
             }),
           ),
           if (app.activeRoomId != null) ...[
@@ -288,16 +289,18 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  /// Same tap behavior as `GameSelectScreen`'s tiles — duplicated rather than
-  /// shared because it's four lines and pulling it into a third place would
-  /// cost more than it saves.
+  /// Opens the same destination as the game picker.
   Future<void> _openGame(BuildContext context, GameCatalogEntry g) async {
     if (!g.available) {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('${g.name} is coming soon')));
       return;
     }
-    if (g.id == 'draughts') {
+    if (g.id == 'slayhuud') {
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => const SlayHubScreen(),
+      ));
+    } else if (g.id == 'draughts') {
       Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => const DraughtsModeScreen(),
       ));

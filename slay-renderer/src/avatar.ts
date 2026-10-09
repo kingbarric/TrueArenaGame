@@ -49,10 +49,12 @@ export class Wardrobe {
   root=new T.Group();private body?:T.Group;private bodyKey='';private equipped=new Map<string,{id:string,root:T.Group}>();
   private revision=0;private loader:GLTFLoader;private ktx:KTX2Loader;private mixer?:T.AnimationMixer;private clips:T.AnimationClip[]=[];
   private bones=new Map<string,T.Bone>();
+  private assetVersion=0;
   constructor(renderer:T.WebGLRenderer){this.ktx=new KTX2Loader().setTranscoderPath('basis/').detectSupport(renderer);this.loader=new GLTFLoader().setKTX2Loader(this.ktx).setMeshoptDecoder(MeshoptDecoder);}
-  private async load(url:string){const address=new URL(url,location.href);if(address.protocol!=='https:' && address.origin!==location.origin)throw Error('Asset URL must be HTTPS or bundled');const bytes=await assetBytes(address.href);return this.loader.parseAsync(bytes,new URL('.',address).href);}
+  private async load(url:string){const address=new URL(url,location.href);if(address.protocol!=='https:' && address.origin!==location.origin)throw Error('Asset URL must be HTTPS or bundled');address.searchParams.set('catalogVersion',String(this.assetVersion));const bytes=await assetBytes(address.href);return this.loader.parseAsync(bytes,new URL('.',address).href);}
   async apply(look:Look,catalog:Catalog){
     const version=++this.revision;
+    this.assetVersion=catalog.version;
     const avatar=catalog.avatars.find(a=>a.body===look.body);if(!avatar)throw Error('Unknown avatar');
     if(this.bodyKey!==look.body+':'+avatar.assetUrl){
       if(!avatar.assetUrl&&!catalog.developmentAssets)throw Error('Missing production avatar asset');

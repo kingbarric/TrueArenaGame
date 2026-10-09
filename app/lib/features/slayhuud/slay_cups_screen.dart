@@ -3,6 +3,7 @@ import '../../core/app_state.dart';
 import 'slay_theme.dart';
 import '../../theme/neon_theme.dart';
 import 'slay_competition_screen.dart';
+import 'slay_game_menu.dart';
 
 class SlayCupsScreen extends StatefulWidget {
   const SlayCupsScreen({super.key});
@@ -172,7 +173,11 @@ class _SlayCupsScreenState extends State<SlayCupsScreen> {
       data: slayTheme(context),
       child: Builder(
           builder: (context) => Scaffold(
-              appBar: AppBar(title: const Text('Fashion Cups')),
+              appBar: AppBar(title: const Text('Fashion Cups'), actions: [
+                SlayGameMenu(
+                    onExit: () => leaveSlayScreen(context),
+                    exitLabel: 'Back to SlayHuud')
+              ]),
               body: RefreshIndicator(
                   onRefresh: _load,
                   child: ListView(padding: const EdgeInsets.all(20), children: [

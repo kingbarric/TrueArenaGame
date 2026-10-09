@@ -7,6 +7,7 @@ import 'slay_models.dart';
 import 'slay_stage.dart';
 import 'slay_theme.dart';
 import '../../theme/neon_theme.dart';
+import 'slay_game_menu.dart';
 
 class SlayStudioScreen extends StatefulWidget {
   const SlayStudioScreen(
@@ -104,7 +105,7 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
   }
 
   String get _draftKey =>
-      'slay-draft-${AppScope.of(context).user?.id}-${widget.initialBody}';
+      'slay-draft-${AppScope.of(context).user?.id}-${_look.body}';
   Future<void> _restore() async {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
@@ -113,7 +114,13 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
     try {
       final look =
           SlayLook.fromJson(Map<String, dynamic>.from(jsonDecode(raw)));
-      if (look.body == widget.initialBody && mounted) {
+      final available = (widget.catalog['items'] as List)
+          .where((item) => item['assetUrl'] != null)
+          .map((item) => item['id'])
+          .toSet();
+      if (look.body == _look.body &&
+          look.items.values.every(available.contains) &&
+          mounted) {
         setState(() => _look = look);
       }
     } catch (_) {}
@@ -249,21 +256,25 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
         final items = (widget.catalog['items'] as List)
             .cast<Map>()
             .where((i) =>
+                i['assetUrl'] != null &&
                 i['category'] == _category &&
                 (i['body'] == 'unisex' || i['body'] == _look.body))
             .toList();
         return Scaffold(
-            appBar: AppBar(title: const Text('The studio'), actions: [
-              IconButton(
-                  tooltip: 'Challenge brief',
-                  onPressed: _brief,
-                  icon: const Icon(Icons.info_outline)),
+            appBar: AppBar(title: const Text('Your studio'), actions: [
               Padding(
                   padding: const EdgeInsets.only(right: 16),
                   child: Center(
                       child: SlayLabel(widget.deadline == null
                           ? 'Practice look'
-                          : _timeLeft)))
+                          : _timeLeft))),
+              SlayGameMenu(
+                  onBrief: _brief,
+                  onReset: _busy
+                      ? null
+                      : () => _change(SlayLook.initial(_look.body)),
+                  exitLabel: 'Back to SlayHuud',
+                  onExit: () => leaveSlayScreen(context)),
             ]),
             body:
                 SafeArea(child: LayoutBuilder(builder: (context, constraints) {
@@ -304,7 +315,11 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                             },
                             onSelectionChanged: _busy
                                 ? null
-                                : (v) => _change(SlayLook.initial(v.first)))
+                                : (v) {
+                                    setState(() =>
+                                        _look = SlayLook.initial(v.first));
+                                    _restore();
+                                  })
                     ])),
                 SizedBox(
                     height: stageHeight,
@@ -363,14 +378,16 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                               onPressed: () => _customise()),
                           const SizedBox(width: 8),
                           ActionChip(
-                              label: Text(_look.pose),
+                              label: Text(_look.pose[0].toUpperCase() +
+                                  _look.pose.substring(1)),
                               avatar:
                                   const Icon(Icons.accessibility_new, size: 16),
                               onPressed: () =>
                                   _pick('pose', widget.catalog['poses'])),
                           const SizedBox(width: 8),
                           ActionChip(
-                              label: Text(_look.background),
+                              label: Text(_look.background[0].toUpperCase() +
+                                  _look.background.substring(1)),
                               avatar: const Icon(Icons.landscape_outlined,
                                   size: 16),
                               onPressed: () => _pick(
@@ -384,6 +401,7 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                         children: [
                           for (final c in _categories.entries.where((c) =>
                               (widget.catalog['items'] as List).any((i) =>
+                                  i['assetUrl'] != null &&
                                   i['category'] == c.key &&
                                   (i['body'] == 'unisex' ||
                                       i['body'] == _look.body))))
@@ -435,8 +453,9 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                                             child: Center(
                                                 child: item['thumbnailUrl'] !=
                                                         null
-                                                    ? Image.network(
-                                                        item['thumbnailUrl'])
+                                                    ? SlayThumbnail(
+                                                        url: item[
+                                                            'thumbnailUrl'])
                                                     : Icon(
                                                         _category == 'hair'
                                                             ? Icons.face
@@ -494,25 +513,28 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                     child: SizedBox(
                         width: double.infinity,
-                        child: FilledButton.icon(
-                            onPressed: _busy ||
-                                    (widget.deadline != null &&
-                                        !DateTime.now()
-                                            .isBefore(widget.deadline!))
-                                ? null
-                                : _submit,
-                            icon: _busy
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2))
-                                : const Icon(Icons.auto_awesome, size: 18),
-                            label: Text(_busy
-                                ? 'Saving your look…'
-                                : widget.competitionId == null
-                                    ? 'Submit & see my score'
-                                    : 'Submit this look')))),
+                        child: ValueListenableBuilder<bool>(
+                            valueListenable: _stage.ready,
+                            builder: (context, ready, _) => FilledButton.icon(
+                                onPressed: _busy ||
+                                        !ready ||
+                                        (widget.deadline != null &&
+                                            !DateTime.now()
+                                                .isBefore(widget.deadline!))
+                                    ? null
+                                    : _submit,
+                                icon: _busy
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2))
+                                    : const Icon(Icons.auto_awesome, size: 18),
+                                label: Text(_busy
+                                    ? 'Saving your look…'
+                                    : widget.competitionId == null
+                                        ? 'Submit & see my score'
+                                        : 'Submit this look'))))),
               ]);
             })));
       }));
@@ -524,7 +546,8 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                 child: Wrap(children: [
               for (final option in options)
                 ListTile(
-                    title: Text(option.toString()),
+                    title: Text(option.toString()[0].toUpperCase() +
+                        option.toString().substring(1)),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => Navigator.pop(c, option))
             ])));

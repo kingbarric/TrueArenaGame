@@ -17,7 +17,7 @@ class SlayLook {
       items: {
         'outfit': '$body-essential',
         'hair': '$body-hair-0',
-        'shoes': 'shoe-0'
+        'shoes': 'shoe-1'
       },
       pose: 'signature',
       background: 'studio');

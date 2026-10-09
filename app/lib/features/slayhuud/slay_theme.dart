@@ -6,11 +6,11 @@ import '../../widgets/neon.dart';
 ThemeData slayTheme(BuildContext context) => Theme.of(context).copyWith(
       textTheme: Theme.of(context).textTheme.copyWith(
             displaySmall: Theme.of(context).textTheme.displaySmall?.copyWith(
-                fontSize: 32, height: 1.12, fontWeight: FontWeight.w800),
+                fontSize: 28, height: 1.12, fontWeight: FontWeight.w800),
             headlineMedium: Theme.of(context)
                 .textTheme
                 .headlineMedium
-                ?.copyWith(fontSize: 26, fontWeight: FontWeight.w800),
+                ?.copyWith(fontSize: 22, fontWeight: FontWeight.w800),
           ),
       filledButtonTheme: FilledButtonThemeData(
           style: FilledButton.styleFrom(
@@ -97,4 +97,19 @@ class SlayImage extends StatelessWidget {
                                   value: 'block', child: Text('Block player')),
                           ]))),
       ]);
+}
+
+/// Catalogue artwork may be bundled with the renderer or served by a CDN.
+class SlayThumbnail extends StatelessWidget {
+  const SlayThumbnail({super.key, required this.url});
+  final String url;
+  @override
+  Widget build(BuildContext context) {
+    Widget fallback(BuildContext c, Object e, StackTrace? s) =>
+        Icon(Icons.checkroom_rounded, color: c.neon.mute, size: 32);
+    return url.startsWith('assets/')
+        ? Image.asset('assets/slay_renderer/$url',
+            fit: BoxFit.contain, errorBuilder: fallback)
+        : Image.network(url, fit: BoxFit.contain, errorBuilder: fallback);
+  }
 }

@@ -7,6 +7,7 @@ import 'slay_models.dart';
 import 'slay_theme.dart';
 import '../../theme/neon_theme.dart';
 import 'slay_studio_screen.dart';
+import 'slay_game_menu.dart';
 
 class SlayCompetitionScreen extends StatefulWidget {
   const SlayCompetitionScreen({super.key, this.competitionId, this.roomId})
@@ -299,7 +300,10 @@ class _SlayCompetitionScreenState extends State<SlayCompetitionScreen>
                             const SnackBar(content: Text('Room code copied')));
                       },
                       icon: const Icon(Icons.copy, size: 15),
-                      label: Text(_state!['roomCode']))
+                      label: Text(_state!['roomCode'])),
+                SlayGameMenu(
+                    onExit: () => leaveSlayScreen(context),
+                    exitLabel: 'Back to SlayHuud'),
               ]),
               body: SafeArea(
                   child: _state == null
@@ -357,7 +361,7 @@ class _SlayCompetitionScreenState extends State<SlayCompetitionScreen>
                             const SizedBox(height: 20),
                             Center(
                                 child: Text(
-                                    'Development catalogue · matches are unranked',
+                                    'Practice competition · Slay rating stays unchanged',
                                     style: TextStyle(
                                         fontSize: 11,
                                         color: context.neon.mute)))

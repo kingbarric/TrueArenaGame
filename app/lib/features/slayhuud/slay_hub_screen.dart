@@ -8,6 +8,7 @@ import '../../theme/neon_theme.dart';
 import 'slay_studio_screen.dart';
 import 'slay_competition_screen.dart';
 import 'slay_cups_screen.dart';
+import 'slay_game_menu.dart';
 
 class SlayHubScreen extends StatefulWidget {
   const SlayHubScreen({super.key});
@@ -186,7 +187,8 @@ class _SlayHubScreenState extends State<SlayHubScreen> {
                               MaterialPageRoute(
                                   builder: (_) => const LeaderboardScreen(
                                       gameType: 'slayhuud'))),
-                          icon: const Icon(Icons.leaderboard_outlined))
+                          icon: const Icon(Icons.leaderboard_outlined)),
+                      SlayGameMenu(onExit: () => leaveSlayScreen(context)),
                     ]),
                 body: _loading
                     ? const Center(child: CircularProgressIndicator())
@@ -209,12 +211,12 @@ class _SlayHubScreenState extends State<SlayHubScreen> {
                             onRefresh: _load,
                             child: ListView(
                                 padding:
-                                    const EdgeInsets.fromLTRB(20, 8, 20, 32),
+                                    const EdgeInsets.fromLTRB(16, 4, 16, 24),
                                 children: [
                                   Row(children: [
                                     const Expanded(
                                         child: SlayLabel(
-                                            'Style is your signature')),
+                                            'Your fashion playground')),
                                     Container(
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 12, vertical: 6),
@@ -228,17 +230,15 @@ class _SlayHubScreenState extends State<SlayHubScreen> {
                                                 fontSize: 11)))
                                   ]),
                                   const SizedBox(height: 12),
-                                  Text(
-                                      'Dress for the moment.\nOwn the spotlight.',
+                                  Text('Ready to slay?',
                                       style: Theme.of(context)
                                           .textTheme
                                           .displaySmall),
                                   const SizedBox(height: 10),
-                                  Text(
-                                      'Your wardrobe. Your creativity. Your next win.',
+                                  Text('Style a look. Enter a challenge. Vote.',
                                       style:
                                           TextStyle(color: context.neon.mute)),
-                                  const SizedBox(height: 24),
+                                  const SizedBox(height: 14),
                                   Row(children: [
                                     for (final stat in {
                                       'Slay rating': _profile!['competitive']
@@ -254,25 +254,37 @@ class _SlayHubScreenState extends State<SlayHubScreen> {
                                           child: Padding(
                                               padding: const EdgeInsets.only(
                                                   right: 8),
-                                              child: SlayPanel(
-                                                  padding:
-                                                      const EdgeInsets.all(12),
+                                              child: Container(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                      horizontal: 10,
+                                                      vertical: 10),
+                                                  decoration: BoxDecoration(
+                                                      color: context.neon.panel,
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              14)),
                                                   child: Column(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
                                                       children: [
-                                                        SlayLabel(stat.key),
-                                                        const SizedBox(
-                                                            height: 5),
                                                         Text(stat.value,
-                                                            style: Theme.of(
-                                                                    context)
-                                                                .textTheme
-                                                                .titleLarge)
+                                                            style: const TextStyle(
+                                                                fontSize: 16,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w800)),
+                                                        const SizedBox(
+                                                            height: 3),
+                                                        Text(stat.key,
+                                                            style: TextStyle(
+                                                                fontSize: 10,
+                                                                color: context
+                                                                    .neon
+                                                                    .mute)),
                                                       ])))),
                                   ]),
-                                  const SizedBox(height: 20),
+                                  const SizedBox(height: 14),
                                   SlayPanel(
                                       padding: EdgeInsets.zero,
                                       child: Column(children: [
@@ -288,7 +300,7 @@ class _SlayHubScreenState extends State<SlayHubScreen> {
                                                   color: context.neon.gold)
                                             ])),
                                         SizedBox(
-                                            height: 270,
+                                            height: 260,
                                             child: ClipRRect(
                                                 borderRadius:
                                                     const BorderRadius.vertical(
@@ -296,13 +308,7 @@ class _SlayHubScreenState extends State<SlayHubScreen> {
                                                             Radius.circular(0)),
                                                 child: SlayStage(
                                                     catalog: _catalog!,
-                                                    look: SlayLook.initial().equip(
-                                                        Map<String, dynamic>.from(
-                                                            (_catalog!['items']
-                                                                    as List)
-                                                                .firstWhere((i) =>
-                                                                    i['id'] ==
-                                                                    'female-owambe'))),
+                                                    look: SlayLook.initial(),
                                                     controller: _stage))),
                                         Padding(
                                             padding: const EdgeInsets.all(18),
@@ -313,24 +319,26 @@ class _SlayHubScreenState extends State<SlayHubScreen> {
                                                           CrossAxisAlignment
                                                               .start,
                                                       children: [
-                                                    Text('The Owambe edit',
+                                                    Text('Make it yours',
                                                         style: Theme.of(context)
                                                             .textTheme
                                                             .titleLarge),
                                                     const SizedBox(height: 4),
                                                     Text(
-                                                        'Gold details. A memorable entrance.',
+                                                        'Outfits, hair and a full 360° view.',
                                                         style: TextStyle(
                                                             fontSize: 12,
                                                             color: context
                                                                 .neon.mute))
                                                   ])),
                                               FilledButton(
-                                                  onPressed: () => _studio(
-                                                      Map<String, dynamic>.from(
-                                                          (_catalog!['themes']
-                                                                  as List)
-                                                              .first)),
+                                                  onPressed: () => _studio(Map<
+                                                          String, dynamic>.from(
+                                                      (_catalog!['themes']
+                                                              as List)
+                                                          .firstWhere((t) =>
+                                                              t['id'] ==
+                                                              'first-date'))),
                                                   child: const Text(
                                                       'Style a look'))
                                             ])),
@@ -342,7 +350,7 @@ class _SlayHubScreenState extends State<SlayHubScreen> {
                                             style: Theme.of(context)
                                                 .textTheme
                                                 .headlineMedium)),
-                                    const SlayLabel('4 ways to slay')
+                                    const SlayLabel('Choose how to play')
                                   ]),
                                   const SizedBox(height: 14),
                                   LayoutBuilder(
@@ -352,8 +360,8 @@ class _SlayHubScreenState extends State<SlayHubScreen> {
                                               children: [
                                                 _mode(
                                                     size.maxWidth,
-                                                    'Style challenges',
-                                                    'Find your signature. Earn stars.',
+                                                    'Solo challenges',
+                                                    'Play at your pace. Earn stars.',
                                                     Icons.auto_awesome_outlined,
                                                     context.neon.gold
                                                         .withValues(alpha: .12),
@@ -361,15 +369,15 @@ class _SlayHubScreenState extends State<SlayHubScreen> {
                                                 _mode(
                                                     size.maxWidth,
                                                     'Style Battle',
-                                                    'One theme. Two unforgettable looks.',
+                                                    'Challenge one other stylist.',
                                                     Icons.bolt_outlined,
                                                     context.neon.brand
                                                         .withValues(alpha: .12),
                                                     () => _create('battle')),
                                                 _mode(
                                                     size.maxWidth,
-                                                    'Group competition',
-                                                    'Make your look the favourite.',
+                                                    'Group challenge',
+                                                    'Style together. Vote for the best.',
                                                     Icons.groups_outlined,
                                                     context.neon.jade
                                                         .withValues(alpha: .12),
@@ -377,7 +385,7 @@ class _SlayHubScreenState extends State<SlayHubScreen> {
                                                 _mode(
                                                     size.maxWidth,
                                                     'Slay or Pass',
-                                                    'New themes. Judges. One winner.',
+                                                    'Judges vote. One stylist wins.',
                                                     Icons
                                                         .local_fire_department_outlined,
                                                     context.neon.brand
@@ -499,10 +507,13 @@ class _SlayHubScreenState extends State<SlayHubScreen> {
                                                         size: 18)
                                                   ]))))
                                   ],
-                                  const SizedBox(height: 26),
-                                  const Center(
-                                      child: SlayLabel(
-                                          'Style · compete · collect · belong')),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                      'New cultural outfits are coming. Themes are available now; the wardrobe grows as new designs are added.',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                          color: context.neon.mute,
+                                          fontSize: 11)),
                                 ])),
               )));
   Widget _mode(double width, String title, String subtitle, IconData icon,
@@ -514,9 +525,11 @@ class _SlayHubScreenState extends State<SlayHubScreen> {
               borderRadius: BorderRadius.circular(20),
               child: Container(
                   padding: const EdgeInsets.all(16),
-                  constraints: const BoxConstraints(minHeight: 155),
+                  constraints: const BoxConstraints(minHeight: 130),
                   decoration: BoxDecoration(
-                      color: colour, borderRadius: BorderRadius.circular(20)),
+                      color: context.neon.panel,
+                      border: Border.all(color: context.neon.line),
+                      borderRadius: BorderRadius.circular(20)),
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -526,7 +539,7 @@ class _SlayHubScreenState extends State<SlayHubScreen> {
                           Icon(Icons.north_east,
                               size: 16, color: context.neon.mute)
                         ]),
-                        const SizedBox(height: 22),
+                        const SizedBox(height: 14),
                         Text(title,
                             style: const TextStyle(
                                 fontSize: 15, fontWeight: FontWeight.w600)),

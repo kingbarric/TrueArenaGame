@@ -34,7 +34,12 @@ class GameCatalogEntry {
 }
 
 const List<GameCatalogEntry> gameCatalog = [
-  GameCatalogEntry(id: 'slayhuud', name: 'SlayHuud', emoji: '✨', tagline: 'Style · compete · own the spotlight', available: true),
+  GameCatalogEntry(
+      id: 'slayhuud',
+      name: 'SlayHuud',
+      emoji: '✨',
+      tagline: 'Style · compete · own the spotlight',
+      available: true),
   GameCatalogEntry(
     id: 'truearena',
     name: 'Traitors',
@@ -119,7 +124,8 @@ class GameSelectScreen extends StatelessWidget {
                   return;
                 }
                 if (g.id == 'slayhuud') {
-                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SlayHubScreen()));
+                  Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const SlayHubScreen()));
                 } else if (g.id == 'draughts') {
                   Navigator.of(context).push(MaterialPageRoute(
                     builder: (_) => const DraughtsModeScreen(),
@@ -156,12 +162,16 @@ class GameSelectScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(g.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: Theme.of(context)
                               .textTheme
                               .titleMedium
                               ?.copyWith(color: g.available ? n.ink : n.mute)),
                       const SizedBox(height: 4),
                       Text(g.tagline,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                           style: Theme.of(context)
                               .textTheme
                               .labelSmall

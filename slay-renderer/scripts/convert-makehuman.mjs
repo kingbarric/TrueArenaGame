@@ -8,14 +8,15 @@
  */
 import {mkdirSync, readFileSync, writeFileSync, readdirSync, copyFileSync} from 'node:fs';
 import {dirname, resolve} from 'node:path';
+import {execFileSync} from 'node:child_process';
 
 const root = resolve(new URL('..', import.meta.url).pathname);
 const source = process.argv[2] ? resolve(process.argv[2]) : resolve(root, 'source_assets/makehuman/starter');
 const output = process.argv[3] ? resolve(process.argv[3]) : resolve(root, '../app/assets/slay_renderer/assets');
-const scale = 1.8 / 16.044; // Both chosen proxy meshes are just over 16 MakeHuman units tall.
+const scale = 1.8 / 16.044; // Female height is 1.8 m; the matching male body is taller.
 const bodySources = {
   female: {obj: 'proxymeshes/female1605/female1605.obj', texture: 'skins/young_african_female/young_darkskinned_female_diffuse.png'},
-  male: {obj: 'proxymeshes/male1591/male1591.obj', texture: 'skins/young_african_male/young_darkskinned_male_diffuse.png'},
+  male: {obj: 'proxymeshes/male_generic/male_generic.obj', texture: 'skins/young_african_male/young_darkskinned_male_diffuse.png'},
 };
 const assets = {
   'female-essential': ['female', 'clothes/aethelraed_flapper_dress/flapper_dress_1.obj', 'clothes/aethelraed_flapper_dress/flapper_dress_green.png'],
@@ -39,7 +40,7 @@ const assets = {
   'shoe-1': ['unisex', 'clothes/shoes02/shoes02.obj', 'clothes/shoes02/shoes02_diffuse.png'],
 };
 
-function parseObj(path) {
+function parseObj(path, offset = [0, 0, 0]) {
   const positions = [], uvs = [], normals = [], faces = [];
   for (const line of readFileSync(path, 'utf8').split(/\r?\n/)) {
     const parts = line.trim().split(/\s+/);
@@ -51,20 +52,31 @@ function parseObj(path) {
       for (let i = 1; i < indexes.length - 1; i++) faces.push([indexes[0], indexes[i], indexes[i + 1]]);
     }
   }
-  const minY = Math.min(...positions.map(position => position[1]));
   const position = [], normal = [], uv = [];
-  const transform = value => [value[0] * scale, (value[1] - minY) * scale, value[2] * scale];
+  // Every garment shares the source body's origin. Grounding each garment
+  // individually moves hair to the feet and makes clothing miss its body.
+  const transform = value => [value[0] * scale + offset[0], (value[1] + 8.184) * scale + offset[1], value[2] * scale + offset[2]];
   const faceNormal = triangle => {
     const a = transform(positions[triangle[0][0] - 1]), b = transform(positions[triangle[1][0] - 1]), c = transform(positions[triangle[2][0] - 1]);
     const u = b.map((value, index) => value - a[index]), v = c.map((value, index) => value - a[index]);
     const cross = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
     const length = Math.hypot(...cross) || 1; return cross.map(value => value / length);
   };
+  const smooth = new Map();
+  for (const triangle of faces) {
+    const direction = faceNormal(triangle);
+    for (const [vertex] of triangle) {
+      const accumulated = smooth.get(vertex) ?? [0, 0, 0];
+      smooth.set(vertex, accumulated.map((value, axis) => value + direction[axis]));
+    }
+  }
   for (const triangle of faces) {
     const fallback = faceNormal(triangle);
     for (const [vertexIndex, uvIndex, normalIndex] of triangle) {
       position.push(...transform(positions[vertexIndex - 1]));
-      normal.push(...(normalIndex ? normals[normalIndex - 1] : fallback));
+      const direction = smooth.get(vertexIndex) ?? fallback;
+      const length = Math.hypot(...direction) || 1;
+      normal.push(...(normalIndex ? normals[normalIndex - 1] : direction.map(value => value / length)));
       uv.push(...(uvIndex ? uvs[uvIndex - 1] : [0, 0]));
     }
   }
@@ -96,6 +108,22 @@ function weights(position, hair) {
 }
 function mat4Translation([x, y, z]) { return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -x, -y, -z, 1]; }
 function align(length) { return Math.ceil(length / 4) * 4; }
+function indexed(mesh) {
+  const vertices = new Map(), position = [], normal = [], uv = [], indices = [];
+  for (let vertex = 0; vertex < mesh.position.length / 3; vertex++) {
+    const p = mesh.position.slice(vertex * 3, vertex * 3 + 3);
+    const n = mesh.normal.slice(vertex * 3, vertex * 3 + 3);
+    const t = mesh.uv.slice(vertex * 2, vertex * 2 + 2);
+    const key = [...p, ...n, ...t].join(',');
+    let index = vertices.get(key);
+    if (index === undefined) {
+      index = vertices.size; vertices.set(key, index);
+      position.push(...p); normal.push(...n); uv.push(...t);
+    }
+    indices.push(index);
+  }
+  return {position: new Float32Array(position), normal: new Float32Array(normal), uv: new Float32Array(uv), indices: new Uint32Array(indices)};
+}
 function selectTriangles(mesh, accepts) {
   const position = [], normal = [], uv = [];
   for (let offset = 0; offset < mesh.position.length; offset += 9) {
@@ -116,7 +144,9 @@ function encodeGlb(document, chunks) {
   return Buffer.concat([header, paddedJson, binHeader, binary]);
 }
 function convert({id, body, obj, texture, isAvatar}) {
-  const mesh = parseObj(resolve(source, obj)), isHair = id.includes('hair');
+  const isHair = id.includes('hair');
+  const headOffset = body === 'male' ? 1.4382 * scale : 0;
+  const mesh = parseObj(resolve(source, obj), [0, isHair ? headOffset : 0, 0]);
   const viewChunks = [], views = [], accessors = [];
   const add = (data, componentType, type, count, target) => {
     const buffer = Buffer.from(data.buffer, data.byteOffset, data.byteLength), offset = viewChunks.reduce((sum, value) => sum + align(value.length), 0);
@@ -130,35 +160,73 @@ function convert({id, body, obj, texture, isAvatar}) {
     ['region_legs', selectTriangles(mesh, position => position[1] <= .38)],
     ['region_torso', selectTriangles(mesh, position => position[1] > .68 && position[1] <= 1.43 && Math.abs(position[0]) <= .28)],
   ].filter(([, region]) => region.position.length) : [[id, mesh]];
+  if (isAvatar) {
+    // The eyes source uses a floor origin; the body/brows use a centred
+    // MakeHuman origin. Male garments fit the taller male_generic body.
+    const eyeOffset = body === 'male' ? -7.65 : -8.98;
+    const browOffset = body === 'male' ? .71 : -.62;
+    regions.push(['face_eyes', parseObj(resolve(source, 'eyes/high-poly/high-poly.obj'), [0, eyeOffset * scale, -.20 * scale])]);
+    regions.push(['face_brows', parseObj(resolve(source, 'eyebrows/eyebrow001/eyebrow001.obj'), [0, browOffset * scale, 0])]);
+  }
   const meshes = [], nodes = [];
-  for (const [name, region] of regions) {
+  for (const [name, rawRegion] of regions) {
+    const region = indexed(rawRegion);
     const positions = add(region.position, 5126, 'VEC3', region.position.length / 3, 34962);
+    accessors[positions].min = [0, 1, 2].map(axis => Math.min(...Array.from(region.position).filter((_, index) => index % 3 === axis)));
+    accessors[positions].max = [0, 1, 2].map(axis => Math.max(...Array.from(region.position).filter((_, index) => index % 3 === axis)));
     const normals = add(region.normal, 5126, 'VEC3', region.normal.length / 3, 34962);
     const uvs = add(region.uv, 5126, 'VEC2', region.uv.length / 2, 34962);
     const joints = new Uint16Array(region.position.length / 3 * 4), jointWeights = new Float32Array(region.position.length / 3 * 4);
     for (let vertex = 0; vertex < region.position.length / 3; vertex++) { joints.set(weights(region.position.slice(vertex * 3, vertex * 3 + 3), isHair), vertex * 4); jointWeights[vertex * 4] = 1; }
     const jointAccessor = add(joints, 5123, 'VEC4', joints.length / 4, 34962), weightAccessor = add(jointWeights, 5126, 'VEC4', jointWeights.length / 4, 34962);
-    const primitive = {attributes: {POSITION: positions, NORMAL: normals, TEXCOORD_0: uvs, JOINTS_0: jointAccessor, WEIGHTS_0: weightAccessor}, material: 0};
+    const indexAccessor = add(region.indices, 5125, 'SCALAR', region.indices.length, 34963);
+    const primitive = {attributes: {POSITION: positions, NORMAL: normals, TEXCOORD_0: uvs, JOINTS_0: jointAccessor, WEIGHTS_0: weightAccessor}, indices: indexAccessor, material: name === 'face_eyes' ? 1 : name === 'face_brows' ? 2 : 0};
     if (isAvatar && name === 'region_head') {
-      primitive.targets = ['face_classic', 'face_soft', 'face_angular', 'expression_smile'].map(() => ({POSITION: add(new Float32Array(region.position.length), 5126, 'VEC3', region.position.length / 3, 34962)}));
+      primitive.targets = ['face_classic', 'face_soft', 'face_angular', 'expression_smile'].map(name => {
+        const delta = new Float32Array(region.position.length);
+        for (let vertex = 0; vertex < region.position.length; vertex += 3) {
+          const [x, y, z] = region.position.slice(vertex, vertex + 3);
+          if (name === 'face_soft') delta[vertex] = x * .04;
+          if (name === 'face_angular' && y < 1.66) delta[vertex] = x * -.06;
+          if (name === 'expression_smile' && z > .08 && y > 1.58 && y < 1.67) delta[vertex + 1] = Math.min(.008, Math.abs(x) * .12);
+        }
+        const accessor = add(delta, 5126, 'VEC3', region.position.length / 3, 34962);
+        accessors[accessor].min = [0, 1, 2].map(axis => Math.min(...Array.from(delta).filter((_, index) => index % 3 === axis)));
+        accessors[accessor].max = [0, 1, 2].map(axis => Math.max(...Array.from(delta).filter((_, index) => index % 3 === axis)));
+        return {POSITION: accessor};
+      });
     }
     meshes.push({name, primitives: [primitive], ...(isAvatar && name === 'region_head' ? {extras: {targetNames: ['face_classic', 'face_soft', 'face_angular', 'expression_smile']}} : {})});
     nodes.push({name, mesh: meshes.length - 1, skin: 0});
   }
   const inverse = new Float32Array(worldPositions.cache.flatMap(mat4Translation)); const inverseAccessor = add(inverse, 5126, 'MAT4', bones.length);
-  const image = readFileSync(resolve(source, texture));
-  const imageOffset = viewChunks.reduce((sum, value) => sum + align(value.length), 0); views.push({buffer: 0, byteOffset: imageOffset, byteLength: image.length}); viewChunks.push(image);
+  const textures = isAvatar ? [texture, 'eyes/materials/brown_eye.png', 'eyebrows/eyebrow001/eyebrow001.png'] : [texture];
+  const images = textures.map(texture => {
+    // Cache mobile-sized textures without altering the downloaded sources.
+    const texturePath = resolve(source, texture);
+    const optimisedPath = resolve(source, '.mobile-textures', texture);
+    mkdirSync(dirname(optimisedPath), {recursive: true});
+    if (process.platform === 'darwin') {
+      execFileSync('sips', ['--resampleHeightWidthMax', '1024', texturePath, '--out', optimisedPath], {stdio: 'ignore'});
+    } else copyFileSync(texturePath, optimisedPath);
+    const image = readFileSync(optimisedPath);
+    const byteOffset = viewChunks.reduce((sum, value) => sum + align(value.length), 0);
+    views.push({buffer: 0, byteOffset, byteLength: image.length}); viewChunks.push(image);
+    return {bufferView: views.length - 1, mimeType: 'image/png'};
+  });
   const firstBone = nodes.length;
   bones.forEach(([name, parent, translation], index) => nodes.push({name, translation, ...(parent >= 0 ? {} : {children: []})}));
   bones.forEach(([, parent], index) => { if (parent >= 0) (nodes[firstBone + parent].children ??= []).push(firstBone + index); });
-  const rotations = {idle: [0, 0, 0, 1], signature: [0, 0, .2, .98], confident: [0, 0, -.15, .99], editorial: [0, .1, -.12, .99], celebrate: [0, 0, .55, .83]};
+  const rotations = {idle: [0, 0, 0, 1], signature: [0, .08, 0, Math.sqrt(1 - .08 ** 2)], confident: [0, -.06, 0, Math.sqrt(1 - .06 ** 2)], editorial: [0, .14, 0, Math.sqrt(1 - .14 ** 2)], celebrate: [0, -.1, 0, Math.sqrt(1 - .1 ** 2)]};
   const animations = Object.entries(rotations).map(([name, rotation]) => {
     const input = add(new Float32Array([0, 1]), 5126, 'SCALAR', 2);
-    const output = add(new Float32Array([0, 0, 0, 1, ...rotation]), 5126, 'VEC4', 2);
-    const bone = name === 'celebrate' ? 6 : name === 'signature' ? 9 : name === 'confident' ? 6 : name === 'editorial' ? 3 : 3;
+    accessors[input].min = [0]; accessors[input].max = [1];
+    const output = add(new Float32Array([...rotation, ...rotation]), 5126, 'VEC4', 2);
+    const bone = 0;
     return {name, samplers: [{input, output, interpolation: 'LINEAR'}], channels: [{sampler: 0, target: {node: firstBone + bone, path: 'rotation'}}]};
   });
-  const document = {asset: {version: '2.0', generator: 'SlayHuud MakeHuman starter converter'}, scene: 0, scenes: [{nodes: [...nodes.keys(), firstBone]}], nodes, meshes, skins: [{name: 'slay-shared-rig-v1', inverseBindMatrices: inverseAccessor, joints: bones.map((_, index) => firstBone + index), skeleton: firstBone}], materials: [{name: id + '-material', pbrMetallicRoughness: {baseColorTexture: {index: 0}, metallicFactor: 0, roughnessFactor: .85}}], textures: [{source: 0}], images: [{bufferView: views.length - 1, mimeType: 'image/png'}], buffers: [{byteLength: viewChunks.reduce((sum, value) => sum + align(value.length), 0)}], bufferViews: views, accessors, animations};
+  const materials = images.map((_, index) => ({name: id + '-material-' + index, doubleSided: !isAvatar || index > 0, ...((isHair || index === 2) ? {alphaMode: 'MASK', alphaCutoff: .35} : {}), pbrMetallicRoughness: {baseColorTexture: {index}, metallicFactor: 0, roughnessFactor: index === 1 ? .35 : .85}}));
+  const document = {asset: {version: '2.0', generator: 'SlayHuud MakeHuman starter converter'}, scene: 0, scenes: [{nodes: [...meshes.keys(), firstBone]}], nodes, meshes, skins: [{name: 'slay-shared-rig-v1', inverseBindMatrices: inverseAccessor, joints: bones.map((_, index) => firstBone + index), skeleton: firstBone}], materials, textures: images.map((_, source) => ({source})), images, buffers: [{byteLength: viewChunks.reduce((sum, value) => sum + align(value.length), 0)}], bufferViews: views, accessors, animations};
   writeFileSync(resolve(output, id + '.glb'), encodeGlb(document, viewChunks));
   const sourceFolder = resolve(source, dirname(obj));
   const thumbnail = readdirSync(sourceFolder).find(file => file.endsWith('.thumb'));

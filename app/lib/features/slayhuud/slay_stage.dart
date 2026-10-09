@@ -7,6 +7,7 @@ import 'slay_models.dart';
 import '../../theme/neon_theme.dart';
 
 class SlayStageController {
+  final ready = ValueNotifier<bool>(false);
   InAppWebViewController? _web;
   int _sequence = 0;
   final Map<String, Completer<Map<String, dynamic>>> _pending = {};
@@ -18,14 +19,19 @@ class SlayStageController {
     final completer = Completer<Map<String, dynamic>>();
     _pending[id] = completer;
     try {
-      await _web!.evaluateJavascript(
-          source: 'window.slayReceive(${jsonEncode({
-            'v': 1,
-            'id': id,
-            'type': type,
-            'payload': payload
-          })});');
-      return await completer.future.timeout(const Duration(seconds: 25));
+      // Attach the response handler immediately: JS can reply with an error
+      // before evaluateJavascript itself completes.
+      final results = await Future.wait<dynamic>([
+        _web!.evaluateJavascript(
+            source: 'window.slayReceive(${jsonEncode({
+              'v': 1,
+              'id': id,
+              'type': type,
+              'payload': payload
+            })});'),
+        completer.future.timeout(const Duration(seconds: 25)),
+      ], eagerError: true);
+      return results[1] as Map<String, dynamic>;
     } finally {
       _pending.remove(id);
     }
@@ -35,6 +41,7 @@ class SlayStageController {
       (await request('snapshot', {'width': 600, 'height': 900}))['pngBase64']
           as String;
   void _reset() {
+    ready.value = false;
     for (final c in _pending.values) {
       if (!c.isCompleted) c.completeError(StateError('The 3D stage restarted'));
     }
@@ -65,6 +72,9 @@ class _SlayStageState extends State<SlayStage> with WidgetsBindingObserver {
       _routeActive = true,
       _appActive = true;
   String? _error;
+  bool _applyQueued = false;
+  bool _initialised = false;
+  int _applyRevision = 0;
   @override
   void initState() {
     super.initState();
@@ -102,16 +112,30 @@ class _SlayStageState extends State<SlayStage> with WidgetsBindingObserver {
   void didUpdateWidget(covariant SlayStage old) {
     super.didUpdateWidget(old);
     if (jsonEncode(old.look.toJson()) != jsonEncode(widget.look.toJson())) {
-      unawaited(_apply());
+      // Readiness also drives the studio's submit button, outside this
+      // subtree. Notify it after the current build has finished.
+      if (_applyQueued) return;
+      _applyQueued = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _applyQueued = false;
+        if (mounted && _initialised) unawaited(_apply());
+      });
     }
   }
 
   Future<void> _apply() async {
+    final revision = ++_applyRevision;
+    widget.controller.ready.value = false;
     try {
       await widget.controller
           .request('applyLook', {'look': widget.look.toJson()});
+      if (mounted && revision == _applyRevision) {
+        widget.controller.ready.value = true;
+        setState(() => _error = null);
+      }
     } catch (e) {
-      if (mounted) {
+      debugPrint('SlayHuud applyLook failed: $e');
+      if (mounted && revision == _applyRevision) {
         setState(() => _error = 'The look could not be loaded. Tap to retry.');
       }
     }
@@ -134,6 +158,8 @@ class _SlayStageState extends State<SlayStage> with WidgetsBindingObserver {
       return;
     }
     if (type == 'ready' && !_booting) {
+      _initialised = false;
+      widget.controller.ready.value = false;
       _booting = true;
       if (!widget.controller._ready.isCompleted) {
         widget.controller._ready.complete();
@@ -141,12 +167,12 @@ class _SlayStageState extends State<SlayStage> with WidgetsBindingObserver {
       try {
         await widget.controller
             .request('init', {'catalog': widget.catalog, 'tier': 'high'});
-        await widget.controller
-            .request('applyLook', {'look': widget.look.toJson()});
+        _initialised = true;
+        await _apply();
         await widget.controller
             .request('pause', {'paused': !_routeActive || !_appActive});
-        if (mounted) setState(() => _error = null);
       } catch (e) {
+        debugPrint('SlayHuud studio initialisation failed: $e');
         if (mounted) {
           setState(() => _error = 'The studio could not load. Tap to retry.');
         }
@@ -154,6 +180,7 @@ class _SlayStageState extends State<SlayStage> with WidgetsBindingObserver {
         _booting = false;
       }
     } else if (type == 'contextLost') {
+      _initialised = false;
       widget.controller._reset();
       await widget.controller._web?.reload();
     } else if (type == 'error') {
@@ -191,53 +218,73 @@ class _SlayStageState extends State<SlayStage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    if (_error != null) {
-      return ColoredBox(
-          color: context.neon.plate,
-          child: Center(
-              child: TextButton.icon(
-                  onPressed: () {
-                    setState(() => _error = null);
-                    widget.controller._web?.reload();
-                    if (_loading) _start();
-                  },
-                  icon: const Icon(Icons.refresh),
-                  label: Text(_error!))));
-    }
     if (_loading) {
       return ColoredBox(
           color: context.neon.plate,
-          child:
-              const Center(child: CircularProgressIndicator(strokeWidth: 2)));
+          child: Center(
+              child: _error == null
+                  ? const CircularProgressIndicator(strokeWidth: 2)
+                  : TextButton.icon(
+                      onPressed: _start,
+                      icon: const Icon(Icons.refresh),
+                      label: Text(_error!))));
     }
-    return InAppWebView(
-        initialUrlRequest:
-            URLRequest(url: WebUri('http://localhost:8187/index.html')),
-        initialSettings: InAppWebViewSettings(
-            javaScriptEnabled: true,
-            supportZoom: false,
-            disableContextMenu: true,
-            isInspectable: kDebugMode,
-            useShouldOverrideUrlLoading: true),
-        onWebViewCreated: (web) {
-          widget.controller._web = web;
-          web.addJavaScriptHandler(
-              handlerName: 'slay',
-              callback: (args) {
-                if (args.isNotEmpty && args.first is Map) {
-                  unawaited(_message(Map<String, dynamic>.from(args.first)));
-                }
-                return null;
-              });
-        },
-        shouldOverrideUrlLoading: (web, action) async =>
-            action.request.url?.host == 'localhost'
-                ? NavigationActionPolicy.ALLOW
-                : NavigationActionPolicy.CANCEL,
-        onReceivedError: (web, request, error) {
-          if (request.isForMainFrame == true && mounted) {
-            setState(() => _error = 'Studio connection failed. Tap to retry.');
-          }
-        });
+    // Keep the WebView alive under the retry overlay; removing it also
+    // removes the controller that retry needs to reload.
+    return Stack(fit: StackFit.expand, children: [
+      InAppWebView(
+          initialUrlRequest:
+              URLRequest(url: WebUri('http://localhost:8187/index.html')),
+          initialSettings: InAppWebViewSettings(
+              javaScriptEnabled: true,
+              supportZoom: false,
+              disableContextMenu: true,
+              isInspectable: kDebugMode,
+              useShouldOverrideUrlLoading: true),
+          onWebViewCreated: (web) {
+            widget.controller._web = web;
+            web.addJavaScriptHandler(
+                handlerName: 'slay',
+                callback: (args) {
+                  if (args.isNotEmpty && args.first is Map) {
+                    unawaited(_message(Map<String, dynamic>.from(args.first)));
+                  }
+                  return null;
+                });
+          },
+          shouldOverrideUrlLoading: (web, action) async =>
+              action.request.url?.host == 'localhost'
+                  ? NavigationActionPolicy.ALLOW
+                  : NavigationActionPolicy.CANCEL,
+          onReceivedError: (web, request, error) {
+            if (request.isForMainFrame == true && mounted) {
+              setState(
+                  () => _error = 'Studio connection failed. Tap to retry.');
+            }
+          }),
+      ValueListenableBuilder<bool>(
+          valueListenable: widget.controller.ready,
+          builder: (context, ready, _) => ready && _error == null
+              ? const SizedBox.shrink()
+              : ColoredBox(
+                  color: context.neon.plate,
+                  child: Center(
+                      child: _error != null
+                          ? TextButton.icon(
+                              onPressed: () {
+                                _initialised = false;
+                                widget.controller._reset();
+                                setState(() => _error = null);
+                                widget.controller._web?.reload();
+                              },
+                              icon: const Icon(Icons.refresh),
+                              label: Text(_error!))
+                          : Column(mainAxisSize: MainAxisSize.min, children: [
+                              const CircularProgressIndicator(strokeWidth: 2),
+                              const SizedBox(height: 12),
+                              Text('Getting your look ready…',
+                                  style: TextStyle(color: context.neon.mute)),
+                            ])))),
+    ]);
   }
 }

@@ -1,8 +1,8 @@
 # SlayHuud: implementation and handoff
 
-Branch: `codex/slayhuud`. Updated 8 October 2026.
+Branch: `codex/slayhuud`. Updated 9 October 2026.
 
-SlayHuud is a social styling competition inside PlayHuud. Its complete loop is theme → style a 3D avatar → save a look → submit → vote or receive a system score → results → coins/XP/wardrobe → another challenge. The current build uses clearly labelled development mannequins while production assets are supplied. This is a development branch, not a deployed release.
+SlayHuud is a social styling competition inside PlayHuud. Its complete loop is theme → style a 3D avatar → save a look → submit → vote or receive a system score → results → coins/XP/wardrobe → another challenge. The current build includes converted MakeHuman male/female avatars, eyes/brows, 11 outfits, six hair entries and two shoes. The UI offers only wardrobe items with real assets; unfinished cultural outfits, accessories and makeup remain future catalogue entries. This is a development branch, not a deployed release.
 
 The original product note is the product direction. [SLAYHUUD_PLAN.md](SLAYHUUD_PLAN.md) records the initial design; this document describes the implementation that supersedes its proposed module/storage choices.
 
@@ -32,13 +32,13 @@ A three-second lifecycle scheduler advances expired competitions. `FOR UPDATE` s
 
 ## 2. UI and entry points
 
-SlayHuud is selectable from the games catalogue. Existing room invitations and spectator routes open its competition screen. The hub links to the personal studio, four V1 modes, daily/weekly challenges, client briefs, Fashion Cups and existing Slay rankings.
+SlayHuud opens from both the home tiles and the game picker. Existing room invitations and spectator routes open its competition screen. The hub links to the personal studio, four V1 modes, daily/weekly challenges, client briefs, Fashion Cups and existing Slay rankings. Every Slay screen has the existing games' gear-menu pattern with rules and navigation back; the studio also offers the challenge brief and a fresh look. Returning from a live competition does not automatically submit or surrender a look: its server deadline continues.
 
 Screens inherit the selected PlayHuud theme: Palm Wine, Nebula or Supercar, in light/dark mode. They reuse `NeonColors`, typography and `NeonCard`; buttons follow the shared accent and stadium treatment. Wine, gold and existing backgrounds remain the default visual language. Production item thumbnails replace the temporary wardrobe icons when supplied. The hub shows Slay rating, wins and top-three finishes using existing competitive profile data.
 
 The studio has a large 3D stage, rotate/pinch controls, front/back/face camera shortcuts, avatar body selection in solo play, wardrobe categories, skin/face selection, poses and backgrounds. A brief sheet shows requirements/style tags, and competitive styling shows its deadline. Draft selections persist locally. Submission waits for the renderer, exports a fixed portrait, saves the look and image, then scores or submits it.
 
-The separate `lib/slayhuud_preview.dart` entrypoint uses local fixture API responses and a UI PREVIEW banner. It runs the actual WebView renderer but does not authenticate or write to a PlayHuud server. Its scores are fixtures, not backend verification.
+The separate `lib/slayhuud_preview.dart` entrypoint uses local fixture API responses and a UI PREVIEW banner. It starts on SlayHuud with the game picker underneath, so exit works in the preview too. It runs the actual WebView renderer but does not authenticate or write to a PlayHuud server. Its scores are fixtures, not backend verification.
 
 ## 3. New persistence (V37)
 
@@ -195,6 +195,14 @@ Backend verification uses normal Maven reactor checks. `SlayHuudIT` supports eit
 | Platform integration | Existing rooms, Huud requests, spectator entry, coin ledger, profiles/ranks, achievements and knockout cups wired |
 | Asset production | Awaiting supplied GLBs, thumbnails and baked animation/morph content |
 | Launch hardening | Real-device profiling, screenshot/moderation and scale/storage decisions remain |
+
+### Cleanup verification (9 October 2026)
+
+- Backend Maven reactor: 647 tests passed. Mockito required an unrestricted test run so its Java agent could attach; the unrestricted suite passed without code changes for that environment issue.
+- Flutter: eight related navigation, anonymous voting and theme tests passed. Focused feature, route, preview and badge analysis is clean.
+- Renderer: TypeScript/Vite build and 21 tests passed, including GLB structure, bind-pose skinning and eye-height regressions. All 21 delivered GLBs validate; 55 undelivered catalogue slots are skipped and 11 asset-size budget warnings remain.
+- iPhone 16e simulator: verified the supplied game icon, hub/studio gear menus, help, exit/re-entry, wardrobe thumbnails, female outfit/hair changes, male body switching, camera presets, fresh look, draft restoration and PNG submission into the fixture score sheet. Fixture scores/rewards are simulated; this session does not verify live multiplayer or production settlement.
+- SlayHuud now runs separately on the iPhone 17 Pro simulator because another preview replaced the app on the shared iPhone 16e during testing. Physical-device frame rate, memory and thermal measurements remain outstanding.
 
 ### Recorded checks (8 October 2026)
 

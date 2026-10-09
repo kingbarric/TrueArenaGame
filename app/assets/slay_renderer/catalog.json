@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 7,
   "developmentAssets": true,
   "avatars": [
     {
@@ -16,28 +16,25 @@
   "items": [
     {
       "id": "female-essential",
-      "name": "Everyday Essential",
+      "name": "Green Flapper Dress",
       "category": "outfit",
       "body": "female",
       "styleTags": [
         "casual",
-        "streetwear"
+        "elegant"
       ],
       "colourTags": [
-        "black"
+        "green"
       ],
       "cultureTags": [],
       "eventTags": [
         "casual",
-        "streetwear"
+        "elegant"
       ],
       "rarity": "common",
       "assetUrl": "assets/female-essential.glb",
       "thumbnailUrl": "assets/female-essential.png",
-      "hidesRegions": [
-        "torso",
-        "upper_legs"
-      ],
+      "hidesRegions": ["torso"],
       "attachmentBone": null,
       "isDefault": true,
       "coinCost": 0,
@@ -66,10 +63,7 @@
       "rarity": "common",
       "assetUrl": "assets/female-executive.glb",
       "thumbnailUrl": "assets/female-executive.png",
-      "hidesRegions": [
-        "torso",
-        "upper_legs"
-      ],
+      "hidesRegions": ["torso"],
       "attachmentBone": null,
       "isDefault": true,
       "coinCost": 0,
@@ -136,10 +130,7 @@
       "rarity": "common",
       "assetUrl": "assets/female-redcarpet.glb",
       "thumbnailUrl": "assets/female-redcarpet.png",
-      "hidesRegions": [
-        "torso",
-        "upper_legs"
-      ],
+      "hidesRegions": [],
       "attachmentBone": null,
       "isDefault": true,
       "coinCost": 0,
@@ -168,10 +159,7 @@
       "rarity": "common",
       "assetUrl": "assets/female-romantic.glb",
       "thumbnailUrl": "assets/female-romantic.png",
-      "hidesRegions": [
-        "torso",
-        "upper_legs"
-      ],
+      "hidesRegions": [],
       "attachmentBone": null,
       "isDefault": true,
       "coinCost": 0,
@@ -338,10 +326,7 @@
       "rarity": "rare",
       "assetUrl": "assets/female-night.glb",
       "thumbnailUrl": "assets/female-night.png",
-      "hidesRegions": [
-        "torso",
-        "upper_legs"
-      ],
+      "hidesRegions": [],
       "attachmentBone": null,
       "isDefault": false,
       "coinCost": 112,
@@ -432,10 +417,7 @@
       "rarity": "rare",
       "assetUrl": "assets/female-business.glb",
       "thumbnailUrl": "assets/female-business.png",
-      "hidesRegions": [
-        "torso",
-        "upper_legs"
-      ],
+      "hidesRegions": ["torso"],
       "attachmentBone": null,
       "isDefault": false,
       "coinCost": 136,
@@ -466,10 +448,7 @@
       "rarity": "rare",
       "assetUrl": "assets/female-dinner.glb",
       "thumbnailUrl": "assets/female-dinner.png",
-      "hidesRegions": [
-        "torso",
-        "upper_legs"
-      ],
+      "hidesRegions": [],
       "attachmentBone": null,
       "isDefault": false,
       "coinCost": 144,
@@ -537,7 +516,7 @@
     },
     {
       "id": "female-hair-1",
-      "name": "Sculpted Waves",
+      "name": "Braided Updo",
       "category": "hair",
       "body": "female",
       "styleTags": [
@@ -564,7 +543,7 @@
     },
     {
       "id": "female-hair-2",
-      "name": "Braids",
+      "name": "Short Crop",
       "category": "hair",
       "body": "female",
       "styleTags": [
@@ -690,10 +669,7 @@
       "rarity": "common",
       "assetUrl": "assets/male-essential.glb",
       "thumbnailUrl": "assets/male-essential.png",
-      "hidesRegions": [
-        "torso",
-        "upper_legs"
-      ],
+      "hidesRegions": ["torso", "upper_legs"],
       "attachmentBone": null,
       "isDefault": true,
       "coinCost": 0,
@@ -722,10 +698,7 @@
       "rarity": "common",
       "assetUrl": "assets/male-executive.glb",
       "thumbnailUrl": "assets/male-executive.png",
-      "hidesRegions": [
-        "torso",
-        "upper_legs"
-      ],
+      "hidesRegions": ["torso", "upper_legs"],
       "attachmentBone": null,
       "isDefault": true,
       "coinCost": 0,
@@ -792,10 +765,7 @@
       "rarity": "common",
       "assetUrl": "assets/male-redcarpet.glb",
       "thumbnailUrl": "assets/male-redcarpet.png",
-      "hidesRegions": [
-        "torso",
-        "upper_legs"
-      ],
+      "hidesRegions": ["torso", "upper_legs"],
       "attachmentBone": null,
       "isDefault": true,
       "coinCost": 0,
@@ -1088,10 +1058,7 @@
       "rarity": "rare",
       "assetUrl": "assets/male-business.glb",
       "thumbnailUrl": "assets/male-business.png",
-      "hidesRegions": [
-        "torso",
-        "upper_legs"
-      ],
+      "hidesRegions": ["torso", "upper_legs"],
       "attachmentBone": null,
       "isDefault": false,
       "coinCost": 136,
@@ -1328,7 +1295,7 @@
     },
     {
       "id": "shoe-0",
-      "name": "Classic Heels",
+      "name": "Tan Lace-ups",
       "category": "shoes",
       "body": "unisex",
       "styleTags": [
@@ -1355,7 +1322,7 @@
     },
     {
       "id": "shoe-1",
-      "name": "City Sneakers",
+      "name": "Classic Shoes",
       "category": "shoes",
       "body": "unisex",
       "styleTags": [
