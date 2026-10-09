@@ -173,6 +173,7 @@ public class GameOrchestrator {
 
     public Mono<Void> onConnect(RoomRuntime rt, String userId) {
         rt.connectedUserIds.add(userId);
+        rt.awaySinceMs.remove(userId);
         return setConnection(rt.roomId, userId, "connected")
                 .then(championships == null ? Mono.empty()
                         : championships.connection(rt.roomId, UUID.fromString(userId), true))
@@ -181,6 +182,9 @@ public class GameOrchestrator {
 
     public Mono<Void> onDisconnect(RoomRuntime rt, String userId) {
         rt.connectedUserIds.remove(userId);
+        // Already away (app in the background) keeps the earlier time — the
+        // five minutes count from when they actually left.
+        long leftAt = rt.awaySinceMs.computeIfAbsent(userId, id -> System.currentTimeMillis());
         rt.unicast.remove(userId);
         // Nothing about the game state changes on a disconnect, so
         // pushTurnReminders' own dedupe (keyed on the set of players-to-act
@@ -210,9 +214,9 @@ public class GameOrchestrator {
             return freeze.then(rt.tournament ? persistTournamentClock(rt.roomId) : Mono.empty())
                     .then(disconnect).then(championships.isTournamentRoom(rt.roomId).flatMap(tournament ->
                     tournament ? championships.connection(rt.roomId, UUID.fromString(userId), false)
-                            : migrate)).then(broadcastLobby(rt, "MEMBER_DISCONNECTED", Map.of("userId", userId)));
+                            : migrate)).then(broadcastLobby(rt, "MEMBER_DISCONNECTED", Map.of("userId", userId, "at", leftAt)));
         }
-        return disconnect.then(migrate).then(broadcastLobby(rt, "MEMBER_DISCONNECTED", Map.of("userId", userId)));
+        return disconnect.then(migrate).then(broadcastLobby(rt, "MEMBER_DISCONNECTED", Map.of("userId", userId, "at", leftAt)));
     }
 
     /** Spectators never touch {@code room_members} or host migration — they're not participants. */
@@ -308,6 +312,7 @@ public class GameOrchestrator {
                 case SPECTATOR_VOICE_DECLINE -> handleSpectatorVoiceDecline(rt, userId, in);
                 case SPECTATOR_VOICE_MUTE_TOGGLE -> handleSpectatorVoiceMuteToggle(rt, userId, in);
                 case SPECTATOR_VOICE_REMOVE -> handleSpectatorVoiceRemove(rt, userId, in);
+                case PRESENCE -> handlePresence(rt, userId, in);
                 case PING -> {
                     rt.tellUser(userId, Envelope.of(MessageType.PONG, Map.of()));
                     yield Mono.empty();
@@ -318,6 +323,21 @@ public class GameOrchestrator {
             log.warn("frame handling failed for room {} user {}: {}", rt.roomId, userId, e.toString());
             return tellError(rt, userId, "INTERNAL", "could not process that frame");
         }
+    }
+
+    /**
+     * The app left the foreground (or came back) while still connected — so
+     * the others see this player go amber, then grey after a few minutes,
+     * without anything about the game itself changing.
+     */
+    private Mono<Void> handlePresence(RoomRuntime rt, String userId, Envelope in) {
+        boolean away = Boolean.TRUE.equals(in.payload().get("away"));
+        if (away) {
+            long at = rt.awaySinceMs.computeIfAbsent(userId, id -> System.currentTimeMillis());
+            return broadcastLobby(rt, "MEMBER_AWAY", Map.of("userId", userId, "at", at));
+        }
+        rt.awaySinceMs.remove(userId);
+        return broadcastLobby(rt, "MEMBER_BACK", Map.of("userId", userId));
     }
 
     @SuppressWarnings("unchecked")
@@ -430,6 +450,7 @@ public class GameOrchestrator {
         view.put("spectatorCount", rt.spectatorUserIds.size());
         view.put("spectatorsMuted", rt.spectatorsMuted);
         view.put("connectedPlayers", List.copyOf(rt.connectedUserIds));
+        view.put("awaySince", Map.copyOf(rt.awaySinceMs));
         view.put("spectatorVoiceRequests", List.copyOf(rt.spectatorVoiceRequests));
         view.put("spectatorVoiceSpeakers", List.copyOf(rt.spectatorVoiceSpeakers));
         view.put("mutedSpectatorVoiceSpeakers", List.copyOf(rt.mutedSpectatorVoiceSpeakers));

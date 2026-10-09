@@ -24,6 +24,10 @@ import 'package:truearena/widgets/table_chat.dart';
 
 class TestSocket implements GameSocket {
   @override
+  final awaySince = <String, DateTime>{};
+  @override
+  Presence presenceOf(String userId) => Presence.here;
+  @override
   final memberAvatars = <String, String?>{};
   @override
   final ValueNotifier<Set<String>> onlinePlayers = ValueNotifier(<String>{});

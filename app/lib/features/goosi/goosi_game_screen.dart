@@ -1161,7 +1161,7 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
           builder: (_, online, __) => OnlineAvatar(
             isMe ? 'You' : label(playerId),
             size: 45,
-            online: online.contains(playerId),
+            online: online.contains(playerId), presence: widget.socket.presenceOf(playerId),
             imageUrl: widget.socket.memberAvatars[playerId] ?? widget.avatars[playerId],
             emoji: widget.agents.contains(playerId) ? '🤖' : null,
           ),

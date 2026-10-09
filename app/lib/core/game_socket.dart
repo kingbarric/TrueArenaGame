@@ -3,10 +3,11 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:web_socket_channel/web_socket_channel.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 
 import 'api_client.dart';
 import 'keep_awake.dart';
+import '../widgets/neon.dart' show Presence;
 
 /// A room connection that survives short network outages. A reconnect sends
 /// the highest event `seq` this socket has actually seen, so the server can
@@ -16,8 +17,7 @@ import 'keep_awake.dart';
 /// reconnect before an EVENT frame has ever arrived) still gets a full
 /// snapshot, since there's nothing to replay from yet.
 class GameSocket {
-  GameSocket._(
-      this._api, this._roomId, this._spectate, this._baseUrl, this._retryBase);
+  GameSocket._(this._api, this._roomId, this._spectate, this._baseUrl, this._retryBase);
 
   final ApiClient _api;
   final String _roomId;
@@ -27,7 +27,25 @@ class GameSocket {
   final _controller = StreamController<Map<String, dynamic>>.broadcast();
   final ValueNotifier<Set<String>> onlinePlayers = ValueNotifier(<String>{});
   final _agentIds = <String>{};
-  final memberAvatars = <String,String?>{};
+  final memberAvatars = <String, String?>{};
+
+  /// When each player stepped away from the game (app in the background or
+  /// disconnected). Gone 5 minutes or more reads as offline.
+  final awaySince = <String, DateTime>{};
+  static const offlineAfter = Duration(minutes: 5);
+  Timer? _presenceClock;
+  _AwayWatcher? _awayWatcher;
+
+  /// Green in the game, amber stepped away, grey gone a while (or never came).
+  Presence presenceOf(String userId) {
+    if (_agentIds.contains(userId)) return Presence.here;
+    final away = awaySince[userId];
+    if (away != null) {
+      return DateTime.now().difference(away) >= offlineAfter ? Presence.offline : Presence.away;
+    }
+    return onlinePlayers.value.contains(userId) ? Presence.here : Presence.offline;
+  }
+
   WebSocketChannel? _channel;
   StreamSubscription? _sub;
   Timer? _retry;
@@ -66,13 +84,10 @@ class GameSocket {
   static final currentPlayerRoom = ValueNotifier<String?>(null);
   static final List<GameSocket> _playerSockets = [];
 
-  static void _track() =>
-      currentPlayerRoom.value = _playerSockets.isEmpty ? null : _playerSockets.last._roomId;
+  static void _track() => currentPlayerRoom.value = _playerSockets.isEmpty ? null : _playerSockets.last._roomId;
 
   static GameSocket connect(ApiClient api, String roomId,
-      {bool spectate = false,
-      String baseUrl = ApiClient.base,
-      Duration retryBase = const Duration(seconds: 1)}) {
+      {bool spectate = false, String baseUrl = ApiClient.base, Duration retryBase = const Duration(seconds: 1)}) {
     final socket = GameSocket._(api, roomId, spectate, baseUrl, retryBase);
     if (!spectate) {
       _playerSockets.add(socket);
@@ -80,6 +95,13 @@ class GameSocket {
     }
     socket._loadAgentIds();
     socket._open();
+    if (!spectate) socket._awayWatcher = _AwayWatcher(socket)..start();
+    // Amber turns grey on its own after five minutes — redraw now and then.
+    socket._presenceClock = Timer.periodic(const Duration(seconds: 20), (_) {
+      if (socket.awaySince.isNotEmpty && !socket._closed) {
+        socket.onlinePlayers.value = {...socket.onlinePlayers.value};
+      }
+    });
     // In a game the screen stays on, so nobody's phone sleeps mid-turn.
     KeepAwake.hold(socket);
     return socket;
@@ -134,8 +156,7 @@ class GameSocket {
           final seq = (frame['payload'] as Map?)?['seq'] as num?;
           if (seq != null && seq.toInt() > _lastSeq) _lastSeq = seq.toInt();
         }
-        if (frame['type'] == 'SNAPSHOT' &&
-            (frame['payload'] as Map?)?['lobby'] == false) {
+        if (frame['type'] == 'SNAPSHOT' && (frame['payload'] as Map?)?['lobby'] == false) {
           _latestGameSnapshot = frame;
         }
         _controller.add(frame);
@@ -154,8 +175,7 @@ class GameSocket {
       _heartbeat?.cancel();
       _heartbeat = Timer.periodic(const Duration(seconds: 10), (_) {
         if (!_connected) return;
-        if (DateTime.now().difference(_lastPong!) >
-            const Duration(seconds: 30)) {
+        if (DateTime.now().difference(_lastPong!) > const Duration(seconds: 30)) {
           _lost(generation);
         } else {
           send('PING');
@@ -182,29 +202,46 @@ class GameSocket {
             .where((member) => member['isBot'] == true)
             .map((member) => member['userId'].toString()));
       }
+      final away = (payload['awaySince'] as Map?)?.cast<String, dynamic>();
+      if (away != null) {
+        awaySince
+          ..clear()
+          ..addAll({
+            for (final e in away.entries)
+              if (e.value is num) e.key: DateTime.fromMillisecondsSinceEpoch((e.value as num).toInt()),
+          });
+      }
       final ids = payload['connectedPlayers'] as List?;
       if (ids != null) {
         onlinePlayers.value = {...ids.map((id) => id.toString()), ..._agentIds};
       } else if (payload['members'] is List) {
         onlinePlayers.value = (payload['members'] as List)
             .whereType<Map>()
-            .where((member) =>
-                member['connectionStatus'] == 'connected' ||
-                member['isBot'] == true)
+            .where((member) => member['connectionStatus'] == 'connected' || member['isBot'] == true)
             .map((member) => member['userId'].toString())
             .toSet();
       }
     } else if (frame['type'] == 'EVENT' && payload != null) {
       final type = payload['type'];
-      if (type != 'MEMBER_CONNECTED' && type != 'MEMBER_DISCONNECTED') return;
+      const presenceEvents = {'MEMBER_CONNECTED', 'MEMBER_DISCONNECTED', 'MEMBER_AWAY', 'MEMBER_BACK'};
+      if (!presenceEvents.contains(type)) return;
       final data = payload['data'] as Map?;
       final id = data?['userId']?.toString();
       if (id == null) return;
+      final at =
+          data?['at'] is num ? DateTime.fromMillisecondsSinceEpoch((data!['at'] as num).toInt()) : DateTime.now();
       final next = {...onlinePlayers.value};
-      if (type == 'MEMBER_CONNECTED') {
-        next.add(id);
-      } else {
-        if (!_agentIds.contains(id)) next.remove(id);
+      switch (type) {
+        case 'MEMBER_CONNECTED':
+          next.add(id);
+          awaySince.remove(id);
+        case 'MEMBER_DISCONNECTED':
+          if (!_agentIds.contains(id)) next.remove(id);
+          awaySince.putIfAbsent(id, () => at);
+        case 'MEMBER_AWAY':
+          awaySince.putIfAbsent(id, () => at);
+        case 'MEMBER_BACK':
+          awaySince.remove(id);
       }
       onlinePlayers.value = next;
     }
@@ -255,6 +292,8 @@ class GameSocket {
     if (_closed) return;
     _closed = true;
     KeepAwake.release(this);
+    _presenceClock?.cancel();
+    _awayWatcher?.stop();
     if (_playerSockets.remove(this)) _track();
     _generation++;
     _retry?.cancel();
@@ -263,5 +302,35 @@ class GameSocket {
     await _channel?.sink.close();
     await _controller.close();
     onlinePlayers.dispose();
+  }
+}
+
+/// Tells the room when this phone leaves the game (app to the background)
+/// and when it comes back, so the others see amber rather than green.
+class _AwayWatcher with WidgetsBindingObserver {
+  _AwayWatcher(this._socket);
+  final GameSocket _socket;
+
+  void start() {
+    try {
+      WidgetsBinding.instance.addObserver(this);
+    } catch (_) {
+      // No app lifecycle to watch (plain unit tests).
+    }
+  }
+
+  void stop() {
+    try {
+      WidgetsBinding.instance.removeObserver(this);
+    } catch (_) {}
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
+      _socket.send('PRESENCE', {'away': true});
+    } else if (state == AppLifecycleState.resumed) {
+      _socket.send('PRESENCE', {'away': false});
+    }
   }
 }

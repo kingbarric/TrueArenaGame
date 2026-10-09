@@ -1112,7 +1112,7 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
                         id == widget.selfId ? 'You' : label(id),
                         size: 18,
                         imageUrl: widget.socket.memberAvatars[id],
-                        online: online.contains(id)),
+                        online: online.contains(id), presence: widget.socket.presenceOf(id)),
                   ),
                 ),
                 const SizedBox(width: 6),

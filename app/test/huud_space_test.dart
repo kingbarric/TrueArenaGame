@@ -776,14 +776,20 @@ void main() {
       if (r.method == 'PATCH') background = (jsonDecode(r.body) as Map)['background'] as String;
       return _json({..._huud(), 'background': background == 'default' ? null : background});
     });
+    // Nothing picked yet: the disco floor.
+    expect(find.byKey(const ValueKey('backdrop-disco')), findsOneWidget);
     expect(find.byKey(const ValueKey('backdrop-club')), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('huud-settings')));
     await tester.pumpAndSettle();
     expect(find.text('Background'), findsOneWidget);
-    for (final b in ['default', 'lounge', 'poolside', 'club']) {
+    expect(find.text('Disco'), findsOneWidget);
+    for (final b in ['default', 'blank', 'lounge']) {
       expect(find.byKey(ValueKey('bg-$b')), findsOneWidget);
     }
+    await tester.dragUntilVisible(
+        find.byKey(const ValueKey('bg-club')), find.byKey(const ValueKey('bg-lounge')), const Offset(-120, 0));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('bg-club')));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Save'));
@@ -792,6 +798,18 @@ void main() {
     expect(calls.where((c) => c.startsWith('PATCH /api/v1/huud-spaces/h1') && c.contains('"background":"club"')),
         hasLength(1));
     expect(find.byKey(const ValueKey('backdrop-club')), findsOneWidget);
+
+    // Blank: no picture at all.
+    await tester.tap(find.byKey(const ValueKey('huud-settings')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('bg-blank')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Save'));
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(calls.where((c) => c.contains('"background":"blank"')), hasLength(1));
+    expect(find.byKey(const ValueKey('backdrop-club')), findsNothing);
+    expect(find.byKey(const ValueKey('backdrop-disco')), findsNothing);
   });
 
   test('privacy reads in kid-sized words and dates read like people talk', () {

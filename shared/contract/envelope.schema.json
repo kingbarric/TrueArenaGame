@@ -35,6 +35,7 @@
         "SPECTATOR_VOICE_DECLINE",
         "SPECTATOR_VOICE_MUTE_TOGGLE",
         "SPECTATOR_VOICE_REMOVE",
+        "PRESENCE",
         "PING",
         "SNAPSHOT",
         "EVENT",

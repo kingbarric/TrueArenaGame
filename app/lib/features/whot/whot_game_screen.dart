@@ -904,7 +904,7 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
             valueListenable: _socket.onlinePlayers,
             builder: (_, online, __) => OnlineAvatar(_name(player),
                 size: diameter,
-                online: online.contains(player),
+                online: online.contains(player), presence: _socket.presenceOf(player),
                 emoji: isRemoteImage ? null : avatar,
                 imageUrl: _socket.memberAvatars[player] ?? (isRemoteImage ? avatar : null)),
           ),

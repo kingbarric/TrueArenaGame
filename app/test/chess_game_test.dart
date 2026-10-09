@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:truearena/widgets/neon.dart' show Presence;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:truearena/core/api_client.dart';
@@ -12,6 +13,10 @@ import 'package:truearena/features/chess/chess_view.dart';
 import 'package:truearena/theme/neon_theme.dart';
 
 class _Socket implements GameSocket {
+  @override
+  final awaySince = <String, DateTime>{};
+  @override
+  Presence presenceOf(String userId) => Presence.here;
   @override
   final memberAvatars = <String, String?>{};
   final frames = StreamController<Map<String, dynamic>>.broadcast(sync: true);

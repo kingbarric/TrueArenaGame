@@ -20,6 +20,8 @@ public enum MessageType {
     SPECTATOR_VOICE_DECLINE,
     SPECTATOR_VOICE_MUTE_TOGGLE,
     SPECTATOR_VOICE_REMOVE,
+    /** A player stepped away from the game screen ({away: true}) or came back ({away: false}). */
+    PRESENCE,
     PING,
     // server → client
     SNAPSHOT,

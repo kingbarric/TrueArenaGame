@@ -942,7 +942,7 @@ class _ChessGameScreenState extends State<ChessGameScreen>
           builder: (_, online, __) => OnlineAvatar(
             isMe ? 'You' : _label(playerId),
             size: 40,
-            online: online.contains(playerId),
+            online: online.contains(playerId), presence: widget.socket.presenceOf(playerId),
             imageUrl: widget.socket.memberAvatars[playerId] ?? widget.avatars[playerId],
             emoji: widget.agents.contains(playerId) ? '🤖' : null,
           ),

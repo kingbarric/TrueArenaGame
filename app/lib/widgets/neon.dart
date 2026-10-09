@@ -727,6 +727,10 @@ class Avatar extends StatelessWidget {
 }
 
 /// A small green dot only while the person has a live app connection.
+/// Where a player is, in a game: in it (green), stepped away (amber), or
+/// gone a while — five minutes or more (grey).
+enum Presence { here, away, offline }
+
 class OnlineAvatar extends StatelessWidget {
   const OnlineAvatar(this.name, {
     super.key,
@@ -735,10 +739,14 @@ class OnlineAvatar extends StatelessWidget {
     this.imageUrl,
     this.imagePath,
     this.emoji,
+    this.presence,
   });
 
   final String name;
   final bool online;
+
+  /// In games: overrides [online] with the three-way light.
+  final Presence? presence;
   final double size;
   final String? imageUrl;
   final String? imagePath;
@@ -748,25 +756,43 @@ class OnlineAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final n = context.neon;
     final dotSize = (size * 0.28).clamp(8.0, 16.0);
+    final state = presence ?? (online ? Presence.here : null);
+    final color = switch (state) {
+      Presence.here => const Color(0xff4ade80),
+      Presence.away => const Color(0xfff5a524),
+      Presence.offline => const Color(0xff9ca3af),
+      null => null,
+    };
+    final said = switch (state) {
+      Presence.here => '$name, online',
+      Presence.away => '$name, away',
+      Presence.offline => '$name, offline',
+      null => name,
+    };
     return Semantics(
-      label: online ? '$name, online' : name,
+      label: said,
       child: SizedBox(
         width: size,
         height: size,
         child: Stack(clipBehavior: Clip.none, children: [
           Avatar(name, size: size, imageUrl: imageUrl,
               imagePath: imagePath, emoji: emoji),
-          if (online)
+          if (color != null)
             Positioned(
               right: -1,
               bottom: -1,
               child: Container(
+                key: ValueKey('presence-${state!.name}'),
                 width: dotSize,
                 height: dotSize,
                 decoration: BoxDecoration(
-                  color: const Color(0xff4ade80),
+                  color: color,
                   shape: BoxShape.circle,
                   border: Border.all(color: n.panel, width: 2),
+                  // A soft glow, so the light reads from across the table.
+                  boxShadow: presence == null
+                      ? null
+                      : [BoxShadow(color: color.withValues(alpha: 0.7), blurRadius: dotSize * 0.8)],
                 ),
               ),
             ),

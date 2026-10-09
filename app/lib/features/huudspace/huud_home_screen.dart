@@ -226,7 +226,7 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
         game: h.gameType == null ? null : huudGameName(h.gameType),
         gameStatus: h.gameStatus);
     return HuudBackdrop(
-      background: null,
+      background: 'blank', // the card on the Huud tab stays plain
       child: HuudHeroCard(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Wrap(spacing: 8, runSpacing: 8, children: [

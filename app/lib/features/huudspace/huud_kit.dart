@@ -19,14 +19,15 @@ const huudIcon = 'assets/images/branding/huud_icon.png';
 /// Backdrops a host can give their Huud: (wire, label, picture). The first
 /// is the default — no picture at all.
 const huudBackgrounds = <(String?, String, String?)>[
-  (null, 'Default', null),
+  // Not picked yet = the disco floor; "Blank" is no picture at all.
+  (null, 'Disco', 'assets/images/huud_backgrounds/disco.jpg'),
+  ('blank', 'Blank', null),
   ('lounge', 'Lounge', 'assets/images/huud_backgrounds/lounge.jpg'),
   ('poolside', 'Poolside', 'assets/images/huud_backgrounds/poolside.jpg'),
   ('club', 'Club', 'assets/images/huud_backgrounds/club.jpg'),
 ];
 
-String? huudBackgroundAsset(String? wire) =>
-    wire == null ? null : huudBackgrounds.where((b) => b.$1 == wire).map((b) => b.$3).firstOrNull;
+String? huudBackgroundAsset(String? wire) => huudBackgrounds.where((b) => b.$1 == wire).map((b) => b.$3).firstOrNull;
 
 /// The Huud's backdrop behind [child]: the picture, washed over with the
 /// page colour so it sets a mood without getting in the way of anything.
@@ -43,7 +44,7 @@ class HuudBackdrop extends StatelessWidget {
     final n = context.neon;
     final dark = Theme.of(context).brightness == Brightness.dark;
     return Stack(fit: StackFit.expand, children: [
-      Image.asset(asset, key: ValueKey('backdrop-$background'), fit: BoxFit.cover),
+      Image.asset(asset, key: ValueKey('backdrop-${background ?? 'disco'}'), fit: BoxFit.cover),
       DecoratedBox(
         decoration: BoxDecoration(
           gradient: LinearGradient(

@@ -48,7 +48,8 @@ public final class HuudSpaceDtos {
     public record UpdateRequest(@Size(max = 40) String name, String privacy, String background) {
     }
 
-    public static final List<String> BACKGROUNDS = List.of("lounge", "poolside", "club");
+    /** Pickable backdrops; none chosen ("default", stored as null) is the disco floor, "blank" is no picture. */
+    public static final List<String> BACKGROUNDS = List.of("blank", "lounge", "poolside", "club");
 
     public record JoinRequest(@NotBlank @Size(min = 6, max = 6) String code) {
     }
