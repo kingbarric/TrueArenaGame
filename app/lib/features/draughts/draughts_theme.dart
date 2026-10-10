@@ -65,8 +65,9 @@ const List<BoardPalette> boardPalettes = [
     lightSquare: Color(0xfff4f1ea),
     darkGrain: Color(0xff242429),
     lightGrain: Color(0xffe6e2d6),
-    frameTop: Color(0xff3a3a40),
-    frameBottom: Color(0xff121214),
+    // Old rusty-brown wood round the black & white board.
+    frameTop: Color(0xff7a4524),
+    frameBottom: Color(0xff3a1c0b),
   ),
   BoardPalette(
     id: 'tournament',
