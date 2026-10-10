@@ -79,9 +79,11 @@ void main() {
   test('optional beauty and accessories survive a look save and reload', () {
     var look = SlayLook.initial();
     for (final id in [
+      'female-hair-ponytail',
       'female-eyes-green',
-      'female-lipstick-plum',
+      'female-lipstick-coral',
       'female-earrings-pearls',
+      'female-nose-ring-gold',
       'female-bag-handbag',
       'watch-smart'
     ]) {
@@ -91,7 +93,10 @@ void main() {
     expect(restored.items, look.items);
     final removed = restored.copy(items: {...restored.items}..remove('eyes'));
     expect(removed.items.containsKey('eyes'), isFalse);
-    expect(removed.items['makeup'], 'female-lipstick-plum');
+    expect(removed.items['makeup'], 'female-lipstick-coral');
+    expect(restored.items['hair'], 'female-hair-ponytail');
+    expect(restored.items['jewellery'], 'female-earrings-pearls');
+    expect(restored.items['accessories'], 'female-nose-ring-gold');
     expect(restored.items['eyes'], 'female-eyes-green');
   });
 }

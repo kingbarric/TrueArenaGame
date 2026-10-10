@@ -47,13 +47,13 @@ test('eye meshes respect texture transparency so opaque corneas do not hide colo
 test('lipstick geometry stays on the face and follows face presets and smiles', async () => {
   const avatar = await load('female'), root = new Group(); root.add(avatar.scene);
   const bones = new Map(); avatar.scene.traverse(o => {if (o instanceof Bone) bones.set(o.name, o);});
-  for (const shade of ['ruby', 'rose', 'plum']) {
-    const overlay = await load('female-lipstick-' + shade); bindGarment(overlay.scene, bones); root.add(overlay.scene);
-    const mesh = overlay.scene.getObjectByName('female-lipstick-' + shade);
+  for (const item of catalog.items.filter(i => i.id.startsWith('female-lipstick-'))) {
+    const overlay = await load(item.id); bindGarment(overlay.scene, bones); root.add(overlay.scene);
+    const mesh = overlay.scene.getObjectByName(item.id);
     const p = mesh.geometry.getAttribute('position');
     assert.ok(p.count > 10 && p.count < 500, 'small face overlay');
     for (let i = 0; i < p.count; i++) {
-      assert.ok(Math.abs(p.getX(i)) < .04 && p.getY(i) > 1.59 && p.getY(i) < 1.63 && p.getZ(i) > .14, 'lips only');
+      assert.ok(Math.abs(p.getX(i)) < .028 && p.getY(i) > 1.605 && p.getY(i) < 1.625 && p.getZ(i) > .145, 'lip contour only, no cheek or chin colour');
     }
     for (const face of catalog.facePresets) {
       presentFace(root, face, 'confident');

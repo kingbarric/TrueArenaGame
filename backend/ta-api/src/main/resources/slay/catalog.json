@@ -1,5 +1,5 @@
 {
-  "version": 18,
+  "version": 19,
   "developmentAssets": true,
   "avatars": [
     {
@@ -4499,6 +4499,249 @@
       "coinCost": 0,
       "unlockWins": 0,
       "placeholder": "shoes"
+    },
+    {
+      "id": "female-hair-bob",
+      "name": "Chic Bob",
+      "category": "hair",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-hair-bob.glb",
+      "thumbnailUrl": "assets/female-hair-bob.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "female-hair-ponytail",
+      "name": "Sleek Ponytail",
+      "category": "hair",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "brown"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/female-hair-ponytail.glb",
+      "thumbnailUrl": "assets/female-hair-ponytail.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 80,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "female-hair-long",
+      "name": "Long & Flowing",
+      "category": "hair",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "brown"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/female-hair-long.glb",
+      "thumbnailUrl": "assets/female-hair-long.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 120,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "female-lipstick-nude",
+      "name": "Peach Nude",
+      "category": "makeup",
+      "body": "female",
+      "styleTags": [
+        "romantic",
+        "party"
+      ],
+      "colourTags": [
+        "nude"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "romantic",
+        "party"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-lipstick-nude.glb",
+      "thumbnailUrl": "assets/female-lipstick-nude.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "makeup"
+    },
+    {
+      "id": "female-lipstick-cocoa",
+      "name": "Cocoa Gloss",
+      "category": "makeup",
+      "body": "female",
+      "styleTags": [
+        "romantic",
+        "party"
+      ],
+      "colourTags": [
+        "brown"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "romantic",
+        "party"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-lipstick-cocoa.glb",
+      "thumbnailUrl": "assets/female-lipstick-cocoa.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "makeup"
+    },
+    {
+      "id": "female-lipstick-coral",
+      "name": "Coral Kiss",
+      "category": "makeup",
+      "body": "female",
+      "styleTags": [
+        "romantic",
+        "party"
+      ],
+      "colourTags": [
+        "coral"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "romantic",
+        "party"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-lipstick-coral.glb",
+      "thumbnailUrl": "assets/female-lipstick-coral.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "makeup"
+    },
+    {
+      "id": "female-lipstick-berry",
+      "name": "Berry Wine",
+      "category": "makeup",
+      "body": "female",
+      "styleTags": [
+        "romantic",
+        "party"
+      ],
+      "colourTags": [
+        "burgundy"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "romantic",
+        "party"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-lipstick-berry.glb",
+      "thumbnailUrl": "assets/female-lipstick-berry.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "makeup"
+    },
+    {
+      "id": "female-lipstick-pink",
+      "name": "Hot Pink",
+      "category": "makeup",
+      "body": "female",
+      "styleTags": [
+        "romantic",
+        "party"
+      ],
+      "colourTags": [
+        "pink"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "romantic",
+        "party"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-lipstick-pink.glb",
+      "thumbnailUrl": "assets/female-lipstick-pink.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "makeup"
+    },
+    {
+      "id": "female-nose-ring-gold",
+      "name": "Gold Nose Hoop",
+      "category": "accessories",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "party"
+      ],
+      "colourTags": [
+        "gold"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "party"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-nose-ring-gold.glb",
+      "thumbnailUrl": "assets/female-nose-ring-gold.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "accessories"
     }
   ],
   "themes": [

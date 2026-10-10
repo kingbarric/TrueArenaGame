@@ -9,6 +9,7 @@
 import {mkdirSync, readFileSync, writeFileSync, readdirSync, copyFileSync} from 'node:fs';
 import {dirname, resolve} from 'node:path';
 import {execFileSync} from 'node:child_process';
+import {TorusGeometry} from 'three';
 import {rigFor, skinWeights, poses, poseQuaternion} from './starter-rig.mjs';
 import {deletedVertices, proxyCoverage, coveredTriangles} from './makehuman-coverage.mjs';
 import {expansion} from './wardrobe-expansion.mjs';
@@ -161,6 +162,17 @@ function convert({id, body, obj, texture, isAvatar, options = {}}) {
   const sockIsland = id === 'shoe-0' || id === 'shoe-1' ? (uv => id === 'shoe-0' ? uv[0] > .83 && uv[1] < .30 : uv[0] > .76 && uv[1] > .76) : null;
   const eyeOffset = body === 'male' ? -7.65 : -8.98;
   let mesh = parseObj(resolve(source, obj), [0, isHair ? headOffset : options.eyes ? eyeOffset * scale : 0, options.eyes ? -.20 * scale : 0], sockIsland);
+  if (options.noseRing) {
+    // Small nostril hoop fitted to female1605, rather than a floating facial
+    // accessory. Bake world-space geometry before assigning the shared rig.
+    const hoop = new TorusGeometry(.0045, .0008, 8, 32);
+    hoop.rotateY(.30); hoop.translate(.014, 1.643, .163);
+    const triangles = hoop.toNonIndexed();
+    mesh = {position: triangles.attributes.position.array,
+      normal: triangles.attributes.normal.array, uv: triangles.attributes.uv.array,
+      sourceVertices: Array.from({length: triangles.attributes.position.count}, (_, i) => i)};
+    triangles.dispose(); hoop.dispose();
+  }
   if (options.crop) mesh = clipMesh(mesh, [p => p[1] - options.crop]);
   if (options.upperCrop) mesh = clipMesh(mesh, [p => options.upperCrop - p[1]]);
   if (options.tubeTop) {
@@ -186,7 +198,16 @@ function convert({id, body, obj, texture, isAvatar, options = {}}) {
   if (options.lips) {
     // Follow the lip folds of the source mesh, including the Cupid's bow,
     // rather than placing a floating primitive in front of the mouth.
-    mesh = selectTriangles(mesh, p => p[1] > 1.597 && p[1] < 1.619 && Math.abs(p[0]) < .034 && p[2] > .143);
+    mesh = selectTriangles(mesh, p => p[1] > 1.603 && p[1] < 1.626 && Math.abs(p[0]) < .030 && p[2] > .146);
+    // Clip the contour instead of keeping whole neighbouring skin triangles,
+    // which produced angular corners and coloured the chin below the lips.
+    mesh = clipMesh(mesh, [
+      p => .027 - Math.abs(p[0]),
+      p => p[1] - (1.6055 + .0065 * (Math.abs(p[0]) / .027) ** 2),
+      p => (1.624 - .012 * (Math.abs(p[0]) / .027) ** 2 -
+        .003 * Math.exp(-((p[0] / .004) ** 2))) - p[1],
+      p => p[2] - .146,
+    ]);
     for (let i = 0; i < mesh.position.length; i++) mesh.position[i] += mesh.normal[i] * .0007;
   }
   if (options.earrings) {
@@ -290,13 +311,13 @@ function convert({id, body, obj, texture, isAvatar, options = {}}) {
     const joints = new Uint16Array(region.position.length / 3 * 4), jointWeights = new Float32Array(region.position.length / 3 * 4);
     for (let vertex = 0; vertex < region.position.length / 3; vertex++) {
       const skin = options.bag === 'hand' ? {joints: [11, 0, 0, 0], weights: [1, 0, 0, 0]}
-        : skinWeights(region.position.slice(vertex * 3, vertex * 3 + 3), {body, headHeight, hair: isHair || name.startsWith('face_') || options.eyes || options.lips || options.earrings, shoes: isShoes, ankleBoot: options.ankleBoot, skirt: !isAvatar && /dress|flapper|kimono|skirt/.test(obj)});
+        : skinWeights(region.position.slice(vertex * 3, vertex * 3 + 3), {body, headHeight, hair: isHair || name.startsWith('face_') || options.eyes || options.lips || options.earrings || options.noseRing, shoes: isShoes, ankleBoot: options.ankleBoot, skirt: !isAvatar && /dress|flapper|kimono|skirt/.test(obj)});
       joints.set(skin.joints, vertex * 4); jointWeights.set(skin.weights, vertex * 4);
     }
     const jointAccessor = add(joints, 5123, 'VEC4', joints.length / 4, 34962), weightAccessor = add(jointWeights, 5126, 'VEC4', jointWeights.length / 4, 34962);
     const indexAccessor = add(region.indices, 5125, 'SCALAR', region.indices.length, 34963);
     const primitive = {attributes: {POSITION: positions, NORMAL: normals, TEXCOORD_0: uvs, JOINTS_0: jointAccessor, WEIGHTS_0: weightAccessor}, indices: indexAccessor, material: name.startsWith('starter_') ? 3 : name === 'face_eyes' ? 1 : name === 'face_brows' ? 2 : 0};
-    if ((isAvatar && name === 'region_head') || options.lips) {
+    if ((isAvatar && name === 'region_head') || options.lips || options.noseRing) {
       primitive.targets = ['face_classic', 'face_soft', 'face_angular', 'expression_smile'].map(name => {
         const delta = new Float32Array(region.position.length);
         for (let vertex = 0; vertex < region.position.length; vertex += 3) {
@@ -311,7 +332,7 @@ function convert({id, body, obj, texture, isAvatar, options = {}}) {
         return {POSITION: accessor};
       });
     }
-    meshes.push({name, primitives: [primitive], ...(((isAvatar && name === 'region_head') || options.lips) ? {extras: {targetNames: ['face_classic', 'face_soft', 'face_angular', 'expression_smile']}} : {})});
+    meshes.push({name, primitives: [primitive], ...(((isAvatar && name === 'region_head') || options.lips || options.noseRing) ? {extras: {targetNames: ['face_classic', 'face_soft', 'face_angular', 'expression_smile']}} : {})});
     const masks = name.startsWith('region_') ? Object.fromEntries(Object.entries(coverage)
       .map(([item, weights]) => [item, coveredTriangles(rawRegion.sourceVertices, weights).filter(triangle => {
         const crop = assets[item][3]?.crop;
@@ -373,7 +394,7 @@ function convert({id, body, obj, texture, isAvatar, options = {}}) {
   }) : [];
   const materials = images.map((_, index) => ({name: id + '-material-' + index, doubleSided: !isAvatar || index > 0, ...((isHair || options.alpha || index === 2 || options.eyes || (isAvatar && index === 1)) ? {alphaMode: 'MASK', alphaCutoff: .35} : {}), pbrMetallicRoughness: {baseColorTexture: {index}, ...(options.tint ? {baseColorFactor: options.tint} : {}), metallicFactor: options.earrings ? .65 : 0, roughnessFactor: options.eyes || index === 1 ? .35 : .85}}));
   if (isAvatar) materials.push({name: body + '-base-underwear', doubleSided: true, pbrMetallicRoughness: {baseColorFactor: [.07, .055, .09, 1], metallicFactor: 0, roughnessFactor: .9}});
-  if (!texture) materials.push({name: id + '-lip-colour', doubleSided: false, pbrMetallicRoughness: {baseColorFactor: options.colour, metallicFactor: 0, roughnessFactor: .38}});
+  if (!texture) materials.push({name: id + (options.noseRing ? '-gold' : '-lip-colour'), doubleSided: false, pbrMetallicRoughness: {baseColorFactor: options.colour, metallicFactor: options.noseRing ? .85 : 0, roughnessFactor: options.noseRing ? .25 : .38}});
   const document = {asset: {version: '2.0', generator: 'SlayHuud MakeHuman starter converter'}, scene: 0, scenes: [{nodes: [...meshes.keys(), firstBone]}], nodes, meshes, skins: [{name: 'slay-shared-rig-v1', inverseBindMatrices: inverseAccessor, joints: bones.map((_, index) => firstBone + index), skeleton: firstBone}], materials, textures: images.map((_, source) => ({source})), images, buffers: [{byteLength: viewChunks.reduce((sum, value) => sum + align(value.length), 0)}], bufferViews: views, accessors, animations};
   writeFileSync(resolve(output, id + '.glb'), encodeGlb(document, viewChunks));
   const sourceFolder = resolve(source, dirname(obj));

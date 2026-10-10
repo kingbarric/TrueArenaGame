@@ -2,7 +2,7 @@
 
 ## MakeHuman system assets — CC0
 
-MakeHuman Community: female1605 and male_generic bodies, African skin textures, high-poly eyes and brown-light/green/deep-blue eye textures, eyebrows, afro01/short01/braid01 hair, system suits and shoes.
+MakeHuman Community: female1605 and male_generic bodies, African skin textures, high-poly eyes and brown-light/green/deep-blue eye textures, eyebrows, afro01/short01/braid01/bob01/ponytail01/long01 hair, system suits and shoes.
 
 Source: https://static.makehumancommunity.org/assets/assetpacks/makehuman_system_assets.html
 License: https://creativecommons.org/publicdomain/zero/1.0/
@@ -44,7 +44,7 @@ Changes to community assets: converted OBJ and textures to embedded GLB, reduced
 
 ## SlayHuud additions
 
-Gold Chronograph, Steel & Leather and Night Smartwatch are original lightweight meshes authored for SlayHuud. Ruby Red, Soft Rose and Deep Plum lipstick are original colour materials on overlays derived from the CC0 female body, carrying matching face and expression morphs. Starter pose clips, garment coverage and fitting code are authored for SlayHuud.
+Gold Chronograph, Steel & Leather, Night Smartwatch and Gold Nose Hoop are original lightweight meshes authored for SlayHuud. Ruby Red, Soft Rose, Deep Plum, Peach Nude, Cocoa Gloss, Coral Kiss, Berry Wine and Hot Pink lipstick are original colour materials on overlays derived from the CC0 female body, carrying matching face and expression morphs. The nose hoop follows the shared head rig and face morphs. Starter pose clips, garment coverage and fitting code are authored for SlayHuud.
 
 These starter models still need final art review and real-device performance testing before release.
 
