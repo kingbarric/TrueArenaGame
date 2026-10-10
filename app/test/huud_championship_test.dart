@@ -187,9 +187,8 @@ void main() {
         return _json(_cup(registered: true, players: [..._eight.take(2), _player('me', 'Eric')]));
       }
       if (r.url.path == '/api/v1/huud-spaces/h1/championship') {
-        return _json(registered
-            ? _cup(registered: true, players: [..._eight.skip(1).take(2), _player('me', 'Eric')])
-            : _cup());
+        return _json(
+            registered ? _cup(registered: true, players: [..._eight.skip(1).take(2), _player('me', 'Eric')]) : _cup());
       }
       return http.Response('not found', 404);
     });
@@ -291,10 +290,10 @@ void main() {
   });
 
   test('the bracket model finds the match whose voice you hear', () {
-    final cup = HuudCup.fromJson(_cup(
-        status: 'playing',
-        players: _eight,
-        matches: [_match('m1', 1, 'Quarter Finals', 1, 'me', 'ada'), _match('m2', 1, 'Quarter Finals', 2, 'john', 'sarah')]));
+    final cup = HuudCup.fromJson(_cup(status: 'playing', players: _eight, matches: [
+      _match('m1', 1, 'Quarter Finals', 1, 'me', 'ada'),
+      _match('m2', 1, 'Quarter Finals', 2, 'john', 'sarah')
+    ]));
     expect(cup.liveMatchWithVoice('huud-h1-m-m2')?.id, 'm2');
     expect(cup.liveMatchWithVoice('huud-h1'), isNull);
     expect(cupMatchTitle(cup, cup.matches.first, me: 'me'), 'You vs ada');
@@ -331,15 +330,46 @@ void main() {
     });
     expect(
         huudStatusLine(
-            live: true, liveCount: 9, memberCount: 9, game: 'Whot', gameStatus: 'playing', championship: mine.championship),
+            live: true,
+            liveCount: 9,
+            memberCount: 9,
+            game: 'Whot',
+            gameStatus: 'playing',
+            championship: mine.championship),
         'Live now · 9 in Huud · 🏆 Draughts Championship · sign up now');
-    expect(
-        const HuudCupLine(name: 'Chess Championship', gameType: 'chess', status: 'playing', roundName: 'Final').text,
+    expect(const HuudCupLine(name: 'Chess Championship', gameType: 'chess', status: 'playing', roundName: 'Final').text,
         '🏆 Chess Championship · the Final');
     expect(const HuudCupLine(name: 'Chess Championship', gameType: 'chess', status: 'finished').text,
         '🏆 Chess Championship · finished');
     // No championship: the game line as before.
     expect(huudStatusLine(live: true, liveCount: 3, memberCount: 4, game: 'Whot', gameStatus: 'playing'),
         'Live now · 3 in Huud · Playing Whot');
+  });
+
+  testWidgets('in a Huud, a sideways swipe moves between Play, Chat and People', (tester) async {
+    await pump(tester, (r) async {
+      if (r.url.path == '/api/v1/huud-spaces/h1') return _json(_huud());
+      return http.Response('not found', 404);
+    });
+    void on(String tab) =>
+        expect(tester.getSemantics(find.byKey(ValueKey('huud-tab-$tab'))), isSemantics(isSelected: true));
+    on('play');
+
+    await tester.fling(find.byKey(const ValueKey('huud-tab-play')), const Offset(-300, 0), 1500);
+    await settle(tester);
+    on('chat');
+
+    await tester.fling(find.byKey(const ValueKey('huud-tab-chat')), const Offset(-300, 0), 1500);
+    await settle(tester);
+    on('people');
+
+    // People is the last tab: swiping on goes nowhere.
+    await tester.fling(find.byKey(const ValueKey('huud-tab-people')), const Offset(-300, 0), 1500);
+    await settle(tester);
+    on('people');
+
+    await tester.fling(find.byKey(const ValueKey('huud-tab-people')), const Offset(300, 0), 1500);
+    await settle(tester);
+    on('chat');
   });
 }

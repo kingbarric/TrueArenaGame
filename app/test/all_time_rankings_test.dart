@@ -63,4 +63,39 @@ void main() {
     await tester.pumpAndSettle();
     expect(calls, contains('/api/v1/rankings/all-time?gameType=whot'), reason: calls.join(' | '));
   });
+
+  testWidgets('swiping the board sideways moves to the next game, and back to Overall', (tester) async {
+    final calls = <String>[];
+    final api = ApiClient(client: MockClient((r) async {
+      calls.add('${r.url.path}${r.url.hasQuery ? '?${r.url.query}' : ''}');
+      return http.Response(
+          jsonEncode({
+            'top': [for (var i = 1; i <= 20; i++) _player(i, 'p$i', 500 - i * 10)]
+          }),
+          200,
+          headers: {'content-type': 'application/json'});
+    }))
+      ..bearer = 'token';
+    final state = AppState(api)
+      ..user = const UserView(id: 'me', displayName: 'Eric Barima', username: 'eric')
+      ..identity = Identity.account;
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+        AppScope(state: state, child: MaterialApp(theme: NeonTheme.dark, home: const AllTimeRankingsScreen())));
+    await tester.pumpAndSettle();
+
+    // Swiping right on Overall goes nowhere — it's the first.
+    await tester.fling(find.text('p5'), const Offset(300, 0), 1500);
+    await tester.pumpAndSettle();
+    expect(calls, ['/api/v1/rankings/all-time']);
+
+    await tester.fling(find.text('p5'), const Offset(-300, 0), 1500);
+    await tester.pumpAndSettle();
+    expect(calls.last, startsWith('/api/v1/rankings/all-time?gameType='));
+
+    await tester.fling(find.text('p5'), const Offset(300, 0), 1500);
+    await tester.pumpAndSettle();
+    expect(calls.last, '/api/v1/rankings/all-time');
+  });
 }

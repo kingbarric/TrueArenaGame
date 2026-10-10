@@ -6,6 +6,7 @@ import '../../core/api_client.dart';
 import '../../core/app_state.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/compact_list_row.dart';
+import '../../widgets/keep_alive_page.dart';
 import '../../widgets/neon.dart';
 import '../calls/call_screen.dart';
 import '../games/game_select_screen.dart';
@@ -110,8 +111,12 @@ class _FriendsScreenState extends State<FriendsScreen> {
   int _searchToken = 0;
   final Set<String> _requestingUserIds = {};
 
-  /// Friends · Messages · Requests.
+  /// Friends · Messages · Requests — pages you can swipe between, or tap.
   _Section _section = _Section.friends;
+  final _pages = PageController();
+
+  /// The page a tab tap is heading for, so the pages it slides past don't count.
+  _Section? _heading;
 
   @override
   void initState() {
@@ -129,6 +134,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
   @override
   void dispose() {
     MainShell.shownTab.removeListener(_onTab);
+    _pages.dispose();
     _searchController.dispose();
     _debounce?.cancel();
     super.dispose();
@@ -354,15 +360,35 @@ class _FriendsScreenState extends State<FriendsScreen> {
         child: Column(children: [
           _sectionTabs(n),
           Expanded(
-            child: IndexedStack(index: _section.index, sizing: StackFit.expand, children: [
-              _friendsList(n),
-              const ChatListScreen(embedded: true),
-              _requestsList(n),
-            ]),
+            child: PageView(
+              key: const ValueKey('friends-pages'),
+              controller: _pages,
+              onPageChanged: (i) => _arrive(_Section.values[i]),
+              children: [
+                KeepAlivePage(child: _friendsList(n)),
+                const KeepAlivePage(child: ChatListScreen(embedded: true)),
+                KeepAlivePage(child: _requestsList(n)),
+              ],
+            ),
           ),
         ]),
       ),
     );
+  }
+
+  void _goTo(_Section section) {
+    if (section == _section || !_pages.hasClients) return;
+    _heading = section;
+    _pages.animateToPage(section.index, duration: const Duration(milliseconds: 280), curve: Curves.easeOutCubic);
+  }
+
+  void _arrive(_Section section) {
+    if (_heading != null) {
+      if (section != _heading) return;
+      _heading = null;
+    }
+    setState(() => _section = section);
+    if (section == _Section.requests) _load(quiet: true);
   }
 
   /// Big pill tabs; Requests carries a count while anyone is waiting on you.
@@ -378,10 +404,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
           excludeSemantics: true,
           child: GestureDetector(
             key: ValueKey('friends-tab-${section.name}'),
-            onTap: () {
-              setState(() => _section = section);
-              if (section == _Section.requests) _load(quiet: true);
-            },
+            onTap: () => _goTo(section),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
               height: 46,

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/app_state.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/neon.dart';
+import '../../widgets/swipe_to_switch.dart';
 import '../games/game_select_screen.dart' show gameCatalog;
 import 'competitive_widgets.dart';
 import 'player_profile_screen.dart';
@@ -101,8 +102,17 @@ class _AllTimeRankingsScreenState extends State<AllTimeRankingsScreen> {
         _you = raw['you'] == null ? null : RankedPlayer.fromJson((raw['you'] as Map).cast<String, dynamic>());
       });
     } catch (_) {
-      if (mounted && ticket == _request) setState(() => _error = "We couldn't load the rankings. Pull down to try again.");
+      if (mounted && ticket == _request)
+        setState(() => _error = "We couldn't load the rankings. Pull down to try again.");
     }
+  }
+
+  /// The game chip [step] along from the one picked ("All games" is a null id).
+  VoidCallback? _neighbour(int step) {
+    final ids = [for (final (id, _) in _games) id];
+    final i = ids.indexOf(_game) + step;
+    if (i < 0 || i >= ids.length) return null;
+    return () => _pick(ids[i]);
   }
 
   void _pick(String? game) {
@@ -146,33 +156,38 @@ class _AllTimeRankingsScreenState extends State<AllTimeRankingsScreen> {
                 style: TextStyle(fontSize: 13, color: n.mute)),
           ),
           Expanded(
-            child: RefreshIndicator(
-              onRefresh: _load,
-              child: _error != null
-                  ? ListView(children: [
-                      Padding(
-                        padding: const EdgeInsets.all(32),
-                        child: Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: n.mid)),
-                      ),
-                    ])
-                  : top == null
-                      ? const Center(child: CircularProgressIndicator())
-                      : top.isEmpty
-                          ? ListView(children: [
-                              Padding(
-                                padding: const EdgeInsets.all(32),
-                                child: Text('Nobody on this board yet — play a game and be the first!',
-                                    key: const ValueKey('rank-empty'),
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(color: n.mid, fontSize: 15)),
+            // Swipe sideways for the next or previous game, like tapping its chip.
+            child: SwipeToSwitch(
+              onNext: _neighbour(1),
+              onPrevious: _neighbour(-1),
+              child: RefreshIndicator(
+                onRefresh: _load,
+                child: _error != null
+                    ? ListView(children: [
+                        Padding(
+                          padding: const EdgeInsets.all(32),
+                          child: Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: n.mid)),
+                        ),
+                      ])
+                    : top == null
+                        ? const Center(child: CircularProgressIndicator())
+                        : top.isEmpty
+                            ? ListView(children: [
+                                Padding(
+                                  padding: const EdgeInsets.all(32),
+                                  child: Text('Nobody on this board yet — play a game and be the first!',
+                                      key: const ValueKey('rank-empty'),
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(color: n.mid, fontSize: 15)),
+                                ),
+                              ])
+                            : ListView(
+                                padding: const EdgeInsets.fromLTRB(14, 0, 14, 16),
+                                children: [
+                                  for (final p in top) _row(n, p, mine: p.userId == me),
+                                ],
                               ),
-                            ])
-                          : ListView(
-                              padding: const EdgeInsets.fromLTRB(14, 0, 14, 16),
-                              children: [
-                                for (final p in top) _row(n, p, mine: p.userId == me),
-                              ],
-                            ),
+              ),
             ),
           ),
           if (youOutside)
@@ -223,7 +238,8 @@ class _AllTimeRankingsScreenState extends State<AllTimeRankingsScreen> {
           ),
           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
             Text('${p.strength}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: n.gold)),
-            Text('STRENGTH', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: n.mute, letterSpacing: 1)),
+            Text('STRENGTH',
+                style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: n.mute, letterSpacing: 1)),
           ]),
         ]),
       ),

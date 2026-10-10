@@ -20,6 +20,7 @@ import 'huud_kit.dart';
 import 'huud_link.dart';
 import 'huud_voice.dart';
 import '../../widgets/mic_button.dart';
+import '../../widgets/swipe_to_switch.dart';
 import 'huud_space_models.dart';
 import 'huud_roster.dart';
 import 'whot_mode_sheet.dart';
@@ -461,8 +462,9 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     _load();
   }
 
-  Future<void> _register() => _cupCall('cup-register', (api) => api.post('/huud-spaces/${widget.id}/championship/register'),
-      say: "You're registered! 🏆");
+  Future<void> _register() =>
+      _cupCall('cup-register', (api) => api.post('/huud-spaces/${widget.id}/championship/register'),
+          say: "You're registered! 🏆");
 
   Future<void> _withdraw() =>
       _cupCall('cup-withdraw', (api) => api.delete('/huud-spaces/${widget.id}/championship/register'));
@@ -474,7 +476,8 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         message: '${player.handle} will be taken off the championship. They can register again.',
         yes: 'Free the place');
     if (!ok || !mounted) return;
-    await _cupCall('cup-remove', (api) => api.delete('/huud-spaces/${widget.id}/championship/players/${player.userId}'));
+    await _cupCall(
+        'cup-remove', (api) => api.delete('/huud-spaces/${widget.id}/championship/players/${player.userId}'));
   }
 
   /// Back to hanging out — calling off registration, or putting a finished bracket away.
@@ -525,7 +528,10 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         socket: GameSocket.connect(app.api, roomId),
         selfId: me,
         nicknames: cup.nicknames,
-        avatars: {for (final p in cup.players) if (p.avatarUrl != null) p.userId: p.avatarUrl!},
+        avatars: {
+          for (final p in cup.players)
+            if (p.avatarUrl != null) p.userId: p.avatarUrl!
+        },
         championship: true,
       );
     } else {
@@ -745,16 +751,23 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                         ? null
                         : () {
                             Navigator.of(sheet).pop();
-                            Navigator.of(context).push(MaterialPageRoute(
-                                builder: (_) => PlayerProfileScreen(username: person.username)));
+                            Navigator.of(context).push(
+                                MaterialPageRoute(builder: (_) => PlayerProfileScreen(username: person.username)));
                           },
                   ),
                   if (_friendIds.contains(person.userId))
                     const HuudRoundAction(
-                        key: ValueKey('person-friends'), icon: Icons.favorite_rounded, label: 'Friends', active: true, onTap: null)
+                        key: ValueKey('person-friends'),
+                        icon: Icons.favorite_rounded,
+                        label: 'Friends',
+                        active: true,
+                        onTap: null)
                   else if (_friendAsked.contains(person.userId))
                     const HuudRoundAction(
-                        key: ValueKey('person-friend-asked'), icon: Icons.hourglass_top_rounded, label: 'Asked', onTap: null)
+                        key: ValueKey('person-friend-asked'),
+                        icon: Icons.hourglass_top_rounded,
+                        label: 'Asked',
+                        onTap: null)
                   else
                     HuudRoundAction(
                       key: const ValueKey('person-add-friend'),
@@ -866,81 +879,85 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
           child: Column(children: [
             _topBar(n, huud),
             Expanded(
-              child: RefreshIndicator(
-                onRefresh: _load,
-                child: CustomScrollView(
-                  controller: _scroll,
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  slivers: [
-                    if (huud == null)
-                      SliverPadding(
-                        padding: const EdgeInsets.all(16),
-                        sliver: SliverToBoxAdapter(
-                          child: _error == null
-                              ? const Padding(
-                                  padding: EdgeInsets.all(48), child: Center(child: CircularProgressIndicator()))
-                              : HuudFriendlyState(
-                                  emoji: '🙈',
-                                  title: "We can't open this Huud",
-                                  message: _error!,
-                                  action: HuudButton(
-                                      label: 'Try again', icon: Icons.refresh_rounded, onPressed: () => _load()),
-                                ),
+              child: SwipeToSwitch(
+                onNext: _swipeTo(huud, 1),
+                onPrevious: _swipeTo(huud, -1),
+                child: RefreshIndicator(
+                  onRefresh: _load,
+                  child: CustomScrollView(
+                    controller: _scroll,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      if (huud == null)
+                        SliverPadding(
+                          padding: const EdgeInsets.all(16),
+                          sliver: SliverToBoxAdapter(
+                            child: _error == null
+                                ? const Padding(
+                                    padding: EdgeInsets.all(48), child: Center(child: CircularProgressIndicator()))
+                                : HuudFriendlyState(
+                                    emoji: '🙈',
+                                    title: "We can't open this Huud",
+                                    message: _error!,
+                                    action: HuudButton(
+                                        label: 'Try again', icon: Icons.refresh_rounded, onPressed: () => _load()),
+                                  ),
+                          ),
+                        )
+                      else ...[
+                        SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                          sliver: SliverToBoxAdapter(child: _hero(huud)),
                         ),
-                      )
-                    else ...[
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-                        sliver: SliverToBoxAdapter(child: _hero(huud)),
-                      ),
-                      if (!huud.active)
-                        _box(HuudFriendlyState(
-                          emoji: '👋',
-                          title: 'This Huud was deleted',
-                          message: 'Its owner deleted it. Thanks for hanging out!',
-                          action: HuudButton(
-                              label: 'Back',
-                              icon: Icons.arrow_back_rounded,
-                              onPressed: () => Navigator.of(context).maybePop()),
-                        ))
-                      else if (!huud.youAreIn) ...[
-                        _box(_door(n, huud)),
-                        // Watching: see the game and who's here; chat and voice are for people inside.
-                        if (huud.live) ...[
+                        if (!huud.active)
+                          _box(HuudFriendlyState(
+                            emoji: '👋',
+                            title: 'This Huud was deleted',
+                            message: 'Its owner deleted it. Thanks for hanging out!',
+                            action: HuudButton(
+                                label: 'Back',
+                                icon: Icons.arrow_back_rounded,
+                                onPressed: () => Navigator.of(context).maybePop()),
+                          ))
+                        else if (!huud.youAreIn) ...[
+                          _box(_door(n, huud)),
+                          // Watching: see the game and who's here; chat and voice are for people inside.
+                          if (huud.live) ...[
+                            SliverPadding(
+                              padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
+                              sliver: SliverToBoxAdapter(child: _tabs(n, huud)),
+                            ),
+                            ...(_tab == _Tab.people ? _people(n, huud) : _play(n, huud)),
+                          ],
+                        ] else if (!huud.live) ...[
+                          // Offline: the Huud is still home — chat and people, and Go Live for the owner.
+                          _box(_offline(n, huud)),
+                          if (huud.youAreHost && huud.requests.isNotEmpty) _box(_asking(n, huud), top: 16),
                           SliverPadding(
                             padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
                             sliver: SliverToBoxAdapter(child: _tabs(n, huud)),
                           ),
-                          ...(_tab == _Tab.people ? _people(n, huud) : _play(n, huud)),
+                          ...(_tab == _Tab.people ? _people(n, huud) : _chatSlivers(n, huud)),
+                        ] else ...[
+                          SliverPadding(
+                            padding: const EdgeInsets.fromLTRB(8, 18, 8, 0),
+                            sliver: SliverToBoxAdapter(child: _actions(huud)),
+                          ),
+                          if (huud.youAreHost && huud.requests.isNotEmpty) _box(_asking(n, huud), top: 16),
+                          SliverPadding(
+                            padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
+                            sliver: SliverToBoxAdapter(child: _tabs(n, huud)),
+                          ),
+                          ...switch (_tab) {
+                            _Tab.play => _play(n, huud),
+                            _Tab.chat => _chatSlivers(n, huud),
+                            _Tab.people => _people(n, huud),
+                          },
                         ],
-                      ] else if (!huud.live) ...[
-                        // Offline: the Huud is still home — chat and people, and Go Live for the owner.
-                        _box(_offline(n, huud)),
-                        if (huud.youAreHost && huud.requests.isNotEmpty) _box(_asking(n, huud), top: 16),
-                        SliverPadding(
-                          padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
-                          sliver: SliverToBoxAdapter(child: _tabs(n, huud)),
-                        ),
-                        ...(_tab == _Tab.people ? _people(n, huud) : _chatSlivers(n, huud)),
-                      ] else ...[
-                        SliverPadding(
-                          padding: const EdgeInsets.fromLTRB(8, 18, 8, 0),
-                          sliver: SliverToBoxAdapter(child: _actions(huud)),
-                        ),
-                        if (huud.youAreHost && huud.requests.isNotEmpty) _box(_asking(n, huud), top: 16),
-                        SliverPadding(
-                          padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
-                          sliver: SliverToBoxAdapter(child: _tabs(n, huud)),
-                        ),
-                        ...switch (_tab) {
-                          _Tab.play => _play(n, huud),
-                          _Tab.chat => _chatSlivers(n, huud),
-                          _Tab.people => _people(n, huud),
-                        },
+                        const SliverToBoxAdapter(child: SizedBox(height: 120)),
                       ],
-                      const SliverToBoxAdapter(child: SizedBox(height: 120)),
                     ],
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -953,6 +970,19 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         ),
       ),
     );
+  }
+
+  /// The tabs on show, left to right — the same ones [_tabs] draws.
+  List<_Tab> _shownTabs(HuudSpace huud) {
+    if (!huud.active || (!huud.youAreIn && !huud.live)) return const [];
+    return [if (huud.live) _Tab.play, if (huud.youAreIn) _Tab.chat, _Tab.people];
+  }
+
+  /// A sideways swipe: the next tab ([step] 1) or the one before (-1), if there is one.
+  VoidCallback? _swipeTo(HuudSpace? huud, int step) {
+    if (huud == null) return null;
+    final next = neighbourTab(_shownTabs(huud), _tab, step);
+    return next == null ? null : () => _openTab(next);
   }
 
   Widget _box(Widget child, {double top = 16}) => SliverPadding(
@@ -1238,30 +1268,33 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
   }
 
   Widget _actions(HuudSpace huud) {
-    return Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, crossAxisAlignment: CrossAxisAlignment.start, children: [
-      // One mic for everything: ask, wait, then mute / talk.
-      MicStateButton(
-        key: const ValueKey('huud-talk'),
-        state: _micState(huud),
-        size: 58,
-        showLabel: true,
-        onTap: () => _talk(huud),
-      ),
-      HuudRoundAction(
-        key: const ValueKey('huud-invite'),
-        icon: Icons.person_add_alt_1_rounded,
-        label: 'Invite',
-        onTap: () => _invite(huud),
-      ),
-      if (!huud.youOwn)
-        HuudRoundAction(
-          key: const ValueKey('huud-leave'),
-          icon: Icons.logout_rounded,
-          label: 'Leave',
-          danger: true,
-          onTap: () => _leave(huud),
-        ),
-    ]);
+    return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // One mic for everything: ask, wait, then mute / talk.
+          MicStateButton(
+            key: const ValueKey('huud-talk'),
+            state: _micState(huud),
+            size: 58,
+            showLabel: true,
+            onTap: () => _talk(huud),
+          ),
+          HuudRoundAction(
+            key: const ValueKey('huud-invite'),
+            icon: Icons.person_add_alt_1_rounded,
+            label: 'Invite',
+            onTap: () => _invite(huud),
+          ),
+          if (!huud.youOwn)
+            HuudRoundAction(
+              key: const ValueKey('huud-leave'),
+              icon: Icons.logout_rounded,
+              label: 'Leave',
+              danger: true,
+              onTap: () => _leave(huud),
+            ),
+        ]);
   }
 
   /// The host's to-do list: who wants in, who wants to play, who wants to talk.

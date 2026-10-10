@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/app_state.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/neon.dart';
+import '../../widgets/swipe_to_switch.dart';
 import 'competitive_api.dart';
 import 'competitive_models.dart';
 import 'competitive_setup_screen.dart';
@@ -101,6 +102,11 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     if (saved == true) _load();
   }
 
+  VoidCallback? _neighbour(int step) {
+    final next = neighbourTab(LeaderboardScope.values, _scope, step);
+    return next == null ? null : () => _select(next);
+  }
+
   String _tabLabel(LeaderboardScope s) => _scopeNames[s] ?? s.label;
 
   @override
@@ -131,7 +137,14 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               ],
             ),
           ),
-          Expanded(child: _body(n, selfId)),
+          Expanded(
+            // Swipe sideways for the next or previous ranking, like tapping its chip.
+            child: SwipeToSwitch(
+              onNext: _neighbour(1),
+              onPrevious: _neighbour(-1),
+              child: _body(n, selfId),
+            ),
+          ),
           if (me != null) _MeBar(entry: me, scope: _scope),
         ]),
       ),
@@ -158,7 +171,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('Unlock $what rankings', style: t.titleMedium),
             const SizedBox(height: 6),
-            Text('Complete your player profile to see where you rank in your '
+            Text(
+                'Complete your player profile to see where you rank in your '
                 '${_scope == LeaderboardScope.region ? 'state' : 'country'}.',
                 style: t.bodySmall?.copyWith(color: n.mid)),
             const SizedBox(height: 14),
@@ -240,8 +254,8 @@ class LeaderboardRow extends StatelessWidget {
           child: Text(e.rank == 0 ? '—' : '#${groupedNumber(e.rank)}',
               maxLines: 1,
               overflow: TextOverflow.visible,
-              style: t.titleMedium?.copyWith(
-                  color: podium ?? n.mid, fontWeight: FontWeight.w900, fontSize: e.rank > 999 ? 11 : 15)),
+              style: t.titleMedium
+                  ?.copyWith(color: podium ?? n.mid, fontWeight: FontWeight.w900, fontSize: e.rank > 999 ? 11 : 15)),
         ),
         PlayerAvatar(name: e.displayName, avatarUrl: e.avatarUrl, size: 36),
         const SizedBox(width: 10),
@@ -250,7 +264,9 @@ class LeaderboardRow extends StatelessWidget {
             Row(children: [
               Flexible(
                 child: Text(e.displayName,
-                    maxLines: 1, overflow: TextOverflow.ellipsis, style: t.bodyMedium?.copyWith(fontWeight: FontWeight.w800)),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: t.bodyMedium?.copyWith(fontWeight: FontWeight.w800)),
               ),
               if (e.founding != null) ...[const SizedBox(width: 6), FoundingBadge(e.founding!, compact: true)],
             ]),
