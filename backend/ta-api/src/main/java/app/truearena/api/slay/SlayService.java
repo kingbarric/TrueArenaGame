@@ -282,6 +282,7 @@ public class SlayService {
                                     Set.copyOf(m.facePresets()),
                                     Set.copyOf(m.poses()),
                                     Set.copyOf(m.backgrounds()));
+                            catalog.validateAvatar(look);
                             UUID id = UUID.randomUUID();
                             return tx.transactional(
                                     db.sql(

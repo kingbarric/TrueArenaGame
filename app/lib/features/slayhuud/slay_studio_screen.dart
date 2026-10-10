@@ -135,6 +135,9 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
           .map((item) => item['id'])
           .toSet();
       if (look.body == _look.body &&
+          (look.avatarId == null ||
+              (widget.catalog['avatars'] as List).any(
+                  (a) => a['body'] == look.body && a['id'] == look.avatarId)) &&
           look.items.values.every(available.contains) &&
           mounted) {
         setState(() => _draft = look);
@@ -771,6 +774,29 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SlayLabel('Make it yours'),
+                      const SizedBox(height: 12),
+                      const SlayLabel('Your character'),
+                      const SizedBox(height: 8),
+                      Wrap(spacing: 8, children: [
+                        for (final avatar in widget.catalog['avatars'] as List)
+                          if (avatar['body'] == _look.body)
+                            ChoiceChip(
+                              avatar: avatar['thumbnailUrl'] == null
+                                  ? const Icon(Icons.face_rounded, size: 18)
+                                  : CircleAvatar(
+                                      radius: 14,
+                                      backgroundImage: AssetImage(
+                                          'assets/slay_renderer/${avatar['thumbnailUrl']}')),
+                              label: Text(avatar['name'] ?? 'Original'),
+                              selected: (_look.avatarId ?? _look.body) ==
+                                  (avatar['id'] ?? avatar['body']),
+                              onSelected: (_) {
+                                _change(_look.copy(
+                                    avatarId: avatar['id'] ?? avatar['body']));
+                                Navigator.pop(c);
+                              },
+                            )
+                      ]),
                       const SizedBox(height: 20),
                       Wrap(spacing: 14, children: [
                         for (final tone in widget.catalog['skinTones'] as List)

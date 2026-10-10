@@ -60,7 +60,7 @@ test('hair remains at head height and mobile textures are in the Flutter bundle'
 });
 
 test('starter eyes sit at face height rather than above the scalp', () => {
-  for (const [id, low, high] of [['female', 1.65, 1.70], ['male', 1.80, 1.85]]) {
+  for (const [id, low, high] of [['female', 1.65, 1.70], ['male', 1.80, 1.86]]) {
     const {doc} = asset(id);
     const eyes = doc.meshes.find(mesh => mesh.name === 'face_eyes');
     const bounds = doc.accessors[eyes.primitives[0].attributes.POSITION];

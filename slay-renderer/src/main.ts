@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Wardrobe } from './avatar';
 import type { Catalog,Look,Message } from './types';
 import { LookState } from './look-state';
+import { StudioBackdrop } from './studio';
 
 let catalog:Catalog,look:Look,paused=false,disposed=false;
 const lookState=new LookState();
@@ -18,6 +19,7 @@ scene.add(new T.HemisphereLight('#ffffff','#b4a99b',2.2));const key=new T.Direct
 const rim=new T.DirectionalLight('#d5dfff',1.5);rim.position.set(-2,2,-2);scene.add(rim);
 const platform=new T.Mesh(new T.CylinderGeometry(.49,.52,.065,64),new T.MeshStandardMaterial({color:'#d4cabe',roughness:.65}));platform.position.y=-.025;scene.add(platform);
 const wardrobe=new Wardrobe(renderer);scene.add(wardrobe.root);
+const studio=new StudioBackdrop();scene.add(studio.root);
 const runway=new T.Mesh(new T.BoxGeometry(1.05,.065,1.75),new T.MeshStandardMaterial({color:'#d4cabe',roughness:.65}));runway.position.set(0,-.025,-.45);runway.visible=false;scene.add(runway);
 wardrobe.onShowcaseState=(playing,phase)=>{runway.visible=playing;platform.visible=!playing;send('showcaseState',{playing,phase});};
 function setCamera(preset:string){
@@ -26,7 +28,7 @@ function setCamera(preset:string){
  controls.target.set(0,preset==='face'?face:preset==='feet'?.2:height,0);controls.update();
 }
 let previous=performance.now(),frames=0,sampleAt=previous,slowSamples=0,tier='high';
-renderer.setAnimationLoop(()=>{if(paused||disposed||document.hidden)return;const now=performance.now();const seconds=Math.max(0,(now-previous)/1000);wardrobe.update(wardrobe.showingOff?seconds:Math.min(seconds,.05));previous=now;controls.update();renderer.render(scene,camera);frames++;if(now-sampleAt>5000){const fps=Math.round(frames*1000/(now-sampleAt));if(fps<24){if(++slowSamples>=2&&tier!=='low'){tier=tier==='high'?'standard':'low';renderer.setPixelRatio(tier==='low'?1:1.5);slowSamples=0;}}else slowSamples=0;send('perf',{fps,tier});frames=0;sampleAt=now;}});
+renderer.setAnimationLoop(()=>{if(paused||disposed||document.hidden)return;const now=performance.now();const seconds=Math.max(0,(now-previous)/1000);wardrobe.update(wardrobe.showingOff?seconds:Math.min(seconds,.05));previous=now;controls.update();studio.update(camera,look?.background??'studio');renderer.render(scene,camera);frames++;if(now-sampleAt>5000){const fps=Math.round(frames*1000/(now-sampleAt));if(fps<24){if(++slowSamples>=2&&tier!=='low'){tier=tier==='high'?'standard':'low';renderer.setPixelRatio(tier==='low'?1:1.5);slowSamples=0;}}else slowSamples=0;send('perf',{fps,tier});frames=0;sampleAt=now;}});
 window.addEventListener('resize',()=>{if(disposed)return;camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
 renderer.domElement.addEventListener('webglcontextlost',event=>{event.preventDefault();paused=true;send('contextLost');});
 renderer.domElement.addEventListener('webglcontextrestored',()=>{paused=false;send('ready',{rendererVersion:1,webgl2:true});});
@@ -53,12 +55,12 @@ window.slayReceive=async(message:Message)=>{
    case 'snapshot':{
       lookState.requireRendered();if(wardrobe.showingOff)throw Error('Finish your show off before saving');const width=Math.max(256,Math.min(1024,Number(p.width)||600)),height=Math.max(256,Math.min(1536,Number(p.height)||900));
       const position=camera.position.clone(),target=controls.target.clone(),size=renderer.getSize(new T.Vector2()),ratio=renderer.getPixelRatio(),aspect=camera.aspect;
-      try{renderer.setPixelRatio(1);renderer.setSize(width,height,false);camera.aspect=width/height;camera.updateProjectionMatrix();setCamera('full');renderer.render(scene,camera);
+      try{renderer.setPixelRatio(1);renderer.setSize(width,height,false);camera.aspect=width/height;camera.updateProjectionMatrix();setCamera('full');studio.update(camera,look.background);renderer.render(scene,camera);
        send('snapshotResult',{pngBase64:renderer.domElement.toDataURL('image/png').split(',')[1]},message.id);
       }finally{renderer.setPixelRatio(ratio);renderer.setSize(size.x,size.y,false);camera.aspect=aspect;camera.position.copy(position);controls.target.copy(target);camera.updateProjectionMatrix();controls.update();}return;
    }
    case 'pause':paused=Boolean(p.paused);if(paused)wardrobe.stopShowcase('Show off cancelled: studio paused');previous=sampleAt=performance.now();frames=slowSamples=0;break;
-   case 'dispose':disposed=true;renderer.setAnimationLoop(null);controls.dispose();wardrobe.destroy();renderer.dispose();break;
+   case 'dispose':disposed=true;renderer.setAnimationLoop(null);controls.dispose();wardrobe.destroy();studio.dispose();renderer.dispose();break;
    default:throw Error('Unknown bridge command');
   }
   send('ack',{},message.id);

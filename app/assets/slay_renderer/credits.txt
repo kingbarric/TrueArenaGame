@@ -75,3 +75,17 @@ Source: https://static.makehumancommunity.org/assets/assetpacks/shoes02.html
 License information (no CC-BY version specified in these pack listings): https://static.makehumancommunity.org/about/license.html
 
 Footwear changes: mobile texture sizing, transparent strap/cutout materials, fit to the female starter body, game rig bindings and boot-shaft weights, rendered thumbnails. Colour selection is a runtime shader effect; original textures remain available through “Original colour”.
+
+Additional avatar characters — CC0
+
+Girl02 by dariush086 (MakeHuman 1.1.1 character definition):
+http://www.makehumancommunity.org/model/girl02.html
+
+Indian Male by Ragnar (MakeHuman 1.2.0 character definition):
+http://www.makehumancommunity.org/model/indian_male.html
+
+Both source pages explicitly list CC0. Their MHM definitions are retained in `slay-renderer/scripts/models`. MakeHuman 1.2.0 base/morph data supplies the offline shape conversion; the app ships exported meshes and fitting data, not the MakeHuman application code.
+
+Modifications: character shape deltas adapted onto the existing fashion bodies; stature and large vertical offsets normalised for the shared skeleton; feet retain the game's footwear fit. Existing skin textures, expression morphs, underwear and rig are retained. A continuous fitting field adjusts selected wardrobe meshes to the character, rather than duplicating every garment. These are shared-rig adaptations of the definitions, rather than unchanged full MakeHuman scene exports. Source preset hair, optional clothing, expression and skeleton selections are replaced by the player's SlayHuud choices.
+
+The distant studio furniture, lights and flowers are original procedural SlayHuud meshes.

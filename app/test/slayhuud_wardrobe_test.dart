@@ -4,6 +4,21 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:truearena/features/slayhuud/slay_models.dart';
 
 void main() {
+  test(
+      'character persists through dressing, recolouring and legacy look reload',
+      () {
+    final legacy = SlayLook.fromJson(SlayLook.initial().toJson());
+    expect(legacy.avatarId, isNull);
+    var look = legacy.copy(avatarId: 'girl02');
+    look = look.equip({'id': 'chosen-top', 'category': 'tops'});
+    look = look.copy(itemColours: {'tops': 'red'}, pose: 'confident');
+    final restored = SlayLook.fromJson(jsonDecode(jsonEncode(look.toJson())));
+    expect(restored.avatarId, 'girl02');
+    expect(restored.items['tops'], 'chosen-top');
+    expect(restored.itemColours['tops'], 'red');
+    expect(restored.pose, 'confident');
+    expect(SlayLook.initial('male').avatarId, isNull);
+  });
   final wardrobe =
       (jsonDecode(File('assets/slay_renderer/catalog.json').readAsStringSync())[
               'items'] as List)

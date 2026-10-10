@@ -8,8 +8,10 @@ class SlayLook {
       required this.items,
       required this.pose,
       required this.background,
+      this.avatarId,
       this.itemColours = const {}});
   final String body, skinTone, facePreset, pose, background;
+  final String? avatarId;
   final Map<String, String> items;
   final Map<String, String> itemColours;
   factory SlayLook.initial([String body = 'female']) => SlayLook(
@@ -21,6 +23,7 @@ class SlayLook {
       background: 'studio');
   factory SlayLook.fromJson(Map<String, dynamic> j) => SlayLook(
       body: j['body'],
+      avatarId: j['avatarId'],
       skinTone: j['skinTone'],
       facePreset: j['facePreset'],
       items: Map<String, String>.from(j['items']),
@@ -29,6 +32,7 @@ class SlayLook {
       background: j['background']);
   Map<String, dynamic> toJson() => {
         'body': body,
+        if (avatarId != null) 'avatarId': avatarId,
         'skinTone': skinTone,
         'facePreset': facePreset,
         'items': items,
@@ -37,7 +41,8 @@ class SlayLook {
         'background': background
       };
   SlayLook copy(
-          {String? skinTone,
+          {String? avatarId,
+          String? skinTone,
           String? facePreset,
           Map<String, String>? items,
           Map<String, String>? itemColours,
@@ -45,6 +50,7 @@ class SlayLook {
           String? background}) =>
       SlayLook(
           body: body,
+          avatarId: avatarId ?? this.avatarId,
           skinTone: skinTone ?? this.skinTone,
           facePreset: facePreset ?? this.facePreset,
           items: Map.unmodifiable(items ?? this.items),

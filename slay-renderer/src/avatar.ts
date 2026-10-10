@@ -10,6 +10,7 @@ import { applyPose, selectBodyFit } from './poses';
 import { coverBody } from './coverage';
 import { Showcase } from './showcase';
 import { applyItemColour } from './item-colours';
+import { VariantFit, type FitField } from './variant-fit';
 
 const palette:Record<string,string>={gold:'#c39b55',navy:'#283d54',pink:'#c98491',red:'#a53541',purple:'#674269',green:'#397c65',black:'#28262a',white:'#eee5d6',blue:'#48879a',grey:'#8e8c87',orange:'#c5773d',yellow:'#ddba55'};
 function material(colour:string){return new T.MeshStandardMaterial({color:colour,roughness:.72,metalness:.05});}
@@ -53,6 +54,7 @@ export class Wardrobe {
   root=new T.Group();private body?:T.Group;private bodyKey='';private equipped=new Map<string,{id:string,root:T.Group}>();
   private revision=0;private loader:GLTFLoader;private ktx:KTX2Loader;private mixer?:T.AnimationMixer;private clips:T.AnimationClip[]=[];
   private bones=new Map<string,T.Bone>();
+  private fit?:VariantFit;
   private assetVersion=0;private performance?:Showcase;private currentPose='signature';
   onShowcaseState:(playing:boolean,phase:string)=>void=()=>{};
   constructor(renderer:T.WebGLRenderer){this.ktx=new KTX2Loader().setTranscoderPath('basis/').detectSupport(renderer);this.loader=new GLTFLoader().setKTX2Loader(this.ktx).setMeshoptDecoder(MeshoptDecoder);}
@@ -61,13 +63,22 @@ export class Wardrobe {
     this.stopShowcase('Show off cancelled: look changed');
     const version=++this.revision;
     this.assetVersion=catalog.version;
-    const avatar=catalog.avatars.find(a=>a.body===look.body);if(!avatar)throw Error('Unknown avatar');
+    const avatar=catalog.avatars.find(a=>a.body===look.body && (!look.avatarId || (a.id??a.body)===look.avatarId));if(!avatar)throw Error('Unknown avatar');
     if(this.bodyKey!==look.body+':'+avatar.assetUrl+':'+catalog.version){
       if(!avatar.assetUrl&&!catalog.developmentAssets)throw Error('Missing production avatar asset');
       const gltf=avatar.assetUrl?await this.load(avatar.assetUrl):null;
+      let fit:VariantFit|undefined;
+      if(avatar.fitUrl){
+        const address=new URL(avatar.fitUrl,location.href);address.searchParams.set('catalogVersion',String(catalog.version));
+        if(address.protocol!=='https:'&&address.origin!==location.origin)throw Error('Avatar fit must be HTTPS or bundled');
+        const response=await fetch(address,{signal:AbortSignal.timeout(20000)});if(!response.ok)throw Error('Could not load avatar fit');
+        const field=await response.json() as FitField;if(field.avatarId!==avatar.id||field.body!==look.body)throw Error('Avatar fit does not match this character');
+        fit=new VariantFit(field);
+      }
       const body=gltf?.scene??mannequin(look);if(version!==this.revision){dispose(body);return;}
       presentBody(body,look.skinTone,new Set());
       this.clear();this.body=body;this.bodyKey=look.body+':'+avatar.assetUrl+':'+catalog.version;this.root.add(body);
+      this.fit=fit;
       this.clips=gltf?.animations??[];this.mixer=new T.AnimationMixer(body);this.bones.clear();
       body.traverse(o=>{if(o instanceof T.Bone)this.bones.set(o.name,o);});
     }
@@ -83,6 +94,7 @@ export class Wardrobe {
         staged.set(slot,{id,root:garment});
         if(item.assetUrl){
           selectBodyFit(garment,look.body);
+          this.fit?.apply(garment);
           bindGarment(garment,this.bones);
           if(item.attachmentBone){const bone=this.bones.get(item.attachmentBone);if(!bone)throw Error('Missing attachment bone: '+item.attachmentBone);}
         }

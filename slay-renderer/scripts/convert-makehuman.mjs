@@ -117,6 +117,20 @@ function fittedShoe(mesh, body, options = {}) {
   }
   return {...mesh, position, normal};
 }
+function fittedEyes(mesh, body) {
+  if (body !== 'male') return mesh;
+  // The generic male has wider, higher, deeper-set sockets than female1605.
+  // Copying the female placement left every iris behind the face surface.
+  for (let i = 0; i < mesh.position.length; i += 3) {
+    mesh.position[i] *= 1.15;
+    mesh.position[i + 1] += .010;
+    mesh.position[i + 2] += .015;
+    mesh.normal[i] /= 1.15;
+    const length = Math.hypot(...mesh.normal.slice(i,i+3)) || 1;
+    for (let axis=0;axis<3;axis++) mesh.normal[i+axis] /= length;
+  }
+  return mesh;
+}
 function mat4Translation([x, y, z]) { return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -x, -y, -z, 1]; }
 function align(length) { return Math.ceil(length / 4) * 4; }
 function indexed(mesh) {
@@ -163,6 +177,7 @@ function convert({id, body, obj, texture, isAvatar, options = {}}) {
   const sockIsland = id === 'shoe-0' || id === 'shoe-1' ? (uv => id === 'shoe-0' ? uv[0] > .83 && uv[1] < .30 : uv[0] > .76 && uv[1] > .76) : null;
   const eyeOffset = body === 'male' ? -7.65 : -8.98;
   let mesh = parseObj(resolve(source, obj), [0, isHair ? headOffset : options.eyes ? eyeOffset * scale : 0, options.eyes ? -.20 * scale : 0], sockIsland);
+  if (options.eyes) mesh = fittedEyes(mesh, body);
   if (isHair && hairFits[id]) for (let i = 1; i < mesh.position.length; i += 3) mesh.position[i] += hairFits[id];
   if (options.noseRing) {
     // Small nostril hoop fitted to female1605, rather than a floating facial
@@ -252,6 +267,8 @@ function convert({id, body, obj, texture, isAvatar, options = {}}) {
   const headHeight = body === 'male' ? 1.65 : 1.51;
   const neckHeight = body === 'male' ? 1.57 : 1.43;
   const feet = position => position[1] <= .085 || (position[2] > .08 && position[1] <= .12);
+  const arms = p => p[1] <= neckHeight && Math.abs(p[0]) > .25 &&
+    (p[1] > .88 || (Math.abs(p[0]) > .44 && p[1] > .70));
   const viewChunks = [], views = [], accessors = [];
   const add = (data, componentType, type, count, target) => {
     const buffer = Buffer.from(data.buffer, data.byteOffset, data.byteLength), offset = viewChunks.reduce((sum, value) => sum + align(value.length), 0);
@@ -260,8 +277,8 @@ function convert({id, body, obj, texture, isAvatar, options = {}}) {
   };
   const regions = isAvatar ? [
     ['region_head', selectTriangles(mesh, p => p[1] > neckHeight)],
-    ['region_arms', selectTriangles(mesh, p => p[1] <= neckHeight && p[1] > .88 && Math.abs(p[0]) > .25)],
-    ['region_upper_legs', selectTriangles(mesh, p => p[1] <= .88 && p[1] > .38)],
+    ['region_arms', selectTriangles(mesh, arms)],
+    ['region_upper_legs', selectTriangles(mesh, p => p[1] <= .88 && p[1] > .38 && !arms(p))],
     ['region_legs', selectTriangles(mesh, p => p[1] <= .38 && !feet(p))],
     ['region_feet', selectTriangles(mesh, feet)],
     ['region_torso', selectTriangles(mesh, p => p[1] > .88 && p[1] <= neckHeight && Math.abs(p[0]) <= .25)],
@@ -283,7 +300,7 @@ function convert({id, body, obj, texture, isAvatar, options = {}}) {
     if (body === 'female') underwear('starter_bra', [
       [1.245, 1.385, -.18, .18], [1.385, 1.465, .105, .14], [1.385, 1.465, -.14, -.105],
     ]);
-    regions.push(['face_eyes', parseObj(resolve(source, 'eyes/high-poly/high-poly.obj'), [0, eyeOffset * scale, -.20 * scale])]);
+    regions.push(['face_eyes', fittedEyes(parseObj(resolve(source, 'eyes/high-poly/high-poly.obj'), [0, eyeOffset * scale, -.20 * scale]), body)]);
     regions.push(['face_brows', parseObj(resolve(source, 'eyebrows/eyebrow001/eyebrow001.obj'), [0, browOffset * scale, 0])]);
   }
   const meshes = [], nodes = [];
@@ -341,7 +358,7 @@ function convert({id, body, obj, texture, isAvatar, options = {}}) {
         return !crop || [0,3,6].every(v => rawRegion.position[triangle * 9 + v + 1] >= crop - .006);
       })])) : {};
     if (name === 'region_torso') for (const [item, asset] of Object.entries(assets)) {
-      if (!asset[3]?.tubeTop) continue;
+      if (asset[0] !== body || !asset[3]?.tubeTop) continue;
       // The source has no authored delete_verts. Mask only fully covered
       // chest-band faces, retaining the bare shoulders and midriff.
       for (let i=0;i<rawRegion.position.length;i+=9)

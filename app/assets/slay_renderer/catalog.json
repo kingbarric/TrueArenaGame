@@ -1,16 +1,38 @@
 {
-  "version": 20,
+  "version": 22,
   "developmentAssets": true,
   "avatars": [
     {
       "body": "female",
       "assetUrl": "assets/female.glb",
-      "rigVersion": "slay-female-v2"
+      "rigVersion": "slay-female-v2",
+      "id": "female",
+      "name": "Original"
     },
     {
       "body": "male",
       "assetUrl": "assets/male.glb",
-      "rigVersion": "slay-male-v2"
+      "rigVersion": "slay-male-v2",
+      "id": "male",
+      "name": "Original"
+    },
+    {
+      "id": "girl02",
+      "name": "Girl02",
+      "body": "female",
+      "assetUrl": "assets/avatar-girl02.glb",
+      "rigVersion": "slay-female-v2",
+      "fitUrl": "assets/avatar-girl02-fit.json",
+      "thumbnailUrl": "assets/avatar-girl02.png"
+    },
+    {
+      "id": "indian-male",
+      "name": "Indian Male",
+      "body": "male",
+      "assetUrl": "assets/avatar-indian-male.glb",
+      "rigVersion": "slay-male-v2",
+      "fitUrl": "assets/avatar-indian-male-fit.json",
+      "thumbnailUrl": "assets/avatar-indian-male.png"
     }
   ],
   "items": [

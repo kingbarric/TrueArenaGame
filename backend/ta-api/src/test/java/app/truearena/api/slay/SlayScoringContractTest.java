@@ -8,6 +8,23 @@ import org.junit.jupiter.api.Test;
 import java.nio.file.*;
 
 class SlayScoringContractTest {
+    @Test void charactersSurviveSavingAndCannotCrossAvatarBodies() throws Exception {
+        var mapper = new ObjectMapper();
+        var catalog = new SlayCatalog(mapper);
+        for (var avatar : catalog.manifest().avatars()) {
+            var look = new SlayRules.Look(avatar.body(), "skin", "classic", java.util.Map.of(),
+                    "signature", "studio", java.util.Map.of(), avatar.id());
+            catalog.validateAvatar(look);
+            assertThat(mapper.readValue(mapper.writeValueAsString(look), SlayRules.Look.class)).isEqualTo(look);
+        }
+        var wrong = new SlayRules.Look("male", "skin", "classic", java.util.Map.of(),
+                "signature", "studio", java.util.Map.of(), "girl02");
+        assertThatThrownBy(() -> catalog.validateAvatar(wrong)).isInstanceOf(IllegalArgumentException.class);
+        var unknown = new SlayRules.Look("female", "skin", "classic", java.util.Map.of(),
+                "signature", "studio", java.util.Map.of(), "missing");
+        assertThatThrownBy(() -> catalog.validateAvatar(unknown)).isInstanceOf(IllegalArgumentException.class);
+        catalog.validateAvatar(new SlayRules.Look("female", "skin", "classic", java.util.Map.of(), "signature", "studio"));
+    }
     @Test void previewFixturesMatchAuthoritativeScoresForTheActualWardrobe() throws Exception {
         var mapper = new ObjectMapper();
         var catalog = new SlayCatalog(mapper);

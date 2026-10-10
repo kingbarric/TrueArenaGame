@@ -13,7 +13,8 @@ import java.util.*;
 public class SlayCatalog {
     public record Client(String id, String name, String brief, String themeId) {}
 
-    public record Avatar(String body, String assetUrl, String rigVersion) {}
+    public record Avatar(String body, String assetUrl, String rigVersion,
+            String id, String name, String fitUrl, String thumbnailUrl) {}
 
     public record Manifest(
             int version,
@@ -39,6 +40,13 @@ public class SlayCatalog {
 
     public Manifest manifest() {
         return manifest;
+    }
+
+    public void validateAvatar(Look look) {
+        if (manifest.avatars().stream().noneMatch(a -> a.body().equals(look.body())
+                && (look.avatarId() == null || Objects.equals(
+                        a.id() == null ? a.body() : a.id(), look.avatarId()))))
+            throw new IllegalArgumentException("Choose an available character for this avatar body");
     }
 
     public Map<String, Item> items() {

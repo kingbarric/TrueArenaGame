@@ -40,6 +40,10 @@ export function skinWeights([x, y], {hair = false, shoes = false, ankleBoot = fa
   if (shoes) return ankleBoot ? blend(14 + side, 13 + side, (y - .13) / .13) : blend(14 + side, 14 + side, 0);
   if (y > headHeight) return blend(5, 5, 0);
   if (body === 'male' && y > .90) y -= .13;
+  // Hanging fingertips can fall below the hip-height arm test. They still
+  // belong to the hand: leg weights left them behind when an elbow bent.
+  if (!skirt && Math.abs(x) > .44 && y > .70 && y < 1.25)
+    return blend(7 + side, 8 + side, (Math.abs(x) - .48) / .10);
   // Hands and sleeves are below the shoulder, extending diagonally outwards.
   if (Math.abs(x) > .18 && y > 1.38 - Math.abs(x) * .85 && y <= headHeight) {
     const distance = Math.abs(x);
@@ -71,9 +75,9 @@ export function skinWeights([x, y], {hair = false, shoes = false, ankleBoot = fa
 export const poses = {
   idle: {LeftUpperArm: [0, 0, -.38], RightUpperArm: [0, 0, .38]},
   signature: {LeftUpperArm: [0, 0, -.42], RightUpperArm: [0, 0, .42], Head: [0, .10, -.04]},
-  confident: {LeftUpperArm: [-.12, 0, -.35], LeftLowerArm: [-.14, 0, -1.10], LeftHand: [0, 0, .15],
+  confident: {LeftUpperArm: [-.12, 0, -.35], LeftLowerArm: [-.14, 0, -1.10],
     RightUpperArm: [0, 0, .40], Chest: [0, -.10, 0], Head: [0, .12, .05]},
-  editorial: {RightUpperArm: [-.12, 0, .35], RightLowerArm: [-.14, 0, 1.10], RightHand: [0, 0, -.15],
+  editorial: {RightUpperArm: [-.12, 0, .35], RightLowerArm: [-.14, 0, 1.10],
     LeftUpperArm: [0, 0, -.44], Hips: [0, .12, 0], Chest: [0, -.16, -.035], Head: [0, -.16, -.09]},
   celebrate: {LeftUpperArm: [0, -.12, 1.32], RightUpperArm: [0, .12, -1.32],
     LeftLowerArm: [0, 0, .25], RightLowerArm: [0, 0, -.25], Head: [-.06, 0, 0]},

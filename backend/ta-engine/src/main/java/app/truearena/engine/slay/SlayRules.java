@@ -52,13 +52,18 @@ public final class SlayRules {
             Map<String, String> items,
             String pose,
             String background,
-            Map<String, String> itemColours) {
+            Map<String, String> itemColours,
+            String avatarId) {
         public Look {
             itemColours = itemColours == null ? Map.of() : Map.copyOf(itemColours);
         }
         public Look(String body, String skinTone, String facePreset, Map<String,String> items,
                 String pose, String background) {
-            this(body, skinTone, facePreset, items, pose, background, Map.of());
+            this(body, skinTone, facePreset, items, pose, background, Map.of(), null);
+        }
+        public Look(String body, String skinTone, String facePreset, Map<String,String> items,
+                String pose, String background, Map<String,String> itemColours) {
+            this(body, skinTone, facePreset, items, pose, background, itemColours, null);
         }
     }
 
