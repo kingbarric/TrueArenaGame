@@ -16,6 +16,7 @@ import {expansion} from './wardrobe-expansion.mjs';
 import {classicClothing} from './classic-clothing.mjs';
 import {hairFits} from './hair-fits.mjs';
 import {clipMesh, joinMeshes} from './clip-mesh.mjs';
+import {fitMaleBottom} from './male-bottom-fit.mjs';
 
 const root = resolve(new URL('..', import.meta.url).pathname);
 const source = process.argv[2] ? resolve(process.argv[2]) : resolve(root, 'source_assets/makehuman/starter');
@@ -192,6 +193,8 @@ function convert({id, body, obj, texture, isAvatar, options = {}}) {
   }
   if (options.crop) mesh = clipMesh(mesh, [p => p[1] - options.crop]);
   if (options.upperCrop) mesh = clipMesh(mesh, [p => options.upperCrop - p[1]]);
+  if (body === 'male' && options.bottom)
+    mesh = fitMaleBottom(mesh, parseObj(resolve(source, bodySources.male.obj)));
   if (options.tubeTop) {
     // This source was authored on a shorter, narrower body. Fit the bust band
     // to female1605 before calculating weights; otherwise it sits inside the
@@ -307,9 +310,12 @@ function convert({id, body, obj, texture, isAvatar, options = {}}) {
   const bottomBounds = isAvatar ? Object.fromEntries(Object.entries(assets)
     .filter(([, [fit, , , options]]) => fit === body && options?.bottom)
     .map(([item, [, path]]) => {
-      const cloth = parseObj(resolve(source, path));
+      let cloth = parseObj(resolve(source, path));
+      if (body === 'male') cloth = fitMaleBottom(cloth, parseObj(resolve(source, bodySources.male.obj)));
       const heights = Array.from(cloth.position).filter((_, i) => i % 3 === 1);
-      return [item, [Math.min(...heights), Math.max(...heights)]];
+      // The front waistband dips below the highest side seam. A max-height
+      // body mask erased the abdomen above that dip and left a hollow gap.
+      return [item, [Math.min(...heights), body === 'male' ? Math.min(1.10, Math.max(...heights)) : Math.max(...heights)]];
     })) : {};
   const coverage = isAvatar && body === 'female' ? Object.fromEntries(Object.entries(assets)
     .filter(([, [fit, path, , options]]) => fit === body && path.startsWith('clothes/') && !path.includes('shoes') && !options?.shoe && !options?.earrings && !options?.bag)

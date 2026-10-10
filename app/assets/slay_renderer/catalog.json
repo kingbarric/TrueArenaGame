@@ -1,5 +1,5 @@
 {
-  "version": 22,
+  "version": 24,
   "developmentAssets": true,
   "avatars": [
     {
@@ -5176,38 +5176,6 @@
   ],
   "themes": [
     {
-      "id": "lagos-owambe",
-      "title": "Lagos Owambe",
-      "description": "Create a look that captures Lagos Owambe. Let the outfit, colours and details tell the story.",
-      "styleTags": [
-        "traditional",
-        "wedding",
-        "party",
-        "african"
-      ],
-      "requiredCategories": [
-        "outfit",
-        "shoes",
-        "jewellery"
-      ],
-      "optionalCategories": [
-        "hair",
-        "bags",
-        "glasses",
-        "accessories",
-        "makeup"
-      ],
-      "bodyEligibility": [
-        "female",
-        "male"
-      ],
-      "systemWeight": 0.35,
-      "stylingSeconds": 180,
-      "votingSeconds": 300,
-      "minVotes": 6,
-      "budget": null
-    },
-    {
       "id": "wedding-guest",
       "title": "Wedding Guest",
       "description": "Create a look that captures Wedding Guest. Let the outfit, colours and details tell the story.",
@@ -5398,37 +5366,6 @@
         "party",
         "evening",
         "streetwear"
-      ],
-      "requiredCategories": [
-        "outfit",
-        "shoes"
-      ],
-      "optionalCategories": [
-        "hair",
-        "bags",
-        "glasses",
-        "accessories",
-        "makeup"
-      ],
-      "bodyEligibility": [
-        "female",
-        "male"
-      ],
-      "systemWeight": 0.35,
-      "stylingSeconds": 180,
-      "votingSeconds": 300,
-      "minVotes": 6,
-      "budget": null
-    },
-    {
-      "id": "abuja-dinner",
-      "title": "Abuja Dinner",
-      "description": "Create a look that captures Abuja Dinner. Let the outfit, colours and details tell the story.",
-      "styleTags": [
-        "elegant",
-        "formal",
-        "evening",
-        "muted"
       ],
       "requiredCategories": [
         "outfit",
@@ -5809,12 +5746,6 @@
     "angular"
   ],
   "clients": [
-    {
-      "id": "abuja-dinner",
-      "name": "Zara",
-      "brief": "I have a dinner in Abuja. Elegant, but not too loud.",
-      "themeId": "abuja-dinner"
-    },
     {
       "id": "office-executive",
       "name": "Tunde",

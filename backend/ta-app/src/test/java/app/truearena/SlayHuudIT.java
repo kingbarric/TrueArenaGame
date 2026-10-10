@@ -90,13 +90,11 @@ class SlayHuudIT {
                 "classic",
                 Map.of(
                         "outfit",
-                        body + "-owambe",
+                        body + "-essential",
                         "hair",
                         body + "-hair-0",
                         "shoes",
-                        "shoe-3",
-                        "jewellery",
-                        "accessory-0"),
+                        "shoe-0"),
                 "signature",
                 "studio");
     }
@@ -184,7 +182,7 @@ class SlayHuudIT {
                                 slay.create(
                                                 a,
                                                 new SlayService.Create(
-                                                        "battle", "lagos-owambe", 2, "male", true))
+                                                        "battle", "first-date", 2, "male", true))
                                         .block()
                                         .get("id"));
         slay.join(a, id, new SlayService.Join("contestant", "female")).block();
@@ -237,9 +235,9 @@ class SlayHuudIT {
     @Test
     void soloRewardAndWardrobePurchaseAreIdempotent() {
         UUID user = human(), look = saved(user, "female");
-        var first = slay.solo(user, "lagos-owambe", look).block();
+        var first = slay.solo(user, "first-date", look).block();
         Long coins = users.coinsOf(user).block();
-        slay.solo(user, "lagos-owambe", look).block();
+        slay.solo(user, "first-date", look).block();
         assertThat(users.coinsOf(user).block()).isEqualTo(coins);
         assertThat(first.stars()).isEqualTo(3);
         slay.buy(user, "female-royal").block();
@@ -309,7 +307,7 @@ class SlayHuudIT {
                                 slay.create(
                                                 a,
                                                 new SlayService.Create(
-                                                        "battle", "lagos-owambe", 2, "male", false))
+                                                        "battle", "first-date", 2, "male", false))
                                         .block()
                                         .get("id"));
         slay.join(a, id, new SlayService.Join("contestant", "female")).block();
@@ -542,7 +540,7 @@ class SlayHuudIT {
         c.id = id.toString();
         c.mode = "daily";
         c.status = "styling";
-        c.themeId = "lagos-owambe";
+        c.themeId = "first-date";
         c.seats = 5000;
         c.deadline = Instant.now().plusSeconds(3600);
         try {
@@ -585,7 +583,7 @@ class SlayHuudIT {
                                 slay.create(
                                                 a,
                                                 new SlayService.Create(
-                                                        "battle", "lagos-owambe", 2, "male", true))
+                                                        "battle", "first-date", 2, "male", true))
                                         .block()
                                         .get("id"));
         slay.join(a, id, new SlayService.Join("contestant", "female")).block();
