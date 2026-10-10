@@ -24,6 +24,9 @@ reset=false
 
 [ -f "$ENV_FILE" ] || { echo "missing $ENV_FILE (test secrets) — see infra/TEST_ENVIRONMENT.md" >&2; exit 1; }
 
+echo "==> building this checkout's backend locally"
+./backend/mvnw -B -q -DskipTests -f backend/pom.xml -pl ta-app -am package
+
 echo "==> preparing ~/truearena-test and the truearena-edge network"
 "${SSH[@]}" 'set -e
   mkdir -p ~/truearena-test/backend ~/truearena-test/infra
@@ -36,9 +39,12 @@ echo "==> syncing backend source and test config"
 rsync -az --delete --exclude=target --exclude=.git -e "ssh -i $KEY" backend/ "$HOST:~/truearena-test/backend/"
 rsync -az -e "ssh -i $KEY" infra/docker-compose.test.yml infra/livekit.test.yaml "$HOST:~/truearena-test/infra/"
 rsync -az --chmod=F600 -e "ssh -i $KEY" "$ENV_FILE" "$HOST:~/truearena-test/infra/.env"
+"${SSH[@]}" 'mkdir -p ~/truearena-test/backend/ta-app/target'
+rsync -az -e "ssh -i $KEY" backend/ta-app/target/truearena-backend.jar "$HOST:~/truearena-test/backend/ta-app/target/"
 
-echo "==> building truearena-backend:test on the VPS"
-"${SSH[@]}" 'cd ~/truearena-test/backend && docker build -q -t truearena-backend:test .'
+echo "==> packaging truearena-backend:test (no Maven compilation on the VPS)"
+revision=$(git rev-parse HEAD)
+"${SSH[@]}" "cd ~/truearena-test/backend && docker build -q --label org.opencontainers.image.revision=$revision -f Dockerfile.runtime -t truearena-backend:test ."
 
 if $reset; then
   echo "==> wiping test data (truearena-test volumes only)"
@@ -46,7 +52,10 @@ if $reset; then
 fi
 
 echo "==> starting the test stack"
-"${SSH[@]}" "cd ~/truearena-test/infra && $COMPOSE up -d"
+"${SSH[@]}" "cd ~/truearena-test/infra && $COMPOSE up -d --wait --wait-timeout 180"
+
+echo "==> ensuring test-only proxy routes and voice ports"
+bash infra/setup-test-proxy.sh
 
 echo "==> waiting for $PUBLIC/actuator/health"
 for _ in $(seq 1 60); do

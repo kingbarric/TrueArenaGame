@@ -22,8 +22,12 @@ infra/deploy-test.sh              # build this checkout's backend and restart te
 infra/deploy-test.sh --reset-data # same, but start from an empty database
 ```
 
-The script only writes to `~/truearena-test`, the `truearena-backend:test` image and
-the `truearena-test` compose project. It prints `TEST OK` once
+The deployment writes to `~/truearena-test`, the `truearena-backend:test` image and
+the `truearena-test` compose project. On first setup, `setup-test-proxy.sh` also
+adds only `/test/*` routes to the existing Caddy configuration, validates it,
+backs up the original under `~/truearena-test`, and performs a graceful reload.
+Production routes are preserved and no production container is restarted.
+It opens only the dedicated test voice media ports. It prints `TEST OK` once
 `/test/actuator/health` is up. Flyway runs migrations against the test database, so
 **push a new migration to test first**: if it is wrong there, delete the test data
 (`--reset-data`) and fix it. Once a migration has run in production it can't be edited.
@@ -63,9 +67,9 @@ The test backend calls LiveKit's room API directly at `http://test-livekit:7880`
 (`LIVEKIT_API_URL`), because LiveKit's server SDK drops the `/test` path prefix.
 
 Test containers have memory caps (backend 1 GB, Postgres 512 MB, LiveKit 512 MB,
-Redis 256 MB), so test can't use up production's RAM. CPU is shared, and the
-backend image is built on the VPS, so a test deploy slows production for the few
-minutes the Maven build takes.
+Redis 256 MB), so test can't use up production's RAM. CPU is shared, so the
+backend jar is compiled on the developer machine; the VPS only packages the
+runtime image. This avoids a Maven build competing with production.
 
 ## Commands on the VPS
 
