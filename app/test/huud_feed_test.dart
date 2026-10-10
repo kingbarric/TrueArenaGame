@@ -276,7 +276,10 @@ void main() {
     expect(built, lessThan(40), reason: 'every card was built up front — the feed lost its lazy list');
 
     await tester.scrollUntilVisible(find.text('Table number 39'), 600,
-        scrollable: find.byType(Scrollable).first);
+        scrollable: find
+            .descendant(
+                of: find.byKey(const PageStorageKey('huud-feed-friends')), matching: find.byType(Scrollable))
+            .first);
     await tester.pumpAndSettle();
     expect(find.text('Table number 39'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -329,8 +332,10 @@ void main() {
     }, settle: false);
 
     await tester.tap(find.byKey(const ValueKey('huud-tab-for_you')));
-    await tester.pump(const Duration(milliseconds: 50));
-    await tester.pump(const Duration(milliseconds: 50));
+    // The page slides across, then loads.
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
     expect(find.textContaining('8 Draughts games in a row'), findsOneWidget);
 
     friends.complete(_json([_request()]));
@@ -340,7 +345,9 @@ void main() {
 
     // …and that answer is waiting, already loaded, when you go back.
     await tester.tap(find.byKey(const ValueKey('huud-tab-friends')));
-    await tester.pump();
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
     expect(find.text('Ranked Draughts, anyone? Winner stays on.'), findsOneWidget);
     await tester.pumpAndSettle();
   });
@@ -511,4 +518,35 @@ void main() {
     expect(find.text('Change'), findsOneWidget);
   });
 
+
+  testWidgets('swiping sideways moves between Live now, Friends and For you', (tester) async {
+    final calls = await pumpFeed(tester, (request) async {
+      if (request.url.path == '/api/v1/huud/feed') {
+        return _json(request.url.queryParameters['tab'] == 'friends' ? [_request()] : [_win()]);
+      }
+      if (request.url.path == '/api/v1/huud-spaces/live' || request.url.path == '/api/v1/rooms/discoverable') {
+        return _json(const []);
+      }
+      return http.Response('not found', 404);
+    }, settle: false);
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('Ranked Draughts, anyone? Winner stays on.'), findsOneWidget);
+
+    // Swipe left: For you.
+    await tester.fling(find.byKey(const ValueKey('huud-pages')), const Offset(-400, 0), 1500);
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 200));
+    }
+    expect(calls, contains('GET /api/v1/huud/feed?tab=for_you&filter=all'));
+    expect(find.textContaining('8 Draughts games in a row'), findsOneWidget);
+    expect(tester.getSemantics(find.byKey(const ValueKey('huud-tab-for_you'))), isSemantics(isSelected: true));
+
+    // Swipe right twice: back past Friends to Live now.
+    await tester.fling(find.byKey(const ValueKey('huud-pages')), const Offset(400, 0), 1500);
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.fling(find.byKey(const ValueKey('huud-pages')), const Offset(400, 0), 1500);
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(tester.getSemantics(find.byKey(const ValueKey('huud-tab-live'))), isSemantics(isSelected: true));
+  });
 }

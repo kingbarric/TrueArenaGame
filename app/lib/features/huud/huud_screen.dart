@@ -62,13 +62,20 @@ class _HuudScreenState extends State<HuudScreen> {
   /// Last result per tab+filter, so flipping tabs shows something at once
   /// while the fresh copy loads.
   final _cache = <String, List<HuudItem>>{};
-  bool _loading = false;
   String? _error;
   int _loadGeneration = 0;
 
   List<HuudPerson> _friends = const [];
 
-  final _scroll = ScrollController();
+  /// Live now · Friends · For you, side by side: swipe or tap between them.
+  late final PageController _pages = PageController(initialPage: _liveNow ? 0 : 1);
+
+  /// The page a tab tap is heading for, so the pages it slides past on the
+  /// way aren't loaded.
+  int? _heading;
+
+  /// One scroll position per feed: both are on screen mid-swipe.
+  final _scrolls = {HuudTab.friends: ScrollController(), HuudTab.forYou: ScrollController()};
 
   final _search = TextEditingController();
   final _say = TextEditingController();
@@ -85,7 +92,6 @@ class _HuudScreenState extends State<HuudScreen> {
   bool _started = false;
 
   String get _key => '${_tab.wire}-${_filter.wire}';
-  List<HuudItem>? get _items => _cache[_key];
 
   @override
   void didChangeDependencies() {
@@ -119,7 +125,10 @@ class _HuudScreenState extends State<HuudScreen> {
     _spaceRefresh?.cancel();
     _tick?.cancel();
     _searchDebounce?.cancel();
-    _scroll.dispose();
+    _pages.dispose();
+    for (final scroll in _scrolls.values) {
+      scroll.dispose();
+    }
     _search.dispose();
     _say.dispose();
     super.dispose();
@@ -130,10 +139,7 @@ class _HuudScreenState extends State<HuudScreen> {
   Future<void> _load() async {
     final generation = ++_loadGeneration;
     final key = _key;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    setState(() => _error = null);
     final app = AppScope.of(context);
     try {
       final raw = await app.api.get('/huud/feed?tab=${_tab.wire}&filter=${_filter.wire}') as List;
@@ -144,8 +150,6 @@ class _HuudScreenState extends State<HuudScreen> {
       if (mounted && generation == _loadGeneration) setState(() => _error = e.message);
     } catch (_) {
       if (mounted && generation == _loadGeneration) setState(() => _error = 'Could not reach the server');
-    } finally {
-      if (mounted && generation == _loadGeneration) setState(() => _loading = false);
     }
   }
 
@@ -184,9 +188,30 @@ class _HuudScreenState extends State<HuudScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(text),
       action: event['type'] == 'HUUD_CHALLENGE' && (_liveNow || _tab != HuudTab.friends)
-          ? SnackBarAction(label: 'View', onPressed: () => _switchTab(HuudTab.friends))
+          ? SnackBarAction(label: 'View', onPressed: () => _goTo(1))
           : null,
     ));
+  }
+
+  /// Tapping a tab slides to its page; the page arriving does the switching.
+  void _goTo(int page) {
+    if (!_pages.hasClients) return;
+    final from = _pages.page?.round() ?? 0;
+    if (from == page) return;
+    _heading = page;
+    _pages.animateToPage(page, duration: const Duration(milliseconds: 280), curve: Curves.easeOutCubic);
+  }
+
+  void _onPage(int page) {
+    if (_heading != null) {
+      if (page != _heading) return;
+      _heading = null;
+    }
+    if (page == 0) {
+      if (!_liveNow) setState(() => _liveNow = true);
+    } else {
+      _switchTab(page == 1 ? HuudTab.friends : HuudTab.forYou);
+    }
   }
 
   void _switchTab(HuudTab tab) {
@@ -362,79 +387,93 @@ class _HuudScreenState extends State<HuudScreen> {
   Widget build(BuildContext context) {
     final n = context.neon;
     final app = AppScope.of(context);
-    final isGuest = app.identity == Identity.guest;
-    final searchingNow = _search.text.trim().isNotEmpty;
-    final items =
-        (_items ?? const <HuudItem>[]).where((i) => i.game == null || i.game!.expiresAt.isAfter(clock.now())).toList();
-
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
           _header(context, n, app),
           _tabs(context, n),
-          if (_liveNow)
-            const Expanded(child: LiveNowPanel())
-          else
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: () async {
-                  await Future.wait([_load(), _loadFriends()]);
-                },
-                // Slivers so only the cards on screen are built — a full page
-                // is 40 cards with game art, and building them all up front is
-                // what made a long feed hitch on open and on tab switch.
-                child: CustomScrollView(
-                  controller: _scroll,
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  slivers: [
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                      sliver: SliverList.list(children: [
-                        _searchField(n),
-                        const SizedBox(height: 10),
-                        if (searchingNow)
-                          ..._searchSection(context, n)
-                        else ...[
-                          _filterChips(n),
-                          const SizedBox(height: 12),
-                          if (_tab == HuudTab.friends && !isGuest) ...[
-                            _postBox(context, n, app),
-                            const SizedBox(height: 12),
-                          ],
-                          _shareHuudCard(context, n),
-                          if (_tab == HuudTab.friends) ...[
-                            const SizedBox(height: 16),
-                            if (isGuest) _guestCard(context, n) else _friendsOnline(context, n, app),
-                          ],
-                          const SizedBox(height: 16),
-                          if (_error != null) _errorCard(n),
-                          if (_items == null && _loading)
-                            const Padding(
-                                padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator()))
-                          else if (items.isEmpty && _error == null)
-                            _emptyState(context, n),
-                        ],
-                      ]),
-                    ),
-                    if (!searchingNow)
-                      SliverPadding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        sliver: SliverList.builder(
-                          itemCount: items.length,
-                          itemBuilder: (context, i) => Padding(
-                            key: ValueKey(items[i].id),
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: _card(context, n, items[i]),
-                          ),
-                        ),
-                      ),
-                    // Room to scroll the last card clear of the nav pill and the Post button.
-                    const SliverToBoxAdapter(child: SizedBox(height: 128)),
-                  ],
+          Expanded(
+            child: PageView(
+              key: const ValueKey('huud-pages'),
+              controller: _pages,
+              onPageChanged: _onPage,
+              children: [
+                const LiveNowPanel(),
+                _feedPage(context, n, app, HuudTab.friends),
+                _feedPage(context, n, app, HuudTab.forYou),
+              ],
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  /// One feed — Friends or For you — as its own page.
+  Widget _feedPage(BuildContext context, NeonColors n, AppState app, HuudTab tab) {
+    final isGuest = app.identity == Identity.guest;
+    final searchingNow = _search.text.trim().isNotEmpty;
+    final current = !_liveNow && _tab == tab;
+    final cached = _cache['${tab.wire}-${_filter.wire}'];
+    final items =
+        (cached ?? const <HuudItem>[]).where((i) => i.game == null || i.game!.expiresAt.isAfter(clock.now())).toList();
+    final error = current ? _error : null;
+    return RefreshIndicator(
+      onRefresh: () async {
+        await Future.wait([_load(), _loadFriends()]);
+      },
+      // Slivers so only the cards on screen are built — a full page
+      // is 40 cards with game art, and building them all up front is
+      // what made a long feed hitch on open and on tab switch.
+      child: CustomScrollView(
+        key: PageStorageKey('huud-feed-${tab.wire}'),
+        controller: _scrolls[tab],
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            sliver: SliverList.list(children: [
+              _searchField(n),
+              const SizedBox(height: 10),
+              if (searchingNow)
+                ..._searchSection(context, n)
+              else ...[
+                _filterChips(n),
+                const SizedBox(height: 12),
+                if (tab == HuudTab.friends && !isGuest) ...[
+                  _postBox(context, n, app),
+                  const SizedBox(height: 12),
+                ],
+                _shareHuudCard(context, n),
+                if (tab == HuudTab.friends) ...[
+                  const SizedBox(height: 16),
+                  if (isGuest) _guestCard(context, n) else _friendsOnline(context, n, app),
+                ],
+                const SizedBox(height: 16),
+                if (error != null) _errorCard(n),
+                // Not loaded yet (or sliding in before it has been): a spinner, not "nothing here".
+                if (cached == null && error == null)
+                  const Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator()))
+                else if (items.isEmpty && error == null)
+                  _emptyState(context, n, tab),
+              ],
+            ]),
+          ),
+          if (!searchingNow)
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              sliver: SliverList.builder(
+                itemCount: items.length,
+                itemBuilder: (context, i) => Padding(
+                  key: ValueKey(items[i].id),
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _card(context, n, items[i]),
                 ),
               ),
             ),
-        ]),
+          // Room to scroll the last card clear of the nav pill and the Post button.
+          const SliverToBoxAdapter(child: SizedBox(height: 128)),
+        ],
       ),
     );
   }
@@ -521,13 +560,9 @@ class _HuudScreenState extends State<HuudScreen> {
           border: Border.all(color: n.line, width: 1.4),
         ),
         child: Row(children: [
-          tab('live', 'live', 'Live now', _liveNow, () {
-            if (!_liveNow) setState(() => _liveNow = true);
-          }),
-          tab(HuudTab.friends.wire, 'friends', 'Friends', !_liveNow && _tab == HuudTab.friends,
-              () => _switchTab(HuudTab.friends)),
-          tab(HuudTab.forYou.wire, 'foryou', 'For you', !_liveNow && _tab == HuudTab.forYou,
-              () => _switchTab(HuudTab.forYou)),
+          tab('live', 'live', 'Live now', _liveNow, () => _goTo(0)),
+          tab(HuudTab.friends.wire, 'friends', 'Friends', !_liveNow && _tab == HuudTab.friends, () => _goTo(1)),
+          tab(HuudTab.forYou.wire, 'foryou', 'For you', !_liveNow && _tab == HuudTab.forYou, () => _goTo(2)),
         ]),
       ),
     );
@@ -865,8 +900,8 @@ class _HuudScreenState extends State<HuudScreen> {
         ),
       );
 
-  Widget _emptyState(BuildContext context, NeonColors n) {
-    final friends = _tab == HuudTab.friends;
+  Widget _emptyState(BuildContext context, NeonColors n, HuudTab tab) {
+    final friends = tab == HuudTab.friends;
     final text = switch (_filter) {
       HuudFilter.open => friends ? 'None of your friends are looking for a game.' : 'No open games right now.',
       HuudFilter.wins => friends ? 'No wins from your huud in the last two days.' : 'No big wins in the last two days.',
