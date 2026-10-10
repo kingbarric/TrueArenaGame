@@ -24,6 +24,10 @@ playhuud.com {
 	reverse_proxy @championship_preview backend:8080
 	@championship_invite path /championships/*
 	rewrite @championship_invite /championships/index.html
+	# SlayHuud art (website/slay-assets, rsynced like downloads/): names carry a
+	# content hash, so a file never changes and may be cached forever.
+	@slay_assets path /slay-assets/*
+	header @slay_assets Cache-Control "public, max-age=31536000, immutable"
 
 	root * /srv/playhuud
 	file_server

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'slay_assets.dart';
 import 'slay_models.dart';
 import 'slay_theme.dart';
 import '../../theme/neon_theme.dart';
@@ -48,9 +49,10 @@ class SlayStageController {
     }
   }
 
-  Future<String> snapshot() async =>
-      (await request('snapshot', {'width': 600, 'height': 900}))['pngBase64']
-          as String;
+  /// The final portrait as JPEG bytes (opaque stage background, ~100 KB).
+  Future<Uint8List> snapshot() async => base64Decode(
+      (await request('snapshot', {'width': 600, 'height': 900}))['jpegBase64']
+          as String);
   void _reset({bool deferIndicators = false}) {
     final revision = ++_indicatorRevision;
     void resetIndicators() {
@@ -89,9 +91,6 @@ class SlayStage extends StatefulWidget {
 }
 
 class _SlayStageState extends State<SlayStage> with WidgetsBindingObserver {
-  static final InAppLocalhostServer _server =
-      InAppLocalhostServer(documentRoot: 'assets/slay_renderer', port: 8187);
-  static Future<void>? _serverStart;
   bool _loading = true,
       _booting = false,
       _routeActive = true,
@@ -109,10 +108,10 @@ class _SlayStageState extends State<SlayStage> with WidgetsBindingObserver {
 
   Future<void> _start() async {
     try {
-      await (_serverStart ??= _server.start());
+      SlayAssets.instance.configure(widget.catalog);
+      await SlayAssets.instance.start();
       if (mounted) setState(() => _loading = false);
     } catch (e) {
-      _serverStart = null;
       if (mounted) {
         setState(() => _error = 'Could not open the 3D studio. Tap to retry.');
       }

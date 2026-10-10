@@ -54,7 +54,7 @@ window.slayReceive=async(message:Message)=>{
       lookState.requireRendered();if(wardrobe.showingOff)throw Error('Finish your show off before saving');const width=Math.max(256,Math.min(1024,Number(p.width)||600)),height=Math.max(256,Math.min(1536,Number(p.height)||900));
       const position=camera.position.clone(),target=controls.target.clone(),size=renderer.getSize(new T.Vector2()),ratio=renderer.getPixelRatio(),aspect=camera.aspect;
       try{renderer.setPixelRatio(1);renderer.setSize(width,height,false);camera.aspect=width/height;camera.updateProjectionMatrix();setCamera('full');renderer.render(scene,camera);
-       send('snapshotResult',{pngBase64:renderer.domElement.toDataURL('image/png').split(',')[1]},message.id);
+       send('snapshotResult',{jpegBase64:renderer.domElement.toDataURL('image/jpeg',0.85).split(',')[1]},message.id);
       }finally{renderer.setPixelRatio(ratio);renderer.setSize(size.x,size.y,false);camera.aspect=aspect;camera.position.copy(position);controls.target.copy(target);camera.updateProjectionMatrix();controls.update();}return;
    }
    case 'pause':paused=Boolean(p.paused);if(paused)wardrobe.stopShowcase('Show off cancelled: studio paused');previous=sampleAt=performance.now();frames=slowSamples=0;break;

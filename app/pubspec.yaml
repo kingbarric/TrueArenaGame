@@ -33,6 +33,7 @@ dependencies:
   firebase_messaging: ^16.7.0
   flutter_local_notifications: ^22.3.1
   flutter_inappwebview: ^6.1.5
+  crypto: ^3.0.6
 
 dev_dependencies:
   flutter_test:
@@ -47,7 +48,8 @@ flutter:
     - assets/music/
     - assets/sfx/
     - assets/slay_renderer/
-    - assets/slay_renderer/assets/
+    # Only the starter art ships; the rest downloads on demand (SlayAssets).
+    - assets/slay_renderer/starter/
     - assets/slay_renderer/basis/
 
 dependency_overrides:

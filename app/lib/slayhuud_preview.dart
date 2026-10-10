@@ -23,7 +23,9 @@ Future<void> main() async {
   final competitions = <String, Map<String, dynamic>>{};
   final api = ApiClient(client: MockClient((request) async {
     final path = request.url.path.replaceFirst('/api/v1', '');
-    final body = request.body.isEmpty
+    final json =
+        request.headers['content-type']?.startsWith('application/json') ?? false;
+    final body = !json || request.bodyBytes.isEmpty
         ? <String, dynamic>{}
         : Map<String, dynamic>.from(jsonDecode(request.body));
     dynamic result;

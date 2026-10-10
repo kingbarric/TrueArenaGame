@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../theme/neon_theme.dart';
+import 'slay_assets.dart';
 
 // Keep PlayHuud's chosen palette and fonts, with arcade pills for SlayHuud.
 ThemeData slayTheme(BuildContext context) => Theme.of(context).copyWith(
@@ -430,7 +431,7 @@ class SlayImage extends StatelessWidget {
       ]);
 }
 
-/// Catalogue artwork may be bundled with the renderer or served by a CDN.
+/// Catalogue artwork: bundled in the starter pack or downloaded (see [SlayAssets]).
 class SlayThumbnail extends StatelessWidget {
   const SlayThumbnail({super.key, required this.url});
   final String url;
@@ -438,10 +439,10 @@ class SlayThumbnail extends StatelessWidget {
   Widget build(BuildContext context) {
     Widget fallback(BuildContext c, Object e, StackTrace? s) =>
         Icon(Icons.checkroom_rounded, color: c.neon.mute, size: 32);
-    return url.startsWith('assets/')
-        ? Image.asset('assets/slay_renderer/$url',
-            fit: BoxFit.contain, errorBuilder: fallback)
-        : Image.network(url, fit: BoxFit.contain, errorBuilder: fallback);
+    final image = SlayAssets.instance.thumbnail(url);
+    return image == null
+        ? fallback(context, url, null)
+        : Image(image: image, fit: BoxFit.contain, errorBuilder: fallback);
   }
 }
 

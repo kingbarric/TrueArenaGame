@@ -1,6 +1,4 @@
 spring:
-  codec:
-    max-in-memory-size: 2MB
   application:
     name: truearena-backend
   r2dbc:
@@ -76,7 +74,7 @@ truearena:
   competitive:
     # Games with a skill rating + leaderboards (comma-separated). Adding a game
     # here is all it takes once its GameModule exists — see CompetitiveSettings.
-    rated-game-types: ${COMPETITIVE_RATED_GAMES:draughts,slayhuud}
+    rated-game-types: ${COMPETITIVE_RATED_GAMES:draughts}
     # Rated games before a player stops being provisional and can appear on a board.
     placement-games: 10
     # Rated games one pair of accounts can play against each other per 24h
@@ -86,6 +84,11 @@ truearena:
     # this long; past max-location-changes it needs support.
     location-cooldown-days: 30
     max-location-changes: 3
+  slay:
+    # Where SlayHuud art is downloaded from (content-hashed files, see
+    # slay-renderer/scripts/publish-assets.mjs). Blank uses the manifest's
+    # default, https://playhuud.com/slay-assets/.
+    asset-base: ${SLAY_ASSET_BASE:}
 
 # Cyber Agent brains. Both read from the environment only — never paste a
 # key here. Gemini wins when both are present (see BotLlmConfig); with

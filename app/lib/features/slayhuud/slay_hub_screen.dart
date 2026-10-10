@@ -181,14 +181,15 @@ class _SlayHubScreenState extends State<SlayHubScreen> {
                             fontSize: 16,
                             fontWeight: FontWeight.w800)),
                     actions: [
-                      IconButton(
-                          tooltip: 'Style rankings',
-                          onPressed: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) => const LeaderboardScreen(
-                                      gameType: 'slayhuud'))),
-                          icon: const Icon(Icons.leaderboard_outlined)),
+                      if (_profile?['rated'] == true)
+                        IconButton(
+                            tooltip: 'Style rankings',
+                            onPressed: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => const LeaderboardScreen(
+                                        gameType: 'slayhuud'))),
+                            icon: const Icon(Icons.leaderboard_outlined)),
                       SlayGameMenu(onExit: () => leaveSlayScreen(context)),
                     ]),
                 body: _loading
@@ -242,10 +243,11 @@ class _SlayHubScreenState extends State<SlayHubScreen> {
                                   const SizedBox(height: 14),
                                   Wrap(spacing: 8, runSpacing: 8, children: [
                                     for (final stat in {
-                                      '★ Slay': _profile!['competitive']
-                                                  ?['rating']
-                                              ?.toString() ??
-                                          'Unrated',
+                                      if (_profile!['rated'] == true)
+                                        '★ Slay': _profile!['competitive']
+                                                    ?['rating']
+                                                ?.toString() ??
+                                            'Unrated',
                                       '🏆 Wins':
                                           '${_profile!['stats']?['wins'] ?? 0}',
                                       '✦ Top 3':

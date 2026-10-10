@@ -108,10 +108,9 @@ class SlayHuudIT {
             javax.imageio.ImageIO.write(
                     new java.awt.image.BufferedImage(
                             60, 90, java.awt.image.BufferedImage.TYPE_INT_RGB),
-                    "png",
+                    "jpg",
                     buffer);
-            slay.snapshot(user, l.id(), Base64.getEncoder().encodeToString(buffer.toByteArray()))
-                    .block();
+            slay.snapshot(user, l.id(), buffer.toByteArray()).block();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -335,12 +334,7 @@ class SlayHuudIT {
                 .isEqualTo(1L);
         assertThatThrownBy(
                         () ->
-                                slay.snapshot(
-                                                a,
-                                                look,
-                                                Base64.getEncoder()
-                                                        .encodeToString(slay.image(look).block()))
-                                        .block())
+                                slay.snapshot(a, look, slay.image(look).block()).block())
                 .hasMessageContaining("immutable");
     }
 

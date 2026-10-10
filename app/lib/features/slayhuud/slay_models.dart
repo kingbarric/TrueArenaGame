@@ -1,4 +1,5 @@
 import '../../core/api_client.dart';
+import 'slay_assets.dart';
 
 class SlayLook {
   const SlayLook(
@@ -96,8 +97,11 @@ bool slayMatchesStyle(Map item, String group) =>
 class SlayApi {
   SlayApi(this.client);
   final ApiClient client;
-  Future<Map<String, dynamic>> catalog() async =>
-      Map<String, dynamic>.from(await client.get('/slay/catalog'));
+  Future<Map<String, dynamic>> catalog() async {
+    final catalog = Map<String, dynamic>.from(await client.get('/slay/catalog'));
+    SlayAssets.instance.configure(catalog);
+    return catalog;
+  }
   Future<Map<String, dynamic>> profile() async =>
       Map<String, dynamic>.from(await client.get('/slay/profile'));
   Future<List<Map<String, dynamic>>> competitions() async =>
@@ -126,10 +130,10 @@ class SlayApi {
     return SlayLook.fromJson(Map<String, dynamic>.from(value['look']));
   }
 
-  Future<String> save(SlayLook look, String image) async {
+  Future<String> save(SlayLook look, List<int> jpeg) async {
     final saved = await client.post('/slay/looks', look.toJson());
     final id = saved['id'] as String;
-    await client.post('/slay/looks/$id/snapshot', {'pngBase64': image});
+    await client.postBytes('/slay/looks/$id/snapshot', jpeg, 'image/jpeg');
     return id;
   }
 

@@ -12,8 +12,8 @@ The original product note is the product direction. [SLAYHUUD_PLAN.md](SLAYHUUD_
 PlayHuud Flutter
   existing authentication / AppScope / ApiClient / navigation / themes
   features/slayhuud: hub, studio, competitions, Fashion Cups
-    SlayStage: local WebView → bundled Three.js renderer
-    wardrobe selections → versioned bridge → GLB rendering → PNG snapshot
+    SlayStage: local WebView → bundled Three.js renderer, art via SlayAssets
+    wardrobe selections → versioned bridge → GLB rendering → JPEG snapshot
   existing Huud, room joining, watch, profiles, leaderboards, notifications
 
 Spring WebFlux backend
@@ -34,7 +34,7 @@ A three-second lifecycle scheduler advances expired competitions. `FOR UPDATE` s
 
 SlayHuud opens from both the home tiles and the game picker. Existing room invitations and spectator routes open its competition screen. The hub links to the personal studio, four V1 modes, daily/weekly challenges, client briefs, Fashion Cups and existing Slay rankings. Every Slay screen has the existing games' gear-menu pattern with rules and navigation back; the studio also offers the challenge brief and a fresh look. Returning from a live competition does not automatically submit or surrender a look: its server deadline continues.
 
-Screens inherit the selected PlayHuud theme: Palm Wine, Nebula or Supercar, in light/dark mode. They reuse `NeonColors`, typography and `NeonCard`; buttons follow the shared accent and stadium treatment. Wine, gold and existing backgrounds remain the default visual language. Production item thumbnails replace the temporary wardrobe icons when supplied. The hub shows Slay rating, wins and top-three finishes using existing competitive profile data.
+Screens inherit the selected PlayHuud theme: Palm Wine, Nebula or Supercar, in light/dark mode. They reuse `NeonColors`, typography and `NeonCard`; buttons follow the shared accent and stadium treatment. Wine, gold and existing backgrounds remain the default visual language. Production item thumbnails replace the temporary wardrobe icons when supplied. The hub shows wins and top-three finishes; the Slay rating chip and rankings appear only while Slay rating is enabled (§6).
 
 The studio has a large 3D stage, rotate/pinch controls, front/back/face camera shortcuts, avatar body selection in solo play, wardrobe categories, skin/face selection, poses and backgrounds. A brief sheet shows requirements/style tags, and competitive styling shows its deadline. Draft selections persist locally. The primary action is **Show off & see my score** in solo play and **Show off & submit** in competition. It waits for the exact outfit to load, plays an 8.6-second approach, pose and full turn, exports the final portrait, then saves and scores/submits. The default signature stance finishes confident; another selected pose is preserved. Stop, leaving the studio, changing outfits or backgrounding during the walk cancels the pending submission. Competition deadlines continue during the animation; late finishes are rejected. A separate pill previews the show without saving.
 
@@ -46,7 +46,7 @@ The separate `lib/slayhuud_preview.dart` entrypoint uses local fixture API respo
 |---|---|
 | `slay_profiles` | Saved avatar selections and XP; linked to existing user |
 | `slay_wardrobe` | Earned/purchased ownership; default items come from catalog |
-| `slay_looks` | Immutable selections, catalog version and bounded PNG snapshot |
+| `slay_looks` | Immutable selections, catalog version and bounded JPEG snapshot (older rows may be PNG) |
 | `slay_competitions` | Mode, linked room/host, durable JSON state, indexed deadline, settlement flag |
 | `slay_ballots` | Server-issued pair, voter, round, timestamps and accepted choice |
 | `slay_reward_claims` | Unique reward idempotency key per user/source |
@@ -57,13 +57,21 @@ The separate `lib/slayhuud_preview.dart` entrypoint uses local fixture API respo
 
 Competition JSON contains members, submitted entries, system scores, pairwise comparisons, judge decisions, round state and eliminated contestants. It is the durable source, not an in-memory room snapshot. A future high-volume async release can normalize entries/votes without changing renderer contracts.
 
-Snapshots are stored as PostgreSQL `BYTEA` for the working V1; no external storage credentials are required. PNG size is capped at 1 MB and dimensions at 1024×1536, with actual decoding validation. Flutter exports 600×900. The WebFlux JSON body limit is 2 MB to accommodate base64. Move images to object storage/CDN before large-scale launch. `snapshot_verified` is reserved for future server verification and is not currently populated.
+Snapshots are stored as PostgreSQL `BYTEA`; no external storage credentials are required. The renderer exports a 600×900 JPEG at quality 0.85 (~100 KB; the stage background is opaque). Flutter uploads the raw bytes as `image/jpeg`; the route alone caps the body at 512 KB, so the global WebFlux codec limit stays at its default. The server checks the JPEG signature, decodes it and caps dimensions at 1024×1536. Reads serve each stored image with its own type, so PNGs saved before this change still display. At ~100 KB per look, Postgres is adequate for V1; move images to object storage before large-scale launch. `snapshot_verified` is reserved for future server verification and is not currently populated.
 
 ## 4. Renderer and bridge
 
-Source: `slay-renderer/`. Runtime: bundled single HTML/JS file in `app/assets/slay_renderer/`, served on device loopback port 8187 by `flutter_inappwebview`.
+Source: `slay-renderer/`. Runtime: bundled single HTML/JS file in `app/assets/slay_renderer/`, served on device loopback port 8187 by `SlayAssets` (`features/slayhuud/slay_assets.dart`) and shown in a `flutter_inappwebview` WebView.
 
-Three.js supplies orbit controls, portrait camera, lighting, stage, GLTF loading, named skeleton binding, body-region masking, skeletal catwalk/pose animation and morph presets. The starter catwalk uses two-bone leg IK and level foot joints; garments and shoes share the live skeleton. Skirt weights bridge smoothly across both walking legs. This is authored motion, not cloth simulation. GLB with Meshopt compression and KTX2 textures is supported. Draco is not currently configured. The renderer loads only the avatar and selected items, retains equipped objects and releases replaced geometry/materials/textures. Immutable GLBs have a bounded 32 MB IndexedDB cache; cache failures still permit network loading.
+**Art delivery.** The source models and thumbnails stay in `app/assets/slay_renderer/assets/`, which the app no longer bundles. `npm run build` (`scripts/publish-assets.mjs`) compresses every GLB (quantized Meshopt geometry, WebP textures; ~5× smaller) and palette-packs every thumbnail, then:
+
+- writes each file under a content-hashed name to `website/slay-assets/` (git-ignored; rsync it to the VPS like `website/downloads/`, where Caddy serves it as `https://playhuud.com/slay-assets/` with an immutable cache header);
+- copies the starter pack (both bodies, `*-hair-0`, every thumbnail; ~3.5 MB) to `app/assets/slay_renderer/starter/`, which is all the app bundles;
+- writes `backend/.../slay/asset-manifest.json`, served inside `GET /slay/catalog` as `assets` (`SLAY_ASSET_BASE` overrides its base URL).
+
+Compression never reorders triangles, because coverage masks address triangles by index. Every compressed GLB is checked against its source (mesh names, bones, morphs, userData, triangle order, skinned vertex positions within 1 mm) before it is accepted. `SlayAssets` serves the renderer's unchanged `assets/...` URLs from the starter pack, its disk cache or a download that must match the manifest's size and SHA-256. Files from older catalogues are deleted from the cache. **Publish `website/slay-assets/` before deploying a backend whose manifest refers to new files.**
+
+Three.js supplies orbit controls, portrait camera, lighting, stage, GLTF loading, named skeleton binding, body-region masking, skeletal catwalk/pose animation and morph presets. The starter catwalk uses two-bone leg IK and level foot joints; garments and shoes share the live skeleton. Skirt weights bridge smoothly across both walking legs. This is authored motion, not cloth simulation. GLB with Meshopt compression and KTX2 textures is supported. Draco is not currently configured. The renderer loads only the avatar and selected items, retains equipped objects and releases replaced geometry/materials/textures. Immutable GLBs also have a bounded 32 MB IndexedDB cache inside the WebView; it is now redundant with the `SlayAssets` disk cache and can be removed.
 
 Bridge envelope:
 
@@ -78,7 +86,7 @@ Bridge envelope:
 | Direction | Messages |
 |---|---|
 | Flutter → JS | `init` (catalog, tier), `applyLook`, `setCamera`, `rotateCamera` (radians), `setPose`, `showcase`, `stopShowcase`, `snapshot`, `pause`, `dispose` |
-| JS → Flutter | `ready`, `ack`, `snapshotResult` (PNG base64), `error`, `showcaseState` (playing, phase), `perf`, `contextLost` |
+| JS → Flutter | `ready`, `ack`, `snapshotResult` (`jpegBase64`), `error`, `showcaseState` (playing, phase), `perf`, `contextLost` |
 
 Commands execute serially and responses match request IDs. `showcase` releases the command queue immediately and acknowledges only after the final pose; cancellation rejects that pending request so Stop/Pause remain responsive. Snapshot export is blocked during motion. Requests time out rather than silently submitting missing imagery. Snapshot export requires a fully applied look; a failed replacement invalidates export until a successful retry. Foreground/background transitions and covered routes pause rendering, and performance samples restart on resume so inactive time does not lower the quality tier. WebGL context loss reloads and reapplies the look. Low measured frame rate reduces pixel density through high/standard/low 3D tiers; there is no 2D replacement. Physical-device performance targets still require real assets and profiling.
 
@@ -112,9 +120,9 @@ System score is deterministic: theme tag fit 50%, required categories 30%, colou
 
 Community pairwise scores use regularized Bradley–Terry strengths and convert them to a 0–100 average win expectation against the field. Per-challenge `systemWeight` controls the system/community blend. Every entry needs the minimum exposure (six comparisons by default; three judge responses in Slay or Pass). If exposure is insufficient, the result uses system score and is unranked. Names, countries, followers and ratings are withheld during voting; identities appear in final results.
 
-Slay rating reuses Glicko-2 math in a separate `game_type='slayhuud'` namespace. A head-to-head outcome is a win/loss/draw; group `rank:n` is expanded into pairwise outcomes against each opponent. Opponent strength therefore matters. Existing guest/bot checks, repeated-opponent limits, history, global/country boards and achievement infrastructure remain in force. Dev assets and insufficient voting override tournament rating eligibility.
+**Slay rating is off by default.** `slayhuud` is not in `truearena.competitive.rated-game-types` (`COMPETITIVE_RATED_GAMES`), so matches are recorded as unrated history (wins, placements, badges and win unlocks still count) until the screenshot-trust question below is settled. Adding it to that list turns rating back on with no code change. When enabled, Slay rating reuses Glicko-2 math in a separate `game_type='slayhuud'` namespace. A head-to-head outcome is a win/loss/draw; group `rank:n` is expanded into pairwise outcomes against each opponent. Opponent strength therefore matters. Existing guest/bot checks, repeated-opponent limits, history, global/country boards and achievement infrastructure remain in force. Dev assets and insufficient voting override tournament rating eligibility.
 
-Anonymous PNGs are client-rendered. Validation proves format/size, not that the image matches the submitted outfit. A production anti-cheat/moderation decision is still needed before trusting every screenshot for competitive voting.
+Anonymous snapshots are client-rendered. Validation proves format/size, not that the image matches the submitted outfit. A production anti-cheat/moderation decision is still needed before trusting every screenshot for competitive voting.
 
 ## 7. API and realtime
 
@@ -124,7 +132,7 @@ All feature routes are beneath `/api/v1/slay` and use existing authentication.
 |---|---|
 | `GET catalog`, `GET profile`, `GET wardrobe` | Catalogue, XP/stats/avatar and ownership |
 | `POST wardrobe/buy` | Atomic existing-coin debit plus unique ownership |
-| `POST looks`, `POST looks/{id}/snapshot`, `GET looks/{id}/snapshot` | Save selections, bounded immutable PNG, image read |
+| `POST looks`, `POST looks/{id}/snapshot`, `GET looks/{id}/snapshot` | Save selections, bounded immutable JPEG (raw `image/jpeg` body), image read |
 | `POST solo/{theme}/score` | Server score and idempotent reward |
 | `GET/POST competitions`, `GET competitions/{id}`, `GET rooms/{id}` | Browse/create/read and existing room adapter |
 | `POST competitions/{id}/join`, `/start`, `/submit`, `/cancel` | Membership and competition lifecycle |
@@ -176,7 +184,7 @@ npm run assets:validate -- /path/to/asset-delivery
 npm run assets:validate -- /path/to/asset-delivery --partial --report /tmp/slay-assets.json
 ```
 
-`npm run build` refreshes the bundled Flutter HTML and catalogue. Run it after renderer or catalogue edits.
+`npm run build` refreshes the bundled Flutter HTML and catalogue, the starter pack, the hashed delivery files and the asset manifest. Run it after renderer, catalogue or art edits; unchanged files come from `slay-renderer/.asset-cache/`.
 
 ```sh
 cd app
@@ -271,3 +279,12 @@ Android uses a locally vendored stable `flutter_inappwebview_android` 1.1.3 with
 - Styling actions retain raised pills; wardrobe categories use underlined tabs; style filters use smaller flat outlined pills. Camera controls are circular and Her/Him uses a joined selector. Existing PlayHuud colours and typography remain.
 - Avatar selection starts with an eligible body and resets the wardrobe to Looks. Stage disposal defers indicator notifications until the widget tree has unlocked, fixing a listener assertion exposed when the preview layout changed.
 - Visually reviewed the updated layout in the dedicated iPhone 17 Pro preview. Feature analysis and ten existing controls/navigation/show-off tests passed.
+
+### App size, rating and snapshots (10 October 2026)
+
+- Art delivery as described in §4: 196 files, 82.5 MB of source become 15.4 MB delivered, of which 2.7 MB (plus the renderer page) is bundled in the app instead of ~83 MB. All 99 GLBs pass the source-equivalence check.
+- Slay rating disabled by default (§6); the hub hides the rating chip and rankings while it is off.
+- Snapshots are raw JPEG uploads capped per route; the global 2 MB codec limit is removed.
+- `flutter_inappwebview_android` has no stable release with the AGP 9 fix (1.1.3 is still latest; the fix is only in 1.2.0 betas). Now that `SlayAssets` replaces its localhost server, `slay_stage.dart` is the plugin's only user, and moving to the official `webview_flutter` would retire the vendored copy.
+- Verification: 42 renderer tests, 22 SlayHuud/home Flutter tests (including integrity-checked downloads), 248 backend unit tests and the 10 SlayHuud PostgreSQL/Redis integration tests passed. Not yet checked on a simulator or device: real downloads from playhuud.com and visual parity of compressed models.
+

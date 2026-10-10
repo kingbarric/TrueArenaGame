@@ -51,12 +51,13 @@ test('starter skinning leaves both bodies upright and in their bind pose', async
   }
 });
 
-test('hair remains at head height and mobile textures are in the Flutter bundle', () => {
+test('hair remains at head height and only the starter pack is in the Flutter bundle', () => {
   const {doc} = asset('female-hair-0');
   const accessor = doc.accessors[doc.meshes[0].primitives[0].attributes.POSITION];
   assert.ok(accessor.min[1] > 1.6);
   const pubspec = readFileSync(new URL('../../app/pubspec.yaml', import.meta.url), 'utf8');
-  assert.match(pubspec, /- assets\/slay_renderer\/assets\//);
+  assert.match(pubspec, /- assets\/slay_renderer\/starter\//);
+  assert.doesNotMatch(pubspec, /- assets\/slay_renderer\/assets\//);
 });
 
 test('starter eyes sit at face height rather than above the scalp', () => {

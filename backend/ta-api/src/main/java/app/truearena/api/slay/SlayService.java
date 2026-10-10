@@ -49,6 +49,9 @@ public class SlayService {
     @org.springframework.beans.factory.annotation.Autowired
     private app.truearena.api.competitive.CompetitiveProfileService competitiveProfiles;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private app.truearena.api.competitive.CompetitiveSettings competitive;
+
     public SlayService(
             DatabaseClient db,
             ObjectMapper json,
@@ -66,6 +69,19 @@ public class SlayService {
         this.rooms = rooms;
         this.ratings = ratings;
         tx = TransactionalOperator.create(manager);
+    }
+
+    /**
+     * Slay rating is off unless {@code slayhuud} is listed in
+     * {@code truearena.competitive.rated-game-types}: popularity votes on
+     * client-rendered snapshots are not yet trustworthy enough to move a rating.
+     */
+    private boolean ratingEnabled() {
+        return competitive.isRated("slayhuud") && !catalog.manifest().developmentAssets();
+    }
+
+    private boolean rated(SlayCompetition c) {
+        return c.eligibleRating && ratingEnabled();
     }
 
     public record Create(
@@ -147,6 +163,7 @@ public class SlayService {
                 .map(
                         t -> {
                             t.getT1().put("owned", t.getT2());
+                            t.getT1().put("rated", ratingEnabled());
                             return t.getT1();
                         })
                 .flatMap(
@@ -330,36 +347,41 @@ public class SlayService {
                 .switchIfEmpty(Mono.error(ApiExceptions.notFound("Look not found")));
     }
 
-    public Mono<Void> snapshot(UUID user, UUID id, String encoded) {
+    /** A 600×900 JPEG at quality 0.85 is ~100 KB; this leaves generous headroom. */
+    public static final int MAX_SNAPSHOT_BYTES = 512 * 1024;
+
+    private static final byte[] PNG_MAGIC = {(byte) 137, 80, 78, 71, 13, 10, 26, 10};
+
+    /** Looks saved before the switch to JPEG are PNG; serve each with its own type. */
+    public static org.springframework.http.MediaType snapshotType(byte[] bytes) {
+        return bytes.length >= 8 && Arrays.equals(Arrays.copyOf(bytes, 8), PNG_MAGIC)
+                ? org.springframework.http.MediaType.IMAGE_PNG
+                : org.springframework.http.MediaType.IMAGE_JPEG;
+    }
+
+    public Mono<Void> snapshot(UUID user, UUID id, byte[] bytes) {
         return Mono.fromCallable(
                         () -> {
                             check(
-                                    encoded != null && encoded.length() <= 1400000,
-                                    "Image is too large");
-                            byte[] bytes = Base64.getDecoder().decode(encoded);
+                                    bytes.length >= 4 && bytes.length <= MAX_SNAPSHOT_BYTES,
+                                    "Image must be at most 512 KB");
                             check(
-                                    bytes.length >= 24 && bytes.length <= 1048576,
-                                    "Image must be at most 1 MB");
-                            check(
-                                    java.util.Arrays.equals(
-                                            java.util.Arrays.copyOf(bytes, 8),
-                                            new byte[] {(byte) 137, 80, 78, 71, 13, 10, 26, 10}),
-                                    "PNG image required");
-                            var header = java.nio.ByteBuffer.wrap(bytes);
-                            int width = header.getInt(16), height = header.getInt(20);
-                            check(
-                                    width > 0 && width <= 1024 && height > 0 && height <= 1536,
-                                    "Invalid image dimensions");
-                            check(
+                                    (bytes[0] & 0xff) == 0xff
+                                            && (bytes[1] & 0xff) == 0xd8
+                                            && (bytes[2] & 0xff) == 0xff,
+                                    "JPEG image required");
+                            var image =
                                     javax.imageio.ImageIO.read(
-                                                    new java.io.ByteArrayInputStream(bytes))
-                                            != null,
-                                    "Invalid image");
+                                            new java.io.ByteArrayInputStream(bytes));
+                            check(image != null, "Invalid image");
+                            check(
+                                    image.getWidth() <= 1024 && image.getHeight() <= 1536,
+                                    "Invalid image dimensions");
                             return bytes;
                         })
                 .subscribeOn(Schedulers.boundedElastic())
                 .flatMap(
-                        bytes ->
+                        image ->
                                 look(user, id)
                                         .flatMap(
                                                 l ->
@@ -375,7 +397,7 @@ public class SlayService {
                                                                             + " WHERE"
                                                                             + " c.state->'entries'"
                                                                             + " @> :entry)")
-                                                                .bind("p", bytes)
+                                                                .bind("p", image)
                                                                 .bind("id", id)
                                                                 .bind("u", user)
                                                                 .bind(
@@ -1420,11 +1442,7 @@ public class SlayService {
                                                                 + " status='ended',ranked=:ranked"
                                                                 + " WHERE id=:r")
                                                     .bind("r", UUID.fromString(c.roomId))
-                                                    .bind(
-                                                            "ranked",
-                                                            c.eligibleRating
-                                                                    && !catalog.manifest()
-                                                                            .developmentAssets())
+                                                    .bind("ranked", rated(c))
                                                     .fetch()
                                                     .rowsUpdated()
                                                     .then(
@@ -1776,7 +1794,7 @@ public class SlayService {
         result.put("contestantBody", c.contestantBody);
         result.put("host", viewer.toString().equals(c.hostId));
         result.put("developmentAssets", catalog.manifest().developmentAssets());
-        result.put("rated", c.eligibleRating && !catalog.manifest().developmentAssets());
+        result.put("rated", rated(c));
         result.put("voteCount", c.comparisons.size());
         result.put("communityUsed", c.communityUsed);
         var member =

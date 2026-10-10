@@ -3,7 +3,10 @@ package app.truearena.api.slay;
 import app.truearena.api.support.CurrentUser;
 import app.truearena.engine.slay.SlayRules.*;
 
+import org.springframework.core.io.buffer.DataBufferLimitException;
+import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.http.*;
+import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.web.bind.annotation.*;
 
 import reactor.core.publisher.*;
@@ -22,8 +25,6 @@ public class SlayController {
     }
 
     public record Purchase(String itemId) {}
-
-    public record Snapshot(String pngBase64) {}
 
     public record Choice(String entryId) {}
 
@@ -63,14 +64,36 @@ public class SlayController {
         return CurrentUser.id().flatMap(u -> slay.runwayLook(u, id));
     }
 
-    @PostMapping("/looks/{id}/snapshot")
-    public Mono<Void> snapshot(@PathVariable UUID id, @RequestBody Snapshot body) {
-        return CurrentUser.id().flatMap(u -> slay.snapshot(u, id, body.pngBase64()));
+    /**
+     * Raw JPEG bytes, not JSON: the size cap applies to this route alone, so the
+     * global in-memory codec limit stays at its default.
+     */
+    @PostMapping(value = "/looks/{id}/snapshot", consumes = MediaType.IMAGE_JPEG_VALUE)
+    public Mono<Void> snapshot(@PathVariable UUID id, ServerHttpRequest request) {
+        return DataBufferUtils.join(request.getBody(), SlayService.MAX_SNAPSHOT_BYTES)
+                .map(
+                        buffer -> {
+                            byte[] bytes = new byte[buffer.readableByteCount()];
+                            buffer.read(bytes);
+                            DataBufferUtils.release(buffer);
+                            return bytes;
+                        })
+                .onErrorMap(
+                        DataBufferLimitException.class,
+                        e -> new IllegalArgumentException("Image must be at most 512 KB"))
+                .defaultIfEmpty(new byte[0])
+                .flatMap(bytes -> CurrentUser.id().flatMap(u -> slay.snapshot(u, id, bytes)));
     }
 
-    @GetMapping(value = "/looks/{id}/snapshot", produces = MediaType.IMAGE_PNG_VALUE)
-    public Mono<byte[]> snapshot(@PathVariable UUID id) {
-        return CurrentUser.id().flatMap(u -> slay.image(u, id));
+    @GetMapping("/looks/{id}/snapshot")
+    public Mono<ResponseEntity<byte[]>> snapshot(@PathVariable UUID id) {
+        return CurrentUser.id()
+                .flatMap(u -> slay.image(u, id))
+                .map(
+                        bytes ->
+                                ResponseEntity.ok()
+                                        .contentType(SlayService.snapshotType(bytes))
+                                        .body(bytes));
     }
 
     @PostMapping("/solo/{theme}/score")
