@@ -19,8 +19,8 @@ import 'package:truearena/features/huudspace/live_now_panel.dart';
 import 'package:truearena/features/huudspace/safety_sheet.dart';
 import 'package:truearena/features/huudspace/huud_swipe_screen.dart';
 import 'package:truearena/widgets/talking_row.dart';
+import 'package:truearena/widgets/mic_button.dart';
 import 'package:truearena/widgets/gift_splash.dart';
-import 'package:truearena/features/huudspace/huud_kit.dart';
 import 'package:truearena/features/huudspace/huud_link.dart';
 import 'dart:async';
 import 'package:truearena/theme/neon_theme.dart';
@@ -482,8 +482,12 @@ void main() {
     });
     // In a Live Huud you're connected to its voice straight away, muted.
     expect(calls, contains('POST /api/v1/calls/rooms/huud-h1/token {}'));
-    expect(find.text('Muted'), findsOneWidget);
-    expect(find.byKey(const ValueKey('huud-ask-mic')), findsOneWidget);
+    // No mic yet: the mic itself says "Tap to ask" (grey, red, ✋)…
+    expect(find.text('Tap to ask'), findsOneWidget);
+    expect(find.byKey(const ValueKey('huud-ask-mic')), findsNothing, reason: 'one mic button, not two');
+    await tester.tap(find.byKey(const ValueKey('huud-talk')));
+    await tester.pumpAndSettle();
+    expect(calls, contains('POST /api/v1/huud-spaces/h1/mic {}'));
     await tester.tap(find.byKey(const ValueKey('huud-ask-play')));
     await tester.pumpAndSettle();
     expect(calls.where((c) => c.startsWith('POST /api/v1/huud-spaces/h1/play')), hasLength(1));
@@ -946,16 +950,28 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
   });
 
-  testWidgets('the mic: muted is a red crossed-out mic, talking is a bold green one', (tester) async {
-    Future<void> show(bool talking) => tester.pumpWidget(MaterialApp(
+  testWidgets('the mic, everywhere: grey + red to ask, hourglass when asked, red when muted, amber when on',
+      (tester) async {
+    Future<void> show(MicState state) => tester.pumpWidget(MaterialApp(
         theme: NeonTheme.light,
-        home: Scaffold(body: Center(child: HuudMicButton(talking: talking, label: talking ? 'Talking' : 'Muted', onTap: () {})))));
-    await show(false);
-    expect(tester.widget<Icon>(find.byKey(const ValueKey('mic-off'))).color, HuudMicButton.mutedRed);
-    await show(true);
-    expect(tester.widget<Icon>(find.byKey(const ValueKey('mic-on'))).color, Colors.white);
-    final circle = tester.widget<AnimatedContainer>(find.byType(AnimatedContainer));
-    expect((circle.decoration as BoxDecoration).color, HuudMicButton.talkingGreen);
+        home: Scaffold(body: Center(child: MicStateButton(state: state, showLabel: true, onTap: () {})))));
+    Color fill() => (tester.widget<AnimatedContainer>(find.byType(AnimatedContainer)).decoration as BoxDecoration).color!;
+
+    await show(MicState.locked);
+    expect(tester.widget<Icon>(find.byKey(const ValueKey('mic-locked'))).color, MicStateButton.red);
+    expect(find.text('Tap to ask'), findsOneWidget);
+    expect(find.text('✋'), findsOneWidget);
+
+    await show(MicState.asked);
+    expect(find.byKey(const ValueKey('mic-asked')), findsOneWidget);
+    expect(find.text('Asked…'), findsOneWidget);
+
+    await show(MicState.muted);
+    expect(tester.widget<Icon>(find.byKey(const ValueKey('mic-muted'))).color, MicStateButton.red);
+
+    await show(MicState.live);
+    expect(tester.widget<Icon>(find.byKey(const ValueKey('mic-live'))).color, Colors.white);
+    expect(fill(), MicStateButton.amber);
   });
 
   test('invite links: playhuud.com/huud/CODE, read back from any text', () {

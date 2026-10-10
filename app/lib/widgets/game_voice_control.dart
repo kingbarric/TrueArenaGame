@@ -11,6 +11,8 @@ import '../features/calls/call_screen.dart';
 import 'neon.dart';
 import '../core/game_socket.dart';
 import '../theme/neon_theme.dart';
+import 'mic_button.dart';
+import '../features/huudspace/huud_voice.dart';
 
 /// One game-voice entry point for players and spectators in every game.
 class GameVoiceControl extends StatefulWidget {
@@ -477,42 +479,58 @@ class _GameVoiceControlState extends State<GameVoiceControl> {
     }
   }
 
+  /// The same four states as the Huud's mic: ask → asked → muted ↔ talking.
+  MicState get _micState {
+    // In a Huud's game the voice is the Huud's: its mic rules apply.
+    if (HuudVoice.instance.huudId != null) return HuudVoice.instance.micState;
+    if (widget.spectating) {
+      if (!_approved) return _requesting ? MicState.asked : MicState.locked;
+      if (_serverMuted) return MicState.muted;
+    }
+    if (_room == null) return MicState.muted;
+    return _muted ? MicState.muted : MicState.live;
+  }
+
+  Future<void> _tapMic() async {
+    // Someone's asking to talk: answering them comes first.
+    if (!widget.spectating && _requests.isNotEmpty) {
+      await _openPanel();
+      return;
+    }
+    final huud = HuudVoice.instance;
+    if (huud.huudId != null) {
+      final before = huud.micState;
+      final result = await huud.tap(AppScope.of(context).api);
+      if (!mounted) return;
+      if (before == MicState.locked) _message('Asked the host for the mic ✋');
+      if (before == MicState.asked) _message('You asked for the mic — wait for the host ✋');
+      if (result == MicResult.noPermission) _message('Turn on the microphone for PlayHuud in your phone settings.');
+      if (result == MicResult.failed) _message("Your mic didn't switch on — try again in a moment.");
+      setState(() {});
+      return;
+    }
+    switch (_micState) {
+      case MicState.locked:
+        await _requestToTalk();
+      case MicState.asked:
+        _message('Your request to talk is waiting for a player');
+      case MicState.muted:
+      case MicState.live:
+        await _toggleMicrophone();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final hasRequests = !widget.spectating && _requests.isNotEmpty;
-    final active = _room != null || _approved || _requesting;
-    return IconButton(
-      tooltip: HangoutState.instance.speaking.isNotEmpty
-          ? '${HangoutState.instance.speaking.join(', ')} talking'
-          : widget.spectating
-              ? 'Live talk'
-              : 'Game voice and live speakers',
-      onPressed: _joining ? null : _openPanel,
-      icon: Stack(clipBehavior: Clip.none, children: [
-        Icon(HangoutState.instance.speaking.isNotEmpty
-            ? Icons.graphic_eq_rounded
-            : _serverMuted || (_room != null && _muted)
-                ? Icons.mic_off_rounded
-                : active
-                    ? Icons.mic_rounded
-                    : Icons.mic_none_rounded),
-        if (hasRequests)
-          Positioned(
-            right: -4,
-            top: -4,
-            child: Container(
-              width: 9,
-              height: 9,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.error,
-                shape: BoxShape.circle,
-                border: Border.all(
-                    color: Theme.of(context).scaffoldBackgroundColor,
-                    width: 1.5),
-              ),
-            ),
-          ),
-      ]),
+    return MicStateButton(
+      key: const ValueKey('game-mic'),
+      state: _joining ? MicState.asked : _micState,
+      size: 36,
+      badge: hasRequests,
+      onTap: _joining ? null : _tapMic,
+      // Who's on, and (for players) answering spectators who want to talk.
+      onLongPress: _openPanel,
     );
   }
 }

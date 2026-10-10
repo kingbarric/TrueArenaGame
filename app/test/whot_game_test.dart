@@ -272,7 +272,7 @@ void main() {
     final toggle = find.byKey(const ValueKey('whot-audio-toggle'));
     expect(toggle, findsOneWidget);
     expect(find.byTooltip('Mute music and effects'), findsOneWidget);
-    expect(find.byTooltip('Game voice and live speakers'), findsOneWidget);
+    expect(find.byKey(const ValueKey('game-mic')), findsOneWidget); // the mic sits beside it
     await tap(tester, toggle);
     expect(GameMusic.enabled, isFalse);
     expect(GameSfx.enabled, isFalse);
@@ -651,5 +651,26 @@ void main() {
     expect(whotCanPlay('triangle-2', state), isTrue);
     state['rules'] = {'pickTwo': true, 'pickTwoStacking': false};
     expect(whotCanPlay('triangle-2', state), isFalse);
+  });
+
+  testWidgets('a watcher sees the mic locked — grey with a red crossed-out mic — until they ask', (tester) async {
+    final socket = TestSocket();
+    await tester.pumpWidget(AppScope(
+        state: AppState(ApiClient()),
+        child: MaterialApp(
+            theme: NeonTheme.dark,
+            home: WhotGameScreen(
+                socket: socket,
+                selfId: 'viewer',
+                roomId: 'room',
+                roomCode: '572918',
+                spectating: true,
+                nicknames: const {'other': 'Alex'},
+                avatars: const {'other': '🤖'}))));
+    socket.snapshot(const {});
+    await tester.pump();
+    expect(find.byKey(const ValueKey('game-mic')), findsOneWidget);
+    expect(find.byKey(const ValueKey('mic-locked')), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
   });
 }

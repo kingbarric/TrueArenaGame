@@ -15,6 +15,7 @@ import 'go_live_sheet.dart';
 import 'huud_kit.dart';
 import 'huud_link.dart';
 import 'huud_voice.dart';
+import '../../widgets/mic_button.dart';
 import 'huud_space_models.dart';
 import 'huud_roster.dart';
 import 'safety_sheet.dart';
@@ -231,6 +232,8 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         _error = null;
       });
       _syncVoice(huud);
+      // Asked for the mic earlier? Remember it, so a yes switches the mic on.
+      if (!huud.youCanSpeak) HuudVoice.instance.asked = huud.micRequest == 'pending';
       if (huud.youAreIn && _chat == null) _loadChat();
       if (!watching && huud.active && huud.live && !huud.youAreIn && huud.joinRequest != 'pending') {
         api.post('/huud-spaces/${widget.id}/watch').catchError((Object _) => null);
@@ -417,8 +420,30 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
   }
 
   /// The mic button: muted ↔ talking, right here — no call screen.
+  /// Locked (ask) → asked (wait) → muted ↔ talking.
+  MicState _micState(HuudSpace huud) {
+    final voice = HuudVoice.instance;
+    final canSpeak = huud.youCanSpeak || voice.canSpeak;
+    if (!canSpeak) return huud.micRequest == 'pending' || voice.asked ? MicState.asked : MicState.locked;
+    if (!voice.isIn(huud.voiceRoom)) return MicState.muted;
+    return HangoutState.instance.muted ? MicState.muted : MicState.live;
+  }
+
+  /// The mic button: ask for the mic, or mute / talk — right here, no call screen.
   Future<void> _talk(HuudSpace huud) async {
     final voice = HuudVoice.instance;
+    switch (_micState(huud)) {
+      case MicState.locked:
+        voice.asked = true;
+        await _askForMic();
+        return;
+      case MicState.asked:
+        huudSnack(context, 'You asked for the mic — wait for ${huud.host?.handle ?? 'the host'} ✋');
+        return;
+      case MicState.muted:
+      case MicState.live:
+        break;
+    }
     if (!voice.isIn(huud.voiceRoom)) {
       if (voice.isConnecting(huud.voiceRoom)) return;
       _syncVoice(huud);
@@ -1053,29 +1078,15 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
   }
 
   Widget _actions(HuudSpace huud) {
-    final voice = HuudVoice.instance;
-    final connected = voice.isIn(huud.voiceRoom);
-    final canSpeak = huud.youCanSpeak || voice.canSpeak;
-    final talking = connected && !HangoutState.instance.muted;
-    return Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-      HuudMicButton(
+    return Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, crossAxisAlignment: CrossAxisAlignment.start, children: [
+      // One mic for everything: ask, wait, then mute / talk.
+      MicStateButton(
         key: const ValueKey('huud-talk'),
-        talking: talking,
-        label: voice.isConnecting(huud.voiceRoom)
-            ? 'Joining…'
-            : talking
-                ? 'Talking'
-                : 'Muted',
+        state: _micState(huud),
+        size: 58,
+        showLabel: true,
         onTap: () => _talk(huud),
       ),
-      if (!canSpeak)
-        HuudRoundAction(
-          key: const ValueKey('huud-ask-mic'),
-          icon: Icons.front_hand_rounded,
-          label: huud.micRequest == 'pending' ? 'Mic asked' : 'Ask mic',
-          active: huud.micRequest == 'pending',
-          onTap: huud.micRequest == 'pending' ? null : _askForMic,
-        ),
       HuudRoundAction(
         key: const ValueKey('huud-invite'),
         icon: Icons.person_add_alt_1_rounded,

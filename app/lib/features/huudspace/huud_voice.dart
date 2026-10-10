@@ -6,6 +6,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../../core/api_client.dart';
 import '../../core/hangout_state.dart';
+import '../../widgets/mic_button.dart';
 
 /// A Huud's voice, without a call screen. Being in a Live Huud connects you
 /// straight away with your mic off — you hear everyone; tapping the mic on
@@ -39,9 +40,55 @@ class HuudVoice {
   /// The host has handed you the mic (or you're the host).
   bool get canSpeak => _canSpeak;
 
+  /// You've asked the host for the mic and are waiting.
+  bool asked = false;
+
+  /// Where the mic is right now, for any mic button (the Huud's, a game's).
+  MicState get micState {
+    if (_room == null) return asked ? MicState.asked : MicState.locked;
+    if (!_canSpeak) return asked ? MicState.asked : MicState.locked;
+    return _state.muted ? MicState.muted : MicState.live;
+  }
+
+  /// The Huud this voice belongs to (its room is `huud-<id>`).
+  String? get huudId {
+    final room = _state.roomName;
+    return room != null && room.startsWith('huud-') && _state.onOpen != null ? room.substring(5) : null;
+  }
+
+  /// Ask the host for the mic — from the Huud or from a game's top bar.
+  Future<bool> askForMic(ApiClient api) async {
+    final id = huudId;
+    if (id == null) return false;
+    try {
+      await api.post('/huud-spaces/$id/mic');
+      asked = true;
+      _state.changed();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// The one tap every mic button makes: ask, wait, or switch the mic.
+  Future<MicResult?> tap(ApiClient api) async {
+    switch (micState) {
+      case MicState.locked:
+        await askForMic(api);
+        return null;
+      case MicState.asked:
+        return null;
+      case MicState.muted:
+        return setMuted(false);
+      case MicState.live:
+        return setMuted(true);
+    }
+  }
+
   /// Tests start from nothing.
   @visibleForTesting
   void reset() {
+    asked = false;
     _connecting = null;
     _cancel = false;
     _room = null;
@@ -116,9 +163,15 @@ class HuudVoice {
     events
       ..on<lk.ParticipantPermissionsUpdatedEvent>((e) {
         if (e.participant is! lk.LocalParticipant) return;
+        final was = _canSpeak;
         _canSpeak = e.permissions.canPublish;
         // Mic taken back: you're muted again.
         if (!_canSpeak) _state.muted = true;
+        // You asked and the host said yes: your mic comes on.
+        if (_canSpeak && !was && asked) {
+          asked = false;
+          setMuted(false);
+        }
         _state.changed();
       })
       ..on<lk.RoomDisconnectedEvent>((e) {
@@ -201,6 +254,7 @@ class HuudVoice {
     final room = _room;
     _room = null;
     _canSpeak = false;
+    asked = false;
     if (room != null) {
       if (_state.room == room) _state.attach(null);
       await room.disconnect();
