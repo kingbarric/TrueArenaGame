@@ -1,0 +1,424 @@
+{
+  "challenges": [
+    {
+      "id": "hello-style",
+      "title": "Your first impression",
+      "brief": "A local stylist wants to see your everyday signature. Build a complete casual look that feels like you.",
+      "chapter": 0,
+      "chapterTitle": "Starter Studio",
+      "location": "studio",
+      "themeId": "streetwear",
+      "styleTags": [
+        "casual"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "shoes"
+      ],
+      "bonus": "Keep the palette simple",
+      "minimumScore": 0
+    },
+    {
+      "id": "coffee-date",
+      "title": "Coffee date",
+      "brief": "You are meeting someone new at your favourite caf\u00e9. Bring an easy, thoughtful look.",
+      "chapter": 0,
+      "chapterTitle": "Starter Studio",
+      "location": "studio",
+      "themeId": "first-date",
+      "styleTags": [
+        "casual"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "shoes"
+      ],
+      "bonus": "Try one matching detail",
+      "minimumScore": 0
+    },
+    {
+      "id": "weekend-edit",
+      "title": "The weekend edit",
+      "brief": "A neighbourhood magazine needs a relaxed weekend look for its next issue.",
+      "chapter": 0,
+      "chapterTitle": "Starter Studio",
+      "location": "studio",
+      "themeId": "streetwear",
+      "styleTags": [
+        "casual",
+        "streetwear"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "shoes"
+      ],
+      "bonus": "A watch adds personality",
+      "minimumScore": 0
+    },
+    {
+      "id": "studio-finale",
+      "title": "Your first cover",
+      "brief": "Your first cover shoot is here. Make a polished everyday look worthy of the spotlight.",
+      "chapter": 0,
+      "chapterTitle": "Starter Studio",
+      "location": "studio",
+      "themeId": "streetwear",
+      "styleTags": [
+        "casual"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "shoes"
+      ],
+      "bonus": "Aim for four stars",
+      "minimumScore": 80
+    },
+    {
+      "id": "street-shot",
+      "title": "Spotted downtown",
+      "brief": "A street photographer has asked you to stop for a quick portrait. Bring confident city style.",
+      "chapter": 1,
+      "chapterTitle": "City Style",
+      "location": "lagos",
+      "themeId": "streetwear",
+      "styleTags": [
+        "streetwear",
+        "casual"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "shoes"
+      ],
+      "bonus": "Coordinate shoes with your outfit",
+      "minimumScore": 0
+    },
+    {
+      "id": "brunch-club",
+      "title": "The brunch club",
+      "brief": "Your friends booked a bright city brunch. Keep the outfit relaxed with one considered detail.",
+      "chapter": 1,
+      "chapterTitle": "City Style",
+      "location": "lagos",
+      "themeId": "first-date",
+      "styleTags": [
+        "casual"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "shoes"
+      ],
+      "bonus": "One accent colour is enough",
+      "minimumScore": 0
+    },
+    {
+      "id": "office-arrival",
+      "title": "First day, big energy",
+      "brief": "You are presenting your first creative pitch. Look sharp, composed and ready.",
+      "chapter": 1,
+      "chapterTitle": "City Style",
+      "location": "lagos",
+      "themeId": "office-executive",
+      "styleTags": [
+        "corporate",
+        "formal"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "shoes",
+        "watches"
+      ],
+      "bonus": "Choose a watch",
+      "minimumScore": 0
+    },
+    {
+      "id": "city-finale",
+      "title": "City style spotlight",
+      "brief": "The city style column is featuring you. Deliver a memorable polished look for your interview.",
+      "chapter": 1,
+      "chapterTitle": "City Style",
+      "location": "lagos",
+      "themeId": "office-executive",
+      "styleTags": [
+        "formal",
+        "elegant"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "shoes"
+      ],
+      "bonus": "Aim for four stars",
+      "minimumScore": 80
+    },
+    {
+      "id": "rooftop-launch",
+      "title": "Rooftop launch party",
+      "brief": "You have an invitation to a rooftop launch at sunset. Bring an elegant evening look.",
+      "chapter": 2,
+      "chapterTitle": "Nightlife",
+      "location": "sunset",
+      "themeId": "night-out",
+      "styleTags": [
+        "party",
+        "evening"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "shoes"
+      ],
+      "bonus": "A luxury detail can work",
+      "minimumScore": 0
+    },
+    {
+      "id": "birthday-vip",
+      "title": "Birthday VIP",
+      "brief": "Your best friend booked a special birthday celebration. Dress for a joyful night in the spotlight.",
+      "chapter": 2,
+      "chapterTitle": "Nightlife",
+      "location": "sunset",
+      "themeId": "birthday-party",
+      "styleTags": [
+        "party"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "shoes"
+      ],
+      "bonus": "Keep accessories on theme",
+      "minimumScore": 0
+    },
+    {
+      "id": "after-dark",
+      "title": "After dark",
+      "brief": "A music lounge is opening tonight. Style an evening outfit that holds its own under the lights.",
+      "chapter": 2,
+      "chapterTitle": "Nightlife",
+      "location": "sunset",
+      "themeId": "night-out",
+      "styleTags": [
+        "evening"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "shoes"
+      ],
+      "bonus": "Two accents with neutrals",
+      "minimumScore": 0
+    },
+    {
+      "id": "nightlife-finale",
+      "title": "Own the night",
+      "brief": "Your first headline appearance is tonight. Bring a polished party look and own your catwalk.",
+      "chapter": 2,
+      "chapterTitle": "Nightlife",
+      "location": "sunset",
+      "themeId": "night-out",
+      "styleTags": [
+        "party",
+        "evening"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "shoes"
+      ],
+      "bonus": "Aim for four stars",
+      "minimumScore": 80
+    },
+    {
+      "id": "hotel-arrival",
+      "title": "Suite arrival",
+      "brief": "You are arriving at a luxury hotel for a creative residency. Make your entrance count.",
+      "chapter": 3,
+      "chapterTitle": "Luxury Events",
+      "location": "royal",
+      "themeId": "night-out",
+      "styleTags": [
+        "luxury",
+        "elegant"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "shoes"
+      ],
+      "bonus": "Try a gold watch",
+      "minimumScore": 0
+    },
+    {
+      "id": "dinner-invite",
+      "title": "The dinner invite",
+      "brief": "A designer has invited you to a private dinner. Choose formal elegance with thoughtful details.",
+      "chapter": 3,
+      "chapterTitle": "Luxury Events",
+      "location": "royal",
+      "themeId": "night-out",
+      "styleTags": [
+        "formal",
+        "elegant"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "shoes"
+      ],
+      "bonus": "Less can be more",
+      "minimumScore": 0
+    },
+    {
+      "id": "brand-campaign",
+      "title": "The brand campaign",
+      "brief": "A luxury brand wants a clean campaign look. Deliver an outfit that feels considered from head to toe.",
+      "chapter": 3,
+      "chapterTitle": "Luxury Events",
+      "location": "royal",
+      "themeId": "red-carpet",
+      "styleTags": [
+        "luxury",
+        "formal"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "shoes"
+      ],
+      "bonus": "Match your footwear",
+      "minimumScore": 0
+    },
+    {
+      "id": "luxury-finale",
+      "title": "The VIP premiere",
+      "brief": "You are attending your first VIP premiere. Create a complete luxury look fit for the cameras.",
+      "chapter": 3,
+      "chapterTitle": "Luxury Events",
+      "location": "royal",
+      "themeId": "red-carpet",
+      "styleTags": [
+        "formal",
+        "luxury"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "shoes"
+      ],
+      "bonus": "Aim for four stars",
+      "minimumScore": 80
+    },
+    {
+      "id": "red-carpet-call",
+      "title": "Red carpet call",
+      "brief": "The cameras are waiting. Put together a striking formal look for your arrival.",
+      "chapter": 4,
+      "chapterTitle": "Fashion Week",
+      "location": "runway",
+      "themeId": "red-carpet",
+      "styleTags": [
+        "formal",
+        "party"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "shoes"
+      ],
+      "bonus": "An evening palette",
+      "minimumScore": 0
+    },
+    {
+      "id": "magazine-cover",
+      "title": "Cover star",
+      "brief": "You have landed a fashion magazine cover. Make every part of your outfit feel intentional.",
+      "chapter": 4,
+      "chapterTitle": "Fashion Week",
+      "location": "runway",
+      "themeId": "fashion-week",
+      "styleTags": [
+        "luxury"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "shoes"
+      ],
+      "bonus": "One standout detail",
+      "minimumScore": 0
+    },
+    {
+      "id": "designer-show",
+      "title": "Front row energy",
+      "brief": "You are a guest at a designer show. Bring your strongest luxury styling to the front row.",
+      "chapter": 4,
+      "chapterTitle": "Fashion Week",
+      "location": "runway",
+      "themeId": "fashion-week",
+      "styleTags": [
+        "formal",
+        "luxury"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "shoes",
+        "watches"
+      ],
+      "bonus": "A coordinated watch",
+      "minimumScore": 0
+    },
+    {
+      "id": "global-finale",
+      "title": "Global star finale",
+      "brief": "Your final runway appearance decides your next career title. Deliver a polished look and finish with confidence.",
+      "chapter": 4,
+      "chapterTitle": "Fashion Week",
+      "location": "runway",
+      "themeId": "red-carpet",
+      "styleTags": [
+        "formal",
+        "luxury",
+        "evening"
+      ],
+      "requiredCategories": [
+        "outfit",
+        "shoes"
+      ],
+      "bonus": "Aim for four stars",
+      "minimumScore": 80
+    }
+  ],
+  "ranks": [
+    {
+      "name": "Unknown",
+      "minimumXp": 0,
+      "minimumCompleted": 0,
+      "minimumStars": 0,
+      "milestone": null
+    },
+    {
+      "name": "Rising Star",
+      "minimumXp": 400,
+      "minimumCompleted": 4,
+      "minimumStars": 12,
+      "milestone": "studio-finale"
+    },
+    {
+      "name": "Trendsetter",
+      "minimumXp": 900,
+      "minimumCompleted": 8,
+      "minimumStars": 24,
+      "milestone": "city-finale"
+    },
+    {
+      "name": "Style Icon",
+      "minimumXp": 1400,
+      "minimumCompleted": 12,
+      "minimumStars": 36,
+      "milestone": "nightlife-finale"
+    },
+    {
+      "name": "Fashion Elite",
+      "minimumXp": 1900,
+      "minimumCompleted": 16,
+      "minimumStars": 48,
+      "milestone": "luxury-finale"
+    },
+    {
+      "name": "Global Star",
+      "minimumXp": 2400,
+      "minimumCompleted": 20,
+      "minimumStars": 60,
+      "milestone": "global-finale"
+    }
+  ]
+}

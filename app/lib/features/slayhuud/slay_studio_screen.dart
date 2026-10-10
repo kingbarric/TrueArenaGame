@@ -21,11 +21,14 @@ class SlayStudioScreen extends StatefulWidget {
       required this.theme,
       required this.owned,
       this.competitionId,
+      this.careerEventId,
+      this.careerPeriod,
+      this.initialBackground,
       this.initialBody = 'female',
       this.deadline});
   final Map<String, dynamic> catalog, theme;
   final Set<String> owned;
-  final String? competitionId;
+  final String? competitionId, careerEventId, careerPeriod, initialBackground;
   final String initialBody;
   final DateTime? deadline;
   @override
@@ -34,9 +37,10 @@ class SlayStudioScreen extends StatefulWidget {
 
 class _SlayStudioScreenState extends State<SlayStudioScreen> {
   late SlayLook _look = SlayLook.initial(
-      (widget.theme['bodyEligibility'] as List).contains(widget.initialBody)
-          ? widget.initialBody
-          : (widget.theme['bodyEligibility'] as List).first as String);
+          (widget.theme['bodyEligibility'] as List).contains(widget.initialBody)
+              ? widget.initialBody
+              : (widget.theme['bodyEligibility'] as List).first as String)
+      .copy(background: widget.initialBackground);
   late final Set<String> _owned = {...widget.owned};
   final _stage = SlayStageController();
   String _category = 'outfit', _styleGroup = '';
@@ -229,14 +233,20 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
         await api.action(widget.competitionId!, 'submit', {'lookId': id});
         if (mounted) Navigator.pop(context, true);
       } else {
-        final score = await api.score(widget.theme['id'], id);
+        final score = widget.careerEventId == null
+            ? await api.score(widget.theme['id'], id)
+            : await api.careerScore(widget.careerEventId!, id,
+                period: widget.careerPeriod);
         if (!mounted) return;
-        await showModalBottomSheet<void>(
+        final continueCareer = await showModalBottomSheet<bool>(
             context: context,
             isScrollControlled: true,
             backgroundColor: context.neon.bg,
             builder: (c) => SlayStyleReport(
-                score: score, themeTitle: widget.theme['title']));
+                score: score,
+                themeTitle: widget.theme['title'],
+                career: widget.careerEventId != null));
+        if (continueCareer == true && mounted) Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted && !e.toString().contains('cancelled')) {

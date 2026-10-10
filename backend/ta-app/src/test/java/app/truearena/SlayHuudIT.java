@@ -605,4 +605,51 @@ class SlayHuudIT {
                                 .block())
                 .isZero();
     }
+    @Autowired SlayCareerService career;
+
+    @Test void careerBestsAwardOnlyImprovementsAndRejectLockedEvents() {
+        UUID user=human();
+        var initial=outfit("male");
+        var noShoes=new Look(initial.body(),initial.skinTone(),initial.facePreset(),Map.of("outfit","male-essential"),initial.pose(),initial.background());
+        var firstLook=slay.saveLook(user,noShoes).block();
+        var first=career.score(user,"hello-style",firstLook.id()).block();
+        assertThat(first.get("stars")).isEqualTo(3);
+        assertThat(first.get("coinsEarned")).isEqualTo(125);
+        assertThat(career.score(user,"hello-style",firstLook.id()).block().get("coinsEarned")).isEqualTo(0);
+        var improved=slay.saveLook(user,initial).block();
+        var better=career.score(user,"hello-style",improved.id()).block();
+        assertThat(better.get("stars")).isEqualTo(5);
+        assertThat(better.get("coinsEarned")).isEqualTo(50);
+        assertThat(better.get("xpEarned")).isEqualTo(40);
+        assertThat(career.home(user).block().get("totalStars")).isEqualTo(5);
+        assertThat(career.home(user).block().get("xp")).isEqualTo(140);
+        assertThatThrownBy(() -> career.score(user,"rooftop-launch",improved.id()).block()).hasMessageContaining("unlock");
+        UUID outsider=human();
+        assertThatThrownBy(() -> career.score(outsider,"hello-style",improved.id()).block()).hasMessageContaining("Look not found");
+    }
+    @Test void careerConcurrentRetriesSettleOnce() {
+        UUID user=human();var look=slay.saveLook(user,outfit("male")).block();
+        var results=reactor.core.publisher.Flux.range(0,2).flatMap(n -> career.score(user,"hello-style",look.id()),2).collectList().block();
+        assertThat(results.stream().mapToInt(r -> (Integer)r.get("coinsEarned")).sum()).isEqualTo(175);
+        assertThat(career.home(user).block().get("xp")).isEqualTo(140);
+        assertThat(career.home(user).block().get("completed")).isEqualTo(1L);
+    }
+
+    @Test void careerMilestonesAndExpiredDailyBriefsDoNotAwardRewards() {
+        UUID user=human();var initial=outfit("male");
+        var bare=slay.saveLook(user,new Look(initial.body(),initial.skinTone(),initial.facePreset(),Map.of("outfit","male-essential"),initial.pose(),initial.background())).block();
+        var fail=career.score(user,"studio-finale",bare.id()).block();
+        assertThat(fail.get("milestonePassed")).isEqualTo(false);
+        assertThat(fail.get("coinsEarned")).isEqualTo(0);
+        assertThat(career.home(user).block().get("completed")).isEqualTo(0L);
+        assertThatThrownBy(() -> career.score(user,"daily",bare.id(),LocalDate.now(ZoneOffset.UTC).minusDays(1).toString()).block()).hasMessageContaining("Daily Slay has changed");
+        var look=slay.saveLook(user,initial).block();
+        var pass=career.score(user,"studio-finale",look.id()).block();
+        assertThat(pass.get("milestonePassed")).isEqualTo(true);
+        assertThat(pass.get("coinsEarned")).isEqualTo(175);
+        var lower=career.score(user,"studio-finale",bare.id()).block();
+        assertThat(lower.get("coinsEarned")).isEqualTo(0);
+        assertThat(lower.get("personalBest")).isEqualTo(pass.get("personalBest"));
+    }
+
 }

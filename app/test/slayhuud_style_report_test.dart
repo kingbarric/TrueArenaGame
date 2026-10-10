@@ -58,4 +58,38 @@ void main() {
     expect(find.text('Back to the studio').hitTestable(), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+  testWidgets(
+      'career result shows five stars, best score, rewards and clear next actions',
+      (tester) async {
+    await tester.pumpWidget(MaterialApp(
+        theme: NeonTheme.dark,
+        home: const Scaffold(
+            body: SlayStyleReport(
+                career: true,
+                themeTitle: 'Your first impression',
+                score: {
+              'overall': 92.5,
+              'stars': 5,
+              'personalBest': 92.5,
+              'newBest': true,
+              'coinsEarned': 175,
+              'xpEarned': 140,
+              'milestonePassed': true,
+              'themeFit': 85.0,
+              'requirements': 100.0,
+              'colour': 100.0,
+              'completeness': 100.0,
+              'missing': [],
+              'feedback': ['Your outfit fits the brief.'],
+              'preview': true
+            }))));
+    expect(find.byIcon(Icons.star_rounded), findsNWidgets(5));
+    expect(find.text('Personal best: 92.5 / 100'), findsOneWidget);
+    expect(find.text('+175 coins'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Back to my career'), 150);
+    expect(find.text('Back to my career').hitTestable(), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Try again'), 150);
+    expect(find.text('Try again').hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

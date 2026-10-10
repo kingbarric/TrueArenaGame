@@ -329,7 +329,7 @@ public class SlayService {
                         });
     }
 
-    private Mono<SavedLook> look(UUID user, UUID id) {
+    Mono<SavedLook> look(UUID user, UUID id) {
         return db.sql(
                         "SELECT id,look,catalog_version,snapshot IS NOT NULL AS has_image FROM"
                                 + " slay_looks WHERE id=:id AND user_id=:u")

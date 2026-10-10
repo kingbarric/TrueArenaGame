@@ -10,6 +10,7 @@ import 'features/slayhuud/slay_hub_screen.dart';
 import 'features/games/game_select_screen.dart';
 import 'theme/neon_theme.dart';
 import 'dev/slay_preview_scoring.dart';
+import 'dev/slay_preview_career.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,6 +20,10 @@ Future<void> main() async {
       .where((i) => i['isDefault'] == true)
       .map((i) => i['id'])
       .toList();
+  final career = SlayPreviewCareer(
+      Map<String, dynamic>.from(jsonDecode(
+          await rootBundle.loadString('assets/slay_renderer/career.json'))),
+      catalog);
   int balance = 600;
   final looks = <String, Map<String, dynamic>>{};
   final competitions = <String, Map<String, dynamic>>{};
@@ -46,7 +51,7 @@ Future<void> main() async {
       result = catalog;
     } else if (path == '/slay/profile') {
       result = {
-        'xp': 240,
+        'xp': career.xp,
         'owned': owned,
         'stats': {'wins': 3, 'competitions': 7, 'top_three': 4}
       };
@@ -116,6 +121,25 @@ Future<void> main() async {
         'look': looks[path.split('/').last],
         'catalogVersion': catalog['version']
       };
+    } else if (path == '/slay/career') {
+      result = career.home(DateTime.now().toUtc());
+    } else if (path.startsWith('/slay/career/')) {
+      final look = looks[body['lookId']];
+      if (look == null) {
+        return http.Response('{"message":"Unknown preview look"}', 404);
+      }
+      try {
+        if (path.split('/')[3] == 'daily' &&
+            body['period'] !=
+                DateTime.now().toUtc().toIso8601String().substring(0, 10)) {
+          throw StateError(
+              'Daily Slay has changed. Open the new daily brief before submitting.');
+        }
+        result = career.score(path.split('/')[3], look, DateTime.now().toUtc());
+        balance += (result['coinsEarned'] as int);
+      } on StateError catch (error) {
+        return http.Response(jsonEncode({'message': error.message}), 403);
+      }
     } else if (path.startsWith('/slay/solo/')) {
       final look = looks[body['lookId']];
       final themes = (catalog['themes'] as List).cast<Map>();

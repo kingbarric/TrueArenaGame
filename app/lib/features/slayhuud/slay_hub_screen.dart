@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/app_state.dart';
 import '../competitive/leaderboard_screen.dart';
 import 'slay_models.dart';
+import 'slay_career_screen.dart';
 import 'slay_stage.dart';
 import 'slay_theme.dart';
 import '../../theme/neon_theme.dart';
@@ -354,10 +355,10 @@ class _SlayHubScreenState extends State<SlayHubScreen> {
                                                 _mode(
                                                     size.maxWidth,
                                                     'Solo challenges',
-                                                    'Play at your pace. Earn stars.',
+                                                    'Build your fashion career.',
                                                     Icons.auto_awesome_outlined,
                                                     context.neon.gold,
-                                                    () => _themes()),
+                                                    () => _career()),
                                                 _mode(
                                                     size.maxWidth,
                                                     'Style Battle',
@@ -608,35 +609,13 @@ class _SlayHubScreenState extends State<SlayHubScreen> {
     if (mounted) _load();
   }
 
-  Future<void> _themes() async {
-    final theme = await showModalBottomSheet<Map<String, dynamic>>(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: context.neon.bg,
-        builder: (c) => SafeArea(
-            child: DraggableScrollableSheet(
-                expand: false,
-                initialChildSize: .7,
-                builder: (c, scroll) => ListView(
-                        controller: scroll,
-                        padding: const EdgeInsets.all(20),
-                        children: [
-                          const SlayLabel('Find your inspiration'),
-                          const SizedBox(height: 12),
-                          Text('Choose your moment.',
-                              style:
-                                  Theme.of(context).textTheme.headlineMedium),
-                          const SizedBox(height: 16),
-                          for (final t in _catalog!['themes'] as List)
-                            ListTile(
-                                contentPadding: EdgeInsets.zero,
-                                title: Text(t['title']),
-                                subtitle:
-                                    Text((t['styleTags'] as List).join(' · ')),
-                                trailing: const Icon(Icons.chevron_right),
-                                onTap: () => Navigator.pop(
-                                    c, Map<String, dynamic>.from(t)))
-                        ]))));
-    if (theme != null && mounted) _studio(theme);
+  Future<void> _career() async {
+    await Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (_) => SlayCareerScreen(
+                catalog: _catalog!,
+                owned: Set<String>.from(_profile!['owned']))));
+    if (mounted) _load();
   }
 }

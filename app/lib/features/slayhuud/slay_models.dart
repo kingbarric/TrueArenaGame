@@ -130,6 +130,12 @@ class SlayApi {
     SlayAssets.instance.configure(catalog);
     return catalog;
   }
+  Future<Map<String, dynamic>> career() async =>
+      Map<String, dynamic>.from(await client.get('/slay/career'));
+  Future<Map<String, dynamic>> careerScore(String event, String look,
+          {String? period}) async =>
+      Map<String, dynamic>.from(await client.post('/slay/career/$event/score',
+          {'lookId': look, if (period != null) 'period': period}));
   Future<Map<String, dynamic>> profile() async =>
       Map<String, dynamic>.from(await client.get('/slay/profile'));
   Future<List<Map<String, dynamic>>> competitions() async =>

@@ -18,13 +18,17 @@ import java.util.*;
 public class SlayController {
     private final SlayService slay;
     private final SlayCatalog catalog;
+    private final SlayCareerService career;
 
-    public SlayController(SlayService slay, SlayCatalog catalog) {
+    public SlayController(SlayService slay, SlayCatalog catalog, SlayCareerService career) {
         this.slay = slay;
         this.catalog = catalog;
+        this.career = career;
     }
 
     public record Purchase(String itemId) {}
+
+    public record CareerSubmit(UUID lookId, String period) {}
 
     public record Choice(String entryId) {}
 
@@ -99,6 +103,17 @@ public class SlayController {
     @PostMapping("/solo/{theme}/score")
     public Mono<Score> score(@PathVariable String theme, @RequestBody SlayService.Submit body) {
         return CurrentUser.id().flatMap(u -> slay.solo(u, theme, body.lookId()));
+    }
+
+    @GetMapping("/career")
+    public Mono<Map<String, Object>> career() {
+        return CurrentUser.id().flatMap(career::home);
+    }
+
+    @PostMapping("/career/{event}/score")
+    public Mono<Map<String, Object>> careerScore(
+            @PathVariable String event, @RequestBody CareerSubmit body) {
+        return CurrentUser.id().flatMap(u -> career.score(u, event, body.lookId(), body.period()));
     }
 
     @GetMapping("/competitions")
