@@ -84,6 +84,7 @@ class HuudSpaceIT {
     @Autowired DatabaseClient db;
     @Autowired UserNotificationRepository notes;
     @Autowired app.truearena.api.coins.GiftController gifts;
+    @Autowired app.truearena.api.competitive.AllTimeRankingController rankings;
     @org.springframework.boot.test.mock.mockito.SpyBean InboxRegistry inbox;
     @MockBean LiveKitRoomAdmin livekit;
 
@@ -695,5 +696,45 @@ class HuudSpaceIT {
         safety.block(tobi, ada).block();
         db.sql("UPDATE users SET coins = 10 WHERE id = :u").bind("u", ada).fetch().rowsUpdated().block();
         assertThatThrownBy(() -> gifts.give(ada, tobi).block()).isInstanceOf(ResponseStatusException.class);
+    }
+
+    void played(UUID user, String game, int wins, int draws, int losses) {
+        db.sql("INSERT INTO player_game_stats (user_id, game_type, games_played, wins, losses, draws) "
+                        + "VALUES (:u, :g, :n, :w, :l, :d)")
+                .bind("u", user).bind("g", game).bind("n", wins + draws + losses)
+                .bind("w", wins).bind("l", losses).bind("d", draws).fetch().rowsUpdated().block();
+    }
+
+    @Test void allTimeRankingsOrderEveryoneByStrengthPerGameAndOverall() {
+        String game = "zz" + UUID.randomUUID().toString().substring(0, 6); // a board of our own
+        UUID ada = person("Ada Obi");
+        UUID tobi = person("Tobi Ade");
+        UUID zara = person("Zara Bello");
+        UUID bot = guest("Guest");
+        played(ada, game, 3, 0, 1);   // 63
+        played(tobi, game, 1, 2, 5);  // 51
+        played(zara, game, 4, 0, 0);  // 80
+        played(bot, game, 50, 0, 0);  // guests aren't ranked
+
+        var board = rankings.ranking(game, tobi).block();
+        assertThat(board.top()).extracting("userId").containsExactly(zara, ada, tobi);
+        assertThat(board.top()).extracting("strength").containsExactly(80L, 63L, 51L);
+        assertThat(board.you().rank()).isEqualTo(3);
+
+        var overall = rankings.ranking(null, ada).block();
+        assertThat(overall.top()).hasSizeLessThanOrEqualTo(20);
+        assertThat(overall.you().strength()).isGreaterThanOrEqualTo(63L);
+    }
+
+    @Test void anInviteLinkShowsTheHuudsNameOwnerAndHowManyAreInIt() {
+        UUID ada = person("Ada Obi");
+        var huud = huuds.create(ada, "Friday Whot", "friends").block();
+        var preview = huuds.invitePreview(huud.code().toLowerCase()).block();
+        assertThat(preview.name()).isEqualTo("Friday Whot");
+        assertThat(preview.owner()).startsWith("h_");
+        assertThat(preview.live()).isTrue();
+        assertThat(preview.members()).isEqualTo(1);
+        assertThatThrownBy(() -> huuds.invitePreview("NOPE00").block()).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(() -> huuds.invitePreview("x'; --").block()).isInstanceOf(ResponseStatusException.class);
     }
 }

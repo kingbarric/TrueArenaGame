@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../../core/api_client.dart';
 import '../../core/app_state.dart';
@@ -14,6 +13,7 @@ import '../lobby/joined_room_screen.dart';
 import '../spectate/spectate_screen.dart';
 import 'go_live_sheet.dart';
 import 'huud_kit.dart';
+import 'huud_link.dart';
 import 'huud_voice.dart';
 import 'huud_space_models.dart';
 import 'huud_roster.dart';
@@ -257,16 +257,15 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     }
   }
 
-  /// Looking at the newest messages (or the box isn't up yet).
-  bool get _chatAtBottom =>
-      !_chatScroll.hasClients || _chatScroll.position.maxScrollExtent - _chatScroll.position.pixels < 48;
+  /// Looking at the newest messages (or the box isn't up yet). The box's list
+  /// runs newest-first from the bottom, so "at the bottom" is offset 0.
+  bool get _chatAtBottom => !_chatScroll.hasClients || _chatScroll.position.pixels < 48;
 
   void _toBottom() {
     if (_tab != _Tab.chat && !(_huud != null && !_huud!.live)) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_chatScroll.hasClients) {
-        _chatScroll.animateTo(_chatScroll.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+        _chatScroll.animateTo(0, duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
       }
     });
   }
@@ -457,13 +456,8 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
       if (mounted) _load();
       return;
     }
-    _shareCode(huud);
-  }
-
-  void _shareCode(HuudSpace huud) {
-    final code = huud.code;
-    if (code == null) return;
-    Share.share('Come hang out with me in "${huud.name}" on PlayHuud! 🎮\nOpen the Huud tab and type the code: $code');
+    // Members: share the link (the host also invites friends and posts it).
+    await showHuudSheet<void>(context, builder: (_) => _ShareLinkSheet(huud: huud));
   }
 
   Future<void> _copyCode(String code) async {
@@ -1483,15 +1477,22 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                   if (_unread > 0 && _chatAtBottom) setState(() => _unread = 0);
                   return false;
                 },
+                // Newest at the bottom and always in view: the list is laid out
+                // from the bottom up, so it opens on the last message and a new
+                // one lands right there — no dragging to find it.
                 child: ListView.builder(
                   controller: _chatScroll,
-                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                  reverse: true,
+                  padding: EdgeInsets.fromLTRB(14, 14, 14, _unread > 0 ? 54 : 14),
                   itemCount: chat.length,
-                  // A new header when someone else speaks, or after a 5-minute pause.
-                  itemBuilder: (context, i) => _bubble(n, chat[i],
-                      showName: i == 0 ||
-                          chat[i - 1].from.userId != chat[i].from.userId ||
-                          chat[i].at.difference(chat[i - 1].at).inMinutes >= 5),
+                  itemBuilder: (context, j) {
+                    final i = chat.length - 1 - j;
+                    // A new header when someone else speaks, or after a 5-minute pause.
+                    return _bubble(n, chat[i],
+                        showName: i == 0 ||
+                            chat[i - 1].from.userId != chat[i].from.userId ||
+                            chat[i].at.difference(chat[i - 1].at).inMinutes >= 5);
+                  },
                 ),
               ),
               if (_unread > 0)
@@ -1699,7 +1700,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
           sliver: SliverToBoxAdapter(
             child: HuudButton(
-              label: huud.youAreHost ? 'Invite friends' : 'Share the code',
+              label: huud.youAreHost ? 'Invite friends' : 'Share the link',
               icon: Icons.person_add_alt_1_rounded,
               kind: HuudButtonKind.soft,
               expand: true,
@@ -1739,6 +1740,21 @@ class _InviteSheetState extends State<_InviteSheet> {
                 HuudMember.fromJson(f.cast<String, dynamic>()),
           ]);
     }).catchError((Object _) {});
+  }
+
+  /// Put the Huud on the feed, for friends to see and join.
+  Future<void> _postOnFeed() async {
+    setState(() => _busy = 'feed');
+    try {
+      await AppScope.of(context).api.post('/huud-spaces/${widget.huud.id}/share', {'message': 'Come join my Huud! 🎉'});
+      if (mounted) huudSnack(context, 'Posted on the feed 📣');
+    } on ApiException catch (e) {
+      if (mounted) huudSnack(context, e.message);
+    } catch (_) {
+      if (mounted) huudSnack(context, "That didn't work — check your internet and try again.");
+    } finally {
+      if (mounted) setState(() => _busy = null);
+    }
   }
 
   Future<void> _invite(HuudMember friend) async {
@@ -1802,17 +1818,94 @@ class _InviteSheetState extends State<_InviteSheet> {
                 ]),
               ),
             const SizedBox(height: 14),
-            if (widget.huud.code != null)
+            if (widget.huud.code != null) ...[
+              _LinkActions(huud: widget.huud),
+              const SizedBox(height: 10),
               HuudButton(
-                label: 'Share the code',
-                icon: Icons.ios_share_rounded,
+                key: const ValueKey('invite-post-feed'),
+                label: 'Post on feed',
+                icon: Icons.campaign_rounded,
                 kind: HuudButtonKind.soft,
                 expand: true,
-                onPressed: () => Share.share(
-                    'Come hang out with me in "${widget.huud.name}" on PlayHuud! 🎮\nOpen the Huud tab and type the code: ${widget.huud.code}'),
+                busy: _busy == 'feed',
+                onPressed: _postOnFeed,
               ),
+            ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// The Huud's link, ready to copy or share: playhuud.com/huud/CODE.
+class _LinkActions extends StatelessWidget {
+  const _LinkActions({required this.huud});
+  final HuudSpace huud;
+
+  @override
+  Widget build(BuildContext context) {
+    final n = context.neon;
+    final h = HuudColors.of(context);
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Container(
+        padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
+        decoration: BoxDecoration(
+          color: h.orangeSoft,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: h.orange.withValues(alpha: 0.6)),
+        ),
+        child: Row(children: [
+          const Text('🔗', style: TextStyle(fontSize: 18)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(huudLink(huud.code!).replaceFirst('https://', ''),
+                key: const ValueKey('huud-link'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: n.ink)),
+          ),
+          TextButton(
+            key: const ValueKey('huud-link-copy'),
+            onPressed: () => copyHuudLink(context, huud),
+            child: Text('Copy', style: TextStyle(fontWeight: FontWeight.w900, color: h.orangeText)),
+          ),
+        ]),
+      ),
+      const SizedBox(height: 10),
+      Builder(
+        builder: (button) => HuudButton(
+          key: const ValueKey('huud-link-share'),
+          label: 'Share link',
+          icon: Icons.ios_share_rounded,
+          expand: true,
+          onPressed: () => shareHuud(button, huud),
+        ),
+      ),
+    ]);
+  }
+}
+
+/// For members: the Huud's link to pass on.
+class _ShareLinkSheet extends StatelessWidget {
+  const _ShareLinkSheet({required this.huud});
+  final HuudSpace huud;
+
+  @override
+  Widget build(BuildContext context) {
+    final n = context.neon;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text('Invite to ${huud.name}',
+              textAlign: TextAlign.center, style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900, color: n.ink)),
+          const SizedBox(height: 4),
+          Text('Anyone with the link can open the Huud in PlayHuud — or get the app first.',
+              textAlign: TextAlign.center, style: TextStyle(fontSize: 14, color: n.mid)),
+          const SizedBox(height: 16),
+          if (huud.code != null) _LinkActions(huud: huud),
+        ]),
       ),
     );
   }

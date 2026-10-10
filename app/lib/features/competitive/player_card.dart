@@ -238,12 +238,6 @@ PlayerCardData _gameCard(CompetitiveProfile p, GameRecord r, String name,
   );
 }
 
-/// 'draughts' -> 'DRA'.
-String _code(String gameType) {
-  final name = gameDisplayName(gameType).replaceAll(RegExp('[^A-Za-z]'), '');
-  return (name.length >= 3 ? name.substring(0, 3) : name).toUpperCase();
-}
-
 /// 127 -> "127", 12421 -> "12.4K", 1250000 -> "1.3M".
 String _compact(int n) {
   if (n < 10000) return groupedNumber(n);

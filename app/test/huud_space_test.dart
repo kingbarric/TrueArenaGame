@@ -21,6 +21,7 @@ import 'package:truearena/features/huudspace/huud_swipe_screen.dart';
 import 'package:truearena/widgets/talking_row.dart';
 import 'package:truearena/widgets/gift_splash.dart';
 import 'package:truearena/features/huudspace/huud_kit.dart';
+import 'package:truearena/features/huudspace/huud_link.dart';
 import 'dart:async';
 import 'package:truearena/theme/neon_theme.dart';
 
@@ -876,6 +877,11 @@ void main() {
     expect(box.height, lessThanOrEqualTo(380), reason: 'a fixed box, not the whole page');
     expect(find.descendant(of: find.byKey(const ValueKey('huud-chat-box')), matching: find.byType(ListView)),
         findsOneWidget);
+    // The newest message is in view at the bottom of the box — no dragging needed.
+    final boxRect = tester.getRect(find.byKey(const ValueKey('huud-chat-box')));
+    final newest = tester.getRect(find.text('Ready?'));
+    expect(newest.bottom, lessThanOrEqualTo(boxRect.bottom - 8));
+    expect(newest.top, greaterThan(boxRect.top));
   });
 
   testWidgets("someone's card: profile, add friend (or Friends), and gift 3 coins", (tester) async {
@@ -941,5 +947,33 @@ void main() {
     expect(tester.widget<Icon>(find.byKey(const ValueKey('mic-on'))).color, Colors.white);
     final circle = tester.widget<AnimatedContainer>(find.byType(AnimatedContainer));
     expect((circle.decoration as BoxDecoration).color, HuudMicButton.talkingGreen);
+  });
+
+  test('invite links: playhuud.com/huud/CODE, read back from any text', () {
+    expect(huudLink('ktb7qx'), 'https://playhuud.com/huud/KTB7QX');
+    expect(huudCodeFromLink('Come hang out! https://playhuud.com/huud/KTB7QX'), 'KTB7QX');
+    expect(huudCodeFromLink('playhuud.com/huud/ab12cd'), 'AB12CD');
+    expect(huudCodeFromLink('https://example.com/huud/KTB7QX'), isNull);
+    expect(huudCodeFromLink(null), isNull);
+  });
+
+  testWidgets('the host invite sheet has the link to copy or share, and Post on feed', (tester) async {
+    final calls = await pump(tester, const HuudSpaceScreen(id: 'h1'), (r) async {
+      if (r.url.path == '/api/v1/friends') return _json([]);
+      return _json(_huud());
+    }, settle: false);
+    await tester.tap(find.byKey(const ValueKey('huud-invite')));
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 200));
+    }
+    expect(find.text('playhuud.com/huud/KTB7QX'), findsOneWidget);
+    expect(find.byKey(const ValueKey('huud-link-share')), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const ValueKey('invite-post-feed')));
+    await tester.tap(find.byKey(const ValueKey('invite-post-feed')));
+    for (var i = 0; i < 4; i++) {
+      await tester.pump(const Duration(milliseconds: 200));
+    }
+    expect(calls.where((c) => c.startsWith('POST /api/v1/huud-spaces/h1/share')), hasLength(1));
+    expect(find.text('Posted on the feed 📣'), findsOneWidget);
   });
 }

@@ -17,6 +17,7 @@ import '../../widgets/nav_art.dart';
 import '../competitive/player_profile_screen.dart';
 import '../status/victory_status.dart';
 import 'invite_contacts_screen.dart';
+import '../shell/main_shell.dart';
 
 class FriendUser {
   const FriendUser({
@@ -116,20 +117,31 @@ class _FriendsScreenState extends State<FriendsScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    // This tab stays alive in the background: come back to it (say after
+    // adding someone from a Huud) and it shows what's new.
+    MainShell.shownTab.addListener(_onTab);
+  }
+
+  void _onTab() {
+    if (MainShell.shownTab.value == MainShell.friendsTab && mounted) _load(quiet: true);
   }
 
   @override
   void dispose() {
+    MainShell.shownTab.removeListener(_onTab);
     _searchController.dispose();
     _debounce?.cancel();
     super.dispose();
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  /// [quiet]: refresh in place, without the spinner over what's already shown.
+  Future<void> _load({bool quiet = false}) async {
+    if (!quiet) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     final app = AppScope.of(context);
     try {
       final results = await Future.wait([app.api.get('/friends'), app.api.get('/friends/requests')]);
@@ -366,7 +378,10 @@ class _FriendsScreenState extends State<FriendsScreen> {
           excludeSemantics: true,
           child: GestureDetector(
             key: ValueKey('friends-tab-${section.name}'),
-            onTap: () => setState(() => _section = section),
+            onTap: () {
+              setState(() => _section = section);
+              if (section == _Section.requests) _load(quiet: true);
+            },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
               height: 46,

@@ -12,6 +12,7 @@ import '../wallet/wallet_screen.dart';
 import '../draughts/championships_screen.dart';
 import '../competitive/competitive_api.dart';
 import '../competitive/competitive_models.dart';
+import '../competitive/all_time_rankings_screen.dart';
 import '../competitive/player_profile_screen.dart';
 
 /// Reached from Home by tapping the avatar/name row. Appearance is available
@@ -186,6 +187,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ]),
                   ),
                 ),
+              const SizedBox(height: 12),
+              NeonCard(
+                key: const ValueKey('profile-rankings'),
+                accent: n.gold,
+                onTap: () =>
+                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AllTimeRankingsScreen())),
+                child: Row(children: [
+                  const Text('🏆', style: TextStyle(fontSize: 22)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('All-time rankings',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w800)),
+                      Text('Top 20 on PlayHuud for every game',
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute)),
+                    ]),
+                  ),
+                  Icon(Icons.chevron_right, color: n.mute, size: 20),
+                ]),
+              ),
               const SizedBox(height: 28),
               if (_championshipBadges.isNotEmpty) ...[
                 Text('CHAMPIONSHIP BADGES', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: n.gold)),

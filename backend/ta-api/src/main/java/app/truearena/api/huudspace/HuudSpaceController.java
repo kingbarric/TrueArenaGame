@@ -84,6 +84,17 @@ public class HuudSpaceController {
         return CurrentUser.id().flatMap(huuds::heartbeat);
     }
 
+    /**
+     * Public: what a playhuud.com/huud/CODE link is for — the Huud's name, its
+     * owner's username and how many are in it — so the web page can say
+     * "Join Eric's Game Night" before you have the app. No sign-in needed.
+     */
+    @GetMapping("/invite/{code}/preview")
+    @Operation(summary = "Public preview of a Huud by its code, for invite links")
+    public Mono<HuudSpaceDtos.InvitePreview> invitePreview(@PathVariable String code) {
+        return huuds.invitePreview(code);
+    }
+
     @GetMapping("/by-room/{roomId}")
     @Operation(summary = "The Huud a game room belongs to (empty when it's not in one)")
     public Mono<HuudSpaceView> forRoom(@PathVariable UUID roomId) {

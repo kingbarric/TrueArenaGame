@@ -146,6 +146,25 @@ public class HuudSpaceService {
     }
 
     /** The Huud you own, if any. */
+    /** For playhuud.com/huud/CODE: a Huud that exists, by its code. */
+    public Mono<HuudSpaceDtos.InvitePreview> invitePreview(String rawCode) {
+        String code = rawCode == null ? "" : rawCode.trim().toUpperCase();
+        if (!code.matches("[A-Z0-9]{" + CODE_LENGTH + "}")) {
+            return Mono.error(ApiExceptions.notFound("no Huud with that code"));
+        }
+        return db.sql("SELECT s.code, s.name, u.username, s.live_since IS NOT NULL AS live, "
+                        + "(SELECT count(*) FROM huud_space_members m WHERE m.huud_space_id = s.id "
+                        + "   AND m.left_at IS NULL AND NOT m.removed) AS members "
+                        + "FROM huud_spaces s JOIN users u ON u.id = s.created_by "
+                        + "WHERE s.code = :code AND s.status = 'active'")
+                .bind("code", code)
+                .map((r, m) -> new HuudSpaceDtos.InvitePreview(r.get("code", String.class), r.get("name", String.class),
+                        r.get("username", String.class), Boolean.TRUE.equals(r.get("live", Boolean.class)),
+                        ((Number) r.get("members")).intValue()))
+                .one()
+                .switchIfEmpty(Mono.error(ApiExceptions.notFound("no Huud with that code")));
+    }
+
     public Mono<HuudSpaceView> current(UUID user) {
         return ownedId(user).flatMap(id -> view(id, user));
     }

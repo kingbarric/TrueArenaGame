@@ -9,6 +9,7 @@ import 'core/push_notifications.dart';
 import 'features/spectate/watch_live.dart';
 import 'features/calls/incoming_call_screen.dart';
 import 'features/shell/main_shell.dart';
+import 'features/huudspace/huud_link.dart';
 import 'features/lobby/joined_room_screen.dart';
 import 'features/onboarding/welcome_screen.dart';
 import 'features/draughts/championships_screen.dart';
@@ -49,6 +50,16 @@ class TrueArenaApp extends StatelessWidget {
                 ? _ResumeGate(state: state)
                 : const WelcomeScreen(),
             onGenerateRoute: (settings) {
+              // playhuud.com/huud/CODE (or playhuud:///huud/CODE): straight into that Huud —
+              // after signing up if need be.
+              final huud = RegExp(r'^/huud/([A-Za-z0-9]{6})/?$').firstMatch(Uri.parse(settings.name ?? '').path);
+              if (huud != null) {
+                state.pendingHuudCode = huud.group(1)!.toUpperCase();
+                return MaterialPageRoute(
+                    builder: (_) => state.identity == Identity.anonymous
+                        ? const WelcomeScreen()
+                        : HuudLinkLanding(code: state.pendingHuudCode!));
+              }
               final match = RegExp(r'^/championships/([A-HJ-NP-Z2-9]{8})$', caseSensitive: false)
                   .firstMatch(settings.name ?? '');
               if (match == null) return null;

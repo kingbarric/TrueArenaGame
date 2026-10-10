@@ -51,6 +51,10 @@ public final class HuudSpaceDtos {
     /** Pickable backdrops; none chosen ("default", stored as null) is the disco floor, "blank" is no picture. */
     public static final List<String> BACKGROUNDS = List.of("blank", "lounge", "poolside", "club");
 
+    /** What an invite link's web page may show — nothing beyond the name and how busy it is. */
+    public record InvitePreview(String code, String name, String owner, boolean live, int members) {
+    }
+
     public record JoinRequest(@NotBlank @Size(min = 6, max = 6) String code) {
     }
 

@@ -339,13 +339,15 @@ class _HuudScreenState extends State<HuudScreen> {
           ? 'Join my ${item.gameName} huud on PlayHuud — huud code ${item.game!.roomCode}'
           : '${item.actor.handle} is looking for a ${item.gameName} game on PlayHuud — huud code ${item.game!.roomCode}',
       'win' => item.win!.streak >= 3
-          ? '${item.actor.name} won ${item.win!.streak} ${item.gameName} games in a row on PlayHuud'
-          : '${item.actor.name} won at ${item.gameName} on PlayHuud',
+          ? '${item.actor.handle} won ${item.win!.streak} ${item.gameName} games in a row on PlayHuud'
+          : '${item.actor.handle} won at ${item.gameName} on PlayHuud',
       _ when item.tournament != null =>
         '${item.tournament!.name} · ${item.gameName} on PlayHuud\nhttps://playhuud.com/championships/${item.tournament!.code}',
       _ => 'PlayHuud',
     };
-    Share.share(text);
+    // Current iOS won't show the share sheet without somewhere to anchor it.
+    final size = MediaQuery.sizeOf(context);
+    Share.share(text, sharePositionOrigin: Rect.fromLTWH(0, 0, size.width, size.height / 2));
   }
 
   void _openTournament(HuudTournament t) => Navigator.of(context)

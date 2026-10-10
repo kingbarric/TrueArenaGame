@@ -53,6 +53,14 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   /// A Huud notification tapped from a cold start — opened once the app is up.
   String? pendingHuudSpaceId;
 
+  /// A playhuud.com/huud/CODE link opened before you were signed in (or from
+  /// a cold start) — joined once you're in.
+  String? pendingHuudCode;
+
+  /// First launch after installing — the one time the app looks for an
+  /// invite link left on the clipboard by playhuud.com/huud/….
+  bool freshInstall = false;
+
   /// A call push tapped while the app was closed — rung once the app is up.
   Map<String, dynamic>? pendingIncomingCall;
   GoogleSignIn? _googleClient;
@@ -356,6 +364,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> bootstrap() async {
     WidgetsBinding.instance.addObserver(this);
+    try {
+      freshInstall = (await SharedPreferences.getInstance()).getKeys().isEmpty;
+    } catch (_) {}
     api.deviceId = await DeviceId.get();
     // Lets ApiClient recover a mid-session 401 on its own (the access token
     // is only good for 15 min) instead of every call site having to special-
