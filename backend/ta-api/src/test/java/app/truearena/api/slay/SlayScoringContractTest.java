@@ -32,4 +32,11 @@ class SlayScoringContractTest {
         var dyed = new SlayRules.Look(legacy.body(), legacy.skinTone(), legacy.facePreset(), legacy.items(), legacy.pose(), legacy.background(), java.util.Map.of("shoes","red"));
         assertThat(mapper.readValue(mapper.writeValueAsString(dyed), SlayRules.Look.class)).isEqualTo(dyed);
     }
+    @Test void catalogueExposesDuplicateAliasesWithoutRemovingSavedLookItems() throws Exception {
+        var catalog = new SlayCatalog(new ObjectMapper());
+        var presentation = catalog.manifest().wardrobePresentation();
+        assertThat(presentation.get("female-dress-collection-9").get("duplicateOf")).isEqualTo("female-essential");
+        assertThat(presentation.get("female-essential").get("category")).isEqualTo("dress");
+        assertThat(catalog.items()).containsKeys("female-dress-collection-9", "female-essential");
+    }
 }

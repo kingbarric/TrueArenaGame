@@ -26,7 +26,8 @@ public class SlayCatalog {
             List<String> skinTones,
             List<String> facePresets,
             List<Client> clients,
-            Map<String, String> itemColourPalette) {}
+            Map<String, String> itemColourPalette,
+            Map<String, Map<String, String>> wardrobePresentation) {}
 
     private final Manifest manifest;
 

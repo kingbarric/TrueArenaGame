@@ -1,5 +1,5 @@
 {
-  "version": 17,
+  "version": 18,
   "developmentAssets": true,
   "avatars": [
     {
@@ -5168,5 +5168,298 @@
     "grey": "#8e8c87",
     "orange": "#c5773d",
     "yellow": "#ddba55"
+  },
+  "wardrobePresentation": {
+    "female-essential": {
+      "category": "dress",
+      "styleGroup": "Casual"
+    },
+    "female-executive": {
+      "category": "outfit",
+      "styleGroup": "Corporate"
+    },
+    "female-redcarpet": {
+      "category": "dress",
+      "styleGroup": "Formal"
+    },
+    "female-romantic": {
+      "category": "dress",
+      "styleGroup": "Date Night"
+    },
+    "female-night": {
+      "category": "dress",
+      "styleGroup": "Party"
+    },
+    "female-business": {
+      "category": "outfit",
+      "styleGroup": "Corporate"
+    },
+    "female-dinner": {
+      "category": "outfit",
+      "styleGroup": "Formal"
+    },
+    "male-essential": {
+      "category": "outfit",
+      "styleGroup": "Casual"
+    },
+    "male-executive": {
+      "category": "outfit",
+      "styleGroup": "Corporate"
+    },
+    "male-redcarpet": {
+      "category": "outfit",
+      "styleGroup": "Formal"
+    },
+    "male-business": {
+      "category": "outfit",
+      "styleGroup": "Corporate"
+    },
+    "female-date-cutout": {
+      "category": "dress",
+      "styleGroup": "Date Night"
+    },
+    "female-date-keyhole": {
+      "category": "dress",
+      "styleGroup": "Date Night"
+    },
+    "female-date-strapless": {
+      "category": "dress",
+      "styleGroup": "Date Night"
+    },
+    "male-dinner-suit": {
+      "category": "outfit",
+      "styleGroup": "Formal"
+    },
+    "male-bowtie-suit": {
+      "category": "outfit",
+      "styleGroup": "Formal"
+    },
+    "male-tailored-suit": {
+      "category": "outfit",
+      "styleGroup": "Formal"
+    },
+    "male-tee-relaxed": {
+      "category": "shirts",
+      "styleGroup": "Casual"
+    },
+    "male-tee-tucked": {
+      "category": "shirts",
+      "styleGroup": "Casual"
+    },
+    "male-tee-polo": {
+      "category": "shirts",
+      "styleGroup": "Casual"
+    },
+    "male-trousers-classic": {
+      "category": "trousers",
+      "styleGroup": "Casual"
+    },
+    "male-trousers-cargo": {
+      "category": "trousers",
+      "styleGroup": "Casual"
+    },
+    "male-trousers-harem": {
+      "category": "trousers",
+      "styleGroup": "Casual"
+    },
+    "male-trousers-denim-shorts": {
+      "category": "trousers",
+      "styleGroup": "Casual"
+    },
+    "female-trousers-cargo": {
+      "category": "trousers",
+      "styleGroup": "Casual"
+    },
+    "female-trousers-harem": {
+      "category": "trousers",
+      "styleGroup": "Casual"
+    },
+    "female-trousers-denim-shorts": {
+      "category": "trousers",
+      "styleGroup": "Casual"
+    },
+    "female-trousers-tailored": {
+      "category": "trousers",
+      "styleGroup": "Corporate"
+    },
+    "female-top-camisole": {
+      "category": "tops",
+      "styleGroup": "Date Night"
+    },
+    "female-top-keyhole": {
+      "category": "tops",
+      "styleGroup": "Casual"
+    },
+    "female-top-tee": {
+      "category": "tops",
+      "styleGroup": "Casual"
+    },
+    "female-dress-collection-1": {
+      "category": "dress",
+      "styleGroup": "Casual"
+    },
+    "female-dress-collection-2": {
+      "category": "dress",
+      "styleGroup": "Casual"
+    },
+    "female-dress-collection-3": {
+      "category": "dress",
+      "styleGroup": "Casual"
+    },
+    "female-dress-collection-4": {
+      "category": "dress",
+      "styleGroup": "Casual"
+    },
+    "female-dress-collection-5": {
+      "category": "dress",
+      "styleGroup": "Corporate"
+    },
+    "female-dress-collection-6": {
+      "category": "dress",
+      "styleGroup": "Casual"
+    },
+    "female-dress-collection-7": {
+      "category": "dress",
+      "styleGroup": "Casual"
+    },
+    "female-dress-collection-8": {
+      "category": "dress",
+      "styleGroup": "Casual"
+    },
+    "female-dress-collection-9": {
+      "category": "dress",
+      "styleGroup": "Casual",
+      "duplicateOf": "female-essential"
+    },
+    "female-dress-collection-10": {
+      "category": "dress",
+      "styleGroup": "Corporate"
+    },
+    "female-skirts-collection-1": {
+      "category": "skirts",
+      "styleGroup": "Casual"
+    },
+    "female-skirts-collection-2": {
+      "category": "skirts",
+      "styleGroup": "Casual"
+    },
+    "female-skirts-collection-3": {
+      "category": "skirts",
+      "styleGroup": "Casual"
+    },
+    "female-skirts-collection-4": {
+      "category": "skirts",
+      "styleGroup": "Casual"
+    },
+    "female-skirts-collection-5": {
+      "category": "skirts",
+      "styleGroup": "Party"
+    },
+    "female-skirts-collection-6": {
+      "category": "skirts",
+      "styleGroup": "Casual"
+    },
+    "female-skirts-collection-7": {
+      "category": "skirts",
+      "styleGroup": "Casual"
+    },
+    "female-skirts-collection-8": {
+      "category": "skirts",
+      "styleGroup": "Casual"
+    },
+    "female-skirts-collection-9": {
+      "category": "skirts",
+      "styleGroup": "Casual"
+    },
+    "female-skirts-collection-10": {
+      "category": "skirts",
+      "styleGroup": "Casual"
+    },
+    "female-tops-collection-1": {
+      "category": "tops",
+      "styleGroup": "Casual"
+    },
+    "female-tops-collection-2": {
+      "category": "tops",
+      "styleGroup": "Date Night",
+      "duplicateOf": "female-top-camisole"
+    },
+    "female-tops-collection-3": {
+      "category": "tops",
+      "styleGroup": "Casual",
+      "duplicateOf": "female-top-keyhole"
+    },
+    "female-tops-collection-4": {
+      "category": "tops",
+      "styleGroup": "Casual"
+    },
+    "female-tops-collection-5": {
+      "category": "tops",
+      "styleGroup": "Casual"
+    },
+    "female-tops-collection-6": {
+      "category": "tops",
+      "styleGroup": "Date Night"
+    },
+    "female-tops-collection-7": {
+      "category": "tops",
+      "styleGroup": "Casual"
+    },
+    "female-tops-collection-8": {
+      "category": "tops",
+      "styleGroup": "Date Night"
+    },
+    "female-tops-collection-9": {
+      "category": "tops",
+      "styleGroup": "Corporate"
+    },
+    "female-tops-collection-10": {
+      "category": "tops",
+      "styleGroup": "Casual"
+    },
+    "female-trousers-collection-1": {
+      "category": "trousers",
+      "styleGroup": "Casual",
+      "duplicateOf": "female-trousers-cargo"
+    },
+    "female-trousers-collection-2": {
+      "category": "trousers",
+      "styleGroup": "Casual",
+      "duplicateOf": "female-trousers-harem"
+    },
+    "female-trousers-collection-3": {
+      "category": "trousers",
+      "styleGroup": "Casual",
+      "duplicateOf": "female-trousers-denim-shorts"
+    },
+    "female-trousers-collection-4": {
+      "category": "trousers",
+      "styleGroup": "Corporate",
+      "duplicateOf": "female-trousers-tailored"
+    },
+    "female-trousers-collection-5": {
+      "category": "trousers",
+      "styleGroup": "Casual"
+    },
+    "female-trousers-collection-6": {
+      "category": "trousers",
+      "styleGroup": "Casual"
+    },
+    "female-trousers-collection-7": {
+      "category": "trousers",
+      "styleGroup": "Casual"
+    },
+    "female-trousers-collection-8": {
+      "category": "trousers",
+      "styleGroup": "Corporate"
+    },
+    "female-trousers-collection-9": {
+      "category": "trousers",
+      "styleGroup": "Casual"
+    },
+    "female-trousers-collection-10": {
+      "category": "trousers",
+      "styleGroup": "Casual"
+    }
   }
 }

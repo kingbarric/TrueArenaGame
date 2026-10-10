@@ -73,7 +73,7 @@ void main() {
     expect(look.isDressed, isTrue);
     expect(slayMatchesStyle(top, 'Casual'), isTrue);
     expect(slayMatchesStyle(top, 'Corporate'), isFalse);
-    expect(slayMatchesStyle(top, 'All'), isTrue);
+    expect(slayMatchesStyle(top, 'All'), isFalse);
   });
 
   test('optional beauty and accessories survive a look save and reload', () {

@@ -99,10 +99,21 @@ const slayStyleGroups = <String, Set<String>>{
   'Formal': {'formal', 'elegant', 'luxury'},
   'Traditional': {'traditional', 'african', 'bridal', 'royal'},
 };
+String slayPrimaryStyle(Map item) {
+  final tags = (item['styleTags'] as List? ?? []).cast<String>();
+  for (final group in ['Traditional', 'Corporate']) {
+    if (tags.any(slayStyleGroups[group]!.contains)) return group;
+  }
+  for (final tag in tags) {
+    for (final group in slayStyleGroups.entries) {
+      if (group.value.contains(tag)) return group.key;
+    }
+  }
+  return 'Casual';
+}
+
 bool slayMatchesStyle(Map item, String group) =>
-    group == 'All' ||
-    (item['styleTags'] as List? ?? [])
-        .any((tag) => slayStyleGroups[group]?.contains(tag) == true);
+    slayPrimaryStyle(item) == group;
 
 class SlayApi {
   SlayApi(this.client);

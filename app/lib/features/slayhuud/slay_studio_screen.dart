@@ -11,6 +11,7 @@ import 'slay_game_menu.dart';
 import 'slay_pose_picker.dart';
 import 'slay_style_report.dart';
 import 'slay_colour_picker.dart';
+import 'slay_wardrobe.dart';
 
 class SlayStudioScreen extends StatefulWidget {
   const SlayStudioScreen(
@@ -37,7 +38,7 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
           : (widget.theme['bodyEligibility'] as List).first as String);
   late final Set<String> _owned = {...widget.owned};
   final _stage = SlayStageController();
-  String _category = 'outfit', _styleGroup = 'All';
+  String _category = 'outfit', _styleGroup = '';
   SlayLook? _draft;
   int? _coins;
   bool _selecting = false;
@@ -251,30 +252,22 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
   Widget build(BuildContext context) => Theme(
       data: slayTheme(context),
       child: Builder(builder: (context) {
-        final clothing = [
-          'outfit',
-          'dress',
-          'tops',
-          'shirts',
-          'trousers',
-          'skirts'
-        ].contains(_category);
-        final categoryItems = (widget.catalog['items'] as List)
-            .cast<Map>()
-            .where((i) =>
-                i['assetUrl'] != null &&
-                i['category'] == _category &&
-                (i['body'] == 'unisex' || i['body'] == _look.body))
+        final wardrobe = SlayWardrobe(widget.catalog, _look.body);
+        final categories = _categories.entries
+            .where((c) => wardrobe.categories.contains(c.key))
             .toList();
-        final groups = [
-          'All',
-          ...slayStyleGroups.keys
-              .where((g) => categoryItems.any((i) => slayMatchesStyle(i, g)))
-        ];
+        final category = categories.any((c) => c.key == _category)
+            ? _category
+            : categories.firstOrNull?.key ?? '';
+        final clothing = SlayWardrobe.clothing.contains(category);
+        final groups = wardrobe.groupsFor(category);
         final selectedGroup =
-            groups.contains(_styleGroup) ? _styleGroup : 'All';
-        final items = categoryItems
-            .where((i) => !clothing || slayMatchesStyle(i, selectedGroup))
+            groups.contains(_styleGroup) ? _styleGroup : groups.firstOrNull;
+        final items =
+            wardrobe.itemsFor(category, clothing ? selectedGroup : null);
+        final equippedSlots = _look.items.entries
+            .where((entry) => wardrobe.categoryForId(entry.value) == category)
+            .map((entry) => entry.key)
             .toList();
         final canRemove = [
           'outfit',
@@ -292,7 +285,7 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
           'glasses',
           'headwear',
           'accessories'
-        ].contains(_category);
+        ].contains(category);
         return Scaffold(
             appBar: AppBar(title: const Text('Your studio'), actions: [
               Padding(
@@ -364,7 +357,7 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                                     _look = SlayLook.initial(selected.single);
                                     _category = 'outfit';
                                     _draft = null;
-                                    _styleGroup = 'All';
+                                    _styleGroup = '';
                                   });
                                   _restore();
                                 },
@@ -565,22 +558,17 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                         scrollDirection: Axis.horizontal,
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         children: [
-                          for (final c in _categories.entries.where((c) =>
-                              (widget.catalog['items'] as List).any((i) =>
-                                  i['assetUrl'] != null &&
-                                  i['category'] == c.key &&
-                                  (i['body'] == 'unisex' ||
-                                      i['body'] == _look.body))))
+                          for (final c in categories)
                             Padding(
                                 padding: const EdgeInsets.only(right: 4),
                                 child: SlayTab(
                                     label: c.value,
-                                    selected: _category == c.key,
+                                    selected: category == c.key,
                                     onPressed: (_busy || _selecting)
                                         ? null
                                         : () => setState(() {
                                               _category = c.key;
-                                              _styleGroup = 'All';
+                                              _styleGroup = '';
                                             })))
                         ])),
                 if (clothing) ...[
@@ -604,19 +592,19 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                                               () => _styleGroup = group)))
                           ])),
                 ],
-                if ({'shoes', 'shirts', 'tops'}.contains(_category) &&
-                    _look.items.containsKey(_category))
+                if ({'shoes', 'shirts', 'tops'}.contains(category) &&
+                    _look.items.containsKey(category))
                   SlayColourPicker(
                       palette: Map<String, String>.from(
                           widget.catalog['itemColourPalette'] ?? {}),
-                      selected: _look.itemColours[_category],
+                      selected: _look.itemColours[category],
                       enabled: !_busy && !_selecting,
                       onChanged: (colour) {
                         final colours = {..._look.itemColours};
                         if (colour == null) {
-                          colours.remove(_category);
+                          colours.remove(category);
                         } else {
-                          colours[_category] = colour;
+                          colours[category] = colour;
                         }
                         _change(_look.copy(itemColours: colours));
                       }),
@@ -637,17 +625,19 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                           if (canRemove && i == 0) {
                             return SlayWardrobeTile(
                                 name: 'None',
-                                selected: !_look.items.containsKey(_category),
+                                selected: equippedSlots.isEmpty,
                                 owned: true,
                                 onTap: (_busy || _selecting)
                                     ? null
                                     : () => _change(_look.copy(
                                         items: {..._look.items}
-                                          ..remove(_category))));
+                                          ..removeWhere((slot, _) =>
+                                              equippedSlots.contains(slot)))));
                           }
                           final item = Map<String, dynamic>.from(
                               items[i - (canRemove ? 1 : 0)]);
-                          final selected = _look.items[_category] == item['id'],
+                          final selected = _look.items.values.any((id) =>
+                                  wardrobe.canonicalId(id) == item['id']),
                               owned = _owned.contains(item['id']);
                           return SlayWardrobeTile(
                             name: item['name'],

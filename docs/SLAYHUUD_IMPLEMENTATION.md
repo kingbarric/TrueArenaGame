@@ -301,3 +301,11 @@ Verification: 46 Flutter tests, 47 renderer tests (including all five shoes thro
 Colour Pop Tube Top and Warm Colour Pop Top used a source mesh authored on a shorter, narrower body. In the starter avatar they sat below the chest and inside the skin, while choosing a top correctly replaced the previous dress and hid the starter bra. Both exports now fit the chest before rig weights are assigned, with a deeper back panel and a conservative body mask for the covered chest band. Bare shoulders and midriff remain visible; briefs remain visible when no bottom is equipped. Catalogue version 17 invalidates cached models and thumbnails.
 
 Both variants were rendered from the front/back with the real avatar and coverage masks. The renderer’s 49 tests pass, including new ray checks that fabric covers chest/back samples in every pose, exposed midriff is retained and removing the top restores body and underwear. Renderer build passes.
+
+### Exclusive wardrobe groups — 10 October 2026
+
+Catalogue version 18 assigns every visible garment to one clothing category and one style group. Removed the All filter, which repeated the same garments. Style groups and clothing categories are shown only when they contain visible items after deduplication. Female dress assets previously displayed under Looks now appear under Dresses.
+
+Seven identical aliases are merged into their original, least expensive/default wardrobe entries. Deduplication compares source mesh, texture and conversion options; distinct cuts and material colours remain separate choices. Original IDs remain in the catalogue for saved looks, scoring and ownership compatibility. Restored aliases highlight the canonical tile, and None removes the actual equipped slot even when its browsing category has changed. Source identity metadata is generated during the renderer build and shipped through the existing catalogue API.
+
+Verification: 46 focused Flutter tests, 50 renderer tests and 17 backend unit/contract tests pass; Flutter feature analysis and renderer build pass. New checks cover exclusive grouping for both bodies, hidden empty categories, alias selection compatibility and unchanged catalogue IDs. Rebuilt and launched the dedicated iPhone 17 Pro fixture preview. The Mac was locked, so native tap verification of the new groups remains unverified.

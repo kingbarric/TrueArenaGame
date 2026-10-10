@@ -12,6 +12,7 @@ import {execFileSync} from 'node:child_process';
 import {rigFor, skinWeights, poses, poseQuaternion} from './starter-rig.mjs';
 import {deletedVertices, proxyCoverage, coveredTriangles} from './makehuman-coverage.mjs';
 import {expansion} from './wardrobe-expansion.mjs';
+import {classicClothing} from './classic-clothing.mjs';
 import {clipMesh, joinMeshes} from './clip-mesh.mjs';
 
 const root = resolve(new URL('..', import.meta.url).pathname);
@@ -24,17 +25,7 @@ const bodySources = {
 };
 const assets = {
   ...expansion,
-  'female-essential': ['female', 'clothes/aethelraed_flapper_dress/flapper_dress_1.obj', 'clothes/aethelraed_flapper_dress/flapper_dress_green.png'],
-  'female-executive': ['female', 'clothes/female_elegantsuit01/female_elegantsuit01.obj', 'clothes/female_elegantsuit01/female_elegantsuit01_diffuse.png'],
-  'female-redcarpet': ['female', 'clothes/toigo_halter_dress_with_fluted_skirt/dress_long_fluted_skirt.obj', 'clothes/toigo_halter_dress_with_fluted_skirt/DressCloth2UV.png'],
-  'female-romantic': ['female', 'clothes/toigo_halter_dress_knee_length/dress_knee_halter.obj', 'clothes/toigo_halter_dress_knee_length/DressCloth3UV.png'],
-  'female-night': ['female', 'clothes/toigo_halter_dress_midi/dress_midi_halter.obj', 'clothes/toigo_halter_dress_midi/DressClothUV.png'],
-  'female-dinner': ['female', 'clothes/mindfront_kimono/f_kimono.obj', 'clothes/mindfront_kimono/F_Kimono_COL.png'],
-  'female-business': ['female', 'clothes/toigo_female_double-breasted_suit/fem_suit_double_breasted.obj', 'clothes/toigo_female_double-breasted_suit/DB-suit-Fem.png'],
-  'male-essential': ['male', 'clothes/male_casualsuit01/male_casualsuit01.obj', 'clothes/male_casualsuit01/male_casualsuit01_diffuse.png'],
-  'male-executive': ['male', 'clothes/male_elegantsuit01/male_elegantsuit01.obj', 'clothes/male_elegantsuit01/male_elegantsuit01_diffuse.png'],
-  'male-redcarpet': ['male', 'clothes/toigo_male_double-breasted_suit/suit_double_breasted.obj', 'clothes/toigo_male_double-breasted_suit/DB-suit.png'],
-  'male-business': ['male', 'clothes/toigo_male_suit_tie_and_jacket/jacket_tie_pants.obj', 'clothes/toigo_male_suit_tie_and_jacket/Suit-tie-Jacket-diff.png'],
+  ...classicClothing,
   'female-hair-0': ['female', 'hair/afro01/afro01.obj', 'hair/afro01/afro_diffuse.png'],
   'female-hair-1': ['female', 'hair/braid01/braid01.obj', 'hair/braid01/braid01_diffuse.png'],
   'female-hair-2': ['female', 'hair/short01/short01.obj', 'hair/short01/short01_diffuse.png'],
