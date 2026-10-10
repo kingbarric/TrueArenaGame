@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../widgets/worn_look.dart';
+
 const whotShapes = {
   'circle': '●',
   'triangle': '▲',
@@ -44,7 +46,6 @@ class WhotCardView extends StatelessWidget {
           duration: const Duration(milliseconds: 180),
           width: width,
           height: height,
-          padding: EdgeInsets.all((compact ? 6 : 9) * scale),
           decoration: BoxDecoration(
             color: code == null
                 ? const Color(0xff81293c)
@@ -60,44 +61,55 @@ class WhotCardView extends StatelessWidget {
                   color: Color(0x55000000), offset: Offset(0, 4), blurRadius: 5)
             ],
           ),
-          child: Opacity(
-            opacity: enabled ? 1 : 0.45,
-            child: DefaultTextStyle(
-              style: const TextStyle(
-                  color: Color(0xff81293c), fontWeight: FontWeight.w900),
-              child: code == null
-                  ? const Center(
-                      child: RotatedBox(
-                          quarterTurns: 3,
-                          child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text('WHOT',
-                                  maxLines: 1,
-                                  softWrap: false,
-                                  style: TextStyle(
-                                      color: Color(0xffffe6b2),
-                                      fontSize: 23,
-                                      letterSpacing: 2)))))
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                          Text(number!,
-                              style: TextStyle(
-                                  fontSize: (compact ? 12 : 17) * scale)),
-                          Expanded(
-                              child: Center(
-                                  child: Text(whotShapes[shape] ?? '?',
-                                      style: TextStyle(
-                                          fontSize:
-                                              (compact ? 24 : 36) * scale)))),
-                          if (showDetails)
-                            Align(
-                                alignment: Alignment.bottomRight,
-                                child: Text(number,
+          // A card that's been played with: worn paper over the face (or back).
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12 * scale),
+            child: CustomPaint(
+              foregroundPainter: WornPaperPainter(
+                  seed: (code ?? 'back').hashCode, back: code == null),
+              child: Padding(
+                padding: EdgeInsets.all((compact ? 6 : 9) * scale),
+                child: Opacity(
+                  opacity: enabled ? 1 : 0.45,
+                  child: DefaultTextStyle(
+                    style: const TextStyle(
+                        color: Color(0xff81293c), fontWeight: FontWeight.w900),
+                    child: code == null
+                        ? const Center(
+                            child: RotatedBox(
+                                quarterTurns: 3,
+                                child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text('WHOT',
+                                        maxLines: 1,
+                                        softWrap: false,
+                                        style: TextStyle(
+                                            color: Color(0xffffe6b2),
+                                            fontSize: 23,
+                                            letterSpacing: 2)))))
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                                Text(number!,
                                     style: TextStyle(
-                                        fontSize:
-                                            (compact ? 12 : 17) * scale))),
-                        ]),
+                                        fontSize: (compact ? 12 : 17) * scale)),
+                                Expanded(
+                                    child: Center(
+                                        child: Text(whotShapes[shape] ?? '?',
+                                            style: TextStyle(
+                                                fontSize: (compact ? 24 : 36) *
+                                                    scale)))),
+                                if (showDetails)
+                                  Align(
+                                      alignment: Alignment.bottomRight,
+                                      child: Text(number,
+                                          style: TextStyle(
+                                              fontSize: (compact ? 12 : 17) *
+                                                  scale))),
+                              ]),
+                  ),
+                ),
+              ),
             ),
           ),
         ),

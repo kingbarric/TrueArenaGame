@@ -15,6 +15,7 @@ import '../status/victory_status.dart';
 import 'whot_lobby_screen.dart';
 import 'whot_card.dart';
 import '../huudspace/leave_game.dart';
+import '../../widgets/worn_look.dart';
 
 class WhotGameScreen extends StatefulWidget {
   const WhotGameScreen(
@@ -904,9 +905,11 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
             valueListenable: _socket.onlinePlayers,
             builder: (_, online, __) => OnlineAvatar(_name(player),
                 size: diameter,
-                online: online.contains(player), presence: _socket.presenceOf(player),
+                online: online.contains(player),
+                presence: _socket.presenceOf(player),
                 emoji: isRemoteImage ? null : avatar,
-                imageUrl: _socket.memberAvatars[player] ?? (isRemoteImage ? avatar : null)),
+                imageUrl: _socket.memberAvatars[player] ??
+                    (isRemoteImage ? avatar : null)),
           ),
         ),
         if (showName)
@@ -1175,119 +1178,133 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
               .toList();
           final handHeight = widget.spectating ? 0.0 : (compact ? 92.0 : 112.0);
           final handBottom = compact ? 37.0 : 43.0;
+          // An old table: a rusty wooden rim round worn green felt.
           return Container(
             margin: const EdgeInsets.fromLTRB(5, 3, 5, 3),
             decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(42),
-                gradient: const LinearGradient(colors: [
-                  Color(0xff9b592d),
-                  Color(0xff4a2418),
-                  Color(0xffa36836),
-                  Color(0xff3d1d15),
-                ]),
-                border: Border.all(color: const Color(0xffd18a45), width: 2),
+                border: Border.all(color: const Color(0xff1c1108), width: 2),
                 boxShadow: const [
                   BoxShadow(
                       color: Color(0xaa000000),
                       blurRadius: 14,
                       offset: Offset(0, 6))
                 ]),
-            padding: const EdgeInsets.all(7),
-            child: Container(
-              decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(35),
-                  gradient: const RadialGradient(
-                      center: Alignment(-.2, -.25),
-                      radius: 1.15,
-                      colors: [Color(0xff08733d), Color(0xff004526)]),
-                  border: Border.all(color: const Color(0xff1d2c1f), width: 3)),
-              child: Stack(children: [
-                Positioned.fill(
-                    child: Opacity(
-                        opacity: .045,
-                        child: CustomPaint(painter: _FeltPatternPainter()))),
-                Positioned.fill(
-                    child: _playerSeats(
-                        box.maxWidth - 14, box.maxHeight - handHeight - 14)),
-                Align(
-                  alignment: Alignment(0, compact ? -.10 : -.04),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    GestureDetector(
-                      onTap: _myTurn && _canAct ? _drawFromMarket : null,
-                      child: SizedBox(
-                        width: compact ? 104 : 122,
-                        child:
-                            Column(mainAxisSize: MainAxisSize.min, children: [
-                          _marketPile(marketCount, cardScale),
-                          const SizedBox(height: 5),
-                          Text(
-                              debt > 0
-                                  ? 'MARKET · PICK $debt'
-                                  : 'MARKET · $marketCount',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800)),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(40),
+              child: CustomPaint(
+                painter: const RustyWoodPainter(
+                    top: Color(0xff8a4f28), bottom: Color(0xff3a1c0b)),
+                child: Padding(
+                  padding: const EdgeInsets.all(7),
+                  child: Container(
+                    decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(35),
+                        gradient: const RadialGradient(
+                            center: Alignment(-.2, -.25),
+                            radius: 1.15,
+                            colors: [Color(0xff08733d), Color(0xff004526)]),
+                        border: Border.all(
+                            color: const Color(0xff1d2c1f), width: 3)),
+                    child: Stack(children: [
+                      Positioned.fill(
+                          child: Opacity(
+                              opacity: .045,
+                              child:
+                                  CustomPaint(painter: _FeltPatternPainter()))),
+                      const Positioned.fill(
+                          child: IgnorePointer(
+                              child: CustomPaint(painter: WornFeltPainter()))),
+                      Positioned.fill(
+                          child: _playerSeats(box.maxWidth - 14,
+                              box.maxHeight - handHeight - 14)),
+                      Align(
+                        alignment: Alignment(0, compact ? -.10 : -.04),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          GestureDetector(
+                            onTap: _myTurn && _canAct ? _drawFromMarket : null,
+                            child: SizedBox(
+                              width: compact ? 104 : 122,
+                              child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    _marketPile(marketCount, cardScale),
+                                    const SizedBox(height: 5),
+                                    Text(
+                                        debt > 0
+                                            ? 'MARKET · PICK $debt'
+                                            : 'MARKET · $marketCount',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w800)),
+                                  ]),
+                            ),
+                          ),
+                          SizedBox(width: compact ? 24 : 34),
+                          DragTarget<String>(
+                            key: const ValueKey('whot-discard-target'),
+                            onWillAcceptWithDetails: (details) =>
+                                _myTurn &&
+                                _canAct &&
+                                whotCanPlay(details.data, _state),
+                            onAcceptWithDetails: (details) =>
+                                _playCard(details.data),
+                            builder: (context, candidates, rejected) =>
+                                SizedBox(
+                              width: compact ? 104 : 122,
+                              child: AnimatedScale(
+                                scale: candidates.isEmpty ? 1 : 1.12,
+                                duration: const Duration(milliseconds: 150),
+                                curve: Curves.easeOutBack,
+                                child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      _discardPile(top, discardCount,
+                                          discardCards, cardScale),
+                                      const SizedBox(height: 5),
+                                      Text(
+                                          top.isEmpty
+                                              ? 'DISCARD'
+                                              : 'DISCARD · ${top.replaceAll('-', ' ').toUpperCase()}',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                              color: candidates.isEmpty
+                                                  ? Colors.white
+                                                  : const Color(0xff52f597),
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w800)),
+                                    ]),
+                              ),
+                            ),
+                          ),
                         ]),
                       ),
-                    ),
-                    SizedBox(width: compact ? 24 : 34),
-                    DragTarget<String>(
-                      key: const ValueKey('whot-discard-target'),
-                      onWillAcceptWithDetails: (details) =>
-                          _myTurn &&
-                          _canAct &&
-                          whotCanPlay(details.data, _state),
-                      onAcceptWithDetails: (details) => _playCard(details.data),
-                      builder: (context, candidates, rejected) => SizedBox(
-                        width: compact ? 104 : 122,
-                        child: AnimatedScale(
-                          scale: candidates.isEmpty ? 1 : 1.12,
-                          duration: const Duration(milliseconds: 150),
-                          curve: Curves.easeOutBack,
-                          child:
-                              Column(mainAxisSize: MainAxisSize.min, children: [
-                            _discardPile(
-                                top, discardCount, discardCards, cardScale),
-                            const SizedBox(height: 5),
-                            Text(
-                                top.isEmpty
-                                    ? 'DISCARD'
-                                    : 'DISCARD · ${top.replaceAll('-', ' ').toUpperCase()}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                    color: candidates.isEmpty
-                                        ? Colors.white
-                                        : const Color(0xff52f597),
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w800)),
-                          ]),
+                      if (!widget.spectating)
+                        Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: handBottom,
+                            height: handHeight,
+                            child: _handFan(box.maxWidth - 14)),
+                      if (!widget.spectating)
+                        Positioned(
+                          bottom: 1,
+                          left: box.maxWidth / 2 - 31,
+                          child: _playerSeat(
+                              widget.selfId, compact ? 21 : 25, true,
+                              showCards: false),
                         ),
-                      ),
-                    ),
-                  ]),
-                ),
-                if (!widget.spectating)
-                  Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: handBottom,
-                      height: handHeight,
-                      child: _handFan(box.maxWidth - 14)),
-                if (!widget.spectating)
-                  Positioned(
-                    bottom: 1,
-                    left: box.maxWidth / 2 - 31,
-                    child: _playerSeat(widget.selfId, compact ? 21 : 25, true,
-                        showCards: false),
+                      Positioned.fill(
+                          child: _cardFlightLayer(
+                              Size(box.maxWidth - 14, box.maxHeight - 14))),
+                    ]),
                   ),
-                Positioned.fill(
-                    child: _cardFlightLayer(
-                        Size(box.maxWidth - 14, box.maxHeight - 14))),
-              ]),
+                ),
+              ),
             ),
           );
         },
@@ -1754,8 +1771,7 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
                             if (_disconnected)
                               _smallAction('RECONNECT', _reconnect)
                             else if (_finished)
-                              _smallAction(
-                                  'BACK TO GAMES',
+                              _smallAction('BACK TO GAMES',
                                   () => leaveGame(context, widget.roomId))
                             else if (_deal && dealer) ...[
                               _smallAction('SHUFFLE', () => _action('SHUFFLE')),
@@ -2257,7 +2273,8 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
                                 : 'The players have muted spectator chat'),
                         if (_finished)
                           NeonButton('Back to games',
-                              onPressed: () => leaveGame(context, widget.roomId)),
+                              onPressed: () =>
+                                  leaveGame(context, widget.roomId)),
                       ]),
                 )),
     );

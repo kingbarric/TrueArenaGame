@@ -18,6 +18,7 @@ import '../huudspace/leave_game.dart';
 import '../../widgets/game_controls.dart';
 import '../../widgets/turn_ring.dart';
 import '../../widgets/neon.dart' show OnlineAvatar;
+import '../../widgets/worn_look.dart';
 
 enum _LudoBoardTheme { classic, glass, wood }
 
@@ -915,13 +916,13 @@ class _LudoGameScreenState extends State<LudoGameScreen>
 
 
   Widget _board(double side) {
-    final frame = math.max(7.0, side * .028);
+    final frame = math.max(12.0, side * .042);
     final boardSide = side - frame * 2;
     final cell = boardSide / 15;
     final pieces = (_state['pieces'] as Map? ?? const {});
     return CustomPaint(
       key: const ValueKey('ludo-wood-frame'),
-      painter: _LudoWoodFramePainter(frame),
+      painter: const RustyWoodPainter(top: Color(0xff7a4524), bottom: Color(0xff3a1c0b)),
       child: Padding(
         padding: EdgeInsets.all(frame),
         child: ClipRRect(
@@ -936,6 +937,15 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                       (_state['pieceCount'] as num?)?.toInt() ?? 4,
                       _seats.toSet(),
                       _boardTheme)),
+              // Years of play: dust, stains and scuffs over the whole board.
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(
+                    painter: const GrimePainter(
+                        base: Colors.transparent, dark: false, seed: 77, overlay: true, density: 45, corners: false),
+                  ),
+                ),
+              ),
               for (var i = 0; i < _players_.length; i++)
                 if (_players_[i] == _turn && !_finished)
                   Positioned(
@@ -1034,51 +1044,23 @@ class _LudoGameScreenState extends State<LudoGameScreen>
       height: cell * pieceScale,
       child: GestureDetector(
           onTap: () => _tapToken(player, token),
+          // A real-looking piece in the player's colour (same as Draughts').
           child: Container(
             key: replaying ? const ValueKey('ludo-var-piece') : null,
             foregroundDecoration: replaying
                 ? BoxDecoration(shape: BoxShape.circle, border: Border.all(color: const Color(0xffffc233), width: 3))
                 : null,
-            decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: _boardTheme == _LudoBoardTheme.classic
-                    ? _colors[seat]
-                    : null,
-                gradient: _boardTheme == _LudoBoardTheme.classic
-                    ? null
-                    : LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                            Color.lerp(
-                                _colors[seat],
-                                Colors.white,
-                                _boardTheme == _LudoBoardTheme.glass
-                                    ? .58
-                                    : .18)!,
-                            _colors[seat],
-                            Color.lerp(
-                                _colors[seat],
-                                Colors.black,
-                                _boardTheme == _LudoBoardTheme.glass
-                                    ? .30
-                                    : .38)!,
-                          ]),
-                border: Border.all(
-                    color: _boardTheme == _LudoBoardTheme.wood
-                        ? const Color(0xfff2dfb9)
-                        : Colors.white,
-                    width: active ? 2.5 : 1),
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.black.withValues(alpha: .45),
-                      blurRadius: active ? 8 : 3,
-                      offset: const Offset(0, 2))
-                ]),
-            child: active
-                ? const Icon(Icons.touch_app_rounded,
-                    size: 12, color: Colors.white)
-                : null,
+            child: CustomPaint(
+              painter: RealPiecePainter(
+                top: Color.lerp(_colors[seat], Colors.white, .45)!,
+                mid: _colors[seat],
+                rim: Color.lerp(_colors[seat], Colors.black, .45)!,
+                glowing: active,
+              ),
+              child: active
+                  ? const Center(child: Icon(Icons.touch_app_rounded, size: 12, color: Colors.white))
+                  : const SizedBox.expand(),
+            ),
           )),
     );
   }
@@ -1393,89 +1375,6 @@ class _Die3DPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _Die3DPainter oldDelegate) =>
       value != oldDelegate.value || selected != oldDelegate.selected;
-}
-
-class _LudoWoodFramePainter extends CustomPainter {
-  const _LudoWoodFramePainter(this.inset);
-  final double inset;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final bounds = Offset.zero & size;
-    final outer =
-        RRect.fromRectAndRadius(bounds.deflate(1), const Radius.circular(9));
-    canvas.drawRRect(
-        outer.shift(const Offset(0, 2)),
-        Paint()
-          ..color = Colors.black.withValues(alpha: .42)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4));
-    canvas.drawRRect(
-        outer,
-        Paint()
-          ..shader = const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xffd19a58),
-              Color(0xff87512f),
-              Color(0xff4d2c20),
-              Color(0xffa66b3c),
-            ],
-            stops: [0, .38, .72, 1],
-          ).createShader(bounds));
-
-    final framePath = Path()
-      ..fillType = PathFillType.evenOdd
-      ..addRRect(outer)
-      ..addRRect(RRect.fromRectAndRadius(
-          Rect.fromLTWH(
-              inset, inset, size.width - inset * 2, size.height - inset * 2),
-          const Radius.circular(3)));
-    canvas.save();
-    canvas.clipPath(framePath);
-    final grain = Paint()
-      ..color = const Color(0xff3d2118).withValues(alpha: .26)
-      ..strokeWidth = .7
-      ..style = PaintingStyle.stroke;
-    for (var i = 0; i < 42; i++) {
-      final y = (i * 23 % 43) / 43 * size.height;
-      final bend = (i % 5 - 2) * .8;
-      canvas.drawPath(
-          Path()
-            ..moveTo(-8, y)
-            ..quadraticBezierTo(size.width * .48, y + bend, size.width + 8,
-                y + (i.isEven ? 1.2 : -1.2)),
-          grain);
-    }
-    canvas.restore();
-
-    canvas.drawRRect(
-        outer,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.3
-          ..color = const Color(0xffffcf76).withValues(alpha: .75));
-    final inner = RRect.fromRectAndRadius(
-        Rect.fromLTWH(inset - 1, inset - 1, size.width - (inset - 1) * 2,
-            size.height - (inset - 1) * 2),
-        const Radius.circular(4));
-    canvas.drawRRect(
-        inner,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2.4
-          ..color = const Color(0xff321a13));
-    canvas.drawLine(
-        Offset(inset + 2, inset + 1),
-        Offset(size.width - inset - 2, inset + 1),
-        Paint()
-          ..color = const Color(0xffffd691).withValues(alpha: .55)
-          ..strokeWidth = 1);
-  }
-
-  @override
-  bool shouldRepaint(covariant _LudoWoodFramePainter oldDelegate) =>
-      inset != oldDelegate.inset;
 }
 
 class _LudoBoardPainter extends CustomPainter {

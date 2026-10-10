@@ -14,6 +14,7 @@ import '../../widgets/fireworks.dart';
 import '../../widgets/how_to_play_dialog.dart';
 import '../../widgets/neon.dart';
 import '../../widgets/game_controls.dart';
+import '../../widgets/worn_look.dart';
 import '../../widgets/turn_ring.dart';
 import '../../widgets/table_chat.dart';
 import '../../widgets/game_voice_control.dart';
@@ -1805,7 +1806,7 @@ class _WoodFrame extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
         child: CustomPaint(
-          painter: _RustyWoodPainter(top: palette.frameTop, bottom: palette.frameBottom),
+          painter: RustyWoodPainter(top: palette.frameTop, bottom: palette.frameBottom),
           child: Padding(
             padding: const EdgeInsets.all(14),
             child: DecoratedBox(
@@ -1857,7 +1858,7 @@ class _PlankCell extends StatelessWidget {
     // Squares nobody can land on are the light squares: just the colour,
     // nothing to tap or highlight.
     if (inert) {
-      return CustomPaint(painter: _GrimePainter(base: palette.lightSquare, dark: false, seed: seed));
+      return CustomPaint(painter: GrimePainter(base: palette.lightSquare, dark: false, seed: seed));
     }
     final n = context.neon;
     // Clean tiles: each board's grain colour sits close to its square colour,
@@ -1866,7 +1867,7 @@ class _PlankCell extends StatelessWidget {
     final grain = longDiagonal ? _diagonalGrain : (dark ? palette.darkGrain : palette.lightGrain);
     return CustomPaint(
       painter: _WoodPainter(base: base, grain: grain, seed: seed + 1, calm: true),
-      foregroundPainter: _GrimePainter(base: base, dark: dark && !longDiagonal, seed: seed + 31, overlay: true),
+      foregroundPainter: GrimePainter(base: base, dark: dark && !longDiagonal, seed: seed + 31, overlay: true),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
         margin: const EdgeInsets.all(1),
@@ -2271,7 +2272,7 @@ class _CheckerPiece extends StatelessWidget {
       width: size,
       height: size,
       child: CustomPaint(
-        painter: _CheckerPainter(
+        painter: RealPiecePainter(
           top: isA ? palette.aTop : palette.bTop,
           mid: isA ? palette.aMid : palette.bMid,
           rim: isA ? palette.aRim : palette.bRim,
@@ -2291,222 +2292,6 @@ class _CheckerPiece extends StatelessWidget {
       ),
     );
   }
-}
-
-/// A real-looking draughts man, drawn flat: a soft shadow, the disc's
-/// edge showing underneath (so it has thickness), a bevelled top lit from
-/// the top-left, ridged rings like a turned wooden piece, a sunk centre and
-/// a shine. Always ringed with a pale halo so a dark piece never melts into
-/// a dark square.
-class _CheckerPainter extends CustomPainter {
-  const _CheckerPainter({required this.top, required this.mid, required this.rim, required this.glowing});
-  final Color top;
-  final Color mid;
-  final Color rim;
-  final bool glowing;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final s = size.width;
-    final c = Offset(s / 2, s / 2 - s * 0.03);
-    final r = s * 0.44;
-
-    // Shadow on the board.
-    canvas.drawCircle(
-        c + Offset(s * 0.03, s * 0.09), r, Paint()..color = Colors.black.withValues(alpha: 0.5)..maskFilter = MaskFilter.blur(BlurStyle.normal, s * 0.07));
-    if (glowing) {
-      canvas.drawCircle(c, r * 1.12,
-          Paint()..color = const Color(0xffe0a94a).withValues(alpha: 0.85)..maskFilter = MaskFilter.blur(BlurStyle.normal, s * 0.12));
-    }
-    // The edge of the disc, seen below the top face — its thickness.
-    final edge = c + Offset(0, s * 0.065);
-    canvas.drawCircle(edge, r, Paint()..color = Color.lerp(rim, Colors.black, 0.35)!);
-    canvas.drawCircle(edge, r, Paint()..style = PaintingStyle.stroke..strokeWidth = s * 0.02..color = Colors.black.withValues(alpha: 0.45));
-    // Pale halo for contrast against any square.
-    canvas.drawCircle(c, r + s * 0.022,
-        Paint()..style = PaintingStyle.stroke..strokeWidth = s * 0.03..color = glowing ? const Color(0xffffd879) : Colors.white.withValues(alpha: 0.7));
-    // Top face.
-    final face = Rect.fromCircle(center: c, radius: r);
-    canvas.drawCircle(c, r, Paint()..shader = RadialGradient(center: const Alignment(-0.35, -0.45), radius: 1.05, colors: [top, mid, Color.lerp(mid, rim, 0.55)!], stops: const [0, 0.6, 1]).createShader(face));
-    // Bevel: lit top-left, shaded bottom-right.
-    canvas.drawCircle(c, r - s * 0.025, Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = s * 0.05
-      ..shader = LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [
-        Colors.white.withValues(alpha: 0.45),
-        Colors.transparent,
-        Colors.black.withValues(alpha: 0.4),
-      ]).createShader(face));
-    // Turned ridges.
-    for (final (fraction, light) in const [(0.78, false), (0.72, true), (0.6, false), (0.55, true)]) {
-      canvas.drawCircle(c, r * fraction, Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = s * 0.016
-        ..color = light ? Colors.white.withValues(alpha: 0.22) : rim.withValues(alpha: 0.75));
-    }
-    // A slightly sunk centre.
-    final inner = Rect.fromCircle(center: c, radius: r * 0.46);
-    canvas.drawCircle(c, r * 0.46, Paint()..shader = RadialGradient(center: const Alignment(0.3, 0.35), radius: 1, colors: [mid, Color.lerp(mid, Colors.black, 0.18)!]).createShader(inner));
-    // Wear: a few tiny nicks on the face.
-    final rnd = math.Random(mid.toARGB32());
-    for (var i = 0; i < 5; i++) {
-      final a = rnd.nextDouble() * math.pi * 2;
-      final d = r * (0.3 + rnd.nextDouble() * 0.6);
-      canvas.drawCircle(c + Offset(math.cos(a) * d, math.sin(a) * d), s * (0.006 + rnd.nextDouble() * 0.01),
-          Paint()..color = Colors.black.withValues(alpha: 0.18));
-    }
-    // Shine.
-    canvas.drawArc(Rect.fromCircle(center: c, radius: r * 0.82), math.pi * 1.05, math.pi * 0.55, false, Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = s * 0.05
-      ..strokeCap = StrokeCap.round
-      ..color = Colors.white.withValues(alpha: 0.32));
-  }
-
-  @override
-  bool shouldRepaint(covariant _CheckerPainter old) =>
-      old.top != top || old.mid != mid || old.rim != rim || old.glowing != glowing;
-}
-
-/// Years of play on a square: dust specks, a faint stain or two, the odd
-/// scuff, and darker corners. Light squares pick up brown dirt; dark ones
-/// pale dust — never enough to blur black from white.
-class _GrimePainter extends CustomPainter {
-  const _GrimePainter({required this.base, required this.dark, required this.seed, this.overlay = false});
-  final Color base;
-  final bool dark;
-  final int seed;
-
-  /// Painted on top of another fill (so no base colour of its own).
-  final bool overlay;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    if (!overlay) canvas.drawRect(rect, Paint()..color = base);
-    final rnd = math.Random(seed * 7919 + 13);
-    final dirt = dark ? const Color(0xffd8d2c4) : const Color(0xff5c4a2e);
-    // A stain or two.
-    final stains = rnd.nextInt(3);
-    for (var i = 0; i < stains; i++) {
-      final center = Offset(rnd.nextDouble() * size.width, rnd.nextDouble() * size.height);
-      final radius = size.width * (0.18 + rnd.nextDouble() * 0.3);
-      canvas.drawCircle(center, radius, Paint()
-        ..shader = RadialGradient(colors: [
-          dirt.withValues(alpha: dark ? 0.06 : 0.1),
-          dirt.withValues(alpha: 0),
-        ]).createShader(Rect.fromCircle(center: center, radius: radius)));
-    }
-    // Dust specks.
-    final specks = 10 + rnd.nextInt(14);
-    for (var i = 0; i < specks; i++) {
-      canvas.drawCircle(Offset(rnd.nextDouble() * size.width, rnd.nextDouble() * size.height),
-          size.width * (0.006 + rnd.nextDouble() * 0.016),
-          Paint()..color = dirt.withValues(alpha: 0.12 + rnd.nextDouble() * 0.22));
-    }
-    // A scuff now and then.
-    if (rnd.nextDouble() < 0.45) {
-      final start = Offset(rnd.nextDouble() * size.width, rnd.nextDouble() * size.height);
-      final end = start + Offset((rnd.nextDouble() - 0.5) * size.width * 0.7, (rnd.nextDouble() - 0.5) * size.height * 0.3);
-      canvas.drawLine(start, end, Paint()
-        ..strokeWidth = 0.8
-        ..strokeCap = StrokeCap.round
-        ..color = (dark ? Colors.white : Colors.black).withValues(alpha: 0.13));
-    }
-    // Darker, worn corners.
-    canvas.drawRect(rect, Paint()
-      ..shader = RadialGradient(radius: 0.9, colors: [
-        Colors.transparent,
-        Colors.black.withValues(alpha: dark ? 0.18 : 0.1),
-      ]).createShader(rect));
-  }
-
-  @override
-  bool shouldRepaint(covariant _GrimePainter old) => old.base != base || old.dark != dark || old.seed != seed;
-}
-
-/// The frame: old wood gone rusty-brown — heavy grain, dark knots, pale
-/// scratches, rust bleeding from the nails in each corner, worn edges.
-class _RustyWoodPainter extends CustomPainter {
-  const _RustyWoodPainter({required this.top, required this.bottom});
-  final Color top;
-  final Color bottom;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    final rnd = math.Random(4211);
-    canvas.drawRect(rect, Paint()
-      ..shader = LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [top, bottom]).createShader(rect));
-    // Grain.
-    for (var i = 0; i < 70; i++) {
-      final horizontal = rnd.nextBool();
-      final along = horizontal ? size.width : size.height;
-      final across = rnd.nextDouble() * (horizontal ? size.height : size.width);
-      final path = Path();
-      for (var k = 0; k <= 8; k++) {
-        final t = along * k / 8;
-        final wobble = (rnd.nextDouble() - 0.5) * 3;
-        final p = horizontal ? Offset(t, across + wobble) : Offset(across + wobble, t);
-        k == 0 ? path.moveTo(p.dx, p.dy) : path.lineTo(p.dx, p.dy);
-      }
-      canvas.drawPath(path, Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 0.6 + rnd.nextDouble() * 1.4
-        ..color = Colors.black.withValues(alpha: 0.08 + rnd.nextDouble() * 0.16));
-    }
-    // Knots.
-    for (var i = 0; i < 6; i++) {
-      final c = Offset(rnd.nextDouble() * size.width, rnd.nextDouble() * size.height);
-      final r = 2.5 + rnd.nextDouble() * 4;
-      canvas.drawOval(Rect.fromCenter(center: c, width: r * 2.6, height: r * 1.4),
-          Paint()..color = const Color(0xff2a1406).withValues(alpha: 0.55));
-      canvas.drawOval(Rect.fromCenter(center: c, width: r * 4, height: r * 2.2),
-          Paint()..style = PaintingStyle.stroke..strokeWidth = 0.8..color = Colors.black.withValues(alpha: 0.25));
-    }
-    // Rust stains.
-    for (var i = 0; i < 9; i++) {
-      final c = Offset(rnd.nextDouble() * size.width, rnd.nextDouble() * size.height);
-      final r = 8 + rnd.nextDouble() * 22;
-      canvas.drawCircle(c, r, Paint()
-        ..shader = RadialGradient(colors: [
-          const Color(0xffb5531a).withValues(alpha: 0.28),
-          const Color(0xffb5531a).withValues(alpha: 0),
-        ]).createShader(Rect.fromCircle(center: c, radius: r)));
-    }
-    // Scratches.
-    for (var i = 0; i < 22; i++) {
-      final a = Offset(rnd.nextDouble() * size.width, rnd.nextDouble() * size.height);
-      final b = a + Offset((rnd.nextDouble() - 0.5) * 30, (rnd.nextDouble() - 0.5) * 10);
-      canvas.drawLine(a, b, Paint()
-        ..strokeWidth = 0.7
-        ..color = const Color(0xfff0d0a0).withValues(alpha: 0.12 + rnd.nextDouble() * 0.12));
-    }
-    // Rusty nails in the corners, rust running from them.
-    for (final corner in [
-      const Offset(5, 5),
-      Offset(size.width - 5, 5),
-      Offset(5, size.height - 5),
-      Offset(size.width - 5, size.height - 5),
-    ]) {
-      canvas.drawCircle(corner, 7, Paint()
-        ..shader = RadialGradient(colors: [
-          const Color(0xff8a3b12).withValues(alpha: 0.6),
-          const Color(0xff8a3b12).withValues(alpha: 0),
-        ]).createShader(Rect.fromCircle(center: corner, radius: 7)));
-      canvas.drawCircle(corner, 2.6, Paint()
-        ..shader = const RadialGradient(center: Alignment(-0.4, -0.4), colors: [Color(0xffc98a52), Color(0xff6b2e0e)])
-            .createShader(Rect.fromCircle(center: corner, radius: 2.6)));
-    }
-    // Worn, lighter edges where hands have rubbed it.
-    canvas.drawRect(rect.deflate(1), Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
-      ..color = const Color(0xffe0b07a).withValues(alpha: 0.18));
-  }
-
-  @override
-  bool shouldRepaint(covariant _RustyWoodPainter old) => old.top != top || old.bottom != bottom;
 }
 
 /// Procedural wood-grain fill — layered streaky lines over a base color,
