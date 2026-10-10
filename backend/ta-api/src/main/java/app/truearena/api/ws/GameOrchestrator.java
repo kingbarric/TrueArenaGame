@@ -5,6 +5,8 @@ import app.truearena.api.championship.ChampionshipService;
 import app.truearena.engine.GameConfig;
 import app.truearena.engine.GameEvent;
 import app.truearena.engine.GameModule;
+import app.truearena.game.monopoly.MonopolyModule;
+import app.truearena.game.monopoly.MonopolyConfig;
 import app.truearena.engine.GameRunner;
 import app.truearena.engine.GameSettings;
 import app.truearena.engine.GameState;
@@ -161,6 +163,12 @@ public class GameOrchestrator {
         }
         return parsed.flatMap(a -> members.findByRoomIdAndUserId(a.roomId(), UUID.fromString(a.userId()))
                 .map(m -> a)
+                // Monopoly's organiser may deliberately give their seat to another player.
+                // Only that room's host can keep the control socket without a game seat.
+                .switchIfEmpty(Mono.defer(() -> rooms.findById(a.roomId())
+                        .filter(room -> "monopoly".equals(room.gameType())
+                                && room.hostId().toString().equals(a.userId()))
+                        .map(room -> a)))
                 .switchIfEmpty(Mono.error(new SecurityException("not a member of this room"))));
     }
 
@@ -198,7 +206,7 @@ public class GameOrchestrator {
         Mono<Void> disconnect = setConnection(rt.roomId, userId, "disconnected");
         // Mobile networks often drop a socket for a few seconds. Give its host
         // time to reconnect before transferring control to another player.
-        Mono<Void> migrate = rt.started() && userId.equals(rt.hostUserId)
+        Mono<Void> migrate = rt.started() && !"monopoly".equals(rt.module().gameType()) && userId.equals(rt.hostUserId)
                 ? Mono.delay(Duration.ofSeconds(10))
                     .filter(ignored -> !rt.connectedUserIds.contains(userId)
                             && rt.started() && userId.equals(rt.hostUserId))
@@ -747,6 +755,7 @@ public class GameOrchestrator {
                         case "goosi" -> startGoosi(rt, userId, playerIds);
                         case "whot" -> startWhot(rt, userId, playerIds);
                         case "ludo" -> startLudo(rt, userId, playerIds, options);
+                        case "monopoly" -> startMonopoly(rt, userId, playerIds);
                         default -> startTrueArena(rt, userId, playerIds, t.getT1().gameConfig());
                     };
                 }));
@@ -1257,6 +1266,21 @@ public class GameOrchestrator {
                     rt.start(module, state, session.id());
                     return updateRoomStatus(rt.roomId, "in_game")
                             .then(afterMutation(rt, state.events()));
+                });
+    }
+
+    private Mono<Void> startMonopoly(RoomRuntime rt, String userId, List<String> playerIds) {
+        MonopolyModule module = new MonopolyModule();
+        MonopolyConfig cfg = MonopolyConfig.defaults();
+        long seed = ThreadLocalRandom.current().nextLong();
+        GameState state;
+        try { state = module.initialState(playerIds, cfg, RandomSource.seeded(seed)); }
+        catch (RuleViolation rv) { return tellError(rt, userId, rv.code(), rv.getMessage()); }
+        return sessions.save(GameSessionRow.start(rt.roomId, module.gameType(), writeJson(cfg), 1, seed))
+                .flatMap(session -> {
+                    rt.config = cfg;
+                    rt.start(module, state, session.id());
+                    return updateRoomStatus(rt.roomId, "in_game").then(afterMutation(rt, state.events()));
                 });
     }
 

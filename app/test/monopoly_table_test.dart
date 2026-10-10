@@ -1,0 +1,179 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:ui' as ui;
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:truearena/features/monopoly/monopoly_board.dart';
+import 'package:truearena/features/monopoly/monopoly_table.dart';
+
+Map<String, dynamic> snapshot() =>
+    (jsonDecode(File('test/fixtures/monopoly.json').readAsStringSync()) as Map)
+        .cast<String, dynamic>();
+void main() {
+  setUpAll(() async {
+    final fonts = FontLoader('MonopolySans');
+    for (final name in ['Regular', 'Bold', 'Black']) {
+      fonts.addFont(rootBundle.load('assets/fonts/monopoly/Roboto-$name.ttf'));
+    }
+    await fonts.load();
+    final icons = FontLoader('MaterialIcons')
+      ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
+    await icons.load();
+  });
+  test('all forty spaces have disjoint touch areas inside the board', () {
+    final rects = [for (int i = 0; i < 40; i++) monopolySpaceRect(i, 390)];
+    for (int i = 0; i < 40; i++) {
+      expect(const Rect.fromLTWH(0, 0, 390, 390).contains(rects[i].center),
+          isTrue);
+      for (int j = i + 1; j < 40; j++) {
+        expect(
+            rects[i].intersect(rects[j]).width <= 0.00001 ||
+                rects[i].intersect(rects[j]).height <= 0.00001,
+            isTrue,
+            reason: '$i / $j');
+      }
+    }
+  });
+  Future<void> pumpTable(WidgetTester tester,
+      {Size size = const Size(390, 844),
+      bool spectator = false,
+      bool connected = true,
+      Map<String, dynamic>? state,
+      void Function(String, Map<String, dynamic>)? onAction,
+      TextEditingController? input}) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = size;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final controller = input ?? TextEditingController();
+    if (input == null) addTearDown(controller.dispose);
+    await tester.pumpWidget(MaterialApp(
+        theme: ThemeData(fontFamily: 'MonopolySans', useMaterial3: true),
+        home: Scaffold(
+            body: RepaintBoundary(
+                key: const Key('capture'),
+                child: MonopolyTable(
+                  state: state ?? snapshot(),
+                  selfId: 'ada',
+                  names: const {
+                    'eric': 'Eric',
+                    'ada': 'Ada',
+                    'chidi': 'Chidi',
+                    'sarah': 'Sarah'
+                  },
+                  huudName: 'Eric’s Huud',
+                  watching: 12,
+                  seconds: 146,
+                  connected: connected,
+                  spectating: spectator,
+                  onAction: onAction ?? (_, __) {},
+                  onBack: () {},
+                  onProperties: () {},
+                  onTrade: () {},
+                  chatController: controller,
+                  messages: const [
+                    (who: 'Eric', text: 'Who is buying the next street?'),
+                    (who: 'Sarah', text: 'I’m coming for that green set!')
+                  ],
+                  onSendChat: () {},
+                  voice: const Icon(Icons.mic_rounded, color: monopolyGold),
+                )))));
+    await tester.runAsync(() async {
+      final context = tester.element(find.byType(MonopolyTable));
+      await precacheImage(
+          const AssetImage('assets/images/monopoly/walnut.png'), context);
+    });
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets(
+      'purchase buttons act only for the selected player and chat remains visible',
+      (tester) async {
+    final actions = <String>[];
+    await pumpTable(tester, onAction: (a, _) => actions.add(a));
+    expect(find.text('ILLINOIS AVENUE'), findsOneWidget);
+    await tester.tap(find.text('Buy \$240'));
+    expect(actions, ['BUY']);
+    final input = tester.getRect(find.byKey(const Key('monopoly-chat-input')));
+    expect(input.bottom, lessThanOrEqualTo(844));
+    expect(input.top, greaterThan(650));
+    expect(tester.takeException(), isNull);
+    const path = String.fromEnvironment('MONOPOLY_CAPTURE');
+    if (path.isNotEmpty) {
+      await tester.runAsync(() async {
+        final boundary = tester.renderObject<RenderRepaintBoundary>(
+            find.byKey(const Key('capture')));
+        final image = await boundary.toImage(pixelRatio: 2);
+        final data = await image.toByteData(format: ui.ImageByteFormat.png);
+        await File(path).writeAsBytes(data!.buffer.asUint8List());
+        image.dispose();
+      });
+    }
+  });
+  testWidgets('spectators can watch but cannot buy or trade', (tester) async {
+    await pumpTable(tester, spectator: true);
+    expect(
+        tester
+            .widget<FilledButton>(
+                find.widgetWithText(FilledButton, 'Buy \$240'))
+            .onPressed,
+        isNull);
+    expect(
+        tester
+            .widget<FilledButton>(find.widgetWithText(FilledButton, 'Trade'))
+            .onPressed,
+        isNull);
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('saved offline board is visible with game actions disabled',
+      (tester) async {
+    await pumpTable(tester, connected: false);
+    expect(find.text('OFFLINE • saved board'), findsOneWidget);
+    expect(find.byType(MonopolyBoard), findsOneWidget);
+    expect(
+        tester
+            .widget<FilledButton>(
+                find.widgetWithText(FilledButton, 'Buy \$240'))
+            .onPressed,
+        isNull);
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('narrow phone and large text keep chat usable without overflow',
+      (tester) async {
+    tester.platformDispatcher.textScaleFactorTestValue = 1.4;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await pumpTable(tester, size: const Size(320, 568));
+    expect(find.byKey(const Key('monopoly-chat-input')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    final rect = tester.getRect(find.byKey(const Key('monopoly-chat-input')));
+    expect(rect.bottom, lessThanOrEqualTo(568));
+  });
+  testWidgets('keyboard lifts the chat composer while the board can scroll',
+      (tester) async {
+    await pumpTable(tester);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pumpAndSettle();
+    final rect = tester.getRect(find.byKey(const Key('monopoly-chat-input')));
+    expect(rect.bottom, lessThanOrEqualTo(544));
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('auction and debt render the appropriate controls',
+      (tester) async {
+    final state = snapshot()
+      ..['phase'] = 'Auction'
+      ..['auction'] = {'property': 24, 'bid': 30, 'bidder': 'eric'};
+    await pumpTable(tester, state: state);
+    expect(find.text('Place bid'), findsOneWidget);
+    expect(find.text('Pass'), findsOneWidget);
+    final debt = snapshot()
+      ..['phase'] = 'Debt'
+      ..['message'] = 'Rent — \$500 due';
+    await pumpTable(tester, state: debt);
+    expect(find.text('Raise cash'), findsOneWidget);
+    expect(find.text('Pay now'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+}

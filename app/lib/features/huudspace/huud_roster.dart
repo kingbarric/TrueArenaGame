@@ -101,6 +101,7 @@ class _HuudRosterState extends State<HuudRoster> {
   Widget build(BuildContext context) {
     final n = context.neon;
     final h = HuudColors.of(context);
+    final monopoly = widget.huud.currentGame?.gameType == 'monopoly';
     final host = widget.huud.youAreHost;
     final hostId = widget.huud.host?.userId;
     final seatedIds = {for (final s in widget.seated) s.userId: s};
@@ -189,7 +190,7 @@ class _HuudRosterState extends State<HuudRoster> {
         Builder(builder: (context) {
           final seat = seatedIds[p.userId];
           final playing = seat != null;
-          final canToggle = host && p.userId != hostId && (playing || !full);
+          final canToggle = host && (p.userId != hostId || monopoly) && (playing || !full);
           return row(
             key: ValueKey('roster-${p.userId}'),
             face: Avatar(p.name, size: 36, imageUrl: p.avatarUrl),
@@ -219,7 +220,7 @@ class _HuudRosterState extends State<HuudRoster> {
           onTap: host ? () => _removeAgent(b) : null,
           busy: _busy == 'p-${b.userId}',
         ),
-      if (host && !full && !widget.tell)
+      if (host && !full && !widget.tell && !monopoly)
         Padding(
           padding: const EdgeInsets.only(top: 4),
           child: HuudButton(

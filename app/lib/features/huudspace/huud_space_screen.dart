@@ -400,7 +400,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     setState(() => _busy = 'open');
     final app = AppScope.of(context);
     try {
-      if (!game.youArePlaying) {
+      if (!game.youArePlaying && !(game.gameType == 'monopoly' && game.waiting && _huud?.youAreHost == true)) {
         setState(() => _busy = null);
         await Navigator.of(context).push(MaterialPageRoute(
             builder: (_) => SpectateScreen(
@@ -1597,7 +1597,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
             : note('Join the Huud to ask to play'),
       ];
     }
-    final main = game.youArePlaying
+    final main = game.youArePlaying || (huud.youAreHost && game.waiting && game.gameType == 'monopoly')
         ? HuudButton(
             key: const ValueKey('huud-open-game'),
             label: game.playing

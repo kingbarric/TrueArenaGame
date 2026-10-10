@@ -1,3 +1,4 @@
+import '../features/monopoly/monopoly_board.dart' show MonopolyToken;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -22,6 +23,7 @@ class GameBadge extends StatelessWidget {
     'goosi': Color(0xff0e2e1c),
     'whot': Color(0xff52202b),
     'ludo': Color(0xff351639),
+    'monopoly': Color(0xff305644),
   };
 
   static const _ring = {
@@ -32,6 +34,7 @@ class GameBadge extends StatelessWidget {
     'goosi': Color(0xff5eead4),
     'whot': Color(0xffe9b963),
     'ludo': Color(0xffffcf66),
+    'monopoly': Color(0xffe8bb68),
   };
 
   static const _names = {
@@ -42,6 +45,7 @@ class GameBadge extends StatelessWidget {
     'goosi': 'MACALA',
     'whot': 'WHOT',
     'ludo': 'LUDO',
+    'monopoly': 'MONOPOLY',
   };
 
   static const _artwork = {
@@ -121,10 +125,12 @@ class GameBadge extends StatelessWidget {
                   ],
                 ),
             },
-            child: artwork == null
-                ? SvgPicture.string(
-                    '<svg viewBox="0 0 100 100">${_goosiIcon.replaceAll('COLOR', '#5eead4')}</svg>')
-                : Image.asset(artwork, fit: BoxFit.contain),
+            child: gameId == 'monopoly'
+                ? MonopolyToken(seat: 1, size: size * .8)
+                : artwork == null
+                    ? SvgPicture.string(
+                        '<svg viewBox="0 0 100 100">${_goosiIcon.replaceAll('COLOR', '#5eead4')}</svg>')
+                    : Image.asset(artwork, fit: BoxFit.contain),
           ),
           Transform.translate(
             offset: Offset(0, -size * 0.1),

@@ -1,3 +1,4 @@
+import '../huudspace/create_huud_sheet.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/neon_theme.dart';
@@ -33,6 +34,12 @@ class GameCatalogEntry {
 }
 
 const List<GameCatalogEntry> gameCatalog = [
+  GameCatalogEntry(
+      id: 'monopoly',
+      name: 'Monopoly',
+      emoji: '🏠',
+      tagline: '2–8 players · buy, build & trade',
+      available: true),
   GameCatalogEntry(
     id: 'truearena',
     name: 'Traitors',
@@ -114,6 +121,10 @@ class GameSelectScreen extends StatelessWidget {
                 if (!g.available) {
                   ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('${g.name} is coming soon')));
+                  return;
+                }
+                if (g.id == 'monopoly') {
+                  await openHuudForGame(context, 'monopoly');
                   return;
                 }
                 if (g.id == 'draughts') {

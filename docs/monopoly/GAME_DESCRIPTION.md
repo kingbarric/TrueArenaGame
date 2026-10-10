@@ -27,7 +27,7 @@
 1. **Join Huud:** a viewer asks to join; admission supplies the existing Huud mic permission.
 2. **Choose Monopoly:** the admin selects the game. Participants request to play separately.
 3. **Select players:** the admin checks the roster; the admin may play or watch.
-4. **Start:** lock the roster, allocate distinct tokens and start the server-controlled match. The first implementation assigns tokens by roster order.
+4. **Start:** lock the roster, allocate distinct tokens and start the server-controlled match. The first implementation assigns tokens and the opening turn by roster order.
 5. **Play:** Huud voice and chat remain available. Players have mic access by default. Viewers receive a spectator-safe board.
 6. **Results:** display the winner and each player's estate. **The Huud continues** with its audience, voice and chat; the admin can organize a rematch or another game.
 
@@ -41,7 +41,7 @@
 
 **Turn controls change with the situation:** Roll Dice, Buy/Auction, Bid/Pass, Pay Debt or End Turn. Properties and Trade open sheets. A player never sees active controls for another player's decision. Spectators see the same public board with a watch-only status.
 
-**Depth stays practical:** layered board artwork, beveled tiles, realistic token shading and contact shadows create the approved depth. Keep labels horizontal/readable and animate only the changing pieces. Respect reduced motion; do not make camera effects essential to understanding a move.
+**Depth stays practical:** layered board artwork, beveled tiles, realistic token shading and contact shadows create the approved depth. Keep the large decision labels horizontal/readable and animate only the changing pieces. Respect reduced motion; do not make camera effects essential to understanding a move.
 
 ## Authority, network behaviour and verification
 

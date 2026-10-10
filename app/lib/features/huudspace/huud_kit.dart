@@ -63,7 +63,7 @@ class HuudBackdrop extends StatelessWidget {
   }
 }
 
-const huudGameOrder = ['whot', 'draughts', 'chess', 'ludo', 'wordbluff', 'truearena', 'goosi'];
+const huudGameOrder = ['whot', 'draughts', 'chess', 'ludo', 'wordbluff', 'truearena', 'goosi', 'monopoly'];
 
 const huudGameEmoji = {
   'truearena': '🕵️',
@@ -73,6 +73,7 @@ const huudGameEmoji = {
   'goosi': '🥜',
   'whot': '🃏',
   'ludo': '🎲',
+  'monopoly': '🏠',
 };
 
 String huudGameName(String? gameType) => huudGameNames[gameType] ?? 'a game';

@@ -1,3 +1,4 @@
+import '../monopoly/monopoly_game_screen.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/app_state.dart';
@@ -68,6 +69,14 @@ class _BoardGameWatchScreenState extends State<BoardGameWatchScreen> {
       for (final member in room.members)
         member.userId: member.nickname ?? member.userId,
     };
+    if (room.gameType == 'monopoly') {
+      return MonopolyGameScreen(
+          socket: socket,
+          selfId: _selfId,
+          nicknames: names,
+          roomCode: room.code,
+          spectating: true);
+    }
     if (room.gameType == 'chess') {
       return ChessGameScreen(
         socket: socket,

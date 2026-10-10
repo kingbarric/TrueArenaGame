@@ -1,0 +1,513 @@
+{
+  "phase" : "Purchase",
+  "round" : 1,
+  "players" : [ "eric", "ada", "chidi", "sarah" ],
+  "playerState" : {
+    "eric" : {
+      "cash" : 1480,
+      "position" : 6,
+      "jailed" : false,
+      "jailTurns" : 0,
+      "bankrupt" : false,
+      "jailCards" : [ ]
+    },
+    "ada" : {
+      "cash" : 1260,
+      "position" : 24,
+      "jailed" : false,
+      "jailTurns" : 0,
+      "bankrupt" : false,
+      "jailCards" : [ ]
+    },
+    "chidi" : {
+      "cash" : 1320,
+      "position" : 35,
+      "jailed" : false,
+      "jailTurns" : 0,
+      "bankrupt" : false,
+      "jailCards" : [ ]
+    },
+    "sarah" : {
+      "cash" : 1540,
+      "position" : 16,
+      "jailed" : false,
+      "jailTurns" : 0,
+      "bankrupt" : false,
+      "jailCards" : [ ]
+    }
+  },
+  "deeds" : {
+    "1" : {
+      "owner" : null,
+      "buildings" : 0,
+      "mortgaged" : false
+    },
+    "3" : {
+      "owner" : null,
+      "buildings" : 0,
+      "mortgaged" : false
+    },
+    "5" : {
+      "owner" : null,
+      "buildings" : 0,
+      "mortgaged" : false
+    },
+    "6" : {
+      "owner" : null,
+      "buildings" : 0,
+      "mortgaged" : false
+    },
+    "8" : {
+      "owner" : null,
+      "buildings" : 0,
+      "mortgaged" : false
+    },
+    "9" : {
+      "owner" : null,
+      "buildings" : 0,
+      "mortgaged" : false
+    },
+    "11" : {
+      "owner" : null,
+      "buildings" : 0,
+      "mortgaged" : false
+    },
+    "12" : {
+      "owner" : null,
+      "buildings" : 0,
+      "mortgaged" : false
+    },
+    "13" : {
+      "owner" : null,
+      "buildings" : 0,
+      "mortgaged" : false
+    },
+    "14" : {
+      "owner" : null,
+      "buildings" : 0,
+      "mortgaged" : false
+    },
+    "15" : {
+      "owner" : null,
+      "buildings" : 0,
+      "mortgaged" : false
+    },
+    "16" : {
+      "owner" : null,
+      "buildings" : 0,
+      "mortgaged" : false
+    },
+    "18" : {
+      "owner" : null,
+      "buildings" : 0,
+      "mortgaged" : false
+    },
+    "19" : {
+      "owner" : null,
+      "buildings" : 0,
+      "mortgaged" : false
+    },
+    "21" : {
+      "owner" : null,
+      "buildings" : 0,
+      "mortgaged" : false
+    },
+    "23" : {
+      "owner" : null,
+      "buildings" : 0,
+      "mortgaged" : false
+    },
+    "24" : {
+      "owner" : null,
+      "buildings" : 0,
+      "mortgaged" : false
+    },
+    "25" : {
+      "owner" : null,
+      "buildings" : 0,
+      "mortgaged" : false
+    },
+    "26" : {
+      "owner" : null,
+      "buildings" : 0,
+      "mortgaged" : false
+    },
+    "27" : {
+      "owner" : null,
+      "buildings" : 0,
+      "mortgaged" : false
+    },
+    "28" : {
+      "owner" : null,
+      "buildings" : 0,
+      "mortgaged" : false
+    },
+    "29" : {
+      "owner" : null,
+      "buildings" : 0,
+      "mortgaged" : false
+    },
+    "31" : {
+      "owner" : "sarah",
+      "buildings" : 2,
+      "mortgaged" : false
+    },
+    "32" : {
+      "owner" : "sarah",
+      "buildings" : 2,
+      "mortgaged" : false
+    },
+    "34" : {
+      "owner" : "sarah",
+      "buildings" : 2,
+      "mortgaged" : false
+    },
+    "35" : {
+      "owner" : null,
+      "buildings" : 0,
+      "mortgaged" : false
+    },
+    "37" : {
+      "owner" : null,
+      "buildings" : 0,
+      "mortgaged" : false
+    },
+    "39" : {
+      "owner" : null,
+      "buildings" : 0,
+      "mortgaged" : false
+    }
+  },
+  "board" : [ {
+    "id" : 0,
+    "name" : "GO",
+    "kind" : "go",
+    "group" : "",
+    "price" : 0,
+    "buildingCost" : 0,
+    "rents" : [ ]
+  }, {
+    "id" : 1,
+    "name" : "Mediterranean Avenue",
+    "kind" : "street",
+    "group" : "brown",
+    "price" : 60,
+    "buildingCost" : 50,
+    "rents" : [ 2, 10, 30, 90, 160, 250 ]
+  }, {
+    "id" : 2,
+    "name" : "Community Chest",
+    "kind" : "chest",
+    "group" : "",
+    "price" : 0,
+    "buildingCost" : 0,
+    "rents" : [ ]
+  }, {
+    "id" : 3,
+    "name" : "Baltic Avenue",
+    "kind" : "street",
+    "group" : "brown",
+    "price" : 60,
+    "buildingCost" : 50,
+    "rents" : [ 4, 20, 60, 180, 320, 450 ]
+  }, {
+    "id" : 4,
+    "name" : "Income Tax",
+    "kind" : "tax",
+    "group" : "",
+    "price" : 0,
+    "buildingCost" : 0,
+    "rents" : [ ]
+  }, {
+    "id" : 5,
+    "name" : "Reading Railroad",
+    "kind" : "railroad",
+    "group" : "railroad",
+    "price" : 200,
+    "buildingCost" : 0,
+    "rents" : [ ]
+  }, {
+    "id" : 6,
+    "name" : "Oriental Avenue",
+    "kind" : "street",
+    "group" : "lightBlue",
+    "price" : 100,
+    "buildingCost" : 50,
+    "rents" : [ 6, 30, 90, 270, 400, 550 ]
+  }, {
+    "id" : 7,
+    "name" : "Chance",
+    "kind" : "chance",
+    "group" : "",
+    "price" : 0,
+    "buildingCost" : 0,
+    "rents" : [ ]
+  }, {
+    "id" : 8,
+    "name" : "Vermont Avenue",
+    "kind" : "street",
+    "group" : "lightBlue",
+    "price" : 100,
+    "buildingCost" : 50,
+    "rents" : [ 6, 30, 90, 270, 400, 550 ]
+  }, {
+    "id" : 9,
+    "name" : "Connecticut Avenue",
+    "kind" : "street",
+    "group" : "lightBlue",
+    "price" : 120,
+    "buildingCost" : 50,
+    "rents" : [ 8, 40, 100, 300, 450, 600 ]
+  }, {
+    "id" : 10,
+    "name" : "Jail / Just Visiting",
+    "kind" : "jail",
+    "group" : "",
+    "price" : 0,
+    "buildingCost" : 0,
+    "rents" : [ ]
+  }, {
+    "id" : 11,
+    "name" : "St. Charles Place",
+    "kind" : "street",
+    "group" : "pink",
+    "price" : 140,
+    "buildingCost" : 100,
+    "rents" : [ 10, 50, 150, 450, 625, 750 ]
+  }, {
+    "id" : 12,
+    "name" : "Electric Company",
+    "kind" : "utility",
+    "group" : "utility",
+    "price" : 150,
+    "buildingCost" : 0,
+    "rents" : [ ]
+  }, {
+    "id" : 13,
+    "name" : "States Avenue",
+    "kind" : "street",
+    "group" : "pink",
+    "price" : 140,
+    "buildingCost" : 100,
+    "rents" : [ 10, 50, 150, 450, 625, 750 ]
+  }, {
+    "id" : 14,
+    "name" : "Virginia Avenue",
+    "kind" : "street",
+    "group" : "pink",
+    "price" : 160,
+    "buildingCost" : 100,
+    "rents" : [ 12, 60, 180, 500, 700, 900 ]
+  }, {
+    "id" : 15,
+    "name" : "Pennsylvania Railroad",
+    "kind" : "railroad",
+    "group" : "railroad",
+    "price" : 200,
+    "buildingCost" : 0,
+    "rents" : [ ]
+  }, {
+    "id" : 16,
+    "name" : "St. James Place",
+    "kind" : "street",
+    "group" : "orange",
+    "price" : 180,
+    "buildingCost" : 100,
+    "rents" : [ 14, 70, 200, 550, 750, 950 ]
+  }, {
+    "id" : 17,
+    "name" : "Community Chest",
+    "kind" : "chest",
+    "group" : "",
+    "price" : 0,
+    "buildingCost" : 0,
+    "rents" : [ ]
+  }, {
+    "id" : 18,
+    "name" : "Tennessee Avenue",
+    "kind" : "street",
+    "group" : "orange",
+    "price" : 180,
+    "buildingCost" : 100,
+    "rents" : [ 14, 70, 200, 550, 750, 950 ]
+  }, {
+    "id" : 19,
+    "name" : "New York Avenue",
+    "kind" : "street",
+    "group" : "orange",
+    "price" : 200,
+    "buildingCost" : 100,
+    "rents" : [ 16, 80, 220, 600, 800, 1000 ]
+  }, {
+    "id" : 20,
+    "name" : "Free Parking",
+    "kind" : "parking",
+    "group" : "",
+    "price" : 0,
+    "buildingCost" : 0,
+    "rents" : [ ]
+  }, {
+    "id" : 21,
+    "name" : "Kentucky Avenue",
+    "kind" : "street",
+    "group" : "red",
+    "price" : 220,
+    "buildingCost" : 150,
+    "rents" : [ 18, 90, 250, 700, 875, 1050 ]
+  }, {
+    "id" : 22,
+    "name" : "Chance",
+    "kind" : "chance",
+    "group" : "",
+    "price" : 0,
+    "buildingCost" : 0,
+    "rents" : [ ]
+  }, {
+    "id" : 23,
+    "name" : "Indiana Avenue",
+    "kind" : "street",
+    "group" : "red",
+    "price" : 220,
+    "buildingCost" : 150,
+    "rents" : [ 18, 90, 250, 700, 875, 1050 ]
+  }, {
+    "id" : 24,
+    "name" : "Illinois Avenue",
+    "kind" : "street",
+    "group" : "red",
+    "price" : 240,
+    "buildingCost" : 150,
+    "rents" : [ 20, 100, 300, 750, 925, 1100 ]
+  }, {
+    "id" : 25,
+    "name" : "B. & O. Railroad",
+    "kind" : "railroad",
+    "group" : "railroad",
+    "price" : 200,
+    "buildingCost" : 0,
+    "rents" : [ ]
+  }, {
+    "id" : 26,
+    "name" : "Atlantic Avenue",
+    "kind" : "street",
+    "group" : "yellow",
+    "price" : 260,
+    "buildingCost" : 150,
+    "rents" : [ 22, 110, 330, 800, 975, 1150 ]
+  }, {
+    "id" : 27,
+    "name" : "Ventnor Avenue",
+    "kind" : "street",
+    "group" : "yellow",
+    "price" : 260,
+    "buildingCost" : 150,
+    "rents" : [ 22, 110, 330, 800, 975, 1150 ]
+  }, {
+    "id" : 28,
+    "name" : "Water Works",
+    "kind" : "utility",
+    "group" : "utility",
+    "price" : 150,
+    "buildingCost" : 0,
+    "rents" : [ ]
+  }, {
+    "id" : 29,
+    "name" : "Marvin Gardens",
+    "kind" : "street",
+    "group" : "yellow",
+    "price" : 280,
+    "buildingCost" : 150,
+    "rents" : [ 24, 120, 360, 850, 1025, 1200 ]
+  }, {
+    "id" : 30,
+    "name" : "Go To Jail",
+    "kind" : "goToJail",
+    "group" : "",
+    "price" : 0,
+    "buildingCost" : 0,
+    "rents" : [ ]
+  }, {
+    "id" : 31,
+    "name" : "Pacific Avenue",
+    "kind" : "street",
+    "group" : "green",
+    "price" : 300,
+    "buildingCost" : 200,
+    "rents" : [ 26, 130, 390, 900, 1100, 1275 ]
+  }, {
+    "id" : 32,
+    "name" : "North Carolina Avenue",
+    "kind" : "street",
+    "group" : "green",
+    "price" : 300,
+    "buildingCost" : 200,
+    "rents" : [ 26, 130, 390, 900, 1100, 1275 ]
+  }, {
+    "id" : 33,
+    "name" : "Community Chest",
+    "kind" : "chest",
+    "group" : "",
+    "price" : 0,
+    "buildingCost" : 0,
+    "rents" : [ ]
+  }, {
+    "id" : 34,
+    "name" : "Pennsylvania Avenue",
+    "kind" : "street",
+    "group" : "green",
+    "price" : 320,
+    "buildingCost" : 200,
+    "rents" : [ 28, 150, 450, 1000, 1200, 1400 ]
+  }, {
+    "id" : 35,
+    "name" : "Short Line",
+    "kind" : "railroad",
+    "group" : "railroad",
+    "price" : 200,
+    "buildingCost" : 0,
+    "rents" : [ ]
+  }, {
+    "id" : 36,
+    "name" : "Chance",
+    "kind" : "chance",
+    "group" : "",
+    "price" : 0,
+    "buildingCost" : 0,
+    "rents" : [ ]
+  }, {
+    "id" : 37,
+    "name" : "Park Place",
+    "kind" : "street",
+    "group" : "darkBlue",
+    "price" : 350,
+    "buildingCost" : 200,
+    "rents" : [ 35, 175, 500, 1100, 1300, 1500 ]
+  }, {
+    "id" : 38,
+    "name" : "Luxury Tax",
+    "kind" : "tax",
+    "group" : "",
+    "price" : 0,
+    "buildingCost" : 0,
+    "rents" : [ ]
+  }, {
+    "id" : 39,
+    "name" : "Boardwalk",
+    "kind" : "street",
+    "group" : "darkBlue",
+    "price" : 400,
+    "buildingCost" : 200,
+    "rents" : [ 50, 200, 600, 1400, 1700, 2000 ]
+  } ],
+  "turnPlayer" : "ada",
+  "decisionPlayer" : "ada",
+  "turnNumber" : 1,
+  "dice" : [ 3, 4 ],
+  "rollAgain" : false,
+  "message" : "Roll the dice",
+  "bankHouses" : 26,
+  "bankHotels" : 12,
+  "auction" : null,
+  "debt" : null,
+  "winner" : null
+}

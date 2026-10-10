@@ -1,6 +1,6 @@
 # Monopoly — classic board with depth
 
-Planning draft · 10 October 2026 · implementation has not started.
+Approved direction · 10 October 2026. The [game description](GAME_DESCRIPTION.md) was committed before coding. The first implementation is on `codex/monopoly-classic-depth`; see [implementation and checks](IMPLEMENTATION.md).
 
 ## Visual direction
 
@@ -16,7 +16,7 @@ This image establishes the visual direction. Property names, prices, tile arrang
 - Player strip: token, name, cash and current-turn highlight. Players have mic access by default.
 - Board: overview of all spaces, tokens, ownership and buildings. Tap a space to see its full details; allow zoom for small screens.
 - Decision area: large readable card and actions for the current phase. A buying decision shows Buy and Auction; a turn awaiting a roll shows Roll Dice. Only eligible players can act.
-- Bottom controls: Properties, Trade, Huud Chat and microphone. Chat and management open in a drawer, keeping the board visible.
+- Bottom controls: Properties and Trade sheets, with a **permanently visible Huud chat composer and recent message** underneath. Chat history expands separately. The Huud microphone remains available in the header.
 
 Use depth in tiles, materials, lighting and shadows. Keep buttons and text stable during movement. Dice tumble, tokens step between spaces, and houses appear when built. Reduce-motion mode uses short transitions; offer simpler rendering for devices that need it. Prototype a board with layered artwork and a mild perspective transform before committing to a full 3D renderer.
 
@@ -42,4 +42,4 @@ The server validates actions and supplies the authoritative state. Spectators re
 4. Connect the existing Huud roster, voice, chat and spectator contracts. Verify private/public state separation.
 5. Play full multiplayer matches, including reconnects, host absence, results and rematch in the same Huud.
 
-No application or backend implementation changes are part of this planning draft.
+The reference image remains the approved visual target. The [phone preview](phone-preview-v1.png) is rendered from the actual Flutter implementation and a server-generated board snapshot.

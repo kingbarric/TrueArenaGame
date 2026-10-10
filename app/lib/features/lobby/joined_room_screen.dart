@@ -1,3 +1,4 @@
+import '../monopoly/monopoly_game_screen.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -199,6 +200,11 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
                   else if (m.isBot)
                     m.userId: '🤖'
               }),
+        'monopoly' => MonopolyGameScreen(
+            socket: _socket!,
+            selfId: selfId,
+            roomCode: _room.code,
+            nicknames: nicknames),
         'ludo' => LudoGameScreen(
               socket: _socket!,
               selfId: selfId,
@@ -243,6 +249,7 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
           'chess' => 'Chess',
           'goosi' => 'Macala',
           'whot' => 'Whot',
+          'monopoly' => 'Monopoly',
           'ludo' => 'Ludo',
           _ => 'Traitors',
         }),
@@ -435,7 +442,8 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
     final isHost = _room.hostId == _selfId();
     // The Tell can only start with pairs of people.
     final tellProblem = _huud?.currentGame?.tell == true
-        ? tellStartProblem(_room.members.where((m) => !m.isBot).length, _room.members.where((m) => m.isBot).length)
+        ? tellStartProblem(_room.members.where((m) => !m.isBot).length,
+            _room.members.where((m) => m.isBot).length)
         : null;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
@@ -445,7 +453,8 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
         // One big Start for the host; nobody has to "ready up".
         LobbyStartBar(
             isHost: isHost,
-            onStart: tellProblem == null ? () => _socket?.send('GAME_START') : null,
+            onStart:
+                tellProblem == null ? () => _socket?.send('GAME_START') : null,
             hint: tellProblem),
       ]),
     );
