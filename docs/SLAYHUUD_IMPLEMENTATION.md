@@ -271,3 +271,11 @@ Android uses a locally vendored stable `flutter_inappwebview_android` 1.1.3 with
 - Styling actions retain raised pills; wardrobe categories use underlined tabs; style filters use smaller flat outlined pills. Camera controls are circular and Her/Him uses a joined selector. Existing PlayHuud colours and typography remain.
 - Avatar selection starts with an eligible body and resets the wardrobe to Looks. Stage disposal defers indicator notifications until the widget tree has unlocked, fixing a listener assertion exposed when the preview layout changed.
 - Visually reviewed the updated layout in the dedicated iPhone 17 Pro preview. Feature analysis and ten existing controls/navigation/show-off tests passed.
+
+### Faster catwalk and four show-off finishes (10 October 2026)
+
+- Shortened show off from 8.6 to 5 seconds: 1.8-second catwalk, quicker blend into the selected stance, full turn and final hold. The authored gait plays faster without enlarging strides or changing shoe fit. Runway timing uses elapsed time rather than the idle-animation frame cap, so low frame rates do not stretch the sequence.
+- The pose picker exposes Signature, Hand on hip (confident), Cover star (editorial) and Victory (celebrate) as compact raised choices. Tapping any choice previews its catwalk and finish without submitting. The selected pose stays on the look for submission and spectator replay; Signature is no longer silently replaced with Confident.
+- Pose previews lock styling/submission until completion and remain cancellable using Stop show off. The stage's automatic outfit update queues before playback to prevent it interrupting the new animation.
+- Verification: 41 renderer tests and 18 Flutter tests passed; feature analysis and the TypeScript/Vite build pass. Actual male/female rigs preserve all four distinct finishing stances, walk onto the stage within two seconds, and keep shoes grounded while walking. The picker tests verify all four labels map to the existing saved-pose IDs.
+- Rebuilt the dedicated iPhone 17 Pro fixture preview and reviewed the four-choice sheet, automatic catwalk previews, and distinct Victory/Cover star finishes. Styling/submission controls unlock after playback; changing the preview pose does not save or score a submission.

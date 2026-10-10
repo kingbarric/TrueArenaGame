@@ -8,6 +8,7 @@ import 'slay_stage.dart';
 import 'slay_theme.dart';
 import '../../theme/neon_theme.dart';
 import 'slay_game_menu.dart';
+import 'slay_pose_picker.dart';
 
 class SlayStudioScreen extends StatefulWidget {
   const SlayStudioScreen(
@@ -568,7 +569,7 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                           ],
                           SlayShowOffControl(
                               controller: _stage,
-                              enabled: !_busy,
+                              enabled: !_busy && !_selecting,
                               onFinished: (pose) =>
                                   _change(_look.copy(pose: pose)),
                               onError: (error) =>
@@ -583,7 +584,7 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                           const SizedBox(width: 8),
                           SlayPill(
                               label:
-                                  'Pose · ${_look.pose[0].toUpperCase()}${_look.pose.substring(1)}',
+                                  'Pose · ${slayPoses[_look.pose]?.label ?? _look.pose}',
                               icon: Icons.accessibility_new,
                               onPressed: (_busy || _selecting)
                                   ? null
@@ -734,44 +735,68 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
             })));
       }));
   Future<void> _pick(String category, List<dynamic> options) async {
-    const poseDescriptions = {
-      'signature': 'Relaxed arms with a little attitude',
-      'confident': 'Hand on hip, ready for the spotlight',
-      'editorial': 'A turned waist and tilted head',
-      'celebrate': 'Arms up — own your win',
-    };
     final chosen = await showModalBottomSheet<String>(
         context: context,
         backgroundColor: context.neon.bg,
-        builder: (c) => SafeArea(
+        builder: (c) => category == 'pose'
+            ? SlayPosePicker(
+                selected: _look.pose,
+                available: options.cast<String>(),
+                onSelected: (pose) => Navigator.pop(c, pose))
+            : SafeArea(
                 child: Wrap(children: [
-              for (final option in options)
-                ListTile(
-                    title: Text(option.toString()[0].toUpperCase() +
-                        option.toString().substring(1)),
-                    subtitle: category == 'pose'
-                        ? Text(poseDescriptions[option] ?? '')
-                        : null,
-                    leading: category == 'pose'
-                        ? const Icon(Icons.accessibility_new_rounded)
-                        : null,
-                    trailing: Icon(
-                        (category == 'pose' ? _look.pose : _look.background) ==
-                                option
-                            ? Icons.check_circle_rounded
-                            : Icons.chevron_right,
-                        color: (category == 'pose'
-                                    ? _look.pose
-                                    : _look.background) ==
-                                option
-                            ? context.neon.gold
-                            : null),
-                    onTap: () => Navigator.pop(c, option))
-            ])));
+                for (final option in options)
+                  ListTile(
+                      title: Text(option.toString()[0].toUpperCase() +
+                          option.toString().substring(1)),
+                      trailing: Icon(
+                          _look.background == option
+                              ? Icons.check_circle_rounded
+                              : Icons.chevron_right,
+                          color: _look.background == option
+                              ? context.neon.gold
+                              : null),
+                      onTap: () => Navigator.pop(c, option))
+              ])));
     if (chosen != null && mounted) {
-      _change(category == 'pose'
-          ? _look.copy(pose: chosen)
-          : _look.copy(background: chosen));
+      if (category == 'pose') {
+        await _previewPose(chosen);
+      } else {
+        _change(_look.copy(background: chosen));
+      }
+    }
+  }
+
+  Future<void> _previewPose(String pose) async {
+    if (_busy || _selecting) return;
+    setState(() {
+      _busy = true;
+      _performing = true;
+      _error = null;
+    });
+    _change(_look.copy(pose: pose));
+    try {
+      // Let the stage's look-change update queue before our acknowledgement;
+      // a later automatic apply would otherwise interrupt the new catwalk.
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
+      // Acknowledge the selected finish before starting its runway preview.
+      await _stage.request('applyLook', {'look': _look.toJson()});
+      if (!mounted) return;
+      await _stage.showOff();
+    } catch (error) {
+      if (mounted &&
+          !error.toString().contains('cancelled') &&
+          !error.toString().contains('restarted')) {
+        setState(() => _error = error.toString());
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _performing = false;
+        });
+      }
     }
   }
 

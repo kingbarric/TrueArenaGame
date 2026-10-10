@@ -102,7 +102,7 @@ export class Wardrobe {
   showOff(){
     if(!this.body||!this.mixer)throw Error('Wait for your avatar to load');
     this.performance??=new Showcase(this.root,this.body,this.mixer,this.clips,(playing,phase)=>this.onShowcaseState(playing,phase));
-    return this.performance.play(this.currentPose==='signature'?'confident':this.currentPose).then(pose=>{this.pose(pose);return pose;});
+    return this.performance.play(this.currentPose).then(pose=>{this.pose(pose);return pose;});
   }
   get showingOff(){return this.performance?.playing??false;}
   stopShowcase(reason?:string){this.performance?.stop(reason);}

@@ -27,7 +27,7 @@ for (const body of ['female', 'male']) test(`${body} runway moves rig and shoes,
   const complete = show.play('confident');
   assert.throws(()=>show.play(),/already playing/);
   const heights = [], positions = [];
-  for(let frame=0;frame<Math.ceil(SHOWCASE_SECONDS*60);frame++) {
+  for(let frame=0;frame<=Math.ceil(SHOWCASE_SECONDS*60);frame++) {
     show.update(1/60); root.updateMatrixWorld(true);
     heights.push(bones.get('LeftFoot').getWorldPosition(new Vector3()).y);
     positions.push(bones.get('LeftFoot').getWorldPosition(new Vector3()).z);
@@ -40,7 +40,7 @@ for (const body of ['female', 'male']) test(`${body} runway moves rig and shoes,
         assert.ok(p.y>-.012,`${body}: shoe below floor at ${frame}: ${p.y}`);
       }
     });
-    if(frame===300) assert.ok(root.rotation.y>0 && root.rotation.y<2*Math.PI);
+    if(frame===180) assert.ok(root.rotation.y>0 && root.rotation.y<2*Math.PI);
   }
   assert.equal(await complete,'confident'); assert.equal(show.playing,false);
   assert.ok(Math.max(...heights)-Math.min(...heights)>.04,'feet lift for steps');
@@ -54,4 +54,25 @@ for (const body of ['female', 'male']) test(`${body} runway moves rig and shoes,
   assert.ok(bones.get('Hips').position.distanceTo(finalHip)<.00001,'walk hip offset resets');
   const replay=show.play('confident'); show.update(SHOWCASE_SECONDS); await replay;
   assert.ok(bones.get('Hips').position.distanceTo(finalHip)<.00001);
+});
+
+for (const body of ['female', 'male']) test(`${body} all four finishes start with a catwalk and preserve the selected pose`, async () => {
+  const avatar = await load(body), root = new Group(); root.add(avatar.scene);
+  const mixer = new AnimationMixer(avatar.scene), bones = [];
+  avatar.scene.traverse(o => {if(o instanceof Bone) bones.push(o);});
+  const show = new Showcase(root, avatar.scene, mixer, avatar.animations);
+  const finishes = [];
+  for (const pose of ['signature','confident','editorial','celebrate']) {
+    const complete = show.play(pose);
+    assert.equal(show.playing,true);
+    assert.ok(root.position.z<0,'every choice walks in from backstage');
+    show.update(1); assert.ok(root.position.z<0 && root.position.z>-.65);
+    show.update(1); assert.ok(Math.abs(root.position.z)<.00001,'walk reaches the stage within two seconds');
+    show.update(2.9); assert.equal(show.playing,true,'hold the finishing stance before completion');
+    show.update(.1); assert.equal(await complete,pose);
+    finishes.push(bones.flatMap(bone=>bone.quaternion.toArray()));
+  }
+  for(let i=0;i<finishes.length;i++) for(let j=i+1;j<finishes.length;j++) {
+    assert.ok(finishes[i].some((value,k)=>Math.abs(value-finishes[j][k])>.04),'each finish has a distinct articulated stance');
+  }
 });
