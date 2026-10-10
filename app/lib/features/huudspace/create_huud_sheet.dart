@@ -8,6 +8,7 @@ import 'go_live_sheet.dart';
 import 'huud_kit.dart';
 import 'huud_space_models.dart';
 import 'huud_space_screen.dart';
+import 'whot_mode_sheet.dart';
 
 /// Opens the "Make a Huud" sheet and, once made, walks straight into it.
 /// Hosting a Huud already? The server hands that one back instead of making
@@ -45,6 +46,9 @@ class _CreateHuudSheetState extends State<CreateHuudSheet> {
   final _message = TextEditingController();
   HuudPrivacy _privacy = HuudPrivacy.friends;
   late String? _game = widget.gameType;
+
+  /// Whot's "classic" or "tell", asked when Whot is picked.
+  String? _whotMode;
   late bool _share = widget.share;
   bool _busy = false;
   String? _error;
@@ -70,6 +74,12 @@ class _CreateHuudSheetState extends State<CreateHuudSheet> {
 
   Future<void> _create() async {
     if (_busy) return;
+    // Whot came already picked: still ask which one.
+    if (_game == 'whot' && _whotMode == null) {
+      final mode = await askWhotMode(context);
+      if (mode == null || !mounted) return;
+      setState(() => _whotMode = mode);
+    }
     setState(() {
       _busy = true;
       _error = null;
@@ -79,6 +89,7 @@ class _CreateHuudSheetState extends State<CreateHuudSheet> {
         'name': _name.text.trim(),
         'privacy': _privacy.wire,
         if (_game != null) 'gameType': _game,
+        if (_game == 'whot' && _whotMode != null) 'mode': _whotMode,
         if (_share) 'share': true,
         if (_share && _message.text.trim().isNotEmpty) 'message': _message.text.trim(),
       }) as Map<String, dynamic>;
@@ -224,6 +235,20 @@ class _CreateHuudSheetState extends State<CreateHuudSheet> {
     ]);
   }
 
+  /// Whot is two games: ask which as it's picked.
+  Future<void> _pick(String? game) async {
+    if (game == 'whot') {
+      final mode = await askWhotMode(context);
+      if (mode == null || !mounted) return;
+      setState(() {
+        _game = game;
+        _whotMode = mode;
+      });
+      return;
+    }
+    setState(() => _game = game);
+  }
+
   Widget _gamePicker(NeonColors n) {
     final h = HuudColors.of(context);
     Widget tile(String? game) {
@@ -237,7 +262,7 @@ class _CreateHuudSheetState extends State<CreateHuudSheet> {
           excludeSemantics: true,
           child: GestureDetector(
             key: ValueKey('huud-first-game-${game ?? 'none'}'),
-            onTap: () => setState(() => _game = game),
+            onTap: () => _pick(game),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 160),
               width: 84,
@@ -253,7 +278,12 @@ class _CreateHuudSheetState extends State<CreateHuudSheet> {
                         width: 44, height: 44, child: Center(child: Text('💬', style: TextStyle(fontSize: 26))))
                     : HuudGameArt(game, size: 44),
                 const SizedBox(height: 4),
-                Text(game == null ? 'No game yet' : huudGameName(game),
+                Text(
+                    game == null
+                        ? 'No game yet'
+                        : game == 'whot' && on && _whotMode == 'tell'
+                            ? 'The Tell'
+                            : huudGameName(game),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: n.ink)),

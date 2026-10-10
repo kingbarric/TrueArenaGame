@@ -14,6 +14,7 @@ import app.truearena.api.room.RoomDtos.RoomView;
 import app.truearena.api.room.RoomService;
 import app.truearena.api.support.ApiExceptions;
 import app.truearena.persistence.UserRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import app.truearena.voice.LiveKitRoomAdmin;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.r2dbc.core.DatabaseClient;
@@ -32,6 +33,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -114,11 +116,16 @@ public class HuudSpaceService {
      * hang out), the same one every time after. One Huud per person.
      */
     public Mono<HuudSpaceView> create(UUID user, String requestedName, String requestedPrivacy) {
-        return create(user, requestedName, requestedPrivacy, null, null, false);
+        return create(user, requestedName, requestedPrivacy, null, null, null, false);
     }
 
     public Mono<HuudSpaceView> create(UUID user, String requestedName, String requestedPrivacy,
                                       String gameType, String message, boolean share) {
+        return create(user, requestedName, requestedPrivacy, gameType, null, message, share);
+    }
+
+    public Mono<HuudSpaceView> create(UUID user, String requestedName, String requestedPrivacy,
+                                      String gameType, String mode, String message, boolean share) {
         String privacy = privacyOrDefault(requestedPrivacy);
         return users.findById(user)
                 .switchIfEmpty(Mono.error(ApiExceptions.unauthorized("unknown user")))
@@ -139,7 +146,7 @@ public class HuudSpaceService {
                 })
                 .flatMap(id -> space(id).flatMap(s -> !s.live() || gameType == null || gameType.isBlank()
                                 || s.currentRoomId() != null ? Mono.<Void>empty()
-                                : addGame(user, id, gameType).then())
+                                : addGame(user, id, gameType, mode, false).then())
                         .then(share ? space(id).filter(Space::live).flatMap(s -> share(user, id, message)).then()
                                 : Mono.<Void>empty())
                         .then(view(id, user)));
@@ -602,29 +609,74 @@ public class HuudSpaceService {
      * game that's waiting or being played has to finish (or be put away) first.
      */
     public Mono<RoomView> addGame(UUID host, UUID id, String gameType) {
-        return addGame(host, id, gameType, false);
+        return addGame(host, id, gameType, null, false);
+    }
+
+    public Mono<RoomView> addGame(UUID host, UUID id, String gameType, boolean rematch) {
+        return addGame(host, id, gameType, null, rematch);
     }
 
     /**
-     * With {@code rematch}, the last game's players who are still in the
-     * Huud get their seats back straight away; anyone missing just leaves a
-     * free seat for the queue.
+     * {@code mode} is Whot's "classic" (the default) or "tell"; other games
+     * have none. With {@code rematch}, the last game's players who are still
+     * in the Huud get their seats back straight away, in the last game's mode;
+     * anyone missing just leaves a free seat for the queue.
      */
-    public Mono<RoomView> addGame(UUID host, UUID id, String gameType, boolean rematch) {
-        Mono<List<UUID>> previous = !rematch ? Mono.just(List.of())
-                : space(id).flatMap(s -> currentGame(s.currentRoomId(), null))
-                        .map(game -> game.playerIds().stream().filter(p -> !p.equals(host)).toList())
-                        .flatMap(players -> Flux.fromIterable(players)
-                                .filterWhen(p -> membership(id, p).map(Membership::in).defaultIfEmpty(false))
-                                .collectList())
-                        .defaultIfEmpty(List.of());
-        return previous.flatMap(again -> addGameFresh(host, id, gameType)
-                .flatMap(room -> Flux.fromIterable(again)
-                        .concatMap(p -> rooms.join(room.code(), p, null).onErrorResume(e -> Mono.empty()))
-                        .then(rooms.get(room.id(), host))));
+    public Mono<RoomView> addGame(UUID host, UUID id, String gameType, String mode, boolean rematch) {
+        Mono<Optional<CurrentGame>> last = !rematch ? Mono.just(Optional.empty())
+                : space(id).flatMap(s -> currentGame(s.currentRoomId(), null)).map(Optional::of)
+                        .defaultIfEmpty(Optional.empty());
+        return last.flatMap(game -> {
+            String chosen = mode != null || game.isEmpty() || !game.get().gameType().equals(gameType)
+                    ? mode : game.get().mode();
+            Map<String, Object> config;
+            try {
+                config = gameConfigFor(gameType, chosen);
+            } catch (IllegalArgumentException e) {
+                return Mono.error(ApiExceptions.badRequest(e.getMessage()));
+            }
+            Mono<List<UUID>> again = game.map(g -> Flux.fromIterable(g.playerIds())
+                            .filter(p -> !p.equals(host))
+                            .filterWhen(p -> membership(id, p).map(Membership::in).defaultIfEmpty(false))
+                            .collectList())
+                    .orElse(Mono.just(List.of()));
+            return again.flatMap(players -> addGameFresh(host, id, gameType, config)
+                    .flatMap(room -> Flux.fromIterable(players)
+                            .concatMap(p -> rooms.join(room.code(), p, null).onErrorResume(e -> Mono.empty()))
+                            .then(rooms.get(room.id(), host))));
+        });
     }
 
-    private Mono<RoomView> addGameFresh(UUID host, UUID id, String gameType) {
+    /** The room's rules for a Huud game: only Whot has a choice to make — Classic or The Tell. */
+    static Map<String, Object> gameConfigFor(String gameType, String mode) {
+        if (!"whot".equals(gameType)) return null;
+        String m = mode == null || mode.isBlank() ? "classic" : mode.trim().toLowerCase();
+        if (!WHOT_MODES.contains(m)) throw new IllegalArgumentException("Whot mode must be classic or tell");
+        return Map.of("mode", m);
+    }
+
+    /** Whot's modes, and how many seats each puts at a Huud table. The Tell plays 4, 6 or 8 in pairs. */
+    private static final Set<String> WHOT_MODES = Set.of("classic", "tell");
+    private static final int TELL_SEATS = 8;
+
+    static int seatsFor(String gameType, String mode) {
+        return "whot".equals(gameType) && "tell".equals(mode) ? TELL_SEATS : HuudService.seatsFor(gameType);
+    }
+
+    private static final ObjectMapper JSON = new ObjectMapper();
+
+    /** Whot's mode from the room's stored rules — "classic" when none was chosen; null for other games. */
+    static String modeOf(String gameType, String gameConfig) {
+        if (!"whot".equals(gameType)) return null;
+        try {
+            Object mode = gameConfig == null || gameConfig.isBlank() ? null : JSON.readValue(gameConfig, Map.class).get("mode");
+            return "tell".equals(mode) ? "tell" : "classic";
+        } catch (Exception e) {
+            return "classic";
+        }
+    }
+
+    private Mono<RoomView> addGameFresh(UUID host, UUID id, String gameType, Map<String, Object> config) {
         return requireHost(id, host)
                 .filter(Space::live)
                 .switchIfEmpty(Mono.error(ApiExceptions.conflict("Go Live first, then pick a game")))
@@ -635,7 +687,7 @@ public class HuudSpaceService {
                             }
                             return Mono.just(s);
                         }).defaultIfEmpty(s))
-                .flatMap(s -> rooms.create(host, null, gameType, null, null, false))
+                .flatMap(s -> rooms.create(host, null, gameType, null, config, false))
                 .flatMap(room -> db.sql("UPDATE rooms SET huud_space_id=:id WHERE id=:room")
                         .bind("id", id).bind("room", room.id()).fetch().rowsUpdated()
                         .then(db.sql("UPDATE huud_spaces SET current_room_id=:room WHERE id=:id")
@@ -743,7 +795,8 @@ public class HuudSpaceService {
                                             boolean canSpeak = now.live() && (host || (inLive && me.get().canSpeak()));
                                             CurrentGame game = t.getT2().map(g -> host || g.youArePlaying() ? g
                                                     : new CurrentGame(g.roomId(), null, g.gameType(), g.status(), g.players(),
-                                                            g.seats(), g.playerIds(), false, g.readyIds(), g.table())).orElse(null);
+                                                            g.seats(), g.playerIds(), false, g.readyIds(), g.table(),
+                                                            g.mode())).orElse(null);
                                             int liveCount = (int) people.stream().filter(Person::here).count();
                                             return new HuudSpaceView(now.id(), member ? now.code() : null, now.name(), now.privacy(),
                                                     now.status(), hostPerson, people, game, member, host,
@@ -870,7 +923,7 @@ public class HuudSpaceService {
 
     Mono<CurrentGame> currentGame(UUID roomId, UUID viewer) {
         if (roomId == null) return Mono.empty();
-        return db.sql("SELECT r.id, r.code, r.game_type, r.status, "
+        return db.sql("SELECT r.id, r.code, r.game_type, r.status, r.game_config, "
                         + "ARRAY(SELECT rm.user_id FROM room_members rm WHERE rm.room_id=r.id ORDER BY rm.joined_at) AS players, "
                         + "ARRAY(SELECT rm.user_id FROM room_members rm WHERE rm.room_id=r.id AND rm.ready_state) AS ready "
                         + "FROM rooms r WHERE r.id=:id")
@@ -880,10 +933,11 @@ public class HuudSpaceService {
                     UUID[] ready = r.get("ready", UUID[].class);
                     List<UUID> ids = players == null ? List.of() : List.of(players);
                     String type = r.get("game_type", String.class);
+                    String mode = modeOf(type, r.get("game_config", String.class));
                     return new CurrentGame(r.get("id", UUID.class), r.get("code", String.class), type,
-                            gameStatus(r.get("status", String.class)), ids.size(), HuudService.seatsFor(type),
+                            gameStatus(r.get("status", String.class)), ids.size(), seatsFor(type, mode),
                             ids, viewer != null && ids.contains(viewer), ready == null ? List.of() : List.of(ready),
-                            List.<HuudSpaceDtos.Seat>of());
+                            List.<HuudSpaceDtos.Seat>of(), mode);
                 })
                 .one()
                 .flatMap(game -> db.sql("SELECT u.id, u.display_name, u.avatar_url, u.is_bot, rm.ready_state "
@@ -894,7 +948,8 @@ public class HuudSpaceService {
                                 Boolean.TRUE.equals(r.get("ready_state", Boolean.class))))
                         .all().collectList()
                         .map(table -> new CurrentGame(game.roomId(), game.code(), game.gameType(), game.status(),
-                                game.players(), game.seats(), game.playerIds(), game.youArePlaying(), game.readyIds(), table)));
+                                game.players(), game.seats(), game.playerIds(), game.youArePlaying(), game.readyIds(), table,
+                                game.mode())));
     }
 
     /** Words the app can show as they are: waiting → playing → finished. */

@@ -85,7 +85,13 @@ class HuudGame {
     this.youArePlaying = false,
     this.readyIds = const [],
     this.table = const [],
+    this.mode,
   });
+
+  /// Whot's "classic" or "tell"; null for every other game.
+  final String? mode;
+
+  bool get tell => gameType == 'whot' && mode == 'tell';
 
   /// Seated players who've pressed Ready.
   final List<String> readyIds;
@@ -125,6 +131,7 @@ class HuudGame {
         table: [
           for (final t in (j['table'] as List? ?? const [])) HuudSeat.fromJson((t as Map).cast<String, dynamic>()),
         ],
+        mode: j['mode'] as String?,
       );
 }
 

@@ -16,10 +16,11 @@ public final class HuudSpaceDtos {
 
     /**
      * Name and privacy make the Huud. The rest is optional: a first game to set
-     * up, and a short line to share it to the feed with.
+     * up (with its {@code mode} — Whot's "classic" or "tell"), and a short
+     * line to share it to the feed with.
      */
     public record CreateRequest(@Size(max = 40) String name, String privacy, String gameType,
-                                @Size(max = 140) String message, Boolean share) {
+                                @Size(max = 140) String message, Boolean share, String mode) {
     }
 
     public record ShareRequest(@Size(max = 140) String message) {
@@ -58,8 +59,11 @@ public final class HuudSpaceDtos {
     public record JoinRequest(@NotBlank @Size(min = 6, max = 6) String code) {
     }
 
-    /** {@code rematch}: seat the last game's players again (whoever's still in the Huud). */
-    public record AddGameRequest(@NotBlank String gameType, Boolean rematch) {
+    /**
+     * {@code rematch}: seat the last game's players again (whoever's still in the Huud),
+     * in the same mode. {@code mode}: Whot's "classic" (the default) or "tell".
+     */
+    public record AddGameRequest(@NotBlank String gameType, Boolean rematch, String mode) {
     }
 
     /**
@@ -96,11 +100,12 @@ public final class HuudSpaceDtos {
      * Huud isn't being in the game: {@code youArePlaying} says whether you have
      * a seat, {@code seats} how many there are. {@code code} only goes to the
      * players and the host — anyone else watches by {@code roomId}, so the
-     * host's roster can't be skipped.
+     * host's roster can't be skipped. {@code mode}: Whot's "classic" or "tell";
+     * null for every other game.
      */
     public record CurrentGame(UUID roomId, String code, String gameType, String status, int players,
                               int seats, List<UUID> playerIds, boolean youArePlaying, List<UUID> readyIds,
-                              List<Seat> table) {
+                              List<Seat> table, String mode) {
     }
 
     /** Someone at the table — a person from the Huud or a Cyber Agent — and whether they're ready. */

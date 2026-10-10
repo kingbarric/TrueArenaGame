@@ -18,6 +18,7 @@ import 'huud_voice.dart';
 import '../../widgets/mic_button.dart';
 import 'huud_space_models.dart';
 import 'huud_roster.dart';
+import 'whot_mode_sheet.dart';
 import 'safety_sheet.dart';
 import '../../core/keep_awake.dart';
 import '../competitive/player_profile_screen.dart';
@@ -335,8 +336,11 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
   }
 
   Future<void> _pickGame(String gameType) async {
-    final raw =
-        await _run('game-$gameType', (api) => api.post('/huud-spaces/${widget.id}/game', {'gameType': gameType}));
+    // Whot is two games: ask which before anyone is seated.
+    final mode = gameType == 'whot' ? await askWhotMode(context) : null;
+    if (gameType == 'whot' && (mode == null || !mounted)) return;
+    final raw = await _run('game-$gameType',
+        (api) => api.post('/huud-spaces/${widget.id}/game', {'gameType': gameType, if (mode != null) 'mode': mode}));
     if (raw is Map && mounted) {
       await _enterRoom(RoomView.fromJson(raw.cast<String, dynamic>()));
     }
@@ -1256,7 +1260,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
       return _picker(n, huud, title: 'Pick a game to play');
     }
 
-    final name = huudGameName(game.gameType);
+    final name = game.gameType == 'whot' ? whotModeName(game.mode) : huudGameName(game.gameType);
     final h = HuudColors.of(context);
     final (String emoji, String title) = game.playing
         ? ('🔥', '$name is on!')
@@ -1288,7 +1292,13 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         ]),
         if (game.waiting) ...[
           const SizedBox(height: 14),
-          HuudRoster(huud: huud, roomId: game.roomId, seated: game.table, seats: game.seats, onChanged: _load),
+          HuudRoster(
+              huud: huud,
+              roomId: game.roomId,
+              seated: game.table,
+              seats: game.seats,
+              tell: game.tell,
+              onChanged: _load),
         ] else if (players.isNotEmpty && !game.finished) ...[
           const SizedBox(height: 12),
           Row(children: [
@@ -1327,7 +1337,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         const SizedBox(height: 10),
         HuudButton(
           key: const ValueKey('huud-play-again'),
-          label: 'Play $name with new players',
+          label: 'Play ${huudGameName(game.gameType)} with new players',
           icon: Icons.group_add_rounded,
           kind: HuudButtonKind.soft,
           expand: true,

@@ -544,6 +544,28 @@ class HuudSpaceIT {
         assertThat(huuds.view(huud.id(), late).block().currentGame().youArePlaying()).isFalse();
     }
 
+    @Test void whotInAHuudIsClassicOrTheTellAndARematchKeepsTheMode() {
+        UUID host = person("Host");
+        var huud = huuds.create(host, null, "public").block();
+        assertThatThrownBy(() -> huuds.addGame(host, huud.id(), "whot", "bluff", false).block())
+                .isInstanceOf(ResponseStatusException.class);
+
+        var room = huuds.addGame(host, huud.id(), "whot", "tell", false).block();
+        var game = huuds.view(huud.id(), host).block().currentGame();
+        assertThat(game.mode()).isEqualTo("tell");
+        assertThat(game.seats()).isEqualTo(8);
+
+        db.sql("UPDATE rooms SET status='ended' WHERE id=:id").bind("id", room.id()).fetch().rowsUpdated().block();
+        huuds.addGame(host, huud.id(), "whot", true).block();
+        assertThat(huuds.view(huud.id(), host).block().currentGame().mode()).isEqualTo("tell");
+
+        huuds.clearGame(host, huud.id()).block();
+        huuds.addGame(host, huud.id(), "whot").block();
+        game = huuds.view(huud.id(), host).block().currentGame();
+        assertThat(game.mode()).isEqualTo("classic");
+        assertThat(game.seats()).isEqualTo(4);
+    }
+
     @Test void textPostsGoToFriendsOnlyAndCanBeReportedAndTakenDown() {
         UUID me = person("Me"), friend = person("Friend"), stranger = person("Stranger");
         befriend(me, friend);

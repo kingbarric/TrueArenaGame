@@ -104,6 +104,12 @@ animates that recycle and displays the real market/discard counts.
 - The Whot lobby needs a **Classic / The Tell** mode choice. Classic preserves
   the existing 2–20 player flow; The Tell accepts only 4, 6, or 8 players and
   opens its team/signal setup before cards are dealt.
+- In a Huud, picking Whot (from the game grid, "Play Whot with new players",
+  or a new Huud's first game) asks **Which Whot?** with a short briefing of
+  each mode before anyone is seated. `POST /huud-spaces/{id}/game` takes
+  `mode` (`classic` default, `tell`); the Huud's current game reports it, The
+  Tell gets 8 seats, a rematch keeps the mode, Cyber Agents can't be added, and
+  the lobby's Start waits for 4, 6 or 8 people.
 - Reuse the current Whot deck, `WhotConfig` house rules, card legality,
   special-card effects, draw/market behaviour, and private-hand snapshots.
   Add The Tell's mode config and team/tournament state around these rules.

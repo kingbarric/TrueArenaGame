@@ -19,6 +19,7 @@ import '../ludo/ludo_game_screen.dart';
 import '../wordbluff/wordbluff_game_screen.dart';
 import '../huudspace/huud_roster.dart';
 import '../huudspace/huud_space_models.dart';
+import '../huudspace/whot_mode_sheet.dart';
 import '../../widgets/lobby_start_bar.dart';
 
 /// The lobby for a room this device *joined* rather than created — same live
@@ -285,6 +286,7 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
                             ready: m.ready),
                     ],
                     seats: _huud!.currentGame?.seats ?? _room.members.length,
+                    tell: _huud!.currentGame?.tell ?? false,
                     onChanged: () {
                       _socket?.send('HELLO', {'lastSeq': 0});
                       _loadHuud();
@@ -431,13 +433,20 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
   Widget _bottomBar() {
     final n = context.neon;
     final isHost = _room.hostId == _selfId();
+    // The Tell can only start with pairs of people.
+    final tellProblem = _huud?.currentGame?.tell == true
+        ? tellStartProblem(_room.members.where((m) => !m.isBot).length, _room.members.where((m) => m.isBot).length)
+        : null;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
       decoration: BoxDecoration(
           color: n.panel, border: Border(top: BorderSide(color: n.line))),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         // One big Start for the host; nobody has to "ready up".
-        LobbyStartBar(isHost: isHost, onStart: () => _socket?.send('GAME_START')),
+        LobbyStartBar(
+            isHost: isHost,
+            onStart: tellProblem == null ? () => _socket?.send('GAME_START') : null,
+            hint: tellProblem),
       ]),
     );
   }

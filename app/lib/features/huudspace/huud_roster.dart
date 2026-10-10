@@ -20,8 +20,12 @@ class HuudRoster extends StatefulWidget {
     required this.roomId,
     required this.seated,
     required this.seats,
+    this.tell = false,
     this.onChanged,
   });
+
+  /// Whot's The Tell: pairs of people only, so no Cyber Agents.
+  final bool tell;
 
   final HuudSpace huud;
   final String roomId;
@@ -170,6 +174,16 @@ class _HuudRosterState extends State<HuudRoster> {
               ? 'Tap people to choose who plays. Everyone else watches and chats.'
               : 'The host picks who plays. Everyone else watches and chats.',
           style: TextStyle(fontSize: 14, color: n.mid)),
+      if (widget.tell) ...[
+        const SizedBox(height: 8),
+        Container(
+          key: const ValueKey('roster-tell-note'),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          decoration: BoxDecoration(color: h.orangeSoft, borderRadius: BorderRadius.circular(14)),
+          child: Text('🤫 The Tell · teams of two · 4, 6 or 8 players · people only',
+              style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: h.orangeText)),
+        ),
+      ],
       const SizedBox(height: 12),
       for (final p in people)
         Builder(builder: (context) {
@@ -205,7 +219,7 @@ class _HuudRosterState extends State<HuudRoster> {
           onTap: host ? () => _removeAgent(b) : null,
           busy: _busy == 'p-${b.userId}',
         ),
-      if (host && !full)
+      if (host && !full && !widget.tell)
         Padding(
           padding: const EdgeInsets.only(top: 4),
           child: HuudButton(

@@ -22,6 +22,8 @@ import 'package:truearena/widgets/talking_row.dart';
 import 'package:truearena/widgets/mic_button.dart';
 import 'package:truearena/widgets/gift_splash.dart';
 import 'package:truearena/features/huudspace/huud_link.dart';
+import 'package:truearena/features/huudspace/whot_mode_sheet.dart';
+import 'package:truearena/widgets/neon.dart';
 import 'dart:async';
 import 'package:truearena/theme/neon_theme.dart';
 
@@ -256,9 +258,47 @@ void main() {
     }
     expect(find.byKey(const ValueKey('huud-leave')), findsNothing);
 
+    // Whot first asks which one — Classic or The Tell — with a briefing of each.
     await tester.tap(find.byKey(const ValueKey('huud-pick-whot')));
+    await tester.pumpAndSettle();
+    expect(find.text('Which Whot?'), findsOneWidget);
+    expect(find.text('The Whot you know — everyone for themselves.'), findsOneWidget);
+    expect(find.text('Team Whot with a secret signal.'), findsOneWidget);
+    expect(calls.where((c) => c.startsWith('POST /api/v1/huud-spaces/h1/game')), isEmpty);
+    await tester.ensureVisible(find.byKey(const ValueKey('whot-mode-tell')));
+    await tester.tap(find.byKey(const ValueKey('whot-mode-tell')));
     await tester.pump();
-    expect(calls, contains('POST /api/v1/huud-spaces/h1/game {"gameType":"whot"}'));
+    expect(calls, contains('POST /api/v1/huud-spaces/h1/game {"gameType":"whot","mode":"tell"}'));
+  });
+
+  testWidgets('closing the Whot question picks nothing; other games need no question', (tester) async {
+    final calls = await pump(
+        tester,
+        const HuudSpaceScreen(id: 'h1'),
+        (r) async => r.url.path == '/api/v1/huud-spaces/h1/game'
+            ? _json({
+                'id': 'room1',
+                'code': 'AB12CD',
+                'hostId': 'me',
+                'status': 'lobby',
+                'gameType': 'draughts',
+                'stakeCoins': 0,
+                'createdAt': DateTime.now().toUtc().toIso8601String(),
+                'members': <dynamic>[],
+                'ranked': false,
+              })
+            : _json(_huud()));
+    await tester.tap(find.byKey(const ValueKey('huud-pick-whot')));
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(20, 20)); // the scrim
+    await tester.pumpAndSettle();
+    expect(find.text('Which Whot?'), findsNothing);
+    expect(calls.where((c) => c.startsWith('POST /api/v1/huud-spaces/h1/game')), isEmpty);
+
+    await tester.tap(find.byKey(const ValueKey('huud-pick-draughts')));
+    await tester.pump();
+    expect(find.text('Which Whot?'), findsNothing);
+    expect(calls, contains('POST /api/v1/huud-spaces/h1/game {"gameType":"draughts"}'));
   });
 
   testWidgets('inside: a member waits for the host, then can join the game the host picked', (tester) async {
@@ -568,10 +608,14 @@ void main() {
     await tester.enterText(find.byKey(const ValueKey('huud-share-message')), 'Who wants to play Whot?');
     await tester.tap(find.byKey(const ValueKey('huud-create')));
     await tester.pumpAndSettle();
+    // Whot came already picked, so which Whot is asked before the Huud is made.
+    expect(find.text('Which Whot?'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('whot-mode-classic')));
+    await tester.pumpAndSettle();
     expect(
         calls,
         contains('POST /api/v1/huud-spaces {"name":"Eric\'s Huud","privacy":"friends","gameType":"whot",'
-            '"share":true,"message":"Who wants to play Whot?"}'));
+            '"mode":"classic","share":true,"message":"Who wants to play Whot?"}'));
   });
 
   test('the call bar says who is talking in plain words', () {
@@ -761,6 +805,67 @@ void main() {
     expect(find.text('Ready up'), findsNothing);
     expect(find.byKey(const ValueKey('lobby-start')), findsOneWidget);
     expect(find.text('Start game'), findsOneWidget);
+  });
+
+  testWidgets('The Tell in a Huud: its name on the card, pairs of people only, Start waits for 4, 6 or 8',
+      (tester) async {
+    await pump(
+        tester,
+        const HuudSpaceScreen(id: 'h1'),
+        (r) async => _json(_huud(game: {
+              'roomId': 'room1',
+              'code': 'AB12CD',
+              'gameType': 'whot',
+              'mode': 'tell',
+              'status': 'waiting',
+              'players': 2,
+              'seats': 8,
+              'playerIds': ['me', 'ada'],
+              'youArePlaying': true,
+              'table': [
+                {'userId': 'me', 'displayName': 'Eric', 'bot': false, 'ready': false},
+                {'userId': 'ada', 'displayName': 'Ada Obi', 'bot': false, 'ready': false},
+              ],
+            })));
+    expect(find.text('Get ready for Whot · The Tell'), findsOneWidget);
+    await tester.drag(find.byType(CustomScrollView).first, const Offset(0, -400));
+    await tester.pumpAndSettle();
+    expect(find.text('2 / 8 playing'), findsOneWidget);
+    expect(find.byKey(const ValueKey('roster-tell-note')), findsOneWidget);
+    expect(find.byKey(const ValueKey('roster-add-agent')), findsNothing);
+
+    await pump(
+        tester,
+        const JoinedRoomScreen(
+            room: RoomView(id: 'room1', code: 'AB12CD', hostId: 'me', status: 'lobby', gameType: 'whot', members: [
+          RoomMember(userId: 'me', nickname: 'Eric', ready: false, connected: true),
+          RoomMember(userId: 'ada', nickname: 'Ada', ready: false, connected: true),
+        ])),
+        (r) async => r.url.path == '/api/v1/huud-spaces/by-room/room1'
+            ? _json(_huud(game: {
+                'roomId': 'room1',
+                'gameType': 'whot',
+                'mode': 'tell',
+                'status': 'waiting',
+                'players': 2,
+                'seats': 8
+              }))
+            : http.Response('', 200),
+        settle: false);
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.text('The Tell needs 4, 6 or 8 players — teams of two'), findsOneWidget);
+    final start = tester.widget<NeonButton>(find.byKey(const ValueKey('lobby-start')));
+    expect(start.onPressed, isNull);
+  });
+
+  test('The Tell starts only with 4, 6 or 8 people', () {
+    expect(tellStartProblem(4, 0), isNull);
+    expect(tellStartProblem(6, 0), isNull);
+    expect(tellStartProblem(8, 0), isNull);
+    expect(tellStartProblem(5, 0), isNotNull);
+    expect(tellStartProblem(4, 1), contains('Cyber Agents'));
   });
 
   testWidgets('a picked player is told to open the game', (tester) async {
