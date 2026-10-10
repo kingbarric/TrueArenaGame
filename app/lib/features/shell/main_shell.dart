@@ -88,7 +88,7 @@ class _MainShellState extends State<MainShell> {
     'invited': "You're invited to a Huud!",
     'request': 'Someone is asking you something in your Huud ✋',
     'accepted-join': "You're in! The host let you into the Huud",
-    'picked': "You're picked to play! Open the Huud and press Ready 🎮",
+    'picked': "You're picked to play! Open the Huud 🎮",
     'live': 'A Huud you\'re in just went Live! 🔴',
   };
 

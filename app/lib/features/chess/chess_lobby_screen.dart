@@ -7,7 +7,6 @@ import '../../core/app_state.dart';
 import '../../core/game_socket.dart';
 import '../../core/models.dart';
 import '../../widgets/pending_huud.dart';
-import '../../widgets/cancel_huud_button.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/copyable_huud_code.dart';
 import '../../widgets/cyber_agent_sheet.dart';
@@ -16,6 +15,7 @@ import '../../widgets/neon.dart';
 import '../../widgets/stake_picker_sheet.dart';
 import '../../widgets/watching_eye.dart';
 import 'chess_game_screen.dart';
+import '../../widgets/lobby_start_bar.dart';
 
 /// A chess time control: minutes on each clock plus seconds added per move.
 class ChessTimeControl {
@@ -51,7 +51,6 @@ class ChessLobbyScreen extends StatefulWidget {
 class _ChessLobbyScreenState extends State<ChessLobbyScreen> {
   RoomView? _room;
   String? _error;
-  bool _ready = false;
   ChessTimeControl _control = chessTimeControls[3];
   int _spectatorCount = 0;
   bool _addingBot = false;
@@ -178,8 +177,6 @@ class _ChessLobbyScreenState extends State<ChessLobbyScreen> {
         stakeCoins: _room?.stakeCoins ?? 0,
       );
       _spectatorCount = p['spectatorCount'] as int? ?? _spectatorCount;
-      final me = members.where((m) => m.userId == _app.user?.id);
-      if (me.isNotEmpty) _ready = me.first.ready;
     });
   }
 
@@ -286,7 +283,6 @@ class _ChessLobbyScreenState extends State<ChessLobbyScreen> {
                           style: t.labelSmall
                               ?.copyWith(color: n.mute, letterSpacing: 2)),
                       const SizedBox(height: 4),
-                      CancelHuudButton(room: room),
                       CopyableHuudCode(
                         code: room.code,
                         child: Text(room.code,
@@ -367,23 +363,7 @@ class _ChessLobbyScreenState extends State<ChessLobbyScreen> {
           ),
           const SizedBox(height: 6),
         ],
-        Row(children: [
-          Expanded(
-            child: NeonButton(
-              _ready ? 'Ready ✓' : 'Ready up',
-              style: NeonStyle.gold,
-              onPressed: () {
-                final next = !_ready;
-                setState(() => _ready = next);
-                _socket?.send('READY_SET', {'ready': next});
-              },
-            ),
-          ),
-          if (isHost) ...[
-            const SizedBox(width: 8),
-            Expanded(child: NeonButton('Start', onPressed: () => _start(room))),
-          ],
-        ]),
+        LobbyStartBar(isHost: isHost, onStart: () => _start(room)),
       ]),
     );
   }

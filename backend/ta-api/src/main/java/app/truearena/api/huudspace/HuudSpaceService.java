@@ -982,7 +982,7 @@ public class HuudSpaceService {
             "accepted-join", "You're in {huud}! 🎉",
             "accepted-play", "You're in the game in {huud}! 🎮",
             "accepted-mic", "You can talk in {huud} now 🎙️",
-            "picked", "{by} picked you to play in {huud}! Tap to get ready 🎮");
+            "picked", "{by} picked you to play in {huud}! Tap to jump in 🎮");
     // "live" is pushed by announceLive, which knows the game and the host's choice.
 
     private void pushWhenAway(UUID user, UUID id, String event, UUID by) {

@@ -6,13 +6,13 @@ import '../../core/api_client.dart';
 import '../../core/game_socket.dart';
 import '../../core/models.dart';
 import '../../widgets/pending_huud.dart';
-import '../../widgets/cancel_huud_button.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/invite_players_sheet.dart';
 import '../../widgets/copyable_huud_code.dart';
 import '../../widgets/cyber_agent_sheet.dart';
 import '../../widgets/neon.dart';
 import 'whot_game_screen.dart';
+import '../../widgets/lobby_start_bar.dart';
 
 class WhotLobbyScreen extends StatefulWidget {
   const WhotLobbyScreen({super.key});
@@ -447,7 +447,6 @@ class _WhotLobbyScreenState extends State<WhotLobbyScreen> {
 
   Widget _roomLobby(BuildContext context, RoomView room) {
     final self = AppScope.of(context).user?.id;
-    final me = room.members.where((m) => m.userId == self).firstOrNull;
     final count = room.members.length;
     return ListView(padding: const EdgeInsets.all(16), children: [
       if (_error != null) ...[
@@ -503,9 +502,7 @@ class _WhotLobbyScreenState extends State<WhotLobbyScreen> {
             subtitle: Text(member.userId == room.hostId ? 'Host' : 'Player'),
             trailing: Text(!member.isBot && !member.connected
                 ? 'Away'
-                : member.ready
-                    ? 'Ready ✓'
-                    : 'Waiting')),
+                : 'Here')),
       const SizedBox(height: 12),
       if (!_connected) NeonButton('Reconnect', onPressed: _connect),
       if (_connected) ...[
@@ -519,25 +516,18 @@ class _WhotLobbyScreenState extends State<WhotLobbyScreen> {
           NeonButton(_addingBot ? 'Adding Cyber Agent…' : 'Add Cyber Agent',
               style: NeonStyle.ghost, onPressed: _addingBot ? null : _addBot),
         ],
-        const SizedBox(height: 8),
-        NeonButton(me?.ready == true ? 'Ready ✓' : 'Ready up',
-            style: NeonStyle.ghost,
-            onPressed: () =>
-                _socket!.send('READY_SET', {'ready': !(me?.ready ?? false)})),
-        const SizedBox(height: 8),
-        if (room.hostId == self)
-          NeonButton('Start game',
-              onPressed: (_mode == 'tell'
-                      ? const [4, 6, 8].contains(count)
-                      : count >= 2 && count <= 20)
-                  ? () => _socket!.send('GAME_START')
-                  : null),
-        if (count < (_mode == 'tell' ? 4 : 2))
-          Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: Text(_mode == 'tell'
+        const SizedBox(height: 12),
+        LobbyStartBar(
+          isHost: room.hostId == self,
+          onStart: (_mode == 'tell' ? const [4, 6, 8].contains(count) : count >= 2 && count <= 20)
+              ? () => _socket!.send('GAME_START')
+              : null,
+          hint: count < (_mode == 'tell' ? 4 : 2)
+              ? (_mode == 'tell'
                   ? 'Invite players until you have 4, 6, or 8.'
-                  : 'Invite at least one more player to start.')),
+                  : 'Invite at least one more player to start.')
+              : null,
+        ),
       ],
     ]);
   }
@@ -547,7 +537,6 @@ class _WhotLobbyScreenState extends State<WhotLobbyScreen> {
     final room = _room;
     return Scaffold(
       appBar: AppBar(actions: [
-        if (_room != null) CancelHuudButton(room: _room!)
       ], title: Text(room == null ? 'Whot · Open a huud' : 'Whot · Your huud')),
       body: SafeArea(
           child: room == null

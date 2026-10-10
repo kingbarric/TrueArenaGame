@@ -155,8 +155,7 @@ class _HuudRosterState extends State<HuudRoster> {
           ),
         );
 
-    String seatStatus(HuudSeat seat) =>
-        seat.ready ? '✅ Ready' : (seat.userId == hostId ? '👑 Host' : '⏳ Not ready yet');
+    String seatStatus(HuudSeat seat) => seat.userId == hostId ? '👑 Host' : '🎮 Playing';
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Row(children: [
@@ -183,7 +182,7 @@ class _HuudRosterState extends State<HuudRoster> {
             name: p.userId == _me ? 'You' : p.handle,
             // Not playing: in the Huud right now, or not.
             status: playing ? seatStatus(seat) : (p.here ? '🟢 Active' : '🌙 Away'),
-            statusColor: playing ? (seat.ready ? h.live : n.mid) : (p.here ? h.live : n.mute),
+            statusColor: playing ? h.orangeText : (p.here ? h.live : n.mute),
             playing: playing,
             onTap: canToggle ? () => _toggle(p, playing) : null,
             busy: _busy == 'p-${p.userId}',
@@ -200,7 +199,7 @@ class _HuudRosterState extends State<HuudRoster> {
             child: const Text('🤖', style: TextStyle(fontSize: 20)),
           ),
           name: '${b.handle} (Cyber Agent)',
-          status: '✅ Ready',
+          status: '🎮 Playing',
           statusColor: h.live,
           playing: true,
           onTap: host ? () => _removeAgent(b) : null,

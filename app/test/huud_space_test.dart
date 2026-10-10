@@ -705,7 +705,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text("Who's playing?"), findsOneWidget);
     expect(find.text('2 / 4 playing'), findsOneWidget);
-    expect(find.text('✅ Ready'), findsOneWidget);
+    expect(find.text('🎮 Playing'), findsOneWidget); // Ada — nobody has to ready up any more
     expect(find.text('👑 Host'), findsOneWidget);
     expect(find.text('🟢 Active'), findsOneWidget); // Chidi, in the Huud but not playing
     expect(find.byKey(const ValueKey('huud-add-players')), findsNothing);
@@ -753,11 +753,13 @@ void main() {
     expect(find.text('AB12CD'), findsNothing);
     expect(find.text('🟢 Active'), findsOneWidget); // Ada is here
     expect(find.text('🌙 Away'), findsOneWidget); // Chidi isn't
-    expect(find.text('Ready up'), findsOneWidget);
-    expect(find.text('Start'), findsOneWidget);
+    // No Cancel, no Ready up — one big Start game for the host.
+    expect(find.text('Ready up'), findsNothing);
+    expect(find.byKey(const ValueKey('lobby-start')), findsOneWidget);
+    expect(find.text('Start game'), findsOneWidget);
   });
 
-  testWidgets('a picked player is told to open the game and ready up', (tester) async {
+  testWidgets('a picked player is told to open the game', (tester) async {
     await pump(
         tester,
         const HuudSpaceScreen(id: 'h1'),
@@ -776,7 +778,7 @@ void main() {
                 {'userId': 'me', 'displayName': 'Eric', 'ready': false},
               ],
             })));
-    expect(find.text('Open the game & ready up'), findsOneWidget);
+    expect(find.text('Open the game'), findsOneWidget);
     expect(find.byKey(const ValueKey('huud-add-players')), findsNothing);
     expect(find.byKey(const ValueKey('unseat-ada')), findsNothing);
   });

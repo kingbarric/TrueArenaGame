@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 import '../../core/app_state.dart';
 import '../../core/game_socket.dart';
 import '../../core/models.dart';
-import '../../widgets/cancel_huud_button.dart';
 import '../../widgets/pending_huud.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/neon.dart';
@@ -20,6 +19,7 @@ import '../ludo/ludo_game_screen.dart';
 import '../wordbluff/wordbluff_game_screen.dart';
 import '../huudspace/huud_roster.dart';
 import '../huudspace/huud_space_models.dart';
+import '../../widgets/lobby_start_bar.dart';
 
 /// The lobby for a room this device *joined* rather than created — same live
 /// roster/ready/socket wiring as `LobbyScreen`/`WordBluffLobbyScreen`, but
@@ -40,7 +40,6 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
   StreamSubscription? _sub;
   bool _handedOff = false;
   String _gameMode = 'relay';
-  bool _ready = false;
   late AppState _app;
 
   /// The Huud this game belongs to, if any — then everyone in the Huud is
@@ -152,8 +151,6 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
         gameType: _room.gameType,
         members: members,
       );
-      final me = _room.members.where((m) => m.userId == _selfId());
-      if (me.isNotEmpty) _ready = me.first.ready;
     });
   }
 
@@ -249,7 +246,6 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
           _ => 'Traitors',
         }),
         actions: [
-          CancelHuudButton(room: _room),
           if (_huud == null)
             IconButton(
               tooltip: 'Copy code',
@@ -269,7 +265,7 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
                 ? _gameMode == 'oware'
                     ? 'OWARE ABAPA  •  CAPTURE 2 OR 3  •  WAITING ON HOST'
                     : 'RELAY FOUR  •  COLLECT FOUR  •  WAITING ON HOST'
-                : 'YOU\'RE IN  •  READY UP  •  WAITING ON THE HOST TO START'),
+                : 'YOU\'RE IN  •  WAITING ON THE HOST TO START'),
             if (_huud != null)
               Expanded(
                 child: SingleChildScrollView(
@@ -364,7 +360,7 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
     final n = context.neon;
     final isHost = m.userId == hostId;
     final away = !m.isBot && !m.connected;
-    final ringColor = away ? kCabinetInk : (m.ready ? n.jade : n.mute);
+    final ringColor = away ? kCabinetInk : n.jade;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -377,7 +373,7 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(color: ringColor, width: away ? 1.6 : 2.6),
-                boxShadow: !away && m.ready
+                boxShadow: !away
                     ? [
                         BoxShadow(
                             color: n.jade.withValues(alpha: 0.38),
@@ -413,12 +409,12 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: away ? n.mute : n.ink, fontWeight: FontWeight.w700)),
         const SizedBox(height: 2),
-        Text(away ? 'AWAY' : (m.ready ? 'READY' : 'WAITING'),
+        Text(away ? 'AWAY' : 'HERE',
             style: TextStyle(
                 fontSize: 8,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.8,
-                color: away ? n.mute : (m.ready ? n.jade : n.mute))),
+                color: away ? n.mute : n.jade)),
       ],
     );
   }
@@ -435,40 +431,13 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
   Widget _bottomBar() {
     final n = context.neon;
     final isHost = _room.hostId == _selfId();
-    final readyCount = _room.members.where((m) => m.ready).length;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
       decoration: BoxDecoration(
           color: n.panel, border: Border(top: BorderSide(color: n.line))),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 6),
-          child: Text('$readyCount of ${_room.members.length} ready',
-              style: Theme.of(context)
-                  .textTheme
-                  .labelSmall
-                  ?.copyWith(color: n.mute, fontWeight: FontWeight.w700)),
-        ),
-        Row(children: [
-          Expanded(
-            child: NeonButton(
-              _ready ? 'Ready ✓' : 'Ready up',
-              style: NeonStyle.ghost,
-              onPressed: () {
-                final next = !_ready;
-                setState(() => _ready = next);
-                _socket?.send('READY_SET', {'ready': next});
-              },
-            ),
-          ),
-          // Reopening a waiting Huud restores the saved creator’s Start control.
-          if (isHost) ...[
-            const SizedBox(width: 8),
-            Expanded(
-                child: NeonButton('Start',
-                    onPressed: () => _socket?.send('GAME_START'))),
-          ],
-        ]),
+        // One big Start for the host; nobody has to "ready up".
+        LobbyStartBar(isHost: isHost, onStart: () => _socket?.send('GAME_START')),
       ]),
     );
   }

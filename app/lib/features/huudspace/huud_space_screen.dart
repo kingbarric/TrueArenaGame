@@ -201,7 +201,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
       case 'mic-off':
         huudSnack(context, 'The host turned your mic off.');
       case 'picked':
-        huudSnack(context, "You're playing! Open the game and press Ready 🎮");
+        huudSnack(context, "You're playing! Open the game 🎮");
       case 'unpicked':
         huudSnack(context, 'The host changed the players — you can watch this one.');
       case 'request':
@@ -1350,7 +1350,6 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
             : note('Join the Huud to ask to play'),
       ];
     }
-    final ready = game.readyIds.contains(_me);
     final main = game.youArePlaying
         ? HuudButton(
             key: const ValueKey('huud-open-game'),
@@ -1358,7 +1357,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                 ? 'Back to the game'
                 : huud.youAreHost
                     ? 'Open the game to start'
-                    : (ready ? 'Open the game' : 'Open the game & ready up'),
+                    : 'Open the game',
             icon: Icons.sports_esports_rounded,
             big: true,
             expand: true,
@@ -1389,8 +1388,8 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                         onPressed: _askToPlay,
                       );
     return [
-      if (game.youArePlaying && game.waiting && !huud.youAreHost && ready) ...[
-        note('You\'re ready ✅ — waiting for ${huud.host?.handle ?? 'the host'} to start'),
+      if (game.youArePlaying && game.waiting && !huud.youAreHost) ...[
+        note('You\'re playing 🎮 — waiting for ${huud.host?.handle ?? 'the host'} to start'),
         const SizedBox(height: 10),
       ],
       main,

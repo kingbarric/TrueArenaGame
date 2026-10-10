@@ -17,7 +17,6 @@ import '../../widgets/turn_ring.dart';
 import '../../widgets/table_chat.dart';
 import '../onboarding/guest_save_session_card.dart';
 import '../status/victory_status.dart';
-import '../../widgets/var_tv_icon.dart';
 import 'chess_piece.dart';
 import 'chess_var.dart';
 import 'chess_view.dart';
