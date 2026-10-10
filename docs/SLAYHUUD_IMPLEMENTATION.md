@@ -295,3 +295,9 @@ Added five female shoe options: Mary Jane Heels, Stiletto Ankle Boots, Ballet Fl
 Equipped shoes, shirts and tops offer twelve colour swatches plus Original colour. `Look.itemColours` records palette names keyed by wardrobe category, travels in the existing saved-look JSON, and replays with the runway avatar. Legacy looks load with an empty map. Replacing/removing a garment clears only that garment’s override. The renderer dyes fabric luminance in its material shader without duplicating textures or touching the body; resetting restores the original textured material. The backend validates allowed categories and palette names and uses the selected colours when judging palette coordination.
 
 Verification: 46 Flutter tests, 47 renderer tests (including all five shoes through three runway finishes), 16 backend tests, Flutter analysis and renderer build. Asset delivery: 104 GLBs valid; 55 future catalogue placeholders skipped, 18 soft size-budget warnings. Simulator preview rebuilt; final interactive check requires the Mac to be unlocked.
+
+### Tube-top coverage repair — 10 October 2026
+
+Colour Pop Tube Top and Warm Colour Pop Top used a source mesh authored on a shorter, narrower body. In the starter avatar they sat below the chest and inside the skin, while choosing a top correctly replaced the previous dress and hid the starter bra. Both exports now fit the chest before rig weights are assigned, with a deeper back panel and a conservative body mask for the covered chest band. Bare shoulders and midriff remain visible; briefs remain visible when no bottom is equipped. Catalogue version 17 invalidates cached models and thumbnails.
+
+Both variants were rendered from the front/back with the real avatar and coverage masks. The renderer’s 49 tests pass, including new ray checks that fabric covers chest/back samples in every pose, exposed midriff is retained and removing the top restores body and underwear. Renderer build passes.

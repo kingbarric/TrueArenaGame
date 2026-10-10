@@ -172,6 +172,20 @@ function convert({id, body, obj, texture, isAvatar, options = {}}) {
   let mesh = parseObj(resolve(source, obj), [0, isHair ? headOffset : options.eyes ? eyeOffset * scale : 0, options.eyes ? -.20 * scale : 0], sockIsland);
   if (options.crop) mesh = clipMesh(mesh, [p => p[1] - options.crop]);
   if (options.upperCrop) mesh = clipMesh(mesh, [p => options.upperCrop - p[1]]);
+  if (options.tubeTop) {
+    // This source was authored on a shorter, narrower body. Fit the bust band
+    // to female1605 before calculating weights; otherwise it sits inside the
+    // abdomen while the studio hides the starter bra.
+    for (let i=0;i<mesh.position.length;i+=3) {
+      mesh.position[i] *= 1.25;
+      mesh.position[i+1] += .30;
+      const z=mesh.position[i+2];
+      mesh.position[i+2] = z * 1.4 + .022 - .06 * Math.max(0, Math.min(1, 1-z/.1));
+      mesh.normal[i] /= 1.25; mesh.normal[i+2] /= 1.4;
+      const length=Math.hypot(...mesh.normal.slice(i,i+3)) || 1;
+      for (let axis=0;axis<3;axis++) mesh.normal[i+axis] /= length;
+    }
+  }
   if (id === 'male-tee-polo') {
     // This community shirt was authored on a shorter shoulder line.
     // Lift its collar/shoulders, leaving its hem at the fitted waist.
@@ -312,6 +326,15 @@ function convert({id, body, obj, texture, isAvatar, options = {}}) {
         const crop = assets[item][3]?.crop;
         return !crop || [0,3,6].every(v => rawRegion.position[triangle * 9 + v + 1] >= crop - .006);
       })])) : {};
+    if (name === 'region_torso') for (const [item, asset] of Object.entries(assets)) {
+      if (!asset[3]?.tubeTop) continue;
+      // The source has no authored delete_verts. Mask only fully covered
+      // chest-band faces, retaining the bare shoulders and midriff.
+      for (let i=0;i<rawRegion.position.length;i+=9)
+        if ([0,3,6].every(v => rawRegion.position[i+v+1] > 1.245 &&
+            rawRegion.position[i+v+1] < 1.405 && Math.abs(rawRegion.position[i+v]) < .165))
+          masks[item].push(i/9);
+    }
     if (name.startsWith('region_')) for (const [item, [hem, waist]] of Object.entries(bottomBounds)) {
       masks[item] ??= [];
       // Mask complete triangles inside trousers, preserving bare ankles and

@@ -1,10 +1,11 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {AnimationMixer, Bone, Group, SkinnedMesh, Vector3} from 'three';
+import {AnimationMixer, Bone, Group, SkinnedMesh, Vector3, Raycaster} from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {presentUnderwear, presentBody} from '../src/presentation.ts';
 import {bindGarment} from '../src/rig.ts';
+import {applyPose} from '../src/poses.ts';
 import {Showcase, SHOWCASE_SECONDS} from '../src/showcase.ts';
 import {coverBody} from '../src/coverage.ts';
 import {clipMesh} from '../scripts/clip-mesh.mjs';
@@ -99,4 +100,40 @@ test('shorts and cropped tops mask covered skin while preserving exposed legs an
   assert.ok(originalTorso.some(i => p.getY(i) > 1.07 && p.getY(i) < 1.17 && remaining.has(i)), 'bare midriff remains visible');
   assert.ok(torso.geometry.index.count < originalTorso.length, 'top has a real coverage mask');
   coverBody(scene, []); assert.deepEqual(Array.from(torso.geometry.index.array), originalTorso);
+});
+
+for (const variant of [4,10]) test(`tube top ${variant} covers the chest and back through every pose`,async()=>{
+  const avatar=await load('female'),garment=await load(`female-tops-collection-${variant}`),root=new Group();
+  root.add(avatar.scene,garment.scene);root.updateMatrixWorld(true);
+  const bones=new Map();avatar.scene.traverse(o=>{if(o instanceof Bone)bones.set(o.name,o);});
+  bindGarment(garment.scene,bones);
+  const torso=avatar.scene.getObjectByName('region_torso'),positions=torso.geometry.getAttribute('position');
+  const original=Array.from(torso.geometry.index.array),id=`female-tops-collection-${variant}`;
+  coverBody(avatar.scene,[id]);presentUnderwear(avatar.scene,new Set(['tops']));
+  assert.ok(torso.geometry.index.count<original.length,'tube band must mask covered skin');
+  assert.equal(avatar.scene.getObjectByName('starter_bra').visible,false);
+  assert.equal(avatar.scene.getObjectByName('starter_briefs').visible,true,'changing from a dress retains briefs');
+  const exposed=new Set(torso.geometry.index.array);
+  assert.ok(original.some(i=>positions.getY(i)>1.1 && positions.getY(i)<1.19 && exposed.has(i)),'midriff remains visible');
+  const samples=[];
+  for(let i=0;i<positions.count;i++) {
+    const p=new Vector3().fromBufferAttribute(positions,i);
+    if(p.y>1.27 && p.y<1.38 && Math.abs(p.x)<.1 && (p.z>.11 || p.z<-.018))samples.push({index:i,side:p.z>0?1:-1});
+  }
+  assert.ok(samples.some(s=>s.side===1)&&samples.some(s=>s.side===-1));
+  const mixer=new AnimationMixer(avatar.scene),ray=new Raycaster();
+  for(const pose of catalog.poses) {
+    applyPose(mixer,avatar.animations,pose);root.updateMatrixWorld(true);
+    torso.skeleton.update();garment.scene.traverse(o=>{if(o instanceof SkinnedMesh)o.skeleton.update();});
+    for(const sample of samples){
+      const point=torso.applyBoneTransform(sample.index,new Vector3().fromBufferAttribute(positions,sample.index)).applyMatrix4(torso.matrixWorld);
+      const outward=new Vector3(0,0,sample.side).transformDirection(bones.get('Chest').matrixWorld);
+      ray.set(point.clone().addScaledVector(outward,.5),outward.clone().negate());
+      const hit=ray.intersectObject(garment.scene,true)[0];
+      assert.ok(hit && hit.distance<.5, `${id}/${pose}: fabric must cover ${sample.side===1?'chest':'back'} (${hit?.distance})`);
+    }
+  }
+  coverBody(avatar.scene,[]);presentUnderwear(avatar.scene,new Set());
+  assert.deepEqual(Array.from(torso.geometry.index.array),original);
+  assert.equal(avatar.scene.getObjectByName('starter_bra').visible,true);
 });
