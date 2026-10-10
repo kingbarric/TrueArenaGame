@@ -233,7 +233,7 @@ class _GameScreenState extends State<GameScreen> {
         _applyEvent((env['payload'] as Map).cast<String, dynamic>());
       case 'ERROR':
         final msg = (env['payload'] as Map)['message']?.toString() ??
-            'something went wrong';
+            'Error has occurred, try again later.';
         _actionLocked = false;
         if (mounted) {
           ScaffoldMessenger.of(context)

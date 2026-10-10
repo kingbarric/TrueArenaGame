@@ -87,7 +87,7 @@ void main() {
 
     for (final theme in [NeonTheme.nebulaDark, NeonTheme.nebulaLight]) {
       await show(theme);
-      expect(find.byType(NeonCard), findsNWidgets(7));
+      expect(find.byType(NeonCard), findsNWidgets(8));
       final tile = tester.widget<AnimatedContainer>(find
           .descendant(
             of: find.byType(NeonCard).first,
@@ -99,7 +99,7 @@ void main() {
 
     for (final theme in [NeonTheme.supercarDark, NeonTheme.supercarLight]) {
       await show(theme);
-      expect(find.byType(NeonCard), findsNWidgets(7));
+      expect(find.byType(NeonCard), findsNWidgets(8));
       final tile = tester.widget<AnimatedContainer>(find
           .descendant(
             of: find.byType(NeonCard).first,

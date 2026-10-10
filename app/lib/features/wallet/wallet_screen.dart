@@ -54,7 +54,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 child: Padding(
                   padding: const EdgeInsets.all(24),
                   child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    Text('Could not load your wallet', style: TextStyle(color: n.mid)),
+                    Text('Error has occurred, try again later.', style: TextStyle(color: n.mid)),
                     const SizedBox(height: 12),
                     NeonButton('Retry', style: NeonStyle.ghost, expand: false, onPressed: _load),
                   ]),

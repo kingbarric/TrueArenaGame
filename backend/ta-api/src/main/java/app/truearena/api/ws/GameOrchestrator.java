@@ -1856,7 +1856,7 @@ public class GameOrchestrator {
     }
 
     private Mono<Void> tellError(RoomRuntime rt, String userId, String code, String message) {
-        rt.tellUser(userId, Envelope.of(MessageType.ERROR, Map.of("code", code, "message", message == null ? "" : message)));
+        rt.tellUser(userId, Envelope.of(MessageType.ERROR, Map.of("code", code, "message", app.truearena.api.support.PublicErrorAdvice.MESSAGE)));
         return Mono.empty();
     }
 

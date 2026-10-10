@@ -41,7 +41,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.send_rounded));
     await tester.pumpAndSettle();
     expect(find.text('Hello friend'), findsOneWidget);
-    expect(find.text('Offline'), findsOneWidget);
+    expect(find.text(userErrorMessage), findsOneWidget);
   });
 
   testWidgets('a successful send adds the acknowledged message immediately', (tester) async {

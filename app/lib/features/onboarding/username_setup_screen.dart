@@ -1,3 +1,4 @@
+import '../../core/api_client.dart' show userErrorMessage;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -45,7 +46,7 @@ class _UsernameSetupScreenState extends State<UsernameSetupScreen> {
       }
       _goHome();
     } catch (e) {
-      setState(() => _error = e.toString().contains('409') ? 'That username is taken' : 'Could not save — try another');
+      setState(() => _error = e.toString().contains('409') ? 'That username is taken' : 'Error has occurred, try again later.');
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -92,7 +93,7 @@ class _UsernameSetupScreenState extends State<UsernameSetupScreen> {
               ),
               if (_error != null) ...[
                 const SizedBox(height: 8),
-                Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: n.danger, fontSize: 12)),
+                Text(userErrorMessage, textAlign: TextAlign.center, style: TextStyle(color: n.danger, fontSize: 12)),
               ],
               const Spacer(flex: 2),
               NeonButton(_saving ? 'Saving…' : 'Save and continue', onPressed: _saving ? null : _save),

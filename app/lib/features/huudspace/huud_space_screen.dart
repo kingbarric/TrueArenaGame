@@ -128,10 +128,10 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
       huudSnack(context, 'Friend request sent to ${person.handle} 🤝');
     } on ApiException catch (e) {
       if (!mounted) return;
-      if (e.message.contains('already friends')) setState(() => _friendIds = {..._friendIds, person.userId});
-      huudSnack(context, e.message.contains('already friends') ? "You're already friends 💛" : e.message);
+      if ((e.diagnosticMessage == 'ALREADY_FRIENDS' || e.diagnosticMessage.contains('already friends'))) setState(() => _friendIds = {..._friendIds, person.userId});
+      huudSnack(context, (e.diagnosticMessage == 'ALREADY_FRIENDS' || e.diagnosticMessage.contains('already friends')) ? "You're already friends 💛" : e.message);
     } catch (_) {
-      if (mounted) huudSnack(context, "That didn't work — check your internet and try again.");
+      if (mounted) huudSnack(context, "Error has occurred, try again later.");
     }
   }
 
@@ -144,7 +144,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     } on ApiException catch (e) {
       if (mounted) huudSnack(context, e.message);
     } catch (_) {
-      if (mounted) huudSnack(context, "That didn't work — check your internet and try again.");
+      if (mounted) huudSnack(context, "Error has occurred, try again later.");
     }
   }
 
@@ -265,7 +265,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted && _huud == null) setState(() => _error = "We couldn't reach PlayHuud. Pull down to try again.");
+      if (mounted && _huud == null) setState(() => _error = "Error has occurred, try again later.");
     }
   }
 
@@ -339,7 +339,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     } on ApiException catch (e) {
       if (mounted) huudSnack(context, e.message);
     } catch (_) {
-      if (mounted) huudSnack(context, "That didn't work — check your internet and try again.");
+      if (mounted) huudSnack(context, "Error has occurred, try again later.");
     } finally {
       if (mounted) setState(() => _busy = null);
     }
@@ -419,7 +419,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     } catch (_) {
       if (mounted) {
         setState(() => _busy = null);
-        huudSnack(context, "That didn't work — check your internet and try again.");
+        huudSnack(context, "Error has occurred, try again later.");
       }
     }
   }
@@ -635,7 +635,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         huudSnack(context, "The host hasn't handed you the mic yet ✋");
       case MicResult.notConnected:
       case MicResult.failed:
-        huudSnack(context, "Your mic didn't switch on — try again in a moment.");
+        huudSnack(context, "Error has occurred, try again later.");
         _syncVoice(huud);
     }
     setState(() {});
@@ -861,7 +861,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     } on ApiException catch (e) {
       if (mounted) huudSnack(context, e.message);
     } catch (_) {
-      if (mounted) huudSnack(context, "That didn't send — try again.");
+      if (mounted) huudSnack(context, "Error has occurred, try again later.");
     } finally {
       if (mounted) setState(() => _busy = null);
     }
@@ -900,7 +900,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                                 : HuudFriendlyState(
                                     emoji: '🙈',
                                     title: "We can't open this Huud",
-                                    message: _error!,
+                                    message: userErrorMessage,
                                     action: HuudButton(
                                         label: 'Try again', icon: Icons.refresh_rounded, onPressed: () => _load()),
                                   ),
@@ -2019,7 +2019,7 @@ class _InviteSheetState extends State<_InviteSheet> {
     } on ApiException catch (e) {
       if (mounted) huudSnack(context, e.message);
     } catch (_) {
-      if (mounted) huudSnack(context, "That didn't work — check your internet and try again.");
+      if (mounted) huudSnack(context, "Error has occurred, try again later.");
     } finally {
       if (mounted) setState(() => _busy = null);
     }
@@ -2033,7 +2033,7 @@ class _InviteSheetState extends State<_InviteSheet> {
     } on ApiException catch (e) {
       if (mounted) huudSnack(context, e.message);
     } catch (_) {
-      if (mounted) huudSnack(context, "That didn't work — try again.");
+      if (mounted) huudSnack(context, "Error has occurred, try again later.");
     } finally {
       if (mounted) setState(() => _busy = null);
     }
@@ -2223,7 +2223,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
     } on ApiException catch (e) {
       if (mounted) huudSnack(context, e.message);
     } catch (_) {
-      if (mounted) huudSnack(context, "That didn't work — try again.");
+      if (mounted) huudSnack(context, "Error has occurred, try again later.");
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -2249,7 +2249,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
     } on ApiException catch (e) {
       if (mounted) huudSnack(context, e.message);
     } catch (_) {
-      if (mounted) huudSnack(context, "That didn't work — try again.");
+      if (mounted) huudSnack(context, "Error has occurred, try again later.");
     } finally {
       if (mounted) setState(() => _busy = false);
     }

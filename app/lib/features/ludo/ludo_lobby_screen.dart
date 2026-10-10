@@ -77,7 +77,7 @@ class _LudoLobbyScreenState extends State<LudoLobbyScreen> {
       } catch (_) {
         if (mounted)
           setState(
-              () => _error = 'Could not check your waiting Huud. Try again.');
+              () => _error = 'Error has occurred, try again later.');
       }
     });
   }
@@ -113,7 +113,7 @@ class _LudoLobbyScreenState extends State<LudoLobbyScreen> {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
       if (mounted) {
-        setState(() => _error = 'Could not open the huud. Try again.');
+        setState(() => _error = 'Error has occurred, try again later.');
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -256,7 +256,7 @@ class _LudoLobbyScreenState extends State<LudoLobbyScreen> {
             Padding(
               padding: const EdgeInsets.only(top: 12),
               child:
-                  Text(_error!, style: TextStyle(color: context.neon.danger)),
+                  Text(userErrorMessage, style: TextStyle(color: context.neon.danger)),
             ),
           const Spacer(),
           NeonButton(_busy ? 'Opening huud…' : 'Open a huud',
@@ -271,7 +271,7 @@ class _LudoLobbyScreenState extends State<LudoLobbyScreen> {
       if (_error != null)
         Padding(
             padding: const EdgeInsets.only(bottom: 10),
-            child: Text(_error!, style: TextStyle(color: context.neon.danger))),
+            child: Text(userErrorMessage, style: TextStyle(color: context.neon.danger))),
       NeonCard(
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

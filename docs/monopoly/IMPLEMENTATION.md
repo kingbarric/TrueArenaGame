@@ -43,6 +43,12 @@ The database suite is `HuudSpaceIT` under `ta-app`. It supports temporary extern
 
 The shared ordinary-game runtime remains in memory, as for the existing games. **Reconnect to a running server is supported; recovery after a server process restart is not added here.** Durable checkpoints should be addressed before relying on long Monopoly matches across backend deployments.
 
-**Deliberate V1 limits:** no Cyber Agents, no simultaneous building-stock auctions, no jail-card trading, and no parallel matches inside one Huud. A large property sheet and private offer composer provide the first management UI; further polish can follow human multiplayer testing.
+**Cyber Agents:** the host can add agents from the Huud roster. They choose only engine-validated actions from their own player snapshot, including purchase/auction, jail, debt, property management and trade responses. An economical fallback keeps games moving without model credentials. Private offers stay out of spectator state and Huud chat is never passed to the move picker.
+
+**Deliberate V1 limits:** no agent-initiated trades, no simultaneous building-stock auctions, no jail-card trading, and no parallel matches inside one Huud. A large property sheet and private offer composer provide the first management UI; further polish can follow human multiplayer testing.
 
 The wood texture is a generated material, with its exact prompt and generation mode in [the asset note](../../app/assets/images/monopoly/README.md). The bundled fonts retain their [license](../../app/assets/fonts/monopoly/LICENSE.txt).
+
+## Test mirror and background fix
+
+The user requested a complete production PostgreSQL snapshot in isolated test. See [test setup](../../infra/TEST_ENVIRONMENT.md). The new **V49** migration adds the already offered Blank background to the database constraint; V43 previously rejected it during updates. All public HTTP/game errors and app error presentations use **“Error has occurred, try again later.”** Status codes and safe machine outcomes remain available for app navigation; SQL and exception details stay in server logs.

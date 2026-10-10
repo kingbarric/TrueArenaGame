@@ -97,6 +97,7 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-26187322342-o2squi475tmt3ubs8k9rh2d2b7pfivgf.apps.googleusercontent.com}
       ADMIN_API_KEY: ${ADMIN_API_KEY:?set ADMIN_API_KEY}
       TEST_OTP_BYPASS_CODE: ${TEST_OTP_BYPASS_CODE:-}
+      TEST_OTP_ALLOWED_IDENTIFIERS: ${TEST_OTP_ALLOWED_IDENTIFIERS:-}
     mem_limit: 1g
     networks:
       default: {}

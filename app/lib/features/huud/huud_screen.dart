@@ -149,7 +149,7 @@ class _HuudScreenState extends State<HuudScreen> {
     } on ApiException catch (e) {
       if (mounted && generation == _loadGeneration) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted && generation == _loadGeneration) setState(() => _error = 'Could not reach the server');
+      if (mounted && generation == _loadGeneration) setState(() => _error = 'Error has occurred, try again later.');
     }
   }
 
@@ -291,7 +291,7 @@ class _HuudScreenState extends State<HuudScreen> {
       _snack(e.message);
       _load();
     } catch (_) {
-      _snack('Could not reach the server');
+      _snack('Error has occurred, try again later.');
     }
   }
 
@@ -315,7 +315,7 @@ class _HuudScreenState extends State<HuudScreen> {
     } on ApiException catch (e) {
       _snack(e.message);
     } catch (_) {
-      _snack('Could not send the challenge');
+      _snack('Error has occurred, try again later.');
     }
   }
 
@@ -328,7 +328,7 @@ class _HuudScreenState extends State<HuudScreen> {
       _snack(e.message);
       _load();
     } catch (_) {
-      _snack('Could not reach the server');
+      _snack('Error has occurred, try again later.');
     }
   }
 
@@ -340,7 +340,7 @@ class _HuudScreenState extends State<HuudScreen> {
       _snack(e.message);
       _load();
     } catch (_) {
-      _snack('Could not reach the server');
+      _snack('Error has occurred, try again later.');
     }
   }
 
@@ -351,7 +351,7 @@ class _HuudScreenState extends State<HuudScreen> {
     } on ApiException catch (e) {
       _snack(e.message);
     } catch (_) {
-      _snack('Could not reach the server');
+      _snack('Error has occurred, try again later.');
     }
   }
 
@@ -711,7 +711,7 @@ class _HuudScreenState extends State<HuudScreen> {
     } on ApiException catch (e) {
       _snack(e.message);
     } catch (_) {
-      _snack('Could not reach the server');
+      _snack('Error has occurred, try again later.');
     }
     return null;
   }
@@ -735,7 +735,7 @@ class _HuudScreenState extends State<HuudScreen> {
     } on ApiException catch (e) {
       _snack(e.message);
     } catch (_) {
-      _snack('Could not reach the server');
+      _snack('Error has occurred, try again later.');
     }
   }
 
@@ -786,7 +786,7 @@ class _HuudScreenState extends State<HuudScreen> {
     } on ApiException catch (e) {
       _snack(e.message);
     } catch (_) {
-      _snack('Could not reach the server');
+      _snack('Error has occurred, try again later.');
     }
   }
 
@@ -894,7 +894,7 @@ class _HuudScreenState extends State<HuudScreen> {
         child: NeonCard(
           accent: n.danger,
           child: Row(children: [
-            Expanded(child: Text(_error!, style: TextStyle(color: n.mid))),
+            Expanded(child: Text(userErrorMessage, style: TextStyle(color: n.mid))),
             TextButton(onPressed: _load, child: const Text('Retry')),
           ]),
         ),

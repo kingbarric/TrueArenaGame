@@ -54,7 +54,7 @@ class _HuudRosterState extends State<HuudRoster> {
     } on ApiException catch (e) {
       if (mounted) huudSnack(context, e.message);
     } catch (_) {
-      if (mounted) huudSnack(context, "That didn't work — check your internet and try again.");
+      if (mounted) huudSnack(context, "Error has occurred, try again later.");
     } finally {
       if (mounted) setState(() => _busy = null);
     }
@@ -220,7 +220,7 @@ class _HuudRosterState extends State<HuudRoster> {
           onTap: host ? () => _removeAgent(b) : null,
           busy: _busy == 'p-${b.userId}',
         ),
-      if (host && !full && !widget.tell && !monopoly)
+      if (host && !full && !widget.tell)
         Padding(
           padding: const EdgeInsets.only(top: 4),
           child: HuudButton(

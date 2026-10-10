@@ -60,7 +60,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(e.toString().contains('409') ? 'That username is taken' : 'Could not update username')));
+            content: Text('Error has occurred, try again later.')));
       }
     }
   }
@@ -81,7 +81,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not open your photo library')));
+            const SnackBar(content: Text('Error has occurred, try again later.')));
       }
     } finally {
       if (mounted) setState(() => _picking = false);

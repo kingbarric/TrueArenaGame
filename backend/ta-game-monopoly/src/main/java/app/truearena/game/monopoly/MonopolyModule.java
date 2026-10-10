@@ -1087,11 +1087,44 @@ public final class MonopolyModule implements GameModule {
   public PlayerVisibleState visibleStateFor(GameState state, String id) {
     Data d = ((MonopolyState) state).copy();
     Map<String, Object> view = view(d);
-    if (d.people.containsKey(id))
+    if (d.people.containsKey(id)) {
+      view.put("legalActions", legalActions(state, id));
       view.put(
           "tradeOffers",
           d.trades.stream().filter(t -> id.equals(t.from()) || id.equals(t.to())).toList());
+    }
     return new PlayerVisibleState(view);
+  }
+
+  /** Enumerated choices are validated by the same authoritative transition as human actions. */
+  public List<Map<String, Object>> legalActions(GameState state, String id) {
+    Data d = ((MonopolyState) state).copy();
+    if (d.winner != null || !d.people.containsKey(id) || d.people.get(id).bankrupt()) return List.of();
+    List<Map<String, Object>> candidates = new ArrayList<>();
+    for (String action : List.of("ROLL", "BUY", "AUCTION", "PASS", "END_TURN", "BANKRUPT", "PAY_JAIL", "USE_JAIL_CARD"))
+      candidates.add(Map.of("action", action, "data", Map.of()));
+    if (!d.bills.isEmpty() && d.people.get(id).cash() >= d.bills.getFirst().amount())
+      candidates.add(Map.of("action", "PAY_DEBT", "data", Map.of()));
+    if (d.auction != null) {
+      int minimum = d.auction.bid() + 1;
+      for (int bid : new TreeSet<>(List.of(minimum, minimum + 9, minimum + 49)))
+        candidates.add(Map.of("action", "BID", "data", Map.of("amount", bid)));
+    }
+    for (var deed : d.deeds.entrySet()) if (id.equals(deed.getValue().owner()))
+      for (String action : List.of("BUILD", "SELL_BUILDING", "SELL_GROUP", "MORTGAGE", "UNMORTGAGE"))
+        candidates.add(Map.of("action", action, "data", Map.of("property", deed.getKey())));
+    for (Trade trade : d.trades) {
+      if (id.equals(trade.to())) for (String action : List.of("ACCEPT_TRADE", "DECLINE_TRADE"))
+        candidates.add(Map.of("action", action, "data", Map.of("tradeId", trade.id())));
+      if (id.equals(trade.from())) candidates.add(Map.of("action", "CANCEL_TRADE", "data", Map.of("tradeId", trade.id())));
+    }
+    return candidates.stream().filter(choice -> {
+      try {
+        @SuppressWarnings("unchecked") Map<String, Object> data = (Map<String, Object>) choice.get("data");
+        onPlayerAction(state, PlayerAction.of(id, (String) choice.get("action"), data));
+        return true;
+      } catch (RuleViolation rejected) { return false; }
+    }).toList();
   }
 
   private static Map<String, Object> view(Data d) {

@@ -1,7 +1,8 @@
 # Test server
 
 A full copy of the production stack for trying changes before they go live. It runs
-on the same VPS as production but shares none of its data or secrets.
+on the same VPS as production with separate storage and credentials. By user request, test now receives a full
+production PostgreSQL snapshot; later changes in either environment remain independent.
 
 | | Production | Test |
 |---|---|---|
@@ -19,7 +20,7 @@ on the same VPS as production but shares none of its data or secrets.
 
 ```
 infra/deploy-test.sh              # build this checkout's backend and restart test
-infra/deploy-test.sh --reset-data # same, but start from an empty database
+infra/deploy-test.sh --reset-data # destructive test reset; removes the mirrored data
 infra/deploy-test.sh --stack-only # deploy isolated containers; leave shared proxy/firewall untouched
 ```
 
@@ -52,16 +53,41 @@ production app on that phone. Rebuild without the flag to go back.
 
 The test server sends no real SMS, email or push notifications. Request a code as
 normal, then enter the shared code from `TEST_OTP_BYPASS_CODE` in
-`infra/keys/test.env.local`. It works for any phone number or email, on test only. The
+`infra/keys/test.env.local`. It works only for identifiers listed in `TEST_OTP_ALLOWED_IDENTIFIERS`; currently
+`barric3g@gmail.com`. The backend checks that allowlist on both request and verify.
+Google/Apple sign-in still verifies each account with the provider. The
 backend refuses to boot the `test` profile with `APP_ENV=production`, see
 `EnvironmentGuard`.
 
 The test profile short-circuits email delivery even if a provider key is present.
 The test Compose file also leaves the email and Firebase credentials blank.
 
-Accounts, coins and games on test are separate from production. The test database
-starts empty; production data is never copied there because it contains users'
-personal details.
+Accounts, coins, chats, Huuds, friendships, game history, moderation records and
+all other tables are copied in a consistent PostgreSQL snapshot at the user's
+request. This includes the existing SlayHuud tables, even where their older
+migration files are absent from this branch. Flyway then applies the new test
+migrations. The snapshot is a point-in-time copy, not continuous replication.
+
+To refresh the full mirror (replaces test data, after backing it up):
+
+```
+infra/mirror-production-to-test.sh
+infra/deploy-test.sh --stack-only
+```
+
+The mirror script reads production with `pg_dump`, restores into a temporary test
+database first, and only switches test over after a successful restore. Existing
+test data is preserved as both a dump and a renamed database for rollback.
+Backups stay on the VPS under `~/truearena-test/backups/<UTC timestamp>` with
+restricted permissions. It records every restored table's count and verifies
+production container identities/start times did not change.
+
+Only test's backend is stopped; deploy it after the mirror to migrate and resume.
+Test Redis is cleared instead of copying production auth tokens, locks and live
+presence. Test JWT/LiveKit/admin secrets remain separate. Existing account data
+is mirrored, but users must sign in on test again. Running game processes and
+voice connections are not database records and cannot be migrated live.
+Never commit database dumps, copied personal data or environment secrets.
 
 ## How it's wired
 

@@ -58,7 +58,7 @@ class _InvitePlayersSheetState extends State<_InvitePlayersSheet> {
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Could not load your friends');
+      if (mounted) setState(() => _error = 'Error has occurred, try again later.');
     }
   }
 
@@ -81,7 +81,7 @@ class _InvitePlayersSheetState extends State<_InvitePlayersSheet> {
         // sent" with no explanation leaves nothing to act on.
         firstFailure ??= e.message;
       } catch (_) {
-        firstFailure ??= 'Could not reach the server';
+        firstFailure ??= 'Error has occurred, try again later.';
       }
     }
     if (!mounted) return;
@@ -130,7 +130,7 @@ class _InvitePlayersSheetState extends State<_InvitePlayersSheet> {
               if (_error != null)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  child: Text(_error!, style: TextStyle(color: n.danger)),
+                  child: Text(userErrorMessage, style: TextStyle(color: n.danger)),
                 )
               else if (friends == null)
                 const Padding(

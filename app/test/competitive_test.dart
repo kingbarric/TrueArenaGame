@@ -150,7 +150,7 @@ void main() {
       final cards = buildPlayerCards(CompetitiveProfile.fromJson(_profileJson()));
       // Overall, then the ranked game, then every other game — played or not.
       expect(cards.map((c) => c.title),
-          ['OVERALL', 'DRAUGHTS', 'TRAITORS', 'WORD BLUFF', 'CHESS', 'WHOT', 'LUDO', 'MACALA']);
+          ['OVERALL', 'DRAUGHTS', 'MONOPOLY', 'TRAITORS', 'WORD BLUFF', 'CHESS', 'WHOT', 'LUDO', 'MACALA']);
       final overall = cards.first;
       // 291 wins × 20 + 13 draws × 8 + 124 losses × 3.
       expect(overall.bigValue, '6,296');
@@ -165,7 +165,7 @@ void main() {
 
     test('a player with nothing rated still gets every card, blank', () {
       final cards = buildPlayerCards(CompetitiveProfile.fromJson(_profileJson(rated: false)));
-      expect(cards, hasLength(8));
+      expect(cards, hasLength(9));
       expect(cards.every((c) => c.blank), isTrue);
       expect(cards[1].bigValue, '—');
       expect(cards[1].bigLabel, 'UNRATED');
@@ -300,6 +300,8 @@ void main() {
         state, Scaffold(body: SingleChildScrollView(child: CompetitiveRecordSection(profile: profile, own: false)))));
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.text('TRAITORS').last);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('TRAITORS').last); // the pill under the ring (the card has the same title)
     await tester.pumpAndSettle();
     expect(find.text('Share traitors card'), findsOneWidget);

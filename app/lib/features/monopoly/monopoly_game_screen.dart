@@ -250,7 +250,7 @@ class _MonopolyGameScreenState extends State<MonopolyGameScreen> {
     } catch (_) {
       if (mounted) {
         setState(
-            () => _error = 'Message not sent. Your text is kept — try again.');
+            () => _error = 'Error has occurred, try again later.');
       }
     } finally {
       _sendingChat = false;
@@ -647,7 +647,7 @@ class _MonopolyGameScreenState extends State<MonopolyGameScreen> {
         huudName: _huudName,
         watching: _watching,
         seconds: _seconds,
-        error: _error,
+        error: _error == null ? null : userErrorMessage,
         connected: _connected && _liveSnapshot,
         pending: _pending,
         spectating: widget.spectating,

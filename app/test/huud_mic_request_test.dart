@@ -213,7 +213,7 @@ void main() {
     expect(state.user?.id, 'me');
     await tester.tap(find.text('Accept'));
     await tester.pump();
-    expect(find.textContaining('Could not send your answer'), findsOneWidget);
+    expect(find.text(userErrorMessage), findsOneWidget);
     await tester.tap(find.text('Accept'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));

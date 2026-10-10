@@ -68,7 +68,7 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted) setState(() => _error = "We couldn't reach PlayHuud. Pull down to try again.");
+      if (mounted) setState(() => _error = "Error has occurred, try again later.");
     } finally {
       _loading = false;
     }
@@ -159,7 +159,7 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
                     HuudFriendlyState(
                       emoji: '📡',
                       title: 'Hmm, no connection',
-                      message: _error!,
+                      message: userErrorMessage,
                       action: HuudButton(label: 'Try again', icon: Icons.refresh_rounded, onPressed: _load),
                     )
                   else if (mine == null)

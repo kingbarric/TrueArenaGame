@@ -99,6 +99,9 @@ public class BotService {
             if ("ludo".equals(room.gameType()) && seats >= 4) {
                 return Mono.error(ApiExceptions.conflict("Ludo has four seats"));
             }
+            if ("monopoly".equals(room.gameType()) && seats >= app.truearena.game.monopoly.MonopolyConfig.MAX_PLAYERS) {
+                return Mono.error(ApiExceptions.conflict("Monopoly has eight seats"));
+            }
             return users.findSystemAgentForRoom(room.id())
                     .switchIfEmpty(Mono.error(ApiExceptions.conflict("no Cyber Agent seat is available")))
                     .flatMap(agent -> members.save(RoomMemberRow.bot(room.id(), agent.id(), name,
@@ -152,6 +155,7 @@ public class BotService {
             case "wordbluff" -> "Word Bluff";
             case "whot" -> "Whot";
             case "ludo" -> "Ludo";
+            case "monopoly" -> "Monopoly";
             default -> "Traitors";
         };
         BotRuntime runtime = new BotRuntime(mapper, uri, adapter, picker, botId.toString(), difficulty,

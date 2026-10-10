@@ -96,7 +96,7 @@ class _EmailScreenState extends State<EmailScreen> {
                   ),
                   if (_error != null) ...[
                     const SizedBox(height: 10),
-                    Text(_error!,
+                    Text(userErrorMessage,
                         style: TextStyle(color: n.danger, fontSize: 12)),
                   ],
                   const Spacer(),

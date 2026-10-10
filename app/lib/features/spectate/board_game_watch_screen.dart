@@ -1,3 +1,4 @@
+import '../../core/api_client.dart' show userErrorMessage;
 import '../monopoly/monopoly_game_screen.dart';
 import 'package:flutter/material.dart';
 
@@ -42,7 +43,7 @@ class _BoardGameWatchScreenState extends State<BoardGameWatchScreen> {
         _socket = socket;
       });
     }).catchError((_) {
-      if (mounted) setState(() => _error = 'Could not open this game');
+      if (mounted) setState(() => _error = 'Error has occurred, try again later.');
     });
   }
 
@@ -62,7 +63,7 @@ class _BoardGameWatchScreenState extends State<BoardGameWatchScreen> {
         body: Center(
             child: _error == null
                 ? const CircularProgressIndicator()
-                : Text(_error!)),
+                : Text(userErrorMessage)),
       );
     }
     final names = {

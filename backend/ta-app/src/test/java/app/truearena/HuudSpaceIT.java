@@ -787,6 +787,8 @@ class HuudSpaceIT {
         assertThat(huuds.view(huud.id(), friend).block().background()).isEqualTo("club");
         // Changing the name leaves the backdrop alone; "default" clears it.
         assertThat(huuds.update(host, huud.id(), "Party", null, null).block().background()).isEqualTo("club");
+        for (String backdrop : List.of("blank", "lounge", "poolside", "club"))
+            assertThat(huuds.update(host, huud.id(), null, null, backdrop).block().background()).isEqualTo(backdrop);
         assertThat(huuds.update(host, huud.id(), null, null, "default").block().background()).isNull();
         assertThatThrownBy(() -> huuds.update(friend, huud.id(), null, null, "lounge").block())
                 .isInstanceOf(ResponseStatusException.class);

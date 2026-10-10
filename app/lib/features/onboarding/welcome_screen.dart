@@ -169,7 +169,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
       if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e is StateError ? e.message : 'Google sign-in failed')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(userErrorMessage)));
       }
     } finally {
       if (mounted) setState(() => _googleBusy = false);
@@ -188,13 +188,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
       );
     } on SignInWithAppleAuthorizationException catch (e) {
       if (e.code != AuthorizationErrorCode.canceled && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Apple sign-in failed')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error has occurred, try again later.')));
       }
     } on ApiException catch (e) {
       if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } catch (_) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Apple sign-in failed')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error has occurred, try again later.')));
       }
     } finally {
       if (mounted) setState(() => _appleBusy = false);
@@ -221,7 +221,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
       if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } catch (_) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not reach the server')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error has occurred, try again later.')));
       }
     }
   }
