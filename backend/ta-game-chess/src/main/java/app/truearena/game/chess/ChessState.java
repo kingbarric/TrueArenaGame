@@ -60,6 +60,13 @@ public final class ChessState implements GameState {
     final List<GameEvent> events;
     final long seq;
 
+    /** The game just before the last move (one step back only), for an agreed undo. */
+    final ChessState undoTo;
+    /** Who played that last move — the only one who may ask to take it back. */
+    final String undoMover;
+    /** Asked for an undo, waiting on the other player. */
+    final String pendingUndo;
+
     private ChessState(Draft d) {
         this.phase = d.phase;
         this.round = d.round;
@@ -84,6 +91,18 @@ public final class ChessState implements GameState {
         this.appliedActionIds = Set.copyOf(d.appliedActionIds);
         this.events = List.copyOf(d.events);
         this.seq = d.seq;
+        this.undoTo = d.undoTo;
+        this.undoMover = d.undoMover;
+        this.pendingUndo = d.pendingUndo;
+    }
+
+    /** This state without its own undo history — what an undo goes back to. */
+    ChessState withoutUndo() {
+        Draft d = new Draft(this);
+        d.undoTo = null;
+        d.undoMover = null;
+        d.pendingUndo = null;
+        return d.build();
     }
 
     @Override public String phase() { return phase; }
@@ -138,6 +157,9 @@ public final class ChessState implements GameState {
         Set<String> appliedActionIds = new LinkedHashSet<>();
         List<GameEvent> events = new ArrayList<>();
         long seq;
+        ChessState undoTo;
+        String undoMover;
+        String pendingUndo;
 
         Draft() {
         }
@@ -166,6 +188,9 @@ public final class ChessState implements GameState {
             this.appliedActionIds = new LinkedHashSet<>(s.appliedActionIds);
             this.events = new ArrayList<>(s.events);
             this.seq = s.seq;
+            this.undoTo = s.undoTo;
+            this.undoMover = s.undoMover;
+            this.pendingUndo = s.pendingUndo;
         }
 
         ChessState build() {

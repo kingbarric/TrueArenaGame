@@ -13,6 +13,7 @@ import '../../core/game_sfx.dart';
 import '../../widgets/fireworks.dart';
 import '../../widgets/how_to_play_dialog.dart';
 import '../../widgets/neon.dart';
+import '../../widgets/game_controls.dart';
 import '../../widgets/turn_ring.dart';
 import '../../widgets/table_chat.dart';
 import '../../widgets/game_voice_control.dart';
@@ -1354,64 +1355,44 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
           );
         }),
       ),
-      if (!_amSpectator && _pendingUndo != null && _pendingUndo != widget.selfId) _undoAsk(),
-      if (!_amSpectator) _actionBar(),
+      if (!_amSpectator && _pendingUndo != null && _pendingUndo != widget.selfId)
+        UndoAskBanner(
+          who: label(_pendingUndo!),
+          onAnswer: (yes) => widget.socket
+              .send('PLAYER_ACTION', {'action': yes ? 'ACCEPT_UNDO' : 'DECLINE_UNDO', 'data': {}}),
+        ),
+      _controls(),
       if (widget.championshipId == null || !_amSpectator) _chatPanel(n),
     ]);
   }
 
-  /// The same four-button row Macala gives its players — a request, an
-  /// offer, the rules, and a way out, always in reach below the board.
-  Widget _actionBar() {
-    final pendingFromOpponent =
-        _pendingDrawOffer != null && _pendingDrawOffer != widget.selfId;
+  /// The control row every board game shares: Undo · Draw · VAR · Rules · Resign.
+  /// Spectators only get the replay and the rules.
+  Widget _controls() {
+    final pendingFromOpponent = _pendingDrawOffer != null && _pendingDrawOffer != widget.selfId;
     final offeredByMe = _pendingDrawOffer == widget.selfId;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 0, 8, 6),
-      child: Row(children: [
-        Expanded(
-            child: _controlButton(
-                Icons.undo_rounded, 'Request undo', _requestUndo)),
-        const SizedBox(width: 5),
-        Expanded(
-            child: _controlButton(
-                Icons.handshake_rounded,
-                pendingFromOpponent ? 'Accept draw' : 'Offer draw',
-                () => _offerOrAcceptDraw(pendingFromOpponent, offeredByMe))),
-        const SizedBox(width: 5),
-        Expanded(
-            child:
-                _controlButton(Icons.help_outline_rounded, 'Rules', _showHelp)),
-        const SizedBox(width: 5),
-        Expanded(
-            child:
-                _controlButton(Icons.flag_rounded, 'Resign', _confirmForfeit)),
-      ]),
-    );
-  }
-
-  Widget _controlButton(IconData icon, String label, VoidCallback onTap) {
-    return Material(
-      color: const Color(0xff241708),
-      borderRadius: BorderRadius.circular(7),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(7),
-        onTap: onTap,
-        child: SizedBox(
-          height: 54,
-          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Icon(icon, size: 19, color: const Color(0xffe0a94a)),
-            const SizedBox(height: 3),
-            Text(label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style:
-                    const TextStyle(color: Color(0xfff0d8a8), fontSize: 8.5)),
-          ]),
-        ),
+    final varReady = _var.lastCompleted != null && (_amSpectator || _var.lastCompleted!.side != mySide);
+    if (_amSpectator) {
+      return GameControlBar(controls: [
+        GameControl(id: 'var', icon: Icons.live_tv_rounded, label: 'VAR', onTap: varReady ? _openVar : null),
+        GameControl(id: 'rules', icon: Icons.help_outline_rounded, label: 'Rules', onTap: _showHelp),
+      ]);
+    }
+    return GameControlBar(
+      controls: GameControlBar.standard(
+        onUndo: finished ? null : _requestUndo,
+        undoLabel: _pendingUndo == widget.selfId ? 'Asked' : 'Undo',
+        onDraw: finished ? null : () => _offerOrAcceptDraw(pendingFromOpponent, offeredByMe),
+        drawLabel: pendingFromOpponent ? 'Accept draw' : (offeredByMe ? 'Offered' : 'Draw'),
+        drawLit: pendingFromOpponent,
+        onVar: varReady ? _openVar : null,
+        onRules: _showHelp,
+        onResign: finished ? null : _confirmForfeit,
       ),
     );
   }
+
+
 
   /// Ask to take back the move you just played. The other player gets an
   /// Allow / No box; the board only goes back if they allow it.
@@ -1429,42 +1410,6 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
     }
     widget.socket.send('PLAYER_ACTION', {'action': 'REQUEST_UNDO', 'data': {}});
     messenger.showSnackBar(SnackBar(content: Text('Asked $other to let you undo.')));
-  }
-
-  /// The other player asked to undo: a box you can't miss, with two big answers.
-  Widget _undoAsk() {
-    final who = label(_pendingUndo!);
-    void answer(bool yes) =>
-        widget.socket.send('PLAYER_ACTION', {'action': yes ? 'ACCEPT_UNDO' : 'DECLINE_UNDO', 'data': {}});
-    return Container(
-      key: const ValueKey('draughts-undo-ask'),
-      margin: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-      padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
-      decoration: BoxDecoration(
-        color: const Color(0xffffc233),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: const Color(0xffffc233).withValues(alpha: 0.45), blurRadius: 12)],
-      ),
-      child: Row(children: [
-        const Icon(Icons.undo_rounded, color: Color(0xff241708)),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text('$who wants to undo their move',
-              style: const TextStyle(color: Color(0xff241708), fontWeight: FontWeight.w900, fontSize: 15)),
-        ),
-        TextButton(
-          key: const ValueKey('draughts-undo-no'),
-          onPressed: () => answer(false),
-          child: const Text('No', style: TextStyle(color: Color(0xff241708), fontWeight: FontWeight.w800)),
-        ),
-        FilledButton(
-          key: const ValueKey('draughts-undo-yes'),
-          style: FilledButton.styleFrom(backgroundColor: const Color(0xff241708)),
-          onPressed: () => answer(true),
-          child: const Text('Allow', style: TextStyle(fontWeight: FontWeight.w900)),
-        ),
-      ]),
-    );
   }
 
   void _offerOrAcceptDraw(bool pendingFromOpponent, bool offeredByMe) {
@@ -1664,30 +1609,8 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
       child: Row(children: [
         _sideChip('A', playerA),
         const Spacer(),
-        // Clock and replay sit here rather than on a rail of their own below
-        // the board. Voice is the single real control in the app bar.
-        Column(mainAxisSize: MainAxisSize.min, children: [
-          Row(mainAxisSize: MainAxisSize.min, children: [
-            _timerDial(),
-            const SizedBox(width: 12),
-            SizedBox(
-              width: 44,
-              height: 40,
-              child: TextButton(
-                key: const Key('draughts-var-tv'),
-                onPressed: _var.lastCompleted == null ||
-                        (!_amSpectator && _var.lastCompleted!.side == mySide)
-                    ? null
-                    : _openVar,
-                style: TextButton.styleFrom(padding: EdgeInsets.zero),
-                child: _VarTvIcon(
-                  enabled: _var.lastCompleted != null &&
-                      (_amSpectator || _var.lastCompleted!.side != mySide),
-                ),
-              ),
-            ),
-          ]),
-        ]),
+        // The clock sits between the players; VAR lives in the control row.
+        _timerDial(),
         const Spacer(),
         _sideChip('B', playerB),
       ]),
@@ -2191,55 +2114,6 @@ class _VarReplaySheetState extends State<_VarReplaySheet> {
     );
   }
 }
-
-class _VarTvIcon extends StatelessWidget {
-  const _VarTvIcon({required this.enabled});
-
-  final bool enabled;
-
-  @override
-  Widget build(BuildContext context) {
-    final casing = enabled ? const Color(0xffe0a94a) : const Color(0xff6f604e);
-    return SizedBox(
-      width: 36,
-      height: 32,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Icon(Icons.tv_rounded, size: 34, color: casing),
-          Positioned(
-            top: 9,
-            left: 7,
-            right: 7,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: const Color(0xff241708),
-                borderRadius: BorderRadius.circular(2),
-              ),
-              child: Text(
-                'VAR',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: enabled
-                      ? const Color(0xffffe6ae)
-                      : const Color(0xff9a8163),
-                  fontSize: 7,
-                  height: 1.25,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Positions one `_Piece` over the board and implicitly animates it to a new
-/// square whenever `piece.square` changes — this is what makes a move read
-/// as a slide rather than a jump-cut. Keyed by the piece's stable id so
-/// Flutter's Stack reconciliation matches old→new position across rebuilds.
 class _AnimatedPieceView extends StatelessWidget {
   const _AnimatedPieceView({
     super.key,

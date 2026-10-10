@@ -12,6 +12,7 @@ import '../../widgets/fireworks.dart';
 import '../../widgets/game_voice_control.dart';
 import '../../widgets/how_to_play_dialog.dart';
 import '../../widgets/neon.dart';
+import '../../widgets/game_controls.dart';
 import '../../widgets/turn_ring.dart';
 import '../../widgets/table_chat.dart';
 import '../onboarding/guest_save_session_card.dart';
@@ -279,6 +280,17 @@ class _ChessGameScreenState extends State<ChessGameScreen>
         _system(by == widget.selfId
             ? 'You offered a draw.'
             : '${_label(by)} offers a draw.');
+      case 'UNDO_REQUESTED':
+        _system('${_label(data['by']?.toString() ?? '')} asked to undo their move.');
+      case 'UNDO_ACCEPTED':
+        _system('${_label(data['by']?.toString() ?? '')} allowed the undo.');
+      case 'UNDO_DECLINED':
+        final by = data['by']?.toString() ?? '';
+        _system('${_label(by)} said no to the undo.');
+        if (by != widget.selfId && _view.pendingUndo == widget.selfId && mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text('${_label(by)} said no — your move stays.')));
+        }
       case 'DRAW_DECLINED':
         final by = data['by']?.toString() ?? '';
         _system(data['implicit'] == true
@@ -490,11 +502,21 @@ class _ChessGameScreenState extends State<ChessGameScreen>
 
   // ------------------------------------------------------------- actions
 
+  /// Ask to take back the move you just played; your opponent allows it or not.
   void _requestUndo() {
-    widget.socket
-        .send('CHAT_SEND', {'channel': 'table', 'text': 'requests an undo.'});
-    ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Request sent to your opponent.')));
+    final messenger = ScaffoldMessenger.of(context);
+    final other = _label(_view.playerFor(_opponentSide));
+    if (_view.pendingUndo == widget.selfId) {
+      messenger.showSnackBar(SnackBar(content: Text('Waiting for $other to answer…')));
+      return;
+    }
+    if (_view.undoableBy != widget.selfId) {
+      messenger.showSnackBar(
+          SnackBar(content: Text('You can undo only right after your move, before $other plays.')));
+      return;
+    }
+    _send('REQUEST_UNDO');
+    messenger.showSnackBar(SnackBar(content: Text('Asked $other to let you undo.')));
   }
 
   void _drawButton() {
@@ -754,7 +776,15 @@ class _ChessGameScreenState extends State<ChessGameScreen>
                     ),
                     _playerCard(_amSpectator ? 'white' : _mySide),
                     if (_banner() case final banner?) banner,
-                    _actionRow(),
+                    if (!_amSpectator &&
+                        _view.pendingUndo != null &&
+                        _view.pendingUndo != widget.selfId &&
+                        !_view.finished)
+                      UndoAskBanner(
+                        who: _label(_view.pendingUndo!),
+                        onAnswer: (yes) => _send(yes ? 'ACCEPT_UNDO' : 'DECLINE_UNDO'),
+                      ),
+                    _controls(),
                     TableChatPanel(
                       lines: _feed,
                       controller: _chatController,
@@ -1007,8 +1037,15 @@ class _ChessGameScreenState extends State<ChessGameScreen>
           ),
         ),
         const SizedBox(width: 4),
-        if (side == (_amSpectator ? 'black' : _opponentSide)) _varButton(),
-        const SizedBox(width: 4),
+        if (active && _view.inCheck)
+          Container(
+            key: const ValueKey('chess-check'),
+            margin: const EdgeInsets.only(right: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+            decoration: BoxDecoration(color: const Color(0xffe5484d), borderRadius: BorderRadius.circular(8)),
+            child: const Text('CHECK!',
+                style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900)),
+          ),
         _clockBox(side, isMe: isMe, active: active),
       ]),
     );
@@ -1020,24 +1057,6 @@ class _ChessGameScreenState extends State<ChessGameScreen>
     return last != null && (_amSpectator || last.side != _mySide);
   }
 
-  Widget _varButton() {
-    return SizedBox(
-      width: 40,
-      height: 38,
-      child: TextButton(
-        key: const ValueKey('chess-var-tv'),
-        style: TextButton.styleFrom(padding: EdgeInsets.zero),
-        onPressed: _varAvailable ? _openVar : null,
-        child: VarTvIcon(
-          enabled: _varAvailable,
-          casing: _gold,
-          screen: _panelDeep,
-          label: _cream,
-          disabled: const Color(0xff5d4a78),
-        ),
-      ),
-    );
-  }
 
   void _openVar() {
     final move = _lastVar;
@@ -1415,121 +1434,31 @@ class _ChessGameScreenState extends State<ChessGameScreen>
         ),
       );
 
-  Widget _actionRow() {
+  /// The control row every board game shares: Undo · Draw · VAR · Rules · Resign.
+  Widget _controls() {
     final pending = _view.pendingDrawOffer;
-    final drawLabel = pending != null && pending != widget.selfId
-        ? 'Accept'
-        : (pending == widget.selfId ? 'Offered' : 'Draw');
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 4, 8, 6),
-      child: Row(children: [
-        if (!_amSpectator) ...[
-          Expanded(
-              child: _controlButton(Icons.undo_rounded, 'Undo',
-                  _view.finished ? null : _requestUndo)),
-          const SizedBox(width: 6),
-          Expanded(
-              child: _controlButton(Icons.handshake_rounded, drawLabel,
-                  _view.finished ? null : _drawButton)),
-          const SizedBox(width: 6),
-        ],
-        Expanded(flex: 2, child: _statusPill()),
-        if (!_amSpectator) ...[
-          const SizedBox(width: 6),
-          Expanded(
-              child: _controlButton(Icons.flag_rounded, 'Resign',
-                  _view.finished ? null : _confirmResign)),
-        ],
-      ]),
-    );
-  }
-
-  Widget _statusPill() {
-    final String text;
-    if (_view.finished) {
-      text = _view.winningSide == 'draw'
-          ? 'DRAW'
-          : (_amSpectator
-              ? '${_view.winningSide?.toUpperCase()} WINS'
-              : (_view.winningSide == _mySide ? 'YOU WIN' : 'YOU LOST'));
-    } else if (_paused) {
-      text = 'PAUSED';
-    } else if (_myTurn) {
-      text = _view.inCheck ? 'CHECK!' : 'YOUR MOVE';
-    } else if (_amSpectator) {
-      text = '${_view.turn.toUpperCase()} TO MOVE';
-    } else {
-      text = 'THEIR MOVE';
+    final drawFromOpponent = pending != null && pending != widget.selfId;
+    if (_amSpectator) {
+      return GameControlBar(controls: [
+        GameControl(id: 'var', icon: Icons.live_tv_rounded, label: 'VAR', onTap: _varAvailable ? _openVar : null),
+        GameControl(id: 'rules', icon: Icons.help_outline_rounded, label: 'Rules', onTap: _showRules),
+      ]);
     }
-    final hot = _myTurn || (_view.finished && _view.winningSide == _mySide);
-    return GestureDetector(
-      onTap: _view.finished ? () => setState(() => _showResults = true) : null,
-      child: AnimatedContainer(
-        key: const ValueKey('chess-status'),
-        duration: const Duration(milliseconds: 220),
-        height: 50,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          gradient:
-              hot ? const LinearGradient(colors: [_gold, _goldDeep]) : null,
-          color: hot ? null : _panel,
-          borderRadius: BorderRadius.circular(25),
-          border: Border.all(
-              color: _myTurn && _view.inCheck
-                  ? _danger
-                  : (hot ? _gold : const Color(0x33ffffff)),
-              width: _myTurn && _view.inCheck ? 2 : 1),
-          boxShadow: hot
-              ? [BoxShadow(color: _gold.withValues(alpha: .35), blurRadius: 14)]
-              : null,
-        ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(
-              _view.finished
-                  ? Icons.emoji_events_rounded
-                  : Icons.schedule_rounded,
-              size: 16,
-              color: hot ? const Color(0xff2a1600) : _mute),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Text(text,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                    color: hot ? const Color(0xff2a1600) : _cream,
-                    fontSize: 13,
-                    letterSpacing: 1,
-                    fontWeight: FontWeight.w900)),
-          ),
-        ]),
+    return GameControlBar(
+      controls: GameControlBar.standard(
+        onUndo: _view.finished ? null : _requestUndo,
+        undoLabel: _view.pendingUndo == widget.selfId ? 'Asked' : 'Undo',
+        onDraw: _view.finished ? null : _drawButton,
+        drawLabel: drawFromOpponent ? 'Accept draw' : (pending == widget.selfId ? 'Offered' : 'Draw'),
+        drawLit: drawFromOpponent,
+        onVar: _varAvailable ? _openVar : null,
+        onRules: _showRules,
+        onResign: _view.finished ? null : _confirmResign,
       ),
     );
   }
 
-  Widget _controlButton(IconData icon, String label, VoidCallback? onTap) {
-    return Material(
-      color: _panel,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: SizedBox(
-          height: 50,
-          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Icon(icon, size: 19, color: onTap == null ? _mute : _gold),
-            const SizedBox(height: 3),
-            Text(label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                    color: onTap == null ? _mute : _cream,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700)),
-          ]),
-        ),
-      ),
-    );
-  }
+
 
   // -------------------------------------------------------------- results
 

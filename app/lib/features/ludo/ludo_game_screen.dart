@@ -15,6 +15,9 @@ import '../../widgets/game_voice_control.dart';
 import '../../widgets/how_to_play_dialog.dart';
 import '../../widgets/table_chat.dart';
 import '../huudspace/leave_game.dart';
+import '../../widgets/game_controls.dart';
+import '../../widgets/turn_ring.dart';
+import '../../widgets/neon.dart' show OnlineAvatar;
 
 enum _LudoBoardTheme { classic, glass, wood }
 
@@ -83,7 +86,15 @@ class _LudoGameScreenState extends State<LudoGameScreen>
   String? _error;
   _LudoBoardTheme _boardTheme = _LudoBoardTheme.classic;
 
-  List<String> get _players => (_state['players'] as List? ?? const [])
+  /// The last move someone else made — what VAR replays.
+  ({String player, int token, int from, int to})? _lastOtherMove;
+
+  /// VAR playing: the piece being replayed and how far along (0–1).
+  ({String player, int token, int from, int to})? _replay;
+  double _replayT = 0;
+  Timer? _replayTimer;
+
+  List<String> get _players_ => (_state['players'] as List? ?? const [])
       .map((e) => e.toString())
       .toList();
   List<int> get _seats => (_state['seats'] as List? ?? const [])
@@ -98,6 +109,8 @@ class _LudoGameScreenState extends State<LudoGameScreen>
           .map((e) => e.cast<String, dynamic>())
           .toList();
   String get _turn => _state['turnPlayer']?.toString() ?? '';
+  String? get _pendingUndo => _state['pendingUndo']?.toString();
+  String? get _undoableBy => _state['undoableBy']?.toString();
   bool get _myTurn =>
       !widget.spectating &&
       _turn == widget.selfId &&
@@ -109,7 +122,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
       widget.nicknames[id] ?? (id == widget.selfId ? 'You' : 'Player');
 
   Color? _playerColor(String player) {
-    final index = _players.indexOf(player);
+    final index = _players_.indexOf(player);
     return index < 0 || index >= _seats.length ? null : _colors[_seats[index]];
   }
 
@@ -317,6 +330,27 @@ class _LudoGameScreenState extends State<LudoGameScreen>
           if ((data['captured'] as List? ?? const []).isNotEmpty) {
             GameSfx.capture();
           }
+          final mover = data['player']?.toString();
+          if (mover != null && mover != widget.selfId) {
+            _lastOtherMove = (
+              player: mover,
+              token: (data['token'] as num?)?.toInt() ?? 0,
+              from: (data['from'] as num?)?.toInt() ?? -1,
+              to: (data['to'] as num?)?.toInt() ?? 0,
+            );
+          }
+        } else if (type == 'UNDO_REQUESTED' || type == 'UNDO_ACCEPTED' || type == 'UNDO_DECLINED') {
+          final by = data['by']?.toString() ?? '';
+          final line = switch (type) {
+            'UNDO_REQUESTED' => '${_name(by)} asked to undo their move.',
+            'UNDO_ACCEPTED' => '${_name(by)} allowed the undo.',
+            _ => '${_name(by)} said no to the undo.',
+          };
+          setState(() => _chat.insert(0, TableChatLine.system(line)));
+          if (type == 'UNDO_DECLINED' && _pendingUndo == widget.selfId && by != widget.selfId) {
+            ScaffoldMessenger.of(context)
+                .showSnackBar(SnackBar(content: Text('${_name(by)} said no — your move stays.')));
+          }
         } else if (type == 'GAME_PAUSED' || type == 'GAME_RESUMED') {
           setState(() {
             _state['paused'] = type == 'GAME_PAUSED';
@@ -433,16 +467,15 @@ class _LudoGameScreenState extends State<LudoGameScreen>
     final leave = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-              title: const Text('Leave Ludo?'),
-              content:
-                  const Text('Your place in this match will be forfeited.'),
+              title: const Text('Resign this game?'),
+              content: const Text('You\'ll be out of this match — it counts as a loss.'),
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(context, false),
                     child: const Text('Stay')),
                 TextButton(
                     onPressed: () => Navigator.pop(context, true),
-                    child: const Text('Leave'))
+                    child: const Text('Resign'))
               ],
             ));
     if (leave == true && mounted) {
@@ -460,6 +493,49 @@ class _LudoGameScreenState extends State<LudoGameScreen>
         }
       }
     }
+  }
+
+  /// Ask to take back your last turn — the next player says yes or no
+  /// before they roll. Yes puts your pieces back, with the same dice.
+  void _requestUndo() {
+    final messenger = ScaffoldMessenger.of(context);
+    if (_pendingUndo == widget.selfId) {
+      messenger.showSnackBar(SnackBar(content: Text('Waiting for ${_name(_turn)} to answer…')));
+      return;
+    }
+    if (_undoableBy != widget.selfId) {
+      messenger.showSnackBar(
+          const SnackBar(content: Text('You can undo only right after your turn, before the next player rolls.')));
+      return;
+    }
+    widget.socket.send('PLAYER_ACTION', {'action': 'REQUEST_UNDO', 'data': {}});
+    messenger.showSnackBar(SnackBar(content: Text('Asked ${_name(_turn)} to let you undo.')));
+  }
+
+  /// VAR: the last move someone else made, played again on the board.
+  void _playVar() {
+    final move = _lastOtherMove;
+    if (move == null) return;
+    _replayTimer?.cancel();
+    final started = DateTime.now();
+    const length = Duration(milliseconds: 1800);
+    setState(() {
+      _replay = move;
+      _replayT = 0;
+    });
+    _replayTimer = Timer.periodic(const Duration(milliseconds: 40), (timer) {
+      final t = DateTime.now().difference(started).inMilliseconds / length.inMilliseconds;
+      if (!mounted) return timer.cancel();
+      if (t >= 1.35) {
+        timer.cancel();
+        setState(() => _replay = null);
+        return;
+      }
+      setState(() => _replayT = t.clamp(0, 1).toDouble());
+    });
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        duration: const Duration(seconds: 2),
+        content: Text('VAR: ${_name(move.player)} moved ${move.from < 0 ? 'out of base' : '${move.to - move.from} spaces'}')));
   }
 
   Future<void> _returnToGames() async {
@@ -665,7 +741,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
           ),
           body: SafeArea(
               child: Column(children: [
-            _status(),
+            _players(),
             Expanded(
                 child: Stack(children: [
               Positioned.fill(
@@ -717,6 +793,13 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                   ),
                 ),
             ])),
+            if (!widget.spectating && _pendingUndo != null && _pendingUndo != widget.selfId && _turn == widget.selfId)
+              UndoAskBanner(
+                who: _name(_pendingUndo!),
+                onAnswer: (yes) => widget.socket
+                    .send('PLAYER_ACTION', {'action': yes ? 'ACCEPT_UNDO' : 'DECLINE_UNDO', 'data': {}}),
+              ),
+            _controls(),
             if (_error != null)
               Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -737,45 +820,99 @@ class _LudoGameScreenState extends State<LudoGameScreen>
         ));
   }
 
-  Widget _status() {
-    final winner = _state['winner']?.toString();
-    final label = winner != null
-        ? '${_name(winner)} wins'
-        : _state['paused'] == true
-            ? 'Game paused'
-            : _turn.isEmpty
-                ? 'Waiting for table'
-                : _myTurn
-                    ? 'Your turn'
-                    : '${_name(_turn)} to play';
-    final seat = _players.indexOf(_turn);
-    final color =
-        seat < 0 || seat >= _seats.length ? _gold : _colors[_seats[seat]];
+  /// The control row every board game shares (Ludo has no draws):
+  /// Undo · VAR · Rules · Resign.
+  Widget _controls() {
+    if (widget.spectating) {
+      return GameControlBar(controls: [
+        GameControl(id: 'var', icon: Icons.live_tv_rounded, label: 'VAR', onTap: _lastOtherMove == null ? null : _playVar),
+        GameControl(id: 'rules', icon: Icons.help_outline_rounded, label: 'Rules', onTap: _showHelp),
+      ]);
+    }
+    return GameControlBar(
+      controls: GameControlBar.standard(
+        hasDraw: false,
+        onUndo: _finished ? null : _requestUndo,
+        undoLabel: _pendingUndo == widget.selfId ? 'Asked' : 'Undo',
+        onVar: _lastOtherMove == null ? null : _playVar,
+        onRules: _showHelp,
+        onResign: _finished ? null : _confirmLeave,
+      ),
+    );
+  }
+
+  /// Everyone at the table: green ring and the ✋ on whoever's turn it is,
+  /// amber on the rest — the hand glides to each player in turn.
+  Widget _players() {
+    final players = _players_;
+    final turnIndex = players.indexOf(_turn);
+    final n = players.length;
+    final app = AppScope.of(context);
     return Container(
-      height: 64,
+      height: 74,
       color: _panel,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
       child: Row(children: [
         Container(
-            width: 46,
-            height: 46,
+            width: 42,
+            height: 42,
             alignment: Alignment.center,
-            decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: _gold, width: 3)),
-            child: Text('$_seconds',
-                style: const TextStyle(
-                    color: _gold, fontWeight: FontWeight.bold))),
-        const SizedBox(width: 16),
+            decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: _gold, width: 3)),
+            child: Text('$_seconds', style: const TextStyle(color: _gold, fontWeight: FontWeight.bold))),
+        const SizedBox(width: 8),
         Expanded(
-            child: Text(label.toUpperCase(),
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                    color: color, fontSize: 16, fontWeight: FontWeight.w900))),
+          child: Stack(children: [
+            Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+              for (final p in players)
+                Column(key: ValueKey('ludo-player-$p'), mainAxisAlignment: MainAxisAlignment.center, children: [
+                  TurnRing(
+                    active: p == _turn && !_finished,
+                    size: 32,
+                    child: ValueListenableBuilder<Set<String>>(
+                      valueListenable: widget.socket.onlinePlayers,
+                      builder: (_, online, __) => OnlineAvatar(
+                        _name(p),
+                        size: 32,
+                        online: online.contains(p),
+                        presence: widget.socket.presenceOf(p),
+                        emoji: widget.agents.contains(p) ? '🤖' : (p == widget.selfId ? app.avatarEmoji : null),
+                        imageUrl: widget.socket.memberAvatars[p] ?? (p == widget.selfId ? app.user?.avatarUrl : null),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(p == widget.selfId ? 'You' : _name(p),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          color: _playerColor(p) ?? _cream)),
+                ]),
+            ]),
+            if (turnIndex >= 0 && !_finished && n > 0)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: AnimatedAlign(
+                    duration: const Duration(milliseconds: 420),
+                    curve: Curves.easeInOutCubic,
+                    // Centres of n evenly spaced players, then nudged to sit by the picture.
+                    alignment: Alignment(2 * (turnIndex + 1) / (n + 1) - 1, -0.15),
+                    child: const Padding(
+                      padding: EdgeInsets.only(left: 52),
+                      child: Text('✋', key: ValueKey('turn-hand'), style: TextStyle(fontSize: 20)),
+                    ),
+                  ),
+                ),
+              ),
+          ]),
+        ),
         if (!_connected) const Icon(Icons.wifi_off_rounded, color: _cream),
       ]),
     );
   }
+
+
 
   Widget _board(double side) {
     final frame = math.max(7.0, side * .028);
@@ -799,8 +936,8 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                       (_state['pieceCount'] as num?)?.toInt() ?? 4,
                       _seats.toSet(),
                       _boardTheme)),
-              for (var i = 0; i < _players.length; i++)
-                if (_players[i] == _turn && !_finished)
+              for (var i = 0; i < _players_.length; i++)
+                if (_players_[i] == _turn && !_finished)
                   Positioned(
                       left: (_seats[i] == 0 || _seats[i] == 3 ? 0 : 9) * cell,
                       top: (_seats[i] < 2 ? 0 : 9) * cell,
@@ -821,14 +958,14 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                           ),
                         ),
                       )),
-              for (var i = 0; i < _players.length; i++)
-                _playerLabel(_players[i], _seats[i], cell),
-              for (var i = 0; i < _players.length; i++)
+              for (var i = 0; i < _players_.length; i++)
+                _playerLabel(_players_[i], _seats[i], cell),
+              for (var i = 0; i < _players_.length; i++)
                 for (var token = 0;
-                    token < (pieces[_players[i]] as List? ?? const []).length;
+                    token < (pieces[_players_[i]] as List? ?? const []).length;
                     token++)
-                  _token(_players[i], _seats[i], token,
-                      (pieces[_players[i]] as List)[token] as int, cell),
+                  _token(_players_[i], _seats[i], token,
+                      (pieces[_players_[i]] as List)[token] as int, cell),
             ])),
       ),
     );
@@ -872,6 +1009,15 @@ class _LudoGameScreenState extends State<LudoGameScreen>
 
   Widget _token(String player, int seat, int token, int progress, double cell) {
     final pieceCount = (_state['pieceCount'] as num?)?.toInt() ?? 4;
+    final replay = _replay;
+    final replaying = replay != null && replay.player == player && replay.token == token;
+    if (replaying) {
+      // VAR: step from where it was to where it landed, a square at a time.
+      final start = replay.from < 0 ? -1 : replay.from;
+      final steps = replay.from < 0 ? 1 : replay.to - replay.from;
+      progress = start + (steps * _replayT).floor();
+      if (_replayT >= 1) progress = replay.to;
+    }
     final (row, col) = _position(seat, token, progress, pieceCount);
     final pieceScale = progress == 56 ? (pieceCount == 8 ? .32 : .46) : .78;
     final pieceInset = (1 - pieceScale) / 2;
@@ -889,6 +1035,10 @@ class _LudoGameScreenState extends State<LudoGameScreen>
       child: GestureDetector(
           onTap: () => _tapToken(player, token),
           child: Container(
+            key: replaying ? const ValueKey('ludo-var-piece') : null,
+            foregroundDecoration: replaying
+                ? BoxDecoration(shape: BoxShape.circle, border: Border.all(color: const Color(0xffffc233), width: 3))
+                : null,
             decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: _boardTheme == _LudoBoardTheme.classic

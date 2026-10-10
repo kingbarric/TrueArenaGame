@@ -166,9 +166,9 @@ void main() {
       final socket = await open(tester, 'me');
       socket.snapshot({...snap('TurnB'), 'pendingUndo': 'opponent'});
       await tester.pump();
-      expect(find.byKey(const ValueKey('draughts-undo-ask')), findsOneWidget);
+      expect(find.byKey(const ValueKey('undo-ask')), findsOneWidget);
       expect(find.text('ada wants to undo their move'), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('draughts-undo-yes')));
+      await tester.tap(find.byKey(const ValueKey('undo-yes')));
       expect(socket.sent, contains('PLAYER_ACTION ACCEPT_UNDO'));
     });
 
@@ -176,7 +176,7 @@ void main() {
       final socket = await open(tester, 'me');
       socket.snapshot({...snap('TurnB'), 'pendingUndo': 'me'});
       await tester.pump();
-      expect(find.byKey(const ValueKey('draughts-undo-ask')), findsNothing);
+      expect(find.byKey(const ValueKey('undo-ask')), findsNothing);
     });
 
     testWidgets('the players and board fit a small phone without overflowing', (tester) async {

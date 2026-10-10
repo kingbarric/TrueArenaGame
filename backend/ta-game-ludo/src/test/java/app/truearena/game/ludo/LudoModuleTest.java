@@ -267,4 +267,49 @@ class LudoModuleTest {
                 "red", base.eliminated(), base.actionIds(), base.events(), base.config());
         assertThat(module.playersToAct(won)).isEmpty();
     }
+
+    /** Red rolls and plays out the turn (always picking the first legal move), so it passes to green. */
+    @SuppressWarnings("unchecked")
+    private LudoState redPlaysATurn(LudoState s) {
+        LudoState rolled = act(s, "red", "ROLL", Map.of());
+        LudoState now = rolled;
+        while (now.turnPlayer().equals("red") && !now.dice().isEmpty()) {
+            var legal = (List<Map<String, Integer>>) module.broadcastState(now).data().get("legalMoves");
+            var m = legal.getFirst();
+            now = act(now, "red", "MOVE", Map.of("die", m.get("die"), "token", m.get("token")));
+        }
+        return now;
+    }
+
+    @Test void anAgreedUndoGivesTheTurnBackWithTheSameDice() {
+        LudoState base = start(2);
+        LudoState s = state(base, Map.of("red", List.of(5, 10, -1, -1), "green", List.of(-1, -1, -1, -1)), List.of());
+        LudoState rolled = act(s, "red", "ROLL", Map.of());
+        LudoState after = redPlaysATurn(s);
+        assertThat(after.turnPlayer()).as("this seed passes the turn to green").isEqualTo("green");
+        assertThat(module.broadcastState(after).data()).containsEntry("undoableBy", "red");
+        assertThatThrownBy(() -> act(after, "green", "REQUEST_UNDO", Map.of())).isInstanceOf(RuleViolation.class);
+
+        LudoState asked = act(after, "red", "REQUEST_UNDO", Map.of());
+        assertThat(module.broadcastState(asked).data()).containsEntry("pendingUndo", "red");
+        LudoState back = act(asked, "green", "ACCEPT_UNDO", Map.of());
+        assertThat(back.turnPlayer()).isEqualTo("red");
+        assertThat(back.pieces()).isEqualTo(s.pieces());
+        assertThat(back.dice()).isEqualTo(rolled.dice());
+        assertThat(module.broadcastState(back).data()).containsEntry("undoableBy", null);
+    }
+
+    @Test void theNextRollOrANoKeepsTheTurn() {
+        LudoState base = start(2);
+        LudoState s = state(base, Map.of("red", List.of(5, 10, -1, -1), "green", List.of(-1, -1, -1, -1)), List.of());
+        LudoState after = redPlaysATurn(s);
+        assertThat(after.turnPlayer()).isEqualTo("green");
+        LudoState declined = act(act(after, "red", "REQUEST_UNDO", Map.of()), "green", "DECLINE_UNDO", Map.of());
+        assertThat(declined.turnPlayer()).isEqualTo("green");
+        assertThat(declined.undo().pending()).isNull();
+
+        LudoState greenRolled = act(act(after, "red", "REQUEST_UNDO", Map.of()), "green", "ROLL", Map.of());
+        assertThat(greenRolled.undo().pending()).isNull();
+        assertThatThrownBy(() -> act(greenRolled, "red", "REQUEST_UNDO", Map.of())).isInstanceOf(RuleViolation.class);
+    }
 }

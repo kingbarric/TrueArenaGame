@@ -47,6 +47,8 @@ class _Socket implements GameSocket {
       bool paused = false,
       List<Map<String, int>> legal = const [],
       int pieceCount = 4,
+      String? pendingUndo,
+      String? undoableBy,
       String turn = 'me'}) {
     frames.add({
       'type': 'SNAPSHOT',
@@ -64,6 +66,8 @@ class _Socket implements GameSocket {
         'paused': paused,
         'legalMoves': legal,
         'secondsLeft': 42,
+        'pendingUndo': pendingUndo,
+        'undoableBy': undoableBy,
       }
     });
   }
@@ -271,7 +275,7 @@ void main() {
           {'die': 6, 'token': 7}
         ]);
     await tester.pump();
-    expect(find.text('You'), findsOneWidget);
+    expect(find.text('You'), findsWidgets); // on the board and in the players row
     expect(find.byKey(const ValueKey('me:7')), findsOneWidget);
     expect(find.byKey(const ValueKey('friend:7')), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -511,4 +515,33 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
   }
+
+  testWidgets('the same control row as the other games, rings with the hand, and the undo box', (tester) async {
+    final socket = await open(tester);
+    socket.snapshot(
+        players: ['me', 'friend'],
+        seats: [0, 2],
+        pieces: {'me': List.filled(4, -1), 'friend': List.filled(4, -1)},
+        turn: 'me',
+        pendingUndo: 'friend');
+    await tester.pump();
+
+    for (final id in ['undo', 'var', 'rules', 'resign']) {
+      expect(find.byKey(ValueKey('game-control-$id')), findsOneWidget, reason: id);
+    }
+    expect(find.byKey(const ValueKey('game-control-draw')), findsNothing, reason: 'Ludo has no draws');
+    expect(
+        find.descendant(of: find.byKey(const ValueKey('ludo-player-me')), matching: find.byKey(const ValueKey('turn-ring-active'))),
+        findsOneWidget);
+    expect(
+        find.descendant(
+            of: find.byKey(const ValueKey('ludo-player-friend')), matching: find.byKey(const ValueKey('turn-ring-waiting'))),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('turn-hand')), findsOneWidget);
+
+    expect(find.text('Ama wants to undo their move'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('undo-yes')));
+    expect(socket.sent.last['action'], 'ACCEPT_UNDO');
+    await tester.pumpWidget(const SizedBox());
+  });
 }

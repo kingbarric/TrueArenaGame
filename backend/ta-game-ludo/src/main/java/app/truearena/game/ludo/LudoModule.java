@@ -44,15 +44,79 @@ public final class LudoModule implements GameModule {
         if (!s.players().contains(action.actor()) || s.eliminated().contains(action.actor())) {
             throw new RuleViolation("NOT_A_PLAYER", "you are not in this game");
         }
-        if (!"FORFEIT".equals(action.type()) && !s.turnPlayer().equals(action.actor())) {
+        if (!Set.of("FORFEIT", "REQUEST_UNDO").contains(action.type()) && !s.turnPlayer().equals(action.actor())) {
             throw new RuleViolation("NOT_YOUR_TURN", "wait for your turn");
         }
-        return switch (action.type()) {
-            case "ROLL" -> roll(s, action);
+        LudoState before = s;
+        LudoState next = switch (action.type()) {
+            case "ROLL" -> roll(withoutPendingUndo(s, action), action);
             case "MOVE" -> move(s, action);
             case "FORFEIT" -> forfeit(s, action);
+            case "REQUEST_UNDO" -> requestUndo(s, action);
+            case "ACCEPT_UNDO" -> answerUndo(s, action, true);
+            case "DECLINE_UNDO" -> answerUndo(s, action, false);
             default -> throw new RuleViolation("UNKNOWN_ACTION", "unknown Ludo action");
         };
+        return trackUndo(before, next, action);
+    }
+
+    // ---------------------------------------------------------------- undo
+
+    /**
+     * Keeps the undo bookkeeping in step with the game: a roll marks where
+     * the turn began; when the turn passes to someone else, that turn
+     * becomes the one its player may ask to take back; the next roll (or a
+     * finished game) closes the window.
+     */
+    private LudoState trackUndo(LudoState before, LudoState next, PlayerAction action) {
+        if (next == before || Set.of("REQUEST_UNDO", "ACCEPT_UNDO", "DECLINE_UNDO").contains(action.type())) return next;
+        LudoState.Undo u = next.undo();
+        if (next.finished() || "FORFEIT".equals(action.type())) return next.withUndo(LudoState.Undo.NONE);
+        if ("ROLL".equals(action.type())) {
+            // A new roll: whatever the last player did is settled now.
+            u = new LudoState.Undo(before.pieces(), next.dice(), next.bonusRolls(), null, null, 0, -1, null, null);
+            if (next.dice().isEmpty()) u = LudoState.Undo.NONE; // nothing to play — nothing to take back
+        }
+        if (next.turnIndex() != before.turnIndex() && u.startPieces() != null && !next.finished()) {
+            // The turn just passed on: it can be taken back until the next roll.
+            u = new LudoState.Undo(null, null, 0, u.startPieces(), u.startDice(), u.startBonus(),
+                    before.turnIndex(), before.turnPlayer(), null);
+        }
+        return next.withUndo(u);
+    }
+
+    private LudoState withoutPendingUndo(LudoState s, PlayerAction action) {
+        if (s.undo().pending() == null) return s;
+        return changed(s, null, s.pieces(), s.turnIndex(), s.dice(), s.rollCount(), s.bonusRolls(), null,
+                "UNDO_DECLINED", Map.of("by", action.actor()));
+    }
+
+    private LudoState requestUndo(LudoState s, PlayerAction a) {
+        LudoState.Undo u = s.undo();
+        if (u.lastPieces() == null || !a.actor().equals(u.lastMover()) || !s.dice().isEmpty()) {
+            throw new RuleViolation("NOTHING_TO_UNDO", "you can only take back your turn before the next roll");
+        }
+        if (u.pending() != null) throw new RuleViolation("UNDO_ALREADY_ASKED", "you've already asked — wait for their answer");
+        LudoState next = changed(s, a.actionId(), s.pieces(), s.turnIndex(), s.dice(), s.rollCount(), s.bonusRolls(),
+                null, "UNDO_REQUESTED", Map.of("by", a.actor()));
+        return next.withUndo(new LudoState.Undo(null, null, 0, u.lastPieces(), u.lastDice(), u.lastBonus(),
+                u.lastTurnIndex(), u.lastMover(), a.actor()));
+    }
+
+    /** The player who'd roll next answers: yes puts the pieces and dice back as they were after the roll. */
+    private LudoState answerUndo(LudoState s, PlayerAction a, boolean yes) {
+        LudoState.Undo u = s.undo();
+        if (u.pending() == null || u.pending().equals(a.actor())) {
+            throw new RuleViolation("NO_UNDO_REQUEST", "nobody has asked for an undo");
+        }
+        if (!yes) {
+            return changed(s, a.actionId(), s.pieces(), s.turnIndex(), s.dice(), s.rollCount(), s.bonusRolls(),
+                    null, "UNDO_DECLINED", Map.of("by", a.actor())).withUndo(LudoState.Undo.NONE);
+        }
+        LudoState back = changed(s, a.actionId(), u.lastPieces(), u.lastTurnIndex(), u.lastDice(), s.rollCount(),
+                u.lastBonus(), null, "UNDO_ACCEPTED", Map.of("by", a.actor(), "player", u.lastMover()));
+        // Their turn again, from just after their roll.
+        return back.withUndo(new LudoState.Undo(u.lastPieces(), u.lastDice(), u.lastBonus(), null, null, 0, -1, null, null));
     }
 
     private LudoState roll(LudoState s, PlayerAction action) {
@@ -133,7 +197,8 @@ public final class LudoModule implements GameModule {
                 Map.of("player", action.actor(), "nextPlayer", s.players().get(next)));
         return new LudoState(nextState.phase(), nextState.round() + (active ? 1 : 0), nextState.players(), nextState.pieces(),
                 nextState.turnIndex(), nextState.dice(), nextState.rollCount(), nextState.bonusRolls(),
-                nextState.seed(), nextState.winner(), eliminated, nextState.actionIds(), nextState.events(), nextState.config());
+                nextState.seed(), nextState.winner(), eliminated, nextState.actionIds(), nextState.events(), nextState.config(),
+                LudoState.Undo.NONE);
     }
 
     private int nextActive(LudoState s, int from, Set<String> eliminated) {
@@ -195,10 +260,10 @@ public final class LudoModule implements GameModule {
         events.add(GameEvent.pub(events.size() + 1L, eventType, payload));
         Set<String> ids = new HashSet<>(s.actionIds());
         if (actionId != null) ids.add(actionId);
-        int round = s.round() + (Set.of("TURN_STARTED", "BONUS_ROLL", "TURN_TIMED_OUT").contains(eventType) ? 1 : 0);
+        int round = s.round() + (Set.of("TURN_STARTED", "BONUS_ROLL", "TURN_TIMED_OUT", "UNDO_ACCEPTED").contains(eventType) ? 1 : 0);
         return new LudoState(winner == null ? "Turn" : "Results", round,
                 s.players(), pieces, turnIndex, dice, rolls, bonus, s.seed(), winner,
-                s.eliminated(), ids, events, s.config());
+                s.eliminated(), ids, events, s.config(), s.undo());
     }
 
     @Override public GameState onPhaseElapsed(GameState state, String endedPhase) {
@@ -206,7 +271,8 @@ public final class LudoModule implements GameModule {
         if (s.finished() || !"Turn".equals(endedPhase)) return s;
         int next = nextActive(s, s.turnIndex(), s.eliminated());
         return changed(s, null, s.pieces(), next, List.of(), s.rollCount(), 0,
-                null, "TURN_TIMED_OUT", Map.of("player", s.turnPlayer(), "nextPlayer", s.players().get(next)));
+                null, "TURN_TIMED_OUT", Map.of("player", s.turnPlayer(), "nextPlayer", s.players().get(next)))
+                .withUndo(LudoState.Undo.NONE);
     }
 
     @Override public Optional<WinResult> checkWinCondition(GameState state) {
@@ -262,6 +328,10 @@ public final class LudoModule implements GameModule {
         data.put("legalMoves", legalMoves);
         data.put("rollCount", s.rollCount()); data.put("bonusRolls", s.bonusRolls());
         data.put("eliminated", s.eliminated());
+        data.put("pendingUndo", s.undo().pending());
+        // Who may ask for an undo now: the last player, until the next one rolls.
+        data.put("undoableBy", s.undo().lastPieces() != null && s.undo().pending() == null && s.dice().isEmpty()
+                && !s.finished() ? s.undo().lastMover() : null);
         data.put("seats", switch (s.players().size()) { case 2 -> SEATS_TWO; case 3 -> SEATS_THREE; default -> SEATS_FOUR; });
         if (s.winner() != null) data.put("winner", s.winner());
         return data;

@@ -99,14 +99,11 @@ void main() {
     socket.event('TURN_STARTED', {'side': 'A'});
     await tester.pump();
 
-    final varButton = find.byKey(const Key('draughts-var-tv'));
+    // VAR now lives in the shared control row under the board.
+    final varButton = find.byKey(const ValueKey('game-control-var'));
     expect(varButton, findsOneWidget);
-    expect(tester.widget<TextButton>(varButton).onPressed, isNotNull);
-    expect(
-        find.descendant(of: varButton, matching: find.byIcon(Icons.tv_rounded)),
-        findsOneWidget);
-    expect(find.descendant(of: varButton, matching: find.text('VAR')),
-        findsOneWidget);
+    expect(tester.widget<InkWell>(find.descendant(of: varButton, matching: find.byType(InkWell))).onTap, isNotNull);
+    expect(find.descendant(of: varButton, matching: find.text('VAR')), findsOneWidget);
 
     await tester.ensureVisible(varButton);
     await tester.pump();

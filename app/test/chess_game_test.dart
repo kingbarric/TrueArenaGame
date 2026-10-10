@@ -58,6 +58,7 @@ class _Socket implements GameSocket {
     Map<String, List<String>> legalMoves = const {},
     bool inCheck = false,
     String? pendingDrawOffer,
+    String? pendingUndo,
     bool canClaimThreefold = false,
     String? winningSide,
     String? resultReason,
@@ -85,6 +86,7 @@ class _Socket implements GameSocket {
         'blackMs': 600000,
         'incrementMs': 0,
         'pendingDrawOffer': pendingDrawOffer,
+        'pendingUndo': pendingUndo,
         'canClaimThreefold': canClaimThreefold,
         'canClaimFiftyMove': false,
         'legalMoves': legalMoves,
@@ -151,7 +153,6 @@ void main() {
     expect(find.text('HUUD 7K3M'), findsOneWidget);
     expect(find.text('YOU'), findsOneWidget);
     expect(find.text('Ama'), findsOneWidget);
-    expect(find.text('YOUR MOVE'), findsOneWidget);
     // Your picture glows green with the hand; your opponent's is amber.
     expect(
         find.descendant(
@@ -186,7 +187,11 @@ void main() {
 
     expect(socket.actions.single['action'], 'MOVE');
     expect(socket.actions.single['data'], {'from': 'e2', 'to': 'e4'});
-    expect(find.text('THEIR MOVE'), findsOneWidget);
+    // Now the green ring is with the opponent.
+    expect(
+        find.descendant(
+            of: find.byKey(const ValueKey('chess-player-black')), matching: find.byKey(const ValueKey('turn-ring-active'))),
+        findsOneWidget);
     await close(tester);
   });
 
@@ -220,7 +225,10 @@ void main() {
     final h8 = tester.getCenter(find.byKey(const ValueKey('chess-square-h8')));
     expect(h8.dy, greaterThan(a1.dy));
     expect(h8.dx, lessThan(a1.dx));
-    expect(find.text('THEIR MOVE'), findsOneWidget);
+    expect(
+        find.descendant(
+            of: find.byKey(const ValueKey('chess-player-white')), matching: find.byKey(const ValueKey('turn-ring-active'))),
+        findsOneWidget);
     await close(tester);
   });
 
@@ -330,7 +338,10 @@ void main() {
     });
     await tester.pump();
     expect(find.byKey(const ValueKey('chess-paused')), findsNothing);
-    expect(find.text('YOUR MOVE'), findsOneWidget);
+    expect(
+        find.descendant(
+            of: find.byKey(const ValueKey('chess-player-white')), matching: find.byKey(const ValueKey('turn-ring-active'))),
+        findsOneWidget);
     await close(tester);
   });
 
@@ -339,10 +350,10 @@ void main() {
     socket.snapshot(
         white: 'opponent', black: 'me', turn: 'white', moves: const []);
     await tester.pump();
-    final tv = find.byKey(const ValueKey('chess-var-tv'));
+    final tv = find.byKey(const ValueKey('game-control-var'));
+    InkWell tvButton() => tester.widget<InkWell>(find.descendant(of: tv, matching: find.byType(InkWell)));
     expect(tv, findsOneWidget);
-    expect(tester.widget<TextButton>(tv).onPressed, isNull,
-        reason: 'nothing to replay yet');
+    expect(tvButton().onTap, isNull, reason: 'nothing to replay yet');
 
     final after = Map<String, String>.of(_initial)
       ..remove('e2')
@@ -355,7 +366,7 @@ void main() {
         moves: const ['e4'],
         lastMove: const {'from': 'e2', 'to': 'e4'});
     await tester.pump();
-    expect(tester.widget<TextButton>(tv).onPressed, isNotNull);
+    expect(tvButton().onTap, isNotNull);
 
     await tester.tap(tv);
     await tester.pump();
@@ -374,7 +385,13 @@ void main() {
     await tester.pump();
 
     expect(find.text('Resign'), findsNothing);
-    expect(find.text('WHITE TO MOVE'), findsOneWidget);
+    // Watchers see whose move it is from the green ring; they get VAR and Rules only.
+    expect(
+        find.descendant(
+            of: find.byKey(const ValueKey('chess-player-white')), matching: find.byKey(const ValueKey('turn-ring-active'))),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('game-control-undo')), findsNothing);
+    expect(find.byKey(const ValueKey('game-control-rules')), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('chess-square-e2')));
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('chess-square-e4')));
@@ -425,5 +442,17 @@ void main() {
       expect(v.whiteMs, 599000);
       expect(v.finished, isFalse);
     });
+  });
+
+  testWidgets('when your opponent asks to undo, you see it and can allow it', (tester) async {
+    final socket = await open(tester);
+    socket.snapshot(turn: 'white', pendingUndo: 'opponent');
+    await tester.pump();
+    expect(find.byKey(const ValueKey('undo-ask')), findsOneWidget);
+    expect(find.text('Ama wants to undo their move'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('undo-yes')));
+    await tester.pump();
+    expect(socket.actions.last['action'], 'ACCEPT_UNDO');
+    await close(tester);
   });
 }

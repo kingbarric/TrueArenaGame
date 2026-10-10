@@ -109,6 +109,8 @@ class ChessView {
     this.blackMs = 0,
     this.incrementMs = 0,
     this.pendingDrawOffer,
+    this.pendingUndo,
+    this.undoableBy,
     this.canClaimThreefold = false,
     this.canClaimFiftyMove = false,
     this.legalMoves = const {},
@@ -131,6 +133,12 @@ class ChessView {
   final int blackMs;
   final int incrementMs;
   final String? pendingDrawOffer;
+
+  /// Someone asked to take back their last move (their id).
+  final String? pendingUndo;
+
+  /// Who may ask for an undo right now — the last mover, until the other side moves.
+  final String? undoableBy;
   final bool canClaimThreefold;
   final bool canClaimFiftyMove;
   final Map<int, List<int>> legalMoves;
@@ -170,6 +178,8 @@ class ChessView {
       blackMs: (p['blackMs'] as num?)?.toInt() ?? 0,
       incrementMs: (p['incrementMs'] as num?)?.toInt() ?? 0,
       pendingDrawOffer: p['pendingDrawOffer'] as String?,
+      pendingUndo: p['pendingUndo'] as String?,
+      undoableBy: p['undoableBy'] as String?,
       canClaimThreefold: p['canClaimThreefold'] as bool? ?? false,
       canClaimFiftyMove: p['canClaimFiftyMove'] as bool? ?? false,
       legalMoves: legal,

@@ -707,7 +707,7 @@ void main() {
     expect(find.text('2 / 4 playing'), findsOneWidget);
     expect(find.text('✅ Ready'), findsOneWidget);
     expect(find.text('👑 Host'), findsOneWidget);
-    expect(find.text('👀 Watching'), findsOneWidget); // Chidi
+    expect(find.text('🟢 Active'), findsOneWidget); // Chidi, in the Huud but not playing
     expect(find.byKey(const ValueKey('huud-add-players')), findsNothing);
     expect(find.byKey(const ValueKey('roster-add-agent')), findsOneWidget);
     expect(find.text('Open the game to start'), findsOneWidget);
@@ -737,7 +737,13 @@ void main() {
           RoomMember(userId: 'me', nickname: 'Eric', ready: false, connected: true),
         ])),
         (r) async => r.url.path == '/api/v1/huud-spaces/by-room/room1'
-            ? _json(_huud(game: {'roomId': 'room1', 'gameType': 'whot', 'status': 'waiting', 'players': 1, 'seats': 4}))
+            ? _json(_huud(
+                game: {'roomId': 'room1', 'gameType': 'whot', 'status': 'waiting', 'players': 1, 'seats': 4},
+                members: [
+                  _member('me', 'Eric', host: true),
+                  _member('ada', 'Ada'),
+                  _member('chidi', 'Chidi', here: false),
+                ]))
             : http.Response('', 200),
         settle: false);
     for (var i = 0; i < 10; i++) {
@@ -745,7 +751,8 @@ void main() {
     }
     expect(find.byKey(const ValueKey('lobby-roster')), findsOneWidget);
     expect(find.text('AB12CD'), findsNothing);
-    expect(find.text('👀 Watching'), findsNWidgets(2)); // Ada and Chidi
+    expect(find.text('🟢 Active'), findsOneWidget); // Ada is here
+    expect(find.text('🌙 Away'), findsOneWidget); // Chidi isn't
     expect(find.text('Ready up'), findsOneWidget);
     expect(find.text('Start'), findsOneWidget);
   });

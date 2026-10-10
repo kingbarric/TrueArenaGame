@@ -181,8 +181,9 @@ class _HuudRosterState extends State<HuudRoster> {
             key: ValueKey('roster-${p.userId}'),
             face: Avatar(p.name, size: 36, imageUrl: p.avatarUrl),
             name: p.userId == _me ? 'You' : p.handle,
-            status: playing ? seatStatus(seat) : '👀 Watching',
-            statusColor: playing ? (seat.ready ? h.live : n.mid) : n.mute,
+            // Not playing: in the Huud right now, or not.
+            status: playing ? seatStatus(seat) : (p.here ? '🟢 Active' : '🌙 Away'),
+            statusColor: playing ? (seat.ready ? h.live : n.mid) : (p.here ? h.live : n.mute),
             playing: playing,
             onTap: canToggle ? () => _toggle(p, playing) : null,
             busy: _busy == 'p-${p.userId}',
