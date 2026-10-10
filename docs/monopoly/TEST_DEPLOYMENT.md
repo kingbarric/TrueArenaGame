@@ -3,41 +3,72 @@
 **Test API:** `https://vps-8030ec94.vps.ovh.net/test`  
 **Test voice:** `wss://vps-8030ec94.vps.ovh.net:8443/test`
 
-The Monopoly branch contains **remote main `b2dc34d`**, checked again before
-deployment. The isolated test backend image is labelled with deployed application
-revision **`bb0309c4e69e04d7bd5bdd63ef76c247355661d0`**. Later documentation changes
-do not change that application image.
+The Monopoly branch contains **remote main `b2dc34d`**, checked before deployment.
+The isolated test backend image is labelled with deployed application revision
+**`95abbdc0c3b1bc46ef5f148590a17dd19f754baf`**. Subsequent cache/privacy and
+report changes do not change the backend image.
 
-**Deployment:** separate `truearena-test` PostgreSQL, Redis, LiveKit and backend
-containers and volumes. Migration **V48 — Monopoly** applied successfully. The
-Java application was compiled on this Mac and packaged on the VPS, avoiding a
-Maven compilation competing with production's CPU.
+## Full database mirror
 
-**Verified through both a private SSH tunnel and public HTTPS/WSS:** email code
-request and test sign-in; two-player admin-selected roster and start; all 40 board
-spaces; authoritative server dice; spectator state without private offers or
-future randomness; persistent Huud chat; WebSocket reconnect; default microphone
-permission for selected players. The disposable verification Huuds were removed.
-Test voice signaling answers successfully over TLS.
+At the user's request, all **69 public PostgreSQL tables** were copied in a
+consistent production snapshot at **22:20 UTC**. This includes **49 accounts**,
+83 rooms, 123 room memberships, 5,550 recorded game events, game results,
+friendships, conversations/messages, Huuds/chat, moderation and all six legacy
+SlayHuud tables. Rows, relationships, sequences and existing Flyway history were
+restored together. No production credentials, Redis authentication sessions,
+locks or active voice connections were copied.
 
-**Production:** application, database, Redis and LiveKit container IDs and start
-times match the pre-deployment snapshot. Production health remains UP. The user
-explicitly approved adding the test-only routes to shared Caddy, attaching Caddy
-to the test network, and opening voice ports **7891/TCP** and **50100–50120/UDP**.
-The candidate proxy configuration passed Caddy validation, the previous file was
-backed up under `~/truearena-test/infra`, and the proxy was reloaded without a
-container restart. Production code and user data were not deployed or copied.
+The previous test database is retained as `previous_20261010T222052Z` and as a
+dump. Production snapshot and test backup are under
+`~/truearena-test/backups/20261010T222052Z`, readable only by the deployment user.
+Per-table snapshot counts are recorded there. These files remain on the VPS and
+are never tracked in Git. This is a point-in-time copy; subsequent test activity
+is independent of production.
 
-**Phone artifact:** signed iOS release build **1.0.1 (2026101054)**, compiled with
-`API_BASE=https://vps-8030ec94.vps.ovh.net/test`. Installed and launched on
-**iKingbarric — iPhone 16 Pro**; `devicectl` confirmed the installed bundle version.
-Test accounts are separate from
-production. Request a sign-in code normally and use the private
-`TEST_OTP_BYPASS_CODE` from `infra/keys/test.env.local`; no email is sent.
+Flyway applied **V46 — Huud championships**, **V48 — Monopoly** and **V49 — Blank
+Huud background** to the copied database, preserving old V37/V38 tables/history.
+V49 corrects the original failure: the UI offered Blank but V43's database
+constraint rejected it.
 
-**Runtime limit:** reconnect to a running backend is supported. Full ordinary
-game recovery after a server-process restart remains a release prerequisite,
-as recorded in [the implementation notes](IMPLEMENTATION.md).
+Test has separate PostgreSQL/Redis volumes, JWT/LiveKit/admin credentials and
+services. Real email/SMS/push delivery remains disabled. The test OTP bypass is
+restricted to **`barric3g@gmail.com`**, checked on both request and verification.
+Other accounts can authenticate only through their normally verified provider.
 
-Repeat a test-only deployment from this branch with [the deployment script](../../infra/deploy-test.sh).
-Use `--stack-only` to leave the shared proxy/firewall unchanged.
+## Verification
+
+- Full backend unit suite passed; reports contain 705 tests with no failures.
+- **35 Huud PostgreSQL integration tests** passed, including every background.
+- **311 Flutter tests** passed. Four Monopoly screen tests were then rerun after
+  excluding private legal/trade actions from offline cache; all passed.
+- Public HTTPS/WSS check: approved copied-account sign-in, rejection of
+  unapproved OTP accounts, all five backdrop settings, generic public errors,
+  two added Cyber Agents, admin starting as a watcher, autonomous dice/property
+  decisions and turn advance, spectator-safe state. Disposable fixtures were
+  removed without altering copied users' Huuds.
+- Both production and test health endpoints report UP. Production application,
+  PostgreSQL, Redis and LiveKit container IDs/start times match the earlier
+  baseline. No production deployment, data write or service restart occurred.
+
+The previously approved test routes and dedicated voice ports remain unchanged;
+this deployment used `--stack-only`, with no shared proxy/firewall changes.
+
+## Phone
+
+Signed iOS release **1.0.1 (2026101061)**, compiled with
+`API_BASE=https://vps-8030ec94.vps.ovh.net/test`, for **iKingbarric — iPhone 16 Pro**.
+After the database refresh, sign in again using the approved email and the
+private test code; real production login sessions do not transfer to test.
+
+## Runtime limit
+
+A database copy preserves records, not running game processes or live voice.
+Reconnect to a running backend is supported. Recovery of an ordinary match after
+a backend process restart remains outside this implementation; see
+[implementation notes](IMPLEMENTATION.md).
+
+Repeat a test-only deployment with [deploy-test.sh](../../infra/deploy-test.sh)
+and `--stack-only`. Refresh the full snapshot using
+[mirror-production-to-test.sh](../../infra/mirror-production-to-test.sh), then
+redeploy to migrate and start test. The workflow is documented in
+[TEST_ENVIRONMENT.md](../../infra/TEST_ENVIRONMENT.md).

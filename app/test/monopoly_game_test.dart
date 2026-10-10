@@ -139,6 +139,9 @@ void main() {
     socket.frame(
         'SNAPSHOT',
         _board()
+          ..['legalActions'] = [
+            {'action':'ACCEPT_TRADE','data':{'tradeId':'private-offer'}}
+          ]
           ..['tradeOffers'] = [
             {
               'id': 'private-offer',
@@ -165,6 +168,7 @@ void main() {
     final stored = prefs.getString('monopoly_snapshot_ada_${socket.roomId}')!;
     expect(stored, contains('My next turn'));
     expect(stored, isNot(contains('private-offer')));
+    expect(stored, isNot(contains('legalActions')));
     expect(tester.takeException(), isNull);
   });
   testWidgets(

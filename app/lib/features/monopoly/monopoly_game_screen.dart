@@ -86,7 +86,9 @@ class _MonopolyGameScreenState extends State<MonopolyGameScreen> {
     try {
       final saved = monopolyMap(jsonDecode(value));
       setState(() {
-        _state = monopolyMap(saved['state']);
+        _state = monopolyMap(saved['state'])
+          ..remove('tradeOffers')
+          ..remove('legalActions');
         _huudName = saved['huudName']?.toString() ?? _huudName;
         _messages.clear();
         for (final raw in saved['messages'] as List? ?? []) {
@@ -105,7 +107,8 @@ class _MonopolyGameScreenState extends State<MonopolyGameScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final publicState = Map<String, dynamic>.of(_state)
-        ..remove('tradeOffers');
+        ..remove('tradeOffers')
+        ..remove('legalActions');
       await prefs.setString(
           _cacheKey,
           jsonEncode({
