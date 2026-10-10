@@ -832,6 +832,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
       );
 
   Future<void> _settings(HuudSpace huud) async {
+    if (!huud.active || !huud.youOwn) return;
     final changed = await showHuudSheet<Object>(context, builder: (_) => _SettingsSheet(huud: huud));
     if (!mounted) return;
     if (changed is HuudSpace) setState(() => _huud = changed);
@@ -1008,6 +1009,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
           ),
         );
     final hosting = huud != null && huud.youAreHost && huud.active;
+    final owning = huud != null && huud.youOwn && huud.active;
     final live = huud?.live ?? false;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
@@ -1018,7 +1020,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         Image.asset(huudIcon, width: 30, height: 30),
         const SizedBox(width: 8),
         Expanded(child: Text('Huud', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: n.ink))),
-        if (hosting)
+        if (owning)
           Padding(
             padding: const EdgeInsets.only(left: 8),
             child: circle(Icons.tune_rounded, 'Huud settings', () => _settings(huud),
