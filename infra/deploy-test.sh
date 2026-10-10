@@ -4,6 +4,7 @@
 #
 #   infra/deploy-test.sh              build + restart the test backend
 #   infra/deploy-test.sh --reset-data also wipe the test database and redis first
+#   infra/deploy-test.sh --stack-only deploy without any shared proxy/firewall changes
 #
 # Everything lands under ~/truearena-test on the VPS (production lives in
 # ~/truearena and is never written to). The image is truearena-backend:test, the
@@ -20,7 +21,14 @@ SSH=(ssh -i "$KEY" "$HOST")
 COMPOSE="docker compose -f docker-compose.test.yml --env-file .env"
 
 reset=false
-[ "${1:-}" = "--reset-data" ] && reset=true
+stack_only=false
+for argument in "$@"; do
+  case "$argument" in
+    --reset-data) reset=true ;;
+    --stack-only) stack_only=true ;;
+    *) echo "unknown argument: $argument" >&2; exit 2 ;;
+  esac
+done
 
 [ -f "$ENV_FILE" ] || { echo "missing $ENV_FILE (test secrets) — see infra/TEST_ENVIRONMENT.md" >&2; exit 1; }
 
@@ -31,9 +39,7 @@ echo "==> preparing ~/truearena-test and the truearena-edge network"
 "${SSH[@]}" 'set -e
   mkdir -p ~/truearena-test/backend ~/truearena-test/infra
   docker network inspect truearena-edge >/dev/null 2>&1 || docker network create truearena-edge >/dev/null
-  # Attaching a running container to a network is live — caddy keeps serving.
-  docker network inspect truearena-edge -f "{{range .Containers}}{{.Name}} {{end}}" | grep -q truearena-prod-caddy-1 \
-    || docker network connect truearena-edge truearena-prod-caddy-1'
+  '
 
 echo "==> syncing backend source and test config"
 rsync -az --delete --exclude=target --exclude=.git -e "ssh -i $KEY" backend/ "$HOST:~/truearena-test/backend/"
@@ -53,6 +59,11 @@ fi
 
 echo "==> starting the test stack"
 "${SSH[@]}" "cd ~/truearena-test/infra && $COMPOSE up -d --wait --wait-timeout 180"
+
+if $stack_only; then
+  echo "TEST STACK OK — public proxy setup remains separate"
+  exit 0
+fi
 
 echo "==> ensuring test-only proxy routes and voice ports"
 bash infra/setup-test-proxy.sh

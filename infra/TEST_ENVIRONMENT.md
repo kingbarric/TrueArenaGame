@@ -20,6 +20,7 @@ on the same VPS as production but shares none of its data or secrets.
 ```
 infra/deploy-test.sh              # build this checkout's backend and restart test
 infra/deploy-test.sh --reset-data # same, but start from an empty database
+infra/deploy-test.sh --stack-only # deploy isolated containers; leave shared proxy/firewall untouched
 ```
 
 The deployment writes to `~/truearena-test`, the `truearena-backend:test` image and

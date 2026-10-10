@@ -5,6 +5,8 @@ cd "$(dirname "$0")/.."
 ssh -i infra/keys/truearena_deploy_key ubuntu@51.38.71.193 bash -s <<'REMOTE'
 set -euo pipefail
 mkdir -p ~/truearena-test/infra
+docker network inspect truearena-edge -f '{{range .Containers}}{{.Name}} {{end}}' | grep -q truearena-prod-caddy-1 \
+  || docker network connect truearena-edge truearena-prod-caddy-1
 python3 - <<'PY'
 from pathlib import Path
 source = Path.home() / 'truearena/infra/Caddyfile.prod'
