@@ -152,6 +152,18 @@ void main() {
     expect(find.text('YOU'), findsOneWidget);
     expect(find.text('Ama'), findsOneWidget);
     expect(find.text('YOUR MOVE'), findsOneWidget);
+    // Your picture glows green with the hand; your opponent's is amber.
+    expect(
+        find.descendant(
+            of: find.byKey(const ValueKey('chess-player-white')), matching: find.byKey(const ValueKey('turn-ring-active'))),
+        findsOneWidget);
+    expect(
+        find.descendant(
+            of: find.byKey(const ValueKey('chess-player-black')), matching: find.byKey(const ValueKey('turn-ring-waiting'))),
+        findsOneWidget);
+    expect(
+        find.descendant(of: find.byKey(const ValueKey('chess-player-white')), matching: find.byKey(const ValueKey('turn-hand'))),
+        findsOneWidget);
     expect(find.byKey(const ValueKey('chess-square-a1')), findsOneWidget);
     expect(find.byKey(const ValueKey('chess-square-h8')), findsOneWidget);
     expect(find.byKey(const ValueKey('chess-clock-white')), findsOneWidget);

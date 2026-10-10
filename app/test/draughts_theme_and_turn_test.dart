@@ -119,38 +119,47 @@ void main() {
           'turnSeconds': 60,
         };
 
-    double textSize(WidgetTester tester) =>
-        tester.widget<Text>(find.byKey(const ValueKey('draughts-turn-text'))).style!.fontSize!;
+    /// The ring round a side's picture: 'active' (green) or 'waiting' (amber).
+    String ring(WidgetTester tester, String side) {
+      final active = find.descendant(
+          of: find.byKey(ValueKey('draughts-side-$side')), matching: find.byKey(const ValueKey('turn-ring-active')));
+      return active.evaluate().isNotEmpty ? 'active' : 'waiting';
+    }
 
-    testWidgets('your turn says your name, big and bold, on a bright banner', (tester) async {
+    Alignment handAt(WidgetTester tester) => tester
+        .widget<AnimatedAlign>(find.ancestor(of: find.byKey(const ValueKey('turn-hand')), matching: find.byType(AnimatedAlign)))
+        .alignment as Alignment;
+
+    testWidgets('no turn banner: you glow green with the hand, the other player amber', (tester) async {
       final socket = await open(tester, 'me');
       socket.snapshot(snap('TurnA'));
       await tester.pump();
 
-      expect(find.text("ERIC'S TURN"), findsOneWidget);
-      expect(textSize(tester), greaterThanOrEqualTo(20), reason: 'it was 9pt before');
-      final banner = tester.widget<AnimatedContainer>(find.byKey(const ValueKey('draughts-turn-banner')));
-      expect((banner.decoration as BoxDecoration).color, const Color(0xffffc233));
+      expect(find.byKey(const ValueKey('draughts-turn-banner')), findsNothing);
+      expect(ring(tester, 'A'), 'active');
+      expect(ring(tester, 'B'), 'waiting');
+      expect(handAt(tester).x, -1, reason: 'the hand sits with player A (left)');
     });
 
-    testWidgets("the other player's turn says their name, just as readable", (tester) async {
+    testWidgets("on the other player's turn the green ring and the hand move over to them", (tester) async {
       final socket = await open(tester, 'me');
       socket.snapshot(snap('TurnB'));
       await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
 
-      expect(find.text("ADA'S TURN"), findsOneWidget);
-      expect(find.text('OPPONENT IS THINKING'), findsNothing);
-      expect(textSize(tester), greaterThanOrEqualTo(20));
-      expect(find.byType(CircularProgressIndicator), findsWidgets, reason: 'a spinner says it is working');
+      expect(ring(tester, 'A'), 'waiting');
+      expect(ring(tester, 'B'), 'active');
+      expect(handAt(tester).x, 1);
+      expect(find.text('ada'), findsOneWidget, reason: 'names stay under the pictures');
     });
 
-    testWidgets('a spectator is told whose turn it is by name, not "opponent"', (tester) async {
+    testWidgets('a spectator sees whose turn it is from the green ring and the hand', (tester) async {
       final socket = await open(tester, 'a-watcher');
       socket.snapshot(snap('TurnB'));
       await tester.pump();
 
-      expect(find.text("ADA'S TURN"), findsOneWidget);
-      expect(find.text('OPPONENT IS THINKING'), findsNothing);
+      expect(ring(tester, 'B'), 'active');
+      expect(find.byKey(const ValueKey('turn-hand')), findsOneWidget);
     });
 
     testWidgets('when the other player asks to undo, you see it and can allow it', (tester) async {
@@ -170,7 +179,7 @@ void main() {
       expect(find.byKey(const ValueKey('draughts-undo-ask')), findsNothing);
     });
 
-    testWidgets('the banner fits a small phone without overflowing', (tester) async {
+    testWidgets('the players and board fit a small phone without overflowing', (tester) async {
       await tester.binding.setSurfaceSize(const Size(320, 568));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       final socket = _Socket();
@@ -184,7 +193,7 @@ void main() {
       socket.snapshot(snap('TurnB'));
       await tester.pump();
       expect(tester.takeException(), isNull);
-      expect(find.text("ADA'S TURN"), findsOneWidget);
+      expect(find.byKey(const ValueKey('turn-hand')), findsOneWidget);
     });
   });
 }

@@ -12,6 +12,7 @@ import '../../widgets/fireworks.dart';
 import '../../widgets/game_voice_control.dart';
 import '../../widgets/how_to_play_dialog.dart';
 import '../../widgets/neon.dart';
+import '../../widgets/turn_ring.dart';
 import '../../widgets/table_chat.dart';
 import '../onboarding/guest_save_session_card.dart';
 import '../status/victory_status.dart';
@@ -760,7 +761,7 @@ class _ChessGameScreenState extends State<ChessGameScreen>
                       onSend: _sendChat,
                       spectatorCount: _spectatorCount,
                       amSpectator: _amSpectator,
-                      height: 118,
+                      height: 96,
                     ),
                   ]),
           ),
@@ -920,34 +921,44 @@ class _ChessGameScreenState extends State<ChessGameScreen>
         side == 'white' ? _view.capturedByBlack : _view.capturedByWhite;
     final lead = taken.fold<int>(0, (s, c) => s + pieceValue(c)) -
         lost.fold<int>(0, (s, c) => s + pieceValue(c));
-    final highlight = active && (isMe || _amSpectator);
+    // Whose turn: the player's own picture glows green (amber while they
+    // wait), and the ✋ slides in towards them from the other side of the board.
+    final top = side == (_amSpectator ? 'black' : _opponentSide);
     return AnimatedContainer(
       key: ValueKey('chess-player-$side'),
       duration: const Duration(milliseconds: 220),
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      padding: const EdgeInsets.fromLTRB(8, 6, 6, 6),
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: const EdgeInsets.fromLTRB(6, 4, 6, 4),
       decoration: BoxDecoration(
         color: _panel,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-            color: highlight ? _gold : const Color(0x22ffffff),
-            width: highlight ? 2 : 1),
-        boxShadow: highlight
-            ? [BoxShadow(color: _gold.withValues(alpha: .22), blurRadius: 12)]
-            : null,
+        border: Border.all(color: const Color(0x22ffffff)),
       ),
       child: Row(children: [
-        ValueListenableBuilder<Set<String>>(
-          valueListenable: widget.socket.onlinePlayers,
-          builder: (_, online, __) => OnlineAvatar(
-            isMe ? 'You' : _label(playerId),
-            size: 40,
-            online: online.contains(playerId), presence: widget.socket.presenceOf(playerId),
-            imageUrl: widget.socket.memberAvatars[playerId] ?? widget.avatars[playerId],
-            emoji: widget.agents.contains(playerId) ? '🤖' : null,
+        TurnRing(
+          active: active,
+          size: 36,
+          child: ValueListenableBuilder<Set<String>>(
+            valueListenable: widget.socket.onlinePlayers,
+            builder: (_, online, __) => OnlineAvatar(
+              isMe ? 'You' : _label(playerId),
+              size: 36,
+              online: online.contains(playerId), presence: widget.socket.presenceOf(playerId),
+              imageUrl: widget.socket.memberAvatars[playerId] ?? widget.avatars[playerId],
+              emoji: widget.agents.contains(playerId) ? '🤖' : null,
+            ),
           ),
         ),
-        const SizedBox(width: 10),
+        SizedBox(
+          width: 30,
+          child: Center(
+            child: TurnHand(
+              key: ValueKey('chess-hand-$side'),
+              visible: active,
+              from: Offset(0, top ? 1.6 : -1.6),
+            ),
+          ),
+        ),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1106,10 +1117,11 @@ class _ChessGameScreenState extends State<ChessGameScreen>
 
   Widget _boardArea() {
     return LayoutBuilder(builder: (context, box) {
+      // As big as the space allows: a slim frame and no extra margin.
       final side =
-          (box.maxWidth < box.maxHeight ? box.maxWidth : box.maxHeight) - 12;
+          (box.maxWidth < box.maxHeight ? box.maxWidth : box.maxHeight) - 4;
       if (side <= 40) return const SizedBox.shrink();
-      const frame = 16.0;
+      const frame = 13.0;
       final cell = (side - 2 * frame) / 8;
       return Center(
         child: Container(

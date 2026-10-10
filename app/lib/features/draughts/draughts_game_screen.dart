@@ -13,6 +13,7 @@ import '../../core/game_sfx.dart';
 import '../../widgets/fireworks.dart';
 import '../../widgets/how_to_play_dialog.dart';
 import '../../widgets/neon.dart';
+import '../../widgets/turn_ring.dart';
 import '../../widgets/table_chat.dart';
 import '../../widgets/game_voice_control.dart';
 import '../status/victory_status.dart';
@@ -1277,10 +1278,10 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
 
     return Column(children: [
       _statusBar(n),
-      _turnBanner(),
       Expanded(
         child: LayoutBuilder(builder: (context, constraints) {
-          final trayHeight = math.min(38.0, constraints.maxHeight * 0.09);
+          // Slim trays, so the board gets the room.
+          final trayHeight = math.min(26.0, constraints.maxHeight * 0.06);
           final boardSide = math.max(
               1.0,
               math.min(constraints.maxWidth,
@@ -1323,7 +1324,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
                   width: boardSide,
                   height: boardSide,
                   child: Padding(
-                    padding: const EdgeInsets.all(4),
+                    padding: const EdgeInsets.all(2),
                     child: _boardSurface(boardPalette, piecePalette, flipped),
                   ),
                 ),
@@ -1653,8 +1654,9 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
   }
 
   Widget _statusBar(NeonColors n) {
+    final finished = phase == 'Results';
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 8),
       decoration: const BoxDecoration(
         color: Color(0xff241708),
         border: Border(bottom: BorderSide(color: Color(0xff3a2410))),
@@ -1689,120 +1691,27 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
         const Spacer(),
         _sideChip('B', playerB),
       ]),
-    );
+    ).withTurnHand(left: turnSide == 'A', visible: !finished && playerA.isNotEmpty);
   }
 
-  /// Whose move it is, in letters you can read from across the table. It was
-  /// a 9-point label squeezed between the two player chips; now it's a
-  /// full-width banner: bright and solid on your turn, a quiet "thinking"
-  /// strip while the other side moves.
-  Widget _turnBanner() {
-    final mustCapture = myTurn && _remainingRequired > 0;
-    final String text;
-    final Color fill;
-    final Color ink;
-    final IconData icon;
-    final bool waiting;
-    if (_amSpectator) {
-      // Watching: say whose turn it is, by name.
-      text = "${label(_actorFor(turnSide)).toUpperCase()}'S TURN";
-      fill = const Color(0xff3a2410);
-      ink = const Color(0xfff0d8a8);
-      icon = Icons.visibility_rounded;
-      waiting = false;
-    } else if (mustCapture) {
-      text = 'YOU MUST CAPTURE';
-      fill = const Color(0xffe0584a);
-      ink = Colors.white;
-      icon = Icons.priority_high_rounded;
-      waiting = false;
-    } else if (myTurn) {
-      // Names, not "you"/"opponent", so anyone looking can tell who's up.
-      text = "${label(widget.selfId).toUpperCase()}'S TURN";
-      fill = const Color(0xffffc233);
-      ink = const Color(0xff241708);
-      icon = Icons.touch_app_rounded;
-      waiting = false;
-    } else {
-      text = "${label(_actorFor(turnSide)).toUpperCase()}'S TURN";
-      fill = const Color(0xff3a2410);
-      ink = const Color(0xfff0d8a8);
-      icon = Icons.hourglass_top_rounded;
-      waiting = true;
-    }
-    return AnimatedContainer(
-      key: const ValueKey('draughts-turn-banner'),
-      duration: const Duration(milliseconds: 220),
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: fill,
-        boxShadow: myTurn && !_amSpectator
-            ? [BoxShadow(color: fill.withValues(alpha: 0.55), blurRadius: 14)]
-            : null,
-      ),
-      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-        if (waiting)
-          SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2.4, color: ink))
-        else
-          Icon(icon, color: ink, size: 24),
-        const SizedBox(width: 10),
-        Flexible(
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(text,
-                key: const ValueKey('draughts-turn-text'),
-                maxLines: 1,
-                style: TextStyle(
-                    color: ink,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.2)),
-          ),
-        ),
-        if (waiting) ...[
-          const SizedBox(width: 2),
-          Text('…',
-              style: TextStyle(
-                  color: ink, fontSize: 22, fontWeight: FontWeight.w900)),
-        ],
-      ]),
-    );
-  }
-
-  /// Whose side it is, shown as their actual face rather than a blank
-  /// counter — your own picture for you, initials for everyone else,
-  /// including agents. The ring lights up on whoever is on the clock.
+  /// A player at the table: green ring and glow on their turn, amber while
+  /// they wait. "Must capture" shows under you when a capture is forced.
   Widget _sideChip(String side, String playerId) {
-    final active = turnSide == side;
+    final active = turnSide == side && phase != 'Results';
     final isMe = playerId.isNotEmpty && playerId == widget.selfId;
+    final mustCapture = active && isMe && _remainingRequired > 0;
     final app = AppScope.of(context);
-    return Column(children: [
-      Container(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: active
-              ? const Border.fromBorderSide(
-                  BorderSide(color: Color(0xffe0a94a), width: 2))
-              : Border.all(color: const Color(0xff1c130a), width: 1.4),
-          boxShadow: active
-              ? [
-                  BoxShadow(
-                      color: const Color(0xffe0a94a).withValues(alpha: 0.45),
-                      blurRadius: 10)
-                ]
-              : null,
-        ),
+    return Column(key: ValueKey('draughts-side-$side'), children: [
+      TurnRing(
+        active: active,
+        size: 40,
         child: playerId.isEmpty
-            ? const SizedBox(width: 34, height: 34)
+            ? const SizedBox(width: 40, height: 40)
             : ValueListenableBuilder<Set<String>>(
                 valueListenable: widget.socket.onlinePlayers,
                 builder: (_, online, __) => OnlineAvatar(
                   label(playerId),
-                  size: 34,
+                  size: 40,
                   online: online.contains(playerId), presence: widget.socket.presenceOf(playerId),
                   emoji: isMe ? app.avatarEmoji : null,
                   imagePath: isMe ? app.avatarImagePath : null,
@@ -1811,17 +1720,27 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
               ),
       ),
       const SizedBox(height: 4),
-      Text(playerId.isEmpty ? '…' : label(playerId),
+      Text(
+          mustCapture
+              ? 'MUST CAPTURE'
+              : playerId.isEmpty
+                  ? '…'
+                  : label(playerId),
+          key: ValueKey('draughts-name-$side'),
           style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              color:
-                  active ? const Color(0xfff0d8a8) : const Color(0xff9a8163))),
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+              color: mustCapture
+                  ? const Color(0xffff6b5e)
+                  : active
+                      ? TurnRing.green
+                      : TurnRing.amber)),
     ]);
   }
 
   /// Draughts and Goosi share one chat panel — see [TableChatPanel].
   Widget _chatPanel(NeonColors n) => TableChatPanel(
+        height: 104,
         lines: feed,
         controller: _chatController,
         onSend: _sendChat,
