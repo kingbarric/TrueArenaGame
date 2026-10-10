@@ -2,6 +2,8 @@
 
 > Status: launch implementation added to the backend, Flutter app, and invitation website. Apply migration V27 and deploy the matching services and app builds together.
 
+> **Inside a Huud (V46):** championships now also run inside a Huud, for Chess as well as Draughts, with a random system draw, simultaneous or sequential rounds, match voice rooms and Huud membership as the way in. The same bracket engine runs both. See "Championships in a Huud" in `HUUD_SPACES.md`.
+
 ## Implemented decisions
 
 - The championship creator is the admin who can end a pairing when both reconnect allowances have expired.

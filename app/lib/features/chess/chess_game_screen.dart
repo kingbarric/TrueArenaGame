@@ -43,6 +43,7 @@ class ChessGameScreen extends StatefulWidget {
     this.avatars = const {},
     this.agents = const {},
     this.spectating = false,
+    this.championship = false,
   });
 
   final GameSocket socket;
@@ -54,6 +55,10 @@ class ChessGameScreen extends StatefulWidget {
   /// Seats held by Cyber Agents, shown with a robot instead of a photo.
   final Set<String> agents;
   final bool spectating;
+
+  /// A championship match: the bracket runs the clock (no pausing), and a
+  /// player who drops out has a set time to come back before losing.
+  final bool championship;
 
   @override
   State<ChessGameScreen> createState() => _ChessGameScreenState();
@@ -107,6 +112,10 @@ class _ChessGameScreenState extends State<ChessGameScreen>
   bool _sfxOn = GameSfx.enabled;
   bool _leaving = false;
 
+  /// Championship: who's away and how many seconds they have left to return.
+  Map<String, int> _away = const {};
+  Timer? _awayTicker;
+
   /// Either player can pause. Both clocks stop and nobody can move until
   /// someone resumes.
   bool _paused = false;
@@ -133,6 +142,7 @@ class _ChessGameScreenState extends State<ChessGameScreen>
   void dispose() {
     _sub?.cancel();
     _ticker?.cancel();
+    _awayTicker?.cancel();
     _slide.dispose();
     _tick.dispose();
     _chatController.dispose();
@@ -333,6 +343,8 @@ class _ChessGameScreenState extends State<ChessGameScreen>
           _pausedBy = null;
         });
         _system('Game resumed.');
+      case 'RECONNECT_WAIT':
+        _applyReconnectWait(data);
       case 'SPECTATORS_MUTED':
         setState(() => _spectatorsMuted = true);
       case 'SPECTATORS_UNMUTED':
@@ -566,10 +578,12 @@ class _ChessGameScreenState extends State<ChessGameScreen>
           backgroundColor: _panel,
           title: const Text('Leave the game?', style: TextStyle(color: _cream)),
           content: Text(
-              vsAgent
-                  ? 'Leaving ends the game — the Cyber Agent takes the win.'
-                  : 'Your clock keeps running while you\'re away. Rejoin with '
-                      'the huud code before it runs out.',
+              widget.championship
+                  ? 'Come back from the Huud before your time runs out, or you lose the match.'
+                  : vsAgent
+                      ? 'Leaving ends the game — the Cyber Agent takes the win.'
+                      : 'Your clock keeps running while you\'re away. Rejoin with '
+                          'the huud code before it runs out.',
               style: const TextStyle(color: _mute)),
           actions: [
             TextButton(
@@ -606,10 +620,52 @@ class _ChessGameScreenState extends State<ChessGameScreen>
       await app.clearActiveRoom(widget.socket.roomId).catchError((_) {});
     }
     if (!mounted) return;
+    // A championship match was opened from the Huud: back to it.
+    if (widget.championship) {
+      Navigator.of(context).pop();
+      return;
+    }
     await leaveGame(context, widget.socket.roomId);
   }
 
   void _togglePause() => widget.socket.send('PAUSE_TOGGLE');
+
+  /// The bracket's word on who's away; counted down here between its updates.
+  void _applyReconnectWait(Map<String, dynamic> data) {
+    _awayTicker?.cancel();
+    final missing = (data['missing'] as List?)?.whereType<Map>() ?? const [];
+    setState(() => _away = {
+          for (final m in missing) m['userId'].toString(): (m['secondsLeft'] as num?)?.toInt() ?? 0,
+        });
+    if (_away.isEmpty) return;
+    _awayTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() => _away = {for (final e in _away.entries) e.key: e.value > 0 ? e.value - 1 : 0});
+    });
+  }
+
+  Widget _reconnectOverlay() {
+    final others = _away.entries.where((e) => e.key != widget.selfId).toList();
+    final text = others.isEmpty
+        ? 'Waiting for both players to connect.'
+        : others.map((e) => '${_label(e.key)} has ${e.value}s to come back').join('\n');
+    return Container(
+      key: const ValueKey('chess-reconnect-wait'),
+      color: const Color(0xcc0d0618),
+      alignment: Alignment.center,
+      padding: const EdgeInsets.all(24),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Icon(Icons.wifi_off_rounded, size: 52, color: _gold),
+        const SizedBox(height: 8),
+        const Text('WAITING',
+            style: TextStyle(color: _gold, fontSize: 22, letterSpacing: 4, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 6),
+        Text(text, textAlign: TextAlign.center, style: const TextStyle(color: _cream, fontSize: 14)),
+        const SizedBox(height: 4),
+        const Text('Both clocks are stopped.', style: TextStyle(color: _mute, fontSize: 12)),
+      ]),
+    );
+  }
 
   Widget _pauseOverlay() {
     final by = _pausedBy;
@@ -767,8 +823,10 @@ class _ChessGameScreenState extends State<ChessGameScreen>
                     Expanded(
                       child: Stack(children: [
                         Positioned.fill(child: _boardArea()),
-                        if (_paused && !_view.finished)
+                        if (_paused && !_view.finished && !widget.championship)
                           Positioned.fill(child: _pauseOverlay()),
+                        if (widget.championship && _away.isNotEmpty && !_view.finished)
+                          Positioned.fill(child: _reconnectOverlay()),
                         if (_view.finished && _showResults)
                           Positioned.fill(child: _results()),
                       ]),
@@ -850,7 +908,7 @@ class _ChessGameScreenState extends State<ChessGameScreen>
               spectating: _amSpectator,
             ),
           ),
-        if (!_view.finished && !_amSpectator)
+        if (!_view.finished && !_amSpectator && !widget.championship)
           IconButton(
             key: const ValueKey('chess-pause'),
             tooltip: _paused ? 'Resume' : 'Pause',

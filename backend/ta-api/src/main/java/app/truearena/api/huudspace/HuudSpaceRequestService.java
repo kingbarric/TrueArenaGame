@@ -27,12 +27,15 @@ public class HuudSpaceRequestService {
     private final RoomService rooms;
     private final LiveKitRoomAdmin voice;
     private final DatabaseClient db;
+    private final HuudSpaceAccess access;
 
-    public HuudSpaceRequestService(HuudSpaceService huuds, RoomService rooms, LiveKitRoomAdmin voice, DatabaseClient db) {
+    public HuudSpaceRequestService(HuudSpaceService huuds, RoomService rooms, LiveKitRoomAdmin voice, DatabaseClient db,
+                                   HuudSpaceAccess access) {
         this.huuds = huuds;
         this.rooms = rooms;
         this.voice = voice;
         this.db = db;
+        this.access = access;
     }
 
     /** "Can I play?" — for the game being set up right now. */
@@ -169,8 +172,10 @@ public class HuudSpaceRequestService {
     private Mono<Void> speaker(UUID id, UUID user, boolean allowed) {
         return db.sql("UPDATE huud_space_members SET can_speak=:allowed WHERE huud_space_id=:id AND user_id=:user")
                 .bind("allowed", allowed).bind("id", id).bind("user", user).fetch().rowsUpdated()
-                // Already in the voice room? Flip it live; otherwise their next token carries it.
-                .then(voice.setCanPublish(HuudSpaceAccess.VOICE_PREFIX + id, user.toString(), allowed)
-                        .onErrorResume(e -> Mono.empty()));
+                // Already in a voice room — the Huud's or a championship match's? Flip it
+                // live; otherwise their next token carries it.
+                .thenMany(access.voiceRooms(id))
+                .concatMap(room -> voice.setCanPublish(room, user.toString(), allowed).onErrorResume(e -> Mono.empty()))
+                .then();
     }
 }

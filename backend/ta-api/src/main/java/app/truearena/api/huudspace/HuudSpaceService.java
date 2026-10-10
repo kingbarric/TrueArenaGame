@@ -68,10 +68,11 @@ public class HuudSpaceService {
     private final PushNotificationService push;
     private final Duration hostGrace;
     private final Duration memberTimeout;
+    private final HuudSpaceAccess access;
 
     public HuudSpaceService(DatabaseClient db, ReactiveTransactionManager manager, InboxRegistry inbox,
                             RoomService rooms, UserRepository users, VoiceSessionService voiceSessions,
-                            LiveKitRoomAdmin voice, PushNotificationService push,
+                            LiveKitRoomAdmin voice, PushNotificationService push, HuudSpaceAccess access,
                             @Value("${huud.host-grace:PT5M}") Duration hostGrace,
                             @Value("${huud.member-timeout:PT10M}") Duration memberTimeout) {
         this.db = db;
@@ -84,12 +85,13 @@ public class HuudSpaceService {
         this.push = push;
         this.hostGrace = hostGrace;
         this.memberTimeout = memberTimeout;
+        this.access = access;
     }
 
     /** {@code ownerId}: running it now; {@code createdBy}: the owner. */
     record Space(UUID id, String code, String name, String privacy, UUID ownerId, UUID createdBy,
                  String status, UUID currentRoomId, String feedMessage, Instant sharedAt, String background,
-                 Instant liveSince, Instant createdAt, Instant endedAt) {
+                 Instant liveSince, Instant createdAt, Instant endedAt, UUID championshipId) {
         boolean active() {
             return "active".equals(status);
         }
@@ -285,9 +287,23 @@ public class HuudSpaceService {
                                 .bind("id", id).fetch().rowsUpdated())
                         .then(db.sql("DELETE FROM huud_space_viewers WHERE huud_space_id=:id").bind("id", id).fetch().rowsUpdated())
                         .then(db.sql("UPDATE huud_space_members SET live_at=NULL, can_speak=false WHERE huud_space_id=:id")
-                                .bind("id", id).fetch().rowsUpdated())))
+                                .bind("id", id).fetch().rowsUpdated())
+                        .then(endChampionshipWithLive(id))))
                 .doOnSuccess(n -> people.forEach(p -> notify(p, id, "live-ended", by)))
                 .then(Flux.fromIterable(people).concatMap(p -> dropFromVoice(id, p)).then()));
+    }
+
+    /**
+     * Ending Live calls off a championship still taking registrations and puts
+     * a finished one's bracket away. One being played keeps going — its boards
+     * are saved — and is still there when the Huud goes Live again.
+     */
+    private Mono<Long> endChampionshipWithLive(UUID id) {
+        return db.sql("UPDATE championships SET status='cancelled', completed_at=now() "
+                        + "WHERE huud_space_id=:id AND status='lobby'").bind("id", id).fetch().rowsUpdated()
+                .then(db.sql("UPDATE huud_spaces SET championship_id=NULL WHERE id=:id AND championship_id IN "
+                                + "(SELECT c.id FROM championships c WHERE c.status IN ('completed','cancelled'))")
+                        .bind("id", id).fetch().rowsUpdated());
     }
 
     private Flux<UUID> livePeople(UUID id) {
@@ -436,7 +452,7 @@ public class HuudSpaceService {
                 .bind("id", id).bind("user", user).fetch().rowsUpdated().then();
     }
 
-    private Mono<Boolean> canSee(Space s, UUID user) {
+    Mono<Boolean> canSee(Space s, UUID user) {
         if (s.createdBy().equals(user) || "public".equals(s.privacy())) return Mono.just(true);
         if (!"friends".equals(s.privacy())) return Mono.just(false);
         return friends(user, s.createdBy());
@@ -680,6 +696,9 @@ public class HuudSpaceService {
         return requireHost(id, host)
                 .filter(Space::live)
                 .switchIfEmpty(Mono.error(ApiExceptions.conflict("Go Live first, then pick a game")))
+                .flatMap(s -> championshipOn(s).flatMap(on -> on
+                        ? Mono.<Space>error(ApiExceptions.conflict("The championship is on — finish it or call it off first"))
+                        : putChampionshipAway(id).thenReturn(s)))
                 .flatMap(s -> currentGame(s.currentRoomId()).flatMap(game -> {
                             if (!"finished".equals(game.status())) {
                                 return Mono.error(ApiExceptions.conflict(
@@ -695,6 +714,20 @@ public class HuudSpaceService {
                         .then(clearPlayQueue(id))
                         .thenReturn(room))
                 .doOnSuccess(room -> notifyMembers(id, "game", host));
+    }
+
+    /** A championship taking registrations or being played — the Huud's one activity until it's done. */
+    Mono<Boolean> championshipOn(Space s) {
+        if (s.championshipId() == null) return Mono.just(false);
+        return db.sql("SELECT status FROM championships WHERE id=:id").bind("id", s.championshipId())
+                .map((r, m) -> r.get("status", String.class)).one()
+                .map(status -> "lobby".equals(status) || "running".equals(status))
+                .defaultIfEmpty(false);
+    }
+
+    /** Back to hanging out: the finished bracket stops showing (it stays in history). */
+    Mono<Void> putChampionshipAway(UUID id) {
+        return db.sql("UPDATE huud_spaces SET championship_id=NULL WHERE id=:id").bind("id", id).fetch().rowsUpdated().then();
     }
 
     /** Host only: put the current game away so another can be picked. A game in play can't be. */
@@ -745,7 +778,7 @@ public class HuudSpaceService {
      * A game nobody has started yet goes away with its stakes refunded. Asked
      * as the room's own host — after a hand-off that isn't the Huud's host.
      */
-    private Mono<Void> cancelWaitingGame(Space s, UUID by) {
+    Mono<Void> cancelWaitingGame(Space s, UUID by) {
         if (s.currentRoomId() == null) return Mono.empty();
         return currentGame(s.currentRoomId())
                 .filter(game -> "waiting".equals(game.status()))
@@ -805,7 +838,7 @@ public class HuudSpaceService {
                                                     t.getT4(), now.sharedAt() != null, now.feedMessage(), t.getT5(),
                                                     now.background(), now.createdAt(), now.endedAt(),
                                                     now.live(), owner, me.map(Membership::muted).orElse(false),
-                                                    people.size(), liveCount);
+                                                    people.size(), liveCount, now.championshipId());
                                         })));
                             });
                         }));
@@ -996,7 +1029,8 @@ public class HuudSpaceService {
                 (String) row.get("privacy"), (UUID) row.get("owner_id"), (UUID) row.get("created_by"),
                 (String) row.get("status"), (UUID) row.get("current_room_id"),
                 (String) row.get("feed_message"), instant(row.get("shared_at")), (String) row.get("background"),
-                instant(row.get("live_since")), instant(row.get("created_at")), instant(row.get("ended_at")));
+                instant(row.get("live_since")), instant(row.get("created_at")), instant(row.get("ended_at")),
+                (UUID) row.get("championship_id"));
     }
 
     static Instant instant(Object value) {
@@ -1007,11 +1041,14 @@ public class HuudSpaceService {
         throw new IllegalStateException("unexpected timestamp " + value.getClass());
     }
 
-    /** Off the Huud's voice room, best effort — LiveKit being down mustn't stop a removal. */
+    /**
+     * Off the Huud's voice — its own room and any championship match room —
+     * best effort: LiveKit being down mustn't stop a removal.
+     */
     private Mono<Void> dropFromVoice(UUID id, UUID user) {
-        String room = HuudSpaceAccess.VOICE_PREFIX + id;
-        return voice.remove(room, user.toString()).onErrorResume(e -> Mono.empty())
-                .then(voiceSessions.removeMembership(user, room).onErrorResume(e -> Mono.empty()));
+        return access.voiceRooms(id).concatMap(room -> voice.remove(room, user.toString()).onErrorResume(e -> Mono.empty())
+                        .then(voiceSessions.removeMembership(user, room).onErrorResume(e -> Mono.empty())))
+                .then();
     }
 
     Mono<Void> lock(String key) {
@@ -1037,7 +1074,8 @@ public class HuudSpaceService {
             "accepted-join", "You're in {huud}! 🎉",
             "accepted-play", "You're in the game in {huud}! 🎮",
             "accepted-mic", "You can talk in {huud} now 🎙️",
-            "picked", "{by} picked you to play in {huud}! Tap to jump in 🎮");
+            "picked", "{by} picked you to play in {huud}! Tap to jump in 🎮",
+            "championship-match", "Your championship match in {huud} is ready — tap to play 🏆");
     // "live" is pushed by announceLive, which knows the game and the host's choice.
 
     private void pushWhenAway(UUID user, UUID id, String event, UUID by) {

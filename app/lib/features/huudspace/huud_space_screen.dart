@@ -9,8 +9,12 @@ import '../../core/hangout_state.dart';
 import '../../core/models.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/neon.dart';
+import '../../core/game_socket.dart';
+import '../chess/chess_game_screen.dart';
+import '../draughts/draughts_game_screen.dart';
 import '../lobby/joined_room_screen.dart';
 import '../spectate/spectate_screen.dart';
+import 'huud_championship.dart';
 import 'go_live_sheet.dart';
 import 'huud_kit.dart';
 import 'huud_link.dart';
@@ -62,6 +66,12 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
 
   List<HuudChatMessage>? _chat;
 
+  /// The championship on in the Huud, if there is one.
+  HuudCup? _cup;
+
+  /// The match voice you moved to by opening a match — null in the lobby.
+  String? _matchVoice;
+
   /// Your friends, so a person's card can say "Add friend" or "Friends".
   Set<String> _friendIds = const {};
   final _friendAsked = <String>{};
@@ -77,7 +87,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     super.didChangeDependencies();
     // While this screen is on top, its own mic button stands in for the call bar.
     final onTop = ModalRoute.of(context)?.isCurrent ?? true;
-    final room = _huud?.voiceRoom;
+    final room = _huud == null ? null : _voiceRoom(_huud!);
     final hangout = HangoutState.instance;
     if (onTop && room != null) {
       hangout.foreground = room;
@@ -143,11 +153,13 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     _poll?.cancel();
     HangoutState.instance.removeListener(_onVoice);
     KeepAwake.release(this);
-    final room = _huud?.voiceRoom;
-    if (room != null) {
-      if (HangoutState.instance.foreground == room) HangoutState.instance.foreground = null;
+    final huud = _huud;
+    if (huud != null) {
+      if (HangoutState.instance.foreground?.startsWith(huud.voiceRoom) ?? false) {
+        HangoutState.instance.foreground = null;
+      }
       // Back out of the Huud: its voice goes quiet too. (Games on top keep it.)
-      if (HuudVoice.instance.isIn(room) || HuudVoice.instance.isConnecting(room)) HuudVoice.instance.leave();
+      if (HuudVoice.instance.isInHuud(huud.id)) HuudVoice.instance.leave();
     }
     _say.dispose();
     _scroll.dispose();
@@ -189,7 +201,9 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         if (data['by'] != _me) huudSnack(context, '${_huud?.name ?? 'The Huud'} is Live! 🔴');
       case 'live-ended':
         if (data['by'] != _me) huudSnack(context, 'Live has ended — the Huud is still here.');
-        if (HangoutState.instance.roomName == _huud?.voiceRoom) HangoutState.instance.leave?.call();
+        if (_huud != null && _inThisVoice(_huud!)) HangoutState.instance.leave?.call();
+      case 'championship-match':
+        huudSnack(context, 'Your championship match is ready — tap Play 🏆');
       case 'accepted-join':
         huudSnack(context, "You're in! Say hi 👋");
       case 'declined-join':
@@ -231,7 +245,10 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
       setState(() {
         _huud = huud;
         _error = null;
+        if (huud.championshipId == null) _cup = null;
       });
+      if (huud.championshipId != null && huud.live) await _loadCup(huud);
+      if (!mounted) return;
       _syncVoice(huud);
       // Asked for the mic earlier? Remember it, so a yes switches the mic on.
       if (!huud.youCanSpeak) HuudVoice.instance.asked = huud.micRequest == 'pending';
@@ -248,6 +265,27 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
       if (mounted && _huud == null) setState(() => _error = "We couldn't reach PlayHuud. Pull down to try again.");
+    }
+  }
+
+  Future<void> _loadCup(HuudSpace huud) async {
+    try {
+      final raw = await AppScope.of(context).api.get('/huud-spaces/${huud.id}/championship') as Map;
+      if (!mounted) return;
+      final cup = HuudCup.fromJson(raw.cast<String, dynamic>());
+      final heard = _matchVoice;
+      setState(() {
+        _cup = cup;
+        // The match you were listening to is over: back to the championship lobby.
+        if (heard != null && cup.liveMatchWithVoice(heard) == null) _matchVoice = null;
+      });
+      if (heard != null && _matchVoice == null && _inThisVoice(huud)) {
+        huudSnack(context, 'Match over — back to the Championship Lobby 🎙️');
+      }
+    } on ApiException catch (_) {
+      if (mounted) setState(() => _cup = null);
+    } catch (_) {
+      // Keep what we had; the next refresh tries again.
     }
   }
 
@@ -400,20 +438,138 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
 
   Future<void> _putGameAway() => _update('clear', (api) => api.delete('/huud-spaces/${widget.id}/game'));
 
+  // ---------------------------------------------------------------- championship
+
+  /// Run a championship call that answers with the championship, and show it.
+  Future<void> _cupCall(String what, Future<dynamic> Function(ApiClient api) call, {String? say}) async {
+    final raw = await _run(what, call);
+    if (raw is Map && mounted) {
+      setState(() => _cup = HuudCup.fromJson(raw.cast<String, dynamic>()));
+      if (say != null) huudSnack(context, say);
+      _load();
+    }
+  }
+
+  Future<void> _newChampionship() async {
+    final cup = await showChampionshipSetup(context, widget.id);
+    if (cup == null || !mounted) return;
+    setState(() {
+      _cup = cup;
+      _tab = _Tab.play;
+    });
+    huudSnack(context, 'Registration is open — tell everyone to register 🏆');
+    _load();
+  }
+
+  Future<void> _register() => _cupCall('cup-register', (api) => api.post('/huud-spaces/${widget.id}/championship/register'),
+      say: "You're registered! 🏆");
+
+  Future<void> _withdraw() =>
+      _cupCall('cup-withdraw', (api) => api.delete('/huud-spaces/${widget.id}/championship/register'));
+
+  Future<void> _freePlace(CupEntrant player) async {
+    final ok = await confirmHuud(context,
+        emoji: '🪑',
+        title: "Free ${player.handle}'s place?",
+        message: '${player.handle} will be taken off the championship. They can register again.',
+        yes: 'Free the place');
+    if (!ok || !mounted) return;
+    await _cupCall('cup-remove', (api) => api.delete('/huud-spaces/${widget.id}/championship/players/${player.userId}'));
+  }
+
+  /// Back to hanging out — calling off registration, or putting a finished bracket away.
+  Future<void> _closeChampionship({required bool callOff}) async {
+    if (callOff) {
+      final ok = await confirmHuud(context,
+          emoji: '🌙',
+          title: 'Call off the championship?',
+          message: 'Registration closes and everyone goes back to hanging out.',
+          yes: 'Call it off',
+          danger: true);
+      if (!ok || !mounted) return;
+    }
+    await _update('cup-close', (api) => api.delete('/huud-spaces/${widget.id}/championship'),
+        say: callOff ? 'Championship called off' : 'Back to hanging out 🛋️');
+    if (mounted) setState(() => _cup = null);
+  }
+
+  Future<void> _endBothAbsent(CupMatch match) async {
+    final ok = await confirmHuud(context,
+        emoji: '🚫',
+        title: 'End this match with no winner?',
+        message: 'Both players have been gone too long. Neither goes through.',
+        yes: 'End the match',
+        danger: true);
+    if (!ok || !mounted) return;
+    await _cupCall('match-${match.id}',
+        (api) => api.post('/huud-spaces/${widget.id}/championship/matches/${match.id}/end-both-absent'));
+  }
+
+  /// Open a match: play it if it's yours, watch it otherwise. Its voice comes
+  /// with it, and coming back puts you in the championship lobby again.
+  Future<void> _openMatch(CupMatch match) async {
+    final cup = _cup;
+    final huud = _huud;
+    final roomId = match.roomId;
+    if (cup == null || huud == null || roomId == null || _busy != null) return;
+    final app = AppScope.of(context);
+    final me = _me ?? '';
+    final playing = match.has(me);
+    setState(() => _matchVoice = match.voiceRoom);
+    _syncVoice(huud);
+    final Widget screen;
+    if (!playing) {
+      screen = SpectateScreen(roomId: roomId, gameType: cup.gameType, title: cupMatchTitle(cup, match));
+    } else if (cup.gameType == 'chess') {
+      screen = ChessGameScreen(
+        socket: GameSocket.connect(app.api, roomId),
+        selfId: me,
+        nicknames: cup.nicknames,
+        avatars: {for (final p in cup.players) if (p.avatarUrl != null) p.userId: p.avatarUrl!},
+        championship: true,
+      );
+    } else {
+      screen = DraughtsGameScreen(
+        socket: GameSocket.connect(app.api, roomId),
+        selfId: me,
+        nicknames: cup.nicknames,
+        championshipId: cup.id,
+      );
+    }
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+    if (!mounted) return;
+    setState(() => _matchVoice = null);
+    final now = _huud;
+    if (now != null) _syncVoice(now);
+    _load();
+  }
+
+  /// The voice room you should hear: the match you opened while it's being
+  /// played, otherwise the Huud's own room (the championship lobby).
+  String _voiceRoom(HuudSpace huud) {
+    final match = _matchVoice;
+    if (match != null && _cup?.liveMatchWithVoice(match) != null) return match;
+    return huud.voiceRoom;
+  }
+
+  /// In one of this Huud's voice rooms right now.
+  bool _inThisVoice(HuudSpace huud) => HangoutState.instance.roomName?.startsWith(huud.voiceRoom) ?? false;
+
   /// In a Live Huud you're always connected — muted until you tap the mic.
   void _syncVoice(HuudSpace huud) {
     final voice = HuudVoice.instance;
-    final room = huud.voiceRoom;
+    final room = _voiceRoom(huud);
     if (ModalRoute.of(context)?.isCurrent ?? true) HangoutState.instance.foreground = room;
     final belong = huud.active && huud.live && huud.youAreIn;
     if (belong && !voice.isIn(room) && !voice.isConnecting(room)) {
-      voice.join(
-        api: AppScope.of(context).api,
-        roomName: room,
-        title: huud.name,
-        openHuud: () => _backToHuud(huud.id),
-      );
-    } else if (!belong && (voice.isIn(room) || voice.isConnecting(room))) {
+      final api = AppScope.of(context).api;
+      void open() => _backToHuud(huud.id);
+      if (voice.isInHuud(huud.id)) {
+        voice.switchTo(api: api, roomName: room, title: huud.name, openHuud: open);
+      } else {
+        voice.join(api: api, roomName: room, title: huud.name, openHuud: open);
+      }
+    } else if (!belong && voice.isInHuud(huud.id)) {
       voice.leave();
     }
   }
@@ -429,7 +585,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     final voice = HuudVoice.instance;
     final canSpeak = huud.youCanSpeak || voice.canSpeak;
     if (!canSpeak) return huud.micRequest == 'pending' || voice.asked ? MicState.asked : MicState.locked;
-    if (!voice.isIn(huud.voiceRoom)) return MicState.muted;
+    if (!voice.isIn(_voiceRoom(huud))) return MicState.muted;
     return HangoutState.instance.muted ? MicState.muted : MicState.live;
   }
 
@@ -448,8 +604,8 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
       case MicState.live:
         break;
     }
-    if (!voice.isIn(huud.voiceRoom)) {
-      if (voice.isConnecting(huud.voiceRoom)) return;
+    if (!voice.isIn(_voiceRoom(huud))) {
+      if (voice.isConnecting(_voiceRoom(huud))) return;
       _syncVoice(huud);
       huudSnack(context, 'Connecting to the Huud…');
       return;
@@ -511,7 +667,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
       return true;
     });
     if (done == true && mounted) {
-      if (HangoutState.instance.roomName == huud.voiceRoom) await HangoutState.instance.leave?.call();
+      if (_inThisVoice(huud)) await HangoutState.instance.leave?.call();
       if (mounted) Navigator.of(context).maybePop();
     }
   }
@@ -527,7 +683,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
       danger: true,
     );
     if (!ok || !mounted) return;
-    if (HangoutState.instance.roomName == huud.voiceRoom) await HangoutState.instance.leave?.call();
+    if (_inThisVoice(huud)) await HangoutState.instance.leave?.call();
     if (!mounted) return;
     await _update('end', (api) => api.delete('/huud-spaces/${widget.id}/live'),
         say: 'Live has ended. Your Huud is still here 🏠');
@@ -667,7 +823,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     if (!mounted) return;
     if (changed is HuudSpace) setState(() => _huud = changed);
     if (changed == _SettingsSheet.deleted) {
-      if (HangoutState.instance.roomName == huud.voiceRoom) await HangoutState.instance.leave?.call();
+      if (_inThisVoice(huud)) await HangoutState.instance.leave?.call();
       if (!mounted) return;
       huudSnack(context, '${huud.name} was deleted');
       Navigator.of(context).maybePop();
@@ -880,7 +1036,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
   /// Whoever is speaking right now, in a small dark box beside the chips.
   Widget? _talkingNow(HuudSpace huud) {
     final call = HangoutState.instance;
-    if (call.roomName != huud.voiceRoom) return null;
+    if (!_inThisVoice(huud)) return null;
     final me = call.room?.localParticipant;
     final names = [
       for (final p in call.participants)
@@ -1242,6 +1398,40 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
   List<Widget> _play(NeonColors n, HuudSpace huud) {
     final game = huud.currentGame;
     const pad = EdgeInsets.symmetric(horizontal: 16);
+    final cup = _cup;
+    if (huud.championshipId != null && cup != null) {
+      final heard = _matchVoice == null ? null : cup.liveMatchWithVoice(_matchVoice);
+      return [
+        SliverPadding(
+          padding: pad,
+          sliver: SliverToBoxAdapter(
+            child: ChampionshipPanel(
+              cup: cup,
+              me: _me,
+              youAreHost: huud.youAreHost,
+              youAreIn: huud.youAreIn,
+              listeningTo: heard,
+              busy: _busy,
+              onRegister: _register,
+              onWithdraw: _withdraw,
+              onOpenMatch: _openMatch,
+              onCallOff: () => _closeChampionship(callOff: true),
+              onNew: _newChampionship,
+              onHangOut: () => _closeChampionship(callOff: false),
+              onEndLive: () => _end(huud),
+              onRemovePlayer: _freePlace,
+              onEndBothAbsent: _endBothAbsent,
+            ),
+          ),
+        ),
+      ];
+    }
+    if (huud.championshipId != null) {
+      return [
+        const SliverToBoxAdapter(
+            child: Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator()))),
+      ];
+    }
     if (game == null) {
       if (!huud.youAreHost) {
         return [
@@ -1430,6 +1620,28 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
   }
 
   List<Widget> _picker(NeonColors n, HuudSpace huud, {required String title}) => [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+          sliver: SliverToBoxAdapter(
+            child: HuudCard(
+              key: const ValueKey('huud-start-championship'),
+              onTap: _busy == null ? _newChampionship : null,
+              child: Row(children: [
+                const Text('🏆', style: TextStyle(fontSize: 34)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Start a championship',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: n.ink)),
+                    Text('Chess or Draughts knockout — everyone in the Huud can register',
+                        style: TextStyle(fontSize: 13, color: n.mid)),
+                  ]),
+                ),
+                Icon(Icons.chevron_right_rounded, color: n.mid),
+              ]),
+            ),
+          ),
+        ),
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           sliver: SliverToBoxAdapter(child: HuudSectionTitle(title, emoji: '🎮')),

@@ -15,6 +15,10 @@ import '../../widgets/mic_button.dart';
 /// It shares [HangoutState] with ordinary calls, so the little "who's
 /// talking" bar still shows over the Huud's games; tapping that bar brings
 /// you back to the Huud instead of opening a call screen.
+///
+/// During a championship the Huud has more than one voice room: its own
+/// (`huud-<id>`, the championship lobby) and one per match being played
+/// (`huud-<id>-m-<match>`). You're only ever in one; [switchTo] moves you.
 class HuudVoice {
   HuudVoice._();
   static final instance = HuudVoice._();
@@ -50,10 +54,38 @@ class HuudVoice {
     return _state.muted ? MicState.muted : MicState.live;
   }
 
-  /// The Huud this voice belongs to (its room is `huud-<id>`).
+  /// The Huud this voice belongs to (its room is `huud-<id>`, or a match room `huud-<id>-m-<match>`).
   String? get huudId {
     final room = _state.roomName;
-    return room != null && room.startsWith('huud-') && _state.onOpen != null ? room.substring(5) : null;
+    return room != null && room.startsWith('huud-') && room.length >= 41 && _state.onOpen != null
+        ? room.substring(5, 41)
+        : null;
+  }
+
+  /// In one of this Huud's voice rooms — its own or a championship match's — or joining one.
+  bool isInHuud(String huudId) {
+    final room = _connecting ?? _state.roomName;
+    return room != null && room.startsWith('huud-$huudId');
+  }
+
+  /// Move to another of the same Huud's voice rooms: the championship lobby
+  /// ↔ a match. You hear one room at a time, and arrive muted.
+  Future<void> switchTo({
+    required ApiClient api,
+    required String roomName,
+    required String title,
+    required VoidCallback openHuud,
+  }) async {
+    // Still joining the last one: let that finish first.
+    for (var i = 0; i < 40 && _connecting != null; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+    }
+    if (_connecting != null || isIn(roomName)) return;
+    final current = _state.roomName;
+    if (current != null && current != roomName && current.startsWith('huud-') && _state.onOpen != null) {
+      await _leave();
+    }
+    await join(api: api, roomName: roomName, title: title, openHuud: openHuud);
   }
 
   /// Ask the host for the mic — from the Huud or from a game's top bar.

@@ -6,6 +6,7 @@ import app.truearena.engine.GameConfig;
 import app.truearena.engine.GameEvent;
 import app.truearena.engine.GameModule;
 import app.truearena.engine.GameRunner;
+import app.truearena.engine.GameSettings;
 import app.truearena.engine.GameState;
 import app.truearena.api.bot.BotRuntimeRegistry;
 import app.truearena.api.coins.CoinService;
@@ -903,18 +904,23 @@ public class GameOrchestrator {
                     .flatMap(players -> {
                         if (players.size() != 2)
                             return Mono.error(new IllegalStateException("tournament pairing must have two players"));
-                        return sessions.findFirstByRoomIdOrderByStartedAtDesc(roomId)
-                                .flatMap(session -> restoreTournamentRoom(rt, players, session).thenReturn(true))
-                                .defaultIfEmpty(false)
-                                .flatMap(restored -> restored ? Mono.empty()
-                                        : startDraughtsWith(rt, rt.hostUserId, players, DraughtsConfig.defaults()));
+                        return rooms.findById(roomId).map(RoomRow::gameType).defaultIfEmpty("draughts")
+                                .flatMap(gameType -> sessions.findFirstByRoomIdOrderByStartedAtDesc(roomId)
+                                        .flatMap(session -> restoreTournamentRoom(rt, players, session).thenReturn(true))
+                                        .defaultIfEmpty(false)
+                                        .flatMap(restored -> restored ? Mono.empty()
+                                                : "chess".equals(gameType)
+                                                        ? startChess(rt, rt.hostUserId, players, null)
+                                                        : startDraughtsWith(rt, rt.hostUserId, players, DraughtsConfig.defaults())));
                     });
         }));
     }
 
     private Mono<Void> restoreTournamentRoom(RoomRuntime rt, List<String> players, GameSessionRow session) {
-        DraughtsModule module = new DraughtsModule();
-        DraughtsConfig cfg = draughtsConfigFrom(session.config().asString());
+        boolean chess = "chess".equals(session.gameType());
+        GameModule module = chess ? new ChessModule() : new DraughtsModule();
+        GameSettings cfg = chess ? chessConfigFrom(session.config().asString())
+                : draughtsConfigFrom(session.config().asString());
         return championships.savedActions(session.id()).collectList().flatMap(actions -> Mono.fromCallable(() -> {
             GameState state = module.initialState(players, cfg, RandomSource.seeded(session.rngSeed()));
             GameRunner runner = new GameRunner(module);
@@ -977,22 +983,27 @@ public class GameOrchestrator {
         return ensureRuntime(roomId).flatMap(rt -> lock.withLock(roomId, LOCK_TTL, () -> {
             if (!rt.started() || rt.state().finished())
                 return Mono.empty();
-            String opponent = rt.module().broadcastState(rt.state()).data().get("playerA").toString().equals(loser.toString())
-                    ? rt.module().broadcastState(rt.state()).data().get("playerB").toString()
-                    : rt.module().broadcastState(rt.state()).data().get("playerA").toString();
-            if (!rt.connectedUserIds.contains(opponent)) return Mono.empty();
-            return championships.forfeitAllowed(roomId, loser).flatMap(allowed -> {
-                if (!allowed) return Mono.empty();
-                String actionId = UUID.randomUUID().toString();
-                GameRunner.Step step = new GameRunner(rt.module()).apply(rt.state(),
-                        new PlayerAction(actionId, loser.toString(), "FORFEIT", Map.of()));
-                return championships.recordAction(roomId, rt.gameSessionId, actionId, loser, "FORFEIT", "{}")
-                        .then(Mono.defer(() -> {
-                            rt.setState(step.state());
-                            return afterMutation(rt, step.events());
-                        }));
-            });
+            // Draughts names its sides playerA/playerB, chess white/black — the
+            // room's two members are the same two people either way.
+            return members.findByRoomId(roomId).map(m -> m.userId().toString())
+                    .filter(id -> !id.equals(loser.toString())).next()
+                    .filter(rt.connectedUserIds::contains)
+                    .flatMap(opponent -> forfeitTournamentSeat(rt, roomId, loser));
         }));
+    }
+
+    private Mono<Void> forfeitTournamentSeat(RoomRuntime rt, UUID roomId, UUID loser) {
+        return championships.forfeitAllowed(roomId, loser).flatMap(allowed -> {
+            if (!allowed) return Mono.empty();
+            String actionId = UUID.randomUUID().toString();
+            GameRunner.Step step = new GameRunner(rt.module()).apply(rt.state(),
+                    new PlayerAction(actionId, loser.toString(), "FORFEIT", Map.of()));
+            return championships.recordAction(roomId, rt.gameSessionId, actionId, loser, "FORFEIT", "{}")
+                    .then(Mono.defer(() -> {
+                        rt.setState(step.state());
+                        return afterMutation(rt, step.events());
+                    }));
+        });
     }
 
     /** End an ordinary Draughts or Chess match against a Cyber Agent before its socket closes. */

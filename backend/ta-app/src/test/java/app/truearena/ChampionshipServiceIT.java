@@ -15,8 +15,6 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.time.Instant;
 import java.util.List;
@@ -38,17 +36,33 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @SpringBootTest
 @Tag("integration")
-@Testcontainers
 class ChampionshipServiceIT {
+    private static final boolean EXTERNAL = System.getProperty("it.r2dbc.url") != null;
+    private static final PostgreSQLContainer<?> POSTGRES = EXTERNAL ? null : new PostgreSQLContainer<>("postgres:16");
+    private static final GenericContainer<?> REDIS = EXTERNAL ? null
+            : new GenericContainer<>("redis:7").withExposedPorts(6379);
 
-    @Container
-    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16");
-
-    @Container
-    static final GenericContainer<?> REDIS = new GenericContainer<>("redis:7").withExposedPorts(6379);
+    static {
+        if (!EXTERNAL) {
+            POSTGRES.start();
+            REDIS.start();
+        }
+    }
 
     @DynamicPropertySource
     static void props(DynamicPropertyRegistry r) {
+        if (EXTERNAL) {
+            r.add("spring.r2dbc.url", () -> System.getProperty("it.r2dbc.url"));
+            r.add("spring.r2dbc.username", () -> System.getProperty("it.db.user"));
+            r.add("spring.r2dbc.password", () -> System.getProperty("it.db.password"));
+            r.add("spring.flyway.url", () -> System.getProperty("it.jdbc.url"));
+            r.add("spring.flyway.user", () -> System.getProperty("it.db.user"));
+            r.add("spring.flyway.password", () -> System.getProperty("it.db.password"));
+            r.add("spring.data.redis.host", () -> System.getProperty("it.redis.host", "localhost"));
+            r.add("spring.data.redis.port", () -> System.getProperty("it.redis.port", "6379"));
+            r.add("spring.data.redis.database", () -> System.getProperty("it.redis.database", "0"));
+            return;
+        }
         r.add("spring.r2dbc.url", () -> "r2dbc:postgresql://" + POSTGRES.getHost() + ":"
                 + POSTGRES.getFirstMappedPort() + "/" + POSTGRES.getDatabaseName());
         r.add("spring.r2dbc.username", POSTGRES::getUsername);

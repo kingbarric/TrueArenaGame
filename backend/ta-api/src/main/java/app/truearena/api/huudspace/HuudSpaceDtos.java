@@ -127,7 +127,8 @@ public final class HuudSpaceDtos {
                                 String joinRequest, String playRequest, String micRequest,
                                 List<PendingRequest> requests, boolean shared, String feedMessage,
                                 int watching, String background, Instant createdAt, Instant endedAt,
-                                boolean live, boolean youOwn, boolean muted, int memberCount, int liveCount) {
+                                boolean live, boolean youOwn, boolean muted, int memberCount, int liveCount,
+                                UUID championshipId) {
     }
 
     /** A card on the Live tab. The code stays out: only people inside see it. */
@@ -136,4 +137,40 @@ public final class HuudSpaceDtos {
                            boolean youAreIn, int watching, Instant createdAt) {
     }
 
+    // ------------------------------------------------------------ championships
+
+    /**
+     * Start a championship in the Huud. Everything has a default: Chess or
+     * Draughts (required), 8 players, simultaneous rounds, watching allowed,
+     * 3 minutes to come back after a disconnect.
+     */
+    public record ChampionshipRequest(@NotBlank String gameType, Integer size, String roundTiming,
+                                      Boolean spectatorsAllowed, Integer graceMinutes, @Size(max = 80) String name) {
+    }
+
+    /** Someone in the bracket. {@code out}: knocked out. */
+    public record Entrant(UUID userId, String name, String username, String avatarUrl, boolean out) {
+    }
+
+    /**
+     * One pairing. {@code status}: pending (waiting for its players), active
+     * (being played — {@code roomId} and {@code voiceRoom} set), completed,
+     * bye or no_winner. {@code gameNumber} counts replays after draws.
+     */
+    public record ChampionshipMatch(UUID id, int round, String roundName, int position, UUID playerA, UUID playerB,
+                                    UUID winnerId, String status, UUID roomId, int gameNumber, int watching,
+                                    String voiceRoom, long aReconnectMs, long bReconnectMs) {
+    }
+
+    /**
+     * A Huud's championship as everyone in the Huud sees it. {@code status}:
+     * registering → playing → finished (or cancelled). {@code lobbyVoiceRoom}
+     * is the Huud's own voice room, the championship lobby.
+     */
+    public record HuudChampionship(UUID id, UUID huudSpaceId, String name, String gameType, int size,
+                                   String status, String roundTiming, boolean spectatorsAllowed, int graceSeconds,
+                                   int currentRound, int rounds, String roundName, List<Entrant> players,
+                                   boolean youAreRegistered, List<ChampionshipMatch> matches, UUID championId,
+                                   UUID runnerUpId, UUID yourMatchId, String lobbyVoiceRoom, UUID createdBy) {
+    }
 }

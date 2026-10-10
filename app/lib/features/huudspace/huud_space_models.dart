@@ -162,7 +162,12 @@ class HuudSpace {
     this.muted = false,
     this.memberCount = 0,
     this.liveCount = 0,
+    this.championshipId,
   });
+
+  /// The championship on in the Huud (registering, being played, or just
+  /// finished and still showing its bracket) — null when it's hanging out.
+  final String? championshipId;
 
   /// Live right now (a hangout is on) — or offline, waiting for the owner.
   final bool live;
@@ -242,6 +247,7 @@ class HuudSpace {
         muted: j['muted'] == true,
         memberCount: (j['memberCount'] as num?)?.toInt() ?? 0,
         liveCount: (j['liveCount'] as num?)?.toInt() ?? 0,
+        championshipId: j['championshipId']?.toString(),
       );
 }
 

@@ -27,6 +27,19 @@ Bottom menu: **Live · Huud · Games · Friends · You** (labels under every ico
 - **Huud icon**: `assets/images/branding/huud_icon.png` (`huudIcon`) on the Huud tab, Huud headers, Make a Huud and Huud banners.
 - **Startup**: a notification that opened the app counts once and only while it's under an hour old (iOS can replay an old "Your turn" on every launch); only the game screen the app was closed on is reopened (`GameSocket.currentPlayerRoom` → `ta_resume_room`); a lobby you backed out of no longer pops open on launch.
 
+## Championships in a Huud
+
+A Chess or Draughts knockout runs inside the Huud as its one activity — the deliberate exception to "one game at a time": several boards of the same game, all in one bracket. The Huud stays the platform (members, chat, privacy, background, code, mic rules); the championship owns registration, the draw, rounds, results; each match owns its board, its watchers and its voice room. The bracket engine is the pre-Huud `ChampionshipService` (draws replay, disconnect allowance, forfeits, byes, champion badge), reused unchanged except where noted.
+
+- **Start** (host, Live, Play tab → "Start a championship", `create` in `HuudChampionshipService`, `POST /huud-spaces/{id}/championship`): Chess or Draughts, 4 / 8 (default) / 16 players, rounds all at once (default) or one match at a time, people can watch (default) or players only, 1 / 3 (default) / 5 minutes to come back after a disconnect. A waiting game is put away; a game being played has to finish first. Ordinary games can't be added while a championship is registering or being played.
+- **Register** (members in the Live hangout, `POST …/championship/register`, `DELETE` to give the place back; the host can free a place, `DELETE …/players/{userId}`). The old invitation join refuses Huud championships. The last place locks registration and the **system draw** shuffles the places once (`draw`), then round one pairs 1v2, 3v4, …
+- **Rounds**: simultaneous — every pairing of the round plays at once; sequential — the next board opens when the last one ends. The Final is always on its own. Winners go through automatically; the next round starts when the round is done. Rounds are named from the end: Final, Semi Finals, Quarter Finals, Round of 16.
+- **Play tab** (`ChampionshipPanel`): registration (places, who's in, Register / Give my place back, host Call it off) → playing (your match on top with Play, "You're through!" / "You're out", Live matches with "N watching" and Play/Watch, Up next, the bracket) → finished (champion, runner-up, bracket; host: New championship · Hang out · End Live). Players open their board (`ChessGameScreen(championship: true)` — no pause, reconnect countdown — or `DraughtsGameScreen(championshipId:)`); everyone else watches through `SpectateScreen`.
+- **Voice**: the Huud's own room `huud-<id>` is the Championship Lobby. Every match being played has `huud-<id>-m-<matchId>` (`HuudSpaceAccess.matchVoiceRoom`). Opening a match moves you to its room (`HuudVoice.switchTo`); closing it, or the match ending, moves you back to the lobby. One room at a time. The same people may listen (members in the hangout) and the same mic rules apply in every room — a mic grant flips the speaker in all of them (`HuudSpaceAccess.voiceRooms`). A match room only admits people while its match is active.
+- **Chat** stays the one Huud chat.
+- **After the final**: the bracket stays on the Play tab until the host taps Hang out (`DELETE …/championship`, which also calls off registration) or starts a new one; End Live calls off registration and puts a finished bracket away, but a championship being played keeps going (its boards are saved) and is back when the Huud goes Live. The championship stays in history and the champion keeps the badge.
+- **Events**: `championship` (refresh) to everyone in the Huud on every change; `championship-match` to both players when their board is ready (pushed when away).
+
 ## Reports (web admin)
 
 `website/notvisible/reports/` (linked from Analytics and Broadcasts), behind the admin key: open / reviewed / all reports with reason, who reported whom, the exact chat message or feed post, the Huud, and how many reports the player has; "Mark reviewed" with a note and the reviewer's name, and "Take post down & mark reviewed" for posts (`/api/v1/admin/reports`).
@@ -54,9 +67,13 @@ Bottom menu: **Live · Huud · Games · Friends · You** (labels under every ico
 - `V42__feed_post_reactions.sql`: `feed_post_reactions`.
 - `V43__huud_background.sql`: `huud_spaces.background`.
 - `V44__persistent_huuds.sql`: `huud_spaces.live_since`, `huud_space_members.live_at` / `muted`, one active Huud per `created_by`. Existing data: Huuds on at the time become Live; everyone else's latest ended Huud comes back offline with its members (a fresh code if its old one is taken); older ended Huuds stay gone.
+- `V46__huud_championships.sql`: `championships.huud_space_id` / `round_timing` / `spectators_allowed` / `grace_seconds`, status `cancelled`, one open championship per Huud, `huud_spaces.championship_id`.
 - `spring.flyway.ignore-migration-patterns: "*:missing"`: production has V37/V38 applied from that dropped branch.
 
 ## Validation
+
+- `HuudChampionshipIT` (5): 8 players through simultaneous Quarter Finals, Semi Finals and a standalone Final on real chess boards; match voice access; sequential rounds; registration, withdrawal, freeing a place and calling off; the one-activity rule; End Live.
+- `test/huud_championship_test.dart`: setup sheet, registering, live matches with watchers, champion and Hang out, match voice rooms.
 
 - `HuudSpaceIT` (25): watching + code hiding, rematch, text posts + report review/take-down, join rules per privacy, private ask/invite/decline, roster selection and seats, mic, chat + flood limit, block/report, feed sharing, plus Go Live notify choices + mute, End Live keeping the Huud, joining offline, away vs Leave, host cover and owner takeover, delete.
 - `test/huud_space_test.dart`, `test/huud_feed_test.dart`, `test/game_resume_test.dart`, `test/friends_search_test.dart`.
