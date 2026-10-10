@@ -171,6 +171,44 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('released piece stays on top of a rival at its door and uses the other die', (tester) async {
+    final socket = await open(tester);
+    socket.snapshot(players: ['me', 'friend'], seats: [0, 2], pieces: {
+      'me': [0, -1, -1, -1], 'friend': [26, -1, -1, -1],
+    }, dice: [4], legal: [{'die': 4, 'token': 0}]);
+    await tester.pumpAndSettle();
+    final myPiece = find.byKey(const ValueKey('me:0'));
+    final rival = find.byKey(const ValueKey('friend:0'));
+    expect(tester.getCenter(myPiece), tester.getCenter(rival));
+    await tester.tapAt(tester.getCenter(myPiece));
+    expect(socket.sent.last['action'], 'MOVE');
+    expect(socket.sent.last['data'], {'die': 4, 'token': 0});
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('capture snapshot moves killer into centre and victim back to box', (tester) async {
+    final socket = await open(tester);
+    socket.snapshot(players: ['me', 'friend'], seats: [0, 2], pieces: {
+      'me': [11, -1, -1, -1], 'friend': [40, -1, -1, -1],
+    });
+    await tester.pumpAndSettle();
+    final killer = find.byKey(const ValueKey('me:0'));
+    final victim = find.byKey(const ValueKey('friend:0'));
+    final oldKiller = tester.getCenter(killer);
+    final oldVictim = tester.getCenter(victim);
+    socket.snapshot(players: ['me', 'friend'], seats: [0, 2], pieces: {
+      'me': [56, -1, -1, -1], 'friend': [-1, -1, -1, -1],
+    }, turn: 'friend');
+    await tester.pumpAndSettle();
+    expect(tester.getCenter(killer), isNot(oldKiller));
+    expect(tester.getCenter(victim), isNot(oldVictim));
+    expect(tester.getCenter(victim).dy, closeTo(tester.getCenter(find.byKey(const ValueKey('friend:1'))).dy, 1));
+    expect((tester.getCenter(killer) - tester.getCenter(victim)).distance, greaterThan(50));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('both dice may be spent on the same piece', (tester) async {
     final socket = await open(tester);
     socket.snapshot(players: [

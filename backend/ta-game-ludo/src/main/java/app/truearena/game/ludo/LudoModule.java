@@ -147,9 +147,20 @@ public final class LudoModule implements GameModule {
         int to = from == -1 ? 0 : from + die;
         mine.set(token, to);
         pieces.put(action.actor(), List.copyOf(mine));
+        List<Integer> remaining = new ArrayList<>(s.dice());
+        remaining.remove(Integer.valueOf(die));
+        // Completing this piece must not strand a die that it still needs to use.
+        boolean canFinishCapture = remaining.stream().allMatch(value -> {
+            for (int other = 0; other < mine.size(); other++) {
+                if (other != token && legal(pieces, s, action.actor(), other, value)) return true;
+            }
+            return false;
+        });
         List<String> captured = new ArrayList<>();
         int landing = to <= 50 ? square(s, action.actor(), to) : -1;
-        if (landing >= 0 && !SAFE.contains(landing)) {
+        // Releasing onto your own door can capture a visitor; other safe squares stay safe.
+        boolean ownDoor = from == -1 && to == 0;
+        if (canFinishCapture && landing >= 0 && (ownDoor || !SAFE.contains(landing))) {
             for (String opponent : s.players()) {
                 if (opponent.equals(action.actor())) continue;
                 List<Integer> other = new ArrayList<>(pieces.get(opponent));
@@ -163,13 +174,18 @@ public final class LudoModule implements GameModule {
                 pieces.put(opponent, List.copyOf(other));
             }
         }
-        List<Integer> remaining = new ArrayList<>(s.dice());
-        remaining.remove(Integer.valueOf(die));
+        // A kill completes the attacking piece; only the victim returns to its box.
+        if (!captured.isEmpty()) {
+            to = 56;
+            mine.set(token, to);
+            pieces.put(action.actor(), List.copyOf(mine));
+        }
         remaining.removeIf(value -> !hasMoveWith(pieces, s, action.actor(), value));
         String winner = mine.stream().allMatch(p -> p == 56) ? action.actor() : null;
         Map<String, Object> event = new LinkedHashMap<>();
         event.put("player", action.actor()); event.put("token", token); event.put("die", die);
         event.put("from", from); event.put("to", to); event.put("captured", captured);
+        if (!captured.isEmpty()) event.put("captureSquare", landing);
         LudoState next = changed(s, action.actionId(), pieces, s.turnIndex(), remaining,
                 s.rollCount(), s.bonusRolls(), winner, "PIECE_MOVED", event);
         return winner != null ? next : remaining.isEmpty() ? finishDice(next) : next;

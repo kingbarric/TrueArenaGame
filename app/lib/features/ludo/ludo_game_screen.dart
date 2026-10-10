@@ -553,7 +553,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
         steps: [
           'Tap the cup to roll two dice. Use each die on a piece; choose the same piece twice or two different pieces.',
           'A six brings a piece out of its home box onto its starting square. Only double six earns another roll.',
-          'Land on a rival on an ordinary square to send it home. Stars and coloured starting squares are safe.',
+          'A kill returns the rival to its box and finishes your piece in the centre. If a die remains, another piece must be able to use it; otherwise keep moving this piece. Stars and starting squares are safe, except when you bring a piece out onto your own occupied start.',
           'Enter your own coloured lane after a lap. Reach the centre with an exact roll.',
         ]);
   }
@@ -970,10 +970,19 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                       )),
               for (var i = 0; i < _players_.length; i++)
                 _playerLabel(_players_[i], _seats[i], cell),
-              for (var i = 0; i < _players_.length; i++)
-                for (var token = 0;
-                    token < (pieces[_players_[i]] as List? ?? const []).length;
-                    token++)
+              // Paint the current player's pieces last so shared squares remain tappable.
+              for (final i in [
+                for (var i = 0; i < _players_.length; i++)
+                  if (_players_[i] != _turn) i,
+                for (var i = 0; i < _players_.length; i++)
+                  if (_players_[i] == _turn) i,
+              ])
+                for (final token in [
+                  for (var token = 0; token < (pieces[_players_[i]] as List? ?? const []).length; token++)
+                    if (!_tokenIsActive(_players_[i], token)) token,
+                  for (var token = 0; token < (pieces[_players_[i]] as List? ?? const []).length; token++)
+                    if (_tokenIsActive(_players_[i], token)) token,
+                ])
                   _token(_players_[i], _seats[i], token,
                       (pieces[_players_[i]] as List)[token] as int, cell),
             ])),
@@ -1017,6 +1026,9 @@ class _LudoGameScreenState extends State<LudoGameScreen>
     );
   }
 
+  bool _tokenIsActive(String player, int token) =>
+      _myTurn && player == widget.selfId && _legal.any((m) => m['token'] == token);
+
   Widget _token(String player, int seat, int token, int progress, double cell) {
     final pieceCount = (_state['pieceCount'] as num?)?.toInt() ?? 4;
     final replay = _replay;
@@ -1031,9 +1043,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
     final (row, col) = _position(seat, token, progress, pieceCount);
     final pieceScale = progress == 56 ? (pieceCount == 8 ? .32 : .46) : .78;
     final pieceInset = (1 - pieceScale) / 2;
-    final active = _myTurn &&
-        player == widget.selfId &&
-        _legal.any((m) => m['token'] == token);
+    final active = _tokenIsActive(player, token);
     return AnimatedPositioned(
       key: ValueKey('$player:$token'),
       duration: const Duration(milliseconds: 420),
