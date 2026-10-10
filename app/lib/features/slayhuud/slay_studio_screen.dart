@@ -9,6 +9,7 @@ import 'slay_theme.dart';
 import '../../theme/neon_theme.dart';
 import 'slay_game_menu.dart';
 import 'slay_pose_picker.dart';
+import 'slay_style_report.dart';
 
 class SlayStudioScreen extends StatefulWidget {
   const SlayStudioScreen(
@@ -228,57 +229,8 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
             context: context,
             isScrollControlled: true,
             backgroundColor: context.neon.bg,
-            builder: (c) => SafeArea(
-                child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(mainAxisSize: MainAxisSize.min, children: [
-                      const SlayLabel('Your style report'),
-                      const SizedBox(height: 10),
-                      Text('${score['overall']}',
-                          style: Theme.of(c)
-                              .textTheme
-                              .displaySmall
-                              ?.copyWith(fontSize: 64)),
-                      Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: List.generate(
-                              3,
-                              (i) => Icon(
-                                  i < (score['stars'] as num)
-                                      ? Icons.star_rounded
-                                      : Icons.star_outline_rounded,
-                                  color: context.neon.gold,
-                                  size: 32))),
-                      const SizedBox(height: 20),
-                      for (final dim in {
-                        'themeFit': 'Theme fit',
-                        'requirements': 'Required items',
-                        'colour': 'Colour harmony',
-                        'completeness': 'Completeness'
-                      }.entries)
-                        Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: Row(children: [
-                              Expanded(child: Text(dim.value)),
-                              Text('${score[dim.key]} / 100',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w600))
-                            ])),
-                      if ((score['missing'] as List).isNotEmpty)
-                        Text(
-                            'Try adding: ${(score['missing'] as List).join(', ')}',
-                            style: TextStyle(color: context.neon.mute)),
-                      const SizedBox(height: 14),
-                      Text('Coins and XP are awarded once per theme each day.',
-                          style: TextStyle(
-                              color: context.neon.mute, fontSize: 12)),
-                      const SizedBox(height: 20),
-                      SizedBox(
-                          width: double.infinity,
-                          child: SlayButton(
-                              onPressed: () => Navigator.pop(c),
-                              child: const Text('Back to the studio'))),
-                    ]))));
+            builder: (c) => SlayStyleReport(
+                score: score, themeTitle: widget.theme['title']));
       }
     } catch (e) {
       if (mounted && !e.toString().contains('cancelled')) {

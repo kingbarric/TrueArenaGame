@@ -9,6 +9,7 @@ import 'core/app_state.dart';
 import 'features/slayhuud/slay_hub_screen.dart';
 import 'features/games/game_select_screen.dart';
 import 'theme/neon_theme.dart';
+import 'dev/slay_preview_scoring.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -114,15 +115,21 @@ Future<void> main() async {
         'catalogVersion': catalog['version']
       };
     } else if (path.startsWith('/slay/solo/')) {
-      result = {
-        'overall': 89.0,
-        'stars': 3,
-        'themeFit': 92.0,
-        'requirements': 100.0,
-        'colour': 81.0,
-        'completeness': 100.0,
-        'missing': []
-      };
+      final look = looks[body['lookId']];
+      final themes = (catalog['themes'] as List).cast<Map>();
+      final theme = themes.where((t) => t['id'] == path.split('/')[3]);
+      if (look == null || theme.isEmpty) {
+        return http.Response('{"message":"Unknown look or theme"}', 404);
+      }
+      try {
+        result = {
+          ...scoreSlayPreview(
+              look, Map<String, dynamic>.from(theme.single), catalog),
+          'preview': true
+        };
+      } on StateError catch (error) {
+        return http.Response(jsonEncode({'message': error.message}), 400);
+      }
     } else if (path == '/slay/wardrobe/buy') {
       final item = (catalog['items'] as List)
           .firstWhere((i) => i['id'] == body['itemId']);

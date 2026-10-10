@@ -1,0 +1,450 @@
+[ {
+  "name" : "date without footwear",
+  "theme" : "first-date",
+  "look" : {
+    "body" : "female",
+    "skinTone" : "#623a27",
+    "facePreset" : "classic",
+    "items" : {
+      "outfit" : "female-romantic",
+      "hair" : "female-hair-0"
+    },
+    "pose" : "signature",
+    "background" : "studio"
+  },
+  "expected" : {
+    "themeFit" : 100.0,
+    "requirements" : 50.0,
+    "colour" : 100.0,
+    "completeness" : 50.0,
+    "overall" : 75.0,
+    "stars" : 2,
+    "missing" : [ "shoes" ],
+    "feedback" : [ "Missing required items: shoes. Score limited to 75." ]
+  }
+}, {
+  "name" : "date complete",
+  "theme" : "first-date",
+  "look" : {
+    "body" : "female",
+    "skinTone" : "#623a27",
+    "facePreset" : "classic",
+    "items" : {
+      "outfit" : "female-romantic",
+      "hair" : "female-hair-0",
+      "shoes" : "shoe-0"
+    },
+    "pose" : "signature",
+    "background" : "studio"
+  },
+  "expected" : {
+    "themeFit" : 100.0,
+    "requirements" : 100.0,
+    "colour" : 100.0,
+    "completeness" : 100.0,
+    "overall" : 100.0,
+    "stars" : 3,
+    "missing" : [ ],
+    "feedback" : [ "Your outfit, required items and palette match this brief." ]
+  }
+}, {
+  "name" : "date casual footwear",
+  "theme" : "first-date",
+  "look" : {
+    "body" : "female",
+    "skinTone" : "#623a27",
+    "facePreset" : "classic",
+    "items" : {
+      "outfit" : "female-romantic",
+      "hair" : "female-hair-0",
+      "shoes" : "shoe-1"
+    },
+    "pose" : "signature",
+    "background" : "studio"
+  },
+  "expected" : {
+    "themeFit" : 100.0,
+    "requirements" : 100.0,
+    "colour" : 100.0,
+    "completeness" : 100.0,
+    "overall" : 100.0,
+    "stars" : 3,
+    "missing" : [ ],
+    "feedback" : [ "Your outfit, required items and palette match this brief." ]
+  }
+}, {
+  "name" : "date unrelated corporate outfit",
+  "theme" : "first-date",
+  "look" : {
+    "body" : "female",
+    "skinTone" : "#623a27",
+    "facePreset" : "classic",
+    "items" : {
+      "outfit" : "female-executive",
+      "hair" : "female-hair-0",
+      "shoes" : "shoe-1"
+    },
+    "pose" : "signature",
+    "background" : "studio"
+  },
+  "expected" : {
+    "themeFit" : 43.3,
+    "requirements" : 100.0,
+    "colour" : 100.0,
+    "completeness" : 100.0,
+    "overall" : 71.7,
+    "stars" : 2,
+    "missing" : [ ],
+    "feedback" : [ "The Executive matches 33% of the theme tags: romantic, casual, elegant." ]
+  }
+}, {
+  "name" : "office unrelated outfit with formal hair",
+  "theme" : "office-executive",
+  "look" : {
+    "body" : "female",
+    "skinTone" : "#623a27",
+    "facePreset" : "classic",
+    "items" : {
+      "outfit" : "female-essential",
+      "hair" : "female-hair-0",
+      "shoes" : "shoe-0",
+      "watches" : "watch-gold"
+    },
+    "pose" : "signature",
+    "background" : "studio"
+  },
+  "expected" : {
+    "themeFit" : 35.8,
+    "requirements" : 100.0,
+    "colour" : 100.0,
+    "completeness" : 100.0,
+    "overall" : 67.9,
+    "stars" : 2,
+    "missing" : [ ],
+    "feedback" : [ "Green Flapper Dress matches 33% of the theme tags: corporate, formal, elegant.", "Details outside the theme: Gold Chronograph." ]
+  }
+}, {
+  "name" : "office suit and watch",
+  "theme" : "office-executive",
+  "look" : {
+    "body" : "female",
+    "skinTone" : "#623a27",
+    "facePreset" : "classic",
+    "items" : {
+      "outfit" : "female-executive",
+      "hair" : "female-hair-0",
+      "shoes" : "shoe-0",
+      "watches" : "watch-gold"
+    },
+    "pose" : "signature",
+    "background" : "studio"
+  },
+  "expected" : {
+    "themeFit" : 92.5,
+    "requirements" : 100.0,
+    "colour" : 100.0,
+    "completeness" : 100.0,
+    "overall" : 96.3,
+    "stars" : 3,
+    "missing" : [ ],
+    "feedback" : [ "Details outside the theme: Gold Chronograph." ]
+  }
+}, {
+  "name" : "office no watch",
+  "theme" : "office-executive",
+  "look" : {
+    "body" : "female",
+    "skinTone" : "#623a27",
+    "facePreset" : "classic",
+    "items" : {
+      "outfit" : "female-executive",
+      "shoes" : "shoe-0"
+    },
+    "pose" : "signature",
+    "background" : "studio"
+  },
+  "expected" : {
+    "themeFit" : 100.0,
+    "requirements" : 66.7,
+    "colour" : 100.0,
+    "completeness" : 66.7,
+    "overall" : 75.0,
+    "stars" : 2,
+    "missing" : [ "watches" ],
+    "feedback" : [ "Missing required items: watches. Score limited to 75." ]
+  }
+}, {
+  "name" : "office no watch or shoes",
+  "theme" : "office-executive",
+  "look" : {
+    "body" : "female",
+    "skinTone" : "#623a27",
+    "facePreset" : "classic",
+    "items" : {
+      "outfit" : "female-executive"
+    },
+    "pose" : "signature",
+    "background" : "studio"
+  },
+  "expected" : {
+    "themeFit" : 100.0,
+    "requirements" : 33.3,
+    "colour" : 100.0,
+    "completeness" : 33.3,
+    "overall" : 50.0,
+    "stars" : 1,
+    "missing" : [ "shoes", "watches" ],
+    "feedback" : [ "Missing required items: shoes, watches. Score limited to 50." ]
+  }
+}, {
+  "name" : "streetwear complete male",
+  "theme" : "streetwear",
+  "look" : {
+    "body" : "male",
+    "skinTone" : "#623a27",
+    "facePreset" : "classic",
+    "items" : {
+      "shirts" : "male-tee-relaxed",
+      "trousers" : "male-trousers-cargo",
+      "shoes" : "shoe-1"
+    },
+    "pose" : "signature",
+    "background" : "studio"
+  },
+  "expected" : {
+    "themeFit" : 100.0,
+    "requirements" : 100.0,
+    "colour" : 100.0,
+    "completeness" : 100.0,
+    "overall" : 100.0,
+    "stars" : 3,
+    "missing" : [ ],
+    "feedback" : [ "Your outfit, required items and palette match this brief." ]
+  }
+}, {
+  "name" : "streetwear mismatched formal pants",
+  "theme" : "streetwear",
+  "look" : {
+    "body" : "male",
+    "skinTone" : "#623a27",
+    "facePreset" : "classic",
+    "items" : {
+      "shirts" : "male-tee-relaxed",
+      "trousers" : "male-trousers-classic",
+      "shoes" : "shoe-1"
+    },
+    "pose" : "signature",
+    "background" : "studio"
+  },
+  "expected" : {
+    "themeFit" : 78.8,
+    "requirements" : 100.0,
+    "colour" : 100.0,
+    "completeness" : 100.0,
+    "overall" : 89.4,
+    "stars" : 3,
+    "missing" : [ ],
+    "feedback" : [ "Classic Trousers matches 50% of the theme tags: streetwear, casual." ]
+  }
+}, {
+  "name" : "streetwear unrelated male suit",
+  "theme" : "streetwear",
+  "look" : {
+    "body" : "male",
+    "skinTone" : "#623a27",
+    "facePreset" : "classic",
+    "items" : {
+      "outfit" : "male-dinner-suit",
+      "shoes" : "shoe-1",
+      "watches" : "watch-silver"
+    },
+    "pose" : "signature",
+    "background" : "studio"
+  },
+  "expected" : {
+    "themeFit" : 15.0,
+    "requirements" : 100.0,
+    "colour" : 100.0,
+    "completeness" : 100.0,
+    "overall" : 57.5,
+    "stars" : 1,
+    "missing" : [ ],
+    "feedback" : [ "Dinner Jacket matches 0% of the theme tags: streetwear, casual." ]
+  }
+}, {
+  "name" : "date female separates",
+  "theme" : "first-date",
+  "look" : {
+    "body" : "female",
+    "skinTone" : "#623a27",
+    "facePreset" : "classic",
+    "items" : {
+      "tops" : "female-top-camisole",
+      "skirts" : "female-skirts-collection-4",
+      "shoes" : "shoe-0"
+    },
+    "pose" : "signature",
+    "background" : "studio"
+  },
+  "expected" : {
+    "themeFit" : 71.7,
+    "requirements" : 100.0,
+    "colour" : 100.0,
+    "completeness" : 100.0,
+    "overall" : 85.8,
+    "stars" : 3,
+    "missing" : [ ],
+    "feedback" : [ "Satin Camisole matches 67% of the theme tags: romantic, casual, elegant.", "Pink Tiered Skirt matches 67% of the theme tags: romantic, casual, elegant." ]
+  }
+}, {
+  "name" : "date mixed separates",
+  "theme" : "first-date",
+  "look" : {
+    "body" : "female",
+    "skinTone" : "#623a27",
+    "facePreset" : "classic",
+    "items" : {
+      "tops" : "female-top-camisole",
+      "trousers" : "female-trousers-cargo",
+      "shoes" : "shoe-0"
+    },
+    "pose" : "signature",
+    "background" : "studio"
+  },
+  "expected" : {
+    "themeFit" : 57.5,
+    "requirements" : 100.0,
+    "colour" : 100.0,
+    "completeness" : 100.0,
+    "overall" : 78.8,
+    "stars" : 2,
+    "missing" : [ ],
+    "feedback" : [ "Satin Camisole matches 67% of the theme tags: romantic, casual, elegant.", "Cargo Trousers matches 33% of the theme tags: romantic, casual, elegant." ]
+  }
+}, {
+  "name" : "same date skin pose eyes do not boost score",
+  "theme" : "first-date",
+  "look" : {
+    "body" : "female",
+    "skinTone" : "#623a27",
+    "facePreset" : "classic",
+    "items" : {
+      "outfit" : "female-romantic",
+      "hair" : "female-hair-0",
+      "shoes" : "shoe-0",
+      "eyes" : "female-eyes-green"
+    },
+    "pose" : "signature",
+    "background" : "studio"
+  },
+  "expected" : {
+    "themeFit" : 100.0,
+    "requirements" : 100.0,
+    "colour" : 100.0,
+    "completeness" : 100.0,
+    "overall" : 100.0,
+    "stars" : 3,
+    "missing" : [ ],
+    "feedback" : [ "Your outfit, required items and palette match this brief." ]
+  }
+}, {
+  "name" : "date unrelated details",
+  "theme" : "first-date",
+  "look" : {
+    "body" : "female",
+    "skinTone" : "#623a27",
+    "facePreset" : "classic",
+    "items" : {
+      "outfit" : "female-romantic",
+      "hair" : "female-hair-0",
+      "shoes" : "shoe-0",
+      "watches" : "watch-gold"
+    },
+    "pose" : "signature",
+    "background" : "studio"
+  },
+  "expected" : {
+    "themeFit" : 92.5,
+    "requirements" : 100.0,
+    "colour" : 100.0,
+    "completeness" : 100.0,
+    "overall" : 96.3,
+    "stars" : 3,
+    "missing" : [ ],
+    "feedback" : [ "Details outside the theme: Gold Chronograph." ]
+  }
+}, {
+  "name" : "colour overload",
+  "theme" : "first-date",
+  "look" : {
+    "body" : "female",
+    "skinTone" : "#623a27",
+    "facePreset" : "classic",
+    "items" : {
+      "tops" : "female-tops-collection-8",
+      "skirts" : "female-skirts-collection-9",
+      "shoes" : "shoe-1",
+      "makeup" : "female-lipstick-rose"
+    },
+    "pose" : "signature",
+    "background" : "studio"
+  },
+  "expected" : {
+    "themeFit" : 71.7,
+    "requirements" : 100.0,
+    "colour" : 80.0,
+    "completeness" : 100.0,
+    "overall" : 82.8,
+    "stars" : 2,
+    "missing" : [ ],
+    "feedback" : [ "Evening Camisole matches 67% of the theme tags: romantic, casual, elegant.", "Cool Tiered Skirt matches 67% of the theme tags: romantic, casual, elegant.", "Your palette has 3 accent colours. Try two accents with neutrals." ]
+  }
+}, {
+  "name" : "traditional bride missing headwear and jewellery",
+  "theme" : "traditional-bride",
+  "look" : {
+    "body" : "female",
+    "skinTone" : "#623a27",
+    "facePreset" : "classic",
+    "items" : {
+      "outfit" : "female-romantic",
+      "shoes" : "shoe-0"
+    },
+    "pose" : "signature",
+    "background" : "studio"
+  },
+  "expected" : {
+    "themeFit" : 0.0,
+    "requirements" : 33.3,
+    "colour" : 100.0,
+    "completeness" : 50.0,
+    "overall" : 28.3,
+    "stars" : 0,
+    "missing" : [ "headwear", "jewellery" ],
+    "feedback" : [ "Missing required items: headwear, jewellery. Score limited to 50.", "First Impression matches 0% of the theme tags: bridal, wedding, traditional.", "Details outside the theme: Tan Lace-ups." ]
+  }
+}, {
+  "name" : "red carpet missing required accessories",
+  "theme" : "red-carpet",
+  "look" : {
+    "body" : "female",
+    "skinTone" : "#623a27",
+    "facePreset" : "classic",
+    "items" : {
+      "outfit" : "female-redcarpet",
+      "shoes" : "shoe-0"
+    },
+    "pose" : "signature",
+    "background" : "studio"
+  },
+  "expected" : {
+    "themeFit" : 100.0,
+    "requirements" : 66.7,
+    "colour" : 100.0,
+    "completeness" : 66.7,
+    "overall" : 75.0,
+    "stars" : 2,
+    "missing" : [ "accessories" ],
+    "feedback" : [ "Missing required items: accessories. Score limited to 75." ]
+  }
+} ]

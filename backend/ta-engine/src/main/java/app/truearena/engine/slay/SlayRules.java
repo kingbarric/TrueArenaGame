@@ -52,7 +52,13 @@ public final class SlayRules {
             double completeness,
             double overall,
             int stars,
-            List<String> missing) {}
+            List<String> missing,
+            List<String> feedback) {
+        public Score(double themeFit, double requirements, double colour, double completeness,
+                double overall, int stars, List<String> missing) {
+            this(themeFit, requirements, colour, completeness, overall, stars, missing, List.of());
+        }
+    }
 
     public record Comparison(String a, String b, String winner) {}
 
@@ -107,20 +113,17 @@ public final class SlayRules {
                         .map(catalogue::get)
                         .filter(Objects::nonNull)
                         .toList();
-        Set<String> tags = new HashSet<>();
-        items.forEach(
-                i -> {
-                    tags.addAll(i.styleTags());
-                    tags.addAll(i.eventTags());
-                    tags.addAll(i.cultureTags());
-                });
-        double fit =
-                theme.styleTags().isEmpty()
-                        ? 100
-                        : 100.0
-                                * theme.styleTags().stream().filter(tags::contains).count()
-                                / theme.styleTags().size();
-        Set<String> categories = new HashSet<>(look.items().keySet());
+        // Judge each main garment rather than combining all tags into a perfect
+        // score. A formal hairstyle or bag cannot turn a casual outfit formal.
+        Set<String> garmentCategories = Set.of("outfit", "dress", "tops", "shirts", "trousers", "skirts");
+        Set<String> detailCategories = Set.of("shoes", "headwear", "bags", "jewellery", "watches", "glasses", "accessories", "makeup");
+        List<Item> garments = items.stream().filter(i -> garmentCategories.contains(i.category())).toList();
+        List<Item> details = items.stream().filter(i -> detailCategories.contains(i.category())).toList();
+        double garmentFit = garments.stream().mapToDouble(i -> themeMatch(i, theme)).average().orElse(0);
+        double detailFit = details.stream().mapToDouble(i -> themeMatch(i, theme) > 0 ? 100 : 0).average().orElse(garmentFit);
+        double fit = .85 * garmentFit + .15 * detailFit;
+        Set<String> categories = new HashSet<>();
+        items.forEach(i -> categories.add(i.category()));
         if (categories.contains("dress")
                 || (categories.contains("trousers") || categories.contains("skirts"))
                         && (categories.contains("tops") || categories.contains("shirts")))
@@ -134,17 +137,34 @@ public final class SlayRules {
                                 * (theme.requiredCategories().size() - missing.size())
                                 / theme.requiredCategories().size();
         Set<String> colours = new HashSet<>();
-        items.forEach(i -> colours.addAll(i.colourTags()));
+        items.stream().filter(i -> garmentCategories.contains(i.category()) || detailCategories.contains(i.category()))
+                .forEach(i -> colours.addAll(i.colourTags()));
         // Neutral colours work together; multiple accent colours cost a small, explicit amount.
-        colours.removeAll(Set.of("black", "white", "grey", "navy", "gold"));
-        double colour = Math.max(40, 100 - Math.max(0, colours.size() - 2) * 15);
+        colours.removeAll(Set.of("black", "white", "grey", "gray", "navy", "gold", "silver", "brown", "beige", "cream", "ivory", "nude"));
+        double colour = garments.isEmpty() ? 0 : Math.max(20, 100 - Math.max(0, colours.size() - 2) * 20);
+        Set<String> completionSlots = new LinkedHashSet<>(List.of("outfit", "shoes"));
+        completionSlots.addAll(theme.requiredCategories());
         double completeness =
                 100.0
-                        * java.util.stream.Stream.of("outfit", "hair", "shoes")
+                        * completionSlots.stream()
                                 .filter(categories::contains)
                                 .count()
-                        / 3;
-        double overall = round(.50 * fit + .30 * requirements + .10 * colour + .10 * completeness);
+                        / completionSlots.size();
+        // Every missing requirement limits the whole look, not just one small
+        // subscore. One missing item cannot still earn a three-star result.
+        double cap = Math.max(0, 100 - 25 * missing.size());
+        double overall = round(Math.min(cap, .50 * fit + .25 * requirements + .15 * colour + .10 * completeness));
+        List<String> feedback = new ArrayList<>();
+        if (!missing.isEmpty()) feedback.add("Missing required items: " + String.join(", ", missing) + ". Score limited to " + (int) cap + ".");
+        for (Item garment : garments) {
+            double match = themeMatch(garment, theme);
+            if (match < 100) feedback.add(garment.name() + " matches " + (int) Math.round(match) + "% of the theme tags: " + String.join(", ", theme.styleTags()) + ".");
+        }
+        List<String> mismatchedDetails = details.stream().filter(i -> themeMatch(i, theme) == 0).map(Item::name).toList();
+        if (!mismatchedDetails.isEmpty()) feedback.add("Details outside the theme: " + String.join(", ", mismatchedDetails) + ".");
+        if (colours.size() > 2) feedback.add("Your palette has " + colours.size() + " accent colours. Try two accents with neutrals.");
+        if (!categories.contains("shoes") && !missing.contains("shoes")) feedback.add("Footwear would complete the look.");
+        if (feedback.isEmpty()) feedback.add("Your outfit, required items and palette match this brief.");
         if (theme.budget() != null
                 && items.stream().mapToInt(Item::coinCost).sum() > theme.budget())
             fail("Look exceeds the challenge budget");
@@ -155,7 +175,15 @@ public final class SlayRules {
                 round(completeness),
                 overall,
                 overall >= 85 ? 3 : overall >= 65 ? 2 : overall >= 40 ? 1 : 0,
-                missing);
+                missing,
+                List.copyOf(feedback));
+    }
+
+    private static double themeMatch(Item item, Theme theme) {
+        Set<String> tags = new HashSet<>(item.styleTags());
+        tags.addAll(item.eventTags());
+        tags.addAll(item.cultureTags());
+        return theme.styleTags().isEmpty() ? 100 : 100.0 * theme.styleTags().stream().filter(tags::contains).count() / theme.styleTags().size();
     }
 
     /** Regularised Bradley–Terry: repeated votes don't privilege entries with more exposure. */
