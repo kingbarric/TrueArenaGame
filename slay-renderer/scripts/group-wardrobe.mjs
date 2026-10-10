@@ -3,6 +3,10 @@ import {resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {expansion} from './wardrobe-expansion.mjs';
 import {classicClothing} from './classic-clothing.mjs';
+import {stageWardrobe} from './stage-wardrobe.mjs';
+
+// Career colour variants reuse a base garment's model, dyed at runtime.
+const variants=new Map(stageWardrobe.filter(item=>item.base).map(item=>[item.id,item]));
 
 const clothing=new Set(['outfit','dress','tops','shirts','trousers','skirts']);
 const groups={Casual:['casual','streetwear','summer'],Corporate:['corporate','business'],
@@ -17,15 +21,19 @@ export function primaryStyle(item) {
 export function wardrobePresentation(catalog,sources={...classicClothing,...expansion}) {
   const result={},families=new Map();
   for(const item of catalog.items) {
+    const variant=variants.get(item.id);
+    // Dyed shoes and accessories still need their dye and shared mask.
+    if(variant&&!clothing.has(item.category)){result[item.id]={category:item.category,styleGroup:primaryStyle(item),maskOf:variant.base,dye:variant.dye};continue;}
     if(!clothing.has(item.category)||!item.assetUrl)continue;
-    const source=sources[item.id];
+    const source=variant?[...variant.asset,variant.dye]:sources[item.id];
     // Different cuts, textures or material colours remain distinct garments.
     // Category/name/tags do not turn the same exported garment into a new one.
     const key=source?JSON.stringify([source[0],source[1],source[2],
-      Object.entries(source[3]??{}).sort(([a],[b])=>a.localeCompare(b))])
+      Object.entries(source[3]??{}).sort(([a],[b])=>a.localeCompare(b)),source[4]??null])
       : JSON.stringify([item.body,item.assetUrl]);
     const category=item.category==='outfit' && item.body==='female' && /dress|flapper/.test(source?.[1]??'')?'dress':item.category;
-    result[item.id]={category,styleGroup:primaryStyle(item)};
+    result[item.id]={category,styleGroup:primaryStyle(item),
+      ...(variant?{maskOf:variant.base,dye:variant.dye}:{})};
     const family=families.get(key)??[];family.push(item);families.set(key,family);
   }
   for(const family of families.values()) {

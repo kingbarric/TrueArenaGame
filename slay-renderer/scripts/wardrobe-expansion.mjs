@@ -3,6 +3,7 @@ import {femaleWardrobe} from './female-wardrobe.mjs';
 import {femaleShoes} from './female-shoes.mjs';
 import {femaleBeauty} from './female-beauty.mjs';
 import {hairExpansion} from './hair-expansion.mjs';
+import {stageWardrobe} from './stage-wardrobe.mjs';
 export const expansion = {
   ...femaleShoes,
   'female-date-cutout': ['female', 'clothes/toigo_cut_out_dress/dress_cut_outs.obj', 'clothes/toigo_cut_out_dress/cutOutDress.png'],
@@ -40,5 +41,7 @@ for (const [name, colour] of [['ruby', [.55, .015, .06, 1]], ['rose', [.68, .14,
 }
 
 for (const item of femaleWardrobe) expansion[item.id] = item.asset;
+// Colour variants reuse their base garment's model and are dyed at runtime.
+for (const item of stageWardrobe) if (!item.base) expansion[item.id] = item.asset;
 for (const item of femaleBeauty) expansion[item.id] = item.asset;
 for (const item of hairExpansion) expansion[item.id] = item.asset;

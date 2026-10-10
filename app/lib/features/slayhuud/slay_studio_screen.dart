@@ -734,6 +734,8 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                           return SlayWardrobeTile(
                             name: item['name'],
                             thumbnail: item['thumbnailUrl'],
+                            dye: (widget.catalog['wardrobePresentation']
+                                as Map?)?[item['id']]?['dye'],
                             selected: selected,
                             owned: owned,
                             lockLabel: _career && !owned

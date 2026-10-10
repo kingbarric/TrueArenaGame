@@ -9,7 +9,7 @@ import { presentBody, presentFace, presentEyes, presentUnderwear } from './prese
 import { applyPose, selectBodyFit } from './poses';
 import { coverBody } from './coverage';
 import { Showcase } from './showcase';
-import { applyItemColour } from './item-colours';
+import { applyItemColour, applyDye } from './item-colours';
 import { VariantFit, type FitField } from './variant-fit';
 import { fitMaleSeparates } from './male-separates';
 
@@ -105,13 +105,17 @@ export class Wardrobe {
     for(const [slot,e] of this.equipped){if(look.items[slot]!==e.id){e.root.removeFromParent();dispose(e.root);this.equipped.delete(slot);}}
     for(const [slot,e] of staged){const item=catalog.items.find(i=>i.id===e.id)!;const parent=item.attachmentBone?this.bones.get(item.attachmentBone):this.root;(parent??this.root).add(e.root);this.equipped.set(slot,e);}
     for (const [slot, entry] of this.equipped) {
-      if (['shoes','shirts','tops'].includes(slot)) applyItemColour(entry.root, look.itemColours?.[slot], catalog.itemColourPalette ?? {});
+      // A player's chosen colour wins; otherwise a colour variant wears its catalogue dye.
+      const chosen = ['shoes','shirts','tops'].includes(slot) ? look.itemColours?.[slot] : undefined;
+      if (chosen) applyItemColour(entry.root, chosen, catalog.itemColourPalette ?? {});
+      else applyDye(entry.root, catalog.wardrobePresentation?.[entry.id]?.dye);
     }
     const shirt=this.equipped.get('shirts');
     if(look.body==='male' && shirt)
       fitMaleSeparates(shirt.root,this.equipped.get('trousers')?.root,shirt.id!=='male-tee-relaxed');
     const hidden=new Set(Object.values(look.items).flatMap(id=>catalog.items.find(i=>i.id===id)!.hidesRegions));
-    coverBody(body,Object.values(look.items));
+    // Colour variants share their base garment's skin mask (wardrobePresentation.maskOf).
+    coverBody(body,Object.values(look.items).map(id=>catalog.wardrobePresentation?.[id]?.maskOf??id));
     presentBody(body,look.skinTone,hidden);
     // Eye choices replace the baked brown-eye mesh; do not stack two sets.
     presentEyes(body,!!look.items.eyes);

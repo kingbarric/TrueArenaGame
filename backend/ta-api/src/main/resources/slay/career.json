@@ -451,7 +451,42 @@
      "female-shoe-flats",
      "female-shoe-sandals",
      "female-bag-tote",
-     "watch-smart"
+     "watch-smart",
+     "female-s0-easy-day-dress",
+     "female-s0-weekend-wrap-dress",
+     "female-s0-picnic-midi-dress",
+     "female-s0-hoodie-dress",
+     "female-s0-bubblegum-easy-day-dress",
+     "female-s0-sky-weekend-wrap-dress",
+     "female-s0-lime-picnic-midi-dress",
+     "female-s0-camo-tee",
+     "female-s0-sporty-tank",
+     "female-s0-everyday-tank",
+     "female-s0-cosy-jumper",
+     "female-s0-bubblegum-camo-tee",
+     "female-s0-sky-sporty-tank",
+     "female-s0-lime-everyday-tank",
+     "female-s0-skinny-jeans",
+     "female-s0-denim-cut-offs",
+     "female-s0-ribbon-shorts",
+     "female-s0-bubblegum-skinny-jeans",
+     "female-s0-sky-denim-cut-offs",
+     "female-s0-lime-ribbon-shorts",
+     "female-s0-sunshine-straight-trousers",
+     "female-s0-denim-skirt",
+     "female-s0-low-rise-mini",
+     "female-s0-bubblegum-denim-skirt",
+     "female-s0-sky-low-rise-mini",
+     "female-s0-lime-pencil-skirt",
+     "female-s0-sunshine-office-midi-skirt",
+     "female-s0-tangerine-polka-dot-skirt",
+     "female-s0-street-sneakers",
+     "female-s0-comfy-sneakers",
+     "female-s0-hi-top-sneakers",
+     "female-s0-runners",
+     "female-s0-bubblegum-street-sneakers",
+     "female-s0-sky-comfy-sneakers",
+     "female-s0-lime-hi-top-sneakers"
     ],
     "male": [
      "male-essential",
@@ -461,7 +496,28 @@
      "male-trousers-cargo",
      "male-trousers-denim-shorts",
      "shoe-1",
-     "watch-smart"
+     "watch-smart",
+     "male-s0-logo-tee",
+     "male-s0-athletic-tank",
+     "male-s0-tank-shirt",
+     "male-s0-bubblegum-logo-tee",
+     "male-s0-sky-athletic-tank",
+     "male-s0-lime-tank-shirt",
+     "male-s0-sunshine-shirt-and-tie",
+     "male-s0-classic-jeans",
+     "male-s0-straight-jeans",
+     "male-s0-chino-shorts",
+     "male-s0-bubblegum-classic-jeans",
+     "male-s0-sky-straight-jeans",
+     "male-s0-lime-chino-shorts",
+     "male-s0-sunshine-smart-trousers",
+     "male-s0-street-sneakers",
+     "male-s0-runners",
+     "male-s0-court-shoes",
+     "male-s0-bubblegum-street-sneakers",
+     "male-s0-sky-runners",
+     "male-s0-lime-court-shoes",
+     "male-s0-sunshine-oxford-shoes"
     ]
    },
    "rewards": {
@@ -469,17 +525,43 @@
      "four": [
       "female-skirts-collection-6",
       "female-tops-collection-7",
-      "female-trousers-collection-5"
+      "female-trousers-collection-5",
+      "female-s0-sunshine-hoodie-dress",
+      "female-s0-tangerine-sixties-shift",
+      "female-s0-sunshine-cosy-jumper",
+      "female-s0-tangerine-lace-up-blouse",
+      "female-s0-tangerine-disco-skinny-pants",
+      "female-s0-denim-ruffle-flares",
+      "female-s0-denim-disco-mini-skirt",
+      "female-s0-lilac-black-mini-skirt",
+      "female-s0-sunshine-runners",
+      "female-s0-tangerine-brogues"
      ],
      "five": [
       "female-shoe-slippers",
       "female-dress-collection-6",
-      "female-nose-ring-gold"
+      "female-nose-ring-gold",
+      "female-s0-denim-halter-day-dress",
+      "female-s0-denim-sleeveless-shirt",
+      "female-s0-lilac-double-ruffle-flares",
+      "female-s0-mint-pleated-mini",
+      "female-s0-denim-monk-straps"
      ]
     },
     "male": {
-     "four": [],
-     "five": []
+     "four": [
+      "male-s0-tangerine-button-down-shirt",
+      "male-s0-denim-boho-party-shirt",
+      "male-s0-tangerine-tailored-trousers",
+      "male-s0-denim-bootcut-jeans",
+      "male-s0-tangerine-monk-straps",
+      "male-s0-denim-chelsea-boots"
+     ],
+     "five": [
+      "male-s0-lilac-muscle-tee",
+      "male-s0-lilac-chain-trousers",
+      "male-s0-lilac-biker-boots"
+     ]
     }
    }
   },
@@ -509,13 +591,71 @@
      "female-shoe-maryjane",
      "female-bag-sling",
      "watch-silver",
-     "female-earrings-pearls"
+     "female-earrings-pearls",
+     "female-s1-sixties-shift",
+     "female-s1-halter-day-dress",
+     "female-s1-office-sheath",
+     "female-s1-lunch-date-dress",
+     "female-s1-navy-sixties-shift",
+     "female-s1-camel-halter-day-dress",
+     "female-s1-charcoal-office-sheath",
+     "female-s1-lace-up-blouse",
+     "female-s1-sleeveless-shirt",
+     "female-s1-ruffle-blouse",
+     "female-s1-off-shoulder-top",
+     "female-s1-navy-lace-up-blouse",
+     "female-s1-camel-sleeveless-shirt",
+     "female-s1-charcoal-ruffle-blouse",
+     "female-s1-straight-trousers",
+     "female-s1-navy-straight-trousers",
+     "female-s1-camel-skinny-jeans",
+     "female-s1-charcoal-denim-cut-offs",
+     "female-s1-ivory-ribbon-shorts",
+     "female-s1-burgundy-disco-skinny-pants",
+     "female-s1-olive-ruffle-flares",
+     "female-s1-pencil-skirt",
+     "female-s1-office-midi-skirt",
+     "female-s1-polka-dot-skirt",
+     "female-s1-navy-pencil-skirt",
+     "female-s1-camel-office-midi-skirt",
+     "female-s1-charcoal-polka-dot-skirt",
+     "female-s1-ivory-denim-skirt",
+     "female-s1-brogues",
+     "female-s1-monk-straps",
+     "female-s1-pointed-flats",
+     "female-s1-ankle-boots",
+     "female-s1-half-boots",
+     "female-s1-navy-brogues",
+     "female-s1-camel-monk-straps",
+     "female-s1-skirt-suit",
+     "female-s1-trouser-suit"
     ],
     "male": [
      "male-executive",
      "male-trousers-classic",
      "shoe-0",
-     "watch-silver"
+     "watch-silver",
+     "male-s1-shirt-and-tie",
+     "male-s1-button-down-shirt",
+     "male-s1-navy-shirt-and-tie",
+     "male-s1-camel-button-down-shirt",
+     "male-s1-charcoal-logo-tee",
+     "male-s1-ivory-athletic-tank",
+     "male-s1-burgundy-tank-shirt",
+     "male-s1-smart-trousers",
+     "male-s1-tailored-trousers",
+     "male-s1-bootcut-jeans",
+     "male-s1-navy-smart-trousers",
+     "male-s1-camel-tailored-trousers",
+     "male-s1-charcoal-bootcut-jeans",
+     "male-s1-ivory-classic-jeans",
+     "male-s1-oxford-shoes",
+     "male-s1-monk-straps",
+     "male-s1-chelsea-boots",
+     "male-s1-navy-oxford-shoes",
+     "male-s1-camel-monk-straps",
+     "male-s1-charcoal-chelsea-boots",
+     "male-s1-ivory-street-sneakers"
     ]
    },
    "rewards": {
@@ -523,19 +663,44 @@
      "four": [
       "female-business",
       "female-dress-collection-10",
-      "female-trousers-collection-9"
+      "female-trousers-collection-9",
+      "female-s1-ivory-lunch-date-dress",
+      "female-s1-burgundy-easy-day-dress",
+      "female-s1-ivory-off-shoulder-top",
+      "female-s1-burgundy-camo-tee",
+      "female-s1-powder-blue-double-ruffle-flares",
+      "female-s1-taupe-palazzo-pants",
+      "female-s1-burgundy-low-rise-mini",
+      "female-s1-olive-disco-mini-skirt",
+      "female-s1-charcoal-pointed-flats",
+      "female-s1-ivory-ankle-boots"
      ],
      "five": [
       "female-skirts-collection-9",
       "female-tops-collection-8",
-      "female-trousers-collection-10"
+      "female-trousers-collection-10",
+      "female-s1-olive-weekend-wrap-dress",
+      "female-s1-olive-sporty-tank",
+      "female-s1-slate-straight-trousers",
+      "female-s1-powder-blue-black-mini-skirt",
+      "female-s1-burgundy-half-boots"
      ]
     },
     "male": {
      "four": [
-      "male-business"
+      "male-business",
+      "male-s1-olive-boho-party-shirt",
+      "male-s1-powder-blue-muscle-tee",
+      "male-s1-burgundy-straight-jeans",
+      "male-s1-olive-chino-shorts",
+      "male-s1-burgundy-runners",
+      "male-s1-olive-court-shoes"
      ],
-     "five": []
+     "five": [
+      "male-s1-taupe-shirt-and-tie",
+      "male-s1-powder-blue-chain-trousers",
+      "male-s1-powder-blue-biker-boots"
+     ]
     }
    }
   },
@@ -565,11 +730,67 @@
      "female-trousers-collection-6",
      "female-shoe-stiletto",
      "female-bag-handbag",
-     "female-earrings-hoops"
+     "female-earrings-hoops",
+     "female-s2-little-black-cocktail-dress",
+     "female-s2-frilled-party-dress",
+     "female-s2-tube-party-dress",
+     "female-s2-halter-mini-dress",
+     "female-s2-fringe-dress",
+     "female-s2-baby-doll-dress",
+     "female-s2-neon-pink-little-black-cocktail-dress",
+     "female-s2-disco-halter-top",
+     "female-s2-butterfly-disco-top",
+     "female-s2-party-tube-top",
+     "female-s2-party-crop-top",
+     "female-s2-high-neck-crop",
+     "female-s2-neon-pink-disco-halter-top",
+     "female-s2-electric-blue-butterfly-disco-top",
+     "female-s2-disco-skinny-pants",
+     "female-s2-ruffle-flares",
+     "female-s2-double-ruffle-flares",
+     "female-s2-neon-pink-disco-skinny-pants",
+     "female-s2-electric-blue-ruffle-flares",
+     "female-s2-violet-double-ruffle-flares",
+     "female-s2-silver-straight-trousers",
+     "female-s2-disco-mini-skirt",
+     "female-s2-black-mini-skirt",
+     "female-s2-pleated-mini",
+     "female-s2-plaid-pleated-mini",
+     "female-s2-neon-pink-disco-mini-skirt",
+     "female-s2-electric-blue-black-mini-skirt",
+     "female-s2-violet-pleated-mini",
+     "female-s2-knee-high-heel-boots",
+     "female-s2-knee-boots",
+     "female-s2-tall-wedge-boots",
+     "female-s2-leather-boots",
+     "female-s2-neon-pink-knee-high-heel-boots",
+     "female-s2-electric-blue-knee-boots",
+     "female-s2-violet-tall-wedge-boots"
     ],
     "male": [
      "male-redcarpet",
-     "male-trousers-harem"
+     "male-trousers-harem",
+     "male-s2-boho-party-shirt",
+     "male-s2-muscle-tee",
+     "male-s2-neon-pink-boho-party-shirt",
+     "male-s2-electric-blue-muscle-tee",
+     "male-s2-violet-shirt-and-tie",
+     "male-s2-silver-button-down-shirt",
+     "male-s2-hot-red-logo-tee",
+     "male-s2-chain-trousers",
+     "male-s2-night-jeans",
+     "male-s2-party-shorts",
+     "male-s2-neon-pink-chain-trousers",
+     "male-s2-electric-blue-night-jeans",
+     "male-s2-violet-party-shorts",
+     "male-s2-silver-smart-trousers",
+     "male-s2-biker-boots",
+     "male-s2-stage-boots",
+     "male-s2-neon-pink-biker-boots",
+     "male-s2-electric-blue-stage-boots",
+     "male-s2-violet-oxford-shoes",
+     "male-s2-silver-monk-straps",
+     "male-s2-hot-red-chelsea-boots"
     ]
    },
    "rewards": {
@@ -577,18 +798,44 @@
      "four": [
       "female-dress-collection-7",
       "female-skirts-collection-5",
-      "female-tops-collection-5"
+      "female-tops-collection-5",
+      "female-s2-electric-blue-frilled-party-dress",
+      "female-s2-violet-tube-party-dress",
+      "female-s2-violet-party-tube-top",
+      "female-s2-silver-party-crop-top",
+      "female-s2-hot-red-palazzo-pants",
+      "female-s2-emerald-glow-skinny-jeans",
+      "female-s2-silver-plaid-pleated-mini",
+      "female-s2-hot-red-pencil-skirt",
+      "female-s2-silver-leather-boots",
+      "female-s2-hot-red-brogues"
      ],
      "five": [
       "female-dress-collection-8",
       "female-earrings-lightning",
       "female-tops-collection-10",
-      "female-skirts-collection-8"
+      "female-skirts-collection-8",
+      "female-s2-silver-halter-mini-dress",
+      "female-s2-hot-red-high-neck-crop",
+      "female-s2-disco-gold-denim-cut-offs",
+      "female-s2-emerald-glow-office-midi-skirt",
+      "female-s2-emerald-glow-monk-straps"
      ]
     },
     "male": {
-     "four": [],
-     "five": []
+     "four": [
+      "male-s2-emerald-glow-athletic-tank",
+      "male-s2-disco-gold-tank-shirt",
+      "male-s2-hot-red-tailored-trousers",
+      "male-s2-emerald-glow-bootcut-jeans",
+      "male-s2-emerald-glow-street-sneakers",
+      "male-s2-disco-gold-runners"
+     ],
+     "five": [
+      "male-s2-midnight-boho-party-shirt",
+      "male-s2-disco-gold-classic-jeans",
+      "male-s2-midnight-court-shoes"
+     ]
     }
    }
   },
@@ -603,27 +850,119 @@
     "female": [
      "female-dinner",
      "female-redcarpet",
-     "watch-gold"
+     "watch-gold",
+     "female-s3-evening-gown",
+     "female-s3-silk-qipao",
+     "female-s3-couture-qipao",
+     "female-s3-halter-gown",
+     "female-s3-gala-dress",
+     "female-s3-ball-gown",
+     "female-s3-handkerchief-gown",
+     "female-s3-silk-v-neck",
+     "female-s3-satin-retro-top",
+     "female-s3-silk-camisole",
+     "female-s3-champagne-silk-v-neck",
+     "female-s3-burgundy-velvet-satin-retro-top",
+     "female-s3-emerald-silk-camisole",
+     "female-s3-sapphire-disco-halter-top",
+     "female-s3-palazzo-pants",
+     "female-s3-champagne-palazzo-pants",
+     "female-s3-burgundy-velvet-disco-skinny-pants",
+     "female-s3-emerald-ruffle-flares",
+     "female-s3-sapphire-double-ruffle-flares",
+     "female-s3-ruby-straight-trousers",
+     "female-s3-pearl-palazzo-pants",
+     "female-s3-asymmetric-skirt",
+     "female-s3-satin-skirt",
+     "female-s3-champagne-asymmetric-skirt",
+     "female-s3-burgundy-velvet-satin-skirt",
+     "female-s3-emerald-disco-mini-skirt",
+     "female-s3-sapphire-black-mini-skirt",
+     "female-s3-ruby-pleated-mini",
+     "female-s3-jewelled-flats",
+     "female-s3-bow-flats",
+     "female-s3-buckle-flats",
+     "female-s3-flower-flats",
+     "female-s3-t-bar-shoes",
+     "female-s3-champagne-jewelled-flats",
+     "female-s3-burgundy-velvet-bow-flats"
     ],
     "male": [
      "male-dinner-suit",
      "male-bowtie-suit",
      "male-tailored-suit",
-     "watch-gold"
+     "watch-gold",
+     "male-s3-evening-suit",
+     "male-s3-champagne-evening-suit",
+     "male-s3-burgundy-velvet-evening-suit",
+     "male-s3-emerald-evening-suit",
+     "male-s3-sapphire-evening-suit",
+     "male-s3-ruby-evening-suit",
+     "male-s3-pearl-evening-suit",
+     "male-s3-champagne-boho-party-shirt",
+     "male-s3-burgundy-velvet-muscle-tee",
+     "male-s3-emerald-shirt-and-tie",
+     "male-s3-sapphire-button-down-shirt",
+     "male-s3-ruby-boho-party-shirt",
+     "male-s3-pearl-muscle-tee",
+     "male-s3-royal-purple-shirt-and-tie",
+     "male-s3-champagne-chain-trousers",
+     "male-s3-burgundy-velvet-night-jeans",
+     "male-s3-emerald-smart-trousers",
+     "male-s3-sapphire-tailored-trousers",
+     "male-s3-ruby-bootcut-jeans",
+     "male-s3-pearl-chain-trousers",
+     "male-s3-royal-purple-night-jeans",
+     "male-s3-champagne-biker-boots",
+     "male-s3-burgundy-velvet-stage-boots",
+     "male-s3-emerald-oxford-shoes",
+     "male-s3-sapphire-monk-straps",
+     "male-s3-ruby-chelsea-boots",
+     "male-s3-pearl-biker-boots",
+     "male-s3-royal-purple-stage-boots"
     ]
    },
    "rewards": {
     "female": {
      "four": [
-      "female-trousers-collection-7"
+      "female-trousers-collection-7",
+      "female-s3-champagne-evening-gown",
+      "female-s3-burgundy-velvet-silk-qipao",
+      "female-s3-ruby-butterfly-disco-top",
+      "female-s3-pearl-party-tube-top",
+      "female-s3-royal-purple-disco-skinny-pants",
+      "female-s3-onyx-ruffle-flares",
+      "female-s3-pearl-plaid-pleated-mini",
+      "female-s3-royal-purple-pencil-skirt",
+      "female-s3-emerald-buckle-flats",
+      "female-s3-sapphire-flower-flats"
      ],
      "five": [
-      "female-skirts-collection-10"
+      "female-skirts-collection-10",
+      "female-s3-emerald-couture-qipao",
+      "female-s3-royal-purple-party-crop-top",
+      "female-s3-rose-gold-double-ruffle-flares",
+      "female-s3-onyx-office-midi-skirt",
+      "female-s3-ruby-t-bar-shoes"
      ]
     },
     "male": {
-     "four": [],
-     "five": []
+     "four": [
+      "male-s3-royal-purple-evening-suit",
+      "male-s3-onyx-evening-suit",
+      "male-s3-onyx-button-down-shirt",
+      "male-s3-rose-gold-boho-party-shirt",
+      "male-s3-onyx-smart-trousers",
+      "male-s3-rose-gold-tailored-trousers",
+      "male-s3-onyx-oxford-shoes",
+      "male-s3-rose-gold-monk-straps"
+     ],
+     "five": [
+      "male-s3-rose-gold-evening-suit",
+      "male-s3-midnight-navy-muscle-tee",
+      "male-s3-midnight-navy-bootcut-jeans",
+      "male-s3-midnight-navy-chelsea-boots"
+     ]
     }
    }
   },
@@ -635,17 +974,114 @@
    "venue": "Fashion week runway",
    "poses": [],
    "collection": {
-    "female": [],
-    "male": []
+    "female": [
+     "female-s4-runway-gown",
+     "female-s4-couture-column-gown",
+     "female-s4-designer-ruffle-gown",
+     "female-s4-statement-gown",
+     "female-s4-finale-gown",
+     "female-s4-goddess-gown",
+     "female-s4-draped-goddess-gown",
+     "female-s4-asymmetric-tunic",
+     "female-s4-designer-slip-top",
+     "female-s4-ivory-asymmetric-tunic",
+     "female-s4-chrome-designer-slip-top",
+     "female-s4-fuchsia-silk-v-neck",
+     "female-s4-cobalt-satin-retro-top",
+     "female-s4-saffron-silk-camisole",
+     "female-s4-ivory-palazzo-pants",
+     "female-s4-chrome-disco-skinny-pants",
+     "female-s4-fuchsia-ruffle-flares",
+     "female-s4-cobalt-double-ruffle-flares",
+     "female-s4-saffron-palazzo-pants",
+     "female-s4-jet-disco-skinny-pants",
+     "female-s4-coral-ruffle-flares",
+     "female-s4-ivory-asymmetric-skirt",
+     "female-s4-chrome-satin-skirt",
+     "female-s4-fuchsia-disco-mini-skirt",
+     "female-s4-cobalt-black-mini-skirt",
+     "female-s4-saffron-pleated-mini",
+     "female-s4-jet-plaid-pleated-mini",
+     "female-s4-coral-asymmetric-skirt",
+     "female-s4-riding-boots",
+     "female-s4-runway-biker-boots",
+     "female-s4-couture-ballet-flats",
+     "female-s4-over-knee-boots",
+     "female-s4-ivory-riding-boots",
+     "female-s4-chrome-runway-biker-boots",
+     "female-s4-fuchsia-couture-ballet-flats",
+     "female-s4-halter-jumpsuit"
+    ],
+    "male": [
+     "male-s4-ivory-evening-suit",
+     "male-s4-chrome-evening-suit",
+     "male-s4-fuchsia-evening-suit",
+     "male-s4-cobalt-evening-suit",
+     "male-s4-saffron-evening-suit",
+     "male-s4-jet-evening-suit",
+     "male-s4-coral-evening-suit",
+     "male-s4-ivory-boho-party-shirt",
+     "male-s4-chrome-muscle-tee",
+     "male-s4-fuchsia-boho-party-shirt",
+     "male-s4-cobalt-muscle-tee",
+     "male-s4-saffron-boho-party-shirt",
+     "male-s4-jet-muscle-tee",
+     "male-s4-coral-boho-party-shirt",
+     "male-s4-ivory-chain-trousers",
+     "male-s4-chrome-night-jeans",
+     "male-s4-fuchsia-chain-trousers",
+     "male-s4-cobalt-night-jeans",
+     "male-s4-saffron-chain-trousers",
+     "male-s4-jet-night-jeans",
+     "male-s4-coral-chain-trousers",
+     "male-s4-ivory-biker-boots",
+     "male-s4-chrome-stage-boots",
+     "male-s4-fuchsia-biker-boots",
+     "male-s4-cobalt-stage-boots",
+     "male-s4-saffron-biker-boots",
+     "male-s4-jet-stage-boots",
+     "male-s4-coral-biker-boots"
+    ]
    },
    "rewards": {
     "female": {
-     "four": [],
-     "five": []
+     "four": [
+      "female-s4-grecian-gown",
+      "female-s4-fringe-couture-dress",
+      "female-s4-jet-disco-halter-top",
+      "female-s4-coral-butterfly-disco-top",
+      "female-s4-teal-double-ruffle-flares",
+      "female-s4-lavender-palazzo-pants",
+      "female-s4-teal-satin-skirt",
+      "female-s4-lavender-disco-mini-skirt",
+      "female-s4-cobalt-over-knee-boots",
+      "female-s4-saffron-jewelled-flats"
+     ],
+     "five": [
+      "female-s4-tiered-couture-dress",
+      "female-s4-teal-party-tube-top",
+      "female-s4-scarlet-disco-skinny-pants",
+      "female-s4-scarlet-black-mini-skirt",
+      "female-s4-jet-bow-flats"
+     ]
     },
     "male": {
-     "four": [],
-     "five": []
+     "four": [
+      "male-s4-teal-evening-suit",
+      "male-s4-lavender-evening-suit",
+      "male-s4-teal-muscle-tee",
+      "male-s4-lavender-boho-party-shirt",
+      "male-s4-teal-night-jeans",
+      "male-s4-lavender-chain-trousers",
+      "male-s4-teal-stage-boots",
+      "male-s4-lavender-biker-boots"
+     ],
+     "five": [
+      "male-s4-scarlet-evening-suit",
+      "male-s4-scarlet-muscle-tee",
+      "male-s4-scarlet-night-jeans",
+      "male-s4-scarlet-stage-boots"
+     ]
     }
    }
   }

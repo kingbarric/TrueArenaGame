@@ -250,12 +250,16 @@ class SlayWardrobeTile extends StatelessWidget {
       required this.onTap,
       this.thumbnail,
       this.coins = 0,
-      this.lockLabel});
+      this.lockLabel,
+      this.dye});
   final String name;
   final String? thumbnail;
 
   /// Why a career piece is locked ("Opens at Nightlife"), shown instead of a price.
   final String? lockLabel;
+
+  /// Colour variant dye for the thumbnail (#rrggbb).
+  final String? dye;
   final bool selected, owned;
   final int coins;
   final VoidCallback? onTap;
@@ -324,7 +328,7 @@ class SlayWardrobeTile extends StatelessWidget {
                         child: Opacity(
                             opacity: lockLabel != null ? .45 : 1,
                             child: thumbnail != null
-                                ? SlayThumbnail(url: thumbnail!)
+                                ? SlayThumbnail(url: thumbnail!, dye: dye)
                                 : Icon(Icons.checkroom_rounded,
                                     color: n.mute, size: 28))),
                     if (selected || !owned)
@@ -449,17 +453,45 @@ class SlayImage extends StatelessWidget {
 
 /// Catalogue artwork: bundled in the starter pack or downloaded (see [SlayAssets]).
 class SlayThumbnail extends StatelessWidget {
-  const SlayThumbnail({super.key, required this.url});
+  const SlayThumbnail({super.key, required this.url, this.dye});
   final String url;
+
+  /// A colour variant's dye (#rrggbb), shown the way the 3D renderer dyes it.
+  final String? dye;
   @override
   Widget build(BuildContext context) {
     Widget fallback(BuildContext c, Object e, StackTrace? s) =>
         Icon(Icons.checkroom_rounded, color: c.neon.mute, size: 32);
     final image = SlayAssets.instance.thumbnail(url);
-    return image == null
+    final picture = image == null
         ? fallback(context, url, null)
         : Image(image: image, fit: BoxFit.contain, errorBuilder: fallback);
+    final tint = slayDyeColour(dye);
+    return tint == null || image == null
+        ? picture
+        : ColorFiltered(colorFilter: slayDyeFilter(tint), child: picture);
   }
+}
+
+Color? slayDyeColour(String? hex) => hex == null || hex.length != 7
+    ? null
+    : Color(int.parse(hex.substring(1), radix: 16) | 0xFF000000);
+
+/// Fabric luminance times the dye, floored at 35%: the renderer's dye shader.
+ColorFilter slayDyeFilter(Color tint) {
+  const lum = [0.2126, 0.7152, 0.0722];
+  List<double> row(double c) =>
+      [for (final l in lum) c * .65 * l, 0, c * .35 * 255];
+  return ColorFilter.matrix([
+    ...row(tint.r),
+    ...row(tint.g),
+    ...row(tint.b),
+    0,
+    0,
+    0,
+    1,
+    0,
+  ]);
 }
 
 Future<bool?> showSlayUnlock(

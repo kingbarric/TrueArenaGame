@@ -5,6 +5,13 @@ import {Color, Mesh, MeshStandardMaterial, Object3D} from 'three';
 export function applyItemColour(root: Object3D, colour: string | undefined,
   palette: Record<string, string>) {
   if (colour && !Object.hasOwn(palette, colour)) throw Error('Unknown wardrobe colour');
+  applyDye(root, colour ? palette[colour] : undefined);
+}
+
+/** Dye a garment with a CSS colour (#rrggbb), or remove the dye. */
+export function applyDye(root: Object3D, hex: string | undefined) {
+  if (hex && !/^#[0-9a-f]{6}$/i.test(hex)) throw Error('Invalid wardrobe dye');
+  const colour = hex;
   root.traverse(object => {
     if (!(object instanceof Mesh)) return;
     for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
@@ -30,7 +37,7 @@ export function applyItemColour(root: Object3D, colour: string | undefined,
         material.needsUpdate = true;
       }
       uniforms.enabled.value = colour ? 1 : 0;
-      if (colour) uniforms.tint.value.set(palette[colour]);
+      if (colour) uniforms.tint.value.set(colour);
     }
   });
 }

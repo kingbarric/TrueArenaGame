@@ -8,9 +8,9 @@
    "bundled": false
   },
   "assets/avatar-girl02.glb": {
-   "name": "avatar-girl02.9b64ca9b09b0736e.glb",
-   "sha256": "9b64ca9b09b0736e1045bc461923ac7fe9811f9d2b3985768ce173c609d89390",
-   "bytes": 341340,
+   "name": "avatar-girl02.b3aedc3e3db67ffd.glb",
+   "sha256": "b3aedc3e3db67ffd20e97e7589cf85a6b8884256a77a262cb5aa7251a75b6355",
+   "bytes": 423900,
    "bundled": false
   },
   "assets/avatar-girl02.png": {
@@ -26,9 +26,9 @@
    "bundled": false
   },
   "assets/avatar-indian-male.glb": {
-   "name": "avatar-indian-male.2deb6880f67ec70b.glb",
-   "sha256": "2deb6880f67ec70b6d70bac85163209758de7f71ebee3046b36076e3ef0b6f22",
-   "bytes": 614684,
+   "name": "avatar-indian-male.1781c75d393eeef2.glb",
+   "sha256": "1781c75d393eeef24ce9f869576610bcf212e8e681d9ed3ddc082518930faccc",
+   "bytes": 964308,
    "bundled": false
   },
   "assets/avatar-indian-male.png": {
@@ -637,6 +637,1122 @@
    "bytes": 13774,
    "bundled": true
   },
+  "assets/female-s0-camo-tee.glb": {
+   "name": "female-s0-camo-tee.d644df8c4d9e4119.glb",
+   "sha256": "d644df8c4d9e41194ef7557677bd300268390e796b4d43f9ddf7336ea5191988",
+   "bytes": 71292,
+   "bundled": false
+  },
+  "assets/female-s0-camo-tee.png": {
+   "name": "female-s0-camo-tee.e7ce02c25a2107a1.png",
+   "sha256": "e7ce02c25a2107a1f020426226e8bea4cb5a7b30de8ce5d9cade13f53894a631",
+   "bytes": 17832,
+   "bundled": true
+  },
+  "assets/female-s0-comfy-sneakers.glb": {
+   "name": "female-s0-comfy-sneakers.3d06eee103c53bfa.glb",
+   "sha256": "3d06eee103c53bfaa3196b34e70713f9abf49d8cab243c6004c2af479600d78e",
+   "bytes": 74320,
+   "bundled": false
+  },
+  "assets/female-s0-comfy-sneakers.png": {
+   "name": "female-s0-comfy-sneakers.6fa7e62a7c75b8ee.png",
+   "sha256": "6fa7e62a7c75b8ee6ee4a3a6cf0e2b594f15ee8cc1d9afebe15343a9f8e27693",
+   "bytes": 7857,
+   "bundled": true
+  },
+  "assets/female-s0-cosy-jumper.glb": {
+   "name": "female-s0-cosy-jumper.5657914328141124.glb",
+   "sha256": "5657914328141124f0d1b0de807fd7a50f8ab67bf0734aa06aefac9cfb8ce0c3",
+   "bytes": 44020,
+   "bundled": false
+  },
+  "assets/female-s0-cosy-jumper.png": {
+   "name": "female-s0-cosy-jumper.0c68035a6decfedd.png",
+   "sha256": "0c68035a6decfedd9efd6bf93f7e955d5f8ca6778fb60a501c1f1b537f4d1dc7",
+   "bytes": 16948,
+   "bundled": true
+  },
+  "assets/female-s0-denim-cut-offs.glb": {
+   "name": "female-s0-denim-cut-offs.b6fd39eb235b9018.glb",
+   "sha256": "b6fd39eb235b90187719aeaab84091d78948b98ace0e2a01cb7d66747b1f7b5c",
+   "bytes": 87028,
+   "bundled": false
+  },
+  "assets/female-s0-denim-cut-offs.png": {
+   "name": "female-s0-denim-cut-offs.fc3df5a3f96ca86f.png",
+   "sha256": "fc3df5a3f96ca86fd1766d99b2560c3b144cbb9d9f0a34369178bf5231399624",
+   "bytes": 30369,
+   "bundled": true
+  },
+  "assets/female-s0-denim-skirt.glb": {
+   "name": "female-s0-denim-skirt.41d5edc330b851f1.glb",
+   "sha256": "41d5edc330b851f132a4a46e1c78e1aea0ccdcde9f116082f8ac65d1528b9217",
+   "bytes": 100080,
+   "bundled": false
+  },
+  "assets/female-s0-denim-skirt.png": {
+   "name": "female-s0-denim-skirt.b930847b25a24f41.png",
+   "sha256": "b930847b25a24f41af360d3bff66aceed480d74d359a408e6c40fb0f1029203e",
+   "bytes": 32370,
+   "bundled": true
+  },
+  "assets/female-s0-easy-day-dress.glb": {
+   "name": "female-s0-easy-day-dress.b458e64e10589a35.glb",
+   "sha256": "b458e64e10589a3510d74d778e99a3797322dfbeb3358b5a0b75c9568b5d5d64",
+   "bytes": 174524,
+   "bundled": false
+  },
+  "assets/female-s0-easy-day-dress.png": {
+   "name": "female-s0-easy-day-dress.9fb9af0f308cb876.png",
+   "sha256": "9fb9af0f308cb8761002ed75f61b6b6958783d096c791f36eda112b7b8f679c5",
+   "bytes": 16562,
+   "bundled": true
+  },
+  "assets/female-s0-everyday-tank.glb": {
+   "name": "female-s0-everyday-tank.3d409775c28e7bc0.glb",
+   "sha256": "3d409775c28e7bc08ed4c190adbf1b1565fff9dba9b5410f3d6d356fb3f6edd6",
+   "bytes": 33036,
+   "bundled": false
+  },
+  "assets/female-s0-everyday-tank.png": {
+   "name": "female-s0-everyday-tank.7465b6d6dbc851d7.png",
+   "sha256": "7465b6d6dbc851d7828b0d0e3cff3788e7daaee143c5e8d30fc15c95b2e83b18",
+   "bytes": 12265,
+   "bundled": true
+  },
+  "assets/female-s0-hi-top-sneakers.glb": {
+   "name": "female-s0-hi-top-sneakers.bad7f689ae47a1f4.glb",
+   "sha256": "bad7f689ae47a1f4b3581ebd018af90c2a70e672949b4dbd6cf07545e32ea1ce",
+   "bytes": 1166724,
+   "bundled": false
+  },
+  "assets/female-s0-hi-top-sneakers.png": {
+   "name": "female-s0-hi-top-sneakers.693248618c997947.png",
+   "sha256": "693248618c997947b99764e747e77c243e90b046c3de6e3837a4657b35fa955e",
+   "bytes": 12775,
+   "bundled": true
+  },
+  "assets/female-s0-hoodie-dress.glb": {
+   "name": "female-s0-hoodie-dress.f009094c2ea1935f.glb",
+   "sha256": "f009094c2ea1935f65aea521fd81f7da08924a71c2bcc4b4777ddde4ac1914a2",
+   "bytes": 182452,
+   "bundled": false
+  },
+  "assets/female-s0-hoodie-dress.png": {
+   "name": "female-s0-hoodie-dress.7fe209bb09b8a455.png",
+   "sha256": "7fe209bb09b8a455e06f26fcdb9e23a97cbf79191e03b28adf51934e665b87a2",
+   "bytes": 14121,
+   "bundled": true
+  },
+  "assets/female-s0-low-rise-mini.glb": {
+   "name": "female-s0-low-rise-mini.d463610d5f03dbde.glb",
+   "sha256": "d463610d5f03dbde0224e5da7582ee971da1eae5a1213ed547c37da343743164",
+   "bytes": 70276,
+   "bundled": false
+  },
+  "assets/female-s0-low-rise-mini.png": {
+   "name": "female-s0-low-rise-mini.f0ede1087eb98e82.png",
+   "sha256": "f0ede1087eb98e82fe6e54f3f09a32f1988bb772f0d6edfe687b6704bd1a1df0",
+   "bytes": 27859,
+   "bundled": true
+  },
+  "assets/female-s0-picnic-midi-dress.glb": {
+   "name": "female-s0-picnic-midi-dress.0eaa4d40f8ee639e.glb",
+   "sha256": "0eaa4d40f8ee639e7569daa419a144d203f9b90c790b99c27812cb6f3ee9d010",
+   "bytes": 115932,
+   "bundled": false
+  },
+  "assets/female-s0-picnic-midi-dress.png": {
+   "name": "female-s0-picnic-midi-dress.d96cc9fe963e4465.png",
+   "sha256": "d96cc9fe963e446541a992a627962629a628825d3487e01589b080ecbba6e1a2",
+   "bytes": 19909,
+   "bundled": true
+  },
+  "assets/female-s0-ribbon-shorts.glb": {
+   "name": "female-s0-ribbon-shorts.0b15817eeb92ea77.glb",
+   "sha256": "0b15817eeb92ea776c9dee9970212149f53803af4c7d49376b91a353029f064d",
+   "bytes": 367852,
+   "bundled": false
+  },
+  "assets/female-s0-ribbon-shorts.png": {
+   "name": "female-s0-ribbon-shorts.c1579c9af86dfe4e.png",
+   "sha256": "c1579c9af86dfe4e35f97931a7ec8d59c8c53b3bbde274eaa269eb89b59426be",
+   "bytes": 38174,
+   "bundled": true
+  },
+  "assets/female-s0-runners.glb": {
+   "name": "female-s0-runners.85b7be2ef06cfc7c.glb",
+   "sha256": "85b7be2ef06cfc7cba8c1aa2565e62d5eb55582fdf12288b43a41d18e6840029",
+   "bytes": 80008,
+   "bundled": false
+  },
+  "assets/female-s0-runners.png": {
+   "name": "female-s0-runners.ca2ed21fea220a55.png",
+   "sha256": "ca2ed21fea220a5529de3c49920e47e7076911febbd2ee6c692b76493d5e679c",
+   "bytes": 8677,
+   "bundled": true
+  },
+  "assets/female-s0-skinny-jeans.glb": {
+   "name": "female-s0-skinny-jeans.ef7c342bd8ffe4df.glb",
+   "sha256": "ef7c342bd8ffe4dfb35ae7dde9ead817a3ad263c2f3a1813dca426f01bd37916",
+   "bytes": 110724,
+   "bundled": false
+  },
+  "assets/female-s0-skinny-jeans.png": {
+   "name": "female-s0-skinny-jeans.abf477316f12e57b.png",
+   "sha256": "abf477316f12e57b1c350154d6445663129f90fe8d60ec682aa7d766eb04a1ec",
+   "bytes": 12183,
+   "bundled": true
+  },
+  "assets/female-s0-sporty-tank.glb": {
+   "name": "female-s0-sporty-tank.e77ea912c61885a0.glb",
+   "sha256": "e77ea912c61885a066dc7727e3e6cd1b39f8ca05e1c1f97448422bf887a19382",
+   "bytes": 39988,
+   "bundled": false
+  },
+  "assets/female-s0-sporty-tank.png": {
+   "name": "female-s0-sporty-tank.0d74a2f3bcf9f5c2.png",
+   "sha256": "0d74a2f3bcf9f5c2d6cfe1593e5a657c6e0b58f8beab2ddce904391d6bd102d8",
+   "bytes": 13493,
+   "bundled": true
+  },
+  "assets/female-s0-street-sneakers.glb": {
+   "name": "female-s0-street-sneakers.90a1a16c0d7b63bc.glb",
+   "sha256": "90a1a16c0d7b63bcc0c4c92191f572568420199daea7d9d8d8404156d60cf690",
+   "bytes": 159928,
+   "bundled": false
+  },
+  "assets/female-s0-street-sneakers.png": {
+   "name": "female-s0-street-sneakers.3f35cd2878220859.png",
+   "sha256": "3f35cd287822085964d89d58abd0aeced9f0fcaef0810e24dd9b39dd66ceb666",
+   "bytes": 10565,
+   "bundled": true
+  },
+  "assets/female-s0-weekend-wrap-dress.glb": {
+   "name": "female-s0-weekend-wrap-dress.90f33401c4f0c1ae.glb",
+   "sha256": "90f33401c4f0c1aebb11ce46faf29e23c53ff6b73199b9c6c7ded54422d5f24c",
+   "bytes": 59600,
+   "bundled": false
+  },
+  "assets/female-s0-weekend-wrap-dress.png": {
+   "name": "female-s0-weekend-wrap-dress.b42d69c4cf8d18ad.png",
+   "sha256": "b42d69c4cf8d18adc495e858d7a33f64b6868edf8a10b541cd3bbe72988faf41",
+   "bytes": 11315,
+   "bundled": true
+  },
+  "assets/female-s1-ankle-boots.glb": {
+   "name": "female-s1-ankle-boots.246805d30e7dea6a.glb",
+   "sha256": "246805d30e7dea6a1474f33baf6bb494f6332044e9d2f59b3b4c48bcaf8c694b",
+   "bytes": 59936,
+   "bundled": false
+  },
+  "assets/female-s1-ankle-boots.png": {
+   "name": "female-s1-ankle-boots.74cdb2ee7e48f226.png",
+   "sha256": "74cdb2ee7e48f22614adb551cc4dba8eafbbacf366f41126870a73a59ead7fe0",
+   "bytes": 9389,
+   "bundled": true
+  },
+  "assets/female-s1-brogues.glb": {
+   "name": "female-s1-brogues.ef06b9a19f4a0233.glb",
+   "sha256": "ef06b9a19f4a0233a3f89172e15b29c09ea3260c47d8f42b7aaa5eb6e107e5d7",
+   "bytes": 79232,
+   "bundled": false
+  },
+  "assets/female-s1-brogues.png": {
+   "name": "female-s1-brogues.1419e17b5bd2a2cc.png",
+   "sha256": "1419e17b5bd2a2cc00a6ab01ea02a9bee0a86dd088b73604c11dab26e8fa93c0",
+   "bytes": 10071,
+   "bundled": true
+  },
+  "assets/female-s1-half-boots.glb": {
+   "name": "female-s1-half-boots.44a37bed433680e0.glb",
+   "sha256": "44a37bed433680e0020d401237765c05444caad9af752c0a88d70322d1fbe901",
+   "bytes": 94604,
+   "bundled": false
+  },
+  "assets/female-s1-half-boots.png": {
+   "name": "female-s1-half-boots.75b29030273650b7.png",
+   "sha256": "75b29030273650b7a0fb76a2cd6ce180244390027d6e1fb9607a2a76b0246f93",
+   "bytes": 11617,
+   "bundled": true
+  },
+  "assets/female-s1-halter-day-dress.glb": {
+   "name": "female-s1-halter-day-dress.536573dfa81242b6.glb",
+   "sha256": "536573dfa81242b611726eac65f61e4c25b5d166b5f61e3eccce2f99ac211a63",
+   "bytes": 214920,
+   "bundled": false
+  },
+  "assets/female-s1-halter-day-dress.png": {
+   "name": "female-s1-halter-day-dress.ead0918f6062b372.png",
+   "sha256": "ead0918f6062b372145b5c392328408765ca03c03b8ffa9ab8e5d476cb1a3129",
+   "bytes": 17168,
+   "bundled": true
+  },
+  "assets/female-s1-lace-up-blouse.glb": {
+   "name": "female-s1-lace-up-blouse.e38ed48f9b223609.glb",
+   "sha256": "e38ed48f9b22360933c98a953334f1a2f785c1beeb9dc00ed98244f37e45dbab",
+   "bytes": 77140,
+   "bundled": false
+  },
+  "assets/female-s1-lace-up-blouse.png": {
+   "name": "female-s1-lace-up-blouse.b2d6b1a27a02f20a.png",
+   "sha256": "b2d6b1a27a02f20a96c868dc5ef66491618b0acd49713dff3d4bee5dfa8d51a2",
+   "bytes": 25030,
+   "bundled": true
+  },
+  "assets/female-s1-lunch-date-dress.glb": {
+   "name": "female-s1-lunch-date-dress.1d63850dae16aafa.glb",
+   "sha256": "1d63850dae16aafaac63652b1ea1c4d3722555f047e212437fb7fac461071cd7",
+   "bytes": 324216,
+   "bundled": false
+  },
+  "assets/female-s1-lunch-date-dress.png": {
+   "name": "female-s1-lunch-date-dress.8963f5ed7f910534.png",
+   "sha256": "8963f5ed7f910534bd7c830c3e67edf7a2dda607f29517280b0a80cb52821588",
+   "bytes": 20296,
+   "bundled": true
+  },
+  "assets/female-s1-monk-straps.glb": {
+   "name": "female-s1-monk-straps.cf2c18787d64ed11.glb",
+   "sha256": "cf2c18787d64ed11a6f6b68c59d29c435b760940b15adb31b1f92eb7f2bde65c",
+   "bytes": 155328,
+   "bundled": false
+  },
+  "assets/female-s1-monk-straps.png": {
+   "name": "female-s1-monk-straps.2e2032426863b967.png",
+   "sha256": "2e2032426863b967219893db717616bbbc089f9825cc7b8c04d0dcb8040be13d",
+   "bytes": 13163,
+   "bundled": true
+  },
+  "assets/female-s1-off-shoulder-top.glb": {
+   "name": "female-s1-off-shoulder-top.9b6c4c93df3d0eed.glb",
+   "sha256": "9b6c4c93df3d0eed86eb005b1ea6fef34180f611e414b5ee932e3365fafb2842",
+   "bytes": 75900,
+   "bundled": false
+  },
+  "assets/female-s1-off-shoulder-top.png": {
+   "name": "female-s1-off-shoulder-top.693582202af90e4f.png",
+   "sha256": "693582202af90e4f06fb3a2704713caa20ef708291f0bea7892f20e0ae02e59a",
+   "bytes": 24101,
+   "bundled": true
+  },
+  "assets/female-s1-office-midi-skirt.glb": {
+   "name": "female-s1-office-midi-skirt.fad48817ce9ca3c7.glb",
+   "sha256": "fad48817ce9ca3c784691172859d07165dc474aed0276165a2209a917085a560",
+   "bytes": 195380,
+   "bundled": false
+  },
+  "assets/female-s1-office-midi-skirt.png": {
+   "name": "female-s1-office-midi-skirt.612a481ba039a470.png",
+   "sha256": "612a481ba039a4704ef42d6de34be7fb47fc267b86ad5e71a02a4d372dad680c",
+   "bytes": 15862,
+   "bundled": true
+  },
+  "assets/female-s1-office-sheath.glb": {
+   "name": "female-s1-office-sheath.b1bfb90625fe13f2.glb",
+   "sha256": "b1bfb90625fe13f29b0fd88a9d7bd497a82eebdcdb98d1f9668d76a60288e234",
+   "bytes": 63720,
+   "bundled": false
+  },
+  "assets/female-s1-office-sheath.png": {
+   "name": "female-s1-office-sheath.962bee2c22baad33.png",
+   "sha256": "962bee2c22baad3382403c684942cd13c78206c6ed7e116969ff428199083bcb",
+   "bytes": 8664,
+   "bundled": true
+  },
+  "assets/female-s1-pencil-skirt.glb": {
+   "name": "female-s1-pencil-skirt.c339df8182ace505.glb",
+   "sha256": "c339df8182ace505c8862285bc247808515305b8cdf4368f4ee2bb334341b5ea",
+   "bytes": 73832,
+   "bundled": false
+  },
+  "assets/female-s1-pencil-skirt.png": {
+   "name": "female-s1-pencil-skirt.d046165e0ba91f68.png",
+   "sha256": "d046165e0ba91f68a3201351a88804d4200415dd2c75bbbca8ef3706f609542e",
+   "bytes": 7011,
+   "bundled": true
+  },
+  "assets/female-s1-pointed-flats.glb": {
+   "name": "female-s1-pointed-flats.0fe3f97aa577eb58.glb",
+   "sha256": "0fe3f97aa577eb58d9e3a89342b35c16fd1aa84d310afae130ad821910a9ba56",
+   "bytes": 226000,
+   "bundled": false
+  },
+  "assets/female-s1-pointed-flats.png": {
+   "name": "female-s1-pointed-flats.86c04966bfb478dd.png",
+   "sha256": "86c04966bfb478dd70b0456d345966fd5f883a590acf5fd67b4a7f6e7fad6188",
+   "bytes": 9655,
+   "bundled": true
+  },
+  "assets/female-s1-polka-dot-skirt.glb": {
+   "name": "female-s1-polka-dot-skirt.1b9fd36c7420b3bc.glb",
+   "sha256": "1b9fd36c7420b3bcd19d3ce487d7f6241cbaf41e1820b13ed3147cf8e31c0991",
+   "bytes": 62860,
+   "bundled": false
+  },
+  "assets/female-s1-polka-dot-skirt.png": {
+   "name": "female-s1-polka-dot-skirt.9c0d3880e117659d.png",
+   "sha256": "9c0d3880e117659decc3e2ea206c387c821a1f376ce172ee59728e0ca3a27b8e",
+   "bytes": 13022,
+   "bundled": true
+  },
+  "assets/female-s1-ruffle-blouse.glb": {
+   "name": "female-s1-ruffle-blouse.88d0c6d9be22e6bd.glb",
+   "sha256": "88d0c6d9be22e6bdc0791489079ed6d8dd2569bc60b3bbea301adb706025522d",
+   "bytes": 140584,
+   "bundled": false
+  },
+  "assets/female-s1-ruffle-blouse.png": {
+   "name": "female-s1-ruffle-blouse.2eaf5728ee4cb484.png",
+   "sha256": "2eaf5728ee4cb484967b8e6d216219d9020d34a33913cdcc529fa5c5f50c3c28",
+   "bytes": 27615,
+   "bundled": true
+  },
+  "assets/female-s1-sixties-shift.glb": {
+   "name": "female-s1-sixties-shift.b745f3065f8366a1.glb",
+   "sha256": "b745f3065f8366a1d7d6d3f97c698965bd95388c4a509ff63fd6e1cfbef1e190",
+   "bytes": 134084,
+   "bundled": false
+  },
+  "assets/female-s1-sixties-shift.png": {
+   "name": "female-s1-sixties-shift.2a8a973c3986077b.png",
+   "sha256": "2a8a973c3986077b8fe57b269b5a938f9a7293e0938cdbab697b51b11ad4250e",
+   "bytes": 18903,
+   "bundled": true
+  },
+  "assets/female-s1-skirt-suit.glb": {
+   "name": "female-s1-skirt-suit.de212d1b384f3a4b.glb",
+   "sha256": "de212d1b384f3a4b252a79dff0bcb6d79ec5675f846bff31e60be8441a2413ca",
+   "bytes": 304720,
+   "bundled": false
+  },
+  "assets/female-s1-skirt-suit.png": {
+   "name": "female-s1-skirt-suit.b7588ba942f4a3b1.png",
+   "sha256": "b7588ba942f4a3b1cee39832a6887f6759dfcdf7bc2eb61d58a81de8c0f58f87",
+   "bytes": 16124,
+   "bundled": true
+  },
+  "assets/female-s1-sleeveless-shirt.glb": {
+   "name": "female-s1-sleeveless-shirt.f59ca24a924945e1.glb",
+   "sha256": "f59ca24a924945e17e6a07ef3da749a01724987554697e90486002c6c9723a94",
+   "bytes": 61764,
+   "bundled": false
+  },
+  "assets/female-s1-sleeveless-shirt.png": {
+   "name": "female-s1-sleeveless-shirt.2967508cb3641299.png",
+   "sha256": "2967508cb36412993161ed98aec2e9b8a4a42f7444f94a01ae8e9cc4c0e57bea",
+   "bytes": 13270,
+   "bundled": true
+  },
+  "assets/female-s1-straight-trousers.glb": {
+   "name": "female-s1-straight-trousers.3ad8953dee05b260.glb",
+   "sha256": "3ad8953dee05b260a4dc9abb6d6439513f5b67f4978135614b1567dac249e2f5",
+   "bytes": 81340,
+   "bundled": false
+  },
+  "assets/female-s1-straight-trousers.png": {
+   "name": "female-s1-straight-trousers.b8572d67b4140f70.png",
+   "sha256": "b8572d67b4140f706f07e2bb4c03fba18f21c9fe68b4aefb1b4d570f68f77484",
+   "bytes": 13833,
+   "bundled": true
+  },
+  "assets/female-s1-trouser-suit.glb": {
+   "name": "female-s1-trouser-suit.7122aed69fdd3a41.glb",
+   "sha256": "7122aed69fdd3a41415ea9bee5bd868003d9d93969743cc2c723a5495f58e0c8",
+   "bytes": 209092,
+   "bundled": false
+  },
+  "assets/female-s1-trouser-suit.png": {
+   "name": "female-s1-trouser-suit.a0694d115950d255.png",
+   "sha256": "a0694d115950d25587949508200cfab779c604c0946a5527774f68853ebd0c40",
+   "bytes": 12149,
+   "bundled": true
+  },
+  "assets/female-s2-baby-doll-dress.glb": {
+   "name": "female-s2-baby-doll-dress.bad11953b61fd509.glb",
+   "sha256": "bad11953b61fd5093d6a1a9a8ec2432036874c4aa791846a4eab34348860f451",
+   "bytes": 713664,
+   "bundled": false
+  },
+  "assets/female-s2-baby-doll-dress.png": {
+   "name": "female-s2-baby-doll-dress.69ab753506f850bb.png",
+   "sha256": "69ab753506f850bbe7110490cdfdad442235e952b4e9aacfca56fd311650296c",
+   "bytes": 19250,
+   "bundled": true
+  },
+  "assets/female-s2-black-mini-skirt.glb": {
+   "name": "female-s2-black-mini-skirt.61d8027fbed315d7.glb",
+   "sha256": "61d8027fbed315d73fc636734aa21fceddee65fa52faf72e977fdb72420cb7e3",
+   "bytes": 31340,
+   "bundled": false
+  },
+  "assets/female-s2-black-mini-skirt.png": {
+   "name": "female-s2-black-mini-skirt.ec7959243c76e309.png",
+   "sha256": "ec7959243c76e309cf4b343f058db0b7834433e389a0d25a38860df1e6163747",
+   "bytes": 13359,
+   "bundled": true
+  },
+  "assets/female-s2-butterfly-disco-top.glb": {
+   "name": "female-s2-butterfly-disco-top.31c4d56136443c41.glb",
+   "sha256": "31c4d56136443c418cfeee589a1779c09ebc2839f7aeb9cb0fcbcd68d8adea29",
+   "bytes": 209904,
+   "bundled": false
+  },
+  "assets/female-s2-butterfly-disco-top.png": {
+   "name": "female-s2-butterfly-disco-top.16c94f029a69708c.png",
+   "sha256": "16c94f029a69708c0d7c9a539c317eb664367f50f6df98bb17aea0c634e3e4c9",
+   "bytes": 19514,
+   "bundled": true
+  },
+  "assets/female-s2-disco-halter-top.glb": {
+   "name": "female-s2-disco-halter-top.26a9cc67794606c1.glb",
+   "sha256": "26a9cc67794606c1ec530c584d211334cac04268917a2338ae9aa26506dcb8d5",
+   "bytes": 136972,
+   "bundled": false
+  },
+  "assets/female-s2-disco-halter-top.png": {
+   "name": "female-s2-disco-halter-top.ad37d4ad35fafce9.png",
+   "sha256": "ad37d4ad35fafce98eefdeafc33ed3a9972d7efea84423a8521416955e754bb3",
+   "bytes": 21354,
+   "bundled": true
+  },
+  "assets/female-s2-disco-mini-skirt.glb": {
+   "name": "female-s2-disco-mini-skirt.bcd79db1f0a492f5.glb",
+   "sha256": "bcd79db1f0a492f57bd9126a4e189c9511c8685f37281cbf81652d3b77fc90b6",
+   "bytes": 74508,
+   "bundled": false
+  },
+  "assets/female-s2-disco-mini-skirt.png": {
+   "name": "female-s2-disco-mini-skirt.9575bf5bbadc54d1.png",
+   "sha256": "9575bf5bbadc54d1e372e89422b0f7c510cdd2cf41e3d5178adc9576e6d1fb8f",
+   "bytes": 13234,
+   "bundled": true
+  },
+  "assets/female-s2-disco-skinny-pants.glb": {
+   "name": "female-s2-disco-skinny-pants.606f06b674282da6.glb",
+   "sha256": "606f06b674282da6cdd0bd6fb995f2490f8f568af80fce37245cf269ca2eb047",
+   "bytes": 116120,
+   "bundled": false
+  },
+  "assets/female-s2-disco-skinny-pants.png": {
+   "name": "female-s2-disco-skinny-pants.2cbd53cff3e5cda8.png",
+   "sha256": "2cbd53cff3e5cda87f5d98112dd809c1731abb6b49a90edb487d91ed6efb3122",
+   "bytes": 9781,
+   "bundled": true
+  },
+  "assets/female-s2-double-ruffle-flares.glb": {
+   "name": "female-s2-double-ruffle-flares.7fd3ed4774dae958.glb",
+   "sha256": "7fd3ed4774dae95874664227ee5f7f972de87c2a487beb2327bd67802d3a0e7a",
+   "bytes": 257144,
+   "bundled": false
+  },
+  "assets/female-s2-double-ruffle-flares.png": {
+   "name": "female-s2-double-ruffle-flares.af1bde2e1943adfa.png",
+   "sha256": "af1bde2e1943adfa5013260f88cf363770f5634559adb567003bd50dd218b718",
+   "bytes": 17262,
+   "bundled": true
+  },
+  "assets/female-s2-frilled-party-dress.glb": {
+   "name": "female-s2-frilled-party-dress.9250a92f3cdf60db.glb",
+   "sha256": "9250a92f3cdf60dbd1231d1281f9c9e9e539d175cb670afe5471fd37f78de4fb",
+   "bytes": 292404,
+   "bundled": false
+  },
+  "assets/female-s2-frilled-party-dress.png": {
+   "name": "female-s2-frilled-party-dress.fb0f4dadee497f41.png",
+   "sha256": "fb0f4dadee497f4166ae74d6b7cb665e92770e58cb437ffb4cefbc9b3658b50e",
+   "bytes": 13069,
+   "bundled": true
+  },
+  "assets/female-s2-fringe-dress.glb": {
+   "name": "female-s2-fringe-dress.a34aa05a19a74c72.glb",
+   "sha256": "a34aa05a19a74c7240af2fa02b3025a6f1178dbf6665e759aa3166d4813de462",
+   "bytes": 178828,
+   "bundled": false
+  },
+  "assets/female-s2-fringe-dress.png": {
+   "name": "female-s2-fringe-dress.b30ee1806eca5325.png",
+   "sha256": "b30ee1806eca5325982627a9ecd66ef3e6830a4a4c888d8dba8373d6825c42c9",
+   "bytes": 8404,
+   "bundled": true
+  },
+  "assets/female-s2-halter-mini-dress.glb": {
+   "name": "female-s2-halter-mini-dress.8892ece995eb6f2b.glb",
+   "sha256": "8892ece995eb6f2beb2d63878f33f957e18b840bb251dd5f6ba217d3c0deb3b7",
+   "bytes": 283656,
+   "bundled": false
+  },
+  "assets/female-s2-halter-mini-dress.png": {
+   "name": "female-s2-halter-mini-dress.a30daca8af6aa4a1.png",
+   "sha256": "a30daca8af6aa4a18ddd3b978560deda31f9a4558210081f2977bdaf0de39755",
+   "bytes": 15552,
+   "bundled": true
+  },
+  "assets/female-s2-high-neck-crop.glb": {
+   "name": "female-s2-high-neck-crop.bd3737d0771dd94f.glb",
+   "sha256": "bd3737d0771dd94f5b42576ad38d46da0351e94968d6a342881a31eb4e861820",
+   "bytes": 70424,
+   "bundled": false
+  },
+  "assets/female-s2-high-neck-crop.png": {
+   "name": "female-s2-high-neck-crop.b60dfcc43659f1ed.png",
+   "sha256": "b60dfcc43659f1ed6bb97ea6a560f824b0b7b2bc68b50a0a15246c8f26ad3448",
+   "bytes": 19281,
+   "bundled": true
+  },
+  "assets/female-s2-knee-boots.glb": {
+   "name": "female-s2-knee-boots.a6044ffe0f27996c.glb",
+   "sha256": "a6044ffe0f27996cf80f1d6e44efe209b7d7cdf13ac5c8098f76bbb6d23b57cf",
+   "bytes": 65080,
+   "bundled": false
+  },
+  "assets/female-s2-knee-boots.png": {
+   "name": "female-s2-knee-boots.7e8760dd0865ec4c.png",
+   "sha256": "7e8760dd0865ec4cb2739cfd05d06a8222f97ec5411a31b16d2670dccc5abb1a",
+   "bytes": 8898,
+   "bundled": true
+  },
+  "assets/female-s2-knee-high-heel-boots.glb": {
+   "name": "female-s2-knee-high-heel-boots.6dc7db7c3694c3a4.glb",
+   "sha256": "6dc7db7c3694c3a45791f7f38dc9fd04e955ef004b2ead06002426ff67224bd4",
+   "bytes": 765388,
+   "bundled": false
+  },
+  "assets/female-s2-knee-high-heel-boots.png": {
+   "name": "female-s2-knee-high-heel-boots.0a20aea34bb96e38.png",
+   "sha256": "0a20aea34bb96e380eb6ff3c85c01da79cca7ef7b2fbd4d549a1e2a7a03f284b",
+   "bytes": 5764,
+   "bundled": true
+  },
+  "assets/female-s2-leather-boots.glb": {
+   "name": "female-s2-leather-boots.582d1c6708eaaff9.glb",
+   "sha256": "582d1c6708eaaff904eb8fecf15da401215dcb47bfaf031b8c7e6e5f43c92eb6",
+   "bytes": 52636,
+   "bundled": false
+  },
+  "assets/female-s2-leather-boots.png": {
+   "name": "female-s2-leather-boots.9625b926d45c3a6c.png",
+   "sha256": "9625b926d45c3a6cc0ba8d5f970495487ff595d01c826b98e7f7879b23bd9370",
+   "bytes": 13799,
+   "bundled": true
+  },
+  "assets/female-s2-little-black-cocktail-dress.glb": {
+   "name": "female-s2-little-black-cocktail-dress.061ee23f1fb4579a.glb",
+   "sha256": "061ee23f1fb4579a131004a535768413a9ea81bda7fbcde6ef7d4a92ad3e6555",
+   "bytes": 84164,
+   "bundled": false
+  },
+  "assets/female-s2-little-black-cocktail-dress.png": {
+   "name": "female-s2-little-black-cocktail-dress.ee78e5cf42d339f8.png",
+   "sha256": "ee78e5cf42d339f8515f63a0636a7890ec9479332d1ea39553c3d626fb79a6f5",
+   "bytes": 8317,
+   "bundled": true
+  },
+  "assets/female-s2-party-crop-top.glb": {
+   "name": "female-s2-party-crop-top.0bb69d035cf3888d.glb",
+   "sha256": "0bb69d035cf3888d030f32969b29981d0ea9a22f97808c33b63fe88b4a146af5",
+   "bytes": 32104,
+   "bundled": false
+  },
+  "assets/female-s2-party-crop-top.png": {
+   "name": "female-s2-party-crop-top.1bbe620a9a2c6106.png",
+   "sha256": "1bbe620a9a2c61066fd15f6d7b53a97cb9e3d9315c92c11bb2f29648245e9535",
+   "bytes": 11024,
+   "bundled": true
+  },
+  "assets/female-s2-party-tube-top.glb": {
+   "name": "female-s2-party-tube-top.4435cba0cb13041f.glb",
+   "sha256": "4435cba0cb13041f1d0df9b80daa6f0e4a47f365af9f2ec2e69935ae8cc61f8e",
+   "bytes": 38720,
+   "bundled": false
+  },
+  "assets/female-s2-party-tube-top.png": {
+   "name": "female-s2-party-tube-top.be24936fa6fbdc93.png",
+   "sha256": "be24936fa6fbdc93257a82f76d40c3fe2f635659d4d3b6d2f5d3c0fafaed1deb",
+   "bytes": 7514,
+   "bundled": true
+  },
+  "assets/female-s2-plaid-pleated-mini.glb": {
+   "name": "female-s2-plaid-pleated-mini.4edcd80b45cfdf49.glb",
+   "sha256": "4edcd80b45cfdf4977e21d1a4cca928f293a08146c433474b92d9403d0dfce70",
+   "bytes": 319104,
+   "bundled": false
+  },
+  "assets/female-s2-plaid-pleated-mini.png": {
+   "name": "female-s2-plaid-pleated-mini.02245e21984e445f.png",
+   "sha256": "02245e21984e445ffc0f104cd4d237c82dd74ef22800f6982fe09269eec9a869",
+   "bytes": 40377,
+   "bundled": true
+  },
+  "assets/female-s2-pleated-mini.glb": {
+   "name": "female-s2-pleated-mini.5fc67716e6fe41a5.glb",
+   "sha256": "5fc67716e6fe41a57ddda3c4bae8c1b0203df61ebb5a5ea72f9975db6d111a8e",
+   "bytes": 59696,
+   "bundled": false
+  },
+  "assets/female-s2-pleated-mini.png": {
+   "name": "female-s2-pleated-mini.81e82c7599061faa.png",
+   "sha256": "81e82c7599061faaa32ecdfa3a2911244fac541fc924e762301714d36f5be609",
+   "bytes": 19362,
+   "bundled": true
+  },
+  "assets/female-s2-ruffle-flares.glb": {
+   "name": "female-s2-ruffle-flares.119091537d4af6b2.glb",
+   "sha256": "119091537d4af6b2aead80d15d74d64c467ab8866485e7526f082b2ad11d85b8",
+   "bytes": 190644,
+   "bundled": false
+  },
+  "assets/female-s2-ruffle-flares.png": {
+   "name": "female-s2-ruffle-flares.ed8a28ead9723fe5.png",
+   "sha256": "ed8a28ead9723fe548da3996d9be2493113ffecbf8a4f4a72a8bf696a98bcc19",
+   "bytes": 16992,
+   "bundled": true
+  },
+  "assets/female-s2-tall-wedge-boots.glb": {
+   "name": "female-s2-tall-wedge-boots.b4c6bf15714e15fe.glb",
+   "sha256": "b4c6bf15714e15fed76c156f6ff8a2d1114d7e8405e59107b151b408b7f29678",
+   "bytes": 595680,
+   "bundled": false
+  },
+  "assets/female-s2-tall-wedge-boots.png": {
+   "name": "female-s2-tall-wedge-boots.89ae4e0a28498d3a.png",
+   "sha256": "89ae4e0a28498d3a8dadc19326b0f2c82069fde7d0783c7910a463fc9b86489f",
+   "bytes": 6549,
+   "bundled": true
+  },
+  "assets/female-s2-tube-party-dress.glb": {
+   "name": "female-s2-tube-party-dress.a3e547285377308d.glb",
+   "sha256": "a3e547285377308d902589132c3015768bc6c52f5e0e0c71f7851b327c1e1e12",
+   "bytes": 46388,
+   "bundled": false
+  },
+  "assets/female-s2-tube-party-dress.png": {
+   "name": "female-s2-tube-party-dress.c6fcd52a4ef51aee.png",
+   "sha256": "c6fcd52a4ef51aee0ff6ca0949f3267c132271ff78c94652732ec3315407d93c",
+   "bytes": 7308,
+   "bundled": true
+  },
+  "assets/female-s3-asymmetric-skirt.glb": {
+   "name": "female-s3-asymmetric-skirt.cea87bfa63856231.glb",
+   "sha256": "cea87bfa638562319da8b0040b6996bad5acdb16ce0fe7a09ca85285087ee4ff",
+   "bytes": 71268,
+   "bundled": false
+  },
+  "assets/female-s3-asymmetric-skirt.png": {
+   "name": "female-s3-asymmetric-skirt.91810eb7dcfb5a76.png",
+   "sha256": "91810eb7dcfb5a76862ff774c978039e75b95325282caf787fe55e463aeaf178",
+   "bytes": 9325,
+   "bundled": true
+  },
+  "assets/female-s3-ball-gown.glb": {
+   "name": "female-s3-ball-gown.032bafd17d7082a0.glb",
+   "sha256": "032bafd17d7082a026cb9c486337419a36c1ac26742e0aa44a964689c615cd8f",
+   "bytes": 177788,
+   "bundled": false
+  },
+  "assets/female-s3-ball-gown.png": {
+   "name": "female-s3-ball-gown.c4197cafe66243ea.png",
+   "sha256": "c4197cafe66243ea39b1743c2db3b3a9bd30d0af90586ebe88cc68c1a97c40b5",
+   "bytes": 11961,
+   "bundled": true
+  },
+  "assets/female-s3-bow-flats.glb": {
+   "name": "female-s3-bow-flats.45a5b3762f4164d5.glb",
+   "sha256": "45a5b3762f4164d58c6e4e93b850d52508dcc8ae0edb446cbe443b44abfad5e1",
+   "bytes": 213800,
+   "bundled": false
+  },
+  "assets/female-s3-bow-flats.png": {
+   "name": "female-s3-bow-flats.2573eaebf8df7db1.png",
+   "sha256": "2573eaebf8df7db1eb59dca21d69a66e7eef18f94c94a29cf3375b0f1d39cf5a",
+   "bytes": 7225,
+   "bundled": true
+  },
+  "assets/female-s3-buckle-flats.glb": {
+   "name": "female-s3-buckle-flats.bbff1462fb584029.glb",
+   "sha256": "bbff1462fb5840290264a049a2da756302fe1063ad0aa4434c4a083c98d7d781",
+   "bytes": 640960,
+   "bundled": false
+  },
+  "assets/female-s3-buckle-flats.png": {
+   "name": "female-s3-buckle-flats.998cfbf07e996b81.png",
+   "sha256": "998cfbf07e996b81ddb43ad507e50248b4a7de02f444e7da7379d0b0c2bef075",
+   "bytes": 9432,
+   "bundled": true
+  },
+  "assets/female-s3-couture-qipao.glb": {
+   "name": "female-s3-couture-qipao.27760128165e3fdf.glb",
+   "sha256": "27760128165e3fdf8c0f8998813d924069e27426b13da50f9ed393fd74787a65",
+   "bytes": 607240,
+   "bundled": false
+  },
+  "assets/female-s3-couture-qipao.png": {
+   "name": "female-s3-couture-qipao.161eb463ab5ec2ac.png",
+   "sha256": "161eb463ab5ec2ac1f1474a86919ee29ace5567441bc08fc195aa1286af70b85",
+   "bytes": 17444,
+   "bundled": true
+  },
+  "assets/female-s3-evening-gown.glb": {
+   "name": "female-s3-evening-gown.5a1dae071a76d1b1.glb",
+   "sha256": "5a1dae071a76d1b15d881f763b30db8163f162d9d47eb15a9df812f4060b311f",
+   "bytes": 87200,
+   "bundled": false
+  },
+  "assets/female-s3-evening-gown.png": {
+   "name": "female-s3-evening-gown.17c7414a8617d284.png",
+   "sha256": "17c7414a8617d2844a75f8efa28d893dbe68eb55a04e6fa3b5538dcf17c07712",
+   "bytes": 10080,
+   "bundled": true
+  },
+  "assets/female-s3-flower-flats.glb": {
+   "name": "female-s3-flower-flats.cdf5d9b382c6bcbb.glb",
+   "sha256": "cdf5d9b382c6bcbbb1389bc74251474be704ee93d2524cd7382d7f662dc1cbf3",
+   "bytes": 151832,
+   "bundled": false
+  },
+  "assets/female-s3-flower-flats.png": {
+   "name": "female-s3-flower-flats.ad1c5c484678fa03.png",
+   "sha256": "ad1c5c484678fa034d56987099d0f897347d96cad5c692c7c83e61f511e7cd95",
+   "bytes": 6122,
+   "bundled": true
+  },
+  "assets/female-s3-gala-dress.glb": {
+   "name": "female-s3-gala-dress.2285fea88aed5ff3.glb",
+   "sha256": "2285fea88aed5ff38ac6934f2583cc25cda45f910d6738b305bfe8e0c463d715",
+   "bytes": 49148,
+   "bundled": false
+  },
+  "assets/female-s3-gala-dress.png": {
+   "name": "female-s3-gala-dress.3fc536c51d9b2d6e.png",
+   "sha256": "3fc536c51d9b2d6e64728d4b8d47daf85e0e13197f4df21c62d56147b89d2e45",
+   "bytes": 6314,
+   "bundled": true
+  },
+  "assets/female-s3-halter-gown.glb": {
+   "name": "female-s3-halter-gown.02ea2293cd0a53a8.glb",
+   "sha256": "02ea2293cd0a53a879f0d9ddf163526f3ecf602c74a5e443475aa2f549bce885",
+   "bytes": 255048,
+   "bundled": false
+  },
+  "assets/female-s3-halter-gown.png": {
+   "name": "female-s3-halter-gown.97becbd0c0262326.png",
+   "sha256": "97becbd0c026232671ad4270ee0ca8f4d564bd20bb46d7987fea55e2fe9a1388",
+   "bytes": 11753,
+   "bundled": true
+  },
+  "assets/female-s3-handkerchief-gown.glb": {
+   "name": "female-s3-handkerchief-gown.2111294948655633.glb",
+   "sha256": "2111294948655633d35813c532078b8fd0483c28f85ecfd82beff44fdd0b7898",
+   "bytes": 326976,
+   "bundled": false
+  },
+  "assets/female-s3-handkerchief-gown.png": {
+   "name": "female-s3-handkerchief-gown.501299fa67dd616d.png",
+   "sha256": "501299fa67dd616d2c78b0546be366b6f191b6a84ca4dcef8d8f5d197e2af32a",
+   "bytes": 12093,
+   "bundled": true
+  },
+  "assets/female-s3-jewelled-flats.glb": {
+   "name": "female-s3-jewelled-flats.ca8088cc783f4816.glb",
+   "sha256": "ca8088cc783f48164b45c8d2178ffb414ca2ae48cae9cb3edef63ebc1af3b580",
+   "bytes": 251736,
+   "bundled": false
+  },
+  "assets/female-s3-jewelled-flats.png": {
+   "name": "female-s3-jewelled-flats.21fd734375b4f076.png",
+   "sha256": "21fd734375b4f0769b02a11320b07c0c5232da0c87170af604bdff5419c3d38b",
+   "bytes": 8730,
+   "bundled": true
+  },
+  "assets/female-s3-palazzo-pants.glb": {
+   "name": "female-s3-palazzo-pants.147ae68c6ef8dbe9.glb",
+   "sha256": "147ae68c6ef8dbe99e488c3768435d553c22207eef4ec334a7369db343ecf961",
+   "bytes": 244836,
+   "bundled": false
+  },
+  "assets/female-s3-palazzo-pants.png": {
+   "name": "female-s3-palazzo-pants.bf5f7cdfc772362b.png",
+   "sha256": "bf5f7cdfc772362b5b2091753abd55e28ee3a94afbfbedce4083aa6e071b0b30",
+   "bytes": 18189,
+   "bundled": true
+  },
+  "assets/female-s3-satin-retro-top.glb": {
+   "name": "female-s3-satin-retro-top.bc02408ac880344d.glb",
+   "sha256": "bc02408ac880344d0473de55b8b7c23db00a9a2ff6987cd21bc81debca9cfb64",
+   "bytes": 63272,
+   "bundled": false
+  },
+  "assets/female-s3-satin-retro-top.png": {
+   "name": "female-s3-satin-retro-top.8a704c12451bcc30.png",
+   "sha256": "8a704c12451bcc30e2d9939d46130a3da6155d18a1fb39979445a985463ba24d",
+   "bytes": 20177,
+   "bundled": true
+  },
+  "assets/female-s3-satin-skirt.glb": {
+   "name": "female-s3-satin-skirt.4c150a11fe717f96.glb",
+   "sha256": "4c150a11fe717f969e9254413c77946effaadc074e00d718957b6cd64fb25c9c",
+   "bytes": 29084,
+   "bundled": false
+  },
+  "assets/female-s3-satin-skirt.png": {
+   "name": "female-s3-satin-skirt.438dec4989de4acf.png",
+   "sha256": "438dec4989de4acfac13403274c9fd6faf86301cc08649454f1cdf105451f7da",
+   "bytes": 9466,
+   "bundled": true
+  },
+  "assets/female-s3-silk-camisole.glb": {
+   "name": "female-s3-silk-camisole.eaf47ef829f1919f.glb",
+   "sha256": "eaf47ef829f1919f80dbbb6431f9678104d971db1da19cb60d72e7e83c2e3dc6",
+   "bytes": 758956,
+   "bundled": false
+  },
+  "assets/female-s3-silk-camisole.png": {
+   "name": "female-s3-silk-camisole.0fa696567d3dc4d0.png",
+   "sha256": "0fa696567d3dc4d0aac50444ed0acd4dd844047c0d27c2bb77b9e02fa4976afb",
+   "bytes": 21200,
+   "bundled": true
+  },
+  "assets/female-s3-silk-qipao.glb": {
+   "name": "female-s3-silk-qipao.136dbc83073197dc.glb",
+   "sha256": "136dbc83073197dc9cdd9fcf19e329320f24a3ca0f19071d9544487c691af4d6",
+   "bytes": 152164,
+   "bundled": false
+  },
+  "assets/female-s3-silk-qipao.png": {
+   "name": "female-s3-silk-qipao.06b065216217c0b1.png",
+   "sha256": "06b065216217c0b16be93c8d2ab90ffcfe898b7da3629d95ed7cbb011390bcde",
+   "bytes": 16160,
+   "bundled": true
+  },
+  "assets/female-s3-silk-v-neck.glb": {
+   "name": "female-s3-silk-v-neck.a5f9f451c110b2c4.glb",
+   "sha256": "a5f9f451c110b2c465bc2173484aca85a8a6657f4550707b12ed25246109c37e",
+   "bytes": 37144,
+   "bundled": false
+  },
+  "assets/female-s3-silk-v-neck.png": {
+   "name": "female-s3-silk-v-neck.9fd7cda05ce15e77.png",
+   "sha256": "9fd7cda05ce15e77fa0322b938f0713ecc94c4ec6e17d41b14b9b4e24dee1b52",
+   "bytes": 11573,
+   "bundled": true
+  },
+  "assets/female-s3-t-bar-shoes.glb": {
+   "name": "female-s3-t-bar-shoes.3de0df198dcfe1bb.glb",
+   "sha256": "3de0df198dcfe1bbbcf87c7943ba8af8dffc1f91b999b4f2cab2f955ba723317",
+   "bytes": 21124,
+   "bundled": false
+  },
+  "assets/female-s3-t-bar-shoes.png": {
+   "name": "female-s3-t-bar-shoes.6cd06482068fdbc9.png",
+   "sha256": "6cd06482068fdbc9f4252252bc70f2fe9f144b6c593cd1e7f0a1c0e2fa790977",
+   "bytes": 5473,
+   "bundled": true
+  },
+  "assets/female-s4-asymmetric-tunic.glb": {
+   "name": "female-s4-asymmetric-tunic.b0fb568f8882cad0.glb",
+   "sha256": "b0fb568f8882cad0340765e0741f7c4ec84076c5061fbd034290b816cf6fae7f",
+   "bytes": 104516,
+   "bundled": false
+  },
+  "assets/female-s4-asymmetric-tunic.png": {
+   "name": "female-s4-asymmetric-tunic.7b30dbffcded2eaa.png",
+   "sha256": "7b30dbffcded2eaa079627f85050f8a7a0a19cb876359ddf2f3b570b2a19d872",
+   "bytes": 17352,
+   "bundled": true
+  },
+  "assets/female-s4-couture-ballet-flats.glb": {
+   "name": "female-s4-couture-ballet-flats.2f8772e4f383bdc7.glb",
+   "sha256": "2f8772e4f383bdc787f040fa18ebeda3a8d58d4844a03056990402bad8080a46",
+   "bytes": 206156,
+   "bundled": false
+  },
+  "assets/female-s4-couture-ballet-flats.png": {
+   "name": "female-s4-couture-ballet-flats.8831f0d50de1fcd7.png",
+   "sha256": "8831f0d50de1fcd7b461610595bdd6311ee71a38e5fd701954f0dd2799dfa7e5",
+   "bytes": 6781,
+   "bundled": true
+  },
+  "assets/female-s4-couture-column-gown.glb": {
+   "name": "female-s4-couture-column-gown.f1ec37966d848220.glb",
+   "sha256": "f1ec37966d8482207417c526f3494515464f0d4d411a4ff893f176afe433d829",
+   "bytes": 62712,
+   "bundled": false
+  },
+  "assets/female-s4-couture-column-gown.png": {
+   "name": "female-s4-couture-column-gown.aa42e442331c2de5.png",
+   "sha256": "aa42e442331c2de59b98e71abe18f7c6a63822eda37158baf8e834246ff0ad03",
+   "bytes": 8073,
+   "bundled": true
+  },
+  "assets/female-s4-designer-ruffle-gown.glb": {
+   "name": "female-s4-designer-ruffle-gown.73f9dfc3fea40a72.glb",
+   "sha256": "73f9dfc3fea40a72d0db7f58fd11dac5a0044c4f8ae850a7602c806b456828e1",
+   "bytes": 31060,
+   "bundled": false
+  },
+  "assets/female-s4-designer-ruffle-gown.png": {
+   "name": "female-s4-designer-ruffle-gown.b74cadadfa4dadea.png",
+   "sha256": "b74cadadfa4dadea42d021a8664c835553c65362f09b71db3768fa10d485b868",
+   "bytes": 9670,
+   "bundled": true
+  },
+  "assets/female-s4-designer-slip-top.glb": {
+   "name": "female-s4-designer-slip-top.a2e386b5c9ff3895.glb",
+   "sha256": "a2e386b5c9ff3895fa7d859d3437f20ca6cdd739d8f2ad8cb3374e9d2a4d951e",
+   "bytes": 42776,
+   "bundled": false
+  },
+  "assets/female-s4-designer-slip-top.png": {
+   "name": "female-s4-designer-slip-top.dea577e4907276b9.png",
+   "sha256": "dea577e4907276b9527851a554191599aa64f668eb995d99d60bc7a39fba2578",
+   "bytes": 11466,
+   "bundled": true
+  },
+  "assets/female-s4-draped-goddess-gown.glb": {
+   "name": "female-s4-draped-goddess-gown.0425c173bbc0680f.glb",
+   "sha256": "0425c173bbc0680fd791d13d8b0d6a744a3464dcf116c00656a19c9cf65b1a56",
+   "bytes": 580036,
+   "bundled": false
+  },
+  "assets/female-s4-draped-goddess-gown.png": {
+   "name": "female-s4-draped-goddess-gown.9718b6a1ac13832d.png",
+   "sha256": "9718b6a1ac13832d6ef90307bc53363becfcb5e50c7bccea2cdc01d3eb9244c1",
+   "bytes": 13809,
+   "bundled": true
+  },
+  "assets/female-s4-finale-gown.glb": {
+   "name": "female-s4-finale-gown.d06512dfea08b6d3.glb",
+   "sha256": "d06512dfea08b6d3234621b35a0b74d9407cbe3f677b5e1d28463e6e1eab6ef9",
+   "bytes": 137676,
+   "bundled": false
+  },
+  "assets/female-s4-finale-gown.png": {
+   "name": "female-s4-finale-gown.4b92394aac8afb84.png",
+   "sha256": "4b92394aac8afb84adaad6f73756dba91b36e156652ad229868357a43e873e94",
+   "bytes": 11104,
+   "bundled": true
+  },
+  "assets/female-s4-fringe-couture-dress.glb": {
+   "name": "female-s4-fringe-couture-dress.66b9ac385a15e743.glb",
+   "sha256": "66b9ac385a15e7433b7483c48a10e53b24e7d335b14b2d1d833939f7e34e6e2f",
+   "bytes": 277000,
+   "bundled": false
+  },
+  "assets/female-s4-fringe-couture-dress.png": {
+   "name": "female-s4-fringe-couture-dress.ecc1e1d9415a8eea.png",
+   "sha256": "ecc1e1d9415a8eea75a0fd6798c717908a4a0e8d43f2e42ea548d10ce414cf48",
+   "bytes": 9739,
+   "bundled": true
+  },
+  "assets/female-s4-goddess-gown.glb": {
+   "name": "female-s4-goddess-gown.0b09decc9a951d15.glb",
+   "sha256": "0b09decc9a951d15672ff70bb03a41a382e8c13b1ba497421d220ef5282ac8a1",
+   "bytes": 810900,
+   "bundled": false
+  },
+  "assets/female-s4-goddess-gown.png": {
+   "name": "female-s4-goddess-gown.e8fb3d38a9fec973.png",
+   "sha256": "e8fb3d38a9fec973dd2782120392ed96fb838fb1b4da45535682bb8dbbaa7ee3",
+   "bytes": 11552,
+   "bundled": true
+  },
+  "assets/female-s4-grecian-gown.glb": {
+   "name": "female-s4-grecian-gown.22dbf8d24e950d92.glb",
+   "sha256": "22dbf8d24e950d92565ed7029481258baa757b7cf5e4121209216b7b19c29abb",
+   "bytes": 383572,
+   "bundled": false
+  },
+  "assets/female-s4-grecian-gown.png": {
+   "name": "female-s4-grecian-gown.c04e0c47683b125d.png",
+   "sha256": "c04e0c47683b125d403418605fffa848450716f0f5d77374db2415d8c72528fe",
+   "bytes": 12769,
+   "bundled": true
+  },
+  "assets/female-s4-halter-jumpsuit.glb": {
+   "name": "female-s4-halter-jumpsuit.8fdf2c895fcc67f4.glb",
+   "sha256": "8fdf2c895fcc67f4a0905fb35745763ee4e8d1c94a5e2fb225c886a4ac6534ba",
+   "bytes": 139324,
+   "bundled": false
+  },
+  "assets/female-s4-halter-jumpsuit.png": {
+   "name": "female-s4-halter-jumpsuit.adea5743fd2a68aa.png",
+   "sha256": "adea5743fd2a68aa9f2b4348b4380824d945bf0feebb6acb9fbdc71272ca1a9f",
+   "bytes": 6765,
+   "bundled": true
+  },
+  "assets/female-s4-over-knee-boots.glb": {
+   "name": "female-s4-over-knee-boots.56ad66676454a724.glb",
+   "sha256": "56ad66676454a7243a9bf507c1f288be7f8536635945fdbf9d4f8b628bd04640",
+   "bytes": 49108,
+   "bundled": false
+  },
+  "assets/female-s4-over-knee-boots.png": {
+   "name": "female-s4-over-knee-boots.055dcb3e97541a6e.png",
+   "sha256": "055dcb3e97541a6e409a1e1da62a431af8c57daee3e275347e5fc19ca657cdcb",
+   "bytes": 11736,
+   "bundled": true
+  },
+  "assets/female-s4-riding-boots.glb": {
+   "name": "female-s4-riding-boots.28be96753047cbd9.glb",
+   "sha256": "28be96753047cbd9cd584ddb09b5f4c6e20748bdc2c73c85203f32774f1394c6",
+   "bytes": 72568,
+   "bundled": false
+  },
+  "assets/female-s4-riding-boots.png": {
+   "name": "female-s4-riding-boots.5fa2396128de709a.png",
+   "sha256": "5fa2396128de709a43717383481eeb106b15b0c92173e8a8b6c02abe993d7fb3",
+   "bytes": 11221,
+   "bundled": true
+  },
+  "assets/female-s4-runway-biker-boots.glb": {
+   "name": "female-s4-runway-biker-boots.2b247790e50005d9.glb",
+   "sha256": "2b247790e50005d935d2667af0dbbffe4590113de3ad2be8ed8a73e785860141",
+   "bytes": 193892,
+   "bundled": false
+  },
+  "assets/female-s4-runway-biker-boots.png": {
+   "name": "female-s4-runway-biker-boots.b0f842c2eacbba0d.png",
+   "sha256": "b0f842c2eacbba0d5a0b1df50aa3932040aa0d20e9c296bb4e097f718fcf74c9",
+   "bytes": 14134,
+   "bundled": true
+  },
+  "assets/female-s4-runway-gown.glb": {
+   "name": "female-s4-runway-gown.c77f4475a0c07576.glb",
+   "sha256": "c77f4475a0c075768fa6dd2e123f29cf53f6c092a73055beaeb36b51e101b2a6",
+   "bytes": 69664,
+   "bundled": false
+  },
+  "assets/female-s4-runway-gown.png": {
+   "name": "female-s4-runway-gown.fa7f75017b0ce135.png",
+   "sha256": "fa7f75017b0ce135e89d7db57c419357098447d027c54d1f12c841f7ed4d6e6f",
+   "bytes": 8971,
+   "bundled": true
+  },
+  "assets/female-s4-statement-gown.glb": {
+   "name": "female-s4-statement-gown.33e6286d83778cf9.glb",
+   "sha256": "33e6286d83778cf98e27c37542f2610e876e790d990cc80f3a73a5c4860c3da8",
+   "bytes": 189868,
+   "bundled": false
+  },
+  "assets/female-s4-statement-gown.png": {
+   "name": "female-s4-statement-gown.80cb705b6e6e1805.png",
+   "sha256": "80cb705b6e6e1805547368b82a539e3c5b7e874e2be228f6ce4344f5fb9a6240",
+   "bytes": 8326,
+   "bundled": true
+  },
+  "assets/female-s4-tiered-couture-dress.glb": {
+   "name": "female-s4-tiered-couture-dress.60b8f292c225dcb5.glb",
+   "sha256": "60b8f292c225dcb5e7e59c9e621330b88ce96038838930cc2b9232220ec8c65c",
+   "bytes": 319576,
+   "bundled": false
+  },
+  "assets/female-s4-tiered-couture-dress.png": {
+   "name": "female-s4-tiered-couture-dress.efa181656740c579.png",
+   "sha256": "efa181656740c579f42127289eacaa7253466734c486f4e02aae886d0404cd9d",
+   "bytes": 17472,
+   "bundled": true
+  },
   "assets/female-shoe-flats.glb": {
    "name": "female-shoe-flats.cf64cea4f8f346d2.glb",
    "sha256": "cf64cea4f8f346d2a48dfacb06560975de723d1fc870ba86f1986d69f9697bb6",
@@ -1142,9 +2258,9 @@
    "bundled": true
   },
   "assets/female.glb": {
-   "name": "female.9353d11217e65844.glb",
-   "sha256": "9353d11217e65844724a6d8402b8e61d4c631bcde9ae2eb757088c81d99f9cbd",
-   "bytes": 341196,
+   "name": "female.5b911bfaa0aaaf70.glb",
+   "sha256": "5b911bfaa0aaaf70f58af710f31cf78bc9239932ca95eed7892e4a02bc513640",
+   "bytes": 423760,
    "bundled": true
   },
   "assets/male-bowtie-suit.glb": {
@@ -1399,6 +2515,306 @@
    "bytes": 11718,
    "bundled": true
   },
+  "assets/male-s0-athletic-tank.glb": {
+   "name": "male-s0-athletic-tank.8bae4699352b6901.glb",
+   "sha256": "8bae4699352b69019fb26b1320eb95e31d7118224e171f051e7cdb1d4fbe571e",
+   "bytes": 1258076,
+   "bundled": false
+  },
+  "assets/male-s0-athletic-tank.png": {
+   "name": "male-s0-athletic-tank.3aa4939a8e797bc0.png",
+   "sha256": "3aa4939a8e797bc03914f2aafcc31a22683c177f64d977654d8ce29ec207cae3",
+   "bytes": 18010,
+   "bundled": true
+  },
+  "assets/male-s0-chino-shorts.glb": {
+   "name": "male-s0-chino-shorts.6e7a17e20f765c97.glb",
+   "sha256": "6e7a17e20f765c978865e79af25db5ab848caad69799848aa220535b9979579c",
+   "bytes": 245500,
+   "bundled": false
+  },
+  "assets/male-s0-chino-shorts.png": {
+   "name": "male-s0-chino-shorts.de02e1c46e3807ea.png",
+   "sha256": "de02e1c46e3807ea6b6abe445d3827ef0854519e077ba62c9805a3b9674d9810",
+   "bytes": 20654,
+   "bundled": true
+  },
+  "assets/male-s0-classic-jeans.glb": {
+   "name": "male-s0-classic-jeans.2f7e088db9e91a6b.glb",
+   "sha256": "2f7e088db9e91a6b4d98fc0107503651912a866e5e91f041407e008937911762",
+   "bytes": 105928,
+   "bundled": false
+  },
+  "assets/male-s0-classic-jeans.png": {
+   "name": "male-s0-classic-jeans.7392c01668a172ba.png",
+   "sha256": "7392c01668a172ba16cabadcd361e388c7e9ac69b8fb93010948ae3af0a4f2eb",
+   "bytes": 11223,
+   "bundled": true
+  },
+  "assets/male-s0-court-shoes.glb": {
+   "name": "male-s0-court-shoes.43fbe877d540af0f.glb",
+   "sha256": "43fbe877d540af0fef9364782c677047ad42619eaadff490e311737df6133068",
+   "bytes": 85656,
+   "bundled": false
+  },
+  "assets/male-s0-court-shoes.png": {
+   "name": "male-s0-court-shoes.9f13a3bbc455d1c9.png",
+   "sha256": "9f13a3bbc455d1c906006ef59191774bbc9c05b9537dbd79cd414e6a97d33ee2",
+   "bytes": 11838,
+   "bundled": true
+  },
+  "assets/male-s0-logo-tee.glb": {
+   "name": "male-s0-logo-tee.6e71d3cd90afa0c4.glb",
+   "sha256": "6e71d3cd90afa0c41c409be51df671e4f4c1bce7371f7fd0e6bd80763b6193c4",
+   "bytes": 136608,
+   "bundled": false
+  },
+  "assets/male-s0-logo-tee.png": {
+   "name": "male-s0-logo-tee.e300ddbd04d0b98d.png",
+   "sha256": "e300ddbd04d0b98dc0192dd25af8591aaac2b0fde85a1d15542b9cb8f85a263b",
+   "bytes": 24793,
+   "bundled": true
+  },
+  "assets/male-s0-runners.glb": {
+   "name": "male-s0-runners.6c5725e6f2a91f08.glb",
+   "sha256": "6c5725e6f2a91f0867143064125ddbf63dd2863d5a196e80f583143719834fd2",
+   "bytes": 79952,
+   "bundled": false
+  },
+  "assets/male-s0-runners.png": {
+   "name": "male-s0-runners.ca2ed21fea220a55.png",
+   "sha256": "ca2ed21fea220a5529de3c49920e47e7076911febbd2ee6c692b76493d5e679c",
+   "bytes": 8677,
+   "bundled": true
+  },
+  "assets/male-s0-straight-jeans.glb": {
+   "name": "male-s0-straight-jeans.1c3eb71c3a8decbf.glb",
+   "sha256": "1c3eb71c3a8decbf8ac0ae9efff3b9b959e02d5d8fb8089f699b55df405cb82d",
+   "bytes": 141344,
+   "bundled": false
+  },
+  "assets/male-s0-straight-jeans.png": {
+   "name": "male-s0-straight-jeans.dda0ccf62497691e.png",
+   "sha256": "dda0ccf62497691e1a28e340c9b712ebb9393c5b9f774d7a231451bb69ad2850",
+   "bytes": 10531,
+   "bundled": true
+  },
+  "assets/male-s0-street-sneakers.glb": {
+   "name": "male-s0-street-sneakers.3ba57a498ada32d3.glb",
+   "sha256": "3ba57a498ada32d3bfa00fc591df06be78891acc924b072a835facbbcad7e035",
+   "bytes": 159956,
+   "bundled": false
+  },
+  "assets/male-s0-street-sneakers.png": {
+   "name": "male-s0-street-sneakers.3f35cd2878220859.png",
+   "sha256": "3f35cd287822085964d89d58abd0aeced9f0fcaef0810e24dd9b39dd66ceb666",
+   "bytes": 10565,
+   "bundled": true
+  },
+  "assets/male-s0-tank-shirt.glb": {
+   "name": "male-s0-tank-shirt.f43a18851edd78be.glb",
+   "sha256": "f43a18851edd78beaf95cd57406f8aed69a90f750f2bc83c12a1940c79083524",
+   "bytes": 79468,
+   "bundled": false
+  },
+  "assets/male-s0-tank-shirt.png": {
+   "name": "male-s0-tank-shirt.b3b2cccd9adeeb91.png",
+   "sha256": "b3b2cccd9adeeb91b0baaf923a6fadc92fb8b448b55b3ac67e4f3bf004ccd9f4",
+   "bytes": 14619,
+   "bundled": true
+  },
+  "assets/male-s1-bootcut-jeans.glb": {
+   "name": "male-s1-bootcut-jeans.06a8d17964c5cef8.glb",
+   "sha256": "06a8d17964c5cef8d18e64e5e79c4c0a7da18ab365a47699cfc9473beae4b17c",
+   "bytes": 141244,
+   "bundled": false
+  },
+  "assets/male-s1-bootcut-jeans.png": {
+   "name": "male-s1-bootcut-jeans.0cebb17b2ba30d41.png",
+   "sha256": "0cebb17b2ba30d4114333bf132332a3e69e893383c524947c043c14470bc5292",
+   "bytes": 11418,
+   "bundled": true
+  },
+  "assets/male-s1-button-down-shirt.glb": {
+   "name": "male-s1-button-down-shirt.987060e3b96a0de7.glb",
+   "sha256": "987060e3b96a0de7a7564c5c5d2623511a7f6b7ebad464161c68630861af018d",
+   "bytes": 99188,
+   "bundled": false
+  },
+  "assets/male-s1-button-down-shirt.png": {
+   "name": "male-s1-button-down-shirt.86217af5ec74f81e.png",
+   "sha256": "86217af5ec74f81ea0ce0383e7f37a6da878268ea17c7b5c755d968b5f86d7ba",
+   "bytes": 18032,
+   "bundled": true
+  },
+  "assets/male-s1-chelsea-boots.glb": {
+   "name": "male-s1-chelsea-boots.19a20e083d253678.glb",
+   "sha256": "19a20e083d2536782947560a21a6d39624ee4f796df2e02085f9303abfbd9d80",
+   "bytes": 58660,
+   "bundled": false
+  },
+  "assets/male-s1-chelsea-boots.png": {
+   "name": "male-s1-chelsea-boots.d575da4653fe7b65.png",
+   "sha256": "d575da4653fe7b653e95b1024e8c7e59ec7d3536f39a6978d245588162c0bd93",
+   "bytes": 9549,
+   "bundled": true
+  },
+  "assets/male-s1-monk-straps.glb": {
+   "name": "male-s1-monk-straps.ec3614ea30d17be6.glb",
+   "sha256": "ec3614ea30d17be6f8a2e53e8b5a19b1a1803bc1015e5cc0c3583761a53f671b",
+   "bytes": 155168,
+   "bundled": false
+  },
+  "assets/male-s1-monk-straps.png": {
+   "name": "male-s1-monk-straps.5f0c56ae7a963e5f.png",
+   "sha256": "5f0c56ae7a963e5fd901617762c8ba900d83a8e53483b1476951e409580a97e3",
+   "bytes": 13385,
+   "bundled": true
+  },
+  "assets/male-s1-oxford-shoes.glb": {
+   "name": "male-s1-oxford-shoes.51291b068e83b406.glb",
+   "sha256": "51291b068e83b4068dc327a5e412ac2db4e50819444ec41204270b614600ec8e",
+   "bytes": 79180,
+   "bundled": false
+  },
+  "assets/male-s1-oxford-shoes.png": {
+   "name": "male-s1-oxford-shoes.ffd9639830d52625.png",
+   "sha256": "ffd9639830d5262531edba245b3c3c0b70958094ddbbeae5df4155455d6d18ee",
+   "bytes": 10541,
+   "bundled": true
+  },
+  "assets/male-s1-shirt-and-tie.glb": {
+   "name": "male-s1-shirt-and-tie.ad4592dd7403cbc5.glb",
+   "sha256": "ad4592dd7403cbc593ad2bf6f26dc155745d7668eca11ad1ee7f6fc881be7f6f",
+   "bytes": 65144,
+   "bundled": false
+  },
+  "assets/male-s1-shirt-and-tie.png": {
+   "name": "male-s1-shirt-and-tie.ef405c1933b4826a.png",
+   "sha256": "ef405c1933b4826ab31e29c7cb18c02c84dde7b833381712539b6f17eb7963f9",
+   "bytes": 20067,
+   "bundled": true
+  },
+  "assets/male-s1-smart-trousers.glb": {
+   "name": "male-s1-smart-trousers.53bab72ccf0aa66c.glb",
+   "sha256": "53bab72ccf0aa66cdfbda7b49de6e66654c5aac02bf231c5bc6793ec3c3d40e3",
+   "bytes": 165832,
+   "bundled": false
+  },
+  "assets/male-s1-smart-trousers.png": {
+   "name": "male-s1-smart-trousers.3cac4ad49c2eabbe.png",
+   "sha256": "3cac4ad49c2eabbec3883d955d6f78c8f65a898b07a63ad89382d4b877ecd1bb",
+   "bytes": 9840,
+   "bundled": true
+  },
+  "assets/male-s1-tailored-trousers.glb": {
+   "name": "male-s1-tailored-trousers.36adcf82edefa7ff.glb",
+   "sha256": "36adcf82edefa7ff4a871aebb2c229ee1bda928118d20067617e656f1d4a306d",
+   "bytes": 76756,
+   "bundled": false
+  },
+  "assets/male-s1-tailored-trousers.png": {
+   "name": "male-s1-tailored-trousers.5f326550bb232547.png",
+   "sha256": "5f326550bb2325473a2fda66dca1a19e2751c622ec67e49fd1788088d76cd25e",
+   "bytes": 10313,
+   "bundled": true
+  },
+  "assets/male-s2-biker-boots.glb": {
+   "name": "male-s2-biker-boots.6f4150e9fa1c7ae0.glb",
+   "sha256": "6f4150e9fa1c7ae06d27740ed105ecaf5a3cd374fcf956f525479fe6e0a95603",
+   "bytes": 193892,
+   "bundled": false
+  },
+  "assets/male-s2-biker-boots.png": {
+   "name": "male-s2-biker-boots.48936f1c71303242.png",
+   "sha256": "48936f1c71303242b82164c0ebfc82f6e716147a02af6f394a6357b271ccddb4",
+   "bytes": 14154,
+   "bundled": true
+  },
+  "assets/male-s2-boho-party-shirt.glb": {
+   "name": "male-s2-boho-party-shirt.e2f3eaa7f4157a3d.glb",
+   "sha256": "e2f3eaa7f4157a3d9e47766301845892c32dcb08e99fea36ae0a8eb6ebb20955",
+   "bytes": 65804,
+   "bundled": false
+  },
+  "assets/male-s2-boho-party-shirt.png": {
+   "name": "male-s2-boho-party-shirt.063534fc84f7ad3b.png",
+   "sha256": "063534fc84f7ad3b83b08620f37a676171a5c336796ceaf4d97e46430edebb48",
+   "bytes": 24912,
+   "bundled": true
+  },
+  "assets/male-s2-chain-trousers.glb": {
+   "name": "male-s2-chain-trousers.f7d47182246c8782.glb",
+   "sha256": "f7d47182246c878211a1f82efa6efcf2bf4bf7ab90921fcb7dba3d27079f87bd",
+   "bytes": 248500,
+   "bundled": false
+  },
+  "assets/male-s2-chain-trousers.png": {
+   "name": "male-s2-chain-trousers.ae0d824d5b3574da.png",
+   "sha256": "ae0d824d5b3574dac984da74717146dde4a1a9299341575fca2be0b2bbd5f83c",
+   "bytes": 11774,
+   "bundled": true
+  },
+  "assets/male-s2-muscle-tee.glb": {
+   "name": "male-s2-muscle-tee.9021250c1b656a9a.glb",
+   "sha256": "9021250c1b656a9a680c1d7b688ac8f66051a1c9bafbc1f4bc7c67026390d115",
+   "bytes": 82756,
+   "bundled": false
+  },
+  "assets/male-s2-muscle-tee.png": {
+   "name": "male-s2-muscle-tee.de32b42b7d937fe7.png",
+   "sha256": "de32b42b7d937fe7927bed931f10d403198eb41a267933c8786d0eeee7899991",
+   "bytes": 14446,
+   "bundled": true
+  },
+  "assets/male-s2-night-jeans.glb": {
+   "name": "male-s2-night-jeans.51170936f535d45e.glb",
+   "sha256": "51170936f535d45e78860269acce047f7b6a32c8869726820f8c86de49a795ad",
+   "bytes": 90528,
+   "bundled": false
+  },
+  "assets/male-s2-night-jeans.png": {
+   "name": "male-s2-night-jeans.6898194cdb1982a7.png",
+   "sha256": "6898194cdb1982a7e62c523a87a92cce879d8875f4511f4a0949594c92eb265b",
+   "bytes": 12537,
+   "bundled": true
+  },
+  "assets/male-s2-party-shorts.glb": {
+   "name": "male-s2-party-shorts.ec763bb24880c349.glb",
+   "sha256": "ec763bb24880c3494c2c7eb76400467a55659129d6209d1dd09642a83a2e5bdf",
+   "bytes": 241896,
+   "bundled": false
+  },
+  "assets/male-s2-party-shorts.png": {
+   "name": "male-s2-party-shorts.5e464403ef1fb7ec.png",
+   "sha256": "5e464403ef1fb7ec7fefffd6fd1f659e21db3e60b186f6dec104fad68bce97d3",
+   "bytes": 19030,
+   "bundled": true
+  },
+  "assets/male-s2-stage-boots.glb": {
+   "name": "male-s2-stage-boots.85f687c7522468ed.glb",
+   "sha256": "85f687c7522468ed720a1294a794422f539134a59d7f466d516a07876c8e7854",
+   "bytes": 276756,
+   "bundled": false
+  },
+  "assets/male-s2-stage-boots.png": {
+   "name": "male-s2-stage-boots.c999368e65a0c676.png",
+   "sha256": "c999368e65a0c676b35a4fcbb3b9466403e7fe0b2467ba110d1b6dcb9daac471",
+   "bytes": 11935,
+   "bundled": true
+  },
+  "assets/male-s3-evening-suit.glb": {
+   "name": "male-s3-evening-suit.38e1f5d0dc1e081e.glb",
+   "sha256": "38e1f5d0dc1e081e20515694f4eb0ddb674ff15d3c8834dc8a13ac981c1c4aba",
+   "bytes": 121508,
+   "bundled": false
+  },
+  "assets/male-s3-evening-suit.png": {
+   "name": "male-s3-evening-suit.110de4a87773408d.png",
+   "sha256": "110de4a87773408dbe1b10e3c7562cad740d3ba72dcc105699fe4592af8a5f18",
+   "bytes": 9953,
+   "bundled": true
+  },
   "assets/male-tailored-suit.glb": {
    "name": "male-tailored-suit.78354d26b10346bd.glb",
    "sha256": "78354d26b10346bd5855d69311cc67072828029a805f29b0822d7d0acdd28b9e",
@@ -1496,9 +2912,9 @@
    "bundled": true
   },
   "assets/male.glb": {
-   "name": "male.922c2f4a96b28729.glb",
-   "sha256": "922c2f4a96b28729f49938ff0b429461df0fbee51830f57dcca05fb83b1875a5",
-   "bytes": 614376,
+   "name": "male.dd14c88a3d8769f1.glb",
+   "sha256": "dd14c88a3d8769f1ae6d63b2f1b41ba61f9f4eb1bd9e2cbf9293f41cd43f20b9",
+   "bytes": 964000,
    "bundled": true
   },
   "assets/shoe-0.glb": {

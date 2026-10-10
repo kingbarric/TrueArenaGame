@@ -18,6 +18,21 @@ import {hairFits} from './hair-fits.mjs';
 import {clipMesh, joinMeshes} from './clip-mesh.mjs';
 import {fitMaleBottom, refineBand} from './male-bottom-fit.mjs';
 
+// Loops rather than Math.min(...spread): large garments overflow the argument stack.
+// `cover: 'auto'` hides skin up to just below a boot's top edge.
+const coverHeights = new Map();
+function coverHeight(id, options) {
+  if (options.cover !== 'auto') return options.cover;
+  if (!coverHeights.has(id)) {
+    const boot = parseObj(resolve(source, assets[id][1]));
+    let top = 0;
+    for (let i = 1; i < boot.position.length; i += 3) top = Math.max(top, boot.position[i]);
+    coverHeights.set(id, top - .03);
+  }
+  return coverHeights.get(id);
+}
+const lowest = values => { let m = Infinity; for (const v of values) if (v < m) m = v; return m; };
+const highest = values => { let m = -Infinity; for (const v of values) if (v > m) m = v; return m; };
 const root = resolve(new URL('..', import.meta.url).pathname);
 const source = process.argv[2] ? resolve(process.argv[2]) : resolve(root, 'source_assets/makehuman/starter');
 const output = process.argv[3] ? resolve(process.argv[3]) : resolve(root, '../app/assets/slay_renderer/assets');
@@ -91,8 +106,13 @@ function parseObj(path, offset = [0, 0, 0], sockIsland) {
 }
 
 function fittedShoe(mesh, body, options = {}) {
+  // Tall boots are authored on the same MakeHuman legs as the garments; refitting
+  // their width to the foot would pull the shafts away from the legs.
+  if (options.natural) return mesh;
   const avatar = parseObj(resolve(source, bodySources[body].obj));
-  const bounds = positions => [0, 1, 2].map(axis => [Math.min(...positions.map(p => p[axis])), Math.max(...positions.map(p => p[axis]))]);
+  // A loop, not lowest(spread): high-poly boots overflow the argument stack.
+  const bounds = positions => [0, 1, 2].map(axis => positions.reduce(([low, high], p) =>
+    [Math.min(low, p[axis]), Math.max(high, p[axis])], [Infinity, -Infinity]));
   const foot = [];
   for (let i = 0; i < avatar.position.length; i += 3) {
     const p = Array.from(avatar.position.slice(i, i + 3));
@@ -240,7 +260,7 @@ function convert({id, body, obj, texture, isAvatar, options = {}}) {
     // Centre each downloaded earring at the fitted female earlobe.
     const points = [];
     for (let i = 0; i < mesh.position.length; i += 3) if (mesh.position[i] > 0) points.push(Array.from(mesh.position.slice(i, i + 3)));
-    const ranges = [0, 1, 2].map(axis => [Math.min(...points.map(p => p[axis])), Math.max(...points.map(p => p[axis]))]);
+    const ranges = [0, 1, 2].map(axis => [lowest(points.map(p => p[axis])), highest(points.map(p => p[axis]))]);
     const factor = id.endsWith('hoops') ? .60 : id.endsWith('pearls') ? 1.5 : 1.2;
     for (let i = 0; i < mesh.position.length; i += 3) {
       const side = mesh.position[i] >= 0 ? 1 : -1;
@@ -255,7 +275,7 @@ function convert({id, body, obj, texture, isAvatar, options = {}}) {
     }
   }
   if (options.bag === 'hand') {
-    const ranges = [0, 1, 2].map(axis => [Math.min(...Array.from(mesh.position).filter((_, i) => i % 3 === axis)), Math.max(...Array.from(mesh.position).filter((_, i) => i % 3 === axis))]);
+    const ranges = [0, 1, 2].map(axis => [lowest(Array.from(mesh.position).filter((_, i) => i % 3 === axis)), highest(Array.from(mesh.position).filter((_, i) => i % 3 === axis))]);
     // Keep the handle at the right hand; use a rigid hand weight so it follows
     // a bent elbow rather than staying behind at the original hip.
     const target = [-.52, .99, .30], height = .32;
@@ -321,7 +341,7 @@ function convert({id, body, obj, texture, isAvatar, options = {}}) {
       const heights = Array.from(cloth.position).filter((_, i) => i % 3 === 1);
       // The front waistband dips below the highest side seam. A max-height
       // body mask erased the abdomen above that dip and left a hollow gap.
-      return [item, [Math.min(...heights), body === 'male' ? Math.min(1.10, Math.max(...heights)) : Math.max(...heights)]];
+      return [item, [lowest(heights), body === 'male' ? Math.min(1.10, highest(heights)) : highest(heights)]];
     })) : {};
   const coverage = isAvatar && body === 'female' ? Object.fromEntries(Object.entries(assets)
     .filter(([, [fit, path, , options]]) => fit === body && path.startsWith('clothes/') && !path.includes('shoes') && !options?.shoe && !options?.earrings && !options?.bag)
@@ -335,8 +355,8 @@ function convert({id, body, obj, texture, isAvatar, options = {}}) {
   for (const [name, rawRegion, fitBody] of regions) {
     const region = indexed(rawRegion);
     const positions = add(region.position, 5126, 'VEC3', region.position.length / 3, 34962);
-    accessors[positions].min = [0, 1, 2].map(axis => Math.min(...Array.from(region.position).filter((_, index) => index % 3 === axis)));
-    accessors[positions].max = [0, 1, 2].map(axis => Math.max(...Array.from(region.position).filter((_, index) => index % 3 === axis)));
+    accessors[positions].min = [0, 1, 2].map(axis => lowest(Array.from(region.position).filter((_, index) => index % 3 === axis)));
+    accessors[positions].max = [0, 1, 2].map(axis => highest(Array.from(region.position).filter((_, index) => index % 3 === axis)));
     const normals = add(region.normal, 5126, 'VEC3', region.normal.length / 3, 34962);
     const uvs = add(region.uv, 5126, 'VEC2', region.uv.length / 2, 34962);
     const joints = new Uint16Array(region.position.length / 3 * 4), jointWeights = new Float32Array(region.position.length / 3 * 4);
@@ -358,8 +378,8 @@ function convert({id, body, obj, texture, isAvatar, options = {}}) {
           if (name === 'expression_smile' && z > .08 && y > 1.58 && y < 1.67) delta[vertex + 1] = Math.min(.008, Math.abs(x) * .12);
         }
         const accessor = add(delta, 5126, 'VEC3', region.position.length / 3, 34962);
-        accessors[accessor].min = [0, 1, 2].map(axis => Math.min(...Array.from(delta).filter((_, index) => index % 3 === axis)));
-        accessors[accessor].max = [0, 1, 2].map(axis => Math.max(...Array.from(delta).filter((_, index) => index % 3 === axis)));
+        accessors[accessor].min = [0, 1, 2].map(axis => lowest(Array.from(delta).filter((_, index) => index % 3 === axis)));
+        accessors[accessor].max = [0, 1, 2].map(axis => highest(Array.from(delta).filter((_, index) => index % 3 === axis)));
         return {POSITION: accessor};
       });
     }
@@ -379,12 +399,22 @@ function convert({id, body, obj, texture, isAvatar, options = {}}) {
           masks[item].push(i/9);
     }
     if (body === 'male' && name === 'region_torso') {
-      for (const id of ['male-tee-polo','male-tee-tucked','male-tee-relaxed']) {
+      const shirts = {'male-tee-polo': 1.12, 'male-tee-tucked': 1.12, 'male-tee-relaxed': 1.09,
+        ...Object.fromEntries(Object.entries(assets).filter(([, a]) => a[0] === 'male' && a[3]?.hem).map(([id, a]) => [id, a[3].hem]))};
+      for (const [id, hem] of Object.entries(shirts)) {
         masks[id] = [];
-        const hem = id === 'male-tee-relaxed' ? 1.09 : 1.12;
         for (let i=0;i<rawRegion.position.length;i+=9)
           if ([0,3,6].every(v => rawRegion.position[i+v+1] > hem)) masks[id].push(i/9);
       }
+    }
+    // Closed shoes and boots hide the skin they enclose (toes would poke
+    // through a slim shoe); sandals leave `cover` unset and show the foot.
+    if (name.startsWith('region_')) for (const [item, [fit, , , options]] of Object.entries(assets)) {
+      if (!options?.cover || (fit !== body && fit !== 'unisex')) continue;
+      masks[item] ??= [];
+      const cover = coverHeight(item, options);
+      for (let i = 0; i < rawRegion.position.length; i += 9)
+        if ([0, 3, 6].every(v => rawRegion.position[i + v + 1] < cover)) masks[item].push(i / 9);
     }
     if (name.startsWith('region_')) for (const [item, [hem, waist]] of Object.entries(bottomBounds)) {
       masks[item] ??= [];

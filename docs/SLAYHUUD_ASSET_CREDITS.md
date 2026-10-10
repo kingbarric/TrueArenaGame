@@ -89,3 +89,38 @@ Both source pages explicitly list CC0. Their MHM definitions are retained in `sl
 Modifications: character shape deltas adapted onto the existing fashion bodies; stature and large vertical offsets normalised for the shared skeleton; feet retain the game's footwear fit. Existing skin textures, expression morphs, underwear and rig are retained. A continuous fitting field adjusts selected wardrobe meshes to the character, rather than duplicating every garment. These are shared-rig adaptations of the definitions, rather than unchanged full MakeHuman scene exports. Source preset hair, optional clothing, expression and skeleton selections are replaced by the player's SlayHuud choices.
 
 The distant studio furniture, lights and flowers are original procedural SlayHuud meshes.
+
+## Career stage wardrobe (added 10 October 2026)
+
+Garments from the MakeHuman Community asset packs, used for the five career stages. Colour variants ("Neon Pink …", "Emerald …") are SlayHuud recolours of these garments, applied at runtime.
+
+**CC BY**
+
+- DredNicolson: Camo Tee (shirts03), Asymmetric Tunic (shirts03).
+- Elvaerwyn: Easy Day Dress (dress02), Hoodie Dress (suits03), Sporty Tank (shirts03), Ribbon Shorts (pants03), Hi-top Sneakers (shoes02), Sixties Shift (dress02), Halter Day Dress (dress02), Ruffle Blouse (shirts03), Pencil Skirt (skirts02), Office Midi Skirt (skirts02), Pointed Flats (shoes02), Frilled Party Dress (dress02), Halter Mini Dress (dress02), Fringe Dress (dress02), Baby-doll Dress (dress02), Disco Halter Top (shirts03), Butterfly Disco Top (shirts03), Disco Skinny Pants (pants02), Ruffle Flares (pants02), Double Ruffle Flares (pants02), Disco Mini Skirt (skirts02), Plaid Pleated Mini (skirts02), Knee-high Heel Boots (shoes03), Tall Wedge Boots (shoes03), Couture Qipao (dress02), Halter Gown (dress02), Handkerchief Gown (dress02), Silk Camisole (shirts03), Palazzo Pants (pants02), Asymmetric Skirt (skirts02), Jewelled Flats (shoes02), Bow Flats (shoes02), Buckle Flats (shoes02), Goddess Gown (dress02), Draped Goddess Gown (dress02), Grecian Gown (dress02), Fringe Couture Dress (dress02), Tiered Couture Dress (dress02), Halter Jumpsuit (suits03), Athletic Tank (shirts03), Tank Shirt (shirts03), Straight Jeans (pants02), Chino Shorts (pants03), Shirt and Tie (shirts02), Button-down Shirt (shirts02), Tailored Trousers (pants02), Bootcut Jeans (pants02), Boho Party Shirt (shirts02), Muscle Tee (shirts03), Chain Trousers (pants02), Party Shorts (pants03).
+- MTKnife: Low-rise Mini (skirts02).
+- culturalibre: Street Sneakers (shoes02).
+- janexx: Cosy Jumper (shirts02).
+- madmanny: Leather Boots (shoes03).
+
+**CC BY 3.0**
+
+- punkduck: Skinny Jeans (pants02), Denim Skirt (skirts02), Comfy Sneakers (shoes02), Runners (shoes02), Sleeveless Shirt (shirts03), Off-shoulder Top (shirts02), Polka Dot Skirt (skirts02), Little Black Cocktail Dress (dress03), Tube Party Dress (dress03), Party Tube Top (shirts03), Party Crop Top (shirts03), Black Mini Skirt (skirts02), Evening Gown (dress03), Silk Qipao (dress03), Silk V-neck (shirts03), Satin Retro Top (shirts03), Designer Slip Top (shirts03), Court Shoes (shoes02).
+- sonicteam998: Satin Skirt (skirts02).
+
+**CC BY 4.0**
+
+- Elvaerwyn: Logo Tee (shirts03).
+- MTKnife: Pleated Mini (skirts02).
+- Mindfront: Weekend Wrap Dress (dress03), Picnic Midi Dress (dress03), Everyday Tank (shirts03), Office Sheath (dress03), Lunch Date Dress (dress03), Straight Trousers (pants02), Brogues (shoes02), Monk Straps (shoes02), Gala Dress (dress03), Ball Gown (dress03), Runway Gown (dress03), Couture Column Gown (dress03), Designer Ruffle Gown (dress03), Statement Gown (dress03), Finale Gown (dress03), Runway Biker Boots (shoes03), Smart Trousers (pants02), Oxford Shoes (shoes02), Night Jeans (pants02), Biker Boots (shoes03), Evening Suit (suits03).
+- punkduck: Denim Cut-offs (pants03), Lace-up Blouse (shirts02), Half Boots (shoes03), High-neck Crop (shirts03), Knee Boots (shoes03), Riding Boots (shoes03), Classic Jeans (pants02).
+
+**CC0**
+
+- Cortu: T-bar Shoes (shoes01), Over-knee Boots (shoes01).
+- Margaret Toigo: Skirt Suit (suits01), Trouser Suit (suits01), Ankle Boots (shoes01), Flower Flats (shoes01), Couture Ballet Flats (shoes01), Chelsea Boots (shoes01).
+- culturalibre: Stage Boots (shoes01).
+
+Sources: https://static.makehumancommunity.org/assets/assetpacks.html (dress01/02/03, suits01/03, shirts02/03, pants02/03, skirts02, shoes01/02/03). CC BY licences: https://creativecommons.org/licenses/by/3.0/ and https://creativecommons.org/licenses/by/4.0/. CC0: https://creativecommons.org/publicdomain/zero/1.0/.
+
+Changes: converted to embedded GLB with mobile textures, a shared game rig and skin weights, body masks, shoe fitting and thumbnails. Garments whose files declare AGPL3 were excluded.

@@ -44,8 +44,15 @@ void main() {
             .itemsFor('outfit')
             .every((i) => !i['name'].toString().contains('Dress')),
         isTrue);
-    expect(wardrobe.groupsFor('tops'), isNot(contains('Party')));
-    expect(wardrobe.groupsFor('tops'), isNot(contains('Formal')));
+    // Only groups with clothes in them are offered; career stages add Party tops.
+    for (final group in wardrobe.groupsFor('tops')) {
+      expect(wardrobe.itemsFor('tops', group), isNotEmpty, reason: group);
+    }
+    expect(
+        wardrobe
+            .itemsFor('tops', 'Party')
+            .any((i) => i['id'] == 'female-s2-disco-halter-top'),
+        isTrue);
     expect(wardrobe.categories, isNot(contains('shirts')));
     final alias = SlayLook.initial().equip((catalog['items'] as List)
         .firstWhere((i) => i['id'] == 'female-dress-collection-9'));
