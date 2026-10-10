@@ -19,14 +19,14 @@ enum MicState {
 extension MicStateWords on MicState {
   String get label => switch (this) {
         MicState.locked => 'Tap to ask',
-        MicState.asked => 'Asked…',
+        MicState.asked => 'Mic asked',
         MicState.muted => 'Muted',
         MicState.live => 'Talking',
       };
 
   String get hint => switch (this) {
         MicState.locked => 'Tap to ask to talk',
-        MicState.asked => 'Waiting for your turn to talk',
+        MicState.asked => 'You asked for the mic — waiting for a yes',
         MicState.muted => 'Muted — tap to talk',
         MicState.live => 'Your mic is on — tap to mute',
       };
@@ -64,7 +64,7 @@ class MicStateButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final (fill, ring, icon, iconColor) = switch (state) {
       MicState.locked => (grey.withValues(alpha: 0.28), grey.withValues(alpha: 0.6), Icons.mic_off_rounded, red),
-      MicState.asked => (grey.withValues(alpha: 0.28), grey.withValues(alpha: 0.6), Icons.hourglass_top_rounded, const Color(0xffd1d5db)),
+      MicState.asked => (grey.withValues(alpha: 0.28), grey.withValues(alpha: 0.6), Icons.mic_rounded, const Color(0xffd1d5db)),
       MicState.muted => (red.withValues(alpha: 0.12), red, Icons.mic_off_rounded, red),
       MicState.live => (amber, const Color(0xffb45309), Icons.mic_rounded, Colors.white),
     };
@@ -88,6 +88,24 @@ class MicStateButton extends StatelessWidget {
             right: -size * 0.08,
             bottom: -size * 0.06,
             child: Text('✋', style: TextStyle(fontSize: size * 0.32)),
+          ),
+        // Asked: the mic with an hourglass stuck on it, so it reads as "mic asked".
+        if (state == MicState.asked)
+          Positioned(
+            right: -size * 0.1,
+            bottom: -size * 0.08,
+            child: Container(
+              key: const ValueKey('mic-asked-badge'),
+              width: size * 0.46,
+              height: size * 0.46,
+              decoration: BoxDecoration(
+                color: amber,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: size * 0.04),
+              ),
+              alignment: Alignment.center,
+              child: Icon(Icons.hourglass_top_rounded, size: size * 0.28, color: Colors.white),
+            ),
           ),
         if (badge)
           Positioned(

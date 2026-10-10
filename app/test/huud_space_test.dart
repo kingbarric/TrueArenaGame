@@ -964,7 +964,8 @@ void main() {
 
     await show(MicState.asked);
     expect(find.byKey(const ValueKey('mic-asked')), findsOneWidget);
-    expect(find.text('Asked…'), findsOneWidget);
+    expect(find.text('Mic asked'), findsOneWidget);
+    expect(find.byKey(const ValueKey('mic-asked-badge')), findsOneWidget);
 
     await show(MicState.muted);
     expect(tester.widget<Icon>(find.byKey(const ValueKey('mic-muted'))).color, MicStateButton.red);

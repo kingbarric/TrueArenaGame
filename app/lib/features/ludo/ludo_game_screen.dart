@@ -1278,97 +1278,134 @@ class _DiceCupPainter extends CustomPainter {
   bool shouldRepaint(covariant _DiceCupPainter oldDelegate) => false;
 }
 
+/// A solid die in three-quarter view: front, top and right faces sharing
+/// the same corners (no gaps), rounded outer corners, soft bevels on the
+/// edges, and pips on every face we can see — foreshortened on the top and
+/// side like a real cube.
 class _Die3DPainter extends CustomPainter {
   const _Die3DPainter(this.value, this.selected);
   final int value;
   final bool selected;
 
+  static const _pipLayout = {
+    1: [4],
+    2: [0, 8],
+    3: [0, 4, 8],
+    4: [0, 2, 6, 8],
+    5: [0, 2, 4, 6, 8],
+    6: [0, 2, 3, 5, 6, 8],
+  };
+
+  /// The faces next to [value] on a standard die (opposites add up to 7):
+  /// what shows on top and on the right.
+  static (int, int) _neighbours(int v) => switch (v) {
+        1 => (2, 3),
+        2 => (1, 3),
+        3 => (1, 2),
+        4 => (5, 1),
+        5 => (1, 4),
+        _ => (5, 4),
+      };
+
   @override
   void paint(Canvas canvas, Size size) {
-    final front = RRect.fromRectAndRadius(
-        Rect.fromLTWH(2, 8, size.width - 10, size.height - 10),
-        const Radius.circular(7));
-    canvas.drawRRect(
-        front.shift(const Offset(3, 4)),
-        Paint()
-          ..color = Colors.black.withValues(alpha: .35)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4));
+    final s = size.shortestSide;
+    final d = s * 0.2; // depth of the top / side faces
+    final x0 = s * 0.02, y0 = s * 0.02, x1 = s * 0.98, y1 = s * 0.98;
+    // Shared corners.
+    final fTL = Offset(x0, y0 + d), fTR = Offset(x1 - d, y0 + d);
+    final fBL = Offset(x0, y1), fBR = Offset(x1 - d, y1);
+    final bTL = Offset(x0 + d, y0), bTR = Offset(x1, y0), bBR = Offset(x1, y1 - d);
 
-    final top = Path()
-      ..moveTo(7, 8)
-      ..lineTo(13, 2)
-      ..lineTo(size.width - 2, 2)
-      ..lineTo(size.width - 8, 8)
+    // The whole outline, with softly rounded outer corners.
+    final r = s * 0.07;
+    Offset toward(Offset a, Offset b) {
+      final v = b - a;
+      return a + v / v.distance * r;
+    }
+    final outline = [fBL, fTL, bTL, bTR, bBR, fBR];
+    final silhouette = Path();
+    for (var i = 0; i < outline.length; i++) {
+      final prev = outline[(i - 1 + outline.length) % outline.length];
+      final cur = outline[i];
+      final next = outline[(i + 1) % outline.length];
+      final a = toward(cur, prev), b = toward(cur, next);
+      i == 0 ? silhouette.moveTo(a.dx, a.dy) : silhouette.lineTo(a.dx, a.dy);
+      silhouette.quadraticBezierTo(cur.dx, cur.dy, b.dx, b.dy);
+    }
+    silhouette.close();
+
+    // Shadow under the die.
+    canvas.drawPath(silhouette.shift(Offset(s * 0.04, s * 0.06)),
+        Paint()..color = Colors.black.withValues(alpha: .38)..maskFilter = MaskFilter.blur(BlurStyle.normal, s * 0.06));
+
+    canvas.save();
+    canvas.clipPath(silhouette);
+    // A solid body first, so the seams between faces never show the table.
+    canvas.drawPath(silhouette, Paint()..color = const Color(0xffc9d0d7));
+
+    Path quad(Offset a, Offset b, Offset c, Offset e) => Path()
+      ..moveTo(a.dx, a.dy)
+      ..lineTo(b.dx, b.dy)
+      ..lineTo(c.dx, c.dy)
+      ..lineTo(e.dx, e.dy)
       ..close();
-    canvas.drawPath(
-        top,
-        Paint()
-          ..shader = const LinearGradient(
-            colors: [Color(0xffffffff), Color(0xffdce2e8)],
-          ).createShader(Offset.zero & size));
+    final front = quad(fTL, fTR, fBR, fBL);
+    final top = quad(fTL, bTL, bTR, fTR);
+    final side = quad(fTR, bTR, bBR, fBR);
+    final box = Offset.zero & size;
+    canvas.drawPath(top, Paint()
+      ..shader = const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
+          colors: [Color(0xffffffff), Color(0xffe9edf1)]).createShader(box));
+    canvas.drawPath(side, Paint()
+      ..shader = const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter,
+          colors: [Color(0xffd5dce3), Color(0xffa5b0bb)]).createShader(box));
+    canvas.drawPath(front, Paint()
+      ..shader = const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
+          colors: [Color(0xffffffff), Color(0xfff2f4f6), Color(0xffd6dce2)], stops: [0, .55, 1])
+          .createShader(Rect.fromPoints(fTL, fBR)));
 
-    final side = Path()
-      ..moveTo(size.width - 8, 8)
-      ..lineTo(size.width - 2, 2)
-      ..lineTo(size.width - 2, size.height - 12)
-      ..lineTo(size.width - 8, size.height - 2)
-      ..close();
-    canvas.drawPath(
-        side,
-        Paint()
-          ..shader = const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xffd9e0e7), Color(0xff9ca7b2)],
-          ).createShader(Offset.zero & size));
+    // Bevels: light along the top edges, a shade along the front-side edge.
+    final bevel = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = s * 0.03
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(fTL, fTR, bevel..color = Colors.white.withValues(alpha: .95));
+    canvas.drawLine(fTR, bTR, bevel..color = Colors.white.withValues(alpha: .6));
+    canvas.drawLine(fTR, fBR, bevel..color = Colors.black.withValues(alpha: .12));
 
-    canvas.drawRRect(
-        front,
-        Paint()
-          ..shader = const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xffffffff), Color(0xfff4f5f6), Color(0xffcbd2d9)],
-            stops: [0, .6, 1],
-          ).createShader(front.outerRect));
-    canvas.drawRRect(
-        front,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = selected ? 2.7 : 1
-          ..color =
-              selected ? const Color(0xffffcf66) : const Color(0xff9ca6af));
+    // Pips: front, then the top and side seen at an angle.
+    final (topValue, sideValue) = _neighbours(value.clamp(1, 6));
+    _pips(canvas, value.clamp(1, 6), fTL, fTR - fTL, fBL - fTL, s, 1.0);
+    _pips(canvas, topValue, fTL, fTR - fTL, bTL - fTL, s, 0.55);
+    _pips(canvas, sideValue, fTR, bTR - fTR, fBR - fTR, s, 0.5);
+    canvas.restore();
 
-    canvas.drawArc(
-        Rect.fromLTWH(5, 11, size.width - 17, size.height - 18),
-        math.pi * 1.05,
-        math.pi * .65,
-        false,
-        Paint()
-          ..color = Colors.white.withValues(alpha: .9)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.4);
+    // Outline (gold when chosen).
+    canvas.drawPath(silhouette, Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = selected ? s * 0.06 : s * 0.02
+      ..color = selected ? const Color(0xffffcf66) : const Color(0xff8e99a4));
+  }
 
-    final spots = switch (value) {
-      1 => [4],
-      2 => [0, 8],
-      3 => [0, 4, 8],
-      4 => [0, 2, 6, 8],
-      5 => [0, 2, 4, 6, 8],
-      _ => [0, 2, 3, 5, 6, 8],
-    };
-    for (final spot in spots) {
-      final x = 3 + (spot % 3 + 1) * (size.width - 12) / 4;
-      final y = 8 + (spot ~/ 3 + 1) * (size.height - 10) / 4;
-      canvas.drawCircle(Offset(x + .7, y + 1), 3.1,
-          Paint()..color = Colors.white.withValues(alpha: .7));
-      canvas.drawCircle(
-          Offset(x, y),
-          2.75,
-          Paint()
-            ..shader = const RadialGradient(
-              colors: [Color(0xff3b3040), Color(0xff0f0b12)],
-            ).createShader(Rect.fromCircle(center: Offset(x, y), radius: 3)));
+  /// Pips on one face, given its corner and its two edges. [shade] dims
+  /// them on the faces turned away from the light.
+  void _pips(Canvas canvas, int v, Offset origin, Offset across, Offset down, double s, double shade) {
+    final radius = 0.1;
+    for (final spot in _pipLayout[v]!) {
+      final u = 0.24 + (spot % 3) * 0.26;
+      final w = 0.24 + (spot ~/ 3) * 0.26;
+      final c = origin + across * u + down * w;
+      // A circle on the face: an ellipse squashed with the face's edges.
+      final path = Path();
+      for (var k = 0; k <= 20; k++) {
+        final a = k / 20 * math.pi * 2;
+        final p = c + across * (math.cos(a) * radius) + down * (math.sin(a) * radius);
+        k == 0 ? path.moveTo(p.dx, p.dy) : path.lineTo(p.dx, p.dy);
+      }
+      path.close();
+      canvas.drawPath(path.shift(Offset(s * 0.008, s * 0.012)), Paint()..color = Colors.white.withValues(alpha: .6 * shade));
+      canvas.drawPath(path, Paint()..color = Color.lerp(const Color(0xff1a1220), const Color(0xff6b6470), 1 - shade)!);
     }
   }
 
