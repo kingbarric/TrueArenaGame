@@ -16,7 +16,7 @@ import {expansion} from './wardrobe-expansion.mjs';
 import {classicClothing} from './classic-clothing.mjs';
 import {hairFits} from './hair-fits.mjs';
 import {clipMesh, joinMeshes} from './clip-mesh.mjs';
-import {fitMaleBottom} from './male-bottom-fit.mjs';
+import {fitMaleBottom, refineBand} from './male-bottom-fit.mjs';
 
 const root = resolve(new URL('..', import.meta.url).pathname);
 const source = process.argv[2] ? resolve(process.argv[2]) : resolve(root, 'source_assets/makehuman/starter');
@@ -215,6 +215,12 @@ function convert({id, body, obj, texture, isAvatar, options = {}}) {
     for (let i = 1; i < mesh.position.length; i += 3)
       mesh.position[i] += .055 * Math.max(0, Math.min(1, (mesh.position[i] - 1.35) / .22));
   }
+  if (body === 'male' && id.startsWith('male-tee-')) {
+    if (id === 'male-tee-tucked') for (let i=1;i<mesh.position.length;i+=3)
+      mesh.position[i] -= .12 * Math.max(0, Math.min(1, (1.33-mesh.position[i])/.13));
+    if (id !== 'male-tee-relaxed') mesh = clipMesh(mesh, [p => p[1] - 1.105]);
+    mesh = refineBand(mesh, 1.04, 1.28);
+  }
   if (options.lips) {
     // Follow the lip folds of the source mesh, including the Cupid's bow,
     // rather than placing a floating primitive in front of the mouth.
@@ -371,6 +377,14 @@ function convert({id, body, obj, texture, isAvatar, options = {}}) {
         if ([0,3,6].every(v => rawRegion.position[i+v+1] > 1.245 &&
             rawRegion.position[i+v+1] < 1.405 && Math.abs(rawRegion.position[i+v]) < .165))
           masks[item].push(i/9);
+    }
+    if (body === 'male' && name === 'region_torso') {
+      for (const id of ['male-tee-polo','male-tee-tucked','male-tee-relaxed']) {
+        masks[id] = [];
+        const hem = id === 'male-tee-relaxed' ? 1.09 : 1.12;
+        for (let i=0;i<rawRegion.position.length;i+=9)
+          if ([0,3,6].every(v => rawRegion.position[i+v+1] > hem)) masks[id].push(i/9);
+      }
     }
     if (name.startsWith('region_')) for (const [item, [hem, waist]] of Object.entries(bottomBounds)) {
       masks[item] ??= [];

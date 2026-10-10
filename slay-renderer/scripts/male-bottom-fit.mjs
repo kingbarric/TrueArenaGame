@@ -5,27 +5,7 @@ import {BufferGeometry, Float32BufferAttribute, Mesh, MeshBasicMaterial, DoubleS
 export function fitMaleBottom(mesh, body) {
   const top = Math.max(...Array.from(mesh.position).filter((_, i) => i % 3 === 1));
   const lift = Math.max(0, 1.16 - top);
-  // Long source triangles otherwise bridge across the curved hips and cut
-  // through the body despite their corner vertices fitting correctly.
-  const refined = {position: [], normal: [], uv: [], sourceVertices: []};
-  const middle = (a, b) => ({p: a.p.map((v, i) => (v + b.p[i]) / 2),
-    n: a.n.map((v, i) => (v + b.n[i]) / 2), uv: a.uv.map((v, i) => (v + b.uv[i]) / 2), source: a.source});
-  const emit = (a, b, c, depth) => {
-    const points = [a, b, c];
-    const long = points.some((v, i) => Math.hypot(...v.p.map((x, j) => x - points[(i + 1) % 3].p[j])) > .04);
-    if (depth < 5 && long && Math.max(...points.map(v => v.p[1])) > .86 && Math.min(...points.map(v => v.p[1])) < 1.25) {
-      const ab = middle(a, b), bc = middle(b, c), ca = middle(c, a);
-      emit(a, ab, ca, depth + 1); emit(ab, b, bc, depth + 1);
-      emit(ca, bc, c, depth + 1); emit(ab, bc, ca, depth + 1); return;
-    }
-    for (const v of points) {refined.position.push(...v.p); refined.normal.push(...v.n); refined.uv.push(...v.uv); refined.sourceVertices.push(v.source);}
-  };
-  for (let i = 0; i < mesh.position.length / 3; i += 3) emit(...[0, 1, 2].map(j => ({
-    p: Array.from(mesh.position.slice((i + j) * 3, (i + j + 1) * 3)),
-    n: Array.from(mesh.normal.slice((i + j) * 3, (i + j + 1) * 3)),
-    uv: Array.from(mesh.uv.slice((i + j) * 2, (i + j + 1) * 2)), source: mesh.sourceVertices[i + j],
-  })), 0);
-  mesh = {...refined, position: new Float32Array(refined.position), normal: new Float32Array(refined.normal), uv: new Float32Array(refined.uv)};
+  mesh = refineBand(mesh, .86, 1.25);
   const geometry = new BufferGeometry();
   const trunk = [];
   for (let i = 0; i < body.position.length; i += 9) {
@@ -63,4 +43,28 @@ export function fitMaleBottom(mesh, body) {
   for (let i = 0; i < mesh.position.length; i += 3) normals.get(key(i)).normalize().toArray(mesh.normal, i);
   geometry.dispose(); material.dispose();
   return mesh;
+}
+
+export function refineBand(mesh, bottom, top) {
+  // Long source triangles otherwise bridge across the curved hips and cut
+  // through the body despite their corner vertices fitting correctly.
+  const refined = {position: [], normal: [], uv: [], sourceVertices: []};
+  const middle = (a, b) => ({p: a.p.map((v, i) => (v + b.p[i]) / 2),
+    n: a.n.map((v, i) => (v + b.n[i]) / 2), uv: a.uv.map((v, i) => (v + b.uv[i]) / 2), source: a.source});
+  const emit = (a, b, c, depth) => {
+    const points = [a, b, c];
+    const long = points.some((v, i) => Math.hypot(...v.p.map((x, j) => x - points[(i + 1) % 3].p[j])) > .04);
+    if (depth < 5 && long && Math.max(...points.map(v => v.p[1])) > bottom && Math.min(...points.map(v => v.p[1])) < top) {
+      const ab = middle(a, b), bc = middle(b, c), ca = middle(c, a);
+      emit(a, ab, ca, depth + 1); emit(ab, b, bc, depth + 1);
+      emit(ca, bc, c, depth + 1); emit(ab, bc, ca, depth + 1); return;
+    }
+    for (const v of points) {refined.position.push(...v.p); refined.normal.push(...v.n); refined.uv.push(...v.uv); refined.sourceVertices.push(v.source);}
+  };
+  for (let i = 0; i < mesh.position.length / 3; i += 3) emit(...[0, 1, 2].map(j => ({
+    p: Array.from(mesh.position.slice((i + j) * 3, (i + j + 1) * 3)),
+    n: Array.from(mesh.normal.slice((i + j) * 3, (i + j + 1) * 3)),
+    uv: Array.from(mesh.uv.slice((i + j) * 2, (i + j + 1) * 2)), source: mesh.sourceVertices[i + j],
+  })), 0);
+  return {...refined, position: new Float32Array(refined.position), normal: new Float32Array(refined.normal), uv: new Float32Array(refined.uv)};
 }

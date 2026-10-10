@@ -1,5 +1,5 @@
 {
-  "version": 24,
+  "version": 25,
   "developmentAssets": true,
   "avatars": [
     {
@@ -2474,9 +2474,7 @@
       "rarity": "common",
       "assetUrl": "assets/male-tee-relaxed.glb",
       "thumbnailUrl": "assets/male-tee-relaxed.png",
-      "hidesRegions": [
-        "torso"
-      ],
+      "hidesRegions": [],
       "attachmentBone": null,
       "isDefault": true,
       "coinCost": 0,
@@ -2503,9 +2501,7 @@
       "rarity": "common",
       "assetUrl": "assets/male-tee-tucked.glb",
       "thumbnailUrl": "assets/male-tee-tucked.png",
-      "hidesRegions": [
-        "torso"
-      ],
+      "hidesRegions": [],
       "attachmentBone": null,
       "isDefault": true,
       "coinCost": 0,
@@ -2532,9 +2528,7 @@
       "rarity": "common",
       "assetUrl": "assets/male-tee-polo.glb",
       "thumbnailUrl": "assets/male-tee-polo.png",
-      "hidesRegions": [
-        "torso"
-      ],
+      "hidesRegions": [],
       "attachmentBone": null,
       "isDefault": true,
       "coinCost": 0,

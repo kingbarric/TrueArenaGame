@@ -11,6 +11,7 @@ import { coverBody } from './coverage';
 import { Showcase } from './showcase';
 import { applyItemColour } from './item-colours';
 import { VariantFit, type FitField } from './variant-fit';
+import { fitMaleSeparates } from './male-separates';
 
 const palette:Record<string,string>={gold:'#c39b55',navy:'#283d54',pink:'#c98491',red:'#a53541',purple:'#674269',green:'#397c65',black:'#28262a',white:'#eee5d6',blue:'#48879a',grey:'#8e8c87',orange:'#c5773d',yellow:'#ddba55'};
 function material(colour:string){return new T.MeshStandardMaterial({color:colour,roughness:.72,metalness:.05});}
@@ -106,6 +107,9 @@ export class Wardrobe {
     for (const [slot, entry] of this.equipped) {
       if (['shoes','shirts','tops'].includes(slot)) applyItemColour(entry.root, look.itemColours?.[slot], catalog.itemColourPalette ?? {});
     }
+    const shirt=this.equipped.get('shirts');
+    if(look.body==='male' && shirt)
+      fitMaleSeparates(shirt.root,this.equipped.get('trousers')?.root,shirt.id!=='male-tee-relaxed');
     const hidden=new Set(Object.values(look.items).flatMap(id=>catalog.items.find(i=>i.id===id)!.hidesRegions));
     coverBody(body,Object.values(look.items));
     presentBody(body,look.skinTone,hidden);
