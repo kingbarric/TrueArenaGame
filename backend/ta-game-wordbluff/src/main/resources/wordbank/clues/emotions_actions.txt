@@ -1,0 +1,93 @@
+# word | first clue | second clue
+whisper | Talking really softly into someone's ear. | Telling a secret quietly.
+celebrate | Having a party because something good happened. | Cheering with cake and balloons.
+hesitate | Pausing because you're not sure. | Stopping for a moment before you act.
+panic | Suddenly feeling terrified and not thinking straight. | Running around screaming, don't do this!
+daydream | Letting your mind wander while awake. | Staring out of the window in class.
+apologize | Saying sorry. | Admitting you were wrong.
+negotiate | Talking to reach a deal. | Bargaining back and forth.
+improvise | Making it up on the spot. | No plan, just go.
+procrastinate | Putting off what you should do. | Doing homework at the last minute.
+eavesdrop | Secretly listening to other people talk. | Ear pressed to the door.
+reminisce | Remembering happy old times. | Talking about the good old days.
+flinch | Jerking back suddenly in fear. | A quick wince when something comes at you.
+gloat | Showing off about winning. | Rubbing it in.
+sulk | Being grumpy and silent because you're upset. | Moody pouting in your room.
+fidget | Not being able to sit still. | Wriggling and tapping.
+shiver | Shaking because you're cold. | Teeth chattering.
+tremble | Shaking with fear. | Knees knocking.
+blush | Going red in the face from embarrassment. | Pink cheeks.
+giggle | A silly little laugh. | Tee-hee.
+snicker | A sneaky, mocking laugh. | Laughing behind your hand.
+sob | Crying hard with big breaths. | Heavy tearful crying.
+weep | Crying quietly. | Tears rolling down.
+scream | Yelling loudly in fright. | A horror film shriek.
+gasp | A sudden sharp breath of surprise. | Mouth open in shock.
+sigh | A long breath out when tired or fed up. | Haaah.
+yawn | Opening your mouth wide when sleepy. | Bedtime tiredness.
+stretch | Reaching your arms out wide. | Warming up muscles.
+shrug | Lifting your shoulders to say I don't know. | Whatever.
+nod | Moving your head up and down to say yes. | Agreeing silently.
+wink | Closing one eye quickly. | A secret signal.
+grimace | Making an ugly face of pain. | Ouch face.
+smirk | A smug little half smile. | Self-satisfied grin.
+frown | Turning your mouth down in sadness. | The opposite of a smile.
+pout | Pushing out your lips when sulking. | Duck face.
+glare | Staring angrily. | Death stare.
+stare | Looking at something for a long time. | Eyes fixed, not blinking.
+squint | Narrowing your eyes to see. | Screwing up your eyes in the sun.
+scowl | An angry face. | Furrowed brow.
+beam | A huge happy smile. | Grinning from ear to ear; also a ray of light.
+grin | A big wide smile. | Cheshire Cat.
+chuckle | A quiet laugh. | Heh heh.
+laugh | Ha ha ha. | What you do at a joke.
+cheer | Shouting for your team. | Hooray.
+applaud | Clapping your hands. | Round of applause.
+cringe | Feeling embarrassed for someone. | Awkward, makes you squirm.
+recoil | Jumping back in disgust. | Pulling away.
+startle | To make someone jump with surprise. | Boo!
+jump | Leaping into the air. | Hop.
+flee | Running away fast. | Escape.
+chase | Running after someone. | Tag.
+tiptoe | Walking quietly on the ends of your feet. | Sneaking without a sound.
+sneak | Moving secretly. | Creep.
+creep | Moving slowly and quietly. | Sneaking.
+lurk | Hiding and waiting. | In the shadows.
+pounce | Jumping on something suddenly. | Cat leaping on a mouse.
+ambush | A surprise attack from hiding. | Jump out at the enemy.
+retreat | Going back away from danger. | Fall back.
+surrender | Giving up. | Hands up, white flag.
+hesitantly agree | Saying yes, but unsure. | Um... okay, I guess.
+reluctantly accept | Taking something you don't really want. | Fine, if I must.
+confidently declare | Saying something boldly. | Announcing with total certainty.
+nervously admit | Owning up while anxious. | Um, it was me.
+proudly announce | Telling everyone with pride. | Guess what I did!
+quietly confess | Softly admitting a secret. | Whispered truth.
+loudly protest | Shouting that it's unfair. | Objecting noisily.
+calmly explain | Telling something patiently. | Here's how it works, slowly.
+angrily demand | Shouting for something. | Give it to me now!
+sarcastically remark | Saying the opposite of what you mean. | Oh great, just what I needed.
+enthusiastically cheer | Wildly supporting with energy. | Go team go!
+hopefully wait | Sitting patiently, wishing for good news. | Fingers crossed.
+anxiously pace | Walking back and forth worried. | Up and down the hall.
+impatiently tap | Drumming fingers because you're fed up. | Foot going while you're kept hanging.
+curiously investigate | Looking into something with interest. | Detective nosing about.
+suspiciously eye | Looking at someone with distrust. | Side glance.
+gratefully accept | Taking something with thanks. | Thank you so much!
+regretfully decline | Saying no sadly. | Sorry I can't come.
+boldly assert | Saying firmly. | Standing your ground.
+timidly ask | Shyly putting a question. | Um, excuse me?
+stubbornly refuse | Absolutely saying no. | Won't budge.
+graciously thank | Politely showing gratitude. | Most kind.
+awkwardly greet | Saying hello clumsily. | Weird handshake.
+warmly embrace | Giving a loving hug. | Big cuddle.
+coldly dismiss | Brushing someone off unkindly. | Whatever, go away.
+jealously watch | Looking at someone with envy. | Green-eyed staring.
+enviously admire | Wishing you had what they have. | Coveting.
+guiltily confess | Admitting with shame. | Sorry, it was me.
+shamefully hide | Hiding because you're embarrassed. | Head down.
+proudly display | Showing off something you're pleased with. | Trophy on the shelf.
+bravely confront | Facing danger with courage. | Standing up to the bully.
+fearfully retreat | Backing away scared. | Running from the monster.
+excitedly announce | Telling news with excitement. | Guess what!
+calmly reassure | Telling someone everything is okay. | Don't worry, it's fine.

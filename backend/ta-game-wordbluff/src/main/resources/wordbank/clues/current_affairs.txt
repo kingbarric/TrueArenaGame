@@ -1,0 +1,99 @@
+# word | first clue | second clue
+election | When people vote to choose their leaders. | Candidates campaign, then everyone heads to the polls.
+inflation | When prices keep going up and money buys less. | Why sweets cost more now than when your parents were kids.
+pandemic | A disease spreading all over the world. | Like Covid in 2020, when everyone stayed home.
+climate change | The planet slowly warming up because of pollution. | Melting ice caps and rising seas.
+cryptocurrency | Digital money like Bitcoin. | Coins that only exist online, on a blockchain.
+referendum | A vote where the whole country answers one yes or no question. | Brexit was decided by one.
+sanctions | Punishments one country puts on another, like trade bans. | Freezing money and blocking goods to pressure a government.
+ceasefire | When both sides agree to stop shooting. | A pause in fighting during a war.
+recession | When a country's economy shrinks and jobs are lost. | Hard times for business; the opposite of a boom.
+protest | People marching with signs because they disagree. | A crowd chanting in the streets for change.
+summit | A big meeting between world leaders. | Also the top of a mountain.
+tariff | A tax on goods coming in from another country. | Trade wars are fought with these import taxes.
+vaccine | A jab that trains your body to fight a disease. | You get it at the doctor's so you don't catch measles.
+refugee crisis | When huge numbers of people flee their country. | Families escaping war needing safety and shelter.
+cybersecurity | Protecting computers and data from hackers. | Firewalls and strong passwords keep you safe online.
+inauguration | The ceremony when a new president takes office. | Swearing in on the steps of the Capitol.
+legislation | Laws made by a government. | Bills that are voted on and become law.
+diplomacy | Countries talking things out instead of fighting. | Ambassadors and polite negotiation.
+embargo | A ban on trade with a country. | Blocking ships and goods from going in or out.
+coalition | When parties team up to run the government together. | An alliance of groups working as one.
+parliament | Where elected lawmakers meet and debate. | Westminster in London is a famous one.
+senate | The upper house of Congress in the USA. | Each state sends two members there.
+campaign | Rallies and adverts to win votes. | Candidates go on the trail before an election.
+ballot | The paper you mark when you vote. | You put it in a box secretly.
+polling | Asking people how they plan to vote. | Surveys that predict who will win.
+lobbying | Trying to persuade politicians to support your cause. | Companies paying people to influence laws.
+policy | A government's plan or rule about something. | A plan for schools, taxes or health.
+regulation | Official rules that businesses must follow. | Safety rules set by the government.
+subsidy | Money the government gives to help an industry. | Paying farmers to keep food cheap.
+deficit | When a government spends more than it earns. | The gap that has to be borrowed.
+surplus | Having more than you need, money left over. | The opposite of a shortfall.
+unemployment | When people can't find a job. | The number of people out of work.
+minimum wage | The lowest pay a boss is allowed to give. | The legal bottom rate per hour.
+strike | When workers stop working to demand better pay. | Picket lines outside the factory; also three in baseball.
+union | A group of workers who stand together for fair pay. | Members join to bargain with bosses.
+treaty | A written agreement between countries. | Signed to end a war or make peace.
+alliance | Countries agreeing to help each other. | NATO is one; teaming up.
+sovereignty | A country's right to rule itself. | Independence and control over its own borders.
+border control | Checking people and goods entering a country. | Passports stamped at the frontier.
+immigration | People moving to live in a new country. | Coming from abroad to settle and work.
+census | Counting everyone living in a country. | A survey every ten years of the whole population.
+demographic | A group of people by age, income or background. | Advertisers target a certain one.
+misinformation | False facts spread around, often online. | Fake news shared without checking.
+censorship | Banning books, films or news the authorities don't like. | Blacking out words so people can't read them.
+whistleblower | Someone who exposes wrongdoing inside a company. | An insider who leaks the secret to the press.
+scandal | A shocking event that causes public outrage. | A politician caught doing something wrong.
+impeachment | Putting a president on trial to remove them. | Congress charging a leader with wrongdoing.
+constitution | The founding rules of a country. | The supreme law; the USA's starts "We the People".
+amendment | A change added to a law or constitution. | The First one protects free speech in America.
+supreme court | The highest place of justice in the land. | Nine justices in Washington decide the biggest cases.
+verdict | The decision at the end of a trial. | Guilty or not guilty.
+lawsuit | Taking someone to court to settle a dispute. | Suing a company for damages.
+prosecution | The side in court trying to prove someone guilty. | The lawyers bringing the charges.
+extradition | Sending a suspect back to another country to face trial. | Handing a fugitive over across borders.
+asylum | Protection given to someone fleeing danger at home. | A safe place granted to a refugee.
+humanitarian aid | Food, water and medicine sent to people in crisis. | Help from charities after disasters.
+disaster relief | Help sent after a flood, earthquake or hurricane. | Rescue teams and supplies rushing in.
+supply chain | The journey goods take from factory to shop. | Ships, trucks and warehouses getting stuff to you.
+trade deal | An agreement between countries to buy and sell more easily. | Cutting taxes on imports between two nations.
+stock market | Where people buy and sell shares in companies. | Wall Street, bulls and bears.
+interest rate | The extra you pay when you borrow money. | Banks set it; it decides how much a loan costs.
+central bank | The institution that controls a country's money. | The Federal Reserve or the one on Threadneedle Street in London.
+budget | A plan for how money will be spent. | Pocket money planning, or a government's yearly spending plan.
+taxation | The government taking money from earnings and purchases. | How public services get paid for.
+welfare | Government help for people who need it. | Support payments for families in hardship.
+pension | Money paid to people after they retire. | What grandparents live on after they stop working.
+healthcare reform | Changing how a country's medical system works. | Making doctors and hospitals cheaper or fairer.
+renewable energy | Power from sun, wind and water that won't run out. | Solar panels and wind turbines.
+carbon emissions | Gases from cars and factories that warm the planet. | The footprint we're trying to cut.
+deforestation | Cutting down forests on a massive scale. | Losing the Amazon trees.
+biodiversity | The variety of living things on Earth. | All the different plants and animals in a place.
+conservation | Protecting nature and wildlife. | Saving endangered animals and their homes.
+data privacy | Keeping your personal information safe online. | Who can see your details and photos.
+artificial intelligence regulation | Rules about how smart computer programs can be used. | Governments making laws for robots and chatbots.
+social media ban | Stopping people, often kids, from using apps like TikTok. | Blocking online platforms by law.
+press freedom | Journalists reporting without being punished. | Newspapers allowed to criticise the government.
+propaganda | Information spread to make you believe one side. | Posters and slogans pushing a message.
+espionage | Spying on another country. | Secret agents stealing secrets.
+peace talks | Meetings to end a war. | Enemies sitting down to negotiate.
+war crimes | Terrible acts in battle that break international law. | Leaders put on trial at The Hague.
+occupation | When an army takes control of another country's land. | Also another word for your job.
+insurgency | Armed rebels fighting against a government. | A rebellion from within.
+coup | Taking over a government by force, suddenly. | Soldiers seize power overnight.
+martial law | When the army takes control of a country's rules. | Soldiers on the streets in place of police.
+curfew | A time when you must be home and off the streets. | Your parents might set one for you.
+lockdown | Everyone ordered to stay home. | Shops shut and streets empty in 2020.
+quarantine | Staying away from others so you don't spread illness. | Isolating for two weeks after being exposed.
+outbreak | A sudden rise in cases of a disease. | When an illness starts spreading in a town.
+epidemic | A disease spreading quickly in one region. | Smaller than a worldwide one.
+public health | Keeping a whole community well. | Vaccination drives and clean water for everyone.
+food security | Everyone having enough to eat. | Making sure nobody goes hungry.
+water scarcity | Not having enough clean drinking supply. | Dry wells and rationing in hot countries.
+poverty rate | How many people are very poor. | The share of people without enough money.
+literacy rate | How many people can read and write. | A measure of education in a country.
+gender equality | Men and women having the same rights. | Same pay and chances for girls and boys.
+minimum voting age | How old you must be to vote. | Usually eighteen, sometimes sixteen.
+term limit | A cap on how many times a leader can be re-elected. | A US president only gets two goes.
+gerrymandering | Redrawing voting maps to help one party win. | Strangely shaped districts drawn on purpose.

@@ -1,0 +1,98 @@
+# word | first clue | second clue
+umbrella | You hold it over your head when it rains. | It opens like a canopy; Mary Poppins flew with one.
+backpack | A bag you carry on your shoulders. | Rucksack for school books.
+toothbrush | You use it with paste to clean your teeth. | Brushing twice a day.
+stapler | A desk gadget that clips paper together. | Push down and it clicks a metal pin through.
+flashlight | A hand-held lamp that runs on batteries. | Torch in the dark.
+blender | A kitchen machine that whizzes fruit into smoothies. | Spinning blades in a jug.
+thermostat | You set it to control the heating. | Temperature dial on the wall.
+doorknob | The round handle you turn to get into a room. | Twist and push.
+keyboard | You type on it. | QWERTY.
+wallet | Where you keep money and cards. | Leather pocket for cash.
+mirror | You see your reflection in it. | The evil queen asks a magic one who is the fairest of them all.
+candle | Wax with a wick that you light. | Birthday cake flames.
+calendar | It shows the days and months. | Hangs on the wall.
+scissors | Two blades for cutting paper. | Rock, paper...
+pillow | Soft thing you rest your head on. | Fluffy for sleeping.
+blanket | A warm cover for your bed. | Wrap up on the sofa.
+towel | You dry yourself with it after a bath. | Beach fabric.
+pillowcase | A cover for what's under your head. | Cotton sleeve on your bed.
+mattress | The soft part of the bed. | Springy, you sleep on it.
+alarm clock | It wakes you up in the morning. | Beep beep, snooze.
+lamp | A light on your table. | Bedside light.
+light switch | You flick it on the wall when it's dark. | On and off by the door.
+extension cord | A long cable with extra sockets. | More plugs.
+power outlet | Where you plug things in. | Socket in the wall.
+remote control | Changes the TV channel. | Clicker on the sofa.
+television | You watch shows on it. | TV.
+radio | You listen to music and news on it. | FM stations.
+telephone | You make calls on it. | Ring ring.
+notebook | Pages for writing notes. | Lined pad.
+pen | You write with ink. | Biro.
+pencil | You write with it and can erase. | Graphite.
+eraser | Rubs out mistakes. | Rubber.
+ruler | You draw straight lines with it. | Measures 30 cm.
+paperclip | A bent wire holding sheets together. | Clippy.
+rubber band | A stretchy loop. | Elastic.
+tape | Sticky strip on a roll. | Duct or Scotch.
+glue | Sticky liquid. | Pritt stick.
+envelope | You put letters in it. | Lick and seal.
+stamp | You stick it on a letter to post it. | Queen's or King's head on it.
+mailbox | Where you post letters. | Red box.
+suitcase | You pack clothes in it for holidays. | Luggage on wheels.
+duffel bag | A tube-shaped sports holdall. | Kit carrier for the gym.
+purse | A small bag for money. | Handbag.
+briefcase | A businessperson's flat carrier. | Documents.
+sunglasses | Dark lenses for sunny days. | Shades.
+wristwatch | Tells the time on your arm. | Rolex.
+bracelet | Jewellery around your wrist. | Bangle.
+necklace | Jewellery around your throat. | Pearls.
+earring | Jewellery in your ear. | Stud.
+ring | Jewellery on your finger. | Wedding band.
+belt | Holds your trousers up. | Buckle.
+hat | You wear it on your head. | Cap.
+scarf | Wraps round your neck in winter. | Woolly.
+gloves | Keep your hands warm. | Five fingers.
+socks | Go on your feet under shoes. | Pairs that go missing in the wash.
+shoes | You wear them on your feet. | Trainers.
+boots | Tall footwear. | Wellies.
+sandals | Open summer footwear. | Flip-flops.
+raincoat | Keeps you dry in a downpour. | Mac.
+apron | Protects clothes while cooking. | Kitchen pinafore.
+oven mitt | Protects your hand from hot trays. | Kitchen glove.
+cutting board | Chopping surface. | Wooden slab for slicing.
+frying pan | Flat skillet for eggs. | Skillet.
+saucepan | Pot with a handle. | Boil pasta.
+kettle | Boils water for tea. | Whistles.
+toaster | Pops up bread. | Browns slices.
+microwave | Heats food fast. | Ding!
+refrigerator | Keeps food cold. | Fridge.
+dishwasher | Cleans plates. | Machine for crockery.
+washing machine | Cleans clothes. | Spin cycle.
+dryer | Dries clothes. | Tumble.
+vacuum cleaner | Sucks up dust. | Hoover.
+broom | Sweeps the floor. | Witch's ride.
+mop | Cleans wet floors. | Bucket and...
+bucket | A pail for water. | Sandcastles.
+sponge | It soaks up water when you wash up. | A yellow cartoon character who lives in a pineapple is one.
+detergent | Soap for clothes or dishes. | Washing powder.
+trash can | Where rubbish goes. | Bin.
+recycling bin | Where plastic and paper go to be reused. | The green container outside.
+lawnmower | Cuts the grass. | Garden machine.
+garden hose | Long tube for watering. | Spray plants.
+watering can | Pours a drink on plants. | Spout.
+shovel | Digs holes. | Spade.
+rake | Gathers leaves. | Prongs on a stick.
+ladder | Climb up high. | Rungs.
+toolbox | Holds tools. | DIY kit.
+hammer | Bangs nails. | Thor's weapon.
+screwdriver | Turns screws. | Phillips.
+wrench | Turns bolts. | Spanner.
+nail | Metal spike you hammer. | Also on your finger.
+screw | A twisted metal fastener you turn in. | Threaded.
+bolt | A metal pin with a nut. | Also lightning.
+padlock | A portable latch you snap shut. | On a gate with a key.
+key | Opens a lock. | On a ring.
+doormat | You wipe your feet on it. | Welcome mat.
+welcome sign | A board greeting visitors. | Hello greeting at the door.
+mailbox flag | The red marker raised when post is waiting. | Signal on the letterbox.

@@ -1,0 +1,102 @@
+# word | first clue | second clue
+sushi | Japanese rice rolls with raw fish and seaweed. | You eat it with chopsticks and soy sauce.
+pizza | A round flat bread with tomato and melted cheese. | Pepperoni or margherita, cut into slices.
+smoothie | A thick drink of blended fruit. | Bananas and berries whizzed in a blender.
+barbecue | Cooking food outside on a grill. | Burgers and sausages sizzling in the garden.
+pancake | A flat round breakfast cooked in a pan. | Stack them up with syrup; flip it on Shrove Tuesday.
+espresso | A tiny strong shot of coffee. | Italians drink it from a little cup.
+guacamole | Green dip made from mashed avocado. | Eat it with tortilla chips.
+dumpling | Dough wrapped round a filling and steamed. | Chinese ones are pinched at the top.
+lasagna | Layers of pasta, meat sauce and cheese, baked. | Garfield's favourite food.
+popcorn | Puffy snack you eat at the cinema. | Kernels go pop pop pop in the microwave.
+lemonade | A sweet, sour yellow drink. | Kids sell it at a stand in summer.
+curry | A spicy dish from India with sauce and rice. | Tikka masala or korma.
+brunch | A meal between breakfast and lunch. | Late weekend eggs and pancakes.
+picnic | Eating outdoors on a blanket. | Sandwiches in a basket in the park.
+buffet | A meal where you help yourself from lots of dishes. | All you can eat.
+taco | A folded crunchy shell with meat and salsa. | Mexican; Tuesday is the day for them.
+burrito | A big tortilla rolled round beans, rice and meat. | Mexican wrap.
+noodles | Long thin strings of dough you slurp. | Chinese food with chopsticks.
+ramen | Japanese noodle soup in a big bowl. | Instant packets for students too.
+dim sum | Little Chinese dishes in bamboo steamers. | Small dumplings shared at a Cantonese lunch.
+falafel | Fried balls of chickpeas. | Served in pitta with salad.
+hummus | A creamy dip made from chickpeas. | You scoop it with pitta bread or carrots.
+kebab | Meat on a skewer or sliced from a big spinning spit. | Late-night doner.
+paella | A Spanish rice dish with seafood in a big pan. | Yellow saffron rice from Valencia.
+risotto | A creamy Italian rice dish you stir slowly. | Made with arborio rice and parmesan.
+gnocchi | Little Italian potato dumplings. | Soft pillows of pasta.
+quiche | A savoury tart with egg, cheese and bacon. | Lorraine is the classic one.
+souffle | A fluffy baked egg dish that rises high. | It collapses if you open the oven too soon.
+croissant | A flaky, buttery French crescent-shaped pastry. | Breakfast in Paris.
+baguette | A long, thin French loaf. | A stick of bread under your arm.
+bagel | A round bread with a hole, boiled then baked. | With cream cheese and salmon in New York.
+pretzel | A twisted knot of bread with salt. | Soft and salty from Germany.
+waffle | Breakfast with a criss-cross grid pattern. | Belgian, with syrup in the squares.
+crepe | A very thin French pancake. | Rolled with Nutella in Paris.
+omelette | Beaten eggs fried flat and folded. | Filled with cheese and ham.
+casserole | A slow-cooked dish in one big pot. | A hearty bake in the oven.
+stew | Meat and vegetables simmered in a pot for hours. | Thick and hearty on a cold day.
+soup | A hot liquid meal you eat with a spoon. | Tomato or chicken noodle.
+salad | A mix of leaves and raw vegetables. | Lettuce, tomatoes and cucumber with dressing.
+sandwich | Two slices of bread with a filling. | Ham and cheese for lunch.
+burger | A meat patty in a bun. | McDonald's sells them with fries.
+hot dog | A sausage in a long bun. | With mustard at a baseball game.
+nachos | Tortilla chips covered in melted cheese. | Mexican snack with salsa and jalapeños.
+fries | Long thin fried potato sticks. | Chips that come with a burger.
+milkshake | A thick cold drink blended with ice cream. | Chocolate or strawberry with a straw.
+ice cream | A frozen sweet treat in a cone. | Vanilla scoops that melt in the sun.
+sorbet | A fruity frozen dessert with no milk. | Lemon ice, lighter than ice cream.
+gelato | Italian ice cream. | Creamy scoops in Rome.
+pudding | A sweet dessert after dinner. | Sticky toffee or rice; also a British word for any dessert.
+custard | A yellow sweet sauce poured on desserts. | Made from milk and eggs.
+cheesecake | A creamy dessert on a biscuit base. | New York style with strawberries.
+brownie | A chewy chocolate square cake. | Fudgy chocolate bake.
+cupcake | A small sponge bake with frosting on top. | Baked in a paper case.
+donut | A sweet fried ring with a hole. | Homer Simpson's favourite with sprinkles.
+cookie | A sweet round biscuit. | Chocolate chip ones; the Monster loves them.
+pie | Pastry case with a filling, sweet or savoury. | Apple or meat; you might throw it in a face.
+tart | An open pastry with fruit or jam. | The Queen of Hearts' stolen ones.
+trifle | A layered British dessert of sponge, jelly, custard and cream. | Served in a glass bowl at Christmas.
+macaron | A colourful French meringue sandwich. | Pastel-coloured little treats from Paris.
+truffle | A chocolate ball, or a rare fungus pigs sniff out. | Expensive mushroom dug up in forests.
+caramel | Sweet golden sauce made from melted sugar. | Salted, sticky and gooey.
+toffee | A hard, chewy brown sweet. | Sticks to your teeth.
+marshmallow | A soft, fluffy, squishy sweet. | You toast them over a campfire.
+honey | Sweet golden syrup made by bees. | Winnie the Pooh loves it.
+maple syrup | Sweet sticky sauce from Canadian trees. | Poured on pancakes.
+peanut butter | A spread made from crushed nuts. | Goes with jelly in a sandwich.
+jam | Sweet fruity spread for toast. | Strawberry in doughnuts; also a traffic tailback.
+marmalade | Orange spread for toast with bits of peel. | Paddington Bear's favourite.
+pickle | A cucumber preserved in vinegar. | A gherkin; also a tricky situation.
+relish | A chunky sauce for hot dogs. | Sweet chopped topping; also to enjoy something.
+mustard | A yellow spicy sauce for hot dogs. | Dijon or English, it can burn your nose.
+ketchup | Red tomato sauce for chips. | Squeeze the bottle onto fries.
+mayonnaise | Creamy white sauce made from eggs and oil. | Goes in sandwiches and on chips in Belgium.
+vinaigrette | A salad dressing of oil and vinegar. | Shake it in a little jar.
+marinade | A sauce you soak meat in before cooking. | Letting chicken sit in flavour overnight.
+seasoning | Salt, pepper and spices to add flavour. | Sprinkle it on food before cooking.
+herbs | Green leaves like basil and parsley used in cooking. | Rosemary, thyme and mint.
+spices | Strong-tasting powders like pepper and cumin. | Used to make curry hot.
+cinnamon | A sweet brown spice from tree bark. | In apple pie and buns.
+nutmeg | A warm spice grated from a seed. | Sprinkled on eggnog.
+saffron | The most expensive spice; orange threads from a flower. | Turns rice yellow.
+vanilla | A flavour from a pod, the most popular ice cream. | Plain and sweet.
+chocolate | Sweet treat made from cocoa beans. | Dark, milk or white.
+coffee | A hot dark drink made from roasted beans. | A latte or cappuccino to wake you up.
+tea | A hot drink made from leaves in a bag. | The British drink it with milk.
+cocktail | A mixed alcoholic drink in a fancy glass. | With umbrellas and fruit.
+mocktail | A fancy mixed drink with no alcohol. | A fruity party drink for kids.
+smoothie bowl | Thick blended fruit you eat with a spoon, with toppings. | Acai with granola and berries.
+juice | A drink squeezed from fruit. | Orange or apple at breakfast.
+soda | A fizzy sweet drink. | Coke or lemonade with bubbles.
+sparkling water | Fizzy but not sweet. | Bubbly drink like Perrier.
+champagne | Bubbly wine popped at celebrations. | Sprayed on the podium.
+wine | A grown-up drink made from grapes. | Red or white.
+beer | A grown-up drink made from hops and barley. | Served in a pint glass.
+cider | A drink made from apples. | Fizzy apple drink.
+whiskey | A strong brown spirit from Scotland or Ireland. | Scotch on the rocks.
+tequila | A strong Mexican spirit from agave. | Shots with salt and lime.
+rum | A pirate's favourite drink from sugarcane. | Yo ho ho and a bottle of it.
+cocktail shaker | A metal container for mixing drinks. | Shaken, not stirred.
+bartender | Someone who mixes drinks behind a counter. | They serve you at the pub.
+sommelier | A wine expert in a fancy restaurant. | They choose your bottle.

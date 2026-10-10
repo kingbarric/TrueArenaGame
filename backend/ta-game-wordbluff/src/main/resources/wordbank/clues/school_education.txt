@@ -1,0 +1,99 @@
+# word | first clue | second clue
+classroom | Where lessons happen. | Desks facing the board.
+blackboard | Dark slate you write on with chalk. | Old-school teacher writing.
+whiteboard | A shiny surface you write on with markers. | Wipe-clean.
+textbook | A heavy volume for studying a subject. | School reading for lessons.
+notebook | Pages for writing notes in class. | Exercise pad.
+homework | School tasks you do in the evening. | Due tomorrow.
+exam | A big test. | Sitting in silence for hours.
+quiz | A short test with questions. | Pub one too.
+report card | Grades sent home to parents. | School results sheet.
+grade | A mark showing how well you did. | A plus.
+diploma | Certificate for finishing school. | Graduation paper.
+graduation | The ceremony when you finish school. | Throwing caps in the air.
+scholarship | Money to pay for your studies. | Awarded for being clever or sporty.
+tuition | Fees for school or university. | Teaching costs.
+curriculum | All the subjects a school teaches. | Course of study.
+syllabus | Outline of what a course covers. | Topics list.
+lecture | A talk to a big class at university. | Professor speaks.
+seminar | A small group discussion class. | Talk group.
+tutorial | A small lesson or how-to guide. | Step by step video.
+lesson plan | What the teacher intends to teach. | Teacher's notes.
+assignment | A task given to students. | Project due Friday.
+essay | A written piece arguing a point. | Five paragraphs.
+thesis | A long research paper for a degree. | Main argument.
+dissertation | A doctoral research paper. | PhD writing.
+research paper | A study written up by scholars. | Academic article.
+bibliography | List of sources at the end. | References.
+footnote | A small number pointing to the bottom of a page. | Little reference under the main text.
+citation | Mentioning where info came from. | Reference.
+plagiarism | Copying someone's work as your own. | Cheating by copying.
+group project | Work done in a team. | Teamwork assignment.
+presentation | Talking to the class with slides. | PowerPoint.
+debate club | Students arguing sides. | Argument society.
+science fair | Students showing experiments. | Volcano model.
+spelling bee | Competition to say words letter by letter. | Can you use it in a sentence?
+field trip | A school outing. | Museum visit.
+recess | Break time in the playground. | Playtime.
+lunch break | Midday meal time. | Cafeteria.
+detention | Staying after school as punishment. | Writing lines.
+suspension | Being sent home from school for a while. | Banned for a week.
+principal | The head of a school. | Headteacher.
+vice principal | The deputy head. | Second in command.
+guidance counselor | Helps students plan their future. | Careers adviser.
+substitute teacher | A stand-in for the usual class leader. | Supply.
+teaching assistant | Helps the teacher in class. | TA.
+professor | A university teacher. | Academic with a chair.
+lecturer | A university teacher who gives talks. | Speaker.
+dean | Head of a college department. | Faculty boss.
+registrar | Keeps student records. | Enrolment office.
+alumnus | A former student. | Graduate.
+freshman | A first-year student. | Newbie.
+sophomore | A second-year student. | Year two.
+junior year | Third grade of high school. | Before the last one.
+senior year | The last grade of high school. | Graduating class.
+valedictorian | The top student who gives a speech. | Number one.
+class president | The elected student leader. | Head of the year group.
+student council | Elected pupil group. | School government.
+extracurricular activity | Clubs outside lessons. | After-school pursuits.
+sports team | Students playing for the school. | Varsity.
+marching band | Musicians walking in formation. | Half-time show.
+drama club | Students putting on plays. | School theatre.
+chess club | Pupils playing kings and queens after school. | Checkmate society.
+yearbook | Photos from the school session, bound together. | Signatures.
+locker | A metal cupboard for your stuff. | Combination.
+hallway pass | Permission to leave class. | Bathroom permission.
+attendance sheet | The register of who's present. | Roll call.
+report deadline | When a write-up must be handed in. | Due date.
+final exam | The last big test. | End of year test.
+midterm | Test in the middle of the semester. | Halfway exam.
+pop quiz | A surprise test. | No warning.
+multiple choice | Pick A, B, C or D. | Options.
+true or false | Two-answer question. | Right or wrong.
+essay question | Write a long answer. | Discuss.
+grading curve | Adjusting marks based on the class. | Bell shaped.
+academic probation | Warning for low grades. | Risk of expulsion.
+honor roll | List of top students. | High achievers.
+dean's list | Recognition for top marks at university. | Excellent grades.
+study group | Pupils revising together. | Revision team.
+flashcards | Questions on one side, answers on the back. | Revision prompts.
+mnemonic device | A trick to remember things. | Every Good Boy Deserves Football.
+rote memorization | Learning by repeating. | Times tables by heart.
+critical thinking | Analysing carefully. | Questioning.
+peer review | Classmates checking each other's work. | Feedback.
+office hours | When a professor is available. | Drop-in time.
+online course | Learning on the internet. | MOOC.
+distance learning | Studying from home. | Remote study.
+virtual classroom | Lessons on Zoom. | Online lessons.
+learning management system | Website for classes like Google Classroom. | Moodle.
+standardized test | The same exam for everyone. | SATs.
+entrance exam | Test to get in. | Admission test.
+college application | Form to get into university. | UCAS.
+admission letter | You got in! | Acceptance.
+financial aid | Money help for students. | Grants.
+student loan | Borrowing for university. | Debt to pay later.
+campus tour | Visiting a university. | Open day.
+dormitory | Where students sleep at college. | Shared bedrooms in halls.
+cafeteria | School dining hall. | Lunch hall.
+library card | Lets you borrow books. | Membership.
+overdue book | Something you borrowed and returned late. | Late fines.

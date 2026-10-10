@@ -60,8 +60,12 @@ public final class GeminiMovePicker implements LlmMovePicker {
                         "parts", List.of(Map.of("text", userPrompt)))),
                 "generationConfig", Map.of(
                         "temperature", temperature,
-                        // Enough for a move token or a one-line clue, not an essay.
-                        "maxOutputTokens", 200));
+                        // The "-latest" models think before they answer, and the
+                        // thinking counts against this budget: at 200 it could all
+                        // go on thinking, leaving no text — every Word Bluff clue
+                        // then fell back to a stock line. Room for both, and the
+                        // prompts still ask for one short line.
+                        "maxOutputTokens", 1024));
 
         return client.post()
                 .uri(BASE + model + ":generateContent")
