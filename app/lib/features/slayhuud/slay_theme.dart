@@ -249,9 +249,13 @@ class SlayWardrobeTile extends StatelessWidget {
       required this.owned,
       required this.onTap,
       this.thumbnail,
-      this.coins = 0});
+      this.coins = 0,
+      this.lockLabel});
   final String name;
   final String? thumbnail;
+
+  /// Why a career piece is locked ("Opens at Nightlife"), shown instead of a price.
+  final String? lockLabel;
   final bool selected, owned;
   final int coins;
   final VoidCallback? onTap;
@@ -267,7 +271,7 @@ class SlayWardrobeTile extends StatelessWidget {
           selected: selected,
           enabled: onTap != null,
           label:
-              '$name, ${selected ? 'wearing' : owned ? 'owned' : '$coins coins'}',
+              '$name, ${selected ? 'wearing' : owned ? 'owned' : lockLabel ?? '$coins coins'}',
           child: TextButton(
               onPressed: onTap,
               style: TextButton.styleFrom(
@@ -294,18 +298,22 @@ class SlayWardrobeTile extends StatelessWidget {
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
                   color: selected
-                      ? Color.alphaBlend(n.gold.withValues(alpha: .16), n.panel)
-                      : n.panel,
+                      ? Color.alphaBlend(n.gold.withValues(alpha: .22), n.panel)
+                      : lockLabel != null
+                          ? n.plate
+                          : n.panel,
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(
-                      color: selected ? n.gold : n.line,
-                      width: selected ? 2 : 1),
+                      color: selected ? n.gold : kCabinetInk,
+                      width: selected ? 3 : 2),
                   boxShadow: [
-                    BoxShadow(
-                        color: selected
-                            ? n.gold.withValues(alpha: .35)
-                            : kCabinetInk.withValues(alpha: .4),
-                        offset: const Offset(0, 3))
+                    if (selected)
+                      BoxShadow(
+                          color: n.gold.withValues(alpha: .55), blurRadius: 12),
+                    const BoxShadow(
+                        color: Colors.black38,
+                        blurRadius: 0,
+                        offset: Offset(2, 3))
                   ],
                 ),
                 child: ExcludeSemantics(
@@ -313,10 +321,12 @@ class SlayWardrobeTile extends StatelessWidget {
                   Expanded(
                       child: Stack(children: [
                     Positioned.fill(
-                        child: thumbnail != null
-                            ? SlayThumbnail(url: thumbnail!)
-                            : Icon(Icons.checkroom_rounded,
-                                color: n.mute, size: 28)),
+                        child: Opacity(
+                            opacity: lockLabel != null ? .45 : 1,
+                            child: thumbnail != null
+                                ? SlayThumbnail(url: thumbnail!)
+                                : Icon(Icons.checkroom_rounded,
+                                    color: n.mute, size: 28))),
                     if (selected || !owned)
                       Positioned(
                           top: 0,
@@ -344,11 +354,17 @@ class SlayWardrobeTile extends StatelessWidget {
                           fontWeight: FontWeight.w700)),
                   const SizedBox(height: 3),
                   if (selected || !owned)
-                    Text(selected ? 'On!' : '● $coins',
+                    Text(selected ? 'On!' : lockLabel ?? '● $coins',
+                        maxLines: 2,
+                        textAlign: TextAlign.center,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                            fontSize: 10,
+                            fontSize: lockLabel != null && !selected ? 8.5 : 10,
+                            height: 1.1,
                             fontWeight: FontWeight.w800,
-                            color: n.gold)),
+                            color: lockLabel != null && !selected
+                                ? n.mute
+                                : n.gold)),
                 ])),
               )),
         ));

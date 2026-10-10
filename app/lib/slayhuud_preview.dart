@@ -30,7 +30,8 @@ Future<void> main() async {
   final api = ApiClient(client: MockClient((request) async {
     final path = request.url.path.replaceFirst('/api/v1', '');
     final json =
-        request.headers['content-type']?.startsWith('application/json') ?? false;
+        request.headers['content-type']?.startsWith('application/json') ??
+            false;
     final body = !json || request.bodyBytes.isEmpty
         ? <String, dynamic>{}
         : Map<String, dynamic>.from(jsonDecode(request.body));
@@ -123,6 +124,14 @@ Future<void> main() async {
       };
     } else if (path == '/slay/career') {
       result = career.home(DateTime.now().toUtc());
+    } else if (path == '/slay/career/start') {
+      try {
+        result = career.start(body['body'], body['avatarId']);
+      } on StateError catch (error) {
+        return http.Response(jsonEncode({'message': error.message}), 409);
+      }
+    } else if (path.endsWith('/leaderboard')) {
+      result = career.leaderboard(path.split('/')[3], DateTime.now().toUtc());
     } else if (path.startsWith('/slay/career/')) {
       final look = looks[body['lookId']];
       if (look == null) {

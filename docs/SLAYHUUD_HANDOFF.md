@@ -8,14 +8,15 @@ SlayHuud is a styling competition inside PlayHuud. Players dress a 3D avatar for
 
 | Branch | Remote | What it is |
 |---|---|---|
-| `codex/slayhuud` | `origin/codex/slayhuud` | Codex's working line. 24 commits since it forked from `feature/huud-session` at `8aade42` (8 Oct). Still being worked on. |
-| `feature/slayhuud-shipping` | `origin/feature/slayhuud-shipping` | Branched from `codex/slayhuud` at `6c89905` (10 commits behind its tip), plus `da22532` (app size, rating off, JPEG snapshots) and this doc. **Continue here.** |
+| `codex/slayhuud` | `origin/codex/slayhuud` | Codex's line. Codex has stopped; the user handed its work over. Its tip `6060ae3` is merged into the shipping branch. |
+| `feature/slayhuud-shipping` | `origin/feature/slayhuud-shipping` | Everything on `codex/slayhuud` up to `6060ae3`, Codex's unfinished career work (carried over), and the shipping, career, scenery and UI work below. **Continue here.** |
 | `feature/huud-session` | `origin/feature/huud-session` | The main product line. SlayHuud is **not** merged into it yet. |
 
 Rules the user has set:
 
-- Do not commit to `codex/slayhuud` or edit its worktree (`/private/tmp/TrueArena-slayhuud`) while Codex is active.
-- When the user says **"Codex is done"**: merge `codex/slayhuud` into `feature/slayhuud-shipping`, run `npm run build` in `slay-renderer`, resolve conflicts in generated files (`app/assets/slay_renderer/catalog.json`, `index.html`, `starter/`, `asset-manifest.json`) by rebuilding rather than hand-merging, then run all tests and report. Get explicit approval before that merge.
+- Do not commit to `codex/slayhuud` or edit its worktree (`/private/tmp/TrueArena-slayhuud`).
+- After any art or catalogue change, run `npm run build` in `slay-renderer`; resolve conflicts in generated files (`app/assets/slay_renderer/catalog.json`, `index.html`, `starter/`, `asset-manifest.json`) by rebuilding rather than hand-merging.
+- **UI direction:** the user rejected Codex's rigid panel UI. SlayHuud screens should be playful and game-like, matching PlayHuud: cabinet cards (ink outline, hard shadow), `Bouncy` presses, sparkles, celebrations. Use the kit in `slay_ui.dart`.
 - Merging into `feature/huud-session` is a separate decision the user has not made.
 - Ask before any phone install, prod deploy, TestFlight or APK upload.
 
@@ -54,40 +55,31 @@ Home tile, game picker, Huud game requests (`HuudService`, `huud_screen.dart`), 
 - **Slay rating off:** `slayhuud` is not in `truearena.competitive.rated-game-types` (`COMPETITIVE_RATED_GAMES`). Matches still record wins, placements and unlocks. The hub hides the rating chip while it is off.
 - **JPEG snapshots:** raw ~100 KB `image/jpeg` uploads capped at 512 KB on their own route; the global 2 MB codec limit was removed. Old PNG rows still serve.
 
-## 3. Not committed yet: Codex's career mode
+## 3. Solo career (done on the shipping branch)
 
-Codex's worktree has uncommitted work that is **not on any branch** (as of 15:19 on 10 October). It adds a solo career: chapters of challenges ("Your first impression", "Coffee date", "The weekend edit"…) with personal bests.
+The brief the user gave is the product direction: a fashion career with progression, competition, rewards, replay and unlocks.
 
-- New: `app/assets/slay_renderer/career.json`, `backend/ta-api/src/main/resources/slay/career.json`, `SlayCareerCatalog.java`, `SlayCareerService.java`, `SlayCareerCatalogTest.java`, `slay_career_screen.dart`, `app/lib/dev/slay_preview_career.dart`, `app/test/slayhuud_career_test.dart`, `V38__slay_solo_career.sql` (`slay_solo_bests` table).
-- Modified: `slay_hub_screen.dart`, `slay_models.dart`, `slay_studio_screen.dart`, `slay_style_report.dart`, `slayhuud_preview.dart`, `SlayController.java`, `SlayService.java`, `SlayHuudIT.java`, `slay-renderer/scripts/bundle.mjs`.
+- **One character for the whole career.** The player picks a character once ("Who’s your star?", a live 3D picker); `POST /slay/career/start` stores body + character on `slay_profiles` (`V47__slay_solo_career.sql`). The server refuses career looks on any other body or character; the studio hides the body/character switch in career mode.
+- **Five stages**, each with a dressing room and an event venue drawn by the renderer: Starter Studio (bedroom vanity → home photo wall), City Style (boutique fitting room → city street), Nightlife (club green room → rooftop at night), Luxury Events (hotel suite → ballroom), Fashion Week (backstage mirrors → runway). Styling uses the room; the catwalk and final photo use the venue.
+- **Stage wardrobes.** `career.json` `chapters[].collection` opens clothing per body as each stage unlocks; `rewards.four/five` pools give a piece on a first 4★ and a first 5★ per event. Hair and beauty are not gated. The studio shows locked pieces with their reason ("Opens at Nightlife", "Earn 4★ in City Style"). `SlayCareerCatalogTest.everyEventCanEarnFourStarsWithOnlyItsStageWardrobe` proves every event is winnable with only its stage's clothes, for both bodies.
+- **Rank-up** (Unknown → Rising Star → Trendsetter → Style Icon → Fashion Elite → Global Star) opens the next stage's collection and poses.
+- **Competition:** personal bests, Daily Slay, streak, and global/friends standings (`GET /slay/career/{event}/leaderboard`, also returned with each score).
+- **UI:** `slay_career_screen.dart` (picker, rank card, Next Up, Daily Slay, winding stage map, invitation-style briefs), `slay_results.dart` (count-up score, popping stars, fireworks, feedback, rewards, unlocks, rank-up, standings).
 
-Wait for Codex to commit it before you depend on it.
+Not built yet (outside the brief's V1 list): weekly events, flash/VIP events, streak rewards, creativity/pose/accessory scoring categories.
 
-## 4. Codex commits newer than the shipping branch
+**Art gap:** Fashion Week opens no new clothing, and the men's wardrobe is thin (7 outfits, 3 shirts, 4 trousers, 2 shoe styles), so later men's stages reuse pieces. New designer/luxury pieces for both bodies would fill this; add them to the matching `chapters[].collection` and rerun the winnability test.
 
-These are on `codex/slayhuud` and will come in at the merge:
+## 4. Codex's work
 
-```
-6bf0b2c Speed up SlayHuud runway and preview four finishing poses
-904a795 Evaluate SlayHuud styling scores and explain deductions
-c4a5e42 Add five women's shoe styles and saved garment colour choices
-c180681 Fit both tube tops to the avatar and mask covered chest skin
-c306884 fix(slayhuud): remove duplicate wardrobe groups and entries
-c46e307 feat(slayhuud): add female beauty choices and coin-locked hairstyles
-126c3ff Add twelve fitted hairstyle choices for each SlayHuud avatar
-4a6b194 Add fitted SlayHuud characters and studio scenery; repair eyes and hand poses
-8a5045b Fit male trouser waistbands and remove unavailable SlayHuud themes
-6060ae3 Fix male shirt and trouser layering through poses and catwalk
-```
-
-They add new GLBs and thumbnails, so the merge **must** be followed by `npm run build` to publish them through the art-delivery pipeline. Otherwise the app will reference files that are neither bundled nor in the manifest.
+Codex's commits up to `6060ae3` are merged (`1e5576f`), and its uncommitted career work was carried over unchanged in `05c5d5c`, apart from renumbering its migration to V47 and updating tests to the current constructor. Then `4fafc58` (career rules), `3c18dc3` (stage scenery) and the UI rework build on it.
 
 ## 5. Known blockers before merging into `feature/huud-session`
 
-1. **Migration numbers.** Production has already applied `V37__slayhuud.sql` (byte-identical to this branch's file) and an unrelated `V38__social_huud_sessions.sql`; `feature/huud-session` tolerates both with `ignore-migration-patterns: "*:missing"`. So **keep `V37__slayhuud.sql` exactly as it is**: renaming it would make Flyway run it again on prod and fail on existing tables. Any *new* SlayHuud migration, such as Codex's `V38__slay_solo_career.sql`, must take the next free number after `feature/huud-session`'s latest (currently `V47`), because prod's V38 is a different migration and a second V38 stops Flyway from starting. Check prod's Flyway history before deploying.
+1. **Migration numbers.** Production has already applied `V37__slayhuud.sql` (byte-identical to this branch's file) and an unrelated `V38__social_huud_sessions.sql`; `feature/huud-session` tolerates both with `ignore-migration-patterns: "*:missing"`. So **keep `V37__slayhuud.sql` exactly as it is**: renaming it would make Flyway run it again on prod and fail on existing tables. The career migration is `V47__slay_solo_career.sql`; if `feature/huud-session` has used V47 by the time you merge, renumber it to the next free version (it has never been applied anywhere). Check prod's Flyway history before deploying.
 2. **Overlapping files with `feature/huud-session`:** `ChampionshipService.java`, `ChampionshipRow.java`, `GameOrchestrator.java` (also uncommitted on huud-session), `HuudService.java`, `huud_screen.dart`, `huud_models.dart`, `home_screen.dart`, `game_select_screen.dart`, `RoomService.java`, `RatingService.java`, `application.yml`, `pubspec.yaml`. Expect conflicts.
 3. **Repo size:** about 80 MB of source GLBs are in git history (largest single file 8 MB). The plan is to strip them from history before the final merge, keeping the hashed delivery files outside git.
-4. **Vendored WebView plugin:** `app/vendor/flutter_inappwebview_android` (207 files) is a patched copy for AGP 9. `slay_stage.dart` is now its only user, so switching to the official `webview_flutter` would remove it. Do this after Codex is done.
+4. **Vendored WebView plugin:** `app/vendor/flutter_inappwebview_android` (207 files) is a patched copy for AGP 9. `slay_stage.dart` is now its only user, so switching to the official `webview_flutter` would remove it. Codex has stopped, so this can be done now.
 5. **Redundant cache:** the renderer's 32 MB IndexedDB cache (`slay-renderer/src/cache.ts`) duplicates the `SlayAssets` disk cache and can go.
 
 ## 6. Launch gates (still open)
@@ -138,8 +130,8 @@ Last recorded results on `feature/slayhuud-shipping` (10 October): 42 renderer t
 
 ## 9. Suggested next steps
 
-1. Wait for "Codex is done", then merge `codex/slayhuud` into `feature/slayhuud-shipping`, rebuild, and run every suite above.
-2. Keep `V37__slayhuud.sql` untouched; give any new SlayHuud migration the next free number after `feature/huud-session` (not V38). Check prod's Flyway history first.
+1. Try the career in the fixture preview on a simulator (`flutter run -t lib/slayhuud_preview.dart --dart-define=API_BASE=http://localhost:55667`) and on a device; check the stage scenery, picker and results feel.
+2. Commission designer pieces for Fashion Week and more men's clothing; slot them into `career.json`.
 3. Replace `flutter_inappwebview` with `webview_flutter` and drop the IndexedDB cache.
 4. Rsync `website/slay-assets/` to the VPS and check real downloads and visual parity on a device.
-5. Strip source GLBs from history, then ask the user about merging into `feature/huud-session`.
+5. Strip source GLBs from history, then ask the user about merging into `feature/huud-session` (renumber V47 if needed).

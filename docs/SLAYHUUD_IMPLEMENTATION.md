@@ -379,3 +379,13 @@ The renderer resolves garment layering once in bind space when trousers change. 
 Verification: TypeScript/Vite build passes and all 65 renderer tests pass. Actual-mesh regression checks cover all 24 combinations through the four finishes and seven catwalk/turn samples, repeated application, both character shapes, and removing trousers. Asset delivery validation reports 130 valid GLBs, zero missing/invalid deliveries, 55 future placeholders skipped and 21 existing soft size warnings.
 
 Rebuilt the dedicated iPhone 17 Pro preview with catalogue 25. Native inspection confirmed red Weekend Polo with Cargo Trousers meets cleanly from front/back and during show off; checked both other shirts, restored skin/briefs after removing trousers, then restored the original red polo and cargo outfit. The preview uses existing fixture responses; this change does not verify production multiplayer settlement.
+
+### Solo career, stage scenery and playful UI (10 October 2026)
+
+- The career keeps one character, chosen once (`POST /slay/career/start`, stored on `slay_profiles` by V47). Career looks on another body or character are refused.
+- Five stages each open a clothing collection and poses per body; 4★/5★ results unlock pieces from stage reward pools; rank-ups open the next stage. Hair and beauty stay ownership-based. A unit test proves every event can reach four stars with only its stage's clothing.
+- Every background now has a dressing room (styling) and a venue (catwalk and final photo): studio, lagos, sunset, royal and runway. Scenes are low-poly, instanced where props repeat, built on first use and tested to stay behind the model at every angle.
+- Global and friends standings for daily and career events (`GET /slay/career/{event}/leaderboard`, also in each score result).
+- New UI kit (`slay_ui.dart`), hub, career map, invitation briefs and results screen replace the earlier panel layouts. Career studio locks the character, hides the scene picker, gates clothing and poses by stage, and opens on wearable pieces.
+- Verification: 256 backend unit tests, 16 SlayHuud PostgreSQL/Redis integration tests (twice), 68 renderer tests and 66 SlayHuud Flutter tests pass. Scenery and screens were reviewed from rendered screenshots (headless Chrome and Flutter test rendering), not yet on a device.
+

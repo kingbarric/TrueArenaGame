@@ -6,6 +6,52 @@ class SlayPreviewCareer {
   final Map<String, dynamic> content, catalog;
   final Map<String, Map<String, dynamic>> bests = {};
   int xp = 0;
+  Map<String, dynamic>? character;
+  final Set<String> granted = {};
+  List<Map<String, dynamic>> get chapters => (content['chapters'] as List)
+      .map((c) => Map<String, dynamic>.from(c))
+      .toList();
+  List<String> _list(Map c, String body, [String? pool]) => List<String>.from(
+      (pool == null ? c['collection'][body] : c['rewards'][body][pool]) ??
+          const []);
+  Set<String> careerItems(String body, int rank) => {
+        for (final c in chapters.where((c) => c['chapter'] <= rank)) ...[
+          ..._list(c, body),
+          ..._list(c, body, 'four').where(granted.contains),
+          ..._list(c, body, 'five').where(granted.contains),
+        ]
+      };
+  List<String> poses(int rank) => [
+        for (final c in chapters.where((c) => c['chapter'] <= rank))
+          ...List<String>.from(c['poses'])
+      ];
+  Map<String, String> locks(String body, int rank) {
+    final open = careerItems(body, rank), locks = <String, String>{};
+    for (final c in chapters) {
+      for (final id in _list(c, body)) {
+        if (!open.contains(id)) {
+          locks.putIfAbsent(id, () => 'Opens at ${c['title']}');
+        }
+      }
+      for (final (pool, stars) in [('four', 4), ('five', 5)]) {
+        for (final id in _list(c, body, pool)) {
+          if (!open.contains(id)) {
+            locks.putIfAbsent(id, () => 'Earn $stars★ in ${c['title']}');
+          }
+        }
+      }
+    }
+    return locks;
+  }
+
+  Map<String, dynamic> start(String body, String? avatarId) {
+    if (character != null) {
+      throw StateError('Your career character is already chosen');
+    }
+    character = {'body': body, 'avatarId': avatarId ?? body};
+    return home(DateTime.now().toUtc());
+  }
+
   int stars(num score) => score >= 90
       ? 5
       : score >= 80
@@ -92,7 +138,54 @@ class SlayPreviewCareer {
       'completed': completed.length,
       'daily': daily,
       'dailyEndsAt': day.add(const Duration(days: 1)).toIso8601String(),
-      'streak': streak
+      'streak': streak,
+      'chapters': [
+        for (final c in chapters)
+          {
+            'chapter': c['chapter'],
+            'title': c['title'],
+            'location': c['location'],
+            'room': c['room'],
+            'venue': c['venue'],
+            'unlocked': rank >= c['chapter']
+          }
+      ],
+      'character': character == null
+          ? null
+          : {
+              ...character!,
+              'items': careerItems(character!['body'], rank).toList(),
+              'poses': poses(rank),
+              'locks': locks(character!['body'], rank),
+            },
+    };
+  }
+
+  /// A few fixture rivals so the preview's standings have someone to beat.
+  Map<String, dynamic> leaderboard(String id, DateTime now) {
+    final c = challenge(id, now), p = id == 'daily' ? period(now) : 'career';
+    final mine = bests['${c['id']}:$p']?['score'] as num?;
+    final rows = [
+      {'username': 'adaeze_styles', 'score': 94.0, 'me': false},
+      {'username': 'kofi.fits', 'score': 88.5, 'me': false},
+      {'username': 'zara_glow', 'score': 76.0, 'me': false},
+      if (mine != null)
+        {'username': 'you', 'score': mine.toDouble(), 'me': true},
+    ]..sort((a, b) => (b['score'] as double).compareTo(a['score'] as double));
+    final position = rows.indexWhere((r) => r['me'] == true) + 1;
+    return {
+      'challengeId': c['id'],
+      'title': c['title'],
+      'period': p,
+      'personalBest': mine,
+      'friendsRank': position == 0 ? null : position,
+      'friends': rows,
+      'global': {
+        'total': 1240,
+        'rank': mine == null ? null : (1240 * (1 - mine / 110)).round(),
+        'topPercent': mine == null ? null : (100 * (1 - mine / 110)).ceil(),
+        'top': rows.take(3).toList()
+      }
     };
   }
 
@@ -117,9 +210,59 @@ class SlayPreviewCareer {
         points = passed ? 40 + 20 * stars(best) : 0;
     final coinGain = coins - (old?['coins'] ?? 0),
         xpGain = points - (old?['xp'] ?? 0);
+    final rankBefore = home(now)['rankIndex'] as int;
+    final previousStars = old == null ? 0 : stars(old['score']);
+    final unlocked = <Map<String, dynamic>>[];
+    if (id != 'daily' && character != null) {
+      final chapter =
+          chapters.firstWhere((ch) => ch['chapter'] == c['chapter']);
+      for (final (tier, pool) in [(4, 'four'), (5, 'five')]) {
+        if (previousStars < tier && stars(best) >= tier) {
+          final next = _list(chapter, character!['body'], pool)
+              .where((i) => !granted.contains(i))
+              .firstOrNull;
+          if (next != null) {
+            granted.add(next);
+            final item =
+                (catalog['items'] as List).firstWhere((i) => i['id'] == next);
+            unlocked.add({
+              'id': next,
+              'name': item['name'],
+              'category': item['category'],
+              'thumbnailUrl': item['thumbnailUrl']
+            });
+          }
+        }
+      }
+    }
     xp += xpGain as int;
     bests[key] = {'score': best, 'coins': coins, 'xp': points};
+    final after = home(now), rank = after['rankIndex'] as int;
+    final chapter = rank > rankBefore
+        ? chapters.firstWhere((ch) => ch['chapter'] == rank)
+        : null;
     return {
+      'unlocked': unlocked,
+      'rankUp': chapter == null
+          ? null
+          : {
+              'rank': (content['ranks'] as List)[rank]['name'],
+              'chapter': chapter['title'],
+              'location': chapter['location'],
+              'room': chapter['room'],
+              'venue': chapter['venue'],
+              'poses': chapter['poses'],
+              'items': [
+                if (character != null)
+                  for (final id in _list(chapter, character!['body']))
+                    {
+                      'id': id,
+                      'name': (catalog['items'] as List)
+                          .firstWhere((i) => i['id'] == id)['name']
+                    }
+              ]
+            },
+      'ranking': leaderboard(id, now),
       ...judged,
       'stars': stars(score),
       'starCount': 5,

@@ -719,7 +719,7 @@ class SlayHuudIT {
     @Test @SuppressWarnings("unchecked") void leaderboardsRankGloballyAndAmongFriends() {
         UUID me = careerist("male"), friend = careerist("male"), stranger = careerist("male");
         db.sql("INSERT INTO friends (low_user_id, high_user_id, status, requested_by) VALUES (:l, :h, 'accepted', :l)")
-                .bind("l", me.compareTo(friend) < 0 ? me : friend).bind("h", me.compareTo(friend) < 0 ? friend : me)
+                .bind("l", me.toString().compareTo(friend.toString()) < 0 ? me : friend).bind("h", me.toString().compareTo(friend.toString()) < 0 ? friend : me)
                 .fetch().rowsUpdated().block();
         var base = careerLook("male");
         var plain = new Look("male", base.skinTone(), base.facePreset(), Map.of("outfit", "male-essential"), "signature", "studio");

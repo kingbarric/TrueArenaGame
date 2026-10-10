@@ -121,6 +121,23 @@ public class SlayCareerCatalog {
         return items;
     }
 
+    /** Why each not-yet-usable career piece is locked, for the studio to show. */
+    public Map<String, String> locks(String body, int rank, Set<String> owned) {
+        Set<String> open = careerItems(body, rank, owned);
+        Map<String, String> locks = new LinkedHashMap<>();
+        for (var c : content.chapters()) {
+            for (String id : c.collection().getOrDefault(body, List.of()))
+                if (!open.contains(id)) locks.putIfAbsent(id, "Opens at " + c.title());
+            var pool = c.rewards().get(body);
+            if (pool == null) continue;
+            for (String id : pool.four())
+                if (!open.contains(id)) locks.putIfAbsent(id, "Earn 4★ in " + c.title());
+            for (String id : pool.five())
+                if (!open.contains(id)) locks.putIfAbsent(id, "Earn 5★ in " + c.title());
+        }
+        return locks;
+    }
+
     public List<String> poses(int rank) {
         return content.chapters().stream()
                 .filter(c -> c.chapter() <= rank)

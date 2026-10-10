@@ -9,6 +9,7 @@ import 'package:truearena/core/api_client.dart';
 import 'package:truearena/core/app_state.dart';
 import 'package:truearena/dev/slay_preview_career.dart';
 import 'package:truearena/features/slayhuud/slay_career_screen.dart';
+import 'package:truearena/features/slayhuud/slay_stage.dart';
 import 'package:truearena/theme/neon_theme.dart';
 
 void main() {
@@ -70,18 +71,56 @@ void main() {
     expect(c.home(now)['totalStars'], stars);
     expect(c.home(now)['events'][4]['unlocked'], true);
   });
-  Future<void> launch(WidgetTester t, {double scale = 1}) async {
+  test(
+      'the career keeps one character, unlocks stage pieces and explains locks',
+      () {
+    final c = SlayPreviewCareer(content, catalog);
+    expect(c.home(now)['character'], isNull);
+    final home = c.start('female', 'girl02');
+    expect(home['character']['avatarId'], 'girl02');
+    expect(() => c.start('male', null), throwsStateError);
+    final items = Set<String>.from(home['character']['items']);
+    expect(items, containsAll(['female-essential', 'shoe-1']));
+    expect(items, isNot(contains('female-night')));
+    expect(home['character']['locks']['female-night'], 'Opens at Nightlife');
+    expect(home['character']['locks']['female-skirts-collection-6'],
+        'Earn 4★ in Starter Studio');
+    final first = c.score(
+        'hello-style',
+        {
+          ...look,
+          'body': 'female',
+          'items': {'outfit': 'female-essential', 'shoes': 'shoe-1'}
+        },
+        now);
+    expect((first['unlocked'] as List).map((u) => u['id']),
+        ['female-skirts-collection-6', 'female-shoe-slippers']);
+    expect(first['ranking']['friendsRank'], isNotNull);
+  });
+
+  Future<SlayPreviewCareer> launch(WidgetTester t,
+      {double scale = 1, bool started = true}) async {
     t.view.physicalSize = const Size(360, 760);
     t.view.devicePixelRatio = 1;
     addTearDown(t.view.resetPhysicalSize);
     addTearDown(t.view.resetDevicePixelRatio);
+    SlayStage.debugPlaceholder = true;
+    addTearDown(() => SlayStage.debugPlaceholder = false);
     final c = SlayPreviewCareer(content, catalog);
-    final api = ApiClient(
-        client: MockClient((r) async => http.Response(
-            jsonEncode(
-                r.url.path.endsWith('/career') ? c.home(now) : {'owned': []}),
-            200,
-            headers: {'content-type': 'application/json'})));
+    if (started) c.start('male', null);
+    final api = ApiClient(client: MockClient((r) async {
+      final path = r.url.path;
+      final body = r.body.isEmpty ? const {} : jsonDecode(r.body);
+      final result = path.endsWith('/career')
+          ? c.home(now)
+          : path.endsWith('/career/start')
+              ? c.start(body['body'], body['avatarId'])
+              : path.endsWith('/leaderboard')
+                  ? c.leaderboard('daily', now)
+                  : {'owned': []};
+      return http.Response(jsonEncode(result), 200,
+          headers: {'content-type': 'application/json'});
+    }));
     await t.pumpWidget(AppScope(
         state: AppState(api),
         child: MaterialApp(
@@ -91,47 +130,67 @@ void main() {
                     .copyWith(textScaler: TextScaler.linear(scale)),
                 child: child!),
             home: SlayCareerScreen(catalog: catalog, owned: const {}))));
-    await t.pumpAndSettle();
+    await t.pump(const Duration(seconds: 1));
+    await t.pump(const Duration(seconds: 1));
+    return c;
   }
 
-  testWidgets('career tabs show the path, locked explanation and daily brief',
-      (t) async {
-    await launch(t);
+  testWidgets('a new career starts by choosing a star, once', (t) async {
+    final c = await launch(t, started: false);
+    expect(find.text('Who’s your star?'), findsOneWidget);
+    expect(find.byKey(const ValueKey('slay-stage-female')), findsOneWidget);
+    await t.tap(find.bySemanticsLabel('Next star'));
+    await t.pump();
+    await t.pump(const Duration(seconds: 1));
+    expect(find.byKey(const ValueKey('slay-stage-male')), findsOneWidget);
+    await t.tap(find.text('This is my star'));
+    await t.pump();
+    await t.pump(const Duration(seconds: 1));
+    await t.tap(find.text('That’s my star!'));
+    await t.pump();
+    await t.pump(const Duration(seconds: 1));
+    await t.pump(const Duration(seconds: 1));
+    expect(c.character, {'body': 'male', 'avatarId': 'male'});
+    expect(find.text('My Career'), findsOneWidget);
     expect(find.text('Unknown'), findsOneWidget);
-    await t.tap(find.text('Journey'));
-    await t.pumpAndSettle();
-    expect(find.text('Starter Studio'), findsOneWidget);
-    await t.scrollUntilVisible(
-        find.byKey(const ValueKey('brief-street-shot-career')), 250);
-    await t.tap(find.byKey(const ValueKey('brief-street-shot-career')));
-    await t.pumpAndSettle();
-    expect(find.textContaining('is up ahead!'), findsOneWidget);
-    await t.tap(find.text('Show my journey'));
-    await t.pumpAndSettle();
-    await t.tap(find.byType(NavigationDestination).at(2));
-    await t.pumpAndSettle();
-    await t.scrollUntilVisible(find.text('View brief →'), 150);
-    await t.pumpAndSettle();
-    await t.tap(find.text('View brief →'));
-    await t.pumpAndSettle();
-    expect(find.text('Your checklist'), findsOneWidget);
-    await t.scrollUntilVisible(find.text('Let’s style!'), 100,
-        scrollable: find.descendant(
-            of: find.byType(BottomSheet), matching: find.byType(Scrollable)));
-    expect(find.text('Let’s style!').hitTestable(), findsOneWidget);
     expect(t.takeException(), isNull);
   });
-  testWidgets('career and briefs remain navigable at enlarged text', (t) async {
-    await launch(t, scale: 1.5);
-    await t.scrollUntilVisible(
-        find.byKey(const ValueKey('brief-hello-style-career')), 180);
-    await t.pumpAndSettle();
-    await t.tap(find.byKey(const ValueKey('brief-hello-style-career')));
-    await t.pumpAndSettle();
-    await t.scrollUntilVisible(find.text('Let’s style!'), 120,
+
+  testWidgets(
+      'home shows next event, daily slay and the stage road; invites never ask her or him',
+      (t) async {
+    await launch(t);
+    expect(find.text('NEXT UP'), findsOneWidget);
+    expect(find.text('☀️ DAILY SLAY'), findsOneWidget);
+    await t.scrollUntilVisible(find.text('City Style'), 300,
+        scrollable: find.byType(Scrollable).first);
+    expect(find.textContaining('Become Rising Star'), findsOneWidget);
+    await t.scrollUntilVisible(find.text('NEXT UP'), -300,
+        scrollable: find.byType(Scrollable).first);
+    await t.tap(find.text('NEXT UP'));
+    await t.pump();
+    await t.pump(const Duration(seconds: 1));
+    expect(find.text('💌 YOU’RE INVITED'), findsOneWidget);
+    expect(find.text('Her'), findsNothing);
+    expect(find.text('Him'), findsNothing);
+    expect(find.textContaining('Shoes'), findsWidgets);
+    await t.scrollUntilVisible(find.text('Let’s slay!'), 120,
         scrollable: find.descendant(
             of: find.byType(BottomSheet), matching: find.byType(Scrollable)));
-    expect(find.text('Let’s style!').hitTestable(), findsOneWidget);
+    expect(find.text('Let’s slay!').hitTestable(), findsOneWidget);
+    expect(t.takeException(), isNull);
+  });
+
+  testWidgets('career and invites remain navigable at enlarged text',
+      (t) async {
+    await launch(t, scale: 1.5);
+    await t.tap(find.text('NEXT UP'));
+    await t.pump();
+    await t.pump(const Duration(seconds: 1));
+    await t.scrollUntilVisible(find.text('Let’s slay!'), 120,
+        scrollable: find.descendant(
+            of: find.byType(BottomSheet), matching: find.byType(Scrollable)));
+    expect(find.text('Let’s slay!').hitTestable(), findsOneWidget);
     expect(t.takeException(), isNull);
   });
 }

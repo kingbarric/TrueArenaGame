@@ -239,6 +239,7 @@ public class SlayCareerService {
             character.put("avatarId", ch.avatarId());
             character.put("items", career.careerItems(ch.body(), rank, p.granted()));
             character.put("poses", career.poses(rank));
+            character.put("locks", career.locks(ch.body(), rank, p.granted()));
         }
         s.put("character", character);
         return s;

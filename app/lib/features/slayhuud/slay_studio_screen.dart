@@ -7,10 +7,11 @@ import 'slay_assets.dart';
 import 'slay_models.dart';
 import 'slay_stage.dart';
 import 'slay_theme.dart';
+import 'slay_ui.dart';
 import '../../theme/neon_theme.dart';
 import 'slay_game_menu.dart';
 import 'slay_pose_picker.dart';
-import 'slay_style_report.dart';
+import 'slay_results.dart';
 import 'slay_colour_picker.dart';
 import 'slay_wardrobe.dart';
 
@@ -25,25 +26,49 @@ class SlayStudioScreen extends StatefulWidget {
       this.careerPeriod,
       this.initialBackground,
       this.initialBody = 'female',
+      this.careerCharacter,
       this.deadline});
   final Map<String, dynamic> catalog, theme;
   final Set<String> owned;
   final String? competitionId, careerEventId, careerPeriod, initialBackground;
   final String initialBody;
   final DateTime? deadline;
+
+  /// The career's chosen character, its open clothing, poses and lock reasons.
+  /// When set, body and character are fixed and the stage sets the scene.
+  final Map<String, dynamic>? careerCharacter;
   @override
   State<SlayStudioScreen> createState() => _SlayStudioScreenState();
 }
 
 class _SlayStudioScreenState extends State<SlayStudioScreen> {
   late SlayLook _look = SlayLook.initial(
-          (widget.theme['bodyEligibility'] as List).contains(widget.initialBody)
-              ? widget.initialBody
-              : (widget.theme['bodyEligibility'] as List).first as String)
-      .copy(background: widget.initialBackground);
+          widget.careerCharacter?['body'] as String? ??
+              ((widget.theme['bodyEligibility'] as List)
+                      .contains(widget.initialBody)
+                  ? widget.initialBody
+                  : (widget.theme['bodyEligibility'] as List).first as String))
+      .copy(
+          background: widget.initialBackground,
+          avatarId: widget.careerCharacter?['avatarId'] as String?);
   late final Set<String> _owned = {...widget.owned};
+  bool get _career => widget.careerCharacter != null;
+  late final Set<String> _careerItems =
+      Set<String>.from(widget.careerCharacter?['items'] ?? const []);
+  late final Map<String, String> _careerLocks =
+      Map<String, String>.from(widget.careerCharacter?['locks'] ?? const {});
+  static const _beauty = {'hair', 'makeup', 'eyes'};
+
+  /// Whether this piece can be worn here: career stages gate clothing,
+  /// ownership gates everything else.
+  bool _usable(Map item) => _career && !_beauty.contains(item['category'])
+      ? _careerItems.contains(item['id'])
+      : _owned.contains(item['id']);
   final _stage = SlayStageController();
   String _category = 'outfit', _styleGroup = '';
+
+  /// Until the player picks a tab, a career opens where there is something to wear.
+  bool _categoryChosen = false;
   SlayLook? _draft;
   int? _coins;
   bool _selecting = false;
@@ -125,7 +150,7 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
   }
 
   String get _draftKey =>
-      'slay-draft-${AppScope.of(context).user?.id}-${_look.body}';
+      'slay-draft-${AppScope.of(context).user?.id}-${_look.body}${_career ? '-career' : ''}';
   Future<void> _restore() async {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
@@ -135,8 +160,7 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
       final look =
           SlayLook.fromJson(Map<String, dynamic>.from(jsonDecode(raw)));
       final available = (widget.catalog['items'] as List)
-          .where(
-              (item) => item['assetUrl'] != null && _owned.contains(item['id']))
+          .where((item) => item['assetUrl'] != null && _usable(item))
           .map((item) => item['id'])
           .toSet();
       if (look.body == _look.body &&
@@ -174,6 +198,13 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
     if (_busy || _selecting) return;
     setState(() => _selecting = true);
     final id = item['id'] as String;
+    if (_career && !_usable(item)) {
+      setState(() => _selecting = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('🔒 ${item['name']}: '
+              '${_careerLocks[id] ?? 'not part of this career stage'}. Keep slaying!')));
+      return;
+    }
     try {
       if (!_owned.contains(id)) {
         final cost = (item['coinCost'] as num).toInt();
@@ -238,15 +269,12 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
             : await api.careerScore(widget.careerEventId!, id,
                 period: widget.careerPeriod);
         if (!mounted) return;
-        final continueCareer = await showModalBottomSheet<bool>(
-            context: context,
-            isScrollControlled: true,
-            backgroundColor: context.neon.bg,
-            builder: (c) => SlayStyleReport(
-                score: score,
-                themeTitle: widget.theme['title'],
-                career: widget.careerEventId != null));
-        if (continueCareer == true && mounted) Navigator.pop(context, true);
+        final done = await SlayResultsScreen.show(context,
+            score: score,
+            title: widget.theme['title'],
+            location: _look.background,
+            career: widget.careerEventId != null);
+        if (done == true && mounted) Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted && !e.toString().contains('cancelled')) {
@@ -270,15 +298,36 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
         final categories = _categories.entries
             .where((c) => wardrobe.categories.contains(c.key))
             .toList();
-        final category = categories.any((c) => c.key == _category)
-            ? _category
-            : categories.firstOrNull?.key ?? '';
+        final wearable = _career && !_categoryChosen
+            ? categories
+                .where((c) => wardrobe.itemsFor(c.key).any(_usable))
+                .firstOrNull
+                ?.key
+            : null;
+        final category = wearable ??
+            (categories.any((c) => c.key == _category)
+                ? _category
+                : categories.firstOrNull?.key ?? '');
         final clothing = SlayWardrobe.clothing.contains(category);
         final groups = wardrobe.groupsFor(category);
-        final selectedGroup =
-            groups.contains(_styleGroup) ? _styleGroup : groups.firstOrNull;
+        // A career opens on a style group with something wearable in it.
+        final selectedGroup = groups.contains(_styleGroup)
+            ? _styleGroup
+            : (_career
+                    ? groups
+                        .where((g) => wardrobe
+                            .itemsFor(category, clothing ? g : null)
+                            .any(_usable))
+                        .firstOrNull
+                    : null) ??
+                groups.firstOrNull;
         final items =
             wardrobe.itemsFor(category, clothing ? selectedGroup : null);
+        // In a career, what you can wear now comes before what unlocks later.
+        if (_career) {
+          items.sort(
+              (a, b) => (_usable(a) ? 0 : 1).compareTo(_usable(b) ? 0 : 1));
+        }
         final equippedSlots = _look.items.entries
             .where((entry) => wardrobe.categoryForId(entry.value) == category)
             .map((entry) => entry.key)
@@ -301,21 +350,43 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
           'accessories'
         ].contains(category);
         return Scaffold(
-            appBar: AppBar(title: const Text('Your studio'), actions: [
-              Padding(
-                  padding: const EdgeInsets.only(right: 16),
-                  child: Center(
-                      child: SlayLabel(widget.deadline == null
-                          ? (_coins == null ? 'Practice look' : '$_coins coins')
-                          : _timeLeft))),
-              SlayGameMenu(
-                  onBrief: _brief,
-                  onReset: (_busy || _selecting)
-                      ? null
-                      : () => _change(SlayLook.initial(_look.body)),
-                  exitLabel: 'Back to SlayHuud',
-                  onExit: () => leaveSlayScreen(context)),
-            ]),
+            appBar: AppBar(
+                title: Text(_career ? 'Dressing room' : 'Your studio',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        color: _career
+                            ? SlayStageLook.of(_look.background).ink
+                            : null)),
+                foregroundColor:
+                    _career ? SlayStageLook.of(_look.background).ink : null,
+                flexibleSpace: _career
+                    ? Container(
+                        decoration: BoxDecoration(
+                            gradient:
+                                SlayStageLook.of(_look.background).gradient,
+                            border: const Border(
+                                bottom: BorderSide(
+                                    color: kCabinetInk, width: 2.5))))
+                    : null,
+                actions: [
+                  Padding(
+                      padding: const EdgeInsets.only(right: 16),
+                      child: Center(
+                          child: SlayLabel(widget.deadline == null
+                              ? (_coins == null
+                                  ? 'Practice look'
+                                  : '$_coins coins')
+                              : _timeLeft))),
+                  SlayGameMenu(
+                      onBrief: _brief,
+                      onReset: (_busy || _selecting)
+                          ? null
+                          : () => _change(SlayLook.initial(_look.body).copy(
+                              avatarId: _look.avatarId,
+                              background: _look.background)),
+                      exitLabel: 'Back to SlayHuud',
+                      onExit: () => leaveSlayScreen(context)),
+                ]),
             body:
                 SafeArea(child: LayoutBuilder(builder: (context, constraints) {
               final stageHeight =
@@ -328,13 +399,15 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                           child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                            const SlayLabel('Your challenge'),
+                            SlayLabel(_career
+                                ? 'YOU’RE STYLING FOR'
+                                : 'Your challenge'),
                             const SizedBox(height: 4),
                             Text(widget.theme['title'],
                                 style:
                                     Theme.of(context).textTheme.headlineMedium)
                           ])),
-                      if (widget.competitionId == null)
+                      if (widget.competitionId == null && !_career)
                         SegmentedButton<String>(
                           showSelectedIcon: false,
                           segments: [
@@ -548,16 +621,20 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                               icon: Icons.accessibility_new,
                               onPressed: (_busy || _selecting)
                                   ? null
-                                  : () =>
-                                      _pick('pose', widget.catalog['poses'])),
+                                  : () => _pick(
+                                      'pose',
+                                      _career
+                                          ? widget.careerCharacter!['poses']
+                                          : widget.catalog['poses'])),
                           const SizedBox(width: 8),
-                          SlayPill(
-                              label: 'Scene',
-                              icon: Icons.landscape_outlined,
-                              onPressed: (_busy || _selecting)
-                                  ? null
-                                  : () => _pick('background',
-                                      widget.catalog['backgrounds'])),
+                          if (!_career)
+                            SlayPill(
+                                label: 'Scene',
+                                icon: Icons.landscape_outlined,
+                                onPressed: (_busy || _selecting)
+                                    ? null
+                                    : () => _pick('background',
+                                        widget.catalog['backgrounds'])),
                         ])),
                 const SizedBox(height: 4),
                 Divider(
@@ -582,6 +659,7 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                                         ? null
                                         : () => setState(() {
                                               _category = c.key;
+                                              _categoryChosen = true;
                                               _styleGroup = '';
                                             })))
                         ])),
@@ -652,12 +730,15 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                               items[i - (canRemove ? 1 : 0)]);
                           final selected = _look.items.values.any((id) =>
                                   wardrobe.canonicalId(id) == item['id']),
-                              owned = _owned.contains(item['id']);
+                              owned = _usable(item);
                           return SlayWardrobeTile(
                             name: item['name'],
                             thumbnail: item['thumbnailUrl'],
                             selected: selected,
                             owned: owned,
+                            lockLabel: _career && !owned
+                                ? (_careerLocks[item['id']] ?? 'Locked')
+                                : null,
                             coins: (item['coinCost'] as num?)?.toInt() ?? 0,
                             onTap: (_busy || _selecting)
                                 ? null
@@ -786,31 +867,35 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                     children: [
                       const SlayLabel('Make it yours'),
                       const SizedBox(height: 12),
-                      const SlayLabel('Your character'),
-                      const SizedBox(height: 8),
-                      Wrap(spacing: 8, children: [
-                        for (final avatar in widget.catalog['avatars'] as List)
-                          if (avatar['body'] == _look.body)
-                            ChoiceChip(
-                              avatar: avatar['thumbnailUrl'] == null ||
-                                      SlayAssets.instance.thumbnail(
-                                              avatar['thumbnailUrl']) ==
-                                          null
-                                  ? const Icon(Icons.face_rounded, size: 18)
-                                  : CircleAvatar(
-                                      radius: 14,
-                                      backgroundImage: SlayAssets.instance
-                                          .thumbnail(avatar['thumbnailUrl'])),
-                              label: Text(avatar['name'] ?? 'Original'),
-                              selected: (_look.avatarId ?? _look.body) ==
-                                  (avatar['id'] ?? avatar['body']),
-                              onSelected: (_) {
-                                _change(_look.copy(
-                                    avatarId: avatar['id'] ?? avatar['body']));
-                                Navigator.pop(c);
-                              },
-                            )
-                      ]),
+                      if (!_career) ...[
+                        const SlayLabel('Your character'),
+                        const SizedBox(height: 8),
+                        Wrap(spacing: 8, children: [
+                          for (final avatar
+                              in widget.catalog['avatars'] as List)
+                            if (avatar['body'] == _look.body)
+                              ChoiceChip(
+                                avatar: avatar['thumbnailUrl'] == null ||
+                                        SlayAssets.instance.thumbnail(
+                                                avatar['thumbnailUrl']) ==
+                                            null
+                                    ? const Icon(Icons.face_rounded, size: 18)
+                                    : CircleAvatar(
+                                        radius: 14,
+                                        backgroundImage: SlayAssets.instance
+                                            .thumbnail(avatar['thumbnailUrl'])),
+                                label: Text(avatar['name'] ?? 'Original'),
+                                selected: (_look.avatarId ?? _look.body) ==
+                                    (avatar['id'] ?? avatar['body']),
+                                onSelected: (_) {
+                                  _change(_look.copy(
+                                      avatarId:
+                                          avatar['id'] ?? avatar['body']));
+                                  Navigator.pop(c);
+                                },
+                              )
+                        ]),
+                      ],
                       const SizedBox(height: 20),
                       Wrap(spacing: 14, children: [
                         for (final tone in widget.catalog['skinTones'] as List)

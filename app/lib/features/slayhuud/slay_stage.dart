@@ -86,6 +86,11 @@ class SlayStage extends StatefulWidget {
   final Map<String, dynamic> catalog;
   final SlayLook look;
   final SlayStageController controller;
+
+  /// Widget tests have no WebView; they set this to draw a placeholder instead.
+  @visibleForTesting
+  static bool debugPlaceholder = false;
+
   @override
   State<SlayStage> createState() => _SlayStageState();
 }
@@ -102,6 +107,7 @@ class _SlayStageState extends State<SlayStage> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    if (SlayStage.debugPlaceholder) return;
     WidgetsBinding.instance.addObserver(this);
     _start();
   }
@@ -246,6 +252,12 @@ class _SlayStageState extends State<SlayStage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    if (SlayStage.debugPlaceholder) {
+      return ColoredBox(
+          key: ValueKey(
+              'slay-stage-${widget.look.avatarId ?? widget.look.body}'),
+          color: context.neon.plate);
+    }
     if (_loading) {
       return ColoredBox(
           color: context.neon.plate,
