@@ -44,7 +44,7 @@ echo "==> preparing ~/truearena-test and the truearena-edge network"
 echo "==> syncing backend source and test config"
 rsync -az --delete --exclude=target --exclude=.git -e "ssh -i $KEY" backend/ "$HOST:~/truearena-test/backend/"
 rsync -az -e "ssh -i $KEY" infra/docker-compose.test.yml infra/livekit.test.yaml "$HOST:~/truearena-test/infra/"
-rsync -az -e "ssh -i $KEY" "$ENV_FILE" "$HOST:~/truearena-test/infra/.env"
+rsync -azL -e "ssh -i $KEY" "$ENV_FILE" "$HOST:~/truearena-test/infra/.env"
 "${SSH[@]}" 'chmod 600 ~/truearena-test/infra/.env'
 "${SSH[@]}" 'mkdir -p ~/truearena-test/backend/ta-app/target'
 rsync -az -e "ssh -i $KEY" backend/ta-app/target/truearena-backend.jar "$HOST:~/truearena-test/backend/ta-app/target/"
