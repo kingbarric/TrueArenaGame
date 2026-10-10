@@ -1,0 +1,101 @@
+# word | first clue | second clue
+sequel | The next film that continues the story. | Toy Story 2 is one of these.
+plot twist | A shocking surprise in the story you didn't see coming. | When the good guy turns out to be the villain.
+cliffhanger | An episode that ends at the most exciting moment. | You have to wait till next week to find out what happens.
+box office | Where cinema tickets are sold, and how much a film earns. | A film's takings at the ticket window.
+soundtrack | All the music and songs in a film. | You can buy the album of a film's music.
+cameo | A tiny surprise appearance by a famous person. | Stan Lee popped up in every Marvel film.
+trailer | A short preview of a new film. | A teaser shown before the main movie; also a caravan.
+franchise | A big series of films, toys and games from one story. | Star Wars and Harry Potter are huge ones.
+binge-watch | Viewing episode after episode in one go. | Staying up all night finishing a whole series.
+spin-off | A new show about a side character from another show. | Minions came from Despicable Me.
+blockbuster | A huge hit film everyone goes to see. | A summer smash that earns billions.
+subtitle | Words at the bottom of the screen showing what's said. | Reading along with a foreign film.
+animation | Drawings or computer models brought to life on screen. | Cartoons from Pixar and Disney.
+documentary | A film about real life and true events. | David Attenborough narrates nature ones.
+season finale | The last episode before the summer break. | The big ending of this year's run of a show.
+prequel | A film set before the original story. | Showing how the villain started out.
+remake | A new version of an old film. | The Lion King made again with realistic animals.
+reboot | Starting a film series fresh from the beginning. | A new actor playing Spider-Man all over again.
+director's cut | The film the way the filmmaker really wanted it. | A longer version with extra scenes put back.
+screenplay | The written script of a film. | Lines and stage directions for the actors.
+storyboard | Comic-strip drawings that plan out each shot. | Sketches of a film before it's filmed.
+casting | Choosing which actors will play each role. | Picking the star for the part.
+audition | Trying out for a part by performing. | You read lines for the director hoping to get the role.
+rehearsal | Practising a scene before the real thing. | Running through lines again and again.
+premiere | The very first showing of a new film. | Stars arrive in limousines for the opening night.
+red carpet | Where celebrities walk and pose at a premiere. | Photographers shout as stars arrive in fancy outfits.
+award ceremony | A glittering night where prizes are handed out. | The Oscars or the Emmys.
+nomination | Being picked as a contender for a prize. | Making the shortlist for an Oscar.
+critic review | A professional's written opinion of a film. | Thumbs up, thumbs down, or star ratings in the paper.
+rating | Stars or a score showing how good something is. | Also the age guide like PG or 12A.
+genre | The type of film, like comedy or horror. | Western, sci-fi, musical are examples.
+comedy | A funny film that makes you laugh. | Jokes, slapstick and silly moments.
+tragedy | A sad story where things end badly. | Romeo and Juliet is a famous one.
+thriller | An exciting, tense film that keeps you on the edge of your seat. | Spies, chases and suspense.
+horror | A scary film with monsters and screams. | Ghosts and jump scares.
+romance | A love story. | Two people falling for each other.
+drama | A serious story with emotional moments. | Not a comedy; it's full of feelings and conflict.
+mockumentary | A pretend documentary that's actually a comedy. | The Office is filmed in this style.
+sitcom | A funny TV show about the same characters every week. | Friends or The Simpsons, with a laugh track.
+soap opera | A long-running TV drama about everyday lives. | EastEnders or Neighbours, on every weekday.
+talk show | A TV programme where a host chats with celebrity guests. | A host at a desk interviews stars on a sofa.
+reality show | TV about ordinary people, not actors. | Big Brother or Love Island.
+game show | A TV programme where contestants win prizes. | Who Wants to Be a Millionaire.
+news anchor | The person who reads the headlines on TV. | They sit at a desk and say good evening.
+broadcast | Sending a show out on TV or radio. | Live on air to everyone watching.
+streaming service | An app where you watch films online, like Netflix. | Disney Plus or Prime Video.
+subscription | Paying every month to keep using a service. | Your monthly Netflix plan.
+episode | One part of a TV series. | Each week's instalment.
+pilot episode | The very first test instalment of a new TV programme. | It decides if the series gets made.
+series finale | The very last instalment of a show, ever. | The last goodbye to the characters.
+character arc | How a person in a story changes from start to end. | From zero to hero.
+protagonist | The main character of a story. | The hero you follow.
+antagonist | The villain or enemy in a story. | The bad guy who causes trouble for the hero.
+narrator | The voice telling the story. | Someone speaking over the film explaining what happens.
+voiceover | Someone speaking over the pictures from off screen. | An unseen narrator talking over the film.
+special effects | Movie magic like explosions and flying. | CGI dinosaurs and spaceships.
+green screen | A coloured background swapped for something else. | Actors in front of it look like they're in space.
+stunt double | A person who does the dangerous bits for an actor. | They do the car crashes and falls.
+costume design | Making the clothes the actors wear. | Creating outfits for each character.
+makeup artist | Someone who paints actors' faces. | They make monsters and add fake scars.
+film score | The background music composed for a movie. | John Williams wrote the Star Wars one.
+theme song | The tune that plays at the start of a TV show. | A catchy opening tune everyone hums.
+opening credits | The names shown at the start of a film. | Titles rolling over the first scenes.
+end credits | The long list of names when the film finishes. | Most people leave while it scrolls.
+post-credits scene | A secret extra bit after all the names roll. | Marvel fans wait in their seats for it.
+montage | Lots of short clips showing time passing. | A training sequence set to music.
+flashback | A scene showing something from the past. | The story jumps back in time.
+foreshadowing | Hints early in a story about what's coming. | A clue that something will happen later.
+plot hole | A mistake in the story that doesn't make sense. | Why didn't they just fly the eagles to Mordor?
+fan theory | An idea viewers make up about what's really going on. | Online guesses about hidden secrets in a story.
+easter egg | A hidden secret or joke in a film or game. | Also a chocolate treat at spring.
+crossover | When characters from different shows meet. | Avengers bringing heroes together.
+anthology | A collection of separate stories in one series. | Black Mirror has a new tale every episode.
+mini-series | A short TV run with only a few episodes. | A story told over three or four nights.
+limited series | A show planned to have just one season. | It tells one complete story then ends.
+cliché | An idea used so often it's boring. | The hero walking away from an explosion.
+parody | A funny copy that makes fun of something. | Spoofing a famous film for laughs.
+satire | Using humour to mock people in power. | Making fun of politicians to make a point.
+biopic | A film about a real person's life. | Bohemian Rhapsody about Freddie Mercury.
+adaptation | A film made from a book. | Harry Potter went from page to screen.
+based on a true story | When a film says it really happened. | Real events, dramatised.
+box set | All the seasons of a show in one package. | The complete collection on DVD.
+fan fiction | Stories written by admirers using their favourite characters. | New Harry Potter adventures written online by readers.
+merchandise | Toys, T-shirts and mugs from a film. | Stuff sold with a movie's logo on it.
+convention | A big event where fans meet and dress up. | Comic-Con.
+cosplay | Dressing up as a character. | Fans in costume at Comic-Con.
+spoiler | Telling someone the ending before they've seen it. | Don't ruin it! Alert!
+binge | Doing lots of something all at once. | Watching a whole series in one sitting.
+rewatch | Seeing a film or show again. | Going back to your favourite one more time.
+marathon | Watching lots of films in a row. | Also a 26-mile race.
+cult classic | A film with a small but devoted fan following. | Rocky Horror, loved by fans who quote it.
+box office flop | A film that loses money because nobody goes to see it. | A big-budget bomb at the cinema.
+sleeper hit | A film that becomes popular slowly and surprisingly. | It quietly grows into a success.
+critically acclaimed | Loved and praised by reviewers. | Five stars from all the papers.
+underrated | Better than people give it credit for. | Not appreciated enough.
+overrated | Not as good as everyone says. | Hyped up too much.
+tearjerker | A sad film that makes you cry. | Bring tissues; think Marley and Me.
+plot armor | When the hero can't die because the story needs them. | They survive every danger, conveniently.
+character development | How a person in a story grows and changes. | When a selfish hero learns to care.
+world-building | Creating a whole imaginary universe for a story. | Maps, histories and languages like Middle-earth.

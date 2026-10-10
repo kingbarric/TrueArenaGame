@@ -1,0 +1,100 @@
+# word | first clue | second clue
+t-shirt | A simple top with short sleeves. | Cotton top with a print.
+sweater | A warm knitted top. | Jumper.
+hoodie | A sweatshirt you pull up over your head. | Comfy top with drawstrings.
+jacket | A short coat. | Denim or leather.
+coat | Warm outerwear for winter. | Parka or trench.
+blazer | A smart jacket for school uniform. | Blue jacket with buttons.
+suit | Matching jacket and trousers. | Business wear.
+tuxedo | A black formal suit with a bow tie. | Tux for James Bond.
+gown | A long formal dress. | Ball dress.
+dress | A one-piece outfit for women. | Frock.
+skirt | Clothing that hangs from the waist. | Mini or maxi.
+trousers | Clothing covering each leg. | Pants.
+jeans | Blue denim trousers. | Levi's.
+shorts | Trousers that stop above the knee. | Summer wear.
+leggings | Tight stretchy trousers. | Yoga pants.
+overalls | Trousers with a bib and straps. | Dungarees.
+jumpsuit | A one-piece outfit. | Onesie for grown-ups.
+romper | A one-piece with shorts. | Playsuit.
+cardigan | A knitted top with buttons. | Grandpa jumper.
+vest | Sleeveless top. | Waistcoat.
+turtleneck | A sweater that covers your throat. | Polo.
+tank top | A sleeveless vest. | Singlet.
+crop top | A short shirt showing the tummy. | Midriff.
+blouse | A woman's smart shirt. | Silky shirt.
+pajamas | Clothes you sleep in. | PJs.
+nightgown | A long nightdress. | Nightie.
+robe | A dressing gown. | Bath gown.
+swimsuit | What you wear in the pool. | Bathing costume.
+bikini | A two-piece swimsuit. | Beachwear.
+wetsuit | A rubber outfit for surfing. | Neoprene.
+raincoat | Waterproof jacket. | Mac.
+windbreaker | A light jacket against gusts. | Shell jacket.
+parka | A big hooded winter coat. | Fur-lined hood.
+poncho | A blanket with a hole for your head. | Mexican cape.
+cape | A cloak. | Superman's.
+shawl | A cloth worn over the shoulders. | Wrap.
+scarf | Neck wrap. | Woolly.
+bandana | A square cloth tied on the head. | Cowboy kerchief.
+beanie | A woolly hat. | Knit cap.
+baseball cap | A peaked hat. | Snapback.
+fedora | A felt hat with a brim. | Indiana Jones.
+beret | A flat round French hat. | Artist's hat.
+sun hat | A wide-brimmed straw thing for your head. | Beach shade.
+headband | A strip worn around the forehead. | Sweatband.
+hair tie | Elastic to hold a ponytail. | Scrunchie.
+wig | Fake hair. | Toupee.
+veil | A cloth over a bride's face. | Wedding.
+mask | A face covering. | Halloween.
+sunglasses | Dark specs. | Shades.
+reading glasses | Specs for books. | Spectacles.
+contact lenses | Little discs on your eyes for seeing. | Instead of specs.
+earmuffs | Fluffy ear warmers. | Winter ear covers.
+mittens | Gloves without fingers. | Thumb pockets.
+gloves | Hand coverings. | Five fingers.
+socks | Foot coverings. | Pairs.
+stockings | Thin leg coverings. | Christmas ones hung up.
+tights | Leg coverings up to the waist. | Pantyhose.
+high heels | Tall shoes. | Stilettos.
+sneakers | Sports shoes. | Trainers.
+loafers | Slip-on shoes. | Moccasins.
+flip-flops | Rubber sandals. | Thongs.
+sandals | Open shoes. | Summer footwear.
+boots | Tall shoes. | Wellingtons.
+slippers | Soft shoes for indoors. | Fluffy house shoes.
+platform shoes | Footwear with thick soles. | Spice Girls.
+stilettos | Very thin high heels. | Spike heels.
+belt | Strap round your waist. | Buckle.
+suspenders | Straps holding up trousers. | Braces.
+tie | A cloth strip knotted at your collar. | Worn with a suit.
+bow tie | A knotted butterfly shape at the collar. | Dickie.
+cufflinks | Fasteners for shirt sleeves. | Sleeve jewellery.
+brooch | Decorative pin. | Lapel jewellery.
+pin | A small sharp fastener. | Needle without a hole.
+buckle | The clasp on a belt. | Fastener.
+zipper | Teeth that zip up. | Fly.
+button | A round fastener. | Belly.
+pocket | A pouch in your clothes. | Hands in.
+hem | The folded edge of fabric. | Bottom edge.
+seam | Where two pieces are sewn. | Stitch line.
+stitch | One loop of thread. | Needlework.
+fabric | Cloth. | Material.
+cotton | Soft fabric from a plant. | T-shirts.
+silk | Smooth fabric from worms. | Spun by caterpillars.
+wool | Fabric from sheep. | Knitting.
+leather | Material from animal skin. | Jackets.
+denim | Jeans fabric. | Blue cotton.
+lace | Delicate patterned fabric. | Doily-like trim.
+velvet | Soft plush fabric. | Plush.
+satin | Shiny smooth fabric. | Glossy.
+polyester | Synthetic fabric. | Man-made.
+sequins | Shiny discs on clothes. | Sparkles.
+embroidery | Decorative stitching. | Needle art.
+tailoring | Making clothes to fit. | Alterations.
+fashion show | Models on a catwalk. | Runway.
+runway model | Someone walking the catwalk. | Kate Moss.
+designer label | Brand like Gucci. | Luxury brand.
+thrift store | Second-hand shop. | Charity shop.
+vintage clothing | Old fashion from past decades. | Retro.
+fast fashion | Cheap trendy clothes. | Primark.

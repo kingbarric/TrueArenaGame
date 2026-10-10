@@ -10,15 +10,12 @@ import 'package:truearena/core/app_state.dart';
 import 'package:truearena/features/friends/friends_screen.dart';
 import 'package:truearena/theme/neon_theme.dart';
 
-http.Response _json(Object body) => http.Response(jsonEncode(body), 200,
-    headers: {'content-type': 'application/json'});
+http.Response _json(Object body) => http.Response(jsonEncode(body), 200, headers: {'content-type': 'application/json'});
 
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
 
-  testWidgets(
-      'typing searches as-you-type and offers the top matches to add',
-      (tester) async {
+  testWidgets('typing searches as-you-type and offers the top matches to add', (tester) async {
     final posted = <String>[];
     final mock = MockClient((request) async {
       final path = request.url.path;
@@ -54,8 +51,7 @@ void main() {
           },
         ]);
       }
-      if (request.method == 'POST' &&
-          path == '/api/v1/friends/requests/user/u-stranger') {
+      if (request.method == 'POST' && path == '/api/v1/friends/requests/user/u-stranger') {
         posted.add(path);
         return http.Response('', 201);
       }
@@ -111,8 +107,7 @@ void main() {
                 ],
         });
       }
-      if (request.method == 'POST' &&
-          path == '/api/v1/friends/requests/req-1/cancel') {
+      if (request.method == 'POST' && path == '/api/v1/friends/requests/req-1/cancel') {
         posted.add(path);
         outgoingCleared = true;
         return http.Response('', 204);
@@ -125,6 +120,9 @@ void main() {
       child: MaterialApp(theme: NeonTheme.dark, home: const FriendsScreen()),
     ));
     await tester.pumpAndSettle();
+    // Sent and received requests live under the Requests tab.
+    await tester.tap(find.byKey(const ValueKey('friends-tab-requests')));
+    await tester.pumpAndSettle();
 
     expect(find.text('Waiting on @other'), findsOneWidget);
     await tester.tap(find.text('CANCEL'));
@@ -132,5 +130,36 @@ void main() {
 
     expect(posted, ['/api/v1/friends/requests/req-1/cancel']);
     expect(find.text('Waiting on @other'), findsNothing);
+  });
+
+  testWidgets('swiping sideways moves between Friends, Messages and Requests', (tester) async {
+    final mock = MockClient((request) async {
+      final path = request.url.path;
+      if (path == '/api/v1/friends') return _json([]);
+      if (path == '/api/v1/friends/requests') return _json({'incoming': [], 'outgoing': []});
+      if (path.startsWith('/api/v1/chat') || path.startsWith('/api/v1/groups')) return _json([]);
+      return http.Response('not found', 404);
+    });
+    await tester.pumpWidget(AppScope(
+      state: AppState(ApiClient(client: mock)),
+      child: MaterialApp(theme: NeonTheme.dark, home: const FriendsScreen()),
+    ));
+    await tester.pumpAndSettle();
+    void on(String tab) =>
+        expect(tester.getSemantics(find.byKey(ValueKey('friends-tab-$tab'))), isSemantics(isSelected: true));
+    on('friends');
+
+    await tester.fling(find.byKey(const ValueKey('friends-pages')), const Offset(-300, 0), 1500);
+    await tester.pumpAndSettle();
+    on('messages');
+
+    await tester.fling(find.byKey(const ValueKey('friends-pages')), const Offset(-300, 0), 1500);
+    await tester.pumpAndSettle();
+    on('requests');
+
+    // Tapping a tab slides straight there.
+    await tester.tap(find.byKey(const ValueKey('friends-tab-friends')));
+    await tester.pumpAndSettle();
+    on('friends');
   });
 }

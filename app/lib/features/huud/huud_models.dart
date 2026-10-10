@@ -52,8 +52,11 @@ class HuudPerson {
   final String? avatarUrl;
   final bool friend;
 
+  /// Full name — only for their profile card.
   String get name => displayName.isNotEmpty ? displayName : username;
-  String get firstName => name.split(' ').first;
+
+  /// How they're shown everywhere else: their username.
+  String get handle => username.isNotEmpty ? username : name.split(' ').first;
 
   factory HuudPerson.fromJson(Map<String, dynamic> j) => HuudPerson(
         userId: j['userId'].toString(),
@@ -198,9 +201,11 @@ class HuudItem {
     this.game,
     this.win,
     this.tournament,
+    this.huud,
+    this.reactions,
   });
 
-  /// game_request | challenge | win | tournament | champion
+  /// game_request | challenge | win | tournament | champion | huud | post
   final String kind;
   final String id;
   final DateTime at;
@@ -210,6 +215,8 @@ class HuudItem {
   final HuudOpenGame? game;
   final HuudWin? win;
   final HuudTournament? tournament;
+  final HuudShared? huud;
+  final HuudReactions? reactions;
 
   String get gameName => huudGameNames[gameType] ?? gameType;
 
@@ -227,6 +234,63 @@ class HuudItem {
         tournament: j['tournament'] == null
             ? null
             : HuudTournament.fromJson((j['tournament'] as Map).cast<String, dynamic>()),
+        huud: j['huud'] == null ? null : HuudShared.fromJson((j['huud'] as Map).cast<String, dynamic>()),
+        reactions:
+            j['reactions'] == null ? null : HuudReactions.fromJson((j['reactions'] as Map).cast<String, dynamic>()),
+      );
+}
+
+/// The reactions a post can get, in the order they're offered.
+const huudReactionEmoji = ['❤️', '👍', '😂', '😮', '🔥', '👏'];
+
+/// Reactions on a text post: how many of each, the total, and yours.
+class HuudReactions {
+  const HuudReactions({this.total = 0, this.counts = const {}, this.mine});
+  final int total;
+  final Map<String, int> counts;
+  final String? mine;
+
+  factory HuudReactions.fromJson(Map<String, dynamic> j) => HuudReactions(
+        total: (j['total'] as num?)?.toInt() ?? 0,
+        counts: {
+          for (final e in ((j['counts'] as Map?) ?? const {}).entries) e.key.toString(): (e.value as num).toInt(),
+        },
+        mine: j['mine'] as String?,
+      );
+}
+
+/// A Huud its host shared to the feed. [access]: "in" (you're in it), "join"
+/// (walk straight in) or "ask" (the host lets you in).
+class HuudShared {
+  const HuudShared({
+    required this.huudSpaceId,
+    required this.name,
+    required this.privacy,
+    required this.people,
+    required this.players,
+    required this.seats,
+    required this.access,
+    this.gameStatus,
+  });
+
+  final String huudSpaceId;
+  final String name;
+  final String privacy;
+  final int people;
+  final int players;
+  final int seats;
+  final String access;
+  final String? gameStatus;
+
+  factory HuudShared.fromJson(Map<String, dynamic> j) => HuudShared(
+        huudSpaceId: j['huudSpaceId'].toString(),
+        name: j['name'] as String? ?? 'Huud',
+        privacy: j['privacy'] as String? ?? 'friends',
+        people: (j['people'] as num?)?.toInt() ?? 0,
+        players: (j['players'] as num?)?.toInt() ?? 0,
+        seats: (j['seats'] as num?)?.toInt() ?? 2,
+        access: j['access'] as String? ?? 'join',
+        gameStatus: j['gameStatus'] as String?,
       );
 }
 

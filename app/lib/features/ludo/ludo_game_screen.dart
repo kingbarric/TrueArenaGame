@@ -14,6 +14,11 @@ import '../../widgets/copyable_huud_code.dart';
 import '../../widgets/game_voice_control.dart';
 import '../../widgets/how_to_play_dialog.dart';
 import '../../widgets/table_chat.dart';
+import '../huudspace/leave_game.dart';
+import '../../widgets/game_controls.dart';
+import '../../widgets/turn_ring.dart';
+import '../../widgets/neon.dart' show OnlineAvatar;
+import '../../widgets/worn_look.dart';
 
 enum _LudoBoardTheme { classic, glass, wood }
 
@@ -82,7 +87,15 @@ class _LudoGameScreenState extends State<LudoGameScreen>
   String? _error;
   _LudoBoardTheme _boardTheme = _LudoBoardTheme.classic;
 
-  List<String> get _players => (_state['players'] as List? ?? const [])
+  /// The last move someone else made — what VAR replays.
+  ({String player, int token, int from, int to})? _lastOtherMove;
+
+  /// VAR playing: the piece being replayed and how far along (0–1).
+  ({String player, int token, int from, int to})? _replay;
+  double _replayT = 0;
+  Timer? _replayTimer;
+
+  List<String> get _players_ => (_state['players'] as List? ?? const [])
       .map((e) => e.toString())
       .toList();
   List<int> get _seats => (_state['seats'] as List? ?? const [])
@@ -97,6 +110,8 @@ class _LudoGameScreenState extends State<LudoGameScreen>
           .map((e) => e.cast<String, dynamic>())
           .toList();
   String get _turn => _state['turnPlayer']?.toString() ?? '';
+  String? get _pendingUndo => _state['pendingUndo']?.toString();
+  String? get _undoableBy => _state['undoableBy']?.toString();
   bool get _myTurn =>
       !widget.spectating &&
       _turn == widget.selfId &&
@@ -108,7 +123,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
       widget.nicknames[id] ?? (id == widget.selfId ? 'You' : 'Player');
 
   Color? _playerColor(String player) {
-    final index = _players.indexOf(player);
+    final index = _players_.indexOf(player);
     return index < 0 || index >= _seats.length ? null : _colors[_seats[index]];
   }
 
@@ -316,6 +331,27 @@ class _LudoGameScreenState extends State<LudoGameScreen>
           if ((data['captured'] as List? ?? const []).isNotEmpty) {
             GameSfx.capture();
           }
+          final mover = data['player']?.toString();
+          if (mover != null && mover != widget.selfId) {
+            _lastOtherMove = (
+              player: mover,
+              token: (data['token'] as num?)?.toInt() ?? 0,
+              from: (data['from'] as num?)?.toInt() ?? -1,
+              to: (data['to'] as num?)?.toInt() ?? 0,
+            );
+          }
+        } else if (type == 'UNDO_REQUESTED' || type == 'UNDO_ACCEPTED' || type == 'UNDO_DECLINED') {
+          final by = data['by']?.toString() ?? '';
+          final line = switch (type) {
+            'UNDO_REQUESTED' => '${_name(by)} asked to undo their move.',
+            'UNDO_ACCEPTED' => '${_name(by)} allowed the undo.',
+            _ => '${_name(by)} said no to the undo.',
+          };
+          setState(() => _chat.insert(0, TableChatLine.system(line)));
+          if (type == 'UNDO_DECLINED' && _pendingUndo == widget.selfId && by != widget.selfId) {
+            ScaffoldMessenger.of(context)
+                .showSnackBar(SnackBar(content: Text('${_name(by)} said no — your move stays.')));
+          }
         } else if (type == 'GAME_PAUSED' || type == 'GAME_RESUMED') {
           setState(() {
             _state['paused'] = type == 'GAME_PAUSED';
@@ -432,16 +468,15 @@ class _LudoGameScreenState extends State<LudoGameScreen>
     final leave = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-              title: const Text('Leave Ludo?'),
-              content:
-                  const Text('Your place in this match will be forfeited.'),
+              title: const Text('Resign this game?'),
+              content: const Text('You\'ll be out of this match — it counts as a loss.'),
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(context, false),
                     child: const Text('Stay')),
                 TextButton(
                     onPressed: () => Navigator.pop(context, true),
-                    child: const Text('Leave'))
+                    child: const Text('Resign'))
               ],
             ));
     if (leave == true && mounted) {
@@ -451,7 +486,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
           await app.api.post('/rooms/${widget.socket.roomId}/leave-ludo');
         }
         await app.clearActiveRoom(widget.socket.roomId);
-        if (mounted) Navigator.of(context).pop();
+        if (mounted) await leaveGame(context, widget.socket.roomId);
       } catch (_) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -461,9 +496,52 @@ class _LudoGameScreenState extends State<LudoGameScreen>
     }
   }
 
+  /// Ask to take back your last turn — the next player says yes or no
+  /// before they roll. Yes puts your pieces back, with the same dice.
+  void _requestUndo() {
+    final messenger = ScaffoldMessenger.of(context);
+    if (_pendingUndo == widget.selfId) {
+      messenger.showSnackBar(SnackBar(content: Text('Waiting for ${_name(_turn)} to answer…')));
+      return;
+    }
+    if (_undoableBy != widget.selfId) {
+      messenger.showSnackBar(
+          const SnackBar(content: Text('You can undo only right after your turn, before the next player rolls.')));
+      return;
+    }
+    widget.socket.send('PLAYER_ACTION', {'action': 'REQUEST_UNDO', 'data': {}});
+    messenger.showSnackBar(SnackBar(content: Text('Asked ${_name(_turn)} to let you undo.')));
+  }
+
+  /// VAR: the last move someone else made, played again on the board.
+  void _playVar() {
+    final move = _lastOtherMove;
+    if (move == null) return;
+    _replayTimer?.cancel();
+    final started = DateTime.now();
+    const length = Duration(milliseconds: 1800);
+    setState(() {
+      _replay = move;
+      _replayT = 0;
+    });
+    _replayTimer = Timer.periodic(const Duration(milliseconds: 40), (timer) {
+      final t = DateTime.now().difference(started).inMilliseconds / length.inMilliseconds;
+      if (!mounted) return timer.cancel();
+      if (t >= 1.35) {
+        timer.cancel();
+        setState(() => _replay = null);
+        return;
+      }
+      setState(() => _replayT = t.clamp(0, 1).toDouble());
+    });
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        duration: const Duration(seconds: 2),
+        content: Text('VAR: ${_name(move.player)} moved ${move.from < 0 ? 'out of base' : '${move.to - move.from} spaces'}')));
+  }
+
   Future<void> _returnToGames() async {
     await AppScope.of(context).clearActiveRoom(widget.socket.roomId);
-    if (mounted) Navigator.of(context).pop();
+    if (mounted) await leaveGame(context, widget.socket.roomId);
   }
 
   void _showHelp() {
@@ -475,7 +553,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
         steps: [
           'Tap the cup to roll two dice. Use each die on a piece; choose the same piece twice or two different pieces.',
           'A six brings a piece out of its home box onto its starting square. Only double six earns another roll.',
-          'Land on a rival on an ordinary square to send it home. Stars and coloured starting squares are safe.',
+          'A kill returns the rival to its box and finishes your piece in the centre. If a die remains, another piece must be able to use it; otherwise keep moving this piece. Stars and starting squares are safe, except when you bring a piece out onto your own occupied start.',
           'Enter your own coloured lane after a lap. Reach the centre with an exact roll.',
         ]);
   }
@@ -664,7 +742,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
           ),
           body: SafeArea(
               child: Column(children: [
-            _status(),
+            _players(),
             Expanded(
                 child: Stack(children: [
               Positioned.fill(
@@ -716,6 +794,13 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                   ),
                 ),
             ])),
+            if (!widget.spectating && _pendingUndo != null && _pendingUndo != widget.selfId && _turn == widget.selfId)
+              UndoAskBanner(
+                who: _name(_pendingUndo!),
+                onAnswer: (yes) => widget.socket
+                    .send('PLAYER_ACTION', {'action': yes ? 'ACCEPT_UNDO' : 'DECLINE_UNDO', 'data': {}}),
+              ),
+            _controls(),
             if (_error != null)
               Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -736,54 +821,108 @@ class _LudoGameScreenState extends State<LudoGameScreen>
         ));
   }
 
-  Widget _status() {
-    final winner = _state['winner']?.toString();
-    final label = winner != null
-        ? '${_name(winner)} wins'
-        : _state['paused'] == true
-            ? 'Game paused'
-            : _turn.isEmpty
-                ? 'Waiting for table'
-                : _myTurn
-                    ? 'Your turn'
-                    : '${_name(_turn)} to play';
-    final seat = _players.indexOf(_turn);
-    final color =
-        seat < 0 || seat >= _seats.length ? _gold : _colors[_seats[seat]];
+  /// The control row every board game shares (Ludo has no draws):
+  /// Undo · VAR · Rules · Resign.
+  Widget _controls() {
+    if (widget.spectating) {
+      return GameControlBar(controls: [
+        GameControl(id: 'var', icon: Icons.live_tv_rounded, label: 'VAR', onTap: _lastOtherMove == null ? null : _playVar),
+        GameControl(id: 'rules', icon: Icons.help_outline_rounded, label: 'Rules', onTap: _showHelp),
+      ]);
+    }
+    return GameControlBar(
+      controls: GameControlBar.standard(
+        hasDraw: false,
+        onUndo: _finished ? null : _requestUndo,
+        undoLabel: _pendingUndo == widget.selfId ? 'Asked' : 'Undo',
+        onVar: _lastOtherMove == null ? null : _playVar,
+        onRules: _showHelp,
+        onResign: _finished ? null : _confirmLeave,
+      ),
+    );
+  }
+
+  /// Everyone at the table: green ring and the ✋ on whoever's turn it is,
+  /// amber on the rest — the hand glides to each player in turn.
+  Widget _players() {
+    final players = _players_;
+    final turnIndex = players.indexOf(_turn);
+    final n = players.length;
+    final app = AppScope.of(context);
     return Container(
-      height: 64,
+      height: 74,
       color: _panel,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
       child: Row(children: [
         Container(
-            width: 46,
-            height: 46,
+            width: 42,
+            height: 42,
             alignment: Alignment.center,
-            decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: _gold, width: 3)),
-            child: Text('$_seconds',
-                style: const TextStyle(
-                    color: _gold, fontWeight: FontWeight.bold))),
-        const SizedBox(width: 16),
+            decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: _gold, width: 3)),
+            child: Text('$_seconds', style: const TextStyle(color: _gold, fontWeight: FontWeight.bold))),
+        const SizedBox(width: 8),
         Expanded(
-            child: Text(label.toUpperCase(),
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                    color: color, fontSize: 16, fontWeight: FontWeight.w900))),
+          child: Stack(children: [
+            Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+              for (final p in players)
+                Column(key: ValueKey('ludo-player-$p'), mainAxisAlignment: MainAxisAlignment.center, children: [
+                  TurnRing(
+                    active: p == _turn && !_finished,
+                    size: 32,
+                    child: ValueListenableBuilder<Set<String>>(
+                      valueListenable: widget.socket.onlinePlayers,
+                      builder: (_, online, __) => OnlineAvatar(
+                        _name(p),
+                        size: 32,
+                        online: online.contains(p),
+                        presence: widget.socket.presenceOf(p),
+                        emoji: widget.agents.contains(p) ? '🤖' : (p == widget.selfId ? app.avatarEmoji : null),
+                        imageUrl: widget.socket.memberAvatars[p] ?? (p == widget.selfId ? app.user?.avatarUrl : null),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(p == widget.selfId ? 'You' : _name(p),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          color: _playerColor(p) ?? _cream)),
+                ]),
+            ]),
+            if (turnIndex >= 0 && !_finished && n > 0)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: AnimatedAlign(
+                    duration: const Duration(milliseconds: 420),
+                    curve: Curves.easeInOutCubic,
+                    // Centres of n evenly spaced players, then nudged to sit by the picture.
+                    alignment: Alignment(2 * (turnIndex + 1) / (n + 1) - 1, -0.15),
+                    child: const Padding(
+                      padding: EdgeInsets.only(left: 52),
+                      child: Text('✋', key: ValueKey('turn-hand'), style: TextStyle(fontSize: 20)),
+                    ),
+                  ),
+                ),
+              ),
+          ]),
+        ),
         if (!_connected) const Icon(Icons.wifi_off_rounded, color: _cream),
       ]),
     );
   }
 
+
+
   Widget _board(double side) {
-    final frame = math.max(7.0, side * .028);
+    final frame = math.max(12.0, side * .042);
     final boardSide = side - frame * 2;
     final cell = boardSide / 15;
     final pieces = (_state['pieces'] as Map? ?? const {});
     return CustomPaint(
       key: const ValueKey('ludo-wood-frame'),
-      painter: _LudoWoodFramePainter(frame),
+      painter: const RustyWoodPainter(top: Color(0xff7a4524), bottom: Color(0xff3a1c0b)),
       child: Padding(
         padding: EdgeInsets.all(frame),
         child: ClipRRect(
@@ -798,8 +937,17 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                       (_state['pieceCount'] as num?)?.toInt() ?? 4,
                       _seats.toSet(),
                       _boardTheme)),
-              for (var i = 0; i < _players.length; i++)
-                if (_players[i] == _turn && !_finished)
+              // Years of play: dust, stains and scuffs over the whole board.
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(
+                    painter: const GrimePainter(
+                        base: Colors.transparent, dark: false, seed: 77, overlay: true, density: 45, corners: false),
+                  ),
+                ),
+              ),
+              for (var i = 0; i < _players_.length; i++)
+                if (_players_[i] == _turn && !_finished)
                   Positioned(
                       left: (_seats[i] == 0 || _seats[i] == 3 ? 0 : 9) * cell,
                       top: (_seats[i] < 2 ? 0 : 9) * cell,
@@ -820,14 +968,23 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                           ),
                         ),
                       )),
-              for (var i = 0; i < _players.length; i++)
-                _playerLabel(_players[i], _seats[i], cell),
-              for (var i = 0; i < _players.length; i++)
-                for (var token = 0;
-                    token < (pieces[_players[i]] as List? ?? const []).length;
-                    token++)
-                  _token(_players[i], _seats[i], token,
-                      (pieces[_players[i]] as List)[token] as int, cell),
+              for (var i = 0; i < _players_.length; i++)
+                _playerLabel(_players_[i], _seats[i], cell),
+              // Paint the current player's pieces last so shared squares remain tappable.
+              for (final i in [
+                for (var i = 0; i < _players_.length; i++)
+                  if (_players_[i] != _turn) i,
+                for (var i = 0; i < _players_.length; i++)
+                  if (_players_[i] == _turn) i,
+              ])
+                for (final token in [
+                  for (var token = 0; token < (pieces[_players_[i]] as List? ?? const []).length; token++)
+                    if (!_tokenIsActive(_players_[i], token)) token,
+                  for (var token = 0; token < (pieces[_players_[i]] as List? ?? const []).length; token++)
+                    if (_tokenIsActive(_players_[i], token)) token,
+                ])
+                  _token(_players_[i], _seats[i], token,
+                      (pieces[_players_[i]] as List)[token] as int, cell),
             ])),
       ),
     );
@@ -869,14 +1026,24 @@ class _LudoGameScreenState extends State<LudoGameScreen>
     );
   }
 
+  bool _tokenIsActive(String player, int token) =>
+      _myTurn && player == widget.selfId && _legal.any((m) => m['token'] == token);
+
   Widget _token(String player, int seat, int token, int progress, double cell) {
     final pieceCount = (_state['pieceCount'] as num?)?.toInt() ?? 4;
+    final replay = _replay;
+    final replaying = replay != null && replay.player == player && replay.token == token;
+    if (replaying) {
+      // VAR: step from where it was to where it landed, a square at a time.
+      final start = replay.from < 0 ? -1 : replay.from;
+      final steps = replay.from < 0 ? 1 : replay.to - replay.from;
+      progress = start + (steps * _replayT).floor();
+      if (_replayT >= 1) progress = replay.to;
+    }
     final (row, col) = _position(seat, token, progress, pieceCount);
     final pieceScale = progress == 56 ? (pieceCount == 8 ? .32 : .46) : .78;
     final pieceInset = (1 - pieceScale) / 2;
-    final active = _myTurn &&
-        player == widget.selfId &&
-        _legal.any((m) => m['token'] == token);
+    final active = _tokenIsActive(player, token);
     return AnimatedPositioned(
       key: ValueKey('$player:$token'),
       duration: const Duration(milliseconds: 420),
@@ -887,47 +1054,23 @@ class _LudoGameScreenState extends State<LudoGameScreen>
       height: cell * pieceScale,
       child: GestureDetector(
           onTap: () => _tapToken(player, token),
+          // A real-looking piece in the player's colour (same as Draughts').
           child: Container(
-            decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: _boardTheme == _LudoBoardTheme.classic
-                    ? _colors[seat]
-                    : null,
-                gradient: _boardTheme == _LudoBoardTheme.classic
-                    ? null
-                    : LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                            Color.lerp(
-                                _colors[seat],
-                                Colors.white,
-                                _boardTheme == _LudoBoardTheme.glass
-                                    ? .58
-                                    : .18)!,
-                            _colors[seat],
-                            Color.lerp(
-                                _colors[seat],
-                                Colors.black,
-                                _boardTheme == _LudoBoardTheme.glass
-                                    ? .30
-                                    : .38)!,
-                          ]),
-                border: Border.all(
-                    color: _boardTheme == _LudoBoardTheme.wood
-                        ? const Color(0xfff2dfb9)
-                        : Colors.white,
-                    width: active ? 2.5 : 1),
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.black.withValues(alpha: .45),
-                      blurRadius: active ? 8 : 3,
-                      offset: const Offset(0, 2))
-                ]),
-            child: active
-                ? const Icon(Icons.touch_app_rounded,
-                    size: 12, color: Colors.white)
+            key: replaying ? const ValueKey('ludo-var-piece') : null,
+            foregroundDecoration: replaying
+                ? BoxDecoration(shape: BoxShape.circle, border: Border.all(color: const Color(0xffffc233), width: 3))
                 : null,
+            child: CustomPaint(
+              painter: RealPiecePainter(
+                top: Color.lerp(_colors[seat], Colors.white, .45)!,
+                mid: _colors[seat],
+                rim: Color.lerp(_colors[seat], Colors.black, .45)!,
+                glowing: active,
+              ),
+              child: active
+                  ? const Center(child: Icon(Icons.touch_app_rounded, size: 12, color: Colors.white))
+                  : const SizedBox.expand(),
+            ),
           )),
     );
   }
@@ -1145,186 +1288,140 @@ class _DiceCupPainter extends CustomPainter {
   bool shouldRepaint(covariant _DiceCupPainter oldDelegate) => false;
 }
 
+/// A solid die in three-quarter view: front, top and right faces sharing
+/// the same corners (no gaps), rounded outer corners, soft bevels on the
+/// edges, and pips on every face we can see — foreshortened on the top and
+/// side like a real cube.
 class _Die3DPainter extends CustomPainter {
   const _Die3DPainter(this.value, this.selected);
   final int value;
   final bool selected;
 
+  static const _pipLayout = {
+    1: [4],
+    2: [0, 8],
+    3: [0, 4, 8],
+    4: [0, 2, 6, 8],
+    5: [0, 2, 4, 6, 8],
+    6: [0, 2, 3, 5, 6, 8],
+  };
+
+  /// The faces next to [value] on a standard die (opposites add up to 7):
+  /// what shows on top and on the right.
+  static (int, int) _neighbours(int v) => switch (v) {
+        1 => (2, 3),
+        2 => (1, 3),
+        3 => (1, 2),
+        4 => (5, 1),
+        5 => (1, 4),
+        _ => (5, 4),
+      };
+
   @override
   void paint(Canvas canvas, Size size) {
-    final front = RRect.fromRectAndRadius(
-        Rect.fromLTWH(2, 8, size.width - 10, size.height - 10),
-        const Radius.circular(7));
-    canvas.drawRRect(
-        front.shift(const Offset(3, 4)),
-        Paint()
-          ..color = Colors.black.withValues(alpha: .35)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4));
+    final s = size.shortestSide;
+    final d = s * 0.2; // depth of the top / side faces
+    final x0 = s * 0.02, y0 = s * 0.02, x1 = s * 0.98, y1 = s * 0.98;
+    // Shared corners.
+    final fTL = Offset(x0, y0 + d), fTR = Offset(x1 - d, y0 + d);
+    final fBL = Offset(x0, y1), fBR = Offset(x1 - d, y1);
+    final bTL = Offset(x0 + d, y0), bTR = Offset(x1, y0), bBR = Offset(x1, y1 - d);
 
-    final top = Path()
-      ..moveTo(7, 8)
-      ..lineTo(13, 2)
-      ..lineTo(size.width - 2, 2)
-      ..lineTo(size.width - 8, 8)
+    // The whole outline, with softly rounded outer corners.
+    final r = s * 0.07;
+    Offset toward(Offset a, Offset b) {
+      final v = b - a;
+      return a + v / v.distance * r;
+    }
+    final outline = [fBL, fTL, bTL, bTR, bBR, fBR];
+    final silhouette = Path();
+    for (var i = 0; i < outline.length; i++) {
+      final prev = outline[(i - 1 + outline.length) % outline.length];
+      final cur = outline[i];
+      final next = outline[(i + 1) % outline.length];
+      final a = toward(cur, prev), b = toward(cur, next);
+      i == 0 ? silhouette.moveTo(a.dx, a.dy) : silhouette.lineTo(a.dx, a.dy);
+      silhouette.quadraticBezierTo(cur.dx, cur.dy, b.dx, b.dy);
+    }
+    silhouette.close();
+
+    // Shadow under the die.
+    canvas.drawPath(silhouette.shift(Offset(s * 0.04, s * 0.06)),
+        Paint()..color = Colors.black.withValues(alpha: .38)..maskFilter = MaskFilter.blur(BlurStyle.normal, s * 0.06));
+
+    canvas.save();
+    canvas.clipPath(silhouette);
+    // A solid body first, so the seams between faces never show the table.
+    canvas.drawPath(silhouette, Paint()..color = const Color(0xffc9d0d7));
+
+    Path quad(Offset a, Offset b, Offset c, Offset e) => Path()
+      ..moveTo(a.dx, a.dy)
+      ..lineTo(b.dx, b.dy)
+      ..lineTo(c.dx, c.dy)
+      ..lineTo(e.dx, e.dy)
       ..close();
-    canvas.drawPath(
-        top,
-        Paint()
-          ..shader = const LinearGradient(
-            colors: [Color(0xffffffff), Color(0xffdce2e8)],
-          ).createShader(Offset.zero & size));
+    final front = quad(fTL, fTR, fBR, fBL);
+    final top = quad(fTL, bTL, bTR, fTR);
+    final side = quad(fTR, bTR, bBR, fBR);
+    final box = Offset.zero & size;
+    canvas.drawPath(top, Paint()
+      ..shader = const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
+          colors: [Color(0xffffffff), Color(0xffe9edf1)]).createShader(box));
+    canvas.drawPath(side, Paint()
+      ..shader = const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter,
+          colors: [Color(0xffd5dce3), Color(0xffa5b0bb)]).createShader(box));
+    canvas.drawPath(front, Paint()
+      ..shader = const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
+          colors: [Color(0xffffffff), Color(0xfff2f4f6), Color(0xffd6dce2)], stops: [0, .55, 1])
+          .createShader(Rect.fromPoints(fTL, fBR)));
 
-    final side = Path()
-      ..moveTo(size.width - 8, 8)
-      ..lineTo(size.width - 2, 2)
-      ..lineTo(size.width - 2, size.height - 12)
-      ..lineTo(size.width - 8, size.height - 2)
-      ..close();
-    canvas.drawPath(
-        side,
-        Paint()
-          ..shader = const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xffd9e0e7), Color(0xff9ca7b2)],
-          ).createShader(Offset.zero & size));
+    // Bevels: light along the top edges, a shade along the front-side edge.
+    final bevel = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = s * 0.03
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(fTL, fTR, bevel..color = Colors.white.withValues(alpha: .95));
+    canvas.drawLine(fTR, bTR, bevel..color = Colors.white.withValues(alpha: .6));
+    canvas.drawLine(fTR, fBR, bevel..color = Colors.black.withValues(alpha: .12));
 
-    canvas.drawRRect(
-        front,
-        Paint()
-          ..shader = const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xffffffff), Color(0xfff4f5f6), Color(0xffcbd2d9)],
-            stops: [0, .6, 1],
-          ).createShader(front.outerRect));
-    canvas.drawRRect(
-        front,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = selected ? 2.7 : 1
-          ..color =
-              selected ? const Color(0xffffcf66) : const Color(0xff9ca6af));
+    // Pips: front, then the top and side seen at an angle.
+    final (topValue, sideValue) = _neighbours(value.clamp(1, 6));
+    _pips(canvas, value.clamp(1, 6), fTL, fTR - fTL, fBL - fTL, s, 1.0);
+    _pips(canvas, topValue, fTL, fTR - fTL, bTL - fTL, s, 0.55);
+    _pips(canvas, sideValue, fTR, bTR - fTR, fBR - fTR, s, 0.5);
+    canvas.restore();
 
-    canvas.drawArc(
-        Rect.fromLTWH(5, 11, size.width - 17, size.height - 18),
-        math.pi * 1.05,
-        math.pi * .65,
-        false,
-        Paint()
-          ..color = Colors.white.withValues(alpha: .9)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.4);
+    // Outline (gold when chosen).
+    canvas.drawPath(silhouette, Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = selected ? s * 0.06 : s * 0.02
+      ..color = selected ? const Color(0xffffcf66) : const Color(0xff8e99a4));
+  }
 
-    final spots = switch (value) {
-      1 => [4],
-      2 => [0, 8],
-      3 => [0, 4, 8],
-      4 => [0, 2, 6, 8],
-      5 => [0, 2, 4, 6, 8],
-      _ => [0, 2, 3, 5, 6, 8],
-    };
-    for (final spot in spots) {
-      final x = 3 + (spot % 3 + 1) * (size.width - 12) / 4;
-      final y = 8 + (spot ~/ 3 + 1) * (size.height - 10) / 4;
-      canvas.drawCircle(Offset(x + .7, y + 1), 3.1,
-          Paint()..color = Colors.white.withValues(alpha: .7));
-      canvas.drawCircle(
-          Offset(x, y),
-          2.75,
-          Paint()
-            ..shader = const RadialGradient(
-              colors: [Color(0xff3b3040), Color(0xff0f0b12)],
-            ).createShader(Rect.fromCircle(center: Offset(x, y), radius: 3)));
+  /// Pips on one face, given its corner and its two edges. [shade] dims
+  /// them on the faces turned away from the light.
+  void _pips(Canvas canvas, int v, Offset origin, Offset across, Offset down, double s, double shade) {
+    final radius = 0.1;
+    for (final spot in _pipLayout[v]!) {
+      final u = 0.24 + (spot % 3) * 0.26;
+      final w = 0.24 + (spot ~/ 3) * 0.26;
+      final c = origin + across * u + down * w;
+      // A circle on the face: an ellipse squashed with the face's edges.
+      final path = Path();
+      for (var k = 0; k <= 20; k++) {
+        final a = k / 20 * math.pi * 2;
+        final p = c + across * (math.cos(a) * radius) + down * (math.sin(a) * radius);
+        k == 0 ? path.moveTo(p.dx, p.dy) : path.lineTo(p.dx, p.dy);
+      }
+      path.close();
+      canvas.drawPath(path.shift(Offset(s * 0.008, s * 0.012)), Paint()..color = Colors.white.withValues(alpha: .6 * shade));
+      canvas.drawPath(path, Paint()..color = Color.lerp(const Color(0xff1a1220), const Color(0xff6b6470), 1 - shade)!);
     }
   }
 
   @override
   bool shouldRepaint(covariant _Die3DPainter oldDelegate) =>
       value != oldDelegate.value || selected != oldDelegate.selected;
-}
-
-class _LudoWoodFramePainter extends CustomPainter {
-  const _LudoWoodFramePainter(this.inset);
-  final double inset;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final bounds = Offset.zero & size;
-    final outer =
-        RRect.fromRectAndRadius(bounds.deflate(1), const Radius.circular(9));
-    canvas.drawRRect(
-        outer.shift(const Offset(0, 2)),
-        Paint()
-          ..color = Colors.black.withValues(alpha: .42)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4));
-    canvas.drawRRect(
-        outer,
-        Paint()
-          ..shader = const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xffd19a58),
-              Color(0xff87512f),
-              Color(0xff4d2c20),
-              Color(0xffa66b3c),
-            ],
-            stops: [0, .38, .72, 1],
-          ).createShader(bounds));
-
-    final framePath = Path()
-      ..fillType = PathFillType.evenOdd
-      ..addRRect(outer)
-      ..addRRect(RRect.fromRectAndRadius(
-          Rect.fromLTWH(
-              inset, inset, size.width - inset * 2, size.height - inset * 2),
-          const Radius.circular(3)));
-    canvas.save();
-    canvas.clipPath(framePath);
-    final grain = Paint()
-      ..color = const Color(0xff3d2118).withValues(alpha: .26)
-      ..strokeWidth = .7
-      ..style = PaintingStyle.stroke;
-    for (var i = 0; i < 42; i++) {
-      final y = (i * 23 % 43) / 43 * size.height;
-      final bend = (i % 5 - 2) * .8;
-      canvas.drawPath(
-          Path()
-            ..moveTo(-8, y)
-            ..quadraticBezierTo(size.width * .48, y + bend, size.width + 8,
-                y + (i.isEven ? 1.2 : -1.2)),
-          grain);
-    }
-    canvas.restore();
-
-    canvas.drawRRect(
-        outer,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.3
-          ..color = const Color(0xffffcf76).withValues(alpha: .75));
-    final inner = RRect.fromRectAndRadius(
-        Rect.fromLTWH(inset - 1, inset - 1, size.width - (inset - 1) * 2,
-            size.height - (inset - 1) * 2),
-        const Radius.circular(4));
-    canvas.drawRRect(
-        inner,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2.4
-          ..color = const Color(0xff321a13));
-    canvas.drawLine(
-        Offset(inset + 2, inset + 1),
-        Offset(size.width - inset - 2, inset + 1),
-        Paint()
-          ..color = const Color(0xffffd691).withValues(alpha: .55)
-          ..strokeWidth = 1);
-  }
-
-  @override
-  bool shouldRepaint(covariant _LudoWoodFramePainter oldDelegate) =>
-      inset != oldDelegate.inset;
 }
 
 class _LudoBoardPainter extends CustomPainter {

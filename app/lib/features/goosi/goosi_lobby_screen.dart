@@ -8,7 +8,6 @@ import '../../core/app_state.dart';
 import '../../core/game_socket.dart';
 import '../../core/models.dart';
 import '../../widgets/pending_huud.dart';
-import '../../widgets/cancel_huud_button.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/cyber_agent_sheet.dart';
 import '../../widgets/copyable_huud_code.dart';
@@ -17,6 +16,7 @@ import '../../widgets/neon.dart';
 import '../../widgets/watching_eye.dart';
 import '../../widgets/stake_picker_sheet.dart';
 import 'goosi_game_screen.dart';
+import '../../widgets/lobby_start_bar.dart';
 
 /// The room before a Goosi game starts. Same shape as
 /// `DraughtsLobbyScreen`/`WordBluffLobbyScreen`. Macala is always a
@@ -336,7 +336,6 @@ class _GoosiLobbyScreenState extends State<GoosiLobbyScreen> {
                                 .labelSmall
                                 ?.copyWith(color: n.mute, letterSpacing: 2)),
                         const SizedBox(height: 4),
-                        if (!_example) CancelHuudButton(room: room),
                         CopyableHuudCode(
                           code: room.code,
                           child: Text(room.code,
@@ -404,7 +403,7 @@ class _GoosiLobbyScreenState extends State<GoosiLobbyScreen> {
     final n = context.neon;
     final isHost = m.userId == hostId || (m.userId == 'me' && _example);
     final away = !m.isBot && !m.connected;
-    final ringColor = away ? kCabinetInk : (m.ready ? n.jade : n.mute);
+    final ringColor = away ? kCabinetInk : n.jade;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -417,7 +416,7 @@ class _GoosiLobbyScreenState extends State<GoosiLobbyScreen> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(color: ringColor, width: away ? 1.6 : 2.6),
-                boxShadow: !away && m.ready
+                boxShadow: !away
                     ? [
                         BoxShadow(
                             color: n.jade.withValues(alpha: 0.38),
@@ -466,12 +465,12 @@ class _GoosiLobbyScreenState extends State<GoosiLobbyScreen> {
         Text(
             m.isBot
                 ? 'CYBER AGENT'
-                : (away ? 'AWAY' : (m.ready ? 'READY' : 'WAITING')),
+                : (away ? 'AWAY' : 'HERE'),
             style: TextStyle(
                 fontSize: 8,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.8,
-                color: away ? n.mute : (m.ready ? n.jade : n.mute))),
+                color: away ? n.mute : n.jade)),
       ],
     );
   }
@@ -541,44 +540,20 @@ class _GoosiLobbyScreenState extends State<GoosiLobbyScreen> {
           ),
           const SizedBox(height: 10),
         ],
-        Row(children: [
-          Expanded(
-            child: NeonButton(
-              _ready ? 'Ready ✓' : 'Ready up',
-              style: NeonStyle.ghost,
-              onPressed: () {
-                final next = !_ready;
-                setState(() => _ready = next);
-                if (_example) {
-                  setState(() => _room = _exampleRoom(app));
-                } else {
-                  _socket?.send('READY_SET', {'ready': next});
-                }
-              },
-            ),
-          ),
-          if (isHost) ...[
-            const SizedBox(width: 8),
-            Expanded(
-              child: NeonButton(
-                'Start',
-                onPressed: !ready
-                    ? null
-                    : () {
-                        if (_example) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content:
-                                    Text('Add an account to host a game.')),
-                          );
-                        } else {
-                          _socket?.send('GAME_START');
-                        }
-                      },
-              ),
-            ),
-          ],
-        ]),
+        LobbyStartBar(
+          isHost: isHost,
+          hint: ready ? null : 'Macala needs two players.',
+          onStart: !ready
+              ? null
+              : () {
+                  if (_example) {
+                    ScaffoldMessenger.of(context)
+                        .showSnackBar(const SnackBar(content: Text('Add an account to host a game.')));
+                  } else {
+                    _socket?.send('GAME_START');
+                  }
+                },
+        ),
       ]),
     );
   }

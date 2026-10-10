@@ -1,0 +1,99 @@
+# word | first clue | second clue
+volcano | A mountain that erupts with hot lava. | Smoke and fire burst from the crater at its top.
+waterfall | A river tumbling down over a cliff edge. | Niagara and Victoria are famous ones.
+glacier | A giant slow river of ice. | It creeps down mountains and carves out valleys.
+desert | A dry, sandy place where it hardly ever rains. | Camels, cactuses and the Sahara.
+rainforest | A hot, wet jungle full of tall trees and animals. | The Amazon is the biggest one.
+tornado | A spinning funnel of wind that rips things up. | A twister, like the one that took Dorothy to Oz.
+avalanche | Tons of snow crashing down a mountain. | Skiers fear this white slide of snow.
+coral reef | A colourful underwater home for tropical fish. | The Great Barrier one is off Australia.
+thunderstorm | Heavy rain with booming noises and flashes in the sky. | Dark clouds, rumbles and lightning.
+canyon | A deep valley with steep rocky sides cut by a river. | The Grand one is in Arizona.
+tide | The sea coming in and going out on the beach. | The moon pulls the ocean up and down twice a day.
+drought | A long time with no rain at all. | Crops die and rivers dry up.
+monsoon | A season of very heavy rain in South Asia. | Weeks of downpours that flood the streets in India.
+eclipse | When the moon blocks out the sun. | The sky goes dark in the middle of the day.
+wildfire | Flames racing through forests out of control. | Bushland burning in hot, dry summers.
+earthquake | When the ground shakes and buildings fall. | Tectonic plates slip and everything trembles.
+hurricane | A massive storm with spinning winds over the ocean. | It has an eye in the middle and gets a name like Katrina.
+blizzard | A snowstorm with strong winds you can't see through. | A white-out of whirling snow.
+mountain | A very high piece of land with a peak. | Everest is the tallest one.
+valley | Low land between hills or mountains. | A river often runs along the bottom of it.
+cave | A dark hollow inside a hill or cliff. | Bats sleep there and early humans sheltered in it.
+island | Ground with sea all the way round it. | Robinson Crusoe was stranded on one.
+peninsula | Land with water on three sides. | Italy and Florida are shaped like this.
+lagoon | A calm pool of seawater cut off by sand or coral. | A blue, shallow bay behind a reef.
+marsh | Wet, soggy ground with reeds and grasses. | Ducks and frogs love this squelchy land.
+swamp | A muddy, waterlogged forest. | Shrek lives in one; alligators lurk there.
+tundra | A cold, flat, treeless land near the Arctic. | The ground is frozen all year; caribou roam there.
+savanna | Grassy African plains with a few trees. | Lions, zebras and giraffes live there.
+prairie | Wide flat grassland in North America. | Little House on the... ; cowboys and bison.
+meadow | A field of grass and wildflowers. | Cows graze and butterflies flutter in it.
+cliff | A steep rock face at the edge of land. | The white ones of Dover are famous.
+plateau | A high, flat area of land. | Like a tabletop mountain.
+delta | Where a river splits into many channels before the sea. | The Nile has a triangle-shaped one.
+estuary | Where a river meets the sea and fresh and salt water mix. | The wide mouth of a river.
+geyser | A hot spring that shoots water high into the air. | Old Faithful in Yellowstone erupts every hour.
+oasis | A green spot with water in the middle of a desert. | Palm trees and a pool where camels drink.
+dune | A hill of sand made by the wind. | You can slide down these in the desert.
+iceberg | A huge chunk of floating ice. | The Titanic hit one; most of it hides underwater.
+reef | A ridge of rock or coral just under the sea. | Fish and coral live on it; boats can hit it.
+current | Water moving in one direction in the sea or a river. | It can sweep swimmers away; also electricity flowing.
+whirlpool | Water spinning round and round, pulling things down. | A swirling vortex in the sea.
+rainbow | A colourful arc in the sky after a shower. | Red, orange, yellow, green, blue, indigo, violet.
+lightning | A bright flash in the sky during a storm. | It comes before the thunder.
+frost | Thin white ice on the grass on a cold morning. | Jack paints windows with it.
+dew | Tiny drops of water on grass in the morning. | Wet droplets on spider webs at dawn.
+mist | Light cloud near the ground that's damp. | Thinner than fog, it hangs over lakes at dawn.
+fog | Thick cloud at ground level that's hard to see through. | Ships sound horns when it rolls in.
+sunrise | When the sun comes up in the morning. | Dawn, when the sky turns pink and orange.
+sunset | When the sun goes down in the evening. | The sky turns orange before night.
+horizon | The line where the sky meets the land or sea. | You see it far away and it seems to never get closer.
+constellation | A group of stars that makes a picture. | Orion and the Big Dipper are examples.
+comet | An icy space rock with a long glowing tail. | Halley's one comes back every 76 years.
+meteor | A shooting star streaking across the sky. | A space rock burning up as it falls.
+aurora | Colourful lights dancing in the polar sky. | The Northern Lights.
+ecosystem | All the living things in a place and how they depend on each other. | Plants, animals and their surroundings working together.
+habitat | The natural home of an animal or plant. | A polar bear's is the Arctic.
+pollination | When bees carry pollen from flower to flower. | How flowers get fertilised to make seeds.
+photosynthesis | How plants make food from sunlight. | Leaves turn light, water and carbon dioxide into sugar.
+erosion | Wind and water slowly wearing away rock and soil. | How canyons and beaches get carved over time.
+sediment | Sand and mud that settle at the bottom of water. | Layers of it turn into rock over millions of years.
+bedrock | The solid stone layer deep under the soil. | The foundation layer of the ground.
+mineral | A natural solid like quartz or salt found in rocks. | Crystals in the ground; also something healthy in your food.
+crystal | A shiny clear stone with flat sides. | Quartz and diamonds; snowflakes are made of these.
+fossil | Bones or shells turned to stone over millions of years. | Dinosaur remains dug up from rocks.
+root | The part of a plant that grows underground. | It sucks up water from the soil.
+branch | A wooden arm growing out of a tree trunk. | Birds sit on it; leaves grow from it.
+leaf | The green flat part of a plant. | They change colour and fall in autumn.
+petal | One of the soft coloured parts of a flower. | Pull them off one by one: he loves me, he loves me not.
+seed | A tiny thing you plant that grows into a plant. | Sunflowers and apples have them.
+pollen | Yellow dust made by flowers. | Bees carry it and it makes people sneeze with hay fever.
+moss | Soft green fuzzy plant on rocks and trees. | It grows in damp, shady places like a carpet.
+fern | A leafy green plant with feathery fronds. | It grows in shady woods and has no flowers.
+fungus | Mushrooms and toadstools belong to this group. | Not a plant or animal; mould is one too.
+lichen | Crusty patches on rocks made of fungus and algae. | Grey-green growth on old walls and gravestones.
+coral | Colourful sea creatures that build reefs. | It looks like underwater rock or plants in tropical seas.
+kelp | Giant brown seaweed that grows in underwater forests. | Sea otters wrap themselves in it.
+plankton | Tiny creatures floating in the sea that whales eat. | SpongeBob's tiny villain shares its name.
+sand | Tiny grains on the beach. | You build castles with it.
+pebble | A small smooth stone on the beach. | You skim it across a pond.
+boulder | A really big rock. | Indiana Jones ran from a giant rolling one.
+soil | The dirt that plants grow in. | Brown earth in the garden full of worms.
+clay | Sticky earth you can shape into pots. | You mould it on a potter's wheel and bake it.
+magma | Melted rock deep under the earth. | It becomes lava when it comes out.
+lava | Red hot melted rock flowing from a volcano. | The floor is this, in a game you play on the sofa.
+ash | Grey powder left after something burns. | What's left in the fireplace; volcanoes spew it.
+smoke | Grey cloud that comes from a fire. | Where there's this, there's fire.
+breeze | A gentle wind. | A light cool wind on a sunny day.
+gale | A very strong wind. | Strong enough to break branches; force eight.
+drizzle | Light, fine rain. | Not heavy, just a little spitting from the sky.
+hailstorm | When balls of ice fall from the sky. | Icy pellets hammer the roof and cars.
+sleet | Rain mixed with snow. | Half-frozen slushy rain.
+humidity | How much water is in the air. | Why hot days feel sticky and muggy.
+climate | The usual weather of a place over many years. | Tropical, polar or desert; it's changing.
+season | Spring, summer, autumn or winter. | One of the four parts of the year.
+equinox | When day and night are the same length. | It happens in March and September.
+solstice | The longest or shortest day of the year. | Midsummer in June; people gather at Stonehenge.
+biome | A big region with its own climate, plants and animals. | Tundra, desert and rainforest are examples.
+wetland | Soggy ground like marshes and bogs. | Home to herons, frogs and reeds.

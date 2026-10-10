@@ -1,0 +1,95 @@
+# word | first clue | second clue
+pyramid | A giant triangle-shaped tomb in Egypt. | Pharaohs were buried in them near Giza.
+skyscraper | A super tall building in a city. | The Empire State or Burj Khalifa.
+lighthouse | A tower with a bright lamp that warns ships. | It stands on rocky coasts flashing at night.
+castle | A stone fortress where kings and queens lived. | Moats, towers and drawbridges.
+colosseum | The ancient Roman arena where gladiators fought. | A huge round ruin in Rome.
+bridge | Something built to cross a river. | Golden Gate or Tower in London.
+harbor | A sheltered place where boats are kept. | Ships dock there safely.
+oasis | Water and palm trees in the middle of a desert. | Where camels stop to drink.
+temple | A building for worship. | Ancient Greek or Buddhist ones.
+fortress | A strongly defended military building. | Thick walls and cannons.
+boardwalk | A wooden path along a beach. | Seaside promenade with arcades.
+cathedral | A huge, grand church. | Notre-Dame in Paris.
+plaza | An open public square in a town. | A Spanish square with cafes.
+summit | The very top of a mountain. | Reaching the peak of Everest.
+subway | An underground train system. | The Tube in London, the Metro in Paris.
+palace | Where a king or queen lives. | Buckingham.
+monastery | A place where monks live. | Quiet buildings with chanting brothers.
+monument | A structure built to remember someone or something. | The Washington one is a tall obelisk.
+memorial | A place built to remember and honour people. | Names carved in stone, with flowers laid beside it.
+mausoleum | A grand building that holds a tomb. | The Taj Mahal is one.
+aqueduct | An ancient bridge that carried water. | Roman arches carrying a channel.
+amphitheater | A round outdoor theatre with rising seats. | Ancient Greek stage.
+observatory | A building with a giant telescope. | Where astronomers watch stars.
+planetarium | A dome where stars are projected on the ceiling. | A star show indoors.
+museum | A building full of old and interesting things. | The Louvre or Natural History with dinosaurs.
+gallery | A room or building to show art. | Paintings on white walls.
+library | A building full of books to borrow. | Shhh, quiet please.
+archive | A collection of old records and documents. | Historical files stored away.
+courthouse | Where trials are held. | Judges and juries.
+city hall | Where the mayor works. | Town government building.
+embassy | A country's official building in another country. | Where you get a visa.
+consulate | A smaller office of a foreign government. | Helps citizens abroad.
+parliament building | Where lawmakers meet. | Big Ben stands beside the one in London.
+capitol | The domed building where US Congress meets. | In Washington DC.
+town square | The central open space of a village or city. | Where markets and clocks are.
+marketplace | Where people buy and sell goods. | Stalls and traders.
+bazaar | A busy Middle Eastern market. | Spices, rugs and haggling.
+port | A town where ships load and unload. | Docks and cranes.
+pier | A wooden platform stretching into the sea. | Brighton has one with rides.
+marina | A harbour for yachts and small boats. | Rows of sailing boats.
+dock | Where ships tie up. | Also where you charge your phone.
+shipyard | Where ships are built. | Giant hulls being welded.
+airport | Where planes take off and land. | Heathrow or JFK.
+runway | The strip where planes take off. | Also a catwalk.
+terminal | The building at an airport where passengers wait. | Gates and check-in.
+train station | Where you catch a locomotive. | Platforms and tracks.
+bus depot | Where coaches are kept and start their routes. | Garage for big public vehicles.
+tunnel | A passage under the ground or a mountain. | The Channel one links England and France.
+overpass | A road that goes over another road. | Flyover bridge.
+viaduct | A long bridge with many arches over a valley. | Harry Potter's train crossed one.
+dam | A wall that holds back a river. | Beavers build them; Hoover is famous.
+reservoir | A lake that stores drinking water. | Behind a dam.
+canal | A man-made waterway. | Venice and narrowboats.
+waterway | A river or canal boats travel on. | Route for barges.
+windmill | A building with big turning sails. | Netherlands; grinds grain.
+watermill | A building with a wheel turned by a river. | The wheel grinds grain as the stream turns it.
+farmhouse | Where the farmer lives. | A home among the fields and barns.
+barn | A big building for animals and hay. | Red one on a farm.
+ranch | A big farm with cattle. | Cowboys work there.
+vineyard | A farm where grapes are grown. | Rows and rows of grape vines on a sunny hill.
+orchard | A field of fruit trees. | Apples picked in autumn.
+greenhouse | A glass building to grow plants. | Warm inside for tomatoes.
+botanical garden | A park full of rare plants. | Kew.
+zoo | A place to see wild animals. | Lions and penguins in enclosures.
+aquarium | A place to see fish in tanks. | Sharks swimming past glass.
+theme park | A place with rollercoasters. | Disneyland.
+carnival | A street festival with parades and costumes. | Rio de Janeiro.
+fairground | A place with rides and candy floss. | Dodgems and ferris wheel.
+stadium | A big sports venue. | Wembley.
+arena | An indoor venue for sports and concerts. | Gladiators fought in one.
+racetrack | A circuit where cars or horses compete. | Silverstone.
+golf course | Green land with holes and flags. | Tee off.
+ski resort | A mountain town with chairlifts and slopes. | Holiday in the snowy Alps.
+campsite | A place to pitch tents. | Campfires and sleeping bags.
+national park | Protected wild land for everyone. | Yellowstone.
+nature reserve | Protected land for wildlife. | Birdwatching hides.
+wildlife sanctuary | A safe place for rescued animals. | Protected refuge.
+border crossing | Where you pass from one country to another. | Passport check at the frontier.
+checkpoint | A place where guards stop and inspect people. | Barrier on a road.
+suburb | A quiet area of houses at the edge of a city. | Commuter homes with gardens.
+downtown | The busy centre of a city. | Tall buildings and shops.
+skyline | The outline of a city's buildings against the sky. | New York's view.
+cul-de-sac | A dead-end street. | A road with a circle at the end.
+roundabout | A circular road junction. | Go all the way and take the third exit.
+crosswalk | Striped lines where pedestrians get to the other side. | Zebra crossing.
+sidewalk | A path beside the road for walking. | Pavement.
+alleyway | A narrow lane between buildings. | Dark backstreet.
+courtyard | An open space surrounded by walls. | Inner patio in the middle of a building.
+rooftop | The top of a building. | Sky bar.
+balcony | A platform outside an upstairs window. | Romeo and Juliet.
+terrace | A paved outdoor area. | Patio by the house.
+veranda | A roofed porch along a house. | Sitting outside in the shade.
+gazebo | A small open garden building. | Garden pavilion with a roof.
+pavilion | A building at a cricket ground or park. | Tent-like shelter.

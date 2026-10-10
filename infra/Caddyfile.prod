@@ -25,6 +25,15 @@ playhuud.com {
 	@championship_invite path /championships/*
 	rewrite @championship_invite /championships/index.html
 
+	# Huud invite links: playhuud.com/huud/CODE — the page, its preview, and the
+	# files that let iOS / Android open these links straight in the app.
+	@huud_preview path /api/v1/huud-spaces/invite/*/preview
+	reverse_proxy @huud_preview backend:8080
+	@huud_invite path /huud/*
+	rewrite @huud_invite /huud/index.html
+	@app_links path /.well-known/apple-app-site-association /.well-known/assetlinks.json
+	header @app_links Content-Type application/json
+
 	root * /srv/playhuud
 	file_server
 }

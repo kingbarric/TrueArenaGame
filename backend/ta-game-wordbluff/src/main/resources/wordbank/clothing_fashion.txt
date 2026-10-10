@@ -25,7 +25,6 @@ blouse
 pajamas
 nightgown
 robe
-lingerie
 swimsuit
 bikini
 wetsuit

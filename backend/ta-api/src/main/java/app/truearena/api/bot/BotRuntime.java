@@ -181,7 +181,9 @@ public final class BotRuntime {
                     if (line.isBlank()) line = cleanClue(adapter.fallbackSpeech(p), p.forbidden());
                     if (adapter.speaksThroughActions()) {
                         adapter.speechAction(p, line, botUserId).ifPresent(a -> sendAction(outbound, a));
-                        // Keep receiving typed guesses instead of blocking the inbound queue.
+                        // Keep receiving typed guesses instead of blocking the
+                        // inbound queue; the next clue (or a skip) runs on its own timer.
+                        followUpLater(outbound, adapter.describingToken());
                         return Mono.empty();
                     }
                     if (!line.isBlank()) {
@@ -193,6 +195,24 @@ public final class BotRuntime {
                                     .ifPresent(a -> sendAction(outbound, a)))
                             .then();
                 });
+    }
+
+    /** How long a typed clue stands before the agent adds another (or skips the word). */
+    private static final Duration FOLLOW_UP_AFTER = Duration.ofSeconds(12);
+
+    /**
+     * If the table still hasn't got the word in a little while, the agent
+     * gives another clue — and again, until the adapter says skip. A word
+     * that's moved on in the meantime just ends the chain.
+     */
+    private void followUpLater(Sinks.Many<String> outbound, int token) {
+        if (token < 0) return;
+        Mono.delay(FOLLOW_UP_AFTER)
+                .map(t -> adapter.followUp(botUserId, token))
+                .subscribe(next -> next.ifPresent(a -> {
+                    sendAction(outbound, a);
+                    if ("TEXT_CLUE".equals(a.type())) followUpLater(outbound, token);
+                }), e -> log.debug("bot {} follow-up failed: {}", botUserId, e.toString()));
     }
 
     /**

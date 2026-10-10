@@ -14,10 +14,10 @@ import '../../widgets/neon.dart';
 import '../../widgets/table_chat.dart';
 import '../../widgets/game_voice_control.dart';
 import '../../widgets/copyable_huud_code.dart';
-import '../shell/main_shell.dart';
 import '../status/victory_status.dart';
 import '../onboarding/guest_save_session_card.dart';
 import 'goosi_theme.dart';
+import '../huudspace/leave_game.dart';
 
 /// Macala has twelve houses and two players. A move relay-sows around the
 /// board and collects any house brought to exactly four seeds. See `GoosiModule`
@@ -141,6 +141,8 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
   void dispose() {
     _sub?.cancel();
     _ticker?.cancel();
+    // Backing out must hang up too, not only the Leave button.
+    widget.socket.close();
     GameMusic.stop();
     _theme?.removeListener(_onThemeChanged);
     super.dispose();
@@ -902,8 +904,7 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
       }
       if (!mounted) return;
       widget.socket.close();
-      Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const MainShell()), (r) => false);
+      await leaveGame(context, widget.socket.roomId);
     }
   }
 
@@ -1160,7 +1161,7 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
           builder: (_, online, __) => OnlineAvatar(
             isMe ? 'You' : label(playerId),
             size: 45,
-            online: online.contains(playerId),
+            online: online.contains(playerId), presence: widget.socket.presenceOf(playerId),
             imageUrl: widget.socket.memberAvatars[playerId] ?? widget.avatars[playerId],
             emoji: widget.agents.contains(playerId) ? '🤖' : null,
           ),
@@ -1503,9 +1504,7 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
                   gameType: 'goosi',
                   detail: '${scores[widget.selfId] ?? 0} points'),
             NeonButton('Back to home', onPressed: () {
-              Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const MainShell()),
-                  (r) => false);
+              leaveGame(context, widget.socket.roomId);
             }),
             const GuestSaveSessionCard(),
           ]),

@@ -36,7 +36,7 @@ class ChampionshipServiceForfeitTest {
             mock(ChampionshipRepository.class), matches, mock(UserRepository.class),
             mock(RoomRepository.class), mock(RoomMemberRepository.class),
             mock(RoomRuntimeRegistry.class), mock(DatabaseClient.class),
-            mock(ObjectProvider.class));
+            mock(ObjectProvider.class), mock(ObjectProvider.class));
 
     private static final UUID ROOM = UUID.randomUUID();
     private static final UUID PLAYER_A = UUID.randomUUID();

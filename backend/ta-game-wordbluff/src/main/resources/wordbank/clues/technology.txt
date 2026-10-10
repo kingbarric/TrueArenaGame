@@ -1,0 +1,101 @@
+# word | first clue | second clue
+smartphone | A pocket computer you call and text with. | iPhone or Android.
+algorithm | Step-by-step instructions a computer follows. | A recipe for solving a problem.
+firewall | Security that blocks hackers from a network. | A digital barrier of protection.
+satellite | A machine orbiting Earth sending signals. | It gives you TV and GPS from space.
+robot | A machine that can move and do jobs by itself. | R2-D2 or WALL-E.
+blockchain | A digital ledger behind Bitcoin. | Chained blocks of records.
+drone | A small flying machine with propellers you control remotely. | Quadcopter filming from the sky.
+hologram | A 3D image made of light. | Princess Leia's message to Obi-Wan.
+server | A powerful computer that runs websites. | Also someone who brings food at a restaurant.
+biometric | Using your body, like fingerprints, to identify you. | Face scan to unlock.
+router | The box that gives your house Wi-Fi. | Blinking lights by the TV.
+microchip | A tiny piece of silicon that runs electronics. | Pets have one under the skin.
+virtual reality | Wearing a headset to enter a computer world. | VR goggles.
+artificial intelligence | Computers that can think and learn. | Like ChatGPT.
+bluetooth | Wireless connection for earbuds and speakers. | Pairing your headphones.
+processor | The brain of a computer. | CPU.
+motherboard | The main circuit card inside a computer. | Everything plugs into it.
+graphics card | A computer part that makes games look good. | GPU.
+hard drive | Where a computer stores files. | Spinning disk storage.
+solid state drive | Fast storage with no moving parts. | SSD.
+random access memory | A computer's short-term workspace. | RAM.
+operating system | The software running a computer, like Windows. | macOS or Linux.
+software update | A new version installing on your phone. | Restart to finish installing.
+app store | Where you download phone programs. | Google Play.
+cloud storage | Keeping your files online. | Dropbox.
+data center | A huge building full of computers. | Rows of servers humming.
+encryption | Scrambling messages so only the right person can read them. | Secret code for data.
+password manager | An app that remembers all your logins. | Stores your secret codes.
+two-factor authentication | Logging in with a password plus a code sent to your phone. | 2FA.
+malware | Harmful software that damages your computer. | Bad programs.
+virus | A harmful program that spreads between computers. | Also what gives you a cold.
+spyware | Software that secretly watches what you do. | Tracks you without permission.
+phishing | Fake emails tricking you into giving passwords. | Scam messages pretending to be your bank.
+hacker | Someone who breaks into computers. | Hoodie, green code.
+firewall breach | When hackers get past the security barrier. | Defences broken.
+data breach | When private information is stolen. | Your details leaked.
+cybersecurity | Protecting computers from attacks. | Online safety.
+network | Computers connected together. | Wi-Fi joining devices.
+wireless signal | Invisible connection through the air. | Bars on your phone.
+fiber optic | Super fast internet through glass cables. | Light through thin strands.
+broadband | Fast home internet. | Your internet package.
+Wi-Fi | Internet without cables. | What's the password?
+ethernet cable | The plug-in internet wire. | Wired connection.
+touchscreen | A display you tap with your finger. | Tablet glass.
+stylus | A pen for tapping tablets. | Apple Pencil.
+keyboard shortcut | Pressing keys together to do something fast. | Control C, Control V.
+trackpad | A touch panel on a laptop used like a mouse. | Swiping on a laptop.
+webcam | A camera for video calls. | Zoom calls.
+microphone | Something you speak into. | Mic.
+speaker | Where sound comes out. | Bluetooth music box.
+smart watch | A wrist gadget that counts steps and shows texts. | Fitbit.
+smart home | A house controlled by apps and voice. | Lights that turn on when you ask.
+voice assistant | Siri or Alexa. | Talking helper.
+chatbot | A computer program you text with. | Customer help robot.
+machine learning | Computers getting better from data. | AI training.
+neural network | AI modelled on the brain. | Layers of artificial neurons.
+facial recognition | Identifying people from their face. | Face ID.
+fingerprint scanner | Unlocking with your thumb. | Touch ID.
+augmented reality | Digital images over the world around you. | Pokémon Go.
+3D printer | A machine that prints solid objects. | Layer by layer plastic.
+drone delivery | Parcels flown to your door by robots. | Flying couriers.
+electric vehicle | A car that runs on batteries. | Tesla.
+self-driving car | A vehicle that steers on its own. | Autonomous vehicle.
+GPS navigation | Satellites telling you where to go. | Turn left in 200 metres.
+QR code | A square pattern you scan with your phone. | Black and white pixel square.
+barcode scanner | Beeps at the till reading stripes. | Supermarket checkout reader.
+e-commerce | Shopping online. | Amazon.
+online banking | Managing money on the internet. | Checking your balance on an app.
+digital wallet | Paying with your phone. | Apple Pay.
+mobile payment | Tapping your phone to buy things. | Contactless with your phone.
+subscription service | Paying monthly for something. | Netflix plan.
+streaming platform | Where you watch or listen online. | YouTube.
+social media algorithm | What decides which posts you see. | TikTok's For You page.
+search engine | Google. | Typing a question to find websites.
+web browser | Chrome or Safari. | The app for visiting internet pages.
+pop-up ad | Annoying adverts that appear on websites. | Click the X.
+spam filter | What keeps junk email out. | Blocks unwanted messages.
+software bug | A mistake in a program. | Glitch.
+patch update | A small fix for a program. | Fixing glitches.
+beta test | Trying out software before release. | Early users finding bugs.
+user interface | What you see and click on. | UI.
+user experience | How easy and pleasant an app feels. | UX.
+open source | Code anyone can see and change. | Free for all to share.
+programming language | Python or Java. | Used to write code.
+coding bootcamp | Intensive course to learn programming. | Learn to code in weeks.
+tech startup | A brand-new small computer company. | A garage company.
+venture capital | Investors funding young companies. | VCs.
+Silicon Valley | California home of tech companies. | Google and Apple's area.
+data scientist | Someone who analyses big numbers. | Statistics and AI.
+software engineer | Someone who writes programs. | Coder.
+IT support | People who fix your computer at work. | Have you tried turning it off and on again?
+tech support | Helpline for computer problems. | Customer helpdesk.
+system crash | When a computer suddenly stops. | Freezes completely.
+blue screen | The error display of death on Windows. | Computer failure.
+reboot | Turning a computer off and on again. | Restart.
+factory reset | Wiping a device back to new. | Erase everything.
+firmware | Software built into hardware. | Device's internal code.
+API | A way for programs to talk to each other. | Application programming interface.
+database | An organised collection of information. | Tables of records.
+spreadsheet | Excel. | Grid of cells for numbers.

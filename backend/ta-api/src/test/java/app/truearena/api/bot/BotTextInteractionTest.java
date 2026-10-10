@@ -42,6 +42,63 @@ class BotTextInteractionTest {
         assertThat(bot.speaksThroughActions()).isTrue();
     }
 
+    @Test void botDescriberWithNoModelDescribesTheWordThenFollowsUpThenSkips() {
+        var bot = new WordBluffBotAdapter();
+        var prompt = bot.onFrame("SNAPSHOT", Map.of("phase", "Turn", "textMode", true, "describer", "bot",
+                "yourWord", "volcano", "categoryName", "Nature", "wordIndex", 4, "clockStarted", true,
+                "hasActiveCategory", true, "hasActiveWord", true), "bot", Difficulty.MEDIUM).orElseThrow();
+
+        // No model answering: the clue book speaks, never the stock "Think of something" line.
+        String first = bot.fallbackSpeech(prompt);
+        assertThat(first).isEqualTo("A mountain that erupts with hot lava.");
+        var clue = bot.speechAction(prompt, first, "bot").orElseThrow();
+        assertThat(clue.data()).containsEntry("text", first).containsEntry("wordIndex", 4);
+        int token = bot.describingToken();
+        assertThat(token).isEqualTo(4);
+
+        var second = bot.followUp("bot", token).orElseThrow();
+        assertThat(second.type()).isEqualTo("TEXT_CLUE");
+        assertThat((String) second.data().get("text")).isNotEqualTo(first).doesNotContainIgnoringCase("volcano");
+        var shape = bot.followUp("bot", token).orElseThrow();
+        assertThat(shape.data()).containsEntry("text", "It's 7 letters long.");
+        assertThat(bot.followUp("bot", token).orElseThrow().type()).isEqualTo("SKIP");
+
+        // Once the word's moved on, an old timer does nothing.
+        bot.onFrame("EVENT", event("WORD_RESOLVED", Map.of("result", "skipped", "wordIndex", 5)), "bot", Difficulty.MEDIUM);
+        assertThat(bot.followUp("bot", token)).isEmpty();
+    }
+
+    @Test void aModelClueThatSaysTheWordIsSwappedForTheBooks() {
+        var bot = new WordBluffBotAdapter();
+        var prompt = bot.onFrame("SNAPSHOT", Map.of("phase", "Turn", "textMode", true, "describer", "bot",
+                "yourWord", "hot dog", "wordIndex", 1, "clockStarted", true,
+                "hasActiveCategory", true, "hasActiveWord", true), "bot", Difficulty.MEDIUM).orElseThrow();
+        var clue = bot.speechAction(prompt, "You eat a hot-dog at the ballpark", "bot").orElseThrow();
+        assertThat((String) clue.data().get("text")).isEqualTo("A sausage in a long bun.");
+    }
+
+    @Test void phrasesGetAWordByWordShapeHint() {
+        var bot = new WordBluffBotAdapter();
+        var prompt = bot.onFrame("SNAPSHOT", Map.of("phase", "Turn", "textMode", true, "describer", "bot",
+                "yourWord", "hot air balloon", "wordIndex", 0, "clockStarted", true,
+                "hasActiveCategory", true, "hasActiveWord", true), "bot", Difficulty.MEDIUM).orElseThrow();
+        bot.speechAction(prompt, bot.fallbackSpeech(prompt), "bot").orElseThrow();
+        bot.followUp("bot", 0).orElseThrow();
+        assertThat(bot.followUp("bot", 0).orElseThrow().data()).containsEntry("text", "It's 3 words: 3, 3 and 7 letters.");
+    }
+
+    @Test void agentGuessersGetEveryWordInTheBookFromItsFirstClue() {
+        int missed = 0;
+        for (var category : app.truearena.game.wordbluff.Category.WORD_FILE_BACKED) {
+            for (var e : app.truearena.game.wordbluff.WordClues.byCategory(category).entrySet()) {
+                var g = WordBluffTextHints.guess(e.getValue().get(0), category.displayName());
+                if (g.isEmpty() || !g.get().equals(e.getKey())) missed++;
+            }
+        }
+        // A clue can fit two words ("A fizzy sweet drink."); nearly all land.
+        assertThat(missed).isLessThan(100);
+    }
+
     @Test void traitorsRespondToHumanDiscussionAndUseItForTheirVoteWithoutBotReplyLoops() {
         var bot = new TrueArenaBotAdapter();
         bot.onFrame("SNAPSHOT", Map.of("phase", "RoundTable", "yourRole", "faithful",

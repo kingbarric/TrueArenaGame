@@ -8,13 +8,13 @@ import '../../core/app_state.dart';
 import '../../core/game_socket.dart';
 import '../../core/models.dart';
 import '../../widgets/pending_huud.dart';
-import '../../widgets/cancel_huud_button.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/cyber_agent_sheet.dart';
 import '../../widgets/copyable_huud_code.dart';
 import '../../widgets/invite_players_sheet.dart';
 import '../../widgets/neon.dart';
 import 'ludo_game_screen.dart';
+import '../../widgets/lobby_start_bar.dart';
 
 Future<int?> showLudoPieceCountDialog(BuildContext context,
     {int initialValue = 8}) {
@@ -229,7 +229,7 @@ class _LudoLobbyScreenState extends State<LudoLobbyScreen> {
     final room = _room;
     return Scaffold(
       appBar: AppBar(actions: [
-        if (_room != null) CancelHuudButton(room: _room!)
+
       ], title: Text(room == null ? 'Ludo · Open a huud' : 'Ludo · Your huud')),
       body: SafeArea(child: room == null ? _setup() : _lobby(room)),
     );
@@ -266,7 +266,6 @@ class _LudoLobbyScreenState extends State<LudoLobbyScreen> {
 
   Widget _lobby(RoomView room) {
     final self = AppScope.of(context).user?.id;
-    final me = room.members.where((m) => m.userId == self).firstOrNull;
     final count = room.members.length;
     return ListView(padding: const EdgeInsets.all(16), children: [
       if (_error != null)
@@ -306,7 +305,7 @@ class _LudoLobbyScreenState extends State<LudoLobbyScreen> {
               : m.isBot
                   ? 'Cyber Agent'
                   : 'Player'),
-          trailing: Text(m.ready ? 'Ready' : 'Waiting'),
+          trailing: Text(m.isBot || m.connected ? 'Here' : 'Away'),
         ),
       const SizedBox(height: 14),
       if (!_connected) NeonButton('Reconnect', onPressed: _connect),
@@ -321,19 +320,12 @@ class _LudoLobbyScreenState extends State<LudoLobbyScreen> {
               style: NeonStyle.ghost, onPressed: _busy ? null : _addAgent),
           const SizedBox(height: 8),
         ],
-        NeonButton(me?.ready == true ? 'Ready' : 'Ready up',
-            style: NeonStyle.ghost,
-            onPressed: () =>
-                _socket!.send('READY_SET', {'ready': !(me?.ready ?? false)})),
-        if (room.hostId == self) ...[
-          const SizedBox(height: 8),
-          NeonButton('Start game',
-              onPressed: count >= 2 ? () => _startGame(count) : null),
-        ],
-        if (count < 2)
-          const Padding(
-              padding: EdgeInsets.only(top: 10),
-              child: Text('Invite one more player or add a Cyber Agent.')),
+        const SizedBox(height: 4),
+        LobbyStartBar(
+          isHost: room.hostId == self,
+          onStart: count >= 2 ? () => _startGame(count) : null,
+          hint: count < 2 ? 'Invite one more player or add a Cyber Agent.' : null,
+        ),
       ],
     ]);
   }

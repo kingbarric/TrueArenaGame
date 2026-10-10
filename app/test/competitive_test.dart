@@ -133,14 +133,28 @@ void main() {
   }
 
   group('player cards', () {
-    test('Overall leads with the best game rating, labelled with that game — never a blended rating', () {
+    test('an unrated game you have played shows your strength in it', () {
+      final json = _profileJson(rated: false);
+      (json['games'] as List).add({
+        'gameType': 'whot',
+        'ranks': const <String, dynamic>{},
+        'stats': {'gamesPlayed': 3, 'wins': 2, 'losses': 1, 'draws': 0, 'winRate': 0.67},
+      });
+      final whot = buildPlayerCards(CompetitiveProfile.fromJson(json)).firstWhere((c) => c.title == 'WHOT');
+      expect(whot.blank, isFalse);
+      expect(whot.bigValue, '43'); // 2 × 20 + 1 × 3
+      expect(whot.bigLabel, 'STRENGTH');
+    });
+
+    test('Overall leads with your strength — every finished game adds to it', () {
       final cards = buildPlayerCards(CompetitiveProfile.fromJson(_profileJson()));
       // Overall, then the ranked game, then every other game — played or not.
       expect(cards.map((c) => c.title),
           ['OVERALL', 'DRAUGHTS', 'TRAITORS', 'WORD BLUFF', 'CHESS', 'WHOT', 'LUDO', 'MACALA']);
       final overall = cards.first;
-      expect(overall.bigValue, '1842');
-      expect(overall.bigLabel, 'DRA');
+      // 291 wins × 20 + 13 draws × 8 + 124 losses × 3.
+      expect(overall.bigValue, '6,296');
+      expect(overall.bigLabel, 'STRENGTH');
       expect(overall.stats.map((s) => '${s.value} ${s.label}'),
           ['428 GMS', '68% WIN', '3 TTL', '19 BST', '1 BDG', '#127 RNK']);
       final draft = cards[1];
@@ -253,7 +267,7 @@ void main() {
     expect(find.byKey(const ValueKey('complete-player-profile')), findsNothing);
     expect(find.byKey(const ValueKey('profile-public-switch')), findsNothing);
     expect(find.text('10 Match Win Streak'), findsOneWidget);
-    expect(tester.widget<Text>(find.byKey(const ValueKey('card-big-OVERALL'))).data, '1842');
+    expect(tester.widget<Text>(find.byKey(const ValueKey('card-big-OVERALL'))).data, '6,296');
   });
 
   testWidgets('swiping brings the next game card to the front; tapping it opens that game', (tester) async {

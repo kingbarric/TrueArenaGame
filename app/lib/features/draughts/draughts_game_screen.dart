@@ -13,14 +13,17 @@ import '../../core/game_sfx.dart';
 import '../../widgets/fireworks.dart';
 import '../../widgets/how_to_play_dialog.dart';
 import '../../widgets/neon.dart';
+import '../../widgets/game_controls.dart';
+import '../../widgets/worn_look.dart';
+import '../../widgets/turn_ring.dart';
 import '../../widgets/table_chat.dart';
 import '../../widgets/game_voice_control.dart';
-import '../shell/main_shell.dart';
 import '../status/victory_status.dart';
 import '../onboarding/guest_save_session_card.dart';
 import 'draughts_rules.dart';
 import 'draughts_theme.dart';
 import 'draughts_var.dart';
+import '../huudspace/leave_game.dart';
 
 /// International (10x10, 20-piece) Draughts — driven by the same
 /// SNAPSHOT/PHASE/EVENT-in, PLAYER_ACTION-out contract as the other two
@@ -126,6 +129,12 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
 
   bool _paused = false;
   String? _pendingDrawOffer;
+
+  /// Someone asked to take back their last move (their id), waiting on the other player.
+  String? _pendingUndo;
+
+  /// Who may ask for an undo right now — whoever just moved, until the other side plays.
+  String? _undoableBy;
   String? _awayPlayer;
   int? _reconnectSeconds;
 
@@ -388,6 +397,8 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
       _spectatorCount = p['spectatorCount'] as int? ?? _spectatorCount;
       _mandatoryCapture = p['mandatoryCapture'] as bool? ?? _mandatoryCapture;
       _pendingDrawOffer = p['pendingDrawOffer'] as String?;
+      _pendingUndo = p['pendingUndo'] as String?;
+      _undoableBy = p['undoableBy'] as String?;
     });
   }
 
@@ -615,6 +626,24 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
           GameMusic.playOutcome(won: winningSide == mySide);
         case 'DRAW_OFFERED':
           _pendingDrawOffer = data['by']?.toString();
+        case 'UNDO_REQUESTED':
+          _pendingUndo = data['by']?.toString();
+          _undoableBy = null;
+        case 'UNDO_DECLINED':
+          if (_pendingUndo == widget.selfId) {
+            ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('${label(data['by']?.toString() ?? '')} said no — your move stays.')));
+          }
+          _pendingUndo = null;
+        case 'UNDO_ACCEPTED':
+          _pendingUndo = null;
+          _undoableBy = null;
+          board = (data['board'] as List).map((e) => e as String?).toList();
+          _serverLegal = null;
+          _selected = null;
+          _chain = const [];
+          activeSquare = null;
+          _rebuildPiecesFromBoard();
         case 'RECONNECT_WAIT':
           _applyReconnectWait(data);
       }
@@ -647,6 +676,12 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
 
   String? _describe(String type, Map<String, dynamic> data) {
     switch (type) {
+      case 'UNDO_REQUESTED':
+        return '${label(data['by']?.toString() ?? '')} asked to undo their move.';
+      case 'UNDO_ACCEPTED':
+        return '${label(data['by']?.toString() ?? '')} allowed the undo.';
+      case 'UNDO_DECLINED':
+        return '${label(data['by']?.toString() ?? '')} said no to the undo.';
       case 'TURN_GRACE':
         final who = label(_actorFor(data['side'] as String));
         final secs = data['seconds'] as int? ?? 0;
@@ -1066,8 +1101,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
       if (widget.championshipId != null) {
         Navigator.of(context).pop();
       } else {
-        Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const MainShell()), (r) => false);
+        await leaveGame(context, widget.socket.roomId);
       }
     }
   }
@@ -1246,15 +1280,16 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
 
     return Column(children: [
       _statusBar(n),
-      _turnBanner(),
       Expanded(
         child: LayoutBuilder(builder: (context, constraints) {
-          final trayHeight = math.min(38.0, constraints.maxHeight * 0.09);
+          // Slim trays, so the board gets the room.
+          final trayHeight = math.min(26.0, constraints.maxHeight * 0.06);
           final boardSide = math.max(
               1.0,
               math.min(constraints.maxWidth,
                   constraints.maxHeight - 2 * trayHeight));
-          final cellSize = math.max(1.0, (boardSide - 28) / 10);
+          // The frame takes _frameInset on each side.
+          final cellSize = math.max(1.0, (boardSide - 2 * _frameInset) / 10);
           final captureSize = cellSize * 0.78;
           return Center(
             child: SizedBox(
@@ -1292,7 +1327,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
                   width: boardSide,
                   height: boardSide,
                   child: Padding(
-                    padding: const EdgeInsets.all(4),
+                    padding: const EdgeInsets.all(2),
                     child: _boardSurface(boardPalette, piecePalette, flipped),
                   ),
                 ),
@@ -1303,11 +1338,11 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
                     palette: piecePalette,
                     size: captureSize,
                     start: Offset(
-                      14 +
+                      _frameInset +
                           colOf(captured.square) * cellSize +
                           (cellSize - captureSize) / 2,
                       trayHeight +
-                          14 +
+                          _frameInset +
                           (flipped
                                   ? rowOf(captured.square)
                                   : 9 - rowOf(captured.square)) *
@@ -1322,71 +1357,61 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
           );
         }),
       ),
-      if (!_amSpectator) _actionBar(),
+      if (!_amSpectator && _pendingUndo != null && _pendingUndo != widget.selfId)
+        UndoAskBanner(
+          who: label(_pendingUndo!),
+          onAnswer: (yes) => widget.socket
+              .send('PLAYER_ACTION', {'action': yes ? 'ACCEPT_UNDO' : 'DECLINE_UNDO', 'data': {}}),
+        ),
+      _controls(),
       if (widget.championshipId == null || !_amSpectator) _chatPanel(n),
     ]);
   }
 
-  /// The same four-button row Macala gives its players — a request, an
-  /// offer, the rules, and a way out, always in reach below the board.
-  Widget _actionBar() {
-    final pendingFromOpponent =
-        _pendingDrawOffer != null && _pendingDrawOffer != widget.selfId;
+  /// The control row every board game shares: Undo · Draw · VAR · Rules · Resign.
+  /// Spectators only get the replay and the rules.
+  Widget _controls() {
+    final pendingFromOpponent = _pendingDrawOffer != null && _pendingDrawOffer != widget.selfId;
     final offeredByMe = _pendingDrawOffer == widget.selfId;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 0, 8, 6),
-      child: Row(children: [
-        Expanded(
-            child: _controlButton(
-                Icons.undo_rounded, 'Request undo', _requestUndo)),
-        const SizedBox(width: 5),
-        Expanded(
-            child: _controlButton(
-                Icons.handshake_rounded,
-                pendingFromOpponent ? 'Accept draw' : 'Offer draw',
-                () => _offerOrAcceptDraw(pendingFromOpponent, offeredByMe))),
-        const SizedBox(width: 5),
-        Expanded(
-            child:
-                _controlButton(Icons.help_outline_rounded, 'Rules', _showHelp)),
-        const SizedBox(width: 5),
-        Expanded(
-            child:
-                _controlButton(Icons.flag_rounded, 'Resign', _confirmForfeit)),
-      ]),
-    );
-  }
-
-  Widget _controlButton(IconData icon, String label, VoidCallback onTap) {
-    return Material(
-      color: const Color(0xff241708),
-      borderRadius: BorderRadius.circular(7),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(7),
-        onTap: onTap,
-        child: SizedBox(
-          height: 54,
-          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Icon(icon, size: 19, color: const Color(0xffe0a94a)),
-            const SizedBox(height: 3),
-            Text(label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style:
-                    const TextStyle(color: Color(0xfff0d8a8), fontSize: 8.5)),
-          ]),
-        ),
+    final varReady = _var.lastCompleted != null && (_amSpectator || _var.lastCompleted!.side != mySide);
+    if (_amSpectator) {
+      return GameControlBar(controls: [
+        GameControl(id: 'var', icon: Icons.live_tv_rounded, label: 'VAR', onTap: varReady ? _openVar : null),
+        GameControl(id: 'rules', icon: Icons.help_outline_rounded, label: 'Rules', onTap: _showHelp),
+      ]);
+    }
+    return GameControlBar(
+      controls: GameControlBar.standard(
+        onUndo: finished ? null : _requestUndo,
+        undoLabel: _pendingUndo == widget.selfId ? 'Asked' : 'Undo',
+        onDraw: finished ? null : () => _offerOrAcceptDraw(pendingFromOpponent, offeredByMe),
+        drawLabel: pendingFromOpponent ? 'Accept draw' : (offeredByMe ? 'Offered' : 'Draw'),
+        drawLit: pendingFromOpponent,
+        onVar: varReady ? _openVar : null,
+        onRules: _showHelp,
+        onResign: finished ? null : _confirmForfeit,
       ),
     );
   }
 
-  /// Draughts has no real undo — like Macala's, this is a nudge to your
-  /// opponent, not an action the server will act on.
+
+
+  /// Ask to take back the move you just played. The other player gets an
+  /// Allow / No box; the board only goes back if they allow it.
   void _requestUndo() {
-    widget.socket
-        .send('CHAT_SEND', {'channel': 'table', 'text': 'requests an undo.'});
-    ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Request sent to your opponent.')));
+    final messenger = ScaffoldMessenger.of(context);
+    final other = label(_actorFor(mySide == 'A' ? 'B' : 'A'));
+    if (_pendingUndo == widget.selfId) {
+      messenger.showSnackBar(SnackBar(content: Text('Waiting for $other to answer…')));
+      return;
+    }
+    if (_undoableBy != widget.selfId) {
+      messenger.showSnackBar(SnackBar(
+          content: Text('You can undo only right after your move, before $other plays.')));
+      return;
+    }
+    widget.socket.send('PLAYER_ACTION', {'action': 'REQUEST_UNDO', 'data': {}});
+    messenger.showSnackBar(SnackBar(content: Text('Asked $other to let you undo.')));
   }
 
   void _offerOrAcceptDraw(bool pendingFromOpponent, bool offeredByMe) {
@@ -1468,7 +1493,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
                     final col = displayCol;
                     if (!isPlayable(row, col)) {
                       return _PlankCell(
-                          palette: boardPalette, dark: false, inert: true);
+                          palette: boardPalette, dark: false, inert: true, seed: 500 + row * 10 + col);
                     }
                     final sq = squareOf(row, col);
                     return GestureDetector(
@@ -1482,6 +1507,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
                         // squares and paint the rest near-black, so the grid
                         // never read clearly on any colour scheme.)
                         dark: true,
+                        longDiagonal: row + col == 9,
                         seed: sq,
                         selected: sq == _selected,
                         armed: _chain.contains(sq),
@@ -1575,8 +1601,9 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
   }
 
   Widget _statusBar(NeonColors n) {
+    final finished = phase == 'Results';
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 8),
       decoration: const BoxDecoration(
         color: Color(0xff241708),
         border: Border(bottom: BorderSide(color: Color(0xff3a2410))),
@@ -1584,148 +1611,33 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
       child: Row(children: [
         _sideChip('A', playerA),
         const Spacer(),
-        // Clock and replay sit here rather than on a rail of their own below
-        // the board. Voice is the single real control in the app bar.
-        Column(mainAxisSize: MainAxisSize.min, children: [
-          Row(mainAxisSize: MainAxisSize.min, children: [
-            _timerDial(),
-            const SizedBox(width: 12),
-            SizedBox(
-              width: 44,
-              height: 40,
-              child: TextButton(
-                key: const Key('draughts-var-tv'),
-                onPressed: _var.lastCompleted == null ||
-                        (!_amSpectator && _var.lastCompleted!.side == mySide)
-                    ? null
-                    : _openVar,
-                style: TextButton.styleFrom(padding: EdgeInsets.zero),
-                child: _VarTvIcon(
-                  enabled: _var.lastCompleted != null &&
-                      (_amSpectator || _var.lastCompleted!.side != mySide),
-                ),
-              ),
-            ),
-          ]),
-        ]),
+        // The clock sits between the players; VAR lives in the control row.
+        _timerDial(),
         const Spacer(),
         _sideChip('B', playerB),
       ]),
-    );
+    ).withTurnHand(left: turnSide == 'A', visible: !finished && playerA.isNotEmpty);
   }
 
-  /// Whose move it is, in letters you can read from across the table. It was
-  /// a 9-point label squeezed between the two player chips; now it's a
-  /// full-width banner: bright and solid on your turn, a quiet "thinking"
-  /// strip while the other side moves.
-  Widget _turnBanner() {
-    final mustCapture = myTurn && _remainingRequired > 0;
-    final String text;
-    final Color fill;
-    final Color ink;
-    final IconData icon;
-    final bool waiting;
-    if (_amSpectator) {
-      // Watching: say whose turn it is, by name.
-      final who = label(_actorFor(turnSide));
-      text = "${who.toUpperCase()}'S TURN";
-      fill = const Color(0xff3a2410);
-      ink = const Color(0xfff0d8a8);
-      icon = Icons.visibility_rounded;
-      waiting = false;
-    } else if (mustCapture) {
-      text = 'YOU MUST CAPTURE';
-      fill = const Color(0xffe0584a);
-      ink = Colors.white;
-      icon = Icons.priority_high_rounded;
-      waiting = false;
-    } else if (myTurn) {
-      text = 'YOUR TURN';
-      fill = const Color(0xffffc233);
-      ink = const Color(0xff241708);
-      icon = Icons.touch_app_rounded;
-      waiting = false;
-    } else {
-      text = 'OPPONENT IS THINKING';
-      fill = const Color(0xff3a2410);
-      ink = const Color(0xfff0d8a8);
-      icon = Icons.hourglass_top_rounded;
-      waiting = true;
-    }
-    return AnimatedContainer(
-      key: const ValueKey('draughts-turn-banner'),
-      duration: const Duration(milliseconds: 220),
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: fill,
-        boxShadow: myTurn && !_amSpectator
-            ? [BoxShadow(color: fill.withValues(alpha: 0.55), blurRadius: 14)]
-            : null,
-      ),
-      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-        if (waiting)
-          SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2.4, color: ink))
-        else
-          Icon(icon, color: ink, size: 24),
-        const SizedBox(width: 10),
-        Flexible(
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(text,
-                key: const ValueKey('draughts-turn-text'),
-                maxLines: 1,
-                style: TextStyle(
-                    color: ink,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.2)),
-          ),
-        ),
-        if (waiting) ...[
-          const SizedBox(width: 2),
-          Text('…',
-              style: TextStyle(
-                  color: ink, fontSize: 22, fontWeight: FontWeight.w900)),
-        ],
-      ]),
-    );
-  }
-
-  /// Whose side it is, shown as their actual face rather than a blank
-  /// counter — your own picture for you, initials for everyone else,
-  /// including agents. The ring lights up on whoever is on the clock.
+  /// A player at the table: green ring and glow on their turn, amber while
+  /// they wait. "Must capture" shows under you when a capture is forced.
   Widget _sideChip(String side, String playerId) {
-    final active = turnSide == side;
+    final active = turnSide == side && phase != 'Results';
     final isMe = playerId.isNotEmpty && playerId == widget.selfId;
+    final mustCapture = active && isMe && _remainingRequired > 0;
     final app = AppScope.of(context);
-    return Column(children: [
-      Container(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: active
-              ? const Border.fromBorderSide(
-                  BorderSide(color: Color(0xffe0a94a), width: 2))
-              : Border.all(color: const Color(0xff1c130a), width: 1.4),
-          boxShadow: active
-              ? [
-                  BoxShadow(
-                      color: const Color(0xffe0a94a).withValues(alpha: 0.45),
-                      blurRadius: 10)
-                ]
-              : null,
-        ),
+    return Column(key: ValueKey('draughts-side-$side'), children: [
+      TurnRing(
+        active: active,
+        size: 40,
         child: playerId.isEmpty
-            ? const SizedBox(width: 34, height: 34)
+            ? const SizedBox(width: 40, height: 40)
             : ValueListenableBuilder<Set<String>>(
                 valueListenable: widget.socket.onlinePlayers,
                 builder: (_, online, __) => OnlineAvatar(
                   label(playerId),
-                  size: 34,
-                  online: online.contains(playerId),
+                  size: 40,
+                  online: online.contains(playerId), presence: widget.socket.presenceOf(playerId),
                   emoji: isMe ? app.avatarEmoji : null,
                   imagePath: isMe ? app.avatarImagePath : null,
                   imageUrl: widget.socket.memberAvatars[playerId] ?? (isMe ? app.user?.avatarUrl : null),
@@ -1733,17 +1645,27 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
               ),
       ),
       const SizedBox(height: 4),
-      Text(playerId.isEmpty ? '…' : label(playerId),
+      Text(
+          mustCapture
+              ? 'MUST CAPTURE'
+              : playerId.isEmpty
+                  ? '…'
+                  : label(playerId),
+          key: ValueKey('draughts-name-$side'),
           style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              color:
-                  active ? const Color(0xfff0d8a8) : const Color(0xff9a8163))),
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+              color: mustCapture
+                  ? const Color(0xffff6b5e)
+                  : active
+                      ? TurnRing.green
+                      : TurnRing.amber)),
     ]);
   }
 
   /// Draughts and Goosi share one chat panel — see [TableChatPanel].
   Widget _chatPanel(NeonColors n) => TableChatPanel(
+        height: 104,
         lines: feed,
         controller: _chatController,
         onSend: _sendChat,
@@ -1854,9 +1776,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
               if (widget.championshipId != null) {
                 Navigator.of(context).pop();
               } else {
-                Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (_) => const MainShell()),
-                    (r) => false);
+                leaveGame(context, widget.socket.roomId);
               }
             }),
             const GuestSaveSessionCard(),
@@ -1875,26 +1795,30 @@ class _WoodFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Old, weathered wood: grain, knots, scratches, rust stains and rusty
+    // nails in the corners — painted underneath, the board sits inside it.
     return Container(
-      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
-        gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [palette.frameTop, palette.frameBottom]),
-        boxShadow: const [
-          BoxShadow(
-              color: Colors.black54, blurRadius: 20, offset: Offset(0, 10))
-        ],
-        border: Border.all(color: const Color(0xff1c1108), width: 3),
+        boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 20, offset: Offset(0, 10))],
+        border: Border.all(color: const Color(0xff1c1108), width: 2.5),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(8),
         child: CustomPaint(
-            painter: _WoodPainter(
-                base: palette.frameTop, grain: Colors.black, seed: 7),
-            child: child),
+          painter: RustyWoodPainter(top: palette.frameTop, bottom: palette.frameBottom),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: DecoratedBox(
+              // The board's sunk into the frame a little.
+              position: DecorationPosition.foreground,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.black.withValues(alpha: 0.55), width: 1.5),
+              ),
+              child: ClipRRect(borderRadius: BorderRadius.circular(2), child: child),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1903,16 +1827,27 @@ class _WoodFrame extends StatelessWidget {
 /// A single board square: solid worn-plank color with procedural grain, no
 /// image asset needed. Only the selected piece and the square the player
 /// actually tapped are highlighted; legal destinations remain unmarked.
+const _diagonalYellow = Color(0xffe6b422);
+
+/// Board edge to the first square: the board's padding (2) + the frame's
+/// border (2.5) and its wood (14).
+const double _frameInset = 18.5;
+const _diagonalGrain = Color(0xffd9a91c);
+
 class _PlankCell extends StatelessWidget {
   const _PlankCell(
       {required this.palette,
       required this.dark,
+      this.longDiagonal = false,
       this.seed = 0,
       this.selected = false,
       this.armed = false,
       this.inert = false});
   final BoardPalette palette;
   final bool dark;
+
+  /// On the long diagonal, corner to corner — painted yellow so it stands out.
+  final bool longDiagonal;
   final int seed;
   final bool selected;
   final bool armed;
@@ -1922,15 +1857,17 @@ class _PlankCell extends StatelessWidget {
   Widget build(BuildContext context) {
     // Squares nobody can land on are the light squares: just the colour,
     // nothing to tap or highlight.
-    if (inert) return ColoredBox(color: palette.lightSquare);
+    if (inert) {
+      return CustomPaint(painter: GrimePainter(base: palette.lightSquare, dark: false, seed: seed));
+    }
     final n = context.neon;
     // Clean tiles: each board's grain colour sits close to its square colour,
     // so the pattern stays faint and the two square colours stay easy to tell apart.
-    final base = dark ? palette.darkSquare : palette.lightSquare;
-    final grain = dark ? palette.darkGrain : palette.lightGrain;
+    final base = longDiagonal ? _diagonalYellow : (dark ? palette.darkSquare : palette.lightSquare);
+    final grain = longDiagonal ? _diagonalGrain : (dark ? palette.darkGrain : palette.lightGrain);
     return CustomPaint(
-      painter:
-          _WoodPainter(base: base, grain: grain, seed: seed + 1, calm: true),
+      painter: _WoodPainter(base: base, grain: grain, seed: seed + 1, calm: true),
+      foregroundPainter: GrimePainter(base: base, dark: dark && !longDiagonal, seed: seed + 31, overlay: true),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
         margin: const EdgeInsets.all(1),
@@ -2117,12 +2054,14 @@ class _VarReplaySheetState extends State<_VarReplaySheet> {
                                 return _PlankCell(
                                     palette: widget.boardPalette,
                                     dark: false,
-                                    inert: true);
+                                    inert: true,
+                                    seed: 500 + row * 10 + col);
                               }
                               final square = squareOf(row, col);
                               return _PlankCell(
                                 palette: widget.boardPalette,
                                 dark: true, // same checkerboard as the live board
+                                longDiagonal: row + col == 9,
                                 seed: square,
                               );
                             },
@@ -2188,55 +2127,6 @@ class _VarReplaySheetState extends State<_VarReplaySheet> {
     );
   }
 }
-
-class _VarTvIcon extends StatelessWidget {
-  const _VarTvIcon({required this.enabled});
-
-  final bool enabled;
-
-  @override
-  Widget build(BuildContext context) {
-    final casing = enabled ? const Color(0xffe0a94a) : const Color(0xff6f604e);
-    return SizedBox(
-      width: 36,
-      height: 32,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Icon(Icons.tv_rounded, size: 34, color: casing),
-          Positioned(
-            top: 9,
-            left: 7,
-            right: 7,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: const Color(0xff241708),
-                borderRadius: BorderRadius.circular(2),
-              ),
-              child: Text(
-                'VAR',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: enabled
-                      ? const Color(0xffffe6ae)
-                      : const Color(0xff9a8163),
-                  fontSize: 7,
-                  height: 1.25,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Positions one `_Piece` over the board and implicitly animates it to a new
-/// square whenever `piece.square` changes — this is what makes a move read
-/// as a slide rather than a jump-cut. Keyed by the piece's stable id so
-/// Flutter's Stack reconciliation matches old→new position across rebuilds.
 class _AnimatedPieceView extends StatelessWidget {
   const _AnimatedPieceView({
     super.key,
@@ -2378,67 +2268,27 @@ class _CheckerPiece extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isA = side == 'A';
-    final top = isA ? palette.aTop : palette.bTop;
-    final mid = isA ? palette.aMid : palette.bMid;
-    final rim = isA ? palette.aRim : palette.bRim;
-    return Container(
+    return SizedBox(
       width: size,
       height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withValues(alpha: 0.6),
-              blurRadius: size * 0.2,
-              offset: Offset(0, size * 0.09)),
-          if (glowing)
-            BoxShadow(
-                color: const Color(0xffe0a94a).withValues(alpha: 0.9),
-                blurRadius: size * 0.42,
-                spreadRadius: size * 0.08),
-        ],
-        // A near-white halo on every piece, independent of its own palette —
-        // this is what keeps a piece separated from the board underneath no
-        // matter how dark either one is.
-        border: Border.all(
-            color: glowing
-                ? const Color(0xffffd879)
-                : Colors.white.withValues(alpha: 0.85),
-            width: size * (glowing ? 0.075 : 0.045)),
-      ),
-      padding: EdgeInsets.all(size * 0.045),
-      child: Container(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: rim, width: size * 0.07),
-          gradient: RadialGradient(
-            center: const Alignment(-0.35, -0.4),
-            radius: 0.95,
-            colors: [top, mid],
-            stops: const [0.0, 1.0],
-          ),
+      child: CustomPaint(
+        painter: RealPiecePainter(
+          top: isA ? palette.aTop : palette.bTop,
+          mid: isA ? palette.aMid : palette.bMid,
+          rim: isA ? palette.aRim : palette.bRim,
+          glowing: glowing,
         ),
-        alignment: Alignment.center,
-        child: Container(
-          width: size * 0.6,
-          height: size * 0.6,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-                color: rim.withValues(alpha: 0.65), width: size * 0.035),
-          ),
-          alignment: Alignment.center,
-          child: isKing
-              ? Icon(Icons.star_rounded,
-                  size: size * 0.4,
-                  color: rim,
-                  shadows: [
-                      Shadow(
-                          color: Colors.black.withValues(alpha: 0.4),
-                          blurRadius: 2)
-                    ])
-              : null,
-        ),
+        child: isKing
+            ? Center(
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: size * 0.05),
+                  child: Icon(Icons.star_rounded,
+                      size: size * 0.42,
+                      color: const Color(0xffffd54a),
+                      shadows: [Shadow(color: Colors.black.withValues(alpha: 0.65), blurRadius: 2, offset: const Offset(0, 1))]),
+                ),
+              )
+            : null,
       ),
     );
   }

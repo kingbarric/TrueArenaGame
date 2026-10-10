@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.truearena.truearena",
+      "sha256_cert_fingerprints": [
+        "CE:F2:2E:FE:B7:F1:41:A8:F8:7B:AC:06:7F:A2:2B:75:F6:1C:AC:8E:74:EF:4D:EE:05:10:A0:DC:86:DB:3A:59"
+      ]
+    }
+  }
+]

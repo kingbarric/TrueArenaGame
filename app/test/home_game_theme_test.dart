@@ -79,8 +79,10 @@ void main() {
       ]) {
         expect(tester.widget<Text>(find.text(name)).maxLines, 1);
       }
-      expect(tester.getBottomLeft(find.text('Join a huud')).dy,
-          lessThan(tester.view.physicalSize.height - 96));
+      // Only games: no "Join a huud" / "Resume your huud" here any more.
+      expect(find.text('Join a huud'), findsNothing);
+      expect(find.text('Resume your huud'), findsNothing);
+      expect(find.byKey(const ValueKey('home-tap-to-play')), findsOneWidget);
     }
 
     for (final theme in [NeonTheme.nebulaDark, NeonTheme.nebulaLight]) {

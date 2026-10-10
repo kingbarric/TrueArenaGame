@@ -1,0 +1,91 @@
+# word | first clue | second clue
+rockstar | A famous guitar-smashing musician who fills stadiums. | Leather jacket, loud music, wild lifestyle.
+superhero | Someone with special powers who saves the day. | Wears a cape, like Superman.
+supervillain | An evil genius with powers who wants to rule the world. | The Joker or Thanos.
+monarch | A king or queen. | Wears a crown and sits on a throne.
+supermodel | A world-famous fashion face. | Walks the catwalk for top designers.
+mastermind | The brains behind a big plan. | The clever planner pulling the strings.
+trailblazer | The first to do something new. | Paves the way for others.
+socialite | A rich person famous for going to parties. | Always at glamorous events.
+tycoon | A very rich business leader. | Oil or media mogul.
+maverick | Someone who refuses to follow the rules. | Top Gun's pilot nickname.
+celebrity chef | A cook who's famous on TV. | Gordon Ramsay.
+popstar | A famous singer with chart hits. | Taylor Swift or Justin Bieber.
+philanthropist | A rich person who gives lots of money to charity. | Bill Gates giving away billions.
+prodigy | A child who's amazingly talented. | Mozart composing at five.
+influencer | Someone with lots of followers who promotes products. | Famous on Instagram or TikTok.
+talk show host | Someone who interviews guests on TV. | Oprah or Jimmy Fallon.
+stand-up comedian | Someone who tells jokes on stage with a mic. | Makes crowds laugh alone on stage.
+Nobel laureate | Someone who won the world's top prize for science or peace. | Malala or Einstein.
+child star | Someone famous as a kid actor. | Macaulay Culkin in Home Alone.
+one-hit wonder | A singer famous for only a single song. | Remember Macarena?
+diva | A demanding, dramatic female star. | Mariah Carey; also an opera singer.
+recluse | A famous person who hides away from everyone. | Never leaves the mansion.
+comeback kid | Someone who returns to success after failing. | Bouncing back from defeat.
+underdog champion | Someone who won when nobody expected it. | Rocky Balboa.
+whistleblower | Someone who reveals secrets about wrongdoing. | Edward Snowden leaked files.
+visionary | Someone who imagines the future. | Steve Jobs.
+pioneer | The first to explore or try something. | An early settler.
+icon | A famous symbol or person everyone recognises. | Also a little picture on your phone.
+legend | Someone so great their stories live on. | Pelé; also a myth.
+mentor | An experienced adviser who guides you. | Yoda to Luke.
+rival | Your main competitor. | Messi versus Ronaldo.
+red carpet fixture | A celebrity at every premiere. | Always posing for cameras at events.
+awards darling | A star who wins everything. | Collects Oscars every year.
+box office star | An actor whose films always make money. | Tom Cruise.
+chart-topper | A song or singer at number one. | Topping the hit list.
+record breaker | Someone who sets a new best. | Usain Bolt.
+game changer | Someone who changes everything. | Revolutionises their field.
+household name | Someone everyone has heard of. | Famous in every home.
+overnight sensation | Someone who became famous very suddenly. | Unknown yesterday, famous today.
+self-made billionaire | Someone who built a fortune from nothing. | Started in a garage.
+heir to a fortune | Someone who'll inherit a family's riches. | Born rich, waiting for a will.
+reformed villain | A bad guy who turned good. | Vegeta or Darth Vader at the end.
+retired champion | A former winner who no longer competes. | Hung up their boots.
+comeback artist | A performer who returns to the spotlight. | Back after years away.
+viral sensation | Someone whose video exploded online. | Millions of views overnight.
+meme icon | A face turned into a joke picture everywhere. | Grumpy Cat.
+internet celebrity | Someone famous online. | A YouTuber.
+podcast host | Someone who talks on an audio show. | Joe Rogan.
+motivational speaker | Someone who inspires crowds to achieve. | Tony Robbins.
+self-help guru | An expert who writes books about improving your life. | Promises a happier you in ten steps.
+tech founder | Someone who started a computer company. | Mark Zuckerberg.
+startup wunderkind | A young genius who started a company. | Twenty and running a tech company.
+fashion icon | Someone whose style everyone copies. | Audrey Hepburn.
+style icon | Someone famous for how they dress. | Trendsetting looks.
+trendsetter | Someone who starts new fashions. | What they wear, everyone wears next.
+tastemaker | Someone who decides what's cool. | Their picks become popular.
+cultural icon | A person symbolising a whole culture. | Marilyn Monroe.
+national hero | Someone a whole country celebrates. | Statues in their honour.
+war hero | A brave soldier honoured for courage. | Medals for bravery.
+freedom fighter | Someone fighting for their people's liberty. | Nelson Mandela.
+revolutionary | Someone who overthrows the old order. | Che Guevara.
+activist | Someone campaigning for change. | Greta Thunberg.
+humanitarian | Someone helping people in need. | Mother Teresa.
+explorer | Someone discovering new places. | Columbus.
+adventurer | Someone who seeks thrills and journeys. | Indiana Jones.
+daredevil | Someone who does crazy stunts. | Evel Knievel jumping canyons.
+record holder | Someone with the best ever result. | Guinness book listing.
+gold medalist | An Olympic winner. | First on the podium.
+championship winner | Someone who won the title. | Lifting the trophy.
+hall of famer | A legend honoured in a sports museum. | Inducted for greatness.
+veteran performer | An entertainer with a long career. | Decades on stage.
+rising star | Someone becoming famous fast. | Next big thing.
+breakout actor | A performer who just had their big hit. | First big role.
+supporting actor | A performer in a smaller role. | Best friend of the lead.
+lead actress | The main female star of a film. | Top billing.
+director's muse | An actor a filmmaker loves to cast. | Inspiration to the filmmaker.
+studio executive | A boss at a film company. | Greenlights movies.
+label executive | A boss at a record company. | Signs bands.
+ghostwriter | Someone who secretly writes for another person. | Unseen author.
+biographer | Someone who writes about another person's life. | Life story author.
+autobiography subject | Someone who wrote their own life story. | Their memoir.
+documentary subject | The person a real-life film is about. | Netflix film about them.
+tell-all author | Someone who wrote a book revealing secrets. | Spills the beans.
+memoirist | Someone writing memories of their own life. | Recollections in a book.
+royal family member | A prince, princess, or relative of a king. | Lives in a palace.
+head of state | The top leader of a country. | King or president.
+prime minister | The leader of the UK government. | Lives at 10 Downing Street.
+president | The elected leader of a country like the USA. | Lives in the White House.
+ambassador | A country's representative abroad. | Lives at the embassy.
+statesman | A wise, respected political leader. | Churchill.

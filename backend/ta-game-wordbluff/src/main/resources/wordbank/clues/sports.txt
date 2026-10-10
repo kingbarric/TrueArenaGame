@@ -1,0 +1,100 @@
+# word | first clue | second clue
+penalty | A free shot at goal after a foul in the box. | Just the striker against the keeper from the spot.
+marathon | A running race of about 26 miles. | Thousands run it through London or New York.
+referee | The official who blows the whistle and makes the calls. | They show yellow and red cards.
+offside | When an attacker is behind the last defender before the pass. | The flag goes up and the goal doesn't count.
+touchdown | Scoring in American football by crossing the end line. | Worth six points in the NFL.
+scoreboard | The big display showing the points. | Home and away numbers lit up at the stadium.
+tournament | A competition with lots of teams or players. | Knockout rounds until one champion is left.
+underdog | The team nobody expects to win. | David against Goliath.
+timeout | A short break a coach calls in a game. | Hands in a T shape to stop the clock.
+championship | The final competition to find the best. | Winning the title.
+doping | Cheating by taking drugs to perform better. | Athletes banned after a failed test.
+hat-trick | Three goals by one player in one game. | Take home the match ball.
+stadium | A huge arena where big matches are played. | Wembley or the Bernabéu.
+medal | Gold, silver or bronze, hung round your neck. | You win it at the Olympics.
+overtime | Extra time to break a tie. | When the game goes on after the clock runs out.
+free kick | A set piece after a foul, with a wall of defenders. | Beckham curled them in.
+corner kick | A set piece taken from beside the flag. | Given when a defender knocks it behind the goal line.
+goalkeeper | The player in gloves who guards the net. | The only one who can use their hands.
+midfielder | A player in the middle of the pitch who links defence and attack. | They run the most and pass the ball forward.
+striker | The player whose job is scoring goals. | The centre forward.
+defender | A player who stops the other team scoring. | Full-backs and centre-backs.
+substitute | A player who comes off the bench. | Swapped in for a tired teammate.
+injury time | Minutes added at the end for stoppages. | Stoppage time shown on a board.
+extra time | Thirty more minutes when a knockout game is level. | Two halves of fifteen after ninety minutes.
+penalty shootout | Taking turns from the spot to decide a draw. | Five each, then sudden death.
+yellow card | A warning for a bad foul. | Two of these and you're off.
+red card | Sent off the pitch for a bad foul. | The referee holds it up and you walk.
+foul | Breaking the rules, like tripping someone. | The whistle blows for it.
+tackle | Taking the ball off someone. | Sliding in to win the ball.
+dribble | Running with the ball close to your feet. | Messi weaving past defenders.
+pass | Kicking the ball to a teammate. | Also getting through a test.
+header | Hitting the ball with your forehead. | Leaping to nod it in.
+volley | Hitting the ball before it bounces. | Striking it in the air.
+rebound | Catching the ball after a missed shot. | When it bounces back off the hoop.
+slam dunk | Jumping up and stuffing the ball through the hoop. | A basketball move from above the rim.
+free throw | An unguarded basketball shot from the line after a foul. | Worth one point each.
+three-pointer | A long basketball shot from behind the arc. | Steph Curry's speciality.
+layup | A close-range basketball shot off the backboard. | Running in and laying it up softly.
+foul shot | Another name for a free throw in basketball. | One point from the line.
+alley-oop | One player throws up the ball and another dunks it mid-air. | A lob straight to a dunk.
+touchdown pass | A throw that scores six points in American football. | The quarterback finds a receiver in the end zone.
+field goal | Kicking the ball through the posts in American football. | Worth three points.
+quarterback | The American football player who throws the ball. | Tom Brady was one.
+linebacker | An American football defender who tackles. | Big hitter behind the front row of defenders.
+home run | Hitting the baseball out of the park. | Round all four bases.
+strikeout | Three strikes and the batter is out. | The pitcher wins.
+pitcher | The baseball player who throws to the batter. | On the mound; also a jug.
+batter | The baseball player trying to hit. | Also pancake mix.
+umpire | The official in baseball or tennis. | Says strike or calls out.
+inning | A round in baseball. | There are nine in a game.
+serve | Starting a tennis point by hitting the ball over. | Also bringing food to the table.
+backhand | A tennis shot hit across your body. | The opposite of a forehand.
+forehand | A tennis shot on your strong side. | The opposite of a backhand.
+tiebreak | A special game when a tennis set is six all. | First to seven points.
+ace | A serve the opponent can't even touch. | Also the top playing card.
+double fault | Missing both serves in tennis. | Losing the point on two bad serves.
+grand slam | Winning all four major tennis tournaments. | Wimbledon, US, French and Australian Opens.
+knockout | When a boxer is knocked down and can't get up. | KO, ten count.
+uppercut | A punch from below to the chin. | A rising boxing punch.
+jab | A quick straight punch. | Also a slang word for a vaccine shot.
+sparring | Practice fighting with a partner. | Training rounds in boxing.
+weigh-in | Boxers stepping on the scales before a fight. | Staring each other down at the scales.
+podium | The steps winners stand on. | First, second, third.
+finish line | Where the race ends. | Breaking the tape.
+starting blocks | Where sprinters put their feet before the gun. | Ready, set, go.
+relay race | Four runners take turns passing a baton. | A team sprint with a baton.
+hurdles | Jumping over barriers while running. | Clearing fences on the track.
+pole vault | Jumping over a high bar using a long bendy rod. | An Olympic jump with a long stick.
+long jump | Running and leaping into a sandpit. | Measured for distance.
+high jump | Leaping over a bar backwards. | The Fosbury flop.
+javelin | Throwing a long spear as far as you can. | An Olympic spear throw.
+discus | Throwing a heavy flat plate as far as you can. | Spin and fling.
+shot put | Throwing a heavy metal ball from your neck. | Pushing the iron ball.
+gymnastics | Flips and balances on bars and beams. | Simone Biles.
+balance beam | A narrow bar gymnasts walk and flip on. | Four inches wide.
+vault | Gymnasts run and flip over a springboard table. | Also a bank's safe room.
+somersault | Rolling or flipping head over heels. | A forward roll in the air.
+figure skating | Spinning and jumping on ice to music. | Triple axels on blades.
+ice hockey | A fast team game on skates with sticks and a puck. | Canada's favourite.
+power play | When one team has an extra skater on the rink. | A rival is in the sin bin.
+slap shot | A hard hockey hit with a big wind-up. | Smack the puck.
+face-off | Dropping the puck between two players to start. | Two players stare down.
+scrum | Rugby players pushing against each other in a huddle. | Heads down, packs push.
+try | Scoring in rugby by grounding the ball over the line. | Worth five points; also to attempt something.
+conversion | The kick after a rugby try. | Two extra points through the posts.
+lineout | Throwing the rugby ball in from the side with players lifted. | Jumpers hoisted up.
+rugby tackle | Bringing a player down by grabbing their legs. | A hard hit around the waist.
+cycling | Racing on bikes. | Tour de France.
+peloton | The big pack of riders in a bike race. | The main group in the Tour de France.
+photo finish | A race so close you need a camera to decide. | Too close to call.
+personal best | Your fastest ever time. | PB.
+world record | The best ever performance on Earth. | Usain Bolt's 9.58 seconds.
+Olympics | The biggest sports event, every four years. | Five rings and a torch.
+World Cup | Football's biggest tournament, every four years. | Countries battle for the golden trophy.
+league table | The ranking of teams by points. | Who's top and who's bottom.
+relegation | Dropping down a division for finishing near the bottom. | Going down.
+promotion | Moving up a division. | Going up as champions.
+draft pick | A player chosen by a team in the yearly selection. | First round, first choice.
+salary cap | A limit on how much a team can pay its players. | A spending ceiling for wages.

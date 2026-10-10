@@ -12,14 +12,15 @@ import '../../widgets/fireworks.dart';
 import '../../widgets/game_voice_control.dart';
 import '../../widgets/how_to_play_dialog.dart';
 import '../../widgets/neon.dart';
+import '../../widgets/game_controls.dart';
+import '../../widgets/turn_ring.dart';
 import '../../widgets/table_chat.dart';
 import '../onboarding/guest_save_session_card.dart';
-import '../shell/main_shell.dart';
 import '../status/victory_status.dart';
-import '../../widgets/var_tv_icon.dart';
 import 'chess_piece.dart';
 import 'chess_var.dart';
 import 'chess_view.dart';
+import '../huudspace/leave_game.dart';
 
 /// Standard chess, played against the server's `ChessModule`. The same
 /// SNAPSHOT/PHASE/EVENT-in, PLAYER_ACTION-out contract as Draughts and Macala.
@@ -42,6 +43,7 @@ class ChessGameScreen extends StatefulWidget {
     this.avatars = const {},
     this.agents = const {},
     this.spectating = false,
+    this.championship = false,
   });
 
   final GameSocket socket;
@@ -53,6 +55,10 @@ class ChessGameScreen extends StatefulWidget {
   /// Seats held by Cyber Agents, shown with a robot instead of a photo.
   final Set<String> agents;
   final bool spectating;
+
+  /// A championship match: the bracket runs the clock (no pausing), and a
+  /// player who drops out has a set time to come back before losing.
+  final bool championship;
 
   @override
   State<ChessGameScreen> createState() => _ChessGameScreenState();
@@ -106,6 +112,10 @@ class _ChessGameScreenState extends State<ChessGameScreen>
   bool _sfxOn = GameSfx.enabled;
   bool _leaving = false;
 
+  /// Championship: who's away and how many seconds they have left to return.
+  Map<String, int> _away = const {};
+  Timer? _awayTicker;
+
   /// Either player can pause. Both clocks stop and nobody can move until
   /// someone resumes.
   bool _paused = false;
@@ -132,6 +142,7 @@ class _ChessGameScreenState extends State<ChessGameScreen>
   void dispose() {
     _sub?.cancel();
     _ticker?.cancel();
+    _awayTicker?.cancel();
     _slide.dispose();
     _tick.dispose();
     _chatController.dispose();
@@ -278,6 +289,17 @@ class _ChessGameScreenState extends State<ChessGameScreen>
         _system(by == widget.selfId
             ? 'You offered a draw.'
             : '${_label(by)} offers a draw.');
+      case 'UNDO_REQUESTED':
+        _system('${_label(data['by']?.toString() ?? '')} asked to undo their move.');
+      case 'UNDO_ACCEPTED':
+        _system('${_label(data['by']?.toString() ?? '')} allowed the undo.');
+      case 'UNDO_DECLINED':
+        final by = data['by']?.toString() ?? '';
+        _system('${_label(by)} said no to the undo.');
+        if (by != widget.selfId && _view.pendingUndo == widget.selfId && mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text('${_label(by)} said no — your move stays.')));
+        }
       case 'DRAW_DECLINED':
         final by = data['by']?.toString() ?? '';
         _system(data['implicit'] == true
@@ -321,6 +343,8 @@ class _ChessGameScreenState extends State<ChessGameScreen>
           _pausedBy = null;
         });
         _system('Game resumed.');
+      case 'RECONNECT_WAIT':
+        _applyReconnectWait(data);
       case 'SPECTATORS_MUTED':
         setState(() => _spectatorsMuted = true);
       case 'SPECTATORS_UNMUTED':
@@ -489,11 +513,21 @@ class _ChessGameScreenState extends State<ChessGameScreen>
 
   // ------------------------------------------------------------- actions
 
+  /// Ask to take back the move you just played; your opponent allows it or not.
   void _requestUndo() {
-    widget.socket
-        .send('CHAT_SEND', {'channel': 'table', 'text': 'requests an undo.'});
-    ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Request sent to your opponent.')));
+    final messenger = ScaffoldMessenger.of(context);
+    final other = _label(_view.playerFor(_opponentSide));
+    if (_view.pendingUndo == widget.selfId) {
+      messenger.showSnackBar(SnackBar(content: Text('Waiting for $other to answer…')));
+      return;
+    }
+    if (_view.undoableBy != widget.selfId) {
+      messenger.showSnackBar(
+          SnackBar(content: Text('You can undo only right after your move, before $other plays.')));
+      return;
+    }
+    _send('REQUEST_UNDO');
+    messenger.showSnackBar(SnackBar(content: Text('Asked $other to let you undo.')));
   }
 
   void _drawButton() {
@@ -544,10 +578,12 @@ class _ChessGameScreenState extends State<ChessGameScreen>
           backgroundColor: _panel,
           title: const Text('Leave the game?', style: TextStyle(color: _cream)),
           content: Text(
-              vsAgent
-                  ? 'Leaving ends the game — the Cyber Agent takes the win.'
-                  : 'Your clock keeps running while you\'re away. Rejoin with '
-                      'the huud code before it runs out.',
+              widget.championship
+                  ? 'Come back from the Huud before your time runs out, or you lose the match.'
+                  : vsAgent
+                      ? 'Leaving ends the game — the Cyber Agent takes the win.'
+                      : 'Your clock keeps running while you\'re away. Rejoin with '
+                          'the huud code before it runs out.',
               style: const TextStyle(color: _mute)),
           actions: [
             TextButton(
@@ -584,11 +620,52 @@ class _ChessGameScreenState extends State<ChessGameScreen>
       await app.clearActiveRoom(widget.socket.roomId).catchError((_) {});
     }
     if (!mounted) return;
-    Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const MainShell()), (r) => false);
+    // A championship match was opened from the Huud: back to it.
+    if (widget.championship) {
+      Navigator.of(context).pop();
+      return;
+    }
+    await leaveGame(context, widget.socket.roomId);
   }
 
   void _togglePause() => widget.socket.send('PAUSE_TOGGLE');
+
+  /// The bracket's word on who's away; counted down here between its updates.
+  void _applyReconnectWait(Map<String, dynamic> data) {
+    _awayTicker?.cancel();
+    final missing = (data['missing'] as List?)?.whereType<Map>() ?? const [];
+    setState(() => _away = {
+          for (final m in missing) m['userId'].toString(): (m['secondsLeft'] as num?)?.toInt() ?? 0,
+        });
+    if (_away.isEmpty) return;
+    _awayTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() => _away = {for (final e in _away.entries) e.key: e.value > 0 ? e.value - 1 : 0});
+    });
+  }
+
+  Widget _reconnectOverlay() {
+    final others = _away.entries.where((e) => e.key != widget.selfId).toList();
+    final text = others.isEmpty
+        ? 'Waiting for both players to connect.'
+        : others.map((e) => '${_label(e.key)} has ${e.value}s to come back').join('\n');
+    return Container(
+      key: const ValueKey('chess-reconnect-wait'),
+      color: const Color(0xcc0d0618),
+      alignment: Alignment.center,
+      padding: const EdgeInsets.all(24),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Icon(Icons.wifi_off_rounded, size: 52, color: _gold),
+        const SizedBox(height: 8),
+        const Text('WAITING',
+            style: TextStyle(color: _gold, fontSize: 22, letterSpacing: 4, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 6),
+        Text(text, textAlign: TextAlign.center, style: const TextStyle(color: _cream, fontSize: 14)),
+        const SizedBox(height: 4),
+        const Text('Both clocks are stopped.', style: TextStyle(color: _mute, fontSize: 12)),
+      ]),
+    );
+  }
 
   Widget _pauseOverlay() {
     final by = _pausedBy;
@@ -746,22 +823,32 @@ class _ChessGameScreenState extends State<ChessGameScreen>
                     Expanded(
                       child: Stack(children: [
                         Positioned.fill(child: _boardArea()),
-                        if (_paused && !_view.finished)
+                        if (_paused && !_view.finished && !widget.championship)
                           Positioned.fill(child: _pauseOverlay()),
+                        if (widget.championship && _away.isNotEmpty && !_view.finished)
+                          Positioned.fill(child: _reconnectOverlay()),
                         if (_view.finished && _showResults)
                           Positioned.fill(child: _results()),
                       ]),
                     ),
                     _playerCard(_amSpectator ? 'white' : _mySide),
                     if (_banner() case final banner?) banner,
-                    _actionRow(),
+                    if (!_amSpectator &&
+                        _view.pendingUndo != null &&
+                        _view.pendingUndo != widget.selfId &&
+                        !_view.finished)
+                      UndoAskBanner(
+                        who: _label(_view.pendingUndo!),
+                        onAnswer: (yes) => _send(yes ? 'ACCEPT_UNDO' : 'DECLINE_UNDO'),
+                      ),
+                    _controls(),
                     TableChatPanel(
                       lines: _feed,
                       controller: _chatController,
                       onSend: _sendChat,
                       spectatorCount: _spectatorCount,
                       amSpectator: _amSpectator,
-                      height: 118,
+                      height: 96,
                     ),
                   ]),
           ),
@@ -821,7 +908,7 @@ class _ChessGameScreenState extends State<ChessGameScreen>
               spectating: _amSpectator,
             ),
           ),
-        if (!_view.finished && !_amSpectator)
+        if (!_view.finished && !_amSpectator && !widget.championship)
           IconButton(
             key: const ValueKey('chess-pause'),
             tooltip: _paused ? 'Resume' : 'Pause',
@@ -921,34 +1008,44 @@ class _ChessGameScreenState extends State<ChessGameScreen>
         side == 'white' ? _view.capturedByBlack : _view.capturedByWhite;
     final lead = taken.fold<int>(0, (s, c) => s + pieceValue(c)) -
         lost.fold<int>(0, (s, c) => s + pieceValue(c));
-    final highlight = active && (isMe || _amSpectator);
+    // Whose turn: the player's own picture glows green (amber while they
+    // wait), and the ✋ slides in towards them from the other side of the board.
+    final top = side == (_amSpectator ? 'black' : _opponentSide);
     return AnimatedContainer(
       key: ValueKey('chess-player-$side'),
       duration: const Duration(milliseconds: 220),
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      padding: const EdgeInsets.fromLTRB(8, 6, 6, 6),
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: const EdgeInsets.fromLTRB(6, 4, 6, 4),
       decoration: BoxDecoration(
         color: _panel,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-            color: highlight ? _gold : const Color(0x22ffffff),
-            width: highlight ? 2 : 1),
-        boxShadow: highlight
-            ? [BoxShadow(color: _gold.withValues(alpha: .22), blurRadius: 12)]
-            : null,
+        border: Border.all(color: const Color(0x22ffffff)),
       ),
       child: Row(children: [
-        ValueListenableBuilder<Set<String>>(
-          valueListenable: widget.socket.onlinePlayers,
-          builder: (_, online, __) => OnlineAvatar(
-            isMe ? 'You' : _label(playerId),
-            size: 40,
-            online: online.contains(playerId),
-            imageUrl: widget.socket.memberAvatars[playerId] ?? widget.avatars[playerId],
-            emoji: widget.agents.contains(playerId) ? '🤖' : null,
+        TurnRing(
+          active: active,
+          size: 36,
+          child: ValueListenableBuilder<Set<String>>(
+            valueListenable: widget.socket.onlinePlayers,
+            builder: (_, online, __) => OnlineAvatar(
+              isMe ? 'You' : _label(playerId),
+              size: 36,
+              online: online.contains(playerId), presence: widget.socket.presenceOf(playerId),
+              imageUrl: widget.socket.memberAvatars[playerId] ?? widget.avatars[playerId],
+              emoji: widget.agents.contains(playerId) ? '🤖' : null,
+            ),
           ),
         ),
-        const SizedBox(width: 10),
+        SizedBox(
+          width: 30,
+          child: Center(
+            child: TurnHand(
+              key: ValueKey('chess-hand-$side'),
+              visible: active,
+              from: Offset(0, top ? 1.6 : -1.6),
+            ),
+          ),
+        ),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -997,8 +1094,15 @@ class _ChessGameScreenState extends State<ChessGameScreen>
           ),
         ),
         const SizedBox(width: 4),
-        if (side == (_amSpectator ? 'black' : _opponentSide)) _varButton(),
-        const SizedBox(width: 4),
+        if (active && _view.inCheck)
+          Container(
+            key: const ValueKey('chess-check'),
+            margin: const EdgeInsets.only(right: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+            decoration: BoxDecoration(color: const Color(0xffe5484d), borderRadius: BorderRadius.circular(8)),
+            child: const Text('CHECK!',
+                style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900)),
+          ),
         _clockBox(side, isMe: isMe, active: active),
       ]),
     );
@@ -1010,24 +1114,6 @@ class _ChessGameScreenState extends State<ChessGameScreen>
     return last != null && (_amSpectator || last.side != _mySide);
   }
 
-  Widget _varButton() {
-    return SizedBox(
-      width: 40,
-      height: 38,
-      child: TextButton(
-        key: const ValueKey('chess-var-tv'),
-        style: TextButton.styleFrom(padding: EdgeInsets.zero),
-        onPressed: _varAvailable ? _openVar : null,
-        child: VarTvIcon(
-          enabled: _varAvailable,
-          casing: _gold,
-          screen: _panelDeep,
-          label: _cream,
-          disabled: const Color(0xff5d4a78),
-        ),
-      ),
-    );
-  }
 
   void _openVar() {
     final move = _lastVar;
@@ -1107,10 +1193,11 @@ class _ChessGameScreenState extends State<ChessGameScreen>
 
   Widget _boardArea() {
     return LayoutBuilder(builder: (context, box) {
+      // As big as the space allows: a slim frame and no extra margin.
       final side =
-          (box.maxWidth < box.maxHeight ? box.maxWidth : box.maxHeight) - 12;
+          (box.maxWidth < box.maxHeight ? box.maxWidth : box.maxHeight) - 4;
       if (side <= 40) return const SizedBox.shrink();
-      const frame = 16.0;
+      const frame = 13.0;
       final cell = (side - 2 * frame) / 8;
       return Center(
         child: Container(
@@ -1404,121 +1491,31 @@ class _ChessGameScreenState extends State<ChessGameScreen>
         ),
       );
 
-  Widget _actionRow() {
+  /// The control row every board game shares: Undo · Draw · VAR · Rules · Resign.
+  Widget _controls() {
     final pending = _view.pendingDrawOffer;
-    final drawLabel = pending != null && pending != widget.selfId
-        ? 'Accept'
-        : (pending == widget.selfId ? 'Offered' : 'Draw');
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 4, 8, 6),
-      child: Row(children: [
-        if (!_amSpectator) ...[
-          Expanded(
-              child: _controlButton(Icons.undo_rounded, 'Undo',
-                  _view.finished ? null : _requestUndo)),
-          const SizedBox(width: 6),
-          Expanded(
-              child: _controlButton(Icons.handshake_rounded, drawLabel,
-                  _view.finished ? null : _drawButton)),
-          const SizedBox(width: 6),
-        ],
-        Expanded(flex: 2, child: _statusPill()),
-        if (!_amSpectator) ...[
-          const SizedBox(width: 6),
-          Expanded(
-              child: _controlButton(Icons.flag_rounded, 'Resign',
-                  _view.finished ? null : _confirmResign)),
-        ],
-      ]),
-    );
-  }
-
-  Widget _statusPill() {
-    final String text;
-    if (_view.finished) {
-      text = _view.winningSide == 'draw'
-          ? 'DRAW'
-          : (_amSpectator
-              ? '${_view.winningSide?.toUpperCase()} WINS'
-              : (_view.winningSide == _mySide ? 'YOU WIN' : 'YOU LOST'));
-    } else if (_paused) {
-      text = 'PAUSED';
-    } else if (_myTurn) {
-      text = _view.inCheck ? 'CHECK!' : 'YOUR MOVE';
-    } else if (_amSpectator) {
-      text = '${_view.turn.toUpperCase()} TO MOVE';
-    } else {
-      text = 'THEIR MOVE';
+    final drawFromOpponent = pending != null && pending != widget.selfId;
+    if (_amSpectator) {
+      return GameControlBar(controls: [
+        GameControl(id: 'var', icon: Icons.live_tv_rounded, label: 'VAR', onTap: _varAvailable ? _openVar : null),
+        GameControl(id: 'rules', icon: Icons.help_outline_rounded, label: 'Rules', onTap: _showRules),
+      ]);
     }
-    final hot = _myTurn || (_view.finished && _view.winningSide == _mySide);
-    return GestureDetector(
-      onTap: _view.finished ? () => setState(() => _showResults = true) : null,
-      child: AnimatedContainer(
-        key: const ValueKey('chess-status'),
-        duration: const Duration(milliseconds: 220),
-        height: 50,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          gradient:
-              hot ? const LinearGradient(colors: [_gold, _goldDeep]) : null,
-          color: hot ? null : _panel,
-          borderRadius: BorderRadius.circular(25),
-          border: Border.all(
-              color: _myTurn && _view.inCheck
-                  ? _danger
-                  : (hot ? _gold : const Color(0x33ffffff)),
-              width: _myTurn && _view.inCheck ? 2 : 1),
-          boxShadow: hot
-              ? [BoxShadow(color: _gold.withValues(alpha: .35), blurRadius: 14)]
-              : null,
-        ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(
-              _view.finished
-                  ? Icons.emoji_events_rounded
-                  : Icons.schedule_rounded,
-              size: 16,
-              color: hot ? const Color(0xff2a1600) : _mute),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Text(text,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                    color: hot ? const Color(0xff2a1600) : _cream,
-                    fontSize: 13,
-                    letterSpacing: 1,
-                    fontWeight: FontWeight.w900)),
-          ),
-        ]),
+    return GameControlBar(
+      controls: GameControlBar.standard(
+        onUndo: _view.finished ? null : _requestUndo,
+        undoLabel: _view.pendingUndo == widget.selfId ? 'Asked' : 'Undo',
+        onDraw: _view.finished ? null : _drawButton,
+        drawLabel: drawFromOpponent ? 'Accept draw' : (pending == widget.selfId ? 'Offered' : 'Draw'),
+        drawLit: drawFromOpponent,
+        onVar: _varAvailable ? _openVar : null,
+        onRules: _showRules,
+        onResign: _view.finished ? null : _confirmResign,
       ),
     );
   }
 
-  Widget _controlButton(IconData icon, String label, VoidCallback? onTap) {
-    return Material(
-      color: _panel,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: SizedBox(
-          height: 50,
-          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Icon(icon, size: 19, color: onTap == null ? _mute : _gold),
-            const SizedBox(height: 3),
-            Text(label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                    color: onTap == null ? _mute : _cream,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700)),
-          ]),
-        ),
-      ),
-    );
-  }
+
 
   // -------------------------------------------------------------- results
 

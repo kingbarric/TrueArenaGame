@@ -65,8 +65,9 @@ const List<BoardPalette> boardPalettes = [
     lightSquare: Color(0xfff4f1ea),
     darkGrain: Color(0xff242429),
     lightGrain: Color(0xffe6e2d6),
-    frameTop: Color(0xff3a3a40),
-    frameBottom: Color(0xff121214),
+    // Old rusty-brown wood round the black & white board.
+    frameTop: Color(0xff7a4524),
+    frameBottom: Color(0xff3a1c0b),
   ),
   BoardPalette(
     id: 'tournament',
@@ -104,6 +105,17 @@ const List<BoardPalette> boardPalettes = [
 /// from every board above — never a dark piece colour, which was what
 /// blended into the board before.
 const List<PiecePalette> piecePalettes = [
+  // The default: red against blue, both bright on the black squares.
+  PiecePalette(
+    id: 'red_blue',
+    label: 'Red vs. Blue',
+    aTop: Color(0xffff6f60),
+    aMid: Color(0xffe53935),
+    aRim: Color(0xff8e1b17),
+    bTop: Color(0xff8cc4ff),
+    bMid: Color(0xff2f7cf6),
+    bRim: Color(0xff123f8f),
+  ),
   PiecePalette(
     id: 'red_white',
     label: 'Red vs. White',

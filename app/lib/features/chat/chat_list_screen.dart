@@ -63,7 +63,10 @@ class _ConversationSummary {
 /// Every DM and group thread, newest activity first — the "all conversations"
 /// counterpart to jumping straight into one DM from `FriendsScreen`.
 class ChatListScreen extends StatefulWidget {
-  const ChatListScreen({super.key});
+  const ChatListScreen({super.key, this.embedded = false});
+
+  /// Shown as the Messages tab inside Friends: no app bar of its own.
+  final bool embedded;
 
   @override
   State<ChatListScreen> createState() => _ChatListScreenState();
@@ -123,7 +126,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
   Widget build(BuildContext context) {
     final n = context.neon;
     return Scaffold(
-      appBar: AppBar(title: const Text('Chats'), actions: [
+      appBar: widget.embedded ? null : AppBar(title: const Text('Chats'), actions: [
         IconButton(tooltip: 'Victory statuses', icon: const Icon(Icons.auto_stories_rounded),
           onPressed: () => Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => const StatusScreen()))),

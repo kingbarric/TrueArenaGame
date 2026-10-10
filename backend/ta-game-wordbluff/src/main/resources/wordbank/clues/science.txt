@@ -1,0 +1,99 @@
+# word | first clue | second clue
+gravity | The force that pulls things down to the ground. | Why an apple fell on Newton's head.
+molecule | Two or more atoms joined together. | Water is H2O, one of these.
+atom | The tiniest building block of everything. | Protons, neutrons and electrons.
+electron | A tiny negative particle orbiting the nucleus. | Flows as electricity.
+proton | A positive particle in the nucleus. | Plus charge in the middle of an atom.
+neutron | A particle with no charge in the nucleus. | Neutral particle.
+element | A pure substance on the periodic table. | Oxygen or gold.
+compound | Two or more elements chemically joined. | Salt is sodium and chlorine.
+reaction | When chemicals change into something new. | Fizzing and bubbling in a test tube.
+catalyst | Something that speeds up a reaction. | Enzymes do this in your body.
+enzyme | A protein that speeds up reactions in the body. | Digestive helpers in your gut.
+hormone | A chemical messenger in your body. | Adrenaline or insulin.
+cell | The smallest unit of life. | Also a prison room.
+membrane | A thin skin around a cell. | A barrier layer.
+chromosome | Thread-like structures holding DNA. | Humans have 46.
+gene | A piece of DNA that decides a trait. | Why you have blue eyes.
+DNA | The code of life in every cell. | Double helix.
+RNA | A molecule that copies DNA's instructions. | Messenger strand.
+mutation | A change in DNA. | How X-Men got powers.
+evolution | How species change over time. | Darwin's theory.
+natural selection | The fittest survive and pass on genes. | Survival of the fittest.
+ecosystem | Living things and their environment together. | A pond or forest community.
+photosynthesis | How plants make food from sunlight. | Chlorophyll in leaves.
+respiration | Breathing and releasing energy in cells. | Breathe in oxygen, out CO2.
+metabolism | How your body turns food into energy. | Fast or slow burning of calories.
+digestion | Breaking down food in your stomach. | Gut processing.
+circulation | Blood flowing around your body. | Heart pumping.
+nervous system | Brain and nerves sending signals. | Your body's wiring.
+immune system | Your body's defence against germs. | White blood cells.
+antibody | A protein that fights infection. | Made after a vaccine.
+antigen | A substance that triggers your body to fight. | What your defences recognise.
+virus | A tiny germ that causes colds and flu. | Covid was one.
+bacteria | Tiny living germs, some good and some bad. | Found in yoghurt.
+microorganism | A living thing too small to see. | Microbe.
+fungus | Mushrooms and mould. | Toadstools.
+parasite | A creature that lives off another. | Tapeworm or tick.
+symbiosis | Two species helping each other. | Clownfish and anemone.
+food chain | Who eats whom in nature. | Grass, rabbit, fox.
+food web | Many feeding relationships linked together. | Lots of chains connected.
+habitat | Where an animal naturally lives. | A home in nature.
+biodiversity | The variety of life on Earth. | Many species.
+extinction | When a species dies out forever. | The dinosaurs.
+fossil | Ancient remains turned to stone. | Dinosaur bones.
+sediment layer | Bands of rock built up over time. | Strata in a cliff.
+tectonic plate | A huge slab of Earth's crust. | They move and cause earthquakes.
+magnetic field | The invisible force around a fridge's north and south poles. | Makes a compass point north.
+electromagnetic wave | Light, radio and X-rays travel this way. | Energy rippling through space.
+radiation | Energy given off as rays. | Radioactive danger.
+wavelength | The distance between two peaks. | Colour of light depends on it.
+frequency | How often something happens per second. | Radio station number.
+velocity | Speed in a direction. | Fast and which way.
+acceleration | Getting faster. | Pedal to the metal.
+momentum | Mass times velocity. | Keeps you moving.
+friction | The force that slows things rubbing together. | Rubbing hands makes heat.
+inertia | Objects stay still or keep moving unless pushed. | Newton's first law.
+force | A push or a pull. | May it be with you.
+mass | How much matter something has. | Measured in kilograms.
+density | How heavy something is for its size. | Why a stone sinks and wood floats.
+volume | How much space something takes. | Also how loud.
+pressure | Force pressing on an area. | Tyres and weather.
+temperature | How hot or cold something is. | Thermometer reading.
+boiling point | When water turns to steam. | 100 degrees Celsius.
+melting point | When a solid turns to liquid. | Ice becomes water.
+evaporation | Liquid turning to gas. | Puddles disappear in the sun.
+condensation | Gas turning to liquid. | Water on a cold window.
+sublimation | Solid turning straight to gas. | Dry ice smoke.
+solution | One thing dissolved in another. | Salt water; also the answer.
+solvent | The liquid that does the dissolving. | Water is the universal one.
+solute | The substance that gets dissolved. | Sugar in tea.
+acid | A sour substance with low pH. | Lemon juice.
+base | The opposite of an acid. | Alkali.
+pH scale | Measures how acidic something is. | Zero to fourteen.
+titration | Measuring how much acid neutralises a base. | Burette drips.
+combustion | Burning. | Fire needs oxygen and fuel.
+oxidation | Reaction with oxygen, like rusting. | Rust on iron.
+reduction | Losing oxygen in a reaction. | Opposite of oxidation; also making smaller.
+periodic table | Chart of all the elements. | Mendeleev's grid.
+isotope | Same element, different number of neutrons. | Carbon-14.
+half-life | Time for a radioactive sample to drop by fifty per cent. | Radioactive decay time.
+nuclear fission | Splitting atoms to release energy. | Power stations.
+nuclear fusion | Joining atoms to release energy. | How the sun shines.
+black hole | Space region where nothing escapes. | Not even light.
+supernova | A star exploding. | Brilliant stellar explosion.
+nebula | A cloud of gas and dust in space. | Star nursery.
+galaxy | Billions of stars together. | The Milky Way.
+orbit | Path around a planet or star. | The moon circles us.
+gravity well | The dip in space around a massive object. | Pull of a planet.
+telescope | Looks at stars. | Hubble.
+microscope | Sees tiny things. | Lenses for cells.
+laboratory | Where scientists experiment. | Lab.
+experiment | A scientific test. | Trying it out.
+hypothesis | An educated guess. | Prediction before testing.
+variable | Something that can change in an experiment. | X in maths.
+control group | The test subjects that get no treatment. | Comparison set.
+peer review | Experts checking each other's work. | Scientists checking papers.
+theorem | A proven maths statement. | Pythagoras.
+equation | A maths sentence with an equals sign. | E equals mc squared.
+formula | A rule written in symbols. | Recipe for a calculation; also racing cars.

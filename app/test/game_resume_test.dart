@@ -73,6 +73,8 @@ void main() {
     state.user = const UserView(id: 'player-1', displayName: 'Player');
     state.identity = Identity.account;
     state.activeRoomId = 'room-1';
+    // The app was closed while this room's screen was open.
+    state.resumeRoomId = 'room-1';
 
     await tester.pumpWidget(TrueArenaApp(state: state));
     await tester.pump();
@@ -80,5 +82,24 @@ void main() {
     await tester.pump(const Duration(milliseconds: 350));
     expect(find.byType(JoinedRoomScreen), findsOneWidget);
     expect(state.activeRoomId, 'room-1');
+  });
+
+  testWidgets('a lobby you backed out of does not open by itself next time', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final asked = <String>[];
+    final state = AppState(ApiClient(client: MockClient((request) async {
+      asked.add(request.url.path);
+      return http.Response('[]', 200);
+    })));
+    state.user = const UserView(id: 'player-1', displayName: 'Player');
+    state.identity = Identity.account;
+    state.activeRoomId = 'room-1';
+
+    await tester.pumpWidget(TrueArenaApp(state: state));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(find.byType(JoinedRoomScreen), findsNothing);
+    expect(asked.where((p) => p.endsWith('/rooms/room-1') || p.endsWith('/rooms/active')), isEmpty);
   });
 }
