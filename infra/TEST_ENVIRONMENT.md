@@ -28,6 +28,10 @@ the `truearena-test` compose project. On first setup, `setup-test-proxy.sh` also
 adds only `/test/*` routes to the existing Caddy configuration, validates it,
 backs up the original under `~/truearena-test`, and performs a graceful reload.
 Production routes are preserved and no production container is restarted.
+Because Caddy is shared, first-time proxy setup needs explicit approval when
+production changes are otherwise excluded. Existing game/voice WebSocket
+connections can reconnect during the configuration reload; use `--stack-only`
+to prepare and verify the isolated stack without that reload.
 It opens only the dedicated test voice media ports. It prints `TEST OK` once
 `/test/actuator/health` is up. Flyway runs migrations against the test database, so
 **push a new migration to test first**: if it is wrong there, delete the test data
@@ -51,6 +55,9 @@ normal, then enter the shared code from `TEST_OTP_BYPASS_CODE` in
 `infra/keys/test.env.local`. It works for any phone number or email, on test only. The
 backend refuses to boot the `test` profile with `APP_ENV=production`, see
 `EnvironmentGuard`.
+
+The test profile short-circuits email delivery even if a provider key is present.
+The test Compose file also leaves the email and Firebase credentials blank.
 
 Accounts, coins and games on test are separate from production. The test database
 starts empty; production data is never copied there because it contains users'
