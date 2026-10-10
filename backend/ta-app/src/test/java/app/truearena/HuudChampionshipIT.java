@@ -140,6 +140,8 @@ class HuudChampionshipIT {
         Room r = huudWith(8);
         HuudChampionship cup = cups.create(r.host(), r.id(), chess(8, "simultaneous")).block();
         assertThat(cup.status()).isEqualTo("registering");
+        assertThat(huuds.mine(r.host()).filter(h -> h.id().equals(r.id())).blockFirst().championship().status())
+                .isEqualTo("registering");
         assertThat(cup.name()).isEqualTo("Chess Championship");
         assertThat(huuds.view(r.id(), r.host()).block().championshipId()).isEqualTo(cup.id());
 
@@ -153,6 +155,13 @@ class HuudChampionshipIT {
         HuudChampionship drawn = cups.register(r.members().get(7), r.id()).block();
         assertThat(drawn.status()).isEqualTo("playing");
         assertThat(drawn.roundName()).isEqualTo("Quarter Finals");
+        // The Huud's cards on the Live and Huud tabs say so.
+        var line = new app.truearena.api.huudspace.HuudSpaceDtos.ChampionshipLine(
+                "Chess Championship", "chess", "playing", "Quarter Finals");
+        assertThat(huuds.live(r.members().get(0)).filter(h -> h.id().equals(r.id())).blockFirst().championship())
+                .isEqualTo(line);
+        assertThat(huuds.mine(r.host()).filter(h -> h.id().equals(r.id())).blockFirst().championship())
+                .isEqualTo(line);
         assertThat(drawn.rounds()).isEqualTo(3);
         assertThatThrownBy(() -> cups.register(r.host(), r.id()).block()).isInstanceOf(ResponseStatusException.class);
 
@@ -215,8 +224,11 @@ class HuudChampionshipIT {
         assertThat(live(done)).isEmpty();
 
         // Hang Out: the Huud carries on as it was, and a normal game can be played again.
+        assertThat(huuds.mine(r.host()).filter(h -> h.id().equals(r.id())).blockFirst().championship().status())
+                .isEqualTo("finished");
         var back = cups.close(r.host(), r.id()).block();
         assertThat(back.championshipId()).isNull();
+        assertThat(huuds.mine(r.host()).filter(h -> h.id().equals(r.id())).blockFirst().championship()).isNull();
         assertThat(back.members()).hasSize(9);
         assertThat(huuds.addGame(r.host(), r.id(), "draughts").block().gameType()).isEqualTo("draughts");
     }

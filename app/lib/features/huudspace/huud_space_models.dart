@@ -290,6 +290,39 @@ class HuudChatMessage {
       );
 }
 
+/// What a Huud card says while a championship is on in it.
+class HuudCupLine {
+  const HuudCupLine({required this.name, required this.gameType, required this.status, this.roundName});
+
+  final String name;
+  final String gameType;
+
+  /// registering · playing · finished
+  final String status;
+
+  /// While playing: "Quarter Finals", "Semi Finals", "Final"…
+  final String? roundName;
+
+  /// "🏆 Chess Championship · Quarter Finals"
+  String get text => switch (status) {
+        'registering' => '🏆 $name · sign up now',
+        'playing' => roundName == null ? '🏆 $name' : '🏆 $name · ${roundName == 'Final' ? 'the Final' : roundName}',
+        'finished' => '🏆 $name · finished',
+        _ => '🏆 $name',
+      };
+
+  static HuudCupLine? fromJson(Object? raw) {
+    if (raw is! Map) return null;
+    final j = raw.cast<String, dynamic>();
+    return HuudCupLine(
+      name: j['name'] as String? ?? 'Championship',
+      gameType: j['gameType'] as String? ?? 'chess',
+      status: j['status'] as String? ?? 'playing',
+      roundName: j['roundName'] as String?,
+    );
+  }
+}
+
 /// A card on the Live tab.
 class LiveHuud {
   const LiveHuud({
@@ -303,9 +336,13 @@ class LiveHuud {
     this.gameType,
     this.gameStatus,
     this.watching = 0,
+    this.championship,
   });
 
   final int watching;
+
+  /// A championship on in it — the card says that instead of the game.
+  final HuudCupLine? championship;
 
   final String id;
   final String name;
@@ -330,6 +367,7 @@ class LiveHuud {
         gameStatus: j['gameStatus'] as String?,
         youAreIn: j['youAreIn'] == true,
         watching: (j['watching'] as num?)?.toInt() ?? 0,
+        championship: HuudCupLine.fromJson(j['championship']),
       );
 }
 
@@ -349,7 +387,11 @@ class MyHuud {
     this.gameStatus,
     this.background,
     this.muted = false,
+    this.championship,
   });
+
+  /// A championship on in it — the card says that instead of the game.
+  final HuudCupLine? championship;
 
   final String id;
   final String name;
@@ -381,20 +423,29 @@ class MyHuud {
         gameStatus: j['gameStatus'] as String?,
         background: j['background'] as String?,
         muted: j['muted'] == true,
+        championship: HuudCupLine.fromJson(j['championship']),
       );
 }
 
 /// "Live now · 8 in Huud · Playing Whot" — or "Offline · 12 members".
+/// A championship on in the Huud is said instead of the game.
 String huudStatusLine(
-    {required bool live, required int liveCount, required int memberCount, String? game, String? gameStatus}) {
+    {required bool live,
+    required int liveCount,
+    required int memberCount,
+    String? game,
+    String? gameStatus,
+    HuudCupLine? championship}) {
   if (!live) return memberCount == 1 ? 'Offline · 1 member' : 'Offline · $memberCount members';
-  final doing = game == null
-      ? null
-      : switch (gameStatus) {
-          'playing' => 'Playing $game',
-          'waiting' => '$game starting soon',
-          _ => null,
-        };
+  final doing = championship != null
+      ? championship.text
+      : game == null
+          ? null
+          : switch (gameStatus) {
+              'playing' => 'Playing $game',
+              'waiting' => '$game starting soon',
+              _ => null,
+            };
   return ['Live now', '$liveCount in Huud', if (doing != null) doing].join(' · ');
 }
 

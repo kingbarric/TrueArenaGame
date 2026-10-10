@@ -10,6 +10,7 @@ import 'package:truearena/core/app_state.dart';
 import 'package:truearena/core/hangout_state.dart';
 import 'package:truearena/core/models.dart';
 import 'package:truearena/features/huudspace/huud_championship.dart';
+import 'package:truearena/features/huudspace/huud_space_models.dart';
 import 'package:truearena/features/huudspace/huud_space_screen.dart';
 import 'package:truearena/features/huudspace/huud_voice.dart';
 import 'package:truearena/theme/neon_theme.dart';
@@ -297,5 +298,48 @@ void main() {
     expect(cup.liveMatchWithVoice('huud-h1-m-m2')?.id, 'm2');
     expect(cup.liveMatchWithVoice('huud-h1'), isNull);
     expect(cupMatchTitle(cup, cup.matches.first, me: 'me'), 'You vs ada');
+  });
+
+  test('Live and Huud tab cards say a championship is on instead of the game', () {
+    final live = LiveHuud.fromJson({
+      'id': 'h1',
+      'name': "Eric's Huud",
+      'privacy': 'public',
+      'memberCount': 9,
+      'members': const [],
+      'youAreIn': false,
+      'gameType': null,
+      'championship': {
+        'name': 'Chess Championship',
+        'gameType': 'chess',
+        'status': 'playing',
+        'roundName': 'Quarter Finals'
+      },
+    });
+    expect(live.championship?.text, '🏆 Chess Championship · Quarter Finals');
+
+    final mine = MyHuud.fromJson({
+      'id': 'h1',
+      'name': "Eric's Huud",
+      'privacy': 'public',
+      'live': true,
+      'youOwn': true,
+      'memberCount': 9,
+      'liveCount': 9,
+      'members': const [],
+      'championship': {'name': 'Draughts Championship', 'gameType': 'draughts', 'status': 'registering'},
+    });
+    expect(
+        huudStatusLine(
+            live: true, liveCount: 9, memberCount: 9, game: 'Whot', gameStatus: 'playing', championship: mine.championship),
+        'Live now · 9 in Huud · 🏆 Draughts Championship · sign up now');
+    expect(
+        const HuudCupLine(name: 'Chess Championship', gameType: 'chess', status: 'playing', roundName: 'Final').text,
+        '🏆 Chess Championship · the Final');
+    expect(const HuudCupLine(name: 'Chess Championship', gameType: 'chess', status: 'finished').text,
+        '🏆 Chess Championship · finished');
+    // No championship: the game line as before.
+    expect(huudStatusLine(live: true, liveCount: 3, memberCount: 4, game: 'Whot', gameStatus: 'playing'),
+        'Live now · 3 in Huud · Playing Whot');
   });
 }

@@ -854,10 +854,11 @@ public class HuudSpaceService {
     /** Live Huuds you can look into: yours, your friends' and public ones. */
     public Flux<LiveHuud> live(UUID viewer) {
         return db.sql("SELECT s.id, s.name, s.privacy, s.created_at, r.game_type, r.status AS room_status, "
+                        + CUP_COLUMNS + ", "
                         + "EXISTS(SELECT 1 FROM huud_space_members me WHERE me.huud_space_id=s.id AND me.user_id=:user AND me.left_at IS NULL) AS mine, "
                         + "(SELECT count(*) FROM huud_space_members c WHERE c.huud_space_id=s.id AND c.live_at IS NOT NULL) AS present, "
                         + watchingSql("s.id") + " AS watching "
-                        + "FROM huud_spaces s LEFT JOIN rooms r ON r.id=s.current_room_id "
+                        + "FROM huud_spaces s LEFT JOIN rooms r ON r.id=s.current_room_id " + CUP_JOIN
                         + "WHERE s.status='active' AND s.live_since IS NOT NULL "
                         + "AND NOT EXISTS(SELECT 1 FROM huud_space_members x WHERE x.huud_space_id=s.id AND x.user_id=:user AND x.removed) "
                         + "AND NOT " + blockedSql("s.created_by", ":user") + " "
@@ -872,14 +873,17 @@ public class HuudSpaceService {
                 .map((r, m) -> new Object[]{r.get("id", UUID.class), r.get("name", String.class),
                         r.get("privacy", String.class), instant(r.get("created_at")), r.get("game_type", String.class),
                         r.get("room_status", String.class), Boolean.TRUE.equals(r.get("mine", Boolean.class)),
-                        ((Number) r.get("present")).intValue(), ((Number) r.get("watching")).intValue()})
+                        ((Number) r.get("present")).intValue(), ((Number) r.get("watching")).intValue(),
+                        championshipLine(r.get("cup_name", String.class), r.get("cup_game", String.class),
+                                r.get("cup_status", String.class), r.get("cup_size", Integer.class),
+                                r.get("cup_round", Integer.class))})
                 .all()
                 .concatMap(row -> members((UUID) row[0]).collectList().map(people -> new LiveHuud(
                         (UUID) row[0], (String) row[1], (String) row[2],
                         people.stream().filter(Person::host).findFirst().orElse(null),
                         (int) row[7], people.stream().filter(Person::here).limit(6).toList(), (String) row[4],
                         row[5] == null ? null : gameStatus((String) row[5]), (boolean) row[6], (int) row[8],
-                        (Instant) row[3])));
+                        (Instant) row[3], (HuudSpaceDtos.ChampionshipLine) row[9])));
     }
 
     /**
@@ -887,8 +891,9 @@ public class HuudSpaceService {
      * then the rest by when they were last Live.
      */
     public Flux<MyHuud> mine(UUID viewer) {
-        return db.sql("SELECT s.*, m.muted, r.game_type, r.status AS room_status FROM huud_spaces s "
+        return db.sql("SELECT s.*, m.muted, r.game_type, r.status AS room_status, " + CUP_COLUMNS + " FROM huud_spaces s "
                         + "JOIN huud_space_members m ON m.huud_space_id=s.id LEFT JOIN rooms r ON r.id=s.current_room_id "
+                        + CUP_JOIN
                         + "WHERE m.user_id=:user AND m.left_at IS NULL AND NOT m.removed AND s.status='active' "
                         + "ORDER BY (s.created_by=:user) DESC, (s.live_since IS NOT NULL) DESC, "
                         + "COALESCE(s.live_since, s.created_at) DESC LIMIT " + LIST_LIMIT)
@@ -901,8 +906,26 @@ public class HuudSpaceService {
                             (int) people.stream().filter(Person::here).count(), people.stream().limit(6).toList(),
                             s.live() ? (String) row.get("game_type") : null,
                             s.live() && row.get("room_status") != null ? gameStatus((String) row.get("room_status")) : null,
-                            s.background(), Boolean.TRUE.equals(row.get("muted")), s.liveSince()));
+                            s.background(), Boolean.TRUE.equals(row.get("muted")), s.liveSince(),
+                            s.live() ? championshipLine((String) row.get("cup_name"), (String) row.get("cup_game"),
+                                    (String) row.get("cup_status"), (Integer) row.get("cup_size"),
+                                    (Integer) row.get("cup_round")) : null));
                 });
+    }
+
+    /** The championship on in a Huud, for its card — finished ones count until the host puts them away. */
+    private static final String CUP_COLUMNS = "cup.name AS cup_name, cup.game_type AS cup_game, cup.status AS cup_status, "
+            + "cup.size AS cup_size, cup.current_round AS cup_round";
+    private static final String CUP_JOIN = "LEFT JOIN championships cup ON cup.id=s.championship_id "
+            + "AND cup.status IN ('lobby','running','completed') ";
+
+    static HuudSpaceDtos.ChampionshipLine championshipLine(String name, String gameType, String status, Integer size,
+                                                           Integer round) {
+        if (name == null || status == null) return null;
+        int rounds = size == null ? 3 : Integer.numberOfTrailingZeros(size);
+        String roundName = "running".equals(status) && round != null && round > 0
+                ? HuudChampionshipService.roundName(round, rounds) : null;
+        return new HuudSpaceDtos.ChampionshipLine(name, gameType, HuudChampionshipService.status(status), roundName);
     }
 
     private Mono<Map<String, String>> myRequests(UUID id, UUID viewer) {

@@ -224,7 +224,8 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
         liveCount: h.liveCount,
         memberCount: h.memberCount,
         game: h.gameType == null ? null : huudGameName(h.gameType),
-        gameStatus: h.gameStatus);
+        gameStatus: h.gameStatus,
+        championship: h.championship);
     return HuudBackdrop(
       background: 'blank', // the card on the Huud tab stays plain
       child: HuudHeroCard(
@@ -276,7 +277,8 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
         liveCount: h.liveCount,
         memberCount: h.memberCount,
         game: h.gameType == null ? null : huudGameName(h.gameType),
-        gameStatus: h.gameStatus);
+        gameStatus: h.gameStatus,
+        championship: h.championship);
     return HuudCard(
       key: ValueKey('member-huud-${h.id}'),
       highlight: h.live,

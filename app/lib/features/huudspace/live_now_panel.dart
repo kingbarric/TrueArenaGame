@@ -247,14 +247,17 @@ class _LiveHuudCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final n = context.neon;
     final h = HuudColors.of(context);
-    final game = huud.gameType;
-    final doing = game == null
-        ? 'Hanging out 💬'
-        : switch (huud.gameStatus) {
-            'playing' => 'Playing ${huudGameName(game)}',
-            'waiting' => 'Getting ready for ${huudGameName(game)}',
-            _ => 'Just played ${huudGameName(game)}',
-          };
+    final cup = huud.championship;
+    final game = cup?.gameType ?? huud.gameType;
+    final doing = cup != null
+        ? cup.text
+        : game == null
+            ? 'Hanging out 💬'
+            : switch (huud.gameStatus) {
+                'playing' => 'Playing ${huudGameName(game)}',
+                'waiting' => 'Getting ready for ${huudGameName(game)}',
+                _ => 'Just played ${huudGameName(game)}',
+              };
     return HuudCard(
       key: ValueKey('live-huud-${huud.id}'),
       onTap: onPeek,

@@ -92,7 +92,15 @@ public final class HuudSpaceDtos {
      */
     public record MyHuud(UUID id, String name, String privacy, boolean live, boolean youOwn, boolean youAreHost,
                          Person host, int memberCount, int liveCount, List<Person> members, String gameType,
-                         String gameStatus, String background, boolean muted, Instant liveSince) {
+                         String gameStatus, String background, boolean muted, Instant liveSince,
+                         ChampionshipLine championship) {
+    }
+
+    /**
+     * What a Huud card says while a championship is on: its name and game,
+     * registering → playing (with the round, e.g. "Quarter Finals") → finished.
+     */
+    public record ChampionshipLine(String name, String gameType, String status, String roundName) {
     }
 
     /**
@@ -134,7 +142,7 @@ public final class HuudSpaceDtos {
     /** A card on the Live tab. The code stays out: only people inside see it. */
     public record LiveHuud(UUID id, String name, String privacy, Person host, int memberCount,
                            List<Person> members, String gameType, String gameStatus,
-                           boolean youAreIn, int watching, Instant createdAt) {
+                           boolean youAreIn, int watching, Instant createdAt, ChampionshipLine championship) {
     }
 
     // ------------------------------------------------------------ championships

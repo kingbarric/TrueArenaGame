@@ -174,7 +174,9 @@ class _WatchPageState extends State<_WatchPage> {
     final people = huud?.members.length ?? live.memberCount;
     final watching = huud?.watching ?? live.watching;
     final game = huud?.currentGame;
-    final gameType = game?.gameType ?? live.gameType;
+    // A championship on in the Huud (the card's word for it; gone once the host puts it away).
+    final cup = huud != null && huud.championshipId == null ? null : live.championship;
+    final gameType = cup?.gameType ?? game?.gameType ?? live.gameType;
     final status = game?.status ?? live.gameStatus;
     final inIt = huud?.youAreIn ?? live.youAreIn;
     final asked = huud?.joinRequest == 'pending';
@@ -185,13 +187,15 @@ class _WatchPageState extends State<_WatchPage> {
             : live.privacy == HuudPrivacy.private
                 ? ('Ask to join', Icons.front_hand_rounded)
                 : ('Join Huud', Icons.login_rounded);
-    final doing = gameType == null
-        ? 'Hanging out 💬'
-        : switch (status) {
-            'playing' => 'Playing ${huudGameName(gameType)}',
-            'waiting' => 'Getting ready for ${huudGameName(gameType)}',
-            _ => 'Just played ${huudGameName(gameType)}',
-          };
+    final doing = cup != null
+        ? cup.text
+        : gameType == null
+            ? 'Hanging out 💬'
+            : switch (status) {
+                'playing' => 'Playing ${huudGameName(gameType)}',
+                'waiting' => 'Getting ready for ${huudGameName(gameType)}',
+                _ => 'Just played ${huudGameName(gameType)}',
+              };
 
     return HuudBackdrop(
       background: huud?.background,
