@@ -84,19 +84,8 @@ vanilla | A flavour from a pod, the most popular ice cream. | Plain and sweet.
 chocolate | Sweet treat made from cocoa beans. | Dark, milk or white.
 coffee | A hot dark drink made from roasted beans. | A latte or cappuccino to wake you up.
 tea | A hot drink made from leaves in a bag. | The British drink it with milk.
-cocktail | A mixed alcoholic drink in a fancy glass. | With umbrellas and fruit.
-mocktail | A fancy mixed drink with no alcohol. | A fruity party drink for kids.
+mocktail | A fancy fruity party drink for kids. | Juice and fizz with an umbrella in the glass.
 smoothie bowl | Thick blended fruit you eat with a spoon, with toppings. | Acai with granola and berries.
 juice | A drink squeezed from fruit. | Orange or apple at breakfast.
 soda | A fizzy sweet drink. | Coke or lemonade with bubbles.
 sparkling water | Fizzy but not sweet. | Bubbly drink like Perrier.
-champagne | Bubbly wine popped at celebrations. | Sprayed on the podium.
-wine | A grown-up drink made from grapes. | Red or white.
-beer | A grown-up drink made from hops and barley. | Served in a pint glass.
-cider | A drink made from apples. | Fizzy apple drink.
-whiskey | A strong brown spirit from Scotland or Ireland. | Scotch on the rocks.
-tequila | A strong Mexican spirit from agave. | Shots with salt and lime.
-rum | A pirate's favourite drink from sugarcane. | Yo ho ho and a bottle of it.
-cocktail shaker | A metal container for mixing drinks. | Shaken, not stirred.
-bartender | Someone who mixes drinks behind a counter. | They serve you at the pub.
-sommelier | A wine expert in a fancy restaurant. | They choose your bottle.

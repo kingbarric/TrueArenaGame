@@ -75,7 +75,6 @@ pedestrian crossing
 bike lane
 carpool
 rideshare
-designated driver
 navigation app
 travel insurance
 vaccination certificate

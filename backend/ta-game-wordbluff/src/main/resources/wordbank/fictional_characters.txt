@@ -27,9 +27,7 @@ troll
 giant
 gnome
 genie
-demon
 angel
-devil
 monster
 beast
 shapeshifter
@@ -83,8 +81,6 @@ shaman
 druid
 paladin
 rogue
-assassin
-mercenary
 smuggler
 con artist
 trickster

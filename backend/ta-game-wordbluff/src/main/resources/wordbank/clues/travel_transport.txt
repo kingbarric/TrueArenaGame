@@ -76,7 +76,6 @@ pedestrian crossing | Where walkers get to the other side of the road. | Zebra.
 bike lane | A path just for cyclists. | Cycle track.
 carpool | Sharing car rides. | Lift share.
 rideshare | Uber. | App taxi.
-designated driver | The one who doesn't drink. | Sober chauffeur.
 navigation app | Google Maps. | Directions on your phone.
 travel insurance | Cover in case your trip goes wrong. | Protection.
 vaccination certificate | Proof you've had your jabs. | Health pass.

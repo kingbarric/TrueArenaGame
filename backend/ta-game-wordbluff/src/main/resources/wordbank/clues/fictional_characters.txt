@@ -28,9 +28,7 @@ troll | A big ugly creature under a bridge. | Also someone mean online.
 giant | A huge person in fairy tales. | Fee fi fo fum.
 gnome | A little bearded man in the garden. | Pointy red hat.
 genie | A magic being in a lamp who grants wishes. | Three wishes from Aladdin's lamp.
-demon | An evil spirit from hell. | Devilish creature.
 angel | A heavenly being with wings and a halo. | Guardian.
-devil | Red, with horns and a pitchfork. | Satan.
 monster | A scary creature. | Frankenstein's creation.
 beast | A wild animal or creature. | Beauty's partner.
 shapeshifter | Someone who can change form. | Morphs into animals.
@@ -84,8 +82,6 @@ shaman | A spiritual healer. | Tribal medicine person.
 druid | A Celtic nature priest. | Getafix in Asterix.
 paladin | A holy knight. | Holy warrior in games.
 rogue | A sneaky thief character. | Dishonest scoundrel.
-assassin | A hired killer. | Creed.
-mercenary | A soldier for hire. | Fights for money.
 smuggler | Someone moving illegal goods. | Han Solo.
 con artist | A swindler. | Tricks people out of money.
 trickster | A mischievous prankster. | Loki.

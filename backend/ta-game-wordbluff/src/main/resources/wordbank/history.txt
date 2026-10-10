@@ -35,8 +35,6 @@ industrial revolution
 renaissance
 enlightenment
 reformation
-inquisition
-witch trial
 plague
 famine
 drought era
@@ -62,15 +60,12 @@ census record
 royal decree
 coronation
 abdication
-assassination
-coup d'etat
 regime change
 dictatorship
 democracy
 republic
 feudalism
 serfdom
-slavery
 trade route
 silk road
 spice trade

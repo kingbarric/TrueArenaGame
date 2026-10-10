@@ -17,7 +17,7 @@ subway | An underground train system. | The Tube in London, the Metro in Paris.
 palace | Where a king or queen lives. | Buckingham.
 monastery | A place where monks live. | Quiet buildings with chanting brothers.
 monument | A structure built to remember someone or something. | The Washington one is a tall obelisk.
-memorial | A place built to honour people who died. | War dead names on stone.
+memorial | A place built to remember and honour people. | Names carved in stone, with flowers laid beside it.
 mausoleum | A grand building that holds a tomb. | The Taj Mahal is one.
 aqueduct | An ancient bridge that carried water. | Roman arches carrying a channel.
 amphitheater | A round outdoor theatre with rising seats. | Ancient Greek stage.
@@ -58,7 +58,7 @@ watermill | A building with a wheel turned by a river. | The wheel grinds grain 
 farmhouse | Where the farmer lives. | A home among the fields and barns.
 barn | A big building for animals and hay. | Red one on a farm.
 ranch | A big farm with cattle. | Cowboys work there.
-vineyard | A farm where grapes are grown. | Wine country rows.
+vineyard | A farm where grapes are grown. | Rows and rows of grape vines on a sunny hill.
 orchard | A field of fruit trees. | Apples picked in autumn.
 greenhouse | A glass building to grow plants. | Warm inside for tomatoes.
 botanical garden | A park full of rare plants. | Kew.
@@ -78,9 +78,6 @@ nature reserve | Protected land for wildlife. | Birdwatching hides.
 wildlife sanctuary | A safe place for rescued animals. | Protected refuge.
 border crossing | Where you pass from one country to another. | Passport check at the frontier.
 checkpoint | A place where guards stop and inspect people. | Barrier on a road.
-refugee camp | Temporary shelters for people fleeing danger. | Tents for displaced families.
-slum | A very poor, crowded area of a city. | Shacks and poverty.
-shantytown | A settlement of huts made from scrap. | Tin roofs and makeshift homes.
 suburb | A quiet area of houses at the edge of a city. | Commuter homes with gardens.
 downtown | The busy centre of a city. | Tall buildings and shops.
 skyline | The outline of a city's buildings against the sky. | New York's view.

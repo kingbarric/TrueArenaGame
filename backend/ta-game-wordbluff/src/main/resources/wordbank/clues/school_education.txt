@@ -6,7 +6,7 @@ textbook | A heavy volume for studying a subject. | School reading for lessons.
 notebook | Pages for writing notes in class. | Exercise pad.
 homework | School tasks you do in the evening. | Due tomorrow.
 exam | A big test. | Sitting in silence for hours.
-quiz | A short test with questions. | Pub one too.
+quiz | A short test with questions. | A fun round of questions on a game show.
 report card | Grades sent home to parents. | School results sheet.
 grade | A mark showing how well you did. | A plus.
 diploma | Certificate for finishing school. | Graduation paper.

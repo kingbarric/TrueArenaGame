@@ -26,7 +26,6 @@ blouse | A woman's smart shirt. | Silky shirt.
 pajamas | Clothes you sleep in. | PJs.
 nightgown | A long nightdress. | Nightie.
 robe | A dressing gown. | Bath gown.
-lingerie | Women's fancy underwear. | Undies.
 swimsuit | What you wear in the pool. | Bathing costume.
 bikini | A two-piece swimsuit. | Beachwear.
 wetsuit | A rubber outfit for surfing. | Neoprene.

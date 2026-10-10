@@ -2,7 +2,6 @@
 rockstar | A famous guitar-smashing musician who fills stadiums. | Leather jacket, loud music, wild lifestyle.
 superhero | Someone with special powers who saves the day. | Wears a cape, like Superman.
 supervillain | An evil genius with powers who wants to rule the world. | The Joker or Thanos.
-dictator | A ruler with total power who no one voted for. | Rules by fear, no elections.
 monarch | A king or queen. | Wears a crown and sits on a throne.
 supermodel | A world-famous fashion face. | Walks the catwalk for top designers.
 mastermind | The brains behind a big plan. | The clever planner pulling the strings.
@@ -12,11 +11,9 @@ tycoon | A very rich business leader. | Oil or media mogul.
 maverick | Someone who refuses to follow the rules. | Top Gun's pilot nickname.
 celebrity chef | A cook who's famous on TV. | Gordon Ramsay.
 popstar | A famous singer with chart hits. | Taylor Swift or Justin Bieber.
-warlord | A military leader who controls an area by force. | Commander of a private army.
 philanthropist | A rich person who gives lots of money to charity. | Bill Gates giving away billions.
 prodigy | A child who's amazingly talented. | Mozart composing at five.
 influencer | Someone with lots of followers who promotes products. | Famous on Instagram or TikTok.
-paparazzi target | A celebrity always chased by photographers. | Snapped wherever they go.
 talk show host | Someone who interviews guests on TV. | Oprah or Jimmy Fallon.
 stand-up comedian | Someone who tells jokes on stage with a mic. | Makes crowds laugh alone on stage.
 Nobel laureate | Someone who won the world's top prize for science or peace. | Malala or Einstein.
@@ -27,15 +24,12 @@ recluse | A famous person who hides away from everyone. | Never leaves the mansi
 comeback kid | Someone who returns to success after failing. | Bouncing back from defeat.
 underdog champion | Someone who won when nobody expected it. | Rocky Balboa.
 whistleblower | Someone who reveals secrets about wrongdoing. | Edward Snowden leaked files.
-cult leader | Someone followers obey without question. | Leads a strange group in a compound.
 visionary | Someone who imagines the future. | Steve Jobs.
 pioneer | The first to explore or try something. | An early settler.
 icon | A famous symbol or person everyone recognises. | Also a little picture on your phone.
 legend | Someone so great their stories live on. | Pelé; also a myth.
 mentor | An experienced adviser who guides you. | Yoda to Luke.
 rival | Your main competitor. | Messi versus Ronaldo.
-scandal magnet | A celebrity always in trouble. | Always in the headlines for bad reasons.
-tabloid regular | A star always in gossip papers. | Front page of gossip magazines.
 red carpet fixture | A celebrity at every premiere. | Always posing for cameras at events.
 awards darling | A star who wins everything. | Collects Oscars every year.
 box office star | An actor whose films always make money. | Tom Cruise.
@@ -46,7 +40,6 @@ household name | Someone everyone has heard of. | Famous in every home.
 overnight sensation | Someone who became famous very suddenly. | Unknown yesterday, famous today.
 self-made billionaire | Someone who built a fortune from nothing. | Started in a garage.
 heir to a fortune | Someone who'll inherit a family's riches. | Born rich, waiting for a will.
-disgraced official | A leader who lost their job after a scandal. | Fell in shame from high office.
 reformed villain | A bad guy who turned good. | Vegeta or Darth Vader at the end.
 retired champion | A former winner who no longer competes. | Hung up their boots.
 comeback artist | A performer who returns to the spotlight. | Back after years away.

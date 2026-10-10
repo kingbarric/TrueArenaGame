@@ -36,8 +36,6 @@ industrial revolution | When factories and machines changed everything. | Steam 
 renaissance | A rebirth of art and learning in Italy. | Leonardo da Vinci.
 enlightenment | An age of reason and science. | Voltaire.
 reformation | Martin Luther splitting from the Catholic Church. | Protestant movement.
-inquisition | Church trials hunting heretics. | Spanish one, nobody expects it.
-witch trial | Accusing women of magic and putting them in court. | Salem.
 plague | A deadly disease spreading widely. | The Black Death.
 famine | A severe shortage of food. | Irish potato.
 drought era | A long dry period in history. | Dust Bowl.
@@ -63,15 +61,12 @@ census record | Old population lists. | Family history source.
 royal decree | An order from a king. | Proclamation.
 coronation | Crowning a new king or queen. | Westminster Abbey.
 abdication | A king giving up the throne. | Edward VIII.
-assassination | Murdering a leader. | JFK.
-coup d'etat | Seizing power by force. | Military takeover.
 regime change | Replacing a government. | New rulers.
 dictatorship | Rule by one person with total power. | Tyranny.
 democracy | Government by the people. | Ancient Athens.
 republic | A country with no king, led by elected people. | Rome before emperors.
 feudalism | Medieval system of lords and peasants. | Serfs and vassals.
 serfdom | Peasants tied to the land. | Medieval servitude.
-slavery | Owning people as property. | Abolished in the 1800s.
 trade route | A path merchants used. | Caravans.
 silk road | The ancient route between China and Europe. | Marco Polo.
 spice trade | Ships carrying pepper and cinnamon. | Dutch East India.
