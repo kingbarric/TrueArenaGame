@@ -90,6 +90,7 @@ class HuudSpaceIT {
     @MockBean LiveKitRoomAdmin livekit;
 
     @BeforeEach void media() {
+        when(livekit.participantIds(anyString())).thenReturn(Mono.just(java.util.Set.of()));
         when(livekit.remove(anyString(), anyString())).thenReturn(Mono.empty());
         when(livekit.setCanPublish(anyString(), anyString(), anyBoolean())).thenReturn(Mono.empty());
     }
@@ -309,7 +310,7 @@ class HuudSpaceIT {
         assertThat(mine.youOwn()).isFalse();
     }
 
-    @Test void beingAwayOnlyTakesYouOutOfTheHangoutAndAnEmptyHangoutEndsLive() {
+    @Test void beingAwayOnlyTakesYouOutOfTheHangoutAndAnEmptyHangoutWaits24Hours() {
         UUID owner = person("Owner"), friend = person("Friend");
         var huud = huuds.create(owner, null, "public").block();
         huuds.joinByCode(friend, huud.code()).block();
@@ -318,14 +319,13 @@ class HuudSpaceIT {
         quiet(huud.id(), friend, "11 minutes");
         huuds.expire().block();
 
-        var after = huuds.view(huud.id(), friend).block();
-        // Just opening it again walks you in — so look via the owner's list instead.
+        // Read via the list: opening the Huud would itself count as returning.
         var mine = huuds.mine(owner).collectList().block().get(0);
-        assertThat(mine.live()).isFalse();
+        assertThat(mine.live()).isTrue();
         assertThat(mine.memberCount()).isEqualTo(2);
-        assertThat(after.status()).isEqualTo("active");
+        assertThat(mine.liveCount()).isZero();
         assertThat(db.sql("SELECT count(*) AS n FROM rooms WHERE id=:id AND status='lobby'").bind("id", waiting.id())
-                .map((r, m) -> ((Number) r.get("n")).intValue()).one().block()).isZero();
+                .map((r, m) -> ((Number) r.get("n")).intValue()).one().block()).isEqualTo(1);
     }
 
     @Test void theOwnerCanDeleteTheirHuudForEveryone() {

@@ -21,7 +21,7 @@ http.Response _json(Object body, [int status = 200]) =>
 Map<String, dynamic> _member(String id, String name, {bool host = false}) =>
     {'userId': id, 'displayName': name, 'username': name.toLowerCase(), 'host': host, 'here': true};
 
-Map<String, dynamic> _huud({bool host = true, String? championshipId}) => {
+Map<String, dynamic> _huud({bool host = true, bool? owns, String? championshipId}) => {
       'id': 'h1',
       'code': 'KTB7QX',
       'name': "Eric's Huud",
@@ -39,7 +39,7 @@ Map<String, dynamic> _huud({bool host = true, String? championshipId}) => {
       'youAreHost': host,
       'voiceRoom': 'huud-h1',
       'live': true,
-      'youOwn': host,
+      'youOwn': owns ?? host,
       'memberCount': 3,
       'liveCount': 3,
       'championshipId': championshipId,
@@ -278,6 +278,21 @@ void main() {
     expect(calls, contains('DELETE /api/v1/huud-spaces/h1/championship'));
     // Back to a normal Huud: pick a game again.
     expect(find.byKey(const ValueKey('huud-pick-whot')), findsOneWidget);
+  });
+
+  testWidgets("a temporary host cannot end Live from another owner's championship results", (tester) async {
+    await pump(tester, (r) async {
+      if (r.url.path == '/api/v1/huud-spaces/h1') {
+        return _json(_huud(host: true, owns: false, championshipId: 'c1'));
+      }
+      if (r.url.path == '/api/v1/huud-spaces/h1/championship') {
+        return _json(_cup(status: 'finished', champion: 'sarah', runnerUp: 'ada'));
+      }
+      return http.Response('not found', 404);
+    });
+    expect(find.byKey(const ValueKey('huud-end')), findsNothing);
+    expect(find.byKey(const ValueKey('cup-end-live')), findsNothing);
+    expect(find.byKey(const ValueKey('cup-hang-out')), findsOneWidget);
   });
 
   test('a match voice room still belongs to its Huud', () {

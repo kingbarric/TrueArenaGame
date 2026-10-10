@@ -14,6 +14,8 @@ import app.truearena.api.room.RoomDtos.RoomView;
 import app.truearena.api.room.RoomService;
 import app.truearena.api.support.ApiExceptions;
 import app.truearena.persistence.UserRepository;
+import app.truearena.room.RoomRuntimeRegistry;
+import app.truearena.api.bot.BotRuntimeRegistry;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import app.truearena.voice.LiveKitRoomAdmin;
 import org.springframework.beans.factory.annotation.Value;
@@ -30,6 +32,7 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -45,7 +48,7 @@ import java.util.UUID;
  * runs the Huud right now (the owner, or — while the owner is away during
  * Live — whoever joined the hangout next). Membership ends only by leaving or
  * being taken out; being away just takes you out of the Live hangout
- * ({@code live_at}). A Live hangout nobody is in ends by itself.
+ * ({@code live_at}). A Live hangout with no activity for 24 hours ends by itself.
  */
 @Service
 public class HuudSpaceService {
@@ -68,13 +71,18 @@ public class HuudSpaceService {
     private final PushNotificationService push;
     private final Duration hostGrace;
     private final Duration memberTimeout;
+    private final Duration inactivityTimeout;
+    private final RoomRuntimeRegistry runtimes;
+    private final BotRuntimeRegistry bots;
     private final HuudSpaceAccess access;
 
     public HuudSpaceService(DatabaseClient db, ReactiveTransactionManager manager, InboxRegistry inbox,
                             RoomService rooms, UserRepository users, VoiceSessionService voiceSessions,
                             LiveKitRoomAdmin voice, PushNotificationService push, HuudSpaceAccess access,
                             @Value("${huud.host-grace:PT5M}") Duration hostGrace,
-                            @Value("${huud.member-timeout:PT10M}") Duration memberTimeout) {
+                            @Value("${huud.member-timeout:PT10M}") Duration memberTimeout,
+                            @Value("${huud.inactivity-timeout:PT24H}") Duration inactivityTimeout,
+                            RoomRuntimeRegistry runtimes, BotRuntimeRegistry bots) {
         this.db = db;
         this.tx = TransactionalOperator.create(manager);
         this.inbox = inbox;
@@ -85,6 +93,11 @@ public class HuudSpaceService {
         this.push = push;
         this.hostGrace = hostGrace;
         this.memberTimeout = memberTimeout;
+        // An environment override may extend the window, never shorten the promised 24 hours.
+        this.inactivityTimeout = inactivityTimeout.compareTo(Duration.ofHours(24)) < 0
+                ? Duration.ofHours(24) : inactivityTimeout;
+        this.runtimes = runtimes;
+        this.bots = bots;
         this.access = access;
     }
 
@@ -266,13 +279,13 @@ public class HuudSpaceService {
     }
 
     /**
-     * Host (or owner): end the Live hangout. The Huud stays — members, chat,
+     * Owner only: end the Live hangout. The Huud stays — members, chat,
      * code, privacy, background — while the game, players, requests, watchers
      * and voice reset.
      */
     public Mono<HuudSpaceView> endLive(UUID user, UUID id) {
-        return space(id).filter(s -> s.live() && (s.ownerId().equals(user) || s.createdBy().equals(user)))
-                .switchIfEmpty(Mono.error(ApiExceptions.forbidden("Only the host can end Live")))
+        return space(id).filter(s -> s.live() && s.createdBy().equals(user))
+                .switchIfEmpty(Mono.error(ApiExceptions.forbidden("Only the owner can end Live")))
                 .flatMap(s -> stopLive(s, user))
                 .then(view(id, user));
     }
@@ -316,7 +329,8 @@ public class HuudSpaceService {
      * coming back takes over again from whoever stepped in.
      */
     Mono<Void> enterLive(UUID id, UUID user) {
-        return db.sql("UPDATE huud_space_members m SET live_at=COALESCE(m.live_at, now()), last_seen_at=now() "
+        return tx.transactional(lock("huud-space:" + id).then(db.sql(
+                        "UPDATE huud_space_members m SET live_at=COALESCE(m.live_at, now()), last_seen_at=now() "
                         + "FROM huud_spaces s WHERE s.id=m.huud_space_id AND m.huud_space_id=:id AND m.user_id=:user "
                         + "AND s.live_since IS NOT NULL AND m.left_at IS NULL AND NOT m.removed RETURNING (m.live_at = m.last_seen_at) AS fresh")
                 .bind("id", id).bind("user", user)
@@ -328,7 +342,7 @@ public class HuudSpaceService {
                             if (back) notifyMembers(id, "host", user);
                             else if (fresh) notifyMembers(id, "joined", user);
                         }))
-                .then();
+                .then()));
     }
 
     // ------------------------------------------------------------ joining
@@ -382,9 +396,10 @@ public class HuudSpaceService {
                 .flatMap(ok -> ok ? Mono.just(true)
                         : membership(id, user).map(Membership::in).defaultIfEmpty(false))
                 .flatMap(ok -> !ok ? Mono.error(ApiExceptions.forbidden("This Huud isn't open to you"))
-                        : db.sql("INSERT INTO huud_space_viewers(huud_space_id,user_id) VALUES(:id,:user) "
+                        : tx.transactional(lock("huud-space:" + id).then(db.sql(
+                                "INSERT INTO huud_space_viewers(huud_space_id,user_id) VALUES(:id,:user) "
                                         + "ON CONFLICT(huud_space_id,user_id) DO UPDATE SET last_seen_at=now()")
-                                .bind("id", id).bind("user", user).fetch().rowsUpdated().then(view(id, user)));
+                                .bind("id", id).bind("user", user).fetch().rowsUpdated()))).then(view(id, user));
     }
 
     /** People looking in right now who aren't in the Live hangout. */
@@ -616,22 +631,32 @@ public class HuudSpaceService {
 
     /** The app calls this while it's open: keeps you in any Live hangout you're in. */
     public Mono<Void> heartbeat(UUID user) {
-        return db.sql("UPDATE huud_space_members m SET last_seen_at=now() FROM huud_spaces s "
+        return db.sql("SELECT s.id FROM huud_spaces s JOIN huud_space_members m ON m.huud_space_id=s.id "
+                        + "WHERE s.status='active' AND s.live_since IS NOT NULL AND m.user_id=:user "
+                        + "AND m.left_at IS NULL AND NOT m.removed")
+                .bind("user", user).map((r, m) -> r.get("id", UUID.class)).all()
+                .concatMap(id -> tx.transactional(lock("huud-space:" + id).then(db.sql(
+                        "UPDATE huud_space_members m SET last_seen_at=now() FROM huud_spaces s "
                         + "WHERE s.id=m.huud_space_id AND s.live_since IS NOT NULL AND m.user_id=:user "
-                        + "AND m.left_at IS NULL AND m.live_at IS NOT NULL")
-                .bind("user", user).fetch().rowsUpdated().then();
+                        + "AND s.id=:id AND m.left_at IS NULL AND NOT m.removed")
+                        .bind("user", user).bind("id", id).fetch().rowsUpdated())))
+                .then();
     }
 
     /**
      * Scheduled. Being away only takes you out of the Live hangout — never
      * out of the Huud. A host who's away is covered by the next person in the
-     * hangout; a hangout with nobody in it ends Live (the Huud stays).
+     * hangout. Live ends only after at least 24 hours with no member, viewer,
+     * game or voice activity. An abandoned game is not proof of inactivity.
      */
     public Mono<Void> expire() {
-        return db.sql("UPDATE huud_space_members SET live_at=NULL, can_speak=false WHERE live_at IS NOT NULL "
+        return db.sql("SELECT id FROM huud_spaces WHERE status='active' AND live_since IS NOT NULL")
+                .map((r, m) -> r.get("id", UUID.class)).all()
+                .concatMap(this::refreshConnectedActivity).then()
+                .thenMany(db.sql("UPDATE huud_space_members SET live_at=NULL, can_speak=false WHERE live_at IS NOT NULL "
                         + "AND last_seen_at < now() - make_interval(secs => :secs) RETURNING huud_space_id, user_id")
                 .bind("secs", (double) memberTimeout.toSeconds())
-                .map((r, m) -> Map.entry(r.get("huud_space_id", UUID.class), r.get("user_id", UUID.class))).all()
+                .map((r, m) -> Map.entry(r.get("huud_space_id", UUID.class), r.get("user_id", UUID.class))).all())
                 .concatMap(gone -> dropFromVoice(gone.getKey(), gone.getValue())
                         .doOnSuccess(v -> notifyMembers(gone.getKey(), "away", gone.getValue())))
                 .then(db.sql("SELECT s.id, s.owner_id FROM huud_spaces s WHERE s.status='active' AND s.live_since IS NOT NULL "
@@ -643,10 +668,98 @@ public class HuudSpaceService {
                                 .doOnNext(next -> notifyMembers(absent.getKey(), "host", absent.getValue())))
                         .then())
                 .thenMany(db.sql("SELECT s.id FROM huud_spaces s WHERE s.status='active' AND s.live_since IS NOT NULL "
-                                + "AND NOT EXISTS(SELECT 1 FROM huud_space_members m WHERE m.huud_space_id=s.id AND m.live_at IS NOT NULL)")
+                                + "AND " + inactiveSql("s"))
+                        .bind("idle", (double) inactivityTimeout.toSeconds())
                         .map((r, m) -> r.get("id", UUID.class)).all())
-                .concatMap(id -> space(id).flatMap(s -> stopLive(s, s.createdBy())).onErrorResume(e -> Mono.empty()))
+                .concatMap(this::endIfInactive)
                 .then();
+    }
+
+    /** Persistent activity evidence survives a server restart; stale seats/room statuses don't count as presence. */
+    private static String inactiveSql(String s) {
+        String cutoff = "now() - make_interval(secs => :idle)";
+        return s + ".live_since <= " + cutoff
+                + " AND NOT EXISTS(SELECT 1 FROM huud_space_members m WHERE m.huud_space_id=" + s + ".id "
+                + "AND GREATEST(m.last_seen_at,m.left_at) > " + cutoff + ")"
+                + " AND NOT EXISTS(SELECT 1 FROM huud_space_viewers v WHERE v.huud_space_id=" + s + ".id "
+                + "AND v.last_seen_at > " + cutoff + ")"
+                + " AND NOT EXISTS(SELECT 1 FROM huud_space_messages c WHERE c.huud_space_id=" + s + ".id "
+                + "AND c.created_at > " + cutoff + ")"
+                + " AND NOT EXISTS(SELECT 1 FROM huud_space_requests q WHERE q.huud_space_id=" + s + ".id "
+                + "AND GREATEST(q.created_at,q.answered_at) > " + cutoff + ")"
+                + " AND NOT EXISTS(SELECT 1 FROM rooms r WHERE (r.huud_space_id=" + s + ".id OR r.id=" + s + ".current_room_id) "
+                + "AND (r.created_at > " + cutoff + " OR EXISTS(SELECT 1 FROM game_sessions g WHERE g.room_id=r.id "
+                + "AND (GREATEST(g.started_at,g.ended_at) > " + cutoff
+                + " OR EXISTS(SELECT 1 FROM game_events e WHERE e.game_session_id=g.id AND e.created_at > " + cutoff + ")))))"
+                + " AND NOT EXISTS(SELECT 1 FROM voice_session_participants p JOIN voice_sessions v ON v.id=p.voice_session_id "
+                + "WHERE (v.room_name='huud-' || " + s + ".id::text OR v.room_name LIKE 'huud-' || " + s + ".id::text || '-m-%') "
+                + "AND p.last_seen_at > " + cutoff + ")";
+    }
+
+    /** Actual sockets/media supplement app heartbeats, including members browsing elsewhere. */
+    private Mono<Void> refreshConnectedActivity(UUID id) {
+        Mono<Set<UUID>> onlineMembers = db.sql("SELECT user_id FROM huud_space_members "
+                        + "WHERE huud_space_id=:id AND left_at IS NULL AND NOT removed")
+                .bind("id", id).map((r, m) -> r.get("user_id", UUID.class)).all()
+                .filter(inbox::isOnline).collect(HashSet<UUID>::new, Set::add).map(p -> p);
+        Flux<String> gamePeople = db.sql("SELECT id FROM rooms WHERE huud_space_id=:id "
+                        + "OR id=(SELECT current_room_id FROM huud_spaces WHERE id=:id)")
+                .bind("id", id).map((r, m) -> r.get("id", UUID.class)).all()
+                .flatMap(room -> runtimes.find(room).map(rt -> Flux.concat(
+                        Flux.fromIterable(rt.connectedUserIds), Flux.fromIterable(rt.spectatorUserIds))).orElse(Flux.empty()));
+        // Failure/timeout propagates: we cannot confirm an empty voice room, so this sweep must not end Live.
+        Flux<String> voicePeople = access.voiceRooms(id)
+                .concatMap(room -> voice.participantIds(room).timeout(Duration.ofSeconds(5)))
+                .flatMapIterable(p -> p);
+        return Mono.zip(onlineMembers, Flux.concat(gamePeople, voicePeople)
+                        .flatMap(person -> {
+                            try { return Mono.just(UUID.fromString(person)); }
+                            catch (IllegalArgumentException ignored) { return Mono.empty(); }
+                        }).collect(HashSet<UUID>::new, Set::add))
+                .flatMap(t -> {
+                    t.getT1().addAll(t.getT2());
+                    return Flux.fromIterable(t.getT1()).concatMap(user -> db.sql(
+                                    "UPDATE huud_space_members m SET last_seen_at=now() FROM users u "
+                                            + "WHERE m.huud_space_id=:id AND m.user_id=:user AND m.left_at IS NULL "
+                                            + "AND NOT m.removed AND u.id=m.user_id AND NOT u.is_bot")
+                            .bind("id", id).bind("user", user).fetch().rowsUpdated()
+                            .flatMap(n -> n > 0 ? Mono.just(n) : db.sql(
+                                    "INSERT INTO huud_space_viewers(huud_space_id,user_id) "
+                                            + "SELECT :id,id FROM users WHERE id=:user AND NOT is_bot "
+                                            + "ON CONFLICT(huud_space_id,user_id) DO UPDATE SET last_seen_at=now()")
+                                    .bind("id", id).bind("user", user).fetch().rowsUpdated())).then();
+                });
+    }
+
+    /** Recheck under the same lock as joins; a return after the candidate scan cancels expiry. */
+    private Mono<Void> endIfInactive(UUID id) {
+        return tx.transactional(lock("huud-space:" + id)
+                .then(refreshConnectedActivity(id))
+                .then(db.sql("SELECT s.id FROM huud_spaces s WHERE s.id=:id AND s.status='active' "
+                                + "AND s.live_since IS NOT NULL AND " + inactiveSql("s"))
+                        .bind("id", id).bind("idle", (double) inactivityTimeout.toSeconds())
+                        .map((r, m) -> r.get("id", UUID.class)).one())
+                .flatMap(found -> space(found).flatMap(s -> endAbandonedGame(s).then(stopLive(s, s.createdBy())))));
+    }
+
+    /** Only reached after the 24-hour activity and actual-presence checks; never manufactures a winner. */
+    private Mono<Void> endAbandonedGame(Space s) {
+        if (s.currentRoomId() == null) return Mono.empty();
+        UUID room = s.currentRoomId();
+        return db.sql("UPDATE rooms SET status='ended' WHERE id=:room AND status='in_game' RETURNING id")
+                .bind("room", room).map((r, m) -> r.get("id", UUID.class)).one()
+                .flatMap(ended -> db.sql("UPDATE game_sessions SET ended_at=now(),phase='Abandoned' "
+                                + "WHERE room_id=:room AND ended_at IS NULL")
+                        .bind("room", room).fetch().rowsUpdated()
+                        .doOnSuccess(n -> {
+                            bots.stopRoom(room);
+                            runtimes.find(room).ifPresent(rt -> {
+                                rt.cancelTimer();
+                                rt.bus.tryEmitNext(new app.truearena.room.LobbyBroadcast("ROOM_CANCELLED",
+                                        Map.of("roomId", room.toString())));
+                            });
+                            runtimes.remove(room);
+                        })).then();
     }
 
     // ------------------------------------------------------------ games

@@ -202,7 +202,7 @@ public class HuudSpaceController {
     }
 
     @DeleteMapping("/{id}/live")
-    @Operation(summary = "Host: end Live — the Huud, its members, chat and code stay")
+    @Operation(summary = "Owner only: end Live — the Huud, its members, chat and code stay")
     public Mono<HuudSpaceView> endLive(@PathVariable UUID id) {
         return CurrentUser.id().flatMap(user -> huuds.endLive(user, id));
     }

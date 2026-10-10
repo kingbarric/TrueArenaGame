@@ -680,6 +680,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
 
   /// End the Live hangout. The Huud stays — members, chat, code, background.
   Future<void> _end(HuudSpace huud) async {
+    if (!huud.active || !huud.live || !huud.youOwn) return;
     final ok = await confirmHuud(
       context,
       emoji: '🌙',
@@ -1008,7 +1009,6 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
             ),
           ),
         );
-    final hosting = huud != null && huud.youAreHost && huud.active;
     final owning = huud != null && huud.youOwn && huud.active;
     final live = huud?.live ?? false;
     return Padding(
@@ -1034,7 +1034,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                 huud.muted ? 'Unmute notifications' : 'Mute notifications', () => _toggleMute(huud),
                 key: const ValueKey('huud-mute')),
           ),
-        if (hosting && live)
+        if (owning && live)
           Padding(
             padding: const EdgeInsets.only(left: 8),
             child: Semantics(
@@ -1444,6 +1444,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
               cup: cup,
               me: _me,
               youAreHost: huud.youAreHost,
+              youOwn: huud.youOwn,
               youAreIn: huud.youAreIn,
               listeningTo: heard,
               busy: _busy,

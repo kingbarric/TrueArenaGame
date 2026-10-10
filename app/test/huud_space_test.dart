@@ -383,10 +383,11 @@ void main() {
     expect(find.textContaining("You've muted it"), findsOneWidget);
   });
 
-  testWidgets("a temporary host cannot open another owner's Huud settings", (tester) async {
+  testWidgets("a temporary host cannot change settings or end another owner's Huud", (tester) async {
     await pump(tester, const HuudSpaceScreen(id: 'h1'),
         (_) async => _json(_huud(host: true, owns: false)));
     expect(find.byKey(const ValueKey('huud-settings')), findsNothing);
+    expect(find.byKey(const ValueKey('huud-end')), findsNothing);
     expect(find.byKey(const ValueKey('huud-mute')), findsOneWidget);
     // Covering the host still permits organising the game.
     expect(find.byKey(const ValueKey('huud-pick-whot')), findsOneWidget);

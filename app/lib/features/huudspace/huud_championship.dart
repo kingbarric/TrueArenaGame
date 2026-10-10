@@ -402,6 +402,7 @@ class ChampionshipPanel extends StatelessWidget {
     required this.cup,
     required this.me,
     required this.youAreHost,
+    required this.youOwn,
     required this.youAreIn,
     required this.onRegister,
     required this.onWithdraw,
@@ -418,7 +419,7 @@ class ChampionshipPanel extends StatelessWidget {
 
   final HuudCup cup;
   final String? me;
-  final bool youAreHost, youAreIn;
+  final bool youAreHost, youAreIn, youOwn;
 
   /// The match whose voice you're hearing — null in the championship lobby.
   final CupMatch? listeningTo;
@@ -688,6 +689,9 @@ class ChampionshipPanel extends StatelessWidget {
           busy: busy == 'cup-close',
           onPressed: onHangOut,
         ),
+      ] else
+        _note(context, 'Good games, everyone! The host picks what happens next.'),
+      if (youOwn) ...[
         const SizedBox(height: 10),
         HuudButton(
           key: const ValueKey('cup-end-live'),
@@ -697,8 +701,7 @@ class ChampionshipPanel extends StatelessWidget {
           expand: true,
           onPressed: onEndLive,
         ),
-      ] else
-        _note(context, 'Good games, everyone! The host picks what happens next.'),
+      ],
     ];
   }
 
