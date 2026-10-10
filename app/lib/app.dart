@@ -16,6 +16,7 @@ import 'features/draughts/championships_screen.dart';
 import 'theme/neon_theme.dart';
 import 'widgets/neon.dart';
 import 'widgets/gift_splash.dart';
+import 'features/huudspace/huud_mic_request_host.dart';
 
 class TrueArenaApp extends StatelessWidget {
   const TrueArenaApp({super.key, required this.state});
@@ -73,7 +74,9 @@ class TrueArenaApp extends StatelessWidget {
                   child: PersistentHangout(
                       child: GiftSplashHost(
                           gifts: state.coinGifts,
-                          child: _GameInviteOverlay(state: state, child: child ?? const SizedBox.shrink()))));
+                          child: HuudMicRequestHost(
+                            state: state, navigatorKey: navigatorKey,
+                            child: _GameInviteOverlay(state: state, child: child ?? const SizedBox.shrink())))));
               if (state.visualTheme == VisualTheme.palmWine) return content;
               final design = context.neonDesign.kind;
               return DecoratedBox(

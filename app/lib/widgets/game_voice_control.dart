@@ -500,10 +500,16 @@ class _GameVoiceControlState extends State<GameVoiceControl> {
     final huud = HuudVoice.instance;
     if (huud.huudId != null) {
       final before = huud.micState;
+      if (before == MicState.locked) {
+        final sent = await huud.askForMic(AppScope.of(context).api);
+        if (!mounted) return;
+        _message(sent ? 'Mic requested — waiting for approval ✋' : 'Could not send your mic request. Try again.');
+        setState(() {});
+        return;
+      }
       final result = await huud.tap(AppScope.of(context).api);
       if (!mounted) return;
-      if (before == MicState.locked) _message('Asked the host for the mic ✋');
-      if (before == MicState.asked) _message('You asked for the mic — wait for the host ✋');
+      if (before == MicState.asked) _message('Your mic request is waiting for approval ✋');
       if (result == MicResult.noPermission) _message('Turn on the microphone for PlayHuud in your phone settings.');
       if (result == MicResult.failed) _message("Your mic didn't switch on — try again in a moment.");
       setState(() {});

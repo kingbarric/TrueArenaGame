@@ -63,14 +63,17 @@ public class HuudSpaceRequestService {
                 .flatMap(s -> huuds.membership(id, user).flatMap(m -> m.canSpeak() || s.ownerId().equals(user)
                         ? Mono.<Void>empty()
                         : huuds.upsertRequest(id, user, "mic", null)
-                                .doOnSuccess(v -> huuds.notify(s.ownerId(), id, "request", user))))
+                                .thenMany(huuds.micApprovers(id))
+                                .doOnNext(approver -> huuds.notify(approver, id, "request", user)).then()))
                 .then(huuds.view(id, user));
     }
 
-    /** Host only: yes or no to someone's request. */
+    /** The host answers join/play requests; present mic cover may also answer mic requests. */
+    @org.springframework.transaction.annotation.Transactional
     public Mono<HuudSpaceView> answer(UUID host, UUID id, UUID target, String kind, boolean accept) {
         if (!KINDS.contains(kind)) return Mono.error(ApiExceptions.badRequest("unknown request"));
-        return huuds.requireHost(id, host)
+        return huuds.lock("huud-space:" + id)
+                .then("mic".equals(kind) ? huuds.requireMicApprover(id, host) : huuds.requireHost(id, host))
                 .flatMap(s -> huuds.request(id, target, kind).filter("pending"::equals)
                         .switchIfEmpty(Mono.error(ApiExceptions.conflict("That request has already been answered")))
                         .then(Mono.defer(() -> !accept ? huuds.answerRow(id, target, kind, false)
@@ -138,6 +141,7 @@ public class HuudSpaceRequestService {
                                     .concatMap(p -> huuds.membership(id, p).filter(HuudSpaceService.Membership::in)
                                             .switchIfEmpty(Mono.error(ApiExceptions.badRequest("Players have to be in the Huud")))
                                             .then(rooms.join(game.code(), p, null))
+                                            .then(grantPlayerMic(id, p))
                                             .then(huuds.request(id, p, "play").filter("pending"::equals)
                                                     .flatMap(q -> huuds.answerRow(id, p, "play", true)))
                                             .doOnSuccess(v -> huuds.notify(p, id, "picked", host)))
@@ -165,8 +169,16 @@ public class HuudSpaceRequestService {
     /** A seat in the game: the room join everyone used to do by hand with the code. */
     private Mono<Void> seat(UUID id, UUID user, String roomCode) {
         return rooms.join(roomCode, user, null)
-                .doOnSuccess(room -> huuds.notifyMembers(id, "game", user))
-                .then();
+                .then(grantPlayerMic(id, user))
+                .doOnSuccess(room -> huuds.notifyMembers(id, "game", user));
+    }
+
+    /** A selected player gets Huud voice permission, without a second request. */
+    private Mono<Void> grantPlayerMic(UUID id, UUID user) {
+        return speaker(id, user, true)
+                .then(huuds.request(id, user, "mic").filter("pending"::equals)
+                        .flatMap(pending -> huuds.answerRow(id, user, "mic", true)))
+                .doOnSuccess(v -> huuds.notify(user, id, "accepted-mic", user));
     }
 
     private Mono<Void> speaker(UUID id, UUID user, boolean allowed) {

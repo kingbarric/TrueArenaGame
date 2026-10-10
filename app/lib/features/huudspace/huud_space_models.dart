@@ -144,6 +144,7 @@ class HuudSpace {
     required this.members,
     required this.youAreIn,
     required this.youAreHost,
+    this.youCanManageMic = false,
     required this.voiceRoom,
     this.code,
     this.host,
@@ -210,6 +211,7 @@ class HuudSpace {
   final HuudGame? currentGame;
   final bool youAreIn;
   final bool youAreHost;
+  final bool youCanManageMic;
   final String voiceRoom;
 
   bool get active => status == 'active';
@@ -229,6 +231,8 @@ class HuudSpace {
             j['currentGame'] == null ? null : HuudGame.fromJson((j['currentGame'] as Map).cast<String, dynamic>()),
         youAreIn: j['youAreIn'] == true,
         youAreHost: j['youAreHost'] == true,
+        youCanManageMic: j['youCanManageMic'] == true ||
+            (j['youAreHost'] == true && !j.containsKey('youCanManageMic')),
         voiceRoom: j['voiceRoom'] as String? ?? 'huud-${j['id']}',
         youCanSpeak: j['youCanSpeak'] == true,
         joinRequest: j['joinRequest'] as String?,

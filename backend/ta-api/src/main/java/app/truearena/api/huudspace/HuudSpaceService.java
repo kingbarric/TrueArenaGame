@@ -429,6 +429,37 @@ public class HuudSpaceService {
         return (roomId == null ? sql.bindNull("room", UUID.class) : sql.bind("room", roomId)).fetch().rowsUpdated().then();
     }
 
+    /** The present admin, otherwise the next joiner and players at the current table. */
+    Flux<UUID> micApprovers(UUID id) {
+        return db.sql("""
+            WITH present AS (
+                SELECT m.user_id, m.live_at, m.joined_at FROM huud_space_members m
+                JOIN huud_spaces s ON s.id=m.huud_space_id JOIN users u ON u.id=m.user_id
+                WHERE s.id=:id AND s.status='active' AND s.live_since IS NOT NULL
+                AND m.left_at IS NULL AND NOT m.removed AND m.live_at IS NOT NULL AND NOT u.is_bot
+                AND m.last_seen_at > now() - make_interval(secs => :grace)
+            ), present_host AS (
+                SELECT p.user_id FROM present p JOIN huud_spaces s ON s.id=:id AND s.owner_id=p.user_id
+            )
+            SELECT p.user_id FROM present p JOIN huud_spaces s ON s.id=:id
+            WHERE p.user_id IN (SELECT user_id FROM present_host)
+               OR (NOT EXISTS(SELECT 1 FROM present_host) AND (
+                    p.user_id=(SELECT user_id FROM present ORDER BY live_at, joined_at, user_id LIMIT 1)
+                    OR EXISTS(SELECT 1 FROM room_members rm JOIN rooms r ON r.id=rm.room_id
+                              WHERE rm.user_id=p.user_id AND r.id=s.current_room_id AND r.status IN ('lobby','in_game'))
+                    OR EXISTS(SELECT 1 FROM room_members rm JOIN championship_matches cm ON cm.room_id=rm.room_id
+                              JOIN championships c ON c.id=cm.championship_id
+                              WHERE rm.user_id=p.user_id AND c.huud_space_id=s.id AND cm.status='active')
+               ))
+            """).bind("id", id).bind("grace", (double) hostGrace.toSeconds())
+                .map((row, metadata) -> row.get("user_id", UUID.class)).all();
+    }
+
+    Mono<Space> requireMicApprover(UUID id, UUID user) {
+        return micApprovers(id).any(user::equals).flatMap(allowed -> allowed ? space(id)
+                : Mono.error(ApiExceptions.forbidden("Only the present admin or their mic cover can answer")));
+    }
+
     Mono<Void> answerRow(UUID id, UUID user, String kind, boolean accepted) {
         return db.sql("INSERT INTO huud_space_requests(huud_space_id,user_id,kind,status,answered_at) "
                         + "VALUES(:id,:user,:kind,:status,now()) ON CONFLICT(huud_space_id,user_id,kind) "
@@ -814,9 +845,9 @@ public class HuudSpaceService {
                                                 members(id).collectList(),
                                                 currentGame(now.currentRoomId(), viewer).map(Optional::of).defaultIfEmpty(Optional.empty()),
                                                 myRequests(id, viewer),
-                                                now.active() && now.ownerId().equals(viewer)
-                                                        ? pendingRequests(id).collectList() : Mono.just(List.<PendingRequest>of()),
-                                                watching(id))
+                                                pendingRequests(id).collectList(),
+                                                watching(id),
+                                                micApprovers(id).any(viewer::equals))
                                         .map(t -> {
                                             boolean host = now.active() && now.ownerId().equals(viewer);
                                             boolean owner = now.active() && now.createdBy().equals(viewer);
@@ -835,10 +866,10 @@ public class HuudSpaceService {
                                                     now.status(), hostPerson, people, game, member, host,
                                                     canSpeak, HuudSpaceAccess.VOICE_PREFIX + now.id(),
                                                     member ? null : mine.get("join"), mine.get("play"), mine.get("mic"),
-                                                    t.getT4(), now.sharedAt() != null, now.feedMessage(), t.getT5(),
+                                                    t.getT4().stream().filter(request -> host || (t.getT6() && "mic".equals(request.kind()))).toList(), now.sharedAt() != null, now.feedMessage(), t.getT5(),
                                                     now.background(), now.createdAt(), now.endedAt(),
                                                     now.live(), owner, me.map(Membership::muted).orElse(false),
-                                                    people.size(), liveCount, now.championshipId());
+                                                    people.size(), liveCount, now.championshipId(), t.getT6());
                                         })));
                             });
                         }));

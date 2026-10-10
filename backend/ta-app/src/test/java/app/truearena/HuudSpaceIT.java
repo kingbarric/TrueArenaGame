@@ -26,6 +26,7 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import reactor.core.publisher.Mono;
 import java.util.UUID;
+import java.util.List;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -423,6 +424,71 @@ class HuudSpaceIT {
         requests.setMic(host, huud.id(), kid, false).block();
         assertThat(access.canSpeak(kid, huud.voiceRoom()).block()).isFalse();
         verify(livekit, atLeastOnce()).setCanPublish(huud.voiceRoom(), kid.toString(), false);
+    }
+
+    @Test void selectedPlayersGetMicWithoutAnExtraRequestAcrossGames() {
+        for (String game : List.of("ludo", "whot", "draughts", "chess")) {
+            UUID host = person("Host"), player = person("Player");
+            var huud = huuds.create(host, null, "public", game, null, false).block();
+            huuds.joinByCode(player, huud.code()).block();
+            assertThat(access.canSpeak(player, huud.voiceRoom()).block()).isFalse();
+            requests.pick(host, huud.id(), List.of(player)).block();
+            assertThat(access.canSpeak(player, huud.voiceRoom()).block()).isTrue();
+            assertThat(huuds.view(huud.id(), player).block().youCanSpeak()).isTrue();
+            assertThat(huuds.view(huud.id(), host).block().requests()).isEmpty();
+            verify(livekit, atLeastOnce()).setCanPublish(huud.voiceRoom(), player.toString(), true);
+            requests.setMic(host, huud.id(), player, false).block();
+            assertThat(access.canSpeak(player, huud.voiceRoom()).block()).isFalse();
+        }
+    }
+
+    @Test void acceptingAPlayRequestAlsoGrantsMicAndResolvesAnyPendingMicAsk() {
+        UUID host = person("Host"), player = person("Player");
+        var huud = huuds.create(host, null, "public", "ludo", null, false).block();
+        huuds.joinByCode(player, huud.code()).block();
+        requests.askForMic(player, huud.id()).block();
+        requests.askToPlay(player, huud.id()).block();
+        requests.answer(host, huud.id(), player, "play", true).block();
+        assertThat(access.canSpeak(player, huud.voiceRoom()).block()).isTrue();
+        assertThat(huuds.view(huud.id(), player).block().micRequest()).isEqualTo("accepted");
+        assertThat(huuds.view(huud.id(), host).block().requests()).isEmpty();
+    }
+
+    @Test void absentAdminIsCoveredForMicOnlyByNextJoinerAndPlayers() {
+        UUID host = person("Host"), second = person("Second"), player = person("Player"), listener = person("Listener"), outsider = person("Outside");
+        var huud = huuds.create(host, null, "public", "ludo", null, false).block();
+        for (UUID user : List.of(second, player, listener)) huuds.joinByCode(user, huud.code()).block();
+        requests.pick(host, huud.id(), List.of(player)).block();
+        assertThat(huuds.view(huud.id(), player).block().youCanManageMic()).isFalse();
+        requests.askForMic(listener, huud.id()).block();
+        assertThatThrownBy(() -> requests.answer(player, huud.id(), listener, "mic", true).block())
+                .isInstanceOf(ResponseStatusException.class);
+        // The owner isn't present, and the hand-off sweep hasn't run yet.
+        quiet(huud.id(), host, "10 minutes");
+        clearInvocations(inbox);
+        requests.askForMic(listener, huud.id()).block();
+        verify(inbox).notify(eq(second), argThat(e -> e instanceof java.util.Map<?, ?> event && "HUUD_SPACE".equals(event.get("type"))
+                && "request".equals(((java.util.Map<?, ?>) event.get("data")).get("event"))));
+        verify(inbox).notify(eq(player), argThat(e -> e instanceof java.util.Map<?, ?> event && "HUUD_SPACE".equals(event.get("type"))
+                && "request".equals(((java.util.Map<?, ?>) event.get("data")).get("event"))));
+        verify(inbox, never()).notify(eq(host), any());
+        var cover = huuds.view(huud.id(), player).block();
+        assertThat(cover.youAreHost()).isFalse();
+        assertThat(cover.youCanManageMic()).isTrue();
+        assertThat(cover.requests()).extracting("kind").containsExactly("mic");
+        assertThat(huuds.view(huud.id(), second).block().youCanManageMic()).isTrue();
+        assertThat(huuds.view(huud.id(), listener).block().youCanManageMic()).isFalse();
+        assertThatThrownBy(() -> requests.answer(outsider, huud.id(), listener, "mic", true).block())
+                .isInstanceOf(ResponseStatusException.class);
+        requests.answer(player, huud.id(), listener, "mic", true).block();
+        assertThat(access.canSpeak(listener, huud.voiceRoom()).block()).isTrue();
+        assertThatThrownBy(() -> requests.answer(second, huud.id(), listener, "mic", false).block())
+                .isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(() -> requests.answer(player, huud.id(), second, "join", true).block())
+                .isInstanceOf(ResponseStatusException.class);
+        // Opening the Huud returns the admin; cover permission ends.
+        huuds.view(huud.id(), host).block();
+        assertThat(huuds.view(huud.id(), player).block().youCanManageMic()).isFalse();
     }
 
     @Test void huudChatIsForPeopleInsideAndSlowsDownFloods() {

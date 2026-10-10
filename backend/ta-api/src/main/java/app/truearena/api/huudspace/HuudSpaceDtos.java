@@ -127,7 +127,7 @@ public final class HuudSpaceDtos {
      * A Huud as someone inside it — or allowed to look in — sees it.
      * {@code joinRequest} / {@code playRequest} / {@code micRequest} are your own
      * asks ("pending", "accepted", "declined" or null); {@code requests} is what
-     * the host has to answer, and is empty for everyone else.
+     * the host has to answer; eligible mic cover sees mic requests only.
      */
     public record HuudSpaceView(UUID id, String code, String name, String privacy, String status,
                                 Person host, List<Person> members, CurrentGame currentGame,
@@ -136,7 +136,7 @@ public final class HuudSpaceDtos {
                                 List<PendingRequest> requests, boolean shared, String feedMessage,
                                 int watching, String background, Instant createdAt, Instant endedAt,
                                 boolean live, boolean youOwn, boolean muted, int memberCount, int liveCount,
-                                UUID championshipId) {
+                                UUID championshipId, boolean youCanManageMic) {
     }
 
     /** A card on the Live tab. The code stays out: only people inside see it. */
