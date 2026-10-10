@@ -360,3 +360,68 @@ class SlayHeadline extends StatelessWidget {
           fontWeight: FontWeight.w900,
           color: colour ?? context.neon.ink));
 }
+
+/// Emoji for wardrobe categories, used on briefs and rewards.
+const slayCategoryEmoji = {
+  'outfit': '👗',
+  'dress': '👗',
+  'tops': '👚',
+  'shirts': '👕',
+  'trousers': '👖',
+  'skirts': '🩱',
+  'shoes': '👠',
+  'watches': '⌚',
+  'bags': '👜',
+  'jewellery': '💍',
+  'accessories': '✨',
+  'makeup': '💄',
+  'hair': '💇',
+  'eyes': '👁️',
+};
+
+String slayCategoryName(String category) => switch (category) {
+      'outfit' => 'A full outfit',
+      'jewellery' => 'Jewellery',
+      'watches' => 'A watch',
+      'bags' => 'A bag',
+      'shoes' => 'Shoes',
+      _ => category[0].toUpperCase() + category.substring(1),
+    };
+
+/// A gentle repeating hop that says "tap me".
+class IdleBounce extends StatefulWidget {
+  const IdleBounce({super.key, required this.child});
+  final Widget child;
+  @override
+  State<IdleBounce> createState() => _IdleBounceState();
+}
+
+class _IdleBounceState extends State<IdleBounce>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 1400));
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _c.stop();
+    } else if (!_c.isAnimating) {
+      _c.repeat();
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+      animation: _c,
+      builder: (_, child) {
+        final t = _c.value < .3 ? math.sin(_c.value / .3 * math.pi) : 0.0;
+        return Transform.translate(offset: Offset(0, -5 * t), child: child);
+      },
+      child: widget.child);
+}

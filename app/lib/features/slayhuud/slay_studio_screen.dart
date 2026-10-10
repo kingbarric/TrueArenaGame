@@ -405,7 +405,11 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                             const SizedBox(height: 4),
                             Text(widget.theme['title'],
                                 style:
-                                    Theme.of(context).textTheme.headlineMedium)
+                                    Theme.of(context).textTheme.headlineMedium),
+                            if (_required.isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              _checklist(context),
+                            ],
                           ])),
                       if (widget.competitionId == null && !_career)
                         SegmentedButton<String>(
@@ -593,7 +597,7 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                               !_look.isDressed &&
                               _draft!.isDressed) ...[
                             SlayPill(
-                                label: 'Resume draft',
+                                label: 'My last look',
                                 icon: Icons.history_rounded,
                                 onPressed: (_busy || _selecting)
                                     ? null
@@ -609,7 +613,7 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                                   setState(() => _error = error.toString())),
                           const SizedBox(width: 8),
                           SlayPill(
-                              label: 'Beauty',
+                              label: 'Face & hair',
                               icon: Icons.face_retouching_natural,
                               onPressed: (_busy || _selecting)
                                   ? null
@@ -629,7 +633,7 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                           const SizedBox(width: 8),
                           if (!_career)
                             SlayPill(
-                                label: 'Scene',
+                                label: 'Background',
                                 icon: Icons.landscape_outlined,
                                 onPressed: (_busy || _selecting)
                                     ? null
@@ -653,7 +657,8 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                             Padding(
                                 padding: const EdgeInsets.only(right: 4),
                                 child: SlayTab(
-                                    label: c.value,
+                                    label:
+                                        '${slayCategoryEmoji[c.key] ?? '✨'} ${c.value}',
                                     selected: category == c.key,
                                     onPressed: (_busy || _selecting)
                                         ? null
@@ -753,40 +758,50 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                       child: Text(_error!,
                           style: const TextStyle(
                               color: Colors.red, fontSize: 12))),
+                if (!_busy)
+                  Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+                      child: _tipBubble(context)),
                 Padding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                     child: SizedBox(
                         width: double.infinity,
                         child: ValueListenableBuilder<bool>(
                             valueListenable: _stage.ready,
-                            builder: (context, ready, _) => SlayButton.icon(
-                                onPressed: _busy ||
-                                        _selecting ||
-                                        !_look.isDressed ||
-                                        !ready ||
-                                        (widget.deadline != null &&
-                                            !DateTime.now()
-                                                .isBefore(widget.deadline!))
-                                    ? null
-                                    : _submit,
-                                icon: (_busy || _selecting)
-                                    ? const SizedBox(
-                                        width: 18,
-                                        height: 18,
-                                        child: CircularProgressIndicator(
-                                            strokeWidth: 2))
-                                    : const Icon(Icons.auto_awesome, size: 18),
-                                label: Text(_selecting
-                                    ? 'Updating wardrobe…'
-                                    : _busy
-                                        ? (_performing
-                                            ? 'Taking the stage…'
-                                            : 'Saving your look…')
-                                        : !_look.isDressed
-                                            ? 'Add a look or top + bottoms'
-                                            : widget.competitionId == null
-                                                ? 'Show off & see my score'
-                                                : 'Show off & submit'))))),
+                            builder: (context, ready, _) => _hopWhenReady(
+                                ready &&
+                                    !_busy &&
+                                    !_selecting &&
+                                    _missing.isEmpty,
+                                SlayButton.icon(
+                                    onPressed: _busy ||
+                                            _selecting ||
+                                            !_look.isDressed ||
+                                            !ready ||
+                                            (widget.deadline != null &&
+                                                !DateTime.now()
+                                                    .isBefore(widget.deadline!))
+                                        ? null
+                                        : _submit,
+                                    icon: (_busy || _selecting)
+                                        ? const SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(
+                                                strokeWidth: 2))
+                                        : const Icon(Icons.auto_awesome,
+                                            size: 18),
+                                    label: Text(_selecting
+                                        ? 'Updating wardrobe…'
+                                        : _busy
+                                            ? (_performing
+                                                ? 'Taking the stage…'
+                                                : 'Saving your look…')
+                                            : !_look.isDressed
+                                                ? 'Add a look or top + bottoms'
+                                                : widget.competitionId == null
+                                                    ? 'Show off & see my score'
+                                                    : 'Show off & submit')))))),
               ]);
             })));
       }));
@@ -855,6 +870,83 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
       }
     }
   }
+
+  List<String> get _required =>
+      List<String>.from(widget.theme['requiredCategories'] ?? const []);
+
+  String? _categoryOf(String id) => (widget.catalog['items'] as List)
+      .cast<Map>()
+      .where((i) => i['id'] == id)
+      .firstOrNull?['category'] as String?;
+
+  bool _wearing(String category) => category == 'outfit'
+      ? _look.isDressed
+      : _look.items.values.any((id) => _categoryOf(id) == category);
+
+  /// Brief items still missing from the look.
+  List<String> get _missing => _required.where((c) => !_wearing(c)).toList();
+
+  Widget _checklist(BuildContext context) {
+    final n = context.neon;
+    return Wrap(spacing: 6, runSpacing: 6, children: [
+      for (final category in _required)
+        Builder(builder: (context) {
+          final done = _wearing(category);
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+            decoration: BoxDecoration(
+              color: done ? n.jade.withValues(alpha: .22) : n.plate,
+              borderRadius: BorderRadius.circular(99),
+              border: Border.all(color: done ? n.jade : n.line, width: 1.5),
+            ),
+            child: Text(
+                '${done ? '✅' : '⬜'} ${slayCategoryEmoji[category] ?? '✨'} ${slayCategoryName(category)}',
+                style:
+                    const TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
+          );
+        }),
+    ]);
+  }
+
+  /// One friendly sentence that always says what to do next.
+  String get _tip {
+    if (!_look.isDressed) {
+      return '👗 Tap a dress, or a top and some bottoms, to get dressed!';
+    }
+    final missing = _missing.where((c) => c != 'outfit').firstOrNull;
+    if (missing != null) {
+      return 'Your brief needs ${slayCategoryEmoji[missing] ?? '✨'} ${slayCategoryName(missing)}. '
+          'Tap the ${_categories[missing] ?? missing} tab!';
+    }
+    return '✨ Looking great! Tap the big button to show it off!';
+  }
+
+  Widget _tipBubble(BuildContext context) {
+    final n = context.neon;
+    return Semantics(
+      liveRegion: true,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 250),
+        child: Container(
+          key: ValueKey(_tip),
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: n.gold.withValues(alpha: .14),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: n.gold.withValues(alpha: .7), width: 1.5),
+          ),
+          child: Text(_tip,
+              style: TextStyle(
+                  color: n.ink, fontWeight: FontWeight.w800, fontSize: 13)),
+        ),
+      ),
+    );
+  }
+
+  Widget _hopWhenReady(bool ready, Widget button) =>
+      ready ? IdleBounce(child: button) : button;
 
   Future<void> _customise() async {
     await showModalBottomSheet<void>(

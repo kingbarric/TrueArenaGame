@@ -12,33 +12,6 @@ import 'slay_studio_screen.dart';
 import 'slay_theme.dart';
 import 'slay_ui.dart';
 
-/// Emoji for wardrobe categories, used on briefs and rewards.
-const slayCategoryEmoji = {
-  'outfit': '👗',
-  'dress': '👗',
-  'tops': '👚',
-  'shirts': '👕',
-  'trousers': '👖',
-  'skirts': '🩱',
-  'shoes': '👠',
-  'watches': '⌚',
-  'bags': '👜',
-  'jewellery': '💍',
-  'accessories': '✨',
-  'makeup': '💄',
-  'hair': '💇',
-  'eyes': '👁️',
-};
-
-String slayCategoryName(String category) => switch (category) {
-      'outfit' => 'A full outfit',
-      'jewellery' => 'Jewellery',
-      'watches' => 'A watch',
-      'bags' => 'A bag',
-      'shoes' => 'Shoes',
-      _ => category[0].toUpperCase() + category.substring(1),
-    };
-
 /// Solo career: pick your star once, then climb from Starter Studio to Global Star.
 class SlayCareerScreen extends StatefulWidget {
   const SlayCareerScreen(
@@ -360,44 +333,6 @@ class _NextUpCard extends StatelessWidget {
   }
 }
 
-/// A gentle repeating hop that says "tap me".
-class IdleBounce extends StatefulWidget {
-  const IdleBounce({super.key, required this.child});
-  final Widget child;
-  @override
-  State<IdleBounce> createState() => _IdleBounceState();
-}
-
-class _IdleBounceState extends State<IdleBounce>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 1400));
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (MediaQuery.disableAnimationsOf(context)) {
-      _c.stop();
-    } else if (!_c.isAnimating) {
-      _c.repeat();
-    }
-  }
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-      animation: _c,
-      builder: (_, child) {
-        final t = _c.value < .3 ? math.sin(_c.value / .3 * math.pi) : 0.0;
-        return Transform.translate(offset: Offset(0, -5 * t), child: child);
-      },
-      child: widget.child);
-}
-
 class _DailyCard extends StatelessWidget {
   const _DailyCard(
       {required this.daily,
@@ -646,7 +581,7 @@ class _EventNode extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (finale)
-              Text('FINALE · ${event['minimumScore']}+',
+              Text('👑 Finale: score ${event['minimumScore']}!',
                   style: TextStyle(
                       color: n.gold,
                       fontSize: 10,
@@ -661,6 +596,12 @@ class _EventNode extends StatelessWidget {
                     fontSize: 13)),
             if (done || (event['stars'] as int) > 0)
               SlayStars(event['stars'] as int, size: 14),
+            if (current && open && !done)
+              Text('👆 Tap to play!',
+                  style: TextStyle(
+                      color: n.gold,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 12)),
           ]),
     );
     return Semantics(

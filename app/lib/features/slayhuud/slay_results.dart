@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../theme/neon_theme.dart';
 import '../../widgets/fireworks.dart';
-import 'slay_career_screen.dart' show slayCategoryEmoji;
 import 'slay_theme.dart';
 import 'slay_ui.dart';
 
