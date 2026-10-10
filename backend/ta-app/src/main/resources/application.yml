@@ -66,6 +66,8 @@ truearena:
     url: ${LIVEKIT_URL:ws://localhost:7880}
     api-key: ${LIVEKIT_API_KEY:devkey}
     api-secret: ${LIVEKIT_API_SECRET:devsecret_devsecret_devsecret_1234}
+    # Server-to-LiveKit address for room admin calls; blank = same as url.
+    api-url: ${LIVEKIT_API_URL:}
   admin:
     # Shared secret for the /notvisible/analytics dashboard's API calls (X-Admin-Key
     # header) — see AdminKeyFilter. Blank means every admin request is refused.
@@ -113,3 +115,16 @@ spring:
 truearena:
   auth:
     otp-dev-bypass-code: "000000"
+
+---
+# The test server (infra/docker-compose.test.yml). Same as production except
+# testers sign in with a shared code instead of a real SMS/email: set
+# TEST_OTP_BYPASS_CODE in the test server's .env (blank turns it off).
+# EnvironmentGuard refuses to boot this profile with APP_ENV=production.
+spring:
+  config:
+    activate:
+      on-profile: test
+truearena:
+  auth:
+    otp-dev-bypass-code: ${TEST_OTP_BYPASS_CODE:}

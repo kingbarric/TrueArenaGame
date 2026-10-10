@@ -22,7 +22,7 @@ public class LiveKitRoomAdmin {
     private final RoomServiceClient rooms;
 
     public LiveKitRoomAdmin(LiveKitProperties props) {
-        String httpUrl = props.url().replaceFirst("^ws", "http");
+        String httpUrl = props.serverUrl().replaceFirst("^ws", "http");
         rooms = RoomServiceClient.create(httpUrl, props.apiKey(), props.apiSecret());
     }
 
