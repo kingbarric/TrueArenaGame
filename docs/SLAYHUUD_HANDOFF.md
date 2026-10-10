@@ -84,7 +84,7 @@ They add new GLBs and thumbnails, so the merge **must** be followed by `npm run 
 
 ## 5. Known blockers before merging into `feature/huud-session`
 
-1. **Migration numbers clash.** SlayHuud uses `V37__slayhuud.sql` and (uncommitted) `V38__slay_solo_career.sql`. `feature/huud-session` already has `V39`–`V46`. Renumber them to the next free numbers (currently `V47`, `V48`) before merging. Check prod's Flyway history first. Never edit a migration that prod has already applied.
+1. **Migration numbers.** Production has already applied `V37__slayhuud.sql` (byte-identical to this branch's file) and an unrelated `V38__social_huud_sessions.sql`; `feature/huud-session` tolerates both with `ignore-migration-patterns: "*:missing"`. So **keep `V37__slayhuud.sql` exactly as it is**: renaming it would make Flyway run it again on prod and fail on existing tables. Any *new* SlayHuud migration, such as Codex's `V38__slay_solo_career.sql`, must take the next free number after `feature/huud-session`'s latest (currently `V47`), because prod's V38 is a different migration and a second V38 stops Flyway from starting. Check prod's Flyway history before deploying.
 2. **Overlapping files with `feature/huud-session`:** `ChampionshipService.java`, `ChampionshipRow.java`, `GameOrchestrator.java` (also uncommitted on huud-session), `HuudService.java`, `huud_screen.dart`, `huud_models.dart`, `home_screen.dart`, `game_select_screen.dart`, `RoomService.java`, `RatingService.java`, `application.yml`, `pubspec.yaml`. Expect conflicts.
 3. **Repo size:** about 80 MB of source GLBs are in git history (largest single file 8 MB). The plan is to strip them from history before the final merge, keeping the hashed delivery files outside git.
 4. **Vendored WebView plugin:** `app/vendor/flutter_inappwebview_android` (207 files) is a patched copy for AGP 9. `slay_stage.dart` is now its only user, so switching to the official `webview_flutter` would remove it. Do this after Codex is done.
@@ -139,7 +139,7 @@ Last recorded results on `feature/slayhuud-shipping` (10 October): 42 renderer t
 ## 9. Suggested next steps
 
 1. Wait for "Codex is done", then merge `codex/slayhuud` into `feature/slayhuud-shipping`, rebuild, and run every suite above.
-2. Renumber the migrations to the next free versions after checking prod.
+2. Keep `V37__slayhuud.sql` untouched; give any new SlayHuud migration the next free number after `feature/huud-session` (not V38). Check prod's Flyway history first.
 3. Replace `flutter_inappwebview` with `webview_flutter` and drop the IndexedDB cache.
 4. Rsync `website/slay-assets/` to the VPS and check real downloads and visual parity on a device.
 5. Strip source GLBs from history, then ask the user about merging into `feature/huud-session`.
