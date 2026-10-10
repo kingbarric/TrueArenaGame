@@ -1,0 +1,11 @@
+# Test server LiveKit config (docker-compose.test.yml). Same as livekit.prod.yaml
+# but with media ports that don't clash with production's on the same VPS.
+# Keys come from the LIVEKIT_KEYS env var, never this file.
+port: 7880
+rtc:
+  tcp_port: 7891
+  port_range_start: 50100
+  port_range_end: 50120
+  use_external_ip: true
+logging:
+  level: info

@@ -105,6 +105,15 @@ services:
       - ../website:/srv/playhuud:ro
       - caddy_data:/data
       - caddy_config:/config
+    # truearena-edge lets Caddy reach the test server (docker-compose.test.yml)
+    # for /test. Create it once with `docker network create truearena-edge`
+    # (infra/deploy-test.sh does) before recreating this container.
+    networks: [default, edge]
+
+networks:
+  edge:
+    name: truearena-edge
+    external: true
 
 volumes:
   pgdata:

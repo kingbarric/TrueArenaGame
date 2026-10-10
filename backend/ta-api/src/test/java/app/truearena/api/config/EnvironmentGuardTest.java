@@ -21,6 +21,24 @@ class EnvironmentGuardTest {
     }
 
     @Test
+    void refusesToStart_whenProductionAndTestProfileBothActive() {
+        MockEnvironment env = new MockEnvironment();
+        env.setActiveProfiles("test");
+        EnvironmentGuard guard = new EnvironmentGuard(env, "production");
+
+        assertThatThrownBy(() -> guard.run(NO_ARGS)).isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void startsFine_onTheTestServer() {
+        MockEnvironment env = new MockEnvironment();
+        env.setActiveProfiles("test");
+        EnvironmentGuard guard = new EnvironmentGuard(env, "test");
+
+        assertThatCode(() -> guard.run(NO_ARGS)).doesNotThrowAnyException();
+    }
+
+    @Test
     void startsFine_whenProductionWithNoLocalProfile() {
         MockEnvironment env = new MockEnvironment();
         EnvironmentGuard guard = new EnvironmentGuard(env, "production");
