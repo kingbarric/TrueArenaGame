@@ -1,10 +1,10 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {AnimationMixer,Bone,Group,Mesh,PerspectiveCamera,Raycaster,Vector3} from 'three';
+import {AnimationMixer,Bone,Group,InstancedMesh,Matrix4,Mesh,PerspectiveCamera,Raycaster,Scene,Vector3} from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {VariantFit} from '../src/variant-fit.ts';
-import {StudioBackdrop} from '../src/studio.ts';
+import {StudioBackdrop,SCENE_KEYS} from '../src/studio.ts';
 import {bindGarment} from '../src/rig.ts';
 import {applyPose} from '../src/poses.ts';
 import {presentEyes} from '../src/presentation.ts';
@@ -30,10 +30,19 @@ test('male colour choices expose eye geometry in front of the sockets and replac
   for(let x=.023;x<.060;x+=.003)for(let y=1.824;y<1.855;y+=.003){ray.set(new Vector3(x,y,1),new Vector3(0,0,-1));if(ray.intersectObjects(meshes,false)[0]?.object.name==='male-eyes-'+colour)visible++;}assert.ok(visible>5,colour+': hidden by head');root.remove(eye.scene);
  }presentEyes(body.scene,false);assert.equal(body.scene.getObjectByName('face_eyes').visible,true);
 });
-test('studio props stay behind the model through a full rotation, with a modest mesh budget',()=>{
- const studio=new StudioBackdrop(),camera=new PerspectiveCamera();let triangles=0;studio.root.traverse(o=>{if(o instanceof Mesh)triangles+=(o.geometry.index?.count??o.geometry.attributes.position.count)/3;});assert.ok(triangles<6000);
- for(let angle=0;angle<Math.PI*2;angle+=Math.PI/4){camera.position.set(Math.sin(angle)*3.5,1,Math.cos(angle)*3.5);studio.update(camera,'studio');studio.root.updateMatrixWorld(true);const view=new Vector3(Math.sin(angle),0,Math.cos(angle));studio.root.traverse(o=>{if(!(o instanceof Mesh))return;const p=o.geometry.attributes.position;for(let i=0;i<p.count;i+=7){const world=o.localToWorld(new Vector3().fromBufferAttribute(p,i));assert.ok(world.dot(view)<-3,'prop in styling area');}});}
- studio.update(camera,'runway');assert.equal(studio.root.visible,false);studio.dispose();
+test('every stage room and venue stays behind the model through a full rotation, with a modest mesh budget',()=>{
+ const studio=new StudioBackdrop(),camera=new PerspectiveCamera(),scene=new Scene();
+ assert.deepEqual(SCENE_KEYS,['studio','lagos','sunset','royal','runway']);
+ for(const background of SCENE_KEYS)for(const mode of ['room','venue']){
+  camera.position.set(0,1,3.5);studio.update(camera,background,mode,scene);assert.equal(studio.root.visible,true);
+  const active=studio.root.children.filter(o=>o.visible);assert.equal(active.length,1,background+':'+mode+' shows one scene');
+  let triangles=0;active[0].traverse(o=>{if(o instanceof Mesh)triangles+=(o.geometry.index?.count??o.geometry.attributes.position.count)/3*(o instanceof InstancedMesh?o.count:1);});
+  assert.ok(triangles<8000,background+':'+mode+' has '+triangles+' triangles');
+  for(let angle=0;angle<Math.PI*2;angle+=Math.PI/4){camera.position.set(Math.sin(angle)*3.5,1,Math.cos(angle)*3.5);studio.update(camera,background,mode,scene);studio.root.updateMatrixWorld(true);const view=new Vector3(Math.sin(angle),0,Math.cos(angle));
+   active[0].traverse(o=>{if(!(o instanceof Mesh))return;const p=o.geometry.attributes.position,instance=new Matrix4();const copies=o instanceof InstancedMesh?o.count:1;
+    for(let c=0;c<copies;c++){if(o instanceof InstancedMesh)o.getMatrixAt(c,instance);for(let i=0;i<p.count;i+=7){const local=new Vector3().fromBufferAttribute(p,i);if(o instanceof InstancedMesh)local.applyMatrix4(instance);const world=o.localToWorld(local);assert.ok(world.dot(view)<-3,background+':'+mode+' prop in styling area');}}});}
+ }
+ studio.update(camera,'nowhere');assert.equal(studio.root.visible,false);studio.dispose();
 });
 test('fingertips follow arms in hip and cover poses rather than stretching towards the legs',async()=>{
  for(const body of ['female','male','avatar-girl02','avatar-indian-male']){const avatar=await load(body),mixer=new AnimationMixer(avatar.scene);let samples=0;
