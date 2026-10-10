@@ -785,12 +785,52 @@ class RoomServiceTest {
                 new app.truearena.game.whot.WhotModule().initialState(List.of("a", "b"),
                         app.truearena.game.whot.WhotConfig.defaults(), app.truearena.engine.RandomSource.seeded(1)),
                 UUID.randomUUID());
+        friendsStartedRoom.connectedUserIds.add(friend.toString());
+        strangersStartedRoom.connectedUserIds.add(stranger.toString());
         when(runtimes.all()).thenReturn(List.of(friendsStartedRoom, friendsLobbyRoom, strangersStartedRoom));
-        when(rooms.findById(friendsStartedRoom.roomId)).thenReturn(Mono.just(room(friendsStartedRoom.roomId, friend, 0)));
+        when(rooms.findById(friendsStartedRoom.roomId)).thenReturn(Mono.just(playing(friendsStartedRoom.roomId, friend)));
         when(users.findById(friend)).thenReturn(Mono.just(realUser(friend)));
 
         StepVerifier.create(service.discoverable(self))
                 .expectNextMatches(v -> v.roomId().equals(friendsStartedRoom.roomId))
+                .verifyComplete();
+    }
+
+    private RoomRow playing(UUID id, UUID hostId) {
+        return new RoomRow(id, "ABCDEF", null, hostId, "in_game", "ludo", 0, null, false, Instant.now());
+    }
+
+    private RoomRuntime started(UUID host, boolean finished, boolean someoneConnected) {
+        RoomRuntime rt = new RoomRuntime(UUID.randomUUID(), host.toString());
+        app.truearena.engine.GameState state = mock(app.truearena.engine.GameState.class);
+        when(state.finished()).thenReturn(finished);
+        rt.start(new app.truearena.game.whot.WhotModule(), state, UUID.randomUUID());
+        if (someoneConnected) rt.connectedUserIds.add(host.toString());
+        return rt;
+    }
+
+    /** A friend's Ludo that's over, or that everyone left, isn't offered to watch — once or twice. */
+    @Test
+    void discoverable_skipsFinishedAbandonedAndEndedGames() {
+        UUID self = UUID.randomUUID();
+        UUID friend = UUID.randomUUID();
+        UUID low = FriendRow.lowerOf(self, friend);
+        UUID high = low.equals(self) ? friend : self;
+        when(friends.findByLowUserIdOrHighUserId(self, self)).thenReturn(Flux.just(
+                new FriendRow(UUID.randomUUID(), low, high, FriendRow.ACCEPTED, self, Instant.now())));
+
+        RoomRuntime over = started(friend, true, true);
+        RoomRuntime everyoneLeft = started(friend, false, false);
+        RoomRuntime endedInDatabase = started(friend, false, true);
+        RoomRuntime onNow = started(friend, false, true);
+        when(runtimes.all()).thenReturn(List.of(over, everyoneLeft, endedInDatabase, onNow));
+        when(rooms.findById(endedInDatabase.roomId)).thenReturn(Mono.just(
+                new RoomRow(endedInDatabase.roomId, "ABCDEF", null, friend, "ended", "ludo", 0, null, false, Instant.now())));
+        when(rooms.findById(onNow.roomId)).thenReturn(Mono.just(playing(onNow.roomId, friend)));
+        when(users.findById(friend)).thenReturn(Mono.just(realUser(friend)));
+
+        StepVerifier.create(service.discoverable(self))
+                .expectNextMatches(v -> v.roomId().equals(onNow.roomId) && v.connectedCount() == 1)
                 .verifyComplete();
     }
 }

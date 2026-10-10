@@ -431,7 +431,8 @@ public class RoomService {
 
     /**
      * Rooms you can spectate right now: a friend's game that's actually
-     * started (not just sitting in the lobby), sourced from the live
+     * being played — started, not over, and with a player still connected —
+     * sourced from the live
      * in-memory runtimes on this pod (v1, single-pod scope — same as
      * everywhere else runtimes are read directly). Joining as a spectator
      * is then just {@code GET /rooms/{id}} for a session token, same as any
@@ -443,22 +444,27 @@ public class RoomService {
                 .map(row -> row.otherUser(selfId))
                 .collect(Collectors.toSet())
                 .flatMapMany(friendIds -> {
-                    Set<UUID> hosts = runtimes.all().stream()
-                            .filter(RoomRuntime::started)
-                            .map(rt -> UUID.fromString(rt.hostUserId))
-                            .filter(friendIds::contains)
-                            .collect(Collectors.toSet());
                     return Flux.fromIterable(runtimes.all())
-                            .filter(RoomRuntime::started)
-                            .filter(rt -> hosts.contains(UUID.fromString(rt.hostUserId)))
+                            .filter(RoomService::watchable)
+                            .filter(rt -> friendIds.contains(UUID.fromString(rt.hostUserId)))
                             .concatMap(rt -> championships == null ? discoverableView(rt)
                                     : championships.spectatorAllowed(rt.roomId, selfId)
                                             .flatMapMany(allowed -> allowed ? discoverableView(rt) : Flux.empty()));
                 });
     }
 
+    /**
+     * Worth watching: a game in play with someone still at the table. A
+     * finished game's runtime stays in memory until a restart (for late
+     * reconnects), and a game everyone walked away from has nobody to watch.
+     */
+    static boolean watchable(RoomRuntime rt) {
+        return rt.started() && !rt.state().finished() && !rt.connectedUserIds.isEmpty();
+    }
+
     private Mono<DiscoverableRoomView> discoverableView(RoomRuntime rt) {
         return rooms.findById(rt.roomId)
+                .filter(room -> "in_game".equals(room.status()))
                 .flatMap(room -> users.findById(room.hostId())
                         .map(host -> new DiscoverableRoomView(
                                 room.id(), room.code(), room.gameType(), host.displayName(), rt.connectedUserIds.size()))
