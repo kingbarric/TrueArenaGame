@@ -88,4 +88,60 @@ class SlayCareerCatalogTest {
         assertThat(career.challenge("daily", day.plusDays(1)))
                 .isNotEqualTo(career.challenge("daily", day));
     }
+
+    /** Best score reachable for a challenge with only the clothing its stage has opened. */
+    static double bestReachable(
+            SlayCareerCatalog career, SlayCatalog wardrobe, SlayCareerCatalog.Challenge c, String body) {
+        var items = wardrobe.items();
+        var available = career.careerItems(body, c.chapter(), Set.of());
+        Map<String, List<String>> byCategory = new HashMap<>();
+        available.forEach(id -> byCategory.computeIfAbsent(items.get(id).category(), k -> new ArrayList<>()).add(id));
+        List<Map<String, String>> garments = new ArrayList<>();
+        for (String cat : List.of("outfit", "dress"))
+            for (String id : byCategory.getOrDefault(cat, List.of())) garments.add(Map.of(cat, id));
+        for (String top : List.of("tops", "shirts"))
+            for (String bottom : List.of("trousers", "skirts"))
+                for (String t : byCategory.getOrDefault(top, List.of()))
+                    for (String b : byCategory.getOrDefault(bottom, List.of())) garments.add(Map.of(top, t, bottom, b));
+        var theme = career.theme(c);
+        java.util.function.Function<Map<String, String>, Double> score =
+                look -> app.truearena.engine.slay.SlayRules.score(
+                                new app.truearena.engine.slay.SlayRules.Look(
+                                        body, "skin", "classic", look, "signature", c.location()),
+                                theme, items).overall();
+        double best = 0;
+        for (var garment : garments) {
+            Map<String, String> look = new HashMap<>(garment);
+            for (String detail : List.of("shoes", "watches", "bags", "jewellery", "accessories")) {
+                String pick = null;
+                double top = score.apply(look);
+                for (String id : byCategory.getOrDefault(detail, List.of())) {
+                    look.put(detail, id);
+                    double s = score.apply(look);
+                    if (s > top) { top = s; pick = id; }
+                    look.remove(detail);
+                }
+                if (pick != null) look.put(detail, pick);
+            }
+            best = Math.max(best, score.apply(look));
+        }
+        return best;
+    }
+
+    @Test
+    void everyEventCanEarnFourStarsWithOnlyItsStageWardrobe() throws Exception {
+        var mapper = new ObjectMapper();
+        var career = new SlayCareerCatalog(mapper);
+        var wardrobe = new SlayCatalog(mapper, "");
+        StringBuilder table = new StringBuilder();
+        List<String> short_ = new ArrayList<>();
+        for (var c : career.content().challenges())
+            for (String body : List.of("female", "male")) {
+                double best = bestReachable(career, wardrobe, c, body);
+                table.append(String.format("%-20s %-6s %5.1f%n", c.id(), body, best));
+                if (best < Math.max(80, c.minimumScore())) short_.add(c.id() + "/" + body + "=" + best);
+            }
+        System.out.println(table);
+        assertThat(short_).as("events whose stage wardrobe cannot reach four stars").isEmpty();
+    }
 }

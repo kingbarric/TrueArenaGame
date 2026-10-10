@@ -30,6 +30,8 @@ public class SlayController {
 
     public record CareerSubmit(UUID lookId, String period) {}
 
+    public record CareerStart(String body, String avatarId) {}
+
     public record Choice(String entryId) {}
 
     public record Verdict(String entryId, boolean slay) {}
@@ -108,6 +110,17 @@ public class SlayController {
     @GetMapping("/career")
     public Mono<Map<String, Object>> career() {
         return CurrentUser.id().flatMap(career::home);
+    }
+
+    /** Chooses the one character a career keeps from start to finish. */
+    @PostMapping("/career/start")
+    public Mono<Map<String, Object>> careerStart(@RequestBody CareerStart body) {
+        return CurrentUser.id().flatMap(u -> career.start(u, body.body(), body.avatarId()));
+    }
+
+    @GetMapping("/career/{event}/leaderboard")
+    public Mono<Map<String, Object>> careerLeaderboard(@PathVariable String event) {
+        return CurrentUser.id().flatMap(u -> career.leaderboard(u, event));
     }
 
     @PostMapping("/career/{event}/score")

@@ -607,9 +607,24 @@ class SlayHuudIT {
     }
     @Autowired SlayCareerService career;
 
+    /** A player who has chosen their career character. */
+    UUID careerist(String body) {
+        UUID user = human();
+        career.start(user, body, null).block();
+        return user;
+    }
+
+    /** A starter-stage look: casual outfit and the casual starter shoe. */
+    Look careerLook(String body) {
+        var look = outfit(body);
+        var items = new java.util.HashMap<>(look.items());
+        items.put("shoes", "shoe-1");
+        return new Look(look.body(), look.skinTone(), look.facePreset(), items, look.pose(), look.background());
+    }
+
     @Test void careerBestsAwardOnlyImprovementsAndRejectLockedEvents() {
-        UUID user=human();
-        var initial=outfit("male");
+        UUID user=careerist("male");
+        var initial=careerLook("male");
         var noShoes=new Look(initial.body(),initial.skinTone(),initial.facePreset(),Map.of("outfit","male-essential"),initial.pose(),initial.background());
         var firstLook=slay.saveLook(user,noShoes).block();
         var first=career.score(user,"hello-style",firstLook.id()).block();
@@ -624,11 +639,11 @@ class SlayHuudIT {
         assertThat(career.home(user).block().get("totalStars")).isEqualTo(5);
         assertThat(career.home(user).block().get("xp")).isEqualTo(140);
         assertThatThrownBy(() -> career.score(user,"rooftop-launch",improved.id()).block()).hasMessageContaining("unlock");
-        UUID outsider=human();
+        UUID outsider=careerist("male");
         assertThatThrownBy(() -> career.score(outsider,"hello-style",improved.id()).block()).hasMessageContaining("Look not found");
     }
     @Test void careerConcurrentRetriesSettleOnce() {
-        UUID user=human();var look=slay.saveLook(user,outfit("male")).block();
+        UUID user=careerist("male");var look=slay.saveLook(user,careerLook("male")).block();
         var results=reactor.core.publisher.Flux.range(0,2).flatMap(n -> career.score(user,"hello-style",look.id()),2).collectList().block();
         assertThat(results.stream().mapToInt(r -> (Integer)r.get("coinsEarned")).sum()).isEqualTo(175);
         assertThat(career.home(user).block().get("xp")).isEqualTo(140);
@@ -636,7 +651,7 @@ class SlayHuudIT {
     }
 
     @Test void careerMilestonesAndExpiredDailyBriefsDoNotAwardRewards() {
-        UUID user=human();var initial=outfit("male");
+        UUID user=careerist("male");var initial=careerLook("male");
         var bare=slay.saveLook(user,new Look(initial.body(),initial.skinTone(),initial.facePreset(),Map.of("outfit","male-essential"),initial.pose(),initial.background())).block();
         var fail=career.score(user,"studio-finale",bare.id()).block();
         assertThat(fail.get("milestonePassed")).isEqualTo(false);
@@ -652,4 +667,71 @@ class SlayHuudIT {
         assertThat(lower.get("personalBest")).isEqualTo(pass.get("personalBest"));
     }
 
+
+    @Test void careerKeepsOneCharacterAndOnlyItsOpenedStageWardrobe() {
+        UUID user = human();
+        var look = slay.saveLook(user, careerLook("male")).block();
+        assertThatThrownBy(() -> career.score(user, "hello-style", look.id()).block())
+                .hasMessageContaining("character");
+        assertThat(career.home(user).block().get("character")).isNull();
+        var home = career.start(user, "male", null).block();
+        @SuppressWarnings("unchecked") var character = (Map<String, Object>) home.get("character");
+        assertThat(character).containsEntry("body", "male").containsEntry("avatarId", "male");
+        assertThat((Collection<Object>) (Collection<?>) character.get("items")).contains("male-essential", "shoe-1").doesNotContain("shoe-0", "male-redcarpet");
+        assertThat((Collection<Object>) (Collection<?>) character.get("poses")).containsExactly("signature", "confident");
+        assertThatThrownBy(() -> career.start(user, "female", null).block()).hasMessageContaining("already chosen");
+        // Another body, a later stage's shoe and a locked pose are all refused.
+        var other = slay.saveLook(user, careerLook("female")).block();
+        assertThatThrownBy(() -> career.score(user, "hello-style", other.id()).block()).hasMessageContaining("chosen character");
+        var formal = slay.saveLook(user, outfit("male")).block();
+        assertThatThrownBy(() -> career.score(user, "hello-style", formal.id()).block()).hasMessageContaining("unlocks later");
+        var base = careerLook("male");
+        var posed = slay.saveLook(user, new Look(base.body(), base.skinTone(), base.facePreset(), base.items(), "editorial", base.background())).block();
+        assertThatThrownBy(() -> career.score(user, "hello-style", posed.id()).block()).hasMessageContaining("pose");
+        assertThat(career.score(user, "hello-style", look.id()).block().get("stars")).isEqualTo(5);
+    }
+
+    @Test @SuppressWarnings("unchecked") void topScoresUnlockStagePiecesAndRankingUpOpensTheNextStage() {
+        UUID user = careerist("female");
+        var base = careerLook("female");
+        var items = new java.util.HashMap<>(base.items());
+        items.put("outfit", "female-essential");
+        var look = slay.saveLook(user, new Look("female", base.skinTone(), base.facePreset(), items, "signature", "studio")).block();
+        var first = career.score(user, "hello-style", look.id()).block();
+        assertThat(first.get("stars")).isEqualTo(5);
+        // A first 4★ and a first 5★ each unlock the next piece of this stage's pools.
+        assertThat((List<Map<String, Object>>) first.get("unlocked")).extracting(m -> m.get("id"))
+                .containsExactly("female-skirts-collection-6", "female-shoe-slippers");
+        assertThat((List<?>) career.score(user, "hello-style", look.id()).block().get("unlocked")).isEmpty();
+        var character = (Map<String, Object>) career.home(user).block().get("character");
+        assertThat((Collection<Object>) (Collection<?>) character.get("items")).contains("female-skirts-collection-6", "female-shoe-slippers");
+        Map<String, Object> last = null;
+        for (String event : List.of("coffee-date", "weekend-edit", "studio-finale"))
+            last = career.score(user, event, look.id()).block();
+        var rankUp = (Map<String, Object>) last.get("rankUp");
+        assertThat(rankUp).containsEntry("rank", "Rising Star").containsEntry("chapter", "City Style").containsEntry("location", "lagos");
+        assertThat((List<Map<String, Object>>) rankUp.get("items")).extracting(m -> m.get("id")).contains("female-executive", "shoe-0");
+        character = (Map<String, Object>) career.home(user).block().get("character");
+        assertThat((Collection<Object>) (Collection<?>) character.get("poses")).contains("editorial");
+        assertThat(slay.wardrobe(user).block()).contains("female-executive");
+    }
+
+    @Test @SuppressWarnings("unchecked") void leaderboardsRankGloballyAndAmongFriends() {
+        UUID me = careerist("male"), friend = careerist("male"), stranger = careerist("male");
+        db.sql("INSERT INTO friends (low_user_id, high_user_id, status, requested_by) VALUES (:l, :h, 'accepted', :l)")
+                .bind("l", me.compareTo(friend) < 0 ? me : friend).bind("h", me.compareTo(friend) < 0 ? friend : me)
+                .fetch().rowsUpdated().block();
+        var base = careerLook("male");
+        var plain = new Look("male", base.skinTone(), base.facePreset(), Map.of("outfit", "male-essential"), "signature", "studio");
+        career.score(stranger, "hello-style", slay.saveLook(stranger, base).block().id()).block();
+        career.score(friend, "hello-style", slay.saveLook(friend, base).block().id()).block();
+        var mine = career.score(me, "hello-style", slay.saveLook(me, plain).block().id()).block();
+        var ranking = (Map<String, Object>) mine.get("ranking");
+        assertThat(ranking.get("friendsRank")).isEqualTo(2);
+        assertThat((List<?>) ranking.get("friends")).hasSize(2);
+        var global = (Map<String, Object>) ranking.get("global");
+        assertThat(((Number) global.get("total")).longValue()).isGreaterThanOrEqualTo(3);
+        assertThat(global.get("topPercent")).isNotNull();
+        assertThat(career.leaderboard(me, "hello-style").block().get("friendsRank")).isEqualTo(2);
+    }
 }

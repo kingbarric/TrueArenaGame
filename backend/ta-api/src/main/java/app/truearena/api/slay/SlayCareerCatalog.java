@@ -29,7 +29,28 @@ public class SlayCareerCatalog {
     public record Rank(
             String name, int minimumXp, int minimumCompleted, int minimumStars, String milestone) {}
 
-    public record Content(List<Challenge> challenges, List<Rank> ranks) {}
+    /** Pieces a 4★ or 5★ result can unlock, in the order they are given. */
+    public record Rewards(List<String> four, List<String> five) {}
+
+    /**
+     * One career stage: where it happens (its dressing room and event venue are
+     * drawn by the renderer from {@code location}), the poses and clothing
+     * collection it opens per avatar body, and its reward pools.
+     */
+    public record Chapter(
+            int chapter,
+            String title,
+            String location,
+            String room,
+            String venue,
+            List<String> poses,
+            Map<String, List<String>> collection,
+            Map<String, Rewards> rewards) {}
+
+    public record Content(List<Challenge> challenges, List<Rank> ranks, List<Chapter> chapters) {}
+
+    /** Hair and beauty follow normal ownership; career stages gate clothing and accessories. */
+    public static final Set<String> BEAUTY = Set.of("hair", "makeup", "eyes");
 
     private final Content content;
 
@@ -67,6 +88,52 @@ public class SlayCareerCatalog {
                 0,
                 0,
                 null);
+    }
+
+    public Chapter chapter(int n) {
+        return content.chapters().stream()
+                .filter(c -> c.chapter() == n)
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Missing career chapter " + n));
+    }
+
+    /** Stage collections opened by reaching {@code rank}; granted to the wardrobe. */
+    public Set<String> stageItems(String body, int rank) {
+        Set<String> items = new LinkedHashSet<>();
+        content.chapters().stream()
+                .filter(c -> c.chapter() <= rank)
+                .forEach(c -> items.addAll(c.collection().getOrDefault(body, List.of())));
+        return items;
+    }
+
+    /** Clothing usable in career at {@code rank}: stage collections plus reward pieces already won. */
+    public Set<String> careerItems(String body, int rank, Set<String> owned) {
+        Set<String> items = stageItems(body, rank);
+        content.chapters().stream()
+                .filter(c -> c.chapter() <= rank)
+                .map(c -> c.rewards().get(body))
+                .filter(Objects::nonNull)
+                .forEach(
+                        r ->
+                                java.util.stream.Stream.concat(r.four().stream(), r.five().stream())
+                                        .filter(owned::contains)
+                                        .forEach(items::add));
+        return items;
+    }
+
+    public List<String> poses(int rank) {
+        return content.chapters().stream()
+                .filter(c -> c.chapter() <= rank)
+                .flatMap(c -> c.poses().stream())
+                .toList();
+    }
+
+    /** The next piece a {@code stars}-star result unlocks in this chapter, if any is left. */
+    public Optional<String> nextReward(String body, int chapter, int stars, Set<String> owned) {
+        Rewards pool = chapter(chapter).rewards().get(body);
+        if (pool == null || stars < 4) return Optional.empty();
+        return (stars >= 5 ? pool.five() : pool.four())
+                .stream().filter(id -> !owned.contains(id)).findFirst();
     }
 
     public static int stars(double score) {

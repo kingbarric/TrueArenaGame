@@ -11,3 +11,9 @@ CREATE TABLE slay_solo_bests (
  PRIMARY KEY(user_id,challenge_id,period)
 );
 CREATE INDEX slay_solo_ranking ON slay_solo_bests(period,challenge_id,best_score DESC);
+-- The career keeps one character from start to finish (an avatar body plus a
+-- character of that body); it is chosen once, before the first event.
+ALTER TABLE slay_profiles
+ ADD COLUMN career_body TEXT CHECK(career_body IN('female','male')),
+ ADD COLUMN career_avatar TEXT,
+ ADD CONSTRAINT slay_profiles_career_character CHECK((career_body IS NULL)=(career_avatar IS NULL));
