@@ -10,6 +10,7 @@ import '../../theme/neon_theme.dart';
 import 'slay_game_menu.dart';
 import 'slay_pose_picker.dart';
 import 'slay_style_report.dart';
+import 'slay_colour_picker.dart';
 
 class SlayStudioScreen extends StatefulWidget {
   const SlayStudioScreen(
@@ -603,6 +604,22 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                                               () => _styleGroup = group)))
                           ])),
                 ],
+                if ({'shoes', 'shirts', 'tops'}.contains(_category) &&
+                    _look.items.containsKey(_category))
+                  SlayColourPicker(
+                      palette: Map<String, String>.from(
+                          widget.catalog['itemColourPalette'] ?? {}),
+                      selected: _look.itemColours[_category],
+                      enabled: !_busy && !_selecting,
+                      onChanged: (colour) {
+                        final colours = {..._look.itemColours};
+                        if (colour == null) {
+                          colours.remove(_category);
+                        } else {
+                          colours[_category] = colour;
+                        }
+                        _change(_look.copy(itemColours: colours));
+                      }),
                 Expanded(
                     child: GridView.builder(
                         padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),

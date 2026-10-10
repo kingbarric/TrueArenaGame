@@ -34,10 +34,10 @@ function blend(a, b, amount) {
   const t = clamp(amount);
   return {joints: [a, b, 0, 0], weights: [1 - t, t, 0, 0]};
 }
-export function skinWeights([x, y], {hair = false, shoes = false, skirt = false, headHeight = 1.51, body} = {}) {
+export function skinWeights([x, y], {hair = false, shoes = false, ankleBoot = false, skirt = false, headHeight = 1.51, body} = {}) {
   const side = x >= 0 ? 0 : 3;
   if (hair) return blend(5, 5, 0);
-  if (shoes) return blend(14 + side, 14 + side, 0);
+  if (shoes) return ankleBoot ? blend(14 + side, 13 + side, (y - .13) / .13) : blend(14 + side, 14 + side, 0);
   if (y > headHeight) return blend(5, 5, 0);
   if (body === 'male' && y > .90) y -= .13;
   // Hands and sleeves are below the shoulder, extending diagonally outwards.

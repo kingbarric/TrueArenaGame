@@ -13,6 +13,16 @@ Map<String, dynamic> scoreSlayPreview(Map<String, dynamic> look,
   final byId = {
     for (final item in catalog['items'] as List) item['id']: item as Map
   };
+  final itemColours = Map<String, String>.from(look['itemColours'] ?? {});
+  final palette = catalog['itemColourPalette'] as Map? ?? {};
+  for (final colour in itemColours.entries) {
+    if (!(look['items'] as Map).containsKey(colour.key) ||
+        !{'shoes', 'tops', 'shirts'}.contains(colour.key) ||
+        !palette.containsKey(colour.value)) {
+      throw StateError(
+          'Choose an available colour for your equipped shoes, shirt or top');
+    }
+  }
   final selected = <Map>[];
   for (final entry in (look['items'] as Map).entries) {
     final item = byId[entry.value];
@@ -81,7 +91,9 @@ Map<String, dynamic> scoreSlayPreview(Map<String, dynamic> look,
       : 100.0 * (required.length - missing.length) / required.length;
   final colours = <String>{
     for (final item in [...garments, ...details])
-      ...(item['colourTags'] as List).cast<String>()
+      ...itemColours.containsKey(item['category'])
+          ? [itemColours[item['category']]!]
+          : (item['colourTags'] as List).cast<String>()
   }..removeAll({
       'black',
       'white',

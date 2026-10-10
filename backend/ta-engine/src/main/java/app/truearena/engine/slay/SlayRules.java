@@ -4,6 +4,14 @@ import java.util.*;
 
 /** Pure, deterministic styling and community ranking rules. No graphics or I/O. */
 public final class SlayRules {
+    public static final Set<String> RECOLOUR_CATEGORIES = Set.of("shoes", "tops", "shirts");
+    public static final Map<String, String> ITEM_COLOURS = Map.ofEntries(
+            Map.entry("black", "#28262a"), Map.entry("white", "#eee5d6"),
+            Map.entry("red", "#a53541"), Map.entry("pink", "#c98491"),
+            Map.entry("blue", "#48879a"), Map.entry("navy", "#283d54"),
+            Map.entry("green", "#397c65"), Map.entry("purple", "#674269"),
+            Map.entry("gold", "#c39b55"), Map.entry("grey", "#8e8c87"),
+            Map.entry("orange", "#c5773d"), Map.entry("yellow", "#ddba55"));
     public record Item(
             String id,
             String name,
@@ -43,7 +51,16 @@ public final class SlayRules {
             String facePreset,
             Map<String, String> items,
             String pose,
-            String background) {}
+            String background,
+            Map<String, String> itemColours) {
+        public Look {
+            itemColours = itemColours == null ? Map.of() : Map.copyOf(itemColours);
+        }
+        public Look(String body, String skinTone, String facePreset, Map<String,String> items,
+                String pose, String background) {
+            this(body, skinTone, facePreset, items, pose, background, Map.of());
+        }
+    }
 
     public record Score(
             double themeFit,
@@ -93,6 +110,12 @@ public final class SlayRules {
             if (!item.body().equals("unisex") && !item.body().equals(look.body()))
                 fail("Item does not fit this avatar");
         }
+        for (var colour : look.itemColours().entrySet()) {
+            if (!look.items().containsKey(colour.getKey())
+                    || !RECOLOUR_CATEGORIES.contains(colour.getKey())
+                    || !ITEM_COLOURS.containsKey(colour.getValue()))
+                fail("Choose an available colour for your equipped shoes, shirt or top");
+        }
         if (!look.items().containsKey("outfit")
                 && !look.items().containsKey("dress")
                 && !(look.items().containsKey("tops") && look.items().containsKey("trousers"))
@@ -138,7 +161,11 @@ public final class SlayRules {
                                 / theme.requiredCategories().size();
         Set<String> colours = new HashSet<>();
         items.stream().filter(i -> garmentCategories.contains(i.category()) || detailCategories.contains(i.category()))
-                .forEach(i -> colours.addAll(i.colourTags()));
+                .forEach(i -> {
+                    String chosen = look.itemColours().get(i.category());
+                    if (chosen != null) colours.add(chosen);
+                    else colours.addAll(i.colourTags());
+                });
         // Neutral colours work together; multiple accent colours cost a small, explicit amount.
         colours.removeAll(Set.of("black", "white", "grey", "gray", "navy", "gold", "silver", "brown", "beige", "cream", "ivory", "nude"));
         double colour = garments.isEmpty() ? 0 : Math.max(20, 100 - Math.max(0, colours.size() - 2) * 20);

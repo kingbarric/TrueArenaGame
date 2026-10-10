@@ -447,4 +447,121 @@
     "missing" : [ "accessories" ],
     "feedback" : [ "Missing required items: accessories. Score limited to 75." ]
   }
+}, {
+  "name" : "selected shoe colour adds an accent",
+  "theme" : "first-date",
+  "look" : {
+    "body" : "female",
+    "skinTone" : "#623a27",
+    "facePreset" : "classic",
+    "items" : {
+      "tops" : "female-tops-collection-8",
+      "skirts" : "female-skirts-collection-9",
+      "shoes" : "shoe-1",
+      "makeup" : "female-lipstick-rose"
+    },
+    "pose" : "signature",
+    "background" : "studio",
+    "itemColours" : {
+      "shoes" : "green"
+    }
+  },
+  "expected" : {
+    "themeFit" : 71.7,
+    "requirements" : 100.0,
+    "colour" : 60.0,
+    "completeness" : 100.0,
+    "overall" : 79.8,
+    "stars" : 2,
+    "missing" : [ ],
+    "feedback" : [ "Evening Camisole matches 67% of the theme tags: romantic, casual, elegant.", "Cool Tiered Skirt matches 67% of the theme tags: romantic, casual, elegant.", "Your palette has 4 accent colours. Try two accents with neutrals." ]
+  }
+}, {
+  "name" : "selected top colour coordinates palette",
+  "theme" : "first-date",
+  "look" : {
+    "body" : "female",
+    "skinTone" : "#623a27",
+    "facePreset" : "classic",
+    "items" : {
+      "tops" : "female-tops-collection-8",
+      "skirts" : "female-skirts-collection-9",
+      "shoes" : "shoe-1",
+      "makeup" : "female-lipstick-rose"
+    },
+    "pose" : "signature",
+    "background" : "studio",
+    "itemColours" : {
+      "tops" : "purple"
+    }
+  },
+  "expected" : {
+    "themeFit" : 71.7,
+    "requirements" : 100.0,
+    "colour" : 100.0,
+    "completeness" : 100.0,
+    "overall" : 85.8,
+    "stars" : 3,
+    "missing" : [ ],
+    "feedback" : [ "Evening Camisole matches 67% of the theme tags: romantic, casual, elegant.", "Cool Tiered Skirt matches 67% of the theme tags: romantic, casual, elegant." ]
+  }
+}, {
+  "name" : "selected top and shoe colours coordinate palette",
+  "theme" : "first-date",
+  "look" : {
+    "body" : "female",
+    "skinTone" : "#623a27",
+    "facePreset" : "classic",
+    "items" : {
+      "tops" : "female-tops-collection-8",
+      "skirts" : "female-skirts-collection-9",
+      "shoes" : "shoe-1",
+      "makeup" : "female-lipstick-rose"
+    },
+    "pose" : "signature",
+    "background" : "studio",
+    "itemColours" : {
+      "tops" : "black",
+      "shoes" : "black"
+    }
+  },
+  "expected" : {
+    "themeFit" : 71.7,
+    "requirements" : 100.0,
+    "colour" : 100.0,
+    "completeness" : 100.0,
+    "overall" : 85.8,
+    "stars" : 3,
+    "missing" : [ ],
+    "feedback" : [ "Evening Camisole matches 67% of the theme tags: romantic, casual, elegant.", "Cool Tiered Skirt matches 67% of the theme tags: romantic, casual, elegant." ]
+  }
+}, {
+  "name" : "selected shirt and shoes survive scoring",
+  "theme" : "streetwear",
+  "look" : {
+    "body" : "male",
+    "skinTone" : "#623a27",
+    "facePreset" : "classic",
+    "items" : {
+      "shirts" : "male-tee-relaxed",
+      "trousers" : "male-trousers-cargo",
+      "shoes" : "shoe-1"
+    },
+    "pose" : "signature",
+    "background" : "studio",
+    "itemColours" : {
+      "shirts" : "red",
+      "shoes" : "blue"
+    }
+  },
+  "expected" : {
+    "themeFit" : 100.0,
+    "requirements" : 100.0,
+    "colour" : 80.0,
+    "completeness" : 100.0,
+    "overall" : 97.0,
+    "stars" : 3,
+    "missing" : [ ],
+    "feedback" : [ "Your palette has 3 accent colours. Try two accents with neutrals." ]
+  }
 } ]

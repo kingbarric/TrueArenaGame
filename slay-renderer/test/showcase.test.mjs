@@ -76,3 +76,27 @@ for (const body of ['female', 'male']) test(`${body} all four finishes start wit
     assert.ok(finishes[i].some((value,k)=>Math.abs(value-finishes[j][k])>.04),'each finish has a distinct articulated stance');
   }
 });
+
+for (const style of ['maryjane','stiletto','flats','sandals','slippers']) test(`women's ${style} footwear stays bound and above the runway`,async()=>{
+ const avatar=await load('female'), shoes=await load(`female-shoe-${style}`), root=new Group();
+ root.add(avatar.scene,shoes.scene);root.updateMatrixWorld(true);
+ const bones=new Map();avatar.scene.traverse(o=>{if(o instanceof Bone)bones.set(o.name,o);});
+ selectBodyFit(shoes.scene,'female');bindGarment(shoes.scene,bones);
+ const mixer=new AnimationMixer(avatar.scene),show=new Showcase(root,avatar.scene,mixer,avatar.animations);
+ for(const pose of ['signature','editorial','celebrate']) {
+  const done=show.play(pose);
+  for(let frame=0;frame<=Math.ceil(SHOWCASE_SECONDS*30);frame++) {
+   show.update(1/30);root.updateMatrixWorld(true);
+   shoes.scene.traverse(mesh=>{
+    if(!(mesh instanceof SkinnedMesh)||!mesh.visible)return;
+    mesh.skeleton.update();const vertices=mesh.geometry.getAttribute('position');
+    for(let i=0;i<vertices.count;i+=53){
+     const p=mesh.applyBoneTransform(i,new Vector3().fromBufferAttribute(vertices,i)).applyMatrix4(mesh.matrixWorld);
+     assert.ok(p.toArray().every(Number.isFinite));
+     assert.ok(p.y>-.016,`${style} clips the runway: ${p.y}`);
+    }
+   });
+  }
+  assert.equal(await done,pose);
+ }
+});

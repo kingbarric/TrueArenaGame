@@ -7,9 +7,11 @@ class SlayLook {
       required this.facePreset,
       required this.items,
       required this.pose,
-      required this.background});
+      required this.background,
+      this.itemColours = const {}});
   final String body, skinTone, facePreset, pose, background;
   final Map<String, String> items;
+  final Map<String, String> itemColours;
   factory SlayLook.initial([String body = 'female']) => SlayLook(
       body: body,
       skinTone: '#623a27',
@@ -22,6 +24,7 @@ class SlayLook {
       skinTone: j['skinTone'],
       facePreset: j['facePreset'],
       items: Map<String, String>.from(j['items']),
+      itemColours: Map<String, String>.from(j['itemColours'] ?? {}),
       pose: j['pose'],
       background: j['background']);
   Map<String, dynamic> toJson() => {
@@ -29,6 +32,7 @@ class SlayLook {
         'skinTone': skinTone,
         'facePreset': facePreset,
         'items': items,
+        'itemColours': itemColours,
         'pose': pose,
         'background': background
       };
@@ -36,6 +40,7 @@ class SlayLook {
           {String? skinTone,
           String? facePreset,
           Map<String, String>? items,
+          Map<String, String>? itemColours,
           String? pose,
           String? background}) =>
       SlayLook(
@@ -43,6 +48,12 @@ class SlayLook {
           skinTone: skinTone ?? this.skinTone,
           facePreset: facePreset ?? this.facePreset,
           items: Map.unmodifiable(items ?? this.items),
+          itemColours: Map.unmodifiable({
+            for (final entry in (itemColours ?? this.itemColours).entries)
+              if ((items ?? this.items)[entry.key] == this.items[entry.key] &&
+                  this.items.containsKey(entry.key))
+                entry.key: entry.value
+          }),
           pose: pose ?? this.pose,
           background: background ?? this.background);
   bool get isDressed =>

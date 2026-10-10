@@ -1,5 +1,5 @@
 {
-  "version": 15,
+  "version": 16,
   "developmentAssets": true,
   "avatars": [
     {
@@ -148,7 +148,7 @@
         "elegant"
       ],
       "colourTags": [
-        "pink"
+        "red"
       ],
       "cultureTags": [],
       "eventTags": [
@@ -4348,6 +4348,157 @@
       "coinCost": 150,
       "unlockWins": 0,
       "placeholder": "trousers"
+    },
+    {
+      "id": "female-shoe-maryjane",
+      "name": "Mary Jane Heels",
+      "category": "shoes",
+      "body": "female",
+      "styleTags": [
+        "formal",
+        "elegant",
+        "romantic"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "formal",
+        "elegant",
+        "romantic"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-shoe-maryjane.glb",
+      "thumbnailUrl": "assets/female-shoe-maryjane.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "shoes"
+    },
+    {
+      "id": "female-shoe-stiletto",
+      "name": "Stiletto Ankle Boots",
+      "category": "shoes",
+      "body": "female",
+      "styleTags": [
+        "formal",
+        "elegant",
+        "luxury",
+        "party",
+        "evening"
+      ],
+      "colourTags": [
+        "red"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "formal",
+        "elegant",
+        "luxury",
+        "party",
+        "evening"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-shoe-stiletto.glb",
+      "thumbnailUrl": "assets/female-shoe-stiletto.png",
+      "hidesRegions": [
+        "feet"
+      ],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "shoes"
+    },
+    {
+      "id": "female-shoe-flats",
+      "name": "Ballet Flats",
+      "category": "shoes",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "elegant",
+        "romantic"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "elegant",
+        "romantic"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-shoe-flats.glb",
+      "thumbnailUrl": "assets/female-shoe-flats.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "shoes"
+    },
+    {
+      "id": "female-shoe-sandals",
+      "name": "Strappy Sandals",
+      "category": "shoes",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "summer",
+        "beach"
+      ],
+      "colourTags": [
+        "brown"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "summer",
+        "beach"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-shoe-sandals.glb",
+      "thumbnailUrl": "assets/female-shoe-sandals.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "shoes"
+    },
+    {
+      "id": "female-shoe-slippers",
+      "name": "Flat Slippers",
+      "category": "shoes",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "summer",
+        "beach"
+      ],
+      "colourTags": [
+        "blue"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "summer",
+        "beach"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-shoe-slippers.glb",
+      "thumbnailUrl": "assets/female-shoe-slippers.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "shoes"
     }
   ],
   "themes": [
@@ -5003,5 +5154,19 @@
       "brief": "My film premieres tonight. I want a memorable red-carpet entrance.",
       "themeId": "red-carpet"
     }
-  ]
+  ],
+  "itemColourPalette": {
+    "black": "#28262a",
+    "white": "#eee5d6",
+    "red": "#a53541",
+    "pink": "#c98491",
+    "blue": "#48879a",
+    "navy": "#283d54",
+    "green": "#397c65",
+    "purple": "#674269",
+    "gold": "#c39b55",
+    "grey": "#8e8c87",
+    "orange": "#c5773d",
+    "yellow": "#ddba55"
+  }
 }

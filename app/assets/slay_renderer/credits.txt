@@ -49,3 +49,16 @@ Gold Chronograph, Steel & Leather and Night Smartwatch are original lightweight 
 These starter models still need final art review and real-device performance testing before release.
 
 Starter sports bra and boxer briefs are fitted overlays derived from the CC0 body geometry, clipped at clean garment boundaries and bound to the same animation rig.
+
+Women’s footwear expansion
+
+MargaretToigo (MRT): Ballet Flats and Stiletto Booties, CC0 in their source metadata.
+Source: https://static.makehumancommunity.org/assets/assetpacks/shoes01.html
+License: https://creativecommons.org/publicdomain/zero/1.0/
+
+DressUpDoc: Mary Jane 1, listed as CC-BY by the MakeHuman Community asset pack. Its older .mhclo header contains an AGPL3/Unknown template notice; preserve this discrepancy and the current pack attribution with this adapted asset.
+Elvaerwyn: Caesar Sandals 1 and Male Flip Flop Sandals 1, listed as CC-BY in the source and pack, adapted for the female avatar; the Caesar sandals are cropped to ankle height.
+Source: https://static.makehumancommunity.org/assets/assetpacks/shoes02.html
+License information (no CC-BY version specified in these pack listings): https://static.makehumancommunity.org/about/license.html
+
+Footwear changes: mobile texture sizing, transparent strap/cutout materials, fit to the female starter body, game rig bindings and boot-shaft weights, rendered thumbnails. Colour selection is a runtime shader effect; original textures remain available through “Original colour”.

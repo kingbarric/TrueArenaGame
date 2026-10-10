@@ -23,4 +23,13 @@ class SlayScoringContractTest {
         }
         if (update) mapper.writerWithDefaultPrettyPrinter().writeValue(path.toFile(), fixtures);
     }
+    @Test void savedLooksKeepColoursAndLegacyLooksStillLoad() throws Exception {
+        var mapper = new ObjectMapper();
+        var catalog = new SlayCatalog(mapper);
+        assertThat(catalog.manifest().itemColourPalette()).isEqualTo(SlayRules.ITEM_COLOURS);
+        var legacy = mapper.readValue("{\"body\":\"female\",\"skinTone\":\"skin\",\"facePreset\":\"classic\",\"items\":{\"shoes\":\"shoe-0\"},\"pose\":\"signature\",\"background\":\"studio\"}", SlayRules.Look.class);
+        assertThat(legacy.itemColours()).isEmpty();
+        var dyed = new SlayRules.Look(legacy.body(), legacy.skinTone(), legacy.facePreset(), legacy.items(), legacy.pose(), legacy.background(), java.util.Map.of("shoes","red"));
+        assertThat(mapper.readValue(mapper.writeValueAsString(dyed), SlayRules.Look.class)).isEqualTo(dyed);
+    }
 }

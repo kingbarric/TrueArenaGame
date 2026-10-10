@@ -66,4 +66,16 @@ class SlayStyleScoringTest {
         var changed = SlayRules.score(new Look("female","different-skin","other-face",equipped,"celebrate","royal"),theme,items);
         assertThat(changed).isEqualTo(score(equipped));
     }
+    @Test void selectedColoursAffectPaletteAndInvalidSelectionsCannotBeSubmitted() {
+        var equipped = Map.of("tops","top","trousers","pants","shoes","shoes","watches","watch");
+        var original = score(equipped);
+        var dyed = new Look("female","skin","face",equipped,"signature","studio", Map.of("tops","black","shoes","black"));
+        assertThat(SlayRules.score(dyed,theme,items).colour()).isGreaterThan(original.colour());
+        var tones=Set.of("skin"); var faces=Set.of("face"); var poses=Set.of("signature"); var scenes=Set.of("studio");
+        assertThatCode(() -> SlayRules.validate(dyed,items,Set.of(),tones,faces,poses,scenes)).doesNotThrowAnyException();
+        for (var invalid : List.of(Map.of("tops","unknown"), Map.of("bags","black"), Map.of("watches","red"))) {
+            var bad=new Look("female","skin","face",equipped,"signature","studio",invalid);
+            assertThatThrownBy(() -> SlayRules.validate(bad,items,Set.of(),tones,faces,poses,scenes)).hasMessageContaining("available colour");
+        }
+    }
 }
