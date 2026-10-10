@@ -1,6 +1,42 @@
 {
  "base": "https://playhuud.com/slay-assets/",
  "files": {
+  "assets/avatar-girl02-fit.json": {
+   "name": "avatar-girl02-fit.244c8e3113a1ee49.json",
+   "sha256": "244c8e3113a1ee49f847b2984e5c89c234a05c53f39169c8e92abaa7fee92534",
+   "bytes": 93839,
+   "bundled": false
+  },
+  "assets/avatar-girl02.glb": {
+   "name": "avatar-girl02.9b64ca9b09b0736e.glb",
+   "sha256": "9b64ca9b09b0736e1045bc461923ac7fe9811f9d2b3985768ce173c609d89390",
+   "bytes": 341340,
+   "bundled": false
+  },
+  "assets/avatar-girl02.png": {
+   "name": "avatar-girl02.f7a2783827fb4fe1.png",
+   "sha256": "f7a2783827fb4fe1a35873a99e64cfdd0a6ef34ce77a747c391aa033d1801496",
+   "bytes": 10100,
+   "bundled": true
+  },
+  "assets/avatar-indian-male-fit.json": {
+   "name": "avatar-indian-male-fit.2efca97d3f436088.json",
+   "sha256": "2efca97d3f43608889a6ab951db6b0e0ea6ac8212ac6dd591ac2ea92a633b8ab",
+   "bytes": 93564,
+   "bundled": false
+  },
+  "assets/avatar-indian-male.glb": {
+   "name": "avatar-indian-male.2deb6880f67ec70b.glb",
+   "sha256": "2deb6880f67ec70b6d70bac85163209758de7f71ebee3046b36076e3ef0b6f22",
+   "bytes": 614684,
+   "bundled": false
+  },
+  "assets/avatar-indian-male.png": {
+   "name": "avatar-indian-male.15f9b5acde240d4b.png",
+   "sha256": "15f9b5acde240d4bf046fd044d58289c7b1e8cba5e2043c866beabf09ae74fad",
+   "bytes": 7253,
+   "bundled": true
+  },
   "assets/female-bag-handbag.glb": {
    "name": "female-bag-handbag.92e349454e5fdf1c.glb",
    "sha256": "92e349454e5fdf1cf74ef9d02886821db06d287736bc08b04a6b932b95179e28",
@@ -314,15 +350,15 @@
    "bundled": true
   },
   "assets/female-hair-0.glb": {
-   "name": "female-hair-0.4026162272e509ea.glb",
-   "sha256": "4026162272e509ea488148b2705cfa27bc2a25e74cca39e5144fcc64c3110b5f",
+   "name": "female-hair-0.7783901e4817b00c.glb",
+   "sha256": "7783901e4817b00c74e01a6185b7d964bb1193ef4bfa638419596d233356301b",
    "bytes": 503836,
    "bundled": true
   },
   "assets/female-hair-0.png": {
-   "name": "female-hair-0.3e01960aca1b40db.png",
-   "sha256": "3e01960aca1b40db0436900da1e224403288a8649f7feb483772bb6fcb62cbee",
-   "bytes": 13372,
+   "name": "female-hair-0.3df1a934fb950416.png",
+   "sha256": "3df1a934fb950416b17d10530de15c97418f2c7504cec2d2452882907e350301",
+   "bytes": 6116,
    "bundled": true
   },
   "assets/female-hair-1.glb": {
@@ -332,57 +368,225 @@
    "bundled": false
   },
   "assets/female-hair-1.png": {
-   "name": "female-hair-1.8872c93abd302d13.png",
-   "sha256": "8872c93abd302d13f73879a4be967820a4449b8b5138d5469b5500068f17f2ea",
-   "bytes": 7996,
+   "name": "female-hair-1.edc463c1b3e40c80.png",
+   "sha256": "edc463c1b3e40c80ef09162404bf86ccb21f770437d0383aec843874459f65ac",
+   "bytes": 3081,
    "bundled": true
   },
   "assets/female-hair-2.glb": {
-   "name": "female-hair-2.e15320ee65a1bca4.glb",
-   "sha256": "e15320ee65a1bca41ae536805a5af758613ba82ae8dbdd4f21ba2f3fcd0ea977",
+   "name": "female-hair-2.979634c90d6e1f10.glb",
+   "sha256": "979634c90d6e1f10ebbf8aa0e739d1942e4ba9e4cfead1223d0f3997387c4ea1",
    "bytes": 365824,
    "bundled": false
   },
   "assets/female-hair-2.png": {
-   "name": "female-hair-2.2e86954fabc644d7.png",
-   "sha256": "2e86954fabc644d711427ce9d462973c2a7f86b1ef0f18f2316ed91f2eb7e9ba",
-   "bytes": 10093,
+   "name": "female-hair-2.80e54afa3bf734a8.png",
+   "sha256": "80e54afa3bf734a8011b372df7b3c04224b2286de3511697434ad0902d892b63",
+   "bytes": 6084,
+   "bundled": true
+  },
+  "assets/female-hair-bob.glb": {
+   "name": "female-hair-bob.99f54c5dc55c13cd.glb",
+   "sha256": "99f54c5dc55c13cdbcca1bc2756af02a713cefa39a7f8d4ac94a7ef203fb2eec",
+   "bytes": 153924,
+   "bundled": false
+  },
+  "assets/female-hair-bob.png": {
+   "name": "female-hair-bob.1aea40696799cb14.png",
+   "sha256": "1aea40696799cb14b6a8117e1219fdba085cbb9c61a5db252d2ac6ca47327688",
+   "bytes": 9961,
+   "bundled": true
+  },
+  "assets/female-hair-braided-bun.glb": {
+   "name": "female-hair-braided-bun.b4ea0d406a34937f.glb",
+   "sha256": "b4ea0d406a34937f0b82a90c366bd87227bbdd7f0eb37ac2d2c18f74b5890a0b",
+   "bytes": 131828,
+   "bundled": false
+  },
+  "assets/female-hair-braided-bun.png": {
+   "name": "female-hair-braided-bun.f58c0156b4364a05.png",
+   "sha256": "f58c0156b4364a051fc976d1f601c27817db31b2571c8e8be5bcbfc9015a31fb",
+   "bytes": 9523,
+   "bundled": true
+  },
+  "assets/female-hair-cornrows.glb": {
+   "name": "female-hair-cornrows.90bcc3deada86c03.glb",
+   "sha256": "90bcc3deada86c03a22df5a4ae30110376276dd0c5509896c5005a3edbd72155",
+   "bytes": 443180,
+   "bundled": false
+  },
+  "assets/female-hair-cornrows.png": {
+   "name": "female-hair-cornrows.1375272448fc9bfb.png",
+   "sha256": "1375272448fc9bfb3628784da9e4279d6c3554cb6f1af8f56b235a85310bf83a",
+   "bytes": 10487,
+   "bundled": true
+  },
+  "assets/female-hair-curls.glb": {
+   "name": "female-hair-curls.7ea87ffe36667dc0.glb",
+   "sha256": "7ea87ffe36667dc0424d16e75dab02134aef91a56671d02046d957a4ac00ac72",
+   "bytes": 83628,
+   "bundled": false
+  },
+  "assets/female-hair-curls.png": {
+   "name": "female-hair-curls.79c5678a280f4087.png",
+   "sha256": "79c5678a280f4087872831e2475f93dd0c1ab81820541f4ead48530867248dce",
+   "bytes": 12286,
+   "bundled": true
+  },
+  "assets/female-hair-fringe-bob.glb": {
+   "name": "female-hair-fringe-bob.7dcfd36a8b67b5b7.glb",
+   "sha256": "7dcfd36a8b67b5b7db3832e1be16627f61522ec89bb3db9c14f99588315abadf",
+   "bytes": 132080,
+   "bundled": false
+  },
+  "assets/female-hair-fringe-bob.png": {
+   "name": "female-hair-fringe-bob.e95bb57aeaed91dc.png",
+   "sha256": "e95bb57aeaed91dca01328e8a0c56422515ca81b7544d3c0b6051a1a3ca8969b",
+   "bytes": 9357,
+   "bundled": true
+  },
+  "assets/female-hair-long.glb": {
+   "name": "female-hair-long.d5f05676454b1048.glb",
+   "sha256": "d5f05676454b104837bf97f8d2b52268d0b7a43b32f6c3efa80ac8ea708f14d5",
+   "bytes": 97376,
+   "bundled": false
+  },
+  "assets/female-hair-long.png": {
+   "name": "female-hair-long.9fb0d7070a0bf577.png",
+   "sha256": "9fb0d7070a0bf5772aef74b0b98cc553409738de360b6863462381fd3bdbc6e0",
+   "bytes": 4887,
+   "bundled": true
+  },
+  "assets/female-hair-pixie.glb": {
+   "name": "female-hair-pixie.5a2749f680df767e.glb",
+   "sha256": "5a2749f680df767effe86def8dbd61b3d0f20882fdece8412de212ce9276c52d",
+   "bytes": 76484,
+   "bundled": false
+  },
+  "assets/female-hair-pixie.png": {
+   "name": "female-hair-pixie.f6215e2f7715418a.png",
+   "sha256": "f6215e2f7715418ab444fb6bf8e8e9e8939958efa8e097038be106a243b5166f",
+   "bytes": 8863,
+   "bundled": true
+  },
+  "assets/female-hair-ponytail.glb": {
+   "name": "female-hair-ponytail.1ea17bde573d1211.glb",
+   "sha256": "1ea17bde573d1211082a40dfd45808646e622c1d16847624ada393c14495ff79",
+   "bytes": 161908,
+   "bundled": false
+  },
+  "assets/female-hair-ponytail.png": {
+   "name": "female-hair-ponytail.84eee68745e090cc.png",
+   "sha256": "84eee68745e090cc802e5e0211a5e65afb4021472468d662672fe7f02a5447f5",
+   "bytes": 4839,
+   "bundled": true
+  },
+  "assets/female-hair-vintage-updo.glb": {
+   "name": "female-hair-vintage-updo.0b1bce170baa1b5d.glb",
+   "sha256": "0b1bce170baa1b5d998f8d60d2b45ceb1e2ec59e71c76829dfdc0cb9adda0bf7",
+   "bytes": 100380,
+   "bundled": false
+  },
+  "assets/female-hair-vintage-updo.png": {
+   "name": "female-hair-vintage-updo.6766849a2d76107e.png",
+   "sha256": "6766849a2d76107e43955cf732255d5ae7489d38b0b4bde08b73c2d6f2ccc178",
+   "bytes": 11289,
+   "bundled": true
+  },
+  "assets/female-lipstick-berry.glb": {
+   "name": "female-lipstick-berry.a3015f619233f0f5.glb",
+   "sha256": "a3015f619233f0f51f544411aa7cbf4f925b0d002b9a96f86aa93c34965cd03e",
+   "bytes": 8544,
+   "bundled": false
+  },
+  "assets/female-lipstick-berry.png": {
+   "name": "female-lipstick-berry.6548a00e7cbe8031.png",
+   "sha256": "6548a00e7cbe8031fe8b34937111db45a7a28a18b6f3ee97a52db8c004557a5f",
+   "bytes": 2577,
+   "bundled": true
+  },
+  "assets/female-lipstick-cocoa.glb": {
+   "name": "female-lipstick-cocoa.ad052802e55e961d.glb",
+   "sha256": "ad052802e55e961da4518a62f1ce2199dbbfcfdd3aaaff4f950feb0b343ce30a",
+   "bytes": 8544,
+   "bundled": false
+  },
+  "assets/female-lipstick-cocoa.png": {
+   "name": "female-lipstick-cocoa.d0ae519a48080221.png",
+   "sha256": "d0ae519a48080221fa8e8af83aea33e54619467ebd1e80f9ddc6bec77f88dc81",
+   "bytes": 2184,
+   "bundled": true
+  },
+  "assets/female-lipstick-coral.glb": {
+   "name": "female-lipstick-coral.cfb5985f8dd3c4a9.glb",
+   "sha256": "cfb5985f8dd3c4a9f0d910e8e07ec917d799b76f7599cbf1b88448ad59bd409c",
+   "bytes": 8544,
+   "bundled": false
+  },
+  "assets/female-lipstick-coral.png": {
+   "name": "female-lipstick-coral.27da1411d1bba255.png",
+   "sha256": "27da1411d1bba255981590d1a4952d5c07264302699cb14a4365fc8afd1dbab7",
+   "bytes": 3275,
+   "bundled": true
+  },
+  "assets/female-lipstick-nude.glb": {
+   "name": "female-lipstick-nude.9f15d2c2545225ce.glb",
+   "sha256": "9f15d2c2545225ce2aa960e138007b950175f38b7a250690eb9fa6ad2101bf8c",
+   "bytes": 8540,
+   "bundled": false
+  },
+  "assets/female-lipstick-nude.png": {
+   "name": "female-lipstick-nude.4db9a440e013fab0.png",
+   "sha256": "4db9a440e013fab0076ec33d21ec1fb45fd8b95818a9091825a0e1b360bb01e5",
+   "bytes": 2795,
+   "bundled": true
+  },
+  "assets/female-lipstick-pink.glb": {
+   "name": "female-lipstick-pink.a2c05eba9c3919a2.glb",
+   "sha256": "a2c05eba9c3919a2d4b03ad5e8576f42306525b03f8c5f616299b3d51b23b9ca",
+   "bytes": 8540,
+   "bundled": false
+  },
+  "assets/female-lipstick-pink.png": {
+   "name": "female-lipstick-pink.4975610624103f4c.png",
+   "sha256": "4975610624103f4c400af67fefb231771ebb7e0b28099a7d75cf970f084745fc",
+   "bytes": 3699,
    "bundled": true
   },
   "assets/female-lipstick-plum.glb": {
-   "name": "female-lipstick-plum.be15595c21801f12.glb",
-   "sha256": "be15595c21801f12467254f1fd4f3ba02d4787e5e4ae8ca3e4ffe9b06e644441",
-   "bytes": 8292,
+   "name": "female-lipstick-plum.3ba62a72b71f0f84.glb",
+   "sha256": "3ba62a72b71f0f845a71f960e350b40d12b8e3ff9295bae649386f2d63c50e80",
+   "bytes": 8540,
    "bundled": false
   },
   "assets/female-lipstick-plum.png": {
-   "name": "female-lipstick-plum.f2f3c3b2ba974b13.png",
-   "sha256": "f2f3c3b2ba974b13d2783395a93101a92cf9cd7fb48d93605725578c793dd5cf",
-   "bytes": 189,
+   "name": "female-lipstick-plum.d0fc963e4de4ed55.png",
+   "sha256": "d0fc963e4de4ed55101c0caf7800263f941d39aa90e5efed77633d7aa4dd1df2",
+   "bytes": 2285,
    "bundled": true
   },
   "assets/female-lipstick-rose.glb": {
-   "name": "female-lipstick-rose.f83e7566bd18e6a6.glb",
-   "sha256": "f83e7566bd18e6a640337cf30025066e043944b02ac0823b77caca3f2fa3ffaa",
-   "bytes": 8292,
+   "name": "female-lipstick-rose.1f5de48ed1beca48.glb",
+   "sha256": "1f5de48ed1beca48ccb52f53905e41aee8e1160303d663902d73bb93487506c3",
+   "bytes": 8540,
    "bundled": false
   },
   "assets/female-lipstick-rose.png": {
-   "name": "female-lipstick-rose.868165571dcd749d.png",
-   "sha256": "868165571dcd749da1eef8e9a984bea80d66cad581dd9f048c7c4d496f566b63",
-   "bytes": 190,
+   "name": "female-lipstick-rose.8ab42dde7225f95a.png",
+   "sha256": "8ab42dde7225f95a20f3edeb4bc8c0fe366512061d5cc28d3fc48d1f9fdbd848",
+   "bytes": 2926,
    "bundled": true
   },
   "assets/female-lipstick-ruby.glb": {
-   "name": "female-lipstick-ruby.9043d8269daf8087.glb",
-   "sha256": "9043d8269daf80876fbaabe235b1054b9f214f3e3ca5529914ac1f479ac445b3",
-   "bytes": 8292,
+   "name": "female-lipstick-ruby.49e9e2af8beff4f0.glb",
+   "sha256": "49e9e2af8beff4f01d27bff5bc47ed12875821dc44b8d6543bdbc44ba2b11758",
+   "bytes": 8540,
    "bundled": false
   },
   "assets/female-lipstick-ruby.png": {
-   "name": "female-lipstick-ruby.3ae6cfbd6fc84c23.png",
-   "sha256": "3ae6cfbd6fc84c231635b08c45eb070dbe5ce5463beacf7186f688ab9b3748e0",
-   "bytes": 179,
+   "name": "female-lipstick-ruby.b5f8f32d0c989416.png",
+   "sha256": "b5f8f32d0c989416af8a8789efdb9b40cab8c8f819a259d6f2a7de2967cb0763",
+   "bytes": 3057,
    "bundled": true
   },
   "assets/female-night.glb": {
@@ -395,6 +599,18 @@
    "name": "female-night.7b801982ae9adec2.png",
    "sha256": "7b801982ae9adec257777a851f804d9bdadea03921022d9432ea03d17a0c6a18",
    "bytes": 12409,
+   "bundled": true
+  },
+  "assets/female-nose-ring-gold.glb": {
+   "name": "female-nose-ring-gold.8a3d2e8ac3434dcf.glb",
+   "sha256": "8a3d2e8ac3434dcf974b8b7febc5684b113e1acb89912a86e35cf7cf39da1692",
+   "bytes": 11068,
+   "bundled": false
+  },
+  "assets/female-nose-ring-gold.png": {
+   "name": "female-nose-ring-gold.a38bbf655538ea73.png",
+   "sha256": "a38bbf655538ea736ecffd30a10aeeccb5ad8c7e0b00b31f2ae942b6bd91dc29",
+   "bytes": 165,
    "bundled": true
   },
   "assets/female-redcarpet.glb": {
@@ -419,6 +635,66 @@
    "name": "female-romantic.4a0a7eb296a62bfc.png",
    "sha256": "4a0a7eb296a62bfcce6c60004e96933b48247b99f3b8bf10172977623f7e8396",
    "bytes": 13774,
+   "bundled": true
+  },
+  "assets/female-shoe-flats.glb": {
+   "name": "female-shoe-flats.cf64cea4f8f346d2.glb",
+   "sha256": "cf64cea4f8f346d2a48dfacb06560975de723d1fc870ba86f1986d69f9697bb6",
+   "bytes": 135184,
+   "bundled": false
+  },
+  "assets/female-shoe-flats.png": {
+   "name": "female-shoe-flats.5d778043ad5b8d59.png",
+   "sha256": "5d778043ad5b8d59bdd01959d067aa83b19ccd876e34f2177b2ccdcbbd73e042",
+   "bytes": 984,
+   "bundled": true
+  },
+  "assets/female-shoe-maryjane.glb": {
+   "name": "female-shoe-maryjane.3dceea21b1b6dd7a.glb",
+   "sha256": "3dceea21b1b6dd7af45e94d174eec7089e6583ebc8e9382c622b54daedc36096",
+   "bytes": 43940,
+   "bundled": false
+  },
+  "assets/female-shoe-maryjane.png": {
+   "name": "female-shoe-maryjane.b1ff47337984b817.png",
+   "sha256": "b1ff47337984b81731a5a09dc3b53ca496d5e16a1852399e31dd55890c675ba6",
+   "bytes": 1124,
+   "bundled": true
+  },
+  "assets/female-shoe-sandals.glb": {
+   "name": "female-shoe-sandals.75866971b1603544.glb",
+   "sha256": "75866971b16035441fbdc19118ba7929ce62a752b2365f6dd049e03e7d122324",
+   "bytes": 417464,
+   "bundled": false
+  },
+  "assets/female-shoe-sandals.png": {
+   "name": "female-shoe-sandals.c4bb6ffb839ff31d.png",
+   "sha256": "c4bb6ffb839ff31db908d0d079849ac8edef76e181d148f956a0a4fd30cba9d2",
+   "bytes": 3543,
+   "bundled": true
+  },
+  "assets/female-shoe-slippers.glb": {
+   "name": "female-shoe-slippers.9db5760320513d79.glb",
+   "sha256": "9db5760320513d7959c8bbbf226ab3343f3341d779a6c1d14816f73050cbbc53",
+   "bytes": 354684,
+   "bundled": false
+  },
+  "assets/female-shoe-slippers.png": {
+   "name": "female-shoe-slippers.b5821bdf9011ddbb.png",
+   "sha256": "b5821bdf9011ddbb38015d62bf0e1bb4fe21564ce8056049c006f312a854592a",
+   "bytes": 1892,
+   "bundled": true
+  },
+  "assets/female-shoe-stiletto.glb": {
+   "name": "female-shoe-stiletto.f74a51c8c56723d4.glb",
+   "sha256": "f74a51c8c56723d4cc60b3fbe75d19c65ff4e49d4f864fd94ceef0bed3178084",
+   "bytes": 550972,
+   "bundled": false
+  },
+  "assets/female-shoe-stiletto.png": {
+   "name": "female-shoe-stiletto.c30c817713a18031.png",
+   "sha256": "c30c817713a180313f252202b1be21f24ed49b9d946910a54c1f25a0853f12c3",
+   "bytes": 3992,
    "bundled": true
   },
   "assets/female-skirts-collection-1.glb": {
@@ -590,15 +866,15 @@
    "bundled": true
   },
   "assets/female-tops-collection-10.glb": {
-   "name": "female-tops-collection-10.3ecb8101f1b9536d.glb",
-   "sha256": "3ecb8101f1b9536dae2553041c7d2021a376b289e29cb4b94383d48352394f10",
-   "bytes": 145484,
+   "name": "female-tops-collection-10.b41dec6b423dfe6c.glb",
+   "sha256": "b41dec6b423dfe6c07b8a7c784d2d7c11d183d87783a636e258605def5feec1d",
+   "bytes": 144308,
    "bundled": false
   },
   "assets/female-tops-collection-10.png": {
-   "name": "female-tops-collection-10.39ee9f9a7bc5ab7a.png",
-   "sha256": "39ee9f9a7bc5ab7abdcce37946dff6d020a7da4191e809b0b390256246de8019",
-   "bytes": 12120,
+   "name": "female-tops-collection-10.1ada74fd57f5026c.png",
+   "sha256": "1ada74fd57f5026cf094ef3572fe815ec93c7dcd1c8f60879a2243643f9c61de",
+   "bytes": 10340,
    "bundled": true
   },
   "assets/female-tops-collection-2.glb": {
@@ -626,15 +902,15 @@
    "bundled": true
   },
   "assets/female-tops-collection-4.glb": {
-   "name": "female-tops-collection-4.ce7f9845461f0063.glb",
-   "sha256": "ce7f9845461f0063361d002a42970116a7629b152911353a4582490836bdf1b3",
-   "bytes": 145448,
+   "name": "female-tops-collection-4.559fc5717f321e94.glb",
+   "sha256": "559fc5717f321e94f44f56940d6b2a84054274cbd52fe326904dcd4c9c6ec3ed",
+   "bytes": 144272,
    "bundled": false
   },
   "assets/female-tops-collection-4.png": {
-   "name": "female-tops-collection-4.acbeaaf404a0d737.png",
-   "sha256": "acbeaaf404a0d73763af586c31e30159798e698c6a702eede4e02d166509b47c",
-   "bytes": 12181,
+   "name": "female-tops-collection-4.11eadaa4cf4b6e28.png",
+   "sha256": "11eadaa4cf4b6e282f499278cc0fa3ee8225db336bf91d2f8ca2032e8cf5995d",
+   "bytes": 10309,
    "bundled": true
   },
   "assets/female-tops-collection-5.glb": {
@@ -866,9 +1142,9 @@
    "bundled": true
   },
   "assets/female.glb": {
-   "name": "female.6f815a33c842b4ac.glb",
-   "sha256": "6f815a33c842b4aca782b92c73a875a3ee318b51fa95fa621e39b144b0bf2181",
-   "bytes": 340668,
+   "name": "female.9353d11217e65844.glb",
+   "sha256": "9353d11217e65844724a6d8402b8e61d4c631bcde9ae2eb757088c81d99f9cbd",
+   "bytes": 341196,
    "bundled": true
   },
   "assets/male-bowtie-suit.glb": {
@@ -932,9 +1208,9 @@
    "bundled": true
   },
   "assets/male-eyes-blue.glb": {
-   "name": "male-eyes-blue.5b9850544eba05cd.glb",
-   "sha256": "5b9850544eba05cdd463a9e10e83a5c98d0f6f1d46902705bddbe7c887225b94",
-   "bytes": 29780,
+   "name": "male-eyes-blue.a498d792888caf29.glb",
+   "sha256": "a498d792888caf293846c41484ca47f1afccf0f942b9b7ebc5476827db197ff2",
+   "bytes": 29712,
    "bundled": false
   },
   "assets/male-eyes-blue.png": {
@@ -944,9 +1220,9 @@
    "bundled": true
   },
   "assets/male-eyes-green.glb": {
-   "name": "male-eyes-green.09b5e4e37a450990.glb",
-   "sha256": "09b5e4e37a450990175398b840e02bc7ca4b23b43a9863bcefd142f20adea7fb",
-   "bytes": 29776,
+   "name": "male-eyes-green.ee8bd42292c572a6.glb",
+   "sha256": "ee8bd42292c572a6c367e4d251467f4eb5d6d31661704a8b40abfd5372f29eea",
+   "bytes": 29708,
    "bundled": false
   },
   "assets/male-eyes-green.png": {
@@ -956,9 +1232,9 @@
    "bundled": true
   },
   "assets/male-eyes-hazel.glb": {
-   "name": "male-eyes-hazel.e14098e93a05f7ae.glb",
-   "sha256": "e14098e93a05f7aeb7957ab0f14d6338e6cccc2ba8c0f05583923212b5d40cb5",
-   "bytes": 30432,
+   "name": "male-eyes-hazel.ef392d6bc30ad8a3.glb",
+   "sha256": "ef392d6bc30ad8a3f863d5d74006fac63a87f24a13f3e4ef58809847f26f8f1d",
+   "bytes": 30364,
    "bundled": false
   },
   "assets/male-eyes-hazel.png": {
@@ -968,27 +1244,27 @@
    "bundled": true
   },
   "assets/male-hair-0.glb": {
-   "name": "male-hair-0.a5759906f2c7bdd4.glb",
-   "sha256": "a5759906f2c7bdd4874c46f475e0cf226475ff472f2aeb524cdf872319f73fda",
+   "name": "male-hair-0.f66afcecaa63af85.glb",
+   "sha256": "f66afcecaa63af85df08291b851f48732cbfc0a23c9c796fa3ef0a44e2d08b82",
    "bytes": 503792,
    "bundled": true
   },
   "assets/male-hair-0.png": {
-   "name": "male-hair-0.3e01960aca1b40db.png",
-   "sha256": "3e01960aca1b40db0436900da1e224403288a8649f7feb483772bb6fcb62cbee",
-   "bytes": 13372,
+   "name": "male-hair-0.f6fcb250fc589aed.png",
+   "sha256": "f6fcb250fc589aedee3d25fb23bc36343d889b7207e08f63064c9fba0593964a",
+   "bytes": 5409,
    "bundled": true
   },
   "assets/male-hair-1.glb": {
-   "name": "male-hair-1.868bd8f8c676efe6.glb",
-   "sha256": "868bd8f8c676efe6069f5fc4c431cfb0ee33b38869655e088a032bc5688d9de5",
+   "name": "male-hair-1.f8bc7c76772332aa.glb",
+   "sha256": "f8bc7c76772332aadddee915710183faf66277a4321e8982f33c3f0997d486ba",
    "bytes": 365784,
    "bundled": false
   },
   "assets/male-hair-1.png": {
-   "name": "male-hair-1.2e86954fabc644d7.png",
-   "sha256": "2e86954fabc644d711427ce9d462973c2a7f86b1ef0f18f2316ed91f2eb7e9ba",
-   "bytes": 10093,
+   "name": "male-hair-1.173cff82ca8a5cfa.png",
+   "sha256": "173cff82ca8a5cfa59740a78456d9dca7f9f07bd52725d344f0d03024ca4b4ce",
+   "bytes": 5519,
    "bundled": true
   },
   "assets/male-hair-2.glb": {
@@ -998,9 +1274,117 @@
    "bundled": false
   },
   "assets/male-hair-2.png": {
-   "name": "male-hair-2.8872c93abd302d13.png",
-   "sha256": "8872c93abd302d13f73879a4be967820a4449b8b5138d5469b5500068f17f2ea",
-   "bytes": 7996,
+   "name": "male-hair-2.dea0bbfea13872d0.png",
+   "sha256": "dea0bbfea13872d0d6013b0fe1c07806d22dea161de68e9444beb3210d58ba98",
+   "bytes": 3027,
+   "bundled": true
+  },
+  "assets/male-hair-braided-bun.glb": {
+   "name": "male-hair-braided-bun.9f6569f1b12ae933.glb",
+   "sha256": "9f6569f1b12ae9338ebb914267f757dfe0ad79724911e4a372be2226e0618e6d",
+   "bytes": 131788,
+   "bundled": false
+  },
+  "assets/male-hair-braided-bun.png": {
+   "name": "male-hair-braided-bun.dcdc11243a7427a2.png",
+   "sha256": "dcdc11243a7427a267ccdca9fa86551f5fa5d99a9be07c2223fcbe4fdcb25e91",
+   "bytes": 9287,
+   "bundled": true
+  },
+  "assets/male-hair-cornrows.glb": {
+   "name": "male-hair-cornrows.f04e0c3538dd7365.glb",
+   "sha256": "f04e0c3538dd7365f0e41c575d525a77efa5a75dc779d983db719ffcb746c049",
+   "bytes": 443136,
+   "bundled": false
+  },
+  "assets/male-hair-cornrows.png": {
+   "name": "male-hair-cornrows.f1c5805ebe5df285.png",
+   "sha256": "f1c5805ebe5df2857caa574e4c55fe87fc1ab48f8fd6125b83b399c76ea71f29",
+   "bytes": 10174,
+   "bundled": true
+  },
+  "assets/male-hair-layered.glb": {
+   "name": "male-hair-layered.3a09053d380a9747.glb",
+   "sha256": "3a09053d380a9747bc73f9629f7348c81a39f8f112815d105d7926c684f3f54d",
+   "bytes": 66240,
+   "bundled": false
+  },
+  "assets/male-hair-layered.png": {
+   "name": "male-hair-layered.981d4b27b5cb84ae.png",
+   "sha256": "981d4b27b5cb84aedb575527ec535940cde1675112616cfce0ecec1c4840436b",
+   "bytes": 6059,
+   "bundled": true
+  },
+  "assets/male-hair-messy.glb": {
+   "name": "male-hair-messy.b9c5ea2777a9e954.glb",
+   "sha256": "b9c5ea2777a9e9541c18156919f430ede9524ae661f3f9cb5bd26233c214b7a5",
+   "bytes": 131468,
+   "bundled": false
+  },
+  "assets/male-hair-messy.png": {
+   "name": "male-hair-messy.975efd63ab5ca88c.png",
+   "sha256": "975efd63ab5ca88c01722db09f68e2b786007c46886736a9cdcb795fd5051082",
+   "bytes": 8756,
+   "bundled": true
+  },
+  "assets/male-hair-pompadour.glb": {
+   "name": "male-hair-pompadour.78f9a190dc443348.glb",
+   "sha256": "78f9a190dc443348b9a671f6cfa5451ad1002425994ad2c39c28e56e422731d5",
+   "bytes": 274520,
+   "bundled": false
+  },
+  "assets/male-hair-pompadour.png": {
+   "name": "male-hair-pompadour.3ffd5e4ab53792e9.png",
+   "sha256": "3ffd5e4ab53792e92dca683daba270369c5d53db57b8ec49028cbe6898dde338",
+   "bytes": 12527,
+   "bundled": true
+  },
+  "assets/male-hair-side-sweep.glb": {
+   "name": "male-hair-side-sweep.5c7db4ae4abd9278.glb",
+   "sha256": "5c7db4ae4abd9278b4c66bcbb149b7c0dd3232e7d4d90241cbd4bc0bd6e5a1cb",
+   "bytes": 58816,
+   "bundled": false
+  },
+  "assets/male-hair-side-sweep.png": {
+   "name": "male-hair-side-sweep.f8f53352975878d9.png",
+   "sha256": "f8f53352975878d9edc70b35ae9bb7a17b65ecd54902d0edb65c6a0609c27f23",
+   "bytes": 8917,
+   "bundled": true
+  },
+  "assets/male-hair-slick-back.glb": {
+   "name": "male-hair-slick-back.b6f470b942718665.glb",
+   "sha256": "b6f470b942718665d138d215fb0c389c6df2e2d6d6394f3b1f413852385c5183",
+   "bytes": 84448,
+   "bundled": false
+  },
+  "assets/male-hair-slick-back.png": {
+   "name": "male-hair-slick-back.1d6710bff77ddd7a.png",
+   "sha256": "1d6710bff77ddd7ac0f7641f0a57dffc688479424828cdd21e4565e1a6c46068",
+   "bytes": 5829,
+   "bundled": true
+  },
+  "assets/male-hair-spiked.glb": {
+   "name": "male-hair-spiked.abd7d4fd0aedb399.glb",
+   "sha256": "abd7d4fd0aedb399a791527f6a394867701913ebc5ea644c0316e43aa06543c3",
+   "bytes": 63428,
+   "bundled": false
+  },
+  "assets/male-hair-spiked.png": {
+   "name": "male-hair-spiked.2e078925e7cef954.png",
+   "sha256": "2e078925e7cef954a108dea798c3abe3079a1a8d9d3893b9d374c6b3592825e4",
+   "bytes": 8464,
+   "bundled": true
+  },
+  "assets/male-hair-textured.glb": {
+   "name": "male-hair-textured.fb40ac87a98063b5.glb",
+   "sha256": "fb40ac87a98063b5c190683a5f62a1cf64665813f70a533860f5e3d8a29f4479",
+   "bytes": 76456,
+   "bundled": false
+  },
+  "assets/male-hair-textured.png": {
+   "name": "male-hair-textured.0bdd0412f4178e2a.png",
+   "sha256": "0bdd0412f4178e2a1fa693cc3ad36581329f83625e0106bbbc44ee5b48c54b3a",
+   "bytes": 8501,
    "bundled": true
   },
   "assets/male-redcarpet.glb": {
@@ -1028,93 +1412,93 @@
    "bundled": true
   },
   "assets/male-tee-polo.glb": {
-   "name": "male-tee-polo.555e4a83ca71ab88.glb",
-   "sha256": "555e4a83ca71ab889f502f171ca27ebe2715f47d2feb1016f256d45d8ce084d8",
-   "bytes": 61448,
+   "name": "male-tee-polo.6feee9276ede0ccd.glb",
+   "sha256": "6feee9276ede0ccd0995927f22fc0bf2f181d8d596199b16f83bdc016c200223",
+   "bytes": 65156,
    "bundled": false
   },
   "assets/male-tee-polo.png": {
-   "name": "male-tee-polo.992307333f73316f.png",
-   "sha256": "992307333f73316f1c862faf02c7ac8a0dedeb18f5af8c56607db025d67669c5",
-   "bytes": 1604,
+   "name": "male-tee-polo.2550628cfb922052.png",
+   "sha256": "2550628cfb922052a37586e63dbf6624d3af7007c9089f130679f996455e4338",
+   "bytes": 6724,
    "bundled": true
   },
   "assets/male-tee-relaxed.glb": {
-   "name": "male-tee-relaxed.c7ba3ce31ce557ef.glb",
-   "sha256": "c7ba3ce31ce557efae9af57bc4e5a41a1bb40a8cd4c8d7bb28066ca89a398190",
-   "bytes": 34380,
+   "name": "male-tee-relaxed.4ca62ee2c582466a.glb",
+   "sha256": "4ca62ee2c582466a46a5068643366b6a5603fac22028bdbed1276554ca087b71",
+   "bytes": 44104,
    "bundled": false
   },
   "assets/male-tee-relaxed.png": {
-   "name": "male-tee-relaxed.e50a14f98921b1d3.png",
-   "sha256": "e50a14f98921b1d38674f6969b35212f9865913e89babfa0c132b659df5a8f23",
-   "bytes": 657,
+   "name": "male-tee-relaxed.1ccce36944818acf.png",
+   "sha256": "1ccce36944818acfd0597e2ece9dc414a3b282de6d649a5fea15771459ca8275",
+   "bytes": 6153,
    "bundled": true
   },
   "assets/male-tee-tucked.glb": {
-   "name": "male-tee-tucked.c1d31493b3e73799.glb",
-   "sha256": "c1d31493b3e7379976e5348f25ad1fe7004a1049780a11f43818094d54aa503d",
-   "bytes": 46360,
+   "name": "male-tee-tucked.d6ad1ee6442e1420.glb",
+   "sha256": "d6ad1ee6442e1420433527d9c2f1d4cc76e6f01846142339cb8ed95cd9d50f9c",
+   "bytes": 61800,
    "bundled": false
   },
   "assets/male-tee-tucked.png": {
-   "name": "male-tee-tucked.c6ebb4afbc33270c.png",
-   "sha256": "c6ebb4afbc33270cd6652ca50c3dd11491d3bdc4588c09b8d3371533d63b4a91",
-   "bytes": 1246,
+   "name": "male-tee-tucked.c41640d041e295fb.png",
+   "sha256": "c41640d041e295fbea0ef95ad11e3f68f5081b283b96069485725becffab39db",
+   "bytes": 5828,
    "bundled": true
   },
   "assets/male-trousers-cargo.glb": {
-   "name": "male-trousers-cargo.5add39e0c0be29c2.glb",
-   "sha256": "5add39e0c0be29c23778f87ead0f2e18fd6930ed787d6bcc096ca605566b6d99",
-   "bytes": 18048,
+   "name": "male-trousers-cargo.4765df8da821e909.glb",
+   "sha256": "4765df8da821e909f1324e07e41a13addf05fa51dffbf233748b3688502f896d",
+   "bytes": 32940,
    "bundled": false
   },
   "assets/male-trousers-cargo.png": {
-   "name": "male-trousers-cargo.d522ce31c3fe0d19.png",
-   "sha256": "d522ce31c3fe0d199a377cfff2a3cc7f26a38afa865f31ee043c800a47450fac",
-   "bytes": 4551,
+   "name": "male-trousers-cargo.438bdad84cb62e3d.png",
+   "sha256": "438bdad84cb62e3d14c377d1fb165a1a82d13ae2d6943aa24613fbe0a9581284",
+   "bytes": 4336,
    "bundled": true
   },
   "assets/male-trousers-classic.glb": {
-   "name": "male-trousers-classic.59f72f946f4e1564.glb",
-   "sha256": "59f72f946f4e1564667a0982e00ee4489628888a9e005c2a65dffba18d05be29",
-   "bytes": 45272,
+   "name": "male-trousers-classic.acff452cd6aada34.glb",
+   "sha256": "acff452cd6aada341f4cecca003c2e109c5657003e754dd4f677e407e62d32bf",
+   "bytes": 63164,
    "bundled": false
   },
   "assets/male-trousers-classic.png": {
-   "name": "male-trousers-classic.dda0ed7cd9f9bde6.png",
-   "sha256": "dda0ed7cd9f9bde6bca6c90cf02b765597508ea486fc122a60575bf942b08d30",
-   "bytes": 4634,
+   "name": "male-trousers-classic.d913f4b8e56d58e4.png",
+   "sha256": "d913f4b8e56d58e4fb8ffce714ec192f24b44bf88d0546be5fb5fd7a5e433dcf",
+   "bytes": 4961,
    "bundled": true
   },
   "assets/male-trousers-denim-shorts.glb": {
-   "name": "male-trousers-denim-shorts.7062db3daa04865f.glb",
-   "sha256": "7062db3daa04865f5c4fa690c20641d11a4be31af52aafe4dc480c693cbfc912",
-   "bytes": 20888,
+   "name": "male-trousers-denim-shorts.93b31c6b54fa9ac1.glb",
+   "sha256": "93b31c6b54fa9ac17e9384f69a2485d5cd3ffe64987a58dc2182710b2a1df7d7",
+   "bytes": 33516,
    "bundled": false
   },
   "assets/male-trousers-denim-shorts.png": {
-   "name": "male-trousers-denim-shorts.c605d02423ffd859.png",
-   "sha256": "c605d02423ffd85925463ee90431efe2a358651a978dbf8c090b77ec4244e87d",
-   "bytes": 4502,
+   "name": "male-trousers-denim-shorts.29244f1069d3caae.png",
+   "sha256": "29244f1069d3caaee1736d0ca80b164d995afb8f052553b89029ac391feedd1e",
+   "bytes": 6448,
    "bundled": true
   },
   "assets/male-trousers-harem.glb": {
-   "name": "male-trousers-harem.c464051ff1226b89.glb",
-   "sha256": "c464051ff1226b89627da2356c6273f0b12aa2cb94334abba611acda5753c297",
-   "bytes": 226416,
+   "name": "male-trousers-harem.67adf8cf774a2509.glb",
+   "sha256": "67adf8cf774a25098b6d89d1f3f1636b6ecd499756ca9f5a3bd164bf2e899f9c",
+   "bytes": 227908,
    "bundled": false
   },
   "assets/male-trousers-harem.png": {
-   "name": "male-trousers-harem.fb5bf82d4108ef72.png",
-   "sha256": "fb5bf82d4108ef728fcd043d45a3b9560eddffce7b14e7c2ab44411a206eb6fe",
-   "bytes": 12255,
+   "name": "male-trousers-harem.36342ac2918c0589.png",
+   "sha256": "36342ac2918c05891ba910dd5d057d523cab21025be04270759138dec0e3c5ba",
+   "bytes": 11660,
    "bundled": true
   },
   "assets/male.glb": {
-   "name": "male.1fc382b4a9ac4d14.glb",
-   "sha256": "1fc382b4a9ac4d145868c1666bd2be96d8dbda2ad3a53ebddae2abbc921abb0c",
-   "bytes": 583572,
+   "name": "male.922c2f4a96b28729.glb",
+   "sha256": "922c2f4a96b28729f49938ff0b429461df0fbee51830f57dcca05fb83b1875a5",
+   "bytes": 614376,
    "bundled": true
   },
   "assets/shoe-0.glb": {

@@ -1,8 +1,11 @@
 import {AnimationClip, AnimationMixer, Bone, Euler, Group, LoopOnce, Object3D, Quaternion, QuaternionKeyframeTrack, Vector3, VectorKeyframeTrack} from 'three';
 import {applyPose} from './poses.ts';
 
-export const SHOWCASE_SECONDS = 8.6;
-const WALK_SECONDS = 3.2;
+export const SHOWCASE_SECONDS = 5;
+const WALK_SECONDS = 1.8;
+// Preserve the authored stride/foot planting while playing the gait faster.
+const GAIT_SECONDS = 3.2;
+const TURN_START = 2.3, TURN_SECONDS = 2.1;
 const smooth = (t: number) => {const x = Math.max(0, Math.min(1, t)); return x * x * (3 - 2 * x);};
 const rotation = (x = 0, y = 0, z = 0) => new Quaternion().setFromEuler(new Euler(x, y, z));
 
@@ -24,7 +27,7 @@ export function catwalkClip(body: Object3D): AnimationClip {
   const times: number[] = [], values = new Map([...bones.keys()].map(name => [name, [] as number[]]));
   const hipValues: number[] = [];
   for (let frame = 0; frame <= 96; frame++) {
-    const time = WALK_SECONDS * frame / 96, phase = time / 1.6, wave = Math.sin(phase * Math.PI * 2);
+    const time = GAIT_SECONDS * frame / 96, phase = time / 1.6, wave = Math.sin(phase * Math.PI * 2);
     times.push(time);
     const delta = new Vector3(.008 * wave, -.018 + .005 * (1 - Math.cos(phase * Math.PI * 4)), 0);
     hipValues.push(...hips.position.clone().add(delta).toArray());
@@ -37,7 +40,7 @@ export function catwalkClip(body: Object3D): AnimationClip {
     poses.set('Head', rotation(0, -.02 * wave));
     for (const [index, leg] of legs.entries()) {
       const p = (phase + index * .5) % 1, swing = Math.max(0, (p - .6) / .4);
-      const stride = .65 / WALK_SECONDS * 1.6 * .6 / 2;
+      const stride = .65 / GAIT_SECONDS * 1.6 * .6 / 2;
       const ankle = leg.ankle.clone();
       ankle.z += p < .6 ? stride * (1 - 2 * p / .6) : stride * (-1 + 2 * smooth(swing));
       ankle.y += .055 * Math.sin(Math.PI * swing);
@@ -55,7 +58,7 @@ export function catwalkClip(body: Object3D): AnimationClip {
     }
     for (const name of bones.keys()) values.get(name)!.push(...(poses.get(name) ?? new Quaternion()).toArray());
   }
-  return new AnimationClip('slay_catwalk', WALK_SECONDS, [
+  return new AnimationClip('slay_catwalk', GAIT_SECONDS, [
     ...[...values].map(([name, quaternions]) => new QuaternionKeyframeTrack(name + '.quaternion', times, quaternions)),
     new VectorKeyframeTrack('Hips.position', times, hipValues),
   ]);
@@ -85,7 +88,7 @@ export class Showcase {
     this.mixer.stopAllAction(); this.root.position.set(0, 0, 0); this.root.rotation.set(0, 0, 0);
     this.body.updateMatrixWorld(true);
     this.clip ??= catwalkClip(this.body);
-    const action = this.mixer.clipAction(this.clip).reset().setLoop(LoopOnce, 1);
+    const action = this.mixer.clipAction(this.clip).reset().setLoop(LoopOnce, 1).setEffectiveTimeScale(GAIT_SECONDS / WALK_SECONDS);
     action.clampWhenFinished = true; action.play(); this.mixer.update(0);
     this.elapsed = 0; this.walking = true; this.finishPose = pose; this.root.position.z = -.65;
     const promise = new Promise<string>((resolve, reject) => {this.completion = {resolve, reject};});
@@ -98,17 +101,17 @@ export class Showcase {
     const old = this.elapsed;
     this.elapsed = Math.min(SHOWCASE_SECONDS, old + Math.max(0, seconds));
     if (this.walking) {
-      this.mixer.update(Math.min(seconds, Math.max(0, WALK_SECONDS - old)));
+      this.mixer.update(Math.min(this.elapsed - old, Math.max(0, WALK_SECONDS - old)));
       this.root.position.z = -.65 * (1 - Math.min(1, this.elapsed / WALK_SECONDS));
       if (this.elapsed >= WALK_SECONDS) {
         const walk = this.mixer.clipAction(this.clip!);
         const pose = this.mixer.clipAction(this.clips.find(c => c.name === this.finishPose)!).reset().play();
-        pose.crossFadeFrom(walk, .45, false); this.walking = false;
+        pose.crossFadeFrom(walk, .25, false); this.walking = false;
         this.mixer.update(Math.max(0, this.elapsed - WALK_SECONDS));
       }
-    } else this.mixer.update(seconds);
-    this.root.rotation.y = Math.PI * 2 * smooth((this.elapsed - 4) / 3.6);
-    this.notify(this.elapsed < WALK_SECONDS ? 'Walking to the stage' : this.elapsed < 4 ? 'Strike a pose' : this.elapsed < 7.6 ? 'Show every angle' : 'Own the spotlight');
+    } else this.mixer.update(this.elapsed - old);
+    this.root.rotation.y = Math.PI * 2 * smooth((this.elapsed - TURN_START) / TURN_SECONDS);
+    this.notify(this.elapsed < WALK_SECONDS ? 'Walking to the stage' : this.elapsed < TURN_START ? 'Strike a pose' : this.elapsed < TURN_START + TURN_SECONDS ? 'Show every angle' : 'Own the spotlight');
     this.root.updateMatrixWorld(true);
     if (this.elapsed >= SHOWCASE_SECONDS) {
       const done = this.completion!; this.completion = undefined;

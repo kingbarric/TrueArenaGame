@@ -255,7 +255,7 @@ public class ChampionshipService {
     private Mono<Void> createMatchRoom(ChampionshipMatchRow m) {
         if (m.roomId() != null) return startMatchAdapter(m.roomId());
         return championships.findById(m.championshipId()).flatMap(c -> {
-          String theme=List.of("wedding-guest","lagos-owambe","abuja-dinner","african-royalty").get(Math.min(m.round()-1,3));
+          String theme=List.of("wedding-guest","first-date","night-out","african-royalty").get(Math.min(m.round()-1,3));
           String config="slayhuud".equals(c.gameType())?"{\"mode\":\"battle\",\"seats\":2,\"themeId\":\""+theme+"\"}":null;
           return rooms.save(RoomRow.create(code(), null, m.playerA(), c.gameType(), 0, config, true));
         })

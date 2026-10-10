@@ -38,8 +38,10 @@ async function deliver(path) {
 }
 
 export async function publishAssets(catalog, {log = console.log} = {}) {
-  const starter = new Set(catalog.avatars.map(avatar => avatar.assetUrl));
-  const paths = new Set(catalog.avatars.map(avatar => avatar.assetUrl));
+  // Base bodies ship; extra characters download, but their picker thumbnails ship.
+  const starter = new Set(catalog.avatars.filter(avatar => !avatar.fitUrl).map(avatar => avatar.assetUrl));
+  const paths = new Set(catalog.avatars.flatMap(avatar => [avatar.assetUrl, avatar.fitUrl, avatar.thumbnailUrl]));
+  for (const avatar of catalog.avatars) if (avatar.thumbnailUrl) starter.add(avatar.thumbnailUrl);
   for (const item of catalog.items) {
     if (item.assetUrl) paths.add(item.assetUrl);
     if (item.thumbnailUrl) { paths.add(item.thumbnailUrl); starter.add(item.thumbnailUrl); }

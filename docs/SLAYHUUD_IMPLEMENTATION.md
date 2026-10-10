@@ -288,3 +288,94 @@ Android uses a locally vendored stable `flutter_inappwebview_android` 1.1.3 with
 - `flutter_inappwebview_android` has no stable release with the AGP 9 fix (1.1.3 is still latest; the fix is only in 1.2.0 betas). Now that `SlayAssets` replaces its localhost server, `slay_stage.dart` is the plugin's only user, and moving to the official `webview_flutter` would retire the vendored copy.
 - Verification: 42 renderer tests, 22 SlayHuud/home Flutter tests (including integrity-checked downloads), 248 backend unit tests and the 10 SlayHuud PostgreSQL/Redis integration tests passed. Not yet checked on a simulator or device: real downloads from playhuud.com and visual parity of compressed models.
 
+### Faster catwalk and four show-off finishes (10 October 2026)
+
+- Shortened show off from 8.6 to 5 seconds: 1.8-second catwalk, quicker blend into the selected stance, full turn and final hold. The authored gait plays faster without enlarging strides or changing shoe fit. Runway timing uses elapsed time rather than the idle-animation frame cap, so low frame rates do not stretch the sequence.
+- The pose picker exposes Signature, Hand on hip (confident), Cover star (editorial) and Victory (celebrate) as compact raised choices. Tapping any choice previews its catwalk and finish without submitting. The selected pose stays on the look for submission and spectator replay; Signature is no longer silently replaced with Confident.
+- Pose previews lock styling/submission until completion and remain cancellable using Stop show off. The stage's automatic outfit update queues before playback to prevent it interrupting the new animation.
+- Verification: 41 renderer tests and 18 Flutter tests passed; feature analysis and the TypeScript/Vite build pass. Actual male/female rigs preserve all four distinct finishing stances, walk onto the stage within two seconds, and keep shoes grounded while walking. The picker tests verify all four labels map to the existing saved-pose IDs.
+- Rebuilt the dedicated iPhone 17 Pro fixture preview and reviewed the four-choice sheet, automatic catwalk previews, and distinct Victory/Cover star finishes. Styling/submission controls unlock after playback; changing the preview pose does not save or score a submission.
+
+### Styling score correction (10 October 2026)
+
+- Removed the preview's fixed 89/three-star response. It evaluates the saved look against the selected catalogue theme; 18 shared examples assert identical preview/backend results. Production remains server-authoritative.
+- Theme fit evaluates each main garment independently (85% of theme fit), with matching footwear/details contributing the other 15%. Hair/eye tags cannot turn an unrelated outfit into a matching outfit. Separates do not merge their tags to hide a mismatched garment. Basic completeness uses outfit, footwear and the challenge's required categories, without requiring a hairstyle.
+- Overall weights are 50% theme fit, 25% requirements, 15% palette balance and 10% completeness. Each missing requirement caps the final result by 25 points, so incomplete required categories cannot earn three stars. Palette balance counts wardrobe/makeup accent colours against neutrals; it is a simple tag heuristic, not visual colour analysis. Prices, rarity, skin, face, pose and scene provide no score bonus.
+- Reports name the theme, show the component scores and explain missing items, clothing tag mismatch, unrelated details and overloaded palettes. Feedback scrolls on small screens. The fixture preview explicitly says it does not award coins or XP.
+- Verification: 39 Flutter checks and 14 backend unit/contract checks passed; feature/preview analysis is clean. In the dedicated iPhone 17 Pro preview, submitting First Impression with no footwear now returns 75, 50% requirements/completeness and a missing-shoes explanation. No production score/reward settlement was exercised by the simulator.
+
+### Women’s footwear and garment colours — 10 October 2026
+
+Added five female shoe options: Mary Jane Heels, Stiletto Ankle Boots, Ballet Flats, Strappy Sandals and Flat Slippers. The existing two unisex shoes remain available. Downloaded licensed MakeHuman packs are retained locally outside Git; adapted GLBs, thumbnails and credits ship in the app. Shoes load on selection. Cutout shoes keep texture alpha, open footwear retains the real feet, and the closed high-heel boot masks only the covered foot region. Starter auto-fit and shared rig weights still require final artist review before release.
+
+Equipped shoes, shirts and tops offer twelve colour swatches plus Original colour. `Look.itemColours` records palette names keyed by wardrobe category, travels in the existing saved-look JSON, and replays with the runway avatar. Legacy looks load with an empty map. Replacing/removing a garment clears only that garment’s override. The renderer dyes fabric luminance in its material shader without duplicating textures or touching the body; resetting restores the original textured material. The backend validates allowed categories and palette names and uses the selected colours when judging palette coordination.
+
+Verification: 46 Flutter tests, 47 renderer tests (including all five shoes through three runway finishes), 16 backend tests, Flutter analysis and renderer build. Asset delivery: 104 GLBs valid; 55 future catalogue placeholders skipped, 18 soft size-budget warnings. Simulator preview rebuilt; final interactive check requires the Mac to be unlocked.
+
+### Tube-top coverage repair — 10 October 2026
+
+Colour Pop Tube Top and Warm Colour Pop Top used a source mesh authored on a shorter, narrower body. In the starter avatar they sat below the chest and inside the skin, while choosing a top correctly replaced the previous dress and hid the starter bra. Both exports now fit the chest before rig weights are assigned, with a deeper back panel and a conservative body mask for the covered chest band. Bare shoulders and midriff remain visible; briefs remain visible when no bottom is equipped. Catalogue version 17 invalidates cached models and thumbnails.
+
+Both variants were rendered from the front/back with the real avatar and coverage masks. The renderer’s 49 tests pass, including new ray checks that fabric covers chest/back samples in every pose, exposed midriff is retained and removing the top restores body and underwear. Renderer build passes.
+
+### Exclusive wardrobe groups — 10 October 2026
+
+Catalogue version 18 assigns every visible garment to one clothing category and one style group. Removed the All filter, which repeated the same garments. Style groups and clothing categories are shown only when they contain visible items after deduplication. Female dress assets previously displayed under Looks now appear under Dresses.
+
+Seven identical aliases are merged into their original, least expensive/default wardrobe entries. Deduplication compares source mesh, texture and conversion options; distinct cuts and material colours remain separate choices. Original IDs remain in the catalogue for saved looks, scoring and ownership compatibility. Restored aliases highlight the canonical tile, and None removes the actual equipped slot even when its browsing category has changed. Source identity metadata is generated during the renderer build and shipped through the existing catalogue API.
+
+Verification: 46 focused Flutter tests, 50 renderer tests and 17 backend unit/contract tests pass; Flutter feature analysis and renderer build pass. New checks cover exclusive grouping for both bodies, hidden empty categories, alias selection compatibility and unchanged catalogue IDs. Rebuilt and launched the dedicated iPhone 17 Pro fixture preview. The Mac was locked, so native tap verification of the new groups remains unverified.
+
+### Female beauty expansion — 10 October 2026
+
+Catalogue version 19 adds three distinct CC0 MakeHuman hair meshes: Chic Bob (free), Sleek Ponytail (80 coins) and Long & Flowing (120 coins). The two priced additions use the existing Yes/No unlock dialog, transactional purchase API and ownership rules. Existing hairstyles remain available. New hair textures are sized to 512 px and the GLBs are each below 0.8 MB, loaded only when selected.
+
+Five free lipstick shades join the existing three: Peach Nude, Cocoa Gloss, Coral Kiss, Berry Wine and Hot Pink. All eight lip overlays now clip to a curved mouth contour rather than colouring neighbouring skin triangles. Matching face/expression morphs remain intact. Gold Nose Hoop is a free original, fitted lightweight mesh in Details (`accessories`), allowing it to be worn with earrings. It shares head rig bindings and face/expression morphs, hides no body regions, and persists in saved looks.
+
+Rendered real-model thumbnails for all additions and refreshed the original three lipstick thumbnails. Close-up avatar renders verified each new hairstyle with lipstick and the hoop. Source files/licenses remain in the local MakeHuman archive; bundled credits include the new hair and original hoop.
+
+Verification: 53 renderer tests, 40 focused Flutter tests and 17 backend unit/contract tests pass; renderer build passes. New actual-model checks cover head bindings through every pose, nose fit through facial presets/poses, three distinct hair sources with exactly two locks, and all eight lipstick contours. Flutter save/restore retains a new hairstyle, lipstick, earrings and the hoop together. Delivery validation checks 113 valid GLBs, with no missing/invalid assets; 55 future placeholders remain skipped and 18 existing size warnings remain. Rebuilt and launched the dedicated iPhone 17 Pro fixture preview; the Mac locked again before native tap verification. Live production purchases were not exercised by this fixture preview.
+
+### Twelve hairstyles per avatar — 10 October 2026
+
+Catalogue version 20 delivers twelve distinct hairstyle meshes for each body. Added six female choices and nine male choices while preserving existing IDs, prices and saved-look compatibility. New women's silhouettes include a pixie, blunt fringe bob, braided top knot, tousled curls, beaded cornrows and vintage updo. Men's additions include a textured crop, side sweep, slick back, messy shag, layered fringe, spiked quiff, swept pompadour, cornrows and braided top knot. Each body has twelve different meshes rather than colour-only copies.
+
+Corrected scalp alignment for ten new/existing hair assets and rendered all twenty-four hairstyles against the actual avatar heads. Hair follows the shared head bone through every pose. New assets have embedded 512 px textures, real-model wardrobe thumbnails and load on selection. Most additions are below 0.8 MB; the pompadour is about 1.1 MB and the two cornrow exports about 2.1 MB each, retained as soft size warnings pending further optimisation.
+
+Free and coin-locked choices use the existing ownership, Yes/No purchase and wallet-refresh flow. Bundled credits retain CC0 authors and CC-BY attribution from source metadata, including the stricter source notice on the braided bun.
+
+Verification: 56 renderer tests, 40 focused Flutter tests and 17 backend unit/contract tests pass. Renderer build and asset delivery validation pass: 128 valid GLBs, no missing/invalid deliveries, 55 future placeholders skipped and 21 soft size warnings. Rebuilt and launched the dedicated iPhone 17 Pro preview. Native checks confirmed twelve choices per body, free Blunt Fringe Bob and Slick Back selection, and the 80-coin Beaded Cornrows Yes/No unlock prompt; accepting changed the fixture wallet from 600 to 520 coins and equipped the unlocked hair. Preview coins are fixtures; production purchases and physical-device performance were not exercised.
+
+The MakeHuman 50s Women's Clothing page contains posed renders and clothing links rather than a downloadable pose asset. Those stances can guide future rig poses after the catwalk; this hairstyle update does not add poses.
+
+### Additional characters, dressing-room scenery and pose repair — 10 October 2026
+
+Catalogue version 22 adds Girl02 (female) and Indian Male (male), chosen in Beauty → Your character. Their CC0 MHM shape definitions are adapted to the existing fashion bodies and shared rig; these are fitted versions, not unchanged full MakeHuman scene exports. A small continuous fitting field adjusts selected wardrobe meshes on loading, avoiding a duplicate wardrobe for every character. Original bodies remain available. Character identity persists with the saved look, while changing character retains clothing, colour overrides and pose. Legacy looks default to the original character, and the backend rejects unavailable or wrong-body character IDs. Source recipes, author attribution and the repeatable offline conversion script are retained.
+
+Male eyes previously sat behind the face surface. The base eyes and all three selectable eye assets now fit the wider, higher sockets. The studio now includes a distant wardrobe, warm vanity lights and flowers using inexpensive procedural meshes. Furniture follows the viewing side and stays at least three metres behind the avatar during rotation; it appears only in the studio scene.
+
+Hand on Hip and Cover Star had two deformation causes: hanging male fingertips could receive leg weights, and an added wrist twist compressed the female palm. Fingertips now follow the arm/hand bones, their coverage region belongs to the arms, and both finishes inherit the forearm orientation without the extra wrist twist. All four body exports carry the corrected clips. Catalogue version 22 invalidates older cached assets. Actual-mesh regression checks verify fingertip bindings and preserve palm/finger edge lengths within 0.2% in both finishes on all four characters.
+
+Verification: 60 renderer tests, 41 focused Flutter tests and 18 backend unit/contract checks pass; Flutter analysis and TypeScript/Vite build pass. Delivery validation reports 130 valid GLBs, no missing/invalid assets, 55 future placeholders skipped and 21 existing soft size warnings. Simulator previews use fixture wallet/scoring responses; these checks do not establish live production settlement or physical-device performance.
+
+Rebuilt and launched the dedicated iPhone 17 Pro preview with catalogue 22. Native review confirmed Girl02 and Indian Male selection retains equipped clothing, Girl02's Hand on Hip and Cover Star catwalk finishes keep hands intact, and Indian Male's Cover Star finish no longer pulls fingertips towards the legs. Male Deep Blue and Emerald Eyes visibly change the irises. The distant wardrobe, vanity lights and flowers are visible in full-body views.
+
+### Male trouser waist fit and unavailable challenges — 10 October 2026
+
+Catalogue version 24 lifts the low-rise upper bands of Cargo Trousers, Relaxed Harem Pants and Denim Shorts to the male waist, and fits all four male bottoms around the abdomen, including Classic Trousers. Upper fabric triangles are locally refined before fitting so their surfaces follow the curved hips rather than cutting across them. Hems and lower-leg silhouettes are retained. Body coverage masks use a conservative waist limit below the dipped front waistband on both original male and Indian Male, preventing a hollow gap above the trousers; removing trousers restores the body and briefs. Refreshed actual-mesh thumbnails ship with the updated assets.
+
+Removed Lagos Owambe and Abuja Dinner from the available challenge catalogue and removed the associated Abuja Dinner client brief until appropriate clothing is available. Tournament rounds that referenced those themes now use First Date and Night Out. Existing catalogue item IDs and saved wardrobe ownership are unchanged. Integration test fixtures now use an available theme and delivered outfit.
+
+Verification: 62 renderer tests and 18 backend unit/contract checks pass, TypeScript/Vite build and backend test compilation pass. The new actual-model regression reproduces exposed waist skin before the fix, then checks all four trousers against waist samples around both male bodies in every finish. Delivery validation reports 130 valid GLBs, zero missing/invalid assets, 55 future placeholders skipped and 21 existing soft size warnings.
+
+Rebuilt the dedicated iPhone 17 Pro preview with catalogue 24. Native review confirmed the cargo waistband reaches the waist from front/back without the former hollow gap, and switching to Indian Male keeps the fitted trousers equipped. The challenge picker no longer includes Lagos Owambe or Abuja Dinner. Character selection remains under Beauty → Your character. Preview wallets/multiplayer responses remain fixtures; live production settlement and database integration tests were not exercised in this change.
+
+### Male shirt and trouser layering — 10 October 2026
+
+Catalogue version 25 corrects the overlap between the three male shirts and four male bottoms on both original male and Indian Male. Weekend Polo has a shorter tucked hem, and Classic Tucked Tee now reaches the waistband rather than ending above it. Lower shirt triangles are refined before rigging. Relaxed Tee retains its untucked cut and fits outside the selected trousers, including their pockets and folds. Tucked shirts fit inside the waistband.
+
+The renderer resolves garment layering once in bind space when trousers change. Both garments retain their shared skeleton during catwalk and poses. Original geometry/normals are cached and restored before each new fit, avoiding accumulated deformation and restoring the original shirt when trousers are removed. Colour changes reuse the fitted geometry. Authored shirt coverage masks preserve exposed abdomen and briefs when no trousers are selected. Updated bodies, shirts and actual-mesh thumbnails are bundled.
+
+Verification: TypeScript/Vite build passes and all 65 renderer tests pass. Actual-mesh regression checks cover all 24 combinations through the four finishes and seven catwalk/turn samples, repeated application, both character shapes, and removing trousers. Asset delivery validation reports 130 valid GLBs, zero missing/invalid deliveries, 55 future placeholders skipped and 21 existing soft size warnings.
+
+Rebuilt the dedicated iPhone 17 Pro preview with catalogue 25. Native inspection confirmed red Weekend Polo with Cargo Trousers meets cleanly from front/back and during show off; checked both other shirts, restored skin/briefs after removing trousers, then restored the original red polo and cargo outfit. The preview uses existing fixture responses; this change does not verify production multiplayer settlement.

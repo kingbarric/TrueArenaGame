@@ -4,6 +4,21 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:truearena/features/slayhuud/slay_models.dart';
 
 void main() {
+  test(
+      'character persists through dressing, recolouring and legacy look reload',
+      () {
+    final legacy = SlayLook.fromJson(SlayLook.initial().toJson());
+    expect(legacy.avatarId, isNull);
+    var look = legacy.copy(avatarId: 'girl02');
+    look = look.equip({'id': 'chosen-top', 'category': 'tops'});
+    look = look.copy(itemColours: {'tops': 'red'}, pose: 'confident');
+    final restored = SlayLook.fromJson(jsonDecode(jsonEncode(look.toJson())));
+    expect(restored.avatarId, 'girl02');
+    expect(restored.items['tops'], 'chosen-top');
+    expect(restored.itemColours['tops'], 'red');
+    expect(restored.pose, 'confident');
+    expect(SlayLook.initial('male').avatarId, isNull);
+  });
   final wardrobe =
       (jsonDecode(File('assets/slay_renderer/catalog.json').readAsStringSync())[
               'items'] as List)
@@ -73,15 +88,17 @@ void main() {
     expect(look.isDressed, isTrue);
     expect(slayMatchesStyle(top, 'Casual'), isTrue);
     expect(slayMatchesStyle(top, 'Corporate'), isFalse);
-    expect(slayMatchesStyle(top, 'All'), isTrue);
+    expect(slayMatchesStyle(top, 'All'), isFalse);
   });
 
   test('optional beauty and accessories survive a look save and reload', () {
     var look = SlayLook.initial();
     for (final id in [
+      'female-hair-ponytail',
       'female-eyes-green',
-      'female-lipstick-plum',
+      'female-lipstick-coral',
       'female-earrings-pearls',
+      'female-nose-ring-gold',
       'female-bag-handbag',
       'watch-smart'
     ]) {
@@ -91,7 +108,10 @@ void main() {
     expect(restored.items, look.items);
     final removed = restored.copy(items: {...restored.items}..remove('eyes'));
     expect(removed.items.containsKey('eyes'), isFalse);
-    expect(removed.items['makeup'], 'female-lipstick-plum');
+    expect(removed.items['makeup'], 'female-lipstick-coral');
+    expect(restored.items['hair'], 'female-hair-ponytail');
+    expect(restored.items['jewellery'], 'female-earrings-pearls');
+    expect(restored.items['accessories'], 'female-nose-ring-gold');
     expect(restored.items['eyes'], 'female-eyes-green');
   });
 }

@@ -78,6 +78,6 @@ const sets = {
 export const femaleWardrobe = Object.entries(sets).flatMap(([category, rows]) => rows.map(([source,name,tags,colours,options={}],index) => {
   const [obj,texture]=sources[source];
   return {id:`female-${category}-collection-${index+1}`, name, category, tags, colours,
-    asset:['female', clothes+obj, clothes+texture, {...options,...(category==='trousers'?{bottom:true}:{})}],
+    asset:['female', clothes+obj, clothes+texture, {...options,...(source==='tube'?{tubeTop:true}:{}),...(category==='trousers'?{bottom:true}:{})}],
     price:index<4?0:[40,60,80,100,120,150][index-4]};
 }));

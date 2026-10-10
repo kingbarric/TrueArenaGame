@@ -1,16 +1,38 @@
 {
-  "version": 15,
+  "version": 25,
   "developmentAssets": true,
   "avatars": [
     {
       "body": "female",
       "assetUrl": "assets/female.glb",
-      "rigVersion": "slay-female-v2"
+      "rigVersion": "slay-female-v2",
+      "id": "female",
+      "name": "Original"
     },
     {
       "body": "male",
       "assetUrl": "assets/male.glb",
-      "rigVersion": "slay-male-v2"
+      "rigVersion": "slay-male-v2",
+      "id": "male",
+      "name": "Original"
+    },
+    {
+      "id": "girl02",
+      "name": "Girl02",
+      "body": "female",
+      "assetUrl": "assets/avatar-girl02.glb",
+      "rigVersion": "slay-female-v2",
+      "fitUrl": "assets/avatar-girl02-fit.json",
+      "thumbnailUrl": "assets/avatar-girl02.png"
+    },
+    {
+      "id": "indian-male",
+      "name": "Indian Male",
+      "body": "male",
+      "assetUrl": "assets/avatar-indian-male.glb",
+      "rigVersion": "slay-male-v2",
+      "fitUrl": "assets/avatar-indian-male-fit.json",
+      "thumbnailUrl": "assets/avatar-indian-male.png"
     }
   ],
   "items": [
@@ -148,7 +170,7 @@
         "elegant"
       ],
       "colourTags": [
-        "pink"
+        "red"
       ],
       "cultureTags": [],
       "eventTags": [
@@ -2452,9 +2474,7 @@
       "rarity": "common",
       "assetUrl": "assets/male-tee-relaxed.glb",
       "thumbnailUrl": "assets/male-tee-relaxed.png",
-      "hidesRegions": [
-        "torso"
-      ],
+      "hidesRegions": [],
       "attachmentBone": null,
       "isDefault": true,
       "coinCost": 0,
@@ -2481,9 +2501,7 @@
       "rarity": "common",
       "assetUrl": "assets/male-tee-tucked.glb",
       "thumbnailUrl": "assets/male-tee-tucked.png",
-      "hidesRegions": [
-        "torso"
-      ],
+      "hidesRegions": [],
       "attachmentBone": null,
       "isDefault": true,
       "coinCost": 0,
@@ -2510,9 +2528,7 @@
       "rarity": "common",
       "assetUrl": "assets/male-tee-polo.glb",
       "thumbnailUrl": "assets/male-tee-polo.png",
-      "hidesRegions": [
-        "torso"
-      ],
+      "hidesRegions": [],
       "attachmentBone": null,
       "isDefault": true,
       "coinCost": 0,
@@ -4348,41 +4364,811 @@
       "coinCost": 150,
       "unlockWins": 0,
       "placeholder": "trousers"
+    },
+    {
+      "id": "female-shoe-maryjane",
+      "name": "Mary Jane Heels",
+      "category": "shoes",
+      "body": "female",
+      "styleTags": [
+        "formal",
+        "elegant",
+        "romantic"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "formal",
+        "elegant",
+        "romantic"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-shoe-maryjane.glb",
+      "thumbnailUrl": "assets/female-shoe-maryjane.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "shoes"
+    },
+    {
+      "id": "female-shoe-stiletto",
+      "name": "Stiletto Ankle Boots",
+      "category": "shoes",
+      "body": "female",
+      "styleTags": [
+        "formal",
+        "elegant",
+        "luxury",
+        "party",
+        "evening"
+      ],
+      "colourTags": [
+        "red"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "formal",
+        "elegant",
+        "luxury",
+        "party",
+        "evening"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-shoe-stiletto.glb",
+      "thumbnailUrl": "assets/female-shoe-stiletto.png",
+      "hidesRegions": [
+        "feet"
+      ],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "shoes"
+    },
+    {
+      "id": "female-shoe-flats",
+      "name": "Ballet Flats",
+      "category": "shoes",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "elegant",
+        "romantic"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "elegant",
+        "romantic"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-shoe-flats.glb",
+      "thumbnailUrl": "assets/female-shoe-flats.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "shoes"
+    },
+    {
+      "id": "female-shoe-sandals",
+      "name": "Strappy Sandals",
+      "category": "shoes",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "summer",
+        "beach"
+      ],
+      "colourTags": [
+        "brown"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "summer",
+        "beach"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-shoe-sandals.glb",
+      "thumbnailUrl": "assets/female-shoe-sandals.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "shoes"
+    },
+    {
+      "id": "female-shoe-slippers",
+      "name": "Flat Slippers",
+      "category": "shoes",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "summer",
+        "beach"
+      ],
+      "colourTags": [
+        "blue"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "summer",
+        "beach"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-shoe-slippers.glb",
+      "thumbnailUrl": "assets/female-shoe-slippers.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "shoes"
+    },
+    {
+      "id": "female-hair-bob",
+      "name": "Chic Bob",
+      "category": "hair",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-hair-bob.glb",
+      "thumbnailUrl": "assets/female-hair-bob.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "female-hair-ponytail",
+      "name": "Sleek Ponytail",
+      "category": "hair",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "brown"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/female-hair-ponytail.glb",
+      "thumbnailUrl": "assets/female-hair-ponytail.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 80,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "female-hair-long",
+      "name": "Long & Flowing",
+      "category": "hair",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "brown"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/female-hair-long.glb",
+      "thumbnailUrl": "assets/female-hair-long.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 120,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "female-lipstick-nude",
+      "name": "Peach Nude",
+      "category": "makeup",
+      "body": "female",
+      "styleTags": [
+        "romantic",
+        "party"
+      ],
+      "colourTags": [
+        "nude"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "romantic",
+        "party"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-lipstick-nude.glb",
+      "thumbnailUrl": "assets/female-lipstick-nude.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "makeup"
+    },
+    {
+      "id": "female-lipstick-cocoa",
+      "name": "Cocoa Gloss",
+      "category": "makeup",
+      "body": "female",
+      "styleTags": [
+        "romantic",
+        "party"
+      ],
+      "colourTags": [
+        "brown"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "romantic",
+        "party"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-lipstick-cocoa.glb",
+      "thumbnailUrl": "assets/female-lipstick-cocoa.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "makeup"
+    },
+    {
+      "id": "female-lipstick-coral",
+      "name": "Coral Kiss",
+      "category": "makeup",
+      "body": "female",
+      "styleTags": [
+        "romantic",
+        "party"
+      ],
+      "colourTags": [
+        "coral"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "romantic",
+        "party"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-lipstick-coral.glb",
+      "thumbnailUrl": "assets/female-lipstick-coral.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "makeup"
+    },
+    {
+      "id": "female-lipstick-berry",
+      "name": "Berry Wine",
+      "category": "makeup",
+      "body": "female",
+      "styleTags": [
+        "romantic",
+        "party"
+      ],
+      "colourTags": [
+        "burgundy"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "romantic",
+        "party"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-lipstick-berry.glb",
+      "thumbnailUrl": "assets/female-lipstick-berry.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "makeup"
+    },
+    {
+      "id": "female-lipstick-pink",
+      "name": "Hot Pink",
+      "category": "makeup",
+      "body": "female",
+      "styleTags": [
+        "romantic",
+        "party"
+      ],
+      "colourTags": [
+        "pink"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "romantic",
+        "party"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-lipstick-pink.glb",
+      "thumbnailUrl": "assets/female-lipstick-pink.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "makeup"
+    },
+    {
+      "id": "female-nose-ring-gold",
+      "name": "Gold Nose Hoop",
+      "category": "accessories",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "party"
+      ],
+      "colourTags": [
+        "gold"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "party"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-nose-ring-gold.glb",
+      "thumbnailUrl": "assets/female-nose-ring-gold.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "accessories"
+    },
+    {
+      "id": "female-hair-pixie",
+      "name": "Textured Pixie",
+      "category": "hair",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "brown"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-hair-pixie.glb",
+      "thumbnailUrl": "assets/female-hair-pixie.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "female-hair-fringe-bob",
+      "name": "Blunt Fringe Bob",
+      "category": "hair",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "auburn"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-hair-fringe-bob.glb",
+      "thumbnailUrl": "assets/female-hair-fringe-bob.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "female-hair-braided-bun",
+      "name": "Braided Top Knot",
+      "category": "hair",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "black",
+        "purple"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/female-hair-braided-bun.glb",
+      "thumbnailUrl": "assets/female-hair-braided-bun.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 60,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "female-hair-curls",
+      "name": "Tousled Curls",
+      "category": "hair",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "brown"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/female-hair-curls.glb",
+      "thumbnailUrl": "assets/female-hair-curls.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 100,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "female-hair-cornrows",
+      "name": "Beaded Cornrows",
+      "category": "hair",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "burgundy"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/female-hair-cornrows.glb",
+      "thumbnailUrl": "assets/female-hair-cornrows.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 80,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "female-hair-vintage-updo",
+      "name": "Vintage Updo",
+      "category": "hair",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "brown"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-hair-vintage-updo.glb",
+      "thumbnailUrl": "assets/female-hair-vintage-updo.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "male-hair-textured",
+      "name": "Textured Crop",
+      "category": "hair",
+      "body": "male",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "brown"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/male-hair-textured.glb",
+      "thumbnailUrl": "assets/male-hair-textured.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "male-hair-side-sweep",
+      "name": "Side Sweep",
+      "category": "hair",
+      "body": "male",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "brown"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/male-hair-side-sweep.glb",
+      "thumbnailUrl": "assets/male-hair-side-sweep.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "male-hair-slick-back",
+      "name": "Slick Back",
+      "category": "hair",
+      "body": "male",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/male-hair-slick-back.glb",
+      "thumbnailUrl": "assets/male-hair-slick-back.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "male-hair-messy",
+      "name": "Messy Shag",
+      "category": "hair",
+      "body": "male",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "brown"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/male-hair-messy.glb",
+      "thumbnailUrl": "assets/male-hair-messy.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 40,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "male-hair-layered",
+      "name": "Layered Fringe",
+      "category": "hair",
+      "body": "male",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "brown"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/male-hair-layered.glb",
+      "thumbnailUrl": "assets/male-hair-layered.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 60,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "male-hair-spiked",
+      "name": "Spiked Quiff",
+      "category": "hair",
+      "body": "male",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "black",
+        "red"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/male-hair-spiked.glb",
+      "thumbnailUrl": "assets/male-hair-spiked.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 80,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "male-hair-pompadour",
+      "name": "Swept Pompadour",
+      "category": "hair",
+      "body": "male",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "brown"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/male-hair-pompadour.glb",
+      "thumbnailUrl": "assets/male-hair-pompadour.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 100,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "male-hair-cornrows",
+      "name": "Beaded Cornrows",
+      "category": "hair",
+      "body": "male",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "burgundy"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/male-hair-cornrows.glb",
+      "thumbnailUrl": "assets/male-hair-cornrows.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 80,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "male-hair-braided-bun",
+      "name": "Braided Top Knot",
+      "category": "hair",
+      "body": "male",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "black",
+        "purple"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/male-hair-braided-bun.glb",
+      "thumbnailUrl": "assets/male-hair-braided-bun.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 120,
+      "unlockWins": 0,
+      "placeholder": "hair"
     }
   ],
   "themes": [
-    {
-      "id": "lagos-owambe",
-      "title": "Lagos Owambe",
-      "description": "Create a look that captures Lagos Owambe. Let the outfit, colours and details tell the story.",
-      "styleTags": [
-        "traditional",
-        "wedding",
-        "party",
-        "african"
-      ],
-      "requiredCategories": [
-        "outfit",
-        "shoes",
-        "jewellery"
-      ],
-      "optionalCategories": [
-        "hair",
-        "bags",
-        "glasses",
-        "accessories",
-        "makeup"
-      ],
-      "bodyEligibility": [
-        "female",
-        "male"
-      ],
-      "systemWeight": 0.35,
-      "stylingSeconds": 180,
-      "votingSeconds": 300,
-      "minVotes": 6,
-      "budget": null
-    },
     {
       "id": "wedding-guest",
       "title": "Wedding Guest",
@@ -4574,37 +5360,6 @@
         "party",
         "evening",
         "streetwear"
-      ],
-      "requiredCategories": [
-        "outfit",
-        "shoes"
-      ],
-      "optionalCategories": [
-        "hair",
-        "bags",
-        "glasses",
-        "accessories",
-        "makeup"
-      ],
-      "bodyEligibility": [
-        "female",
-        "male"
-      ],
-      "systemWeight": 0.35,
-      "stylingSeconds": 180,
-      "votingSeconds": 300,
-      "minVotes": 6,
-      "budget": null
-    },
-    {
-      "id": "abuja-dinner",
-      "title": "Abuja Dinner",
-      "description": "Create a look that captures Abuja Dinner. Let the outfit, colours and details tell the story.",
-      "styleTags": [
-        "elegant",
-        "formal",
-        "evening",
-        "muted"
       ],
       "requiredCategories": [
         "outfit",
@@ -4986,12 +5741,6 @@
   ],
   "clients": [
     {
-      "id": "abuja-dinner",
-      "name": "Zara",
-      "brief": "I have a dinner in Abuja. Elegant, but not too loud.",
-      "themeId": "abuja-dinner"
-    },
-    {
       "id": "office-executive",
       "name": "Tunde",
       "brief": "My first day as an executive. Help me make the right impression.",
@@ -5003,5 +5752,312 @@
       "brief": "My film premieres tonight. I want a memorable red-carpet entrance.",
       "themeId": "red-carpet"
     }
-  ]
+  ],
+  "itemColourPalette": {
+    "black": "#28262a",
+    "white": "#eee5d6",
+    "red": "#a53541",
+    "pink": "#c98491",
+    "blue": "#48879a",
+    "navy": "#283d54",
+    "green": "#397c65",
+    "purple": "#674269",
+    "gold": "#c39b55",
+    "grey": "#8e8c87",
+    "orange": "#c5773d",
+    "yellow": "#ddba55"
+  },
+  "wardrobePresentation": {
+    "female-essential": {
+      "category": "dress",
+      "styleGroup": "Casual"
+    },
+    "female-executive": {
+      "category": "outfit",
+      "styleGroup": "Corporate"
+    },
+    "female-redcarpet": {
+      "category": "dress",
+      "styleGroup": "Formal"
+    },
+    "female-romantic": {
+      "category": "dress",
+      "styleGroup": "Date Night"
+    },
+    "female-night": {
+      "category": "dress",
+      "styleGroup": "Party"
+    },
+    "female-business": {
+      "category": "outfit",
+      "styleGroup": "Corporate"
+    },
+    "female-dinner": {
+      "category": "outfit",
+      "styleGroup": "Formal"
+    },
+    "male-essential": {
+      "category": "outfit",
+      "styleGroup": "Casual"
+    },
+    "male-executive": {
+      "category": "outfit",
+      "styleGroup": "Corporate"
+    },
+    "male-redcarpet": {
+      "category": "outfit",
+      "styleGroup": "Formal"
+    },
+    "male-business": {
+      "category": "outfit",
+      "styleGroup": "Corporate"
+    },
+    "female-date-cutout": {
+      "category": "dress",
+      "styleGroup": "Date Night"
+    },
+    "female-date-keyhole": {
+      "category": "dress",
+      "styleGroup": "Date Night"
+    },
+    "female-date-strapless": {
+      "category": "dress",
+      "styleGroup": "Date Night"
+    },
+    "male-dinner-suit": {
+      "category": "outfit",
+      "styleGroup": "Formal"
+    },
+    "male-bowtie-suit": {
+      "category": "outfit",
+      "styleGroup": "Formal"
+    },
+    "male-tailored-suit": {
+      "category": "outfit",
+      "styleGroup": "Formal"
+    },
+    "male-tee-relaxed": {
+      "category": "shirts",
+      "styleGroup": "Casual"
+    },
+    "male-tee-tucked": {
+      "category": "shirts",
+      "styleGroup": "Casual"
+    },
+    "male-tee-polo": {
+      "category": "shirts",
+      "styleGroup": "Casual"
+    },
+    "male-trousers-classic": {
+      "category": "trousers",
+      "styleGroup": "Casual"
+    },
+    "male-trousers-cargo": {
+      "category": "trousers",
+      "styleGroup": "Casual"
+    },
+    "male-trousers-harem": {
+      "category": "trousers",
+      "styleGroup": "Casual"
+    },
+    "male-trousers-denim-shorts": {
+      "category": "trousers",
+      "styleGroup": "Casual"
+    },
+    "female-trousers-cargo": {
+      "category": "trousers",
+      "styleGroup": "Casual"
+    },
+    "female-trousers-harem": {
+      "category": "trousers",
+      "styleGroup": "Casual"
+    },
+    "female-trousers-denim-shorts": {
+      "category": "trousers",
+      "styleGroup": "Casual"
+    },
+    "female-trousers-tailored": {
+      "category": "trousers",
+      "styleGroup": "Corporate"
+    },
+    "female-top-camisole": {
+      "category": "tops",
+      "styleGroup": "Date Night"
+    },
+    "female-top-keyhole": {
+      "category": "tops",
+      "styleGroup": "Casual"
+    },
+    "female-top-tee": {
+      "category": "tops",
+      "styleGroup": "Casual"
+    },
+    "female-dress-collection-1": {
+      "category": "dress",
+      "styleGroup": "Casual"
+    },
+    "female-dress-collection-2": {
+      "category": "dress",
+      "styleGroup": "Casual"
+    },
+    "female-dress-collection-3": {
+      "category": "dress",
+      "styleGroup": "Casual"
+    },
+    "female-dress-collection-4": {
+      "category": "dress",
+      "styleGroup": "Casual"
+    },
+    "female-dress-collection-5": {
+      "category": "dress",
+      "styleGroup": "Corporate"
+    },
+    "female-dress-collection-6": {
+      "category": "dress",
+      "styleGroup": "Casual"
+    },
+    "female-dress-collection-7": {
+      "category": "dress",
+      "styleGroup": "Casual"
+    },
+    "female-dress-collection-8": {
+      "category": "dress",
+      "styleGroup": "Casual"
+    },
+    "female-dress-collection-9": {
+      "category": "dress",
+      "styleGroup": "Casual",
+      "duplicateOf": "female-essential"
+    },
+    "female-dress-collection-10": {
+      "category": "dress",
+      "styleGroup": "Corporate"
+    },
+    "female-skirts-collection-1": {
+      "category": "skirts",
+      "styleGroup": "Casual"
+    },
+    "female-skirts-collection-2": {
+      "category": "skirts",
+      "styleGroup": "Casual"
+    },
+    "female-skirts-collection-3": {
+      "category": "skirts",
+      "styleGroup": "Casual"
+    },
+    "female-skirts-collection-4": {
+      "category": "skirts",
+      "styleGroup": "Casual"
+    },
+    "female-skirts-collection-5": {
+      "category": "skirts",
+      "styleGroup": "Party"
+    },
+    "female-skirts-collection-6": {
+      "category": "skirts",
+      "styleGroup": "Casual"
+    },
+    "female-skirts-collection-7": {
+      "category": "skirts",
+      "styleGroup": "Casual"
+    },
+    "female-skirts-collection-8": {
+      "category": "skirts",
+      "styleGroup": "Casual"
+    },
+    "female-skirts-collection-9": {
+      "category": "skirts",
+      "styleGroup": "Casual"
+    },
+    "female-skirts-collection-10": {
+      "category": "skirts",
+      "styleGroup": "Casual"
+    },
+    "female-tops-collection-1": {
+      "category": "tops",
+      "styleGroup": "Casual"
+    },
+    "female-tops-collection-2": {
+      "category": "tops",
+      "styleGroup": "Date Night",
+      "duplicateOf": "female-top-camisole"
+    },
+    "female-tops-collection-3": {
+      "category": "tops",
+      "styleGroup": "Casual",
+      "duplicateOf": "female-top-keyhole"
+    },
+    "female-tops-collection-4": {
+      "category": "tops",
+      "styleGroup": "Casual"
+    },
+    "female-tops-collection-5": {
+      "category": "tops",
+      "styleGroup": "Casual"
+    },
+    "female-tops-collection-6": {
+      "category": "tops",
+      "styleGroup": "Date Night"
+    },
+    "female-tops-collection-7": {
+      "category": "tops",
+      "styleGroup": "Casual"
+    },
+    "female-tops-collection-8": {
+      "category": "tops",
+      "styleGroup": "Date Night"
+    },
+    "female-tops-collection-9": {
+      "category": "tops",
+      "styleGroup": "Corporate"
+    },
+    "female-tops-collection-10": {
+      "category": "tops",
+      "styleGroup": "Casual"
+    },
+    "female-trousers-collection-1": {
+      "category": "trousers",
+      "styleGroup": "Casual",
+      "duplicateOf": "female-trousers-cargo"
+    },
+    "female-trousers-collection-2": {
+      "category": "trousers",
+      "styleGroup": "Casual",
+      "duplicateOf": "female-trousers-harem"
+    },
+    "female-trousers-collection-3": {
+      "category": "trousers",
+      "styleGroup": "Casual",
+      "duplicateOf": "female-trousers-denim-shorts"
+    },
+    "female-trousers-collection-4": {
+      "category": "trousers",
+      "styleGroup": "Corporate",
+      "duplicateOf": "female-trousers-tailored"
+    },
+    "female-trousers-collection-5": {
+      "category": "trousers",
+      "styleGroup": "Casual"
+    },
+    "female-trousers-collection-6": {
+      "category": "trousers",
+      "styleGroup": "Casual"
+    },
+    "female-trousers-collection-7": {
+      "category": "trousers",
+      "styleGroup": "Casual"
+    },
+    "female-trousers-collection-8": {
+      "category": "trousers",
+      "styleGroup": "Corporate"
+    },
+    "female-trousers-collection-9": {
+      "category": "trousers",
+      "styleGroup": "Casual"
+    },
+    "female-trousers-collection-10": {
+      "category": "trousers",
+      "styleGroup": "Casual"
+    }
+  }
 }

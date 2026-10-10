@@ -8,9 +8,13 @@ class SlayLook {
       required this.facePreset,
       required this.items,
       required this.pose,
-      required this.background});
+      required this.background,
+      this.avatarId,
+      this.itemColours = const {}});
   final String body, skinTone, facePreset, pose, background;
+  final String? avatarId;
   final Map<String, String> items;
+  final Map<String, String> itemColours;
   factory SlayLook.initial([String body = 'female']) => SlayLook(
       body: body,
       skinTone: '#623a27',
@@ -20,30 +24,43 @@ class SlayLook {
       background: 'studio');
   factory SlayLook.fromJson(Map<String, dynamic> j) => SlayLook(
       body: j['body'],
+      avatarId: j['avatarId'],
       skinTone: j['skinTone'],
       facePreset: j['facePreset'],
       items: Map<String, String>.from(j['items']),
+      itemColours: Map<String, String>.from(j['itemColours'] ?? {}),
       pose: j['pose'],
       background: j['background']);
   Map<String, dynamic> toJson() => {
         'body': body,
+        if (avatarId != null) 'avatarId': avatarId,
         'skinTone': skinTone,
         'facePreset': facePreset,
         'items': items,
+        'itemColours': itemColours,
         'pose': pose,
         'background': background
       };
   SlayLook copy(
-          {String? skinTone,
+          {String? avatarId,
+          String? skinTone,
           String? facePreset,
           Map<String, String>? items,
+          Map<String, String>? itemColours,
           String? pose,
           String? background}) =>
       SlayLook(
           body: body,
+          avatarId: avatarId ?? this.avatarId,
           skinTone: skinTone ?? this.skinTone,
           facePreset: facePreset ?? this.facePreset,
           items: Map.unmodifiable(items ?? this.items),
+          itemColours: Map.unmodifiable({
+            for (final entry in (itemColours ?? this.itemColours).entries)
+              if ((items ?? this.items)[entry.key] == this.items[entry.key] &&
+                  this.items.containsKey(entry.key))
+                entry.key: entry.value
+          }),
           pose: pose ?? this.pose,
           background: background ?? this.background);
   bool get isDressed =>
@@ -89,10 +106,21 @@ const slayStyleGroups = <String, Set<String>>{
   'Formal': {'formal', 'elegant', 'luxury'},
   'Traditional': {'traditional', 'african', 'bridal', 'royal'},
 };
+String slayPrimaryStyle(Map item) {
+  final tags = (item['styleTags'] as List? ?? []).cast<String>();
+  for (final group in ['Traditional', 'Corporate']) {
+    if (tags.any(slayStyleGroups[group]!.contains)) return group;
+  }
+  for (final tag in tags) {
+    for (final group in slayStyleGroups.entries) {
+      if (group.value.contains(tag)) return group.key;
+    }
+  }
+  return 'Casual';
+}
+
 bool slayMatchesStyle(Map item, String group) =>
-    group == 'All' ||
-    (item['styleTags'] as List? ?? [])
-        .any((tag) => slayStyleGroups[group]?.contains(tag) == true);
+    slayPrimaryStyle(item) == group;
 
 class SlayApi {
   SlayApi(this.client);

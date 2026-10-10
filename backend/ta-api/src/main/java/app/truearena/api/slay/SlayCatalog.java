@@ -14,7 +14,8 @@ import java.util.*;
 public class SlayCatalog {
     public record Client(String id, String name, String brief, String themeId) {}
 
-    public record Avatar(String body, String assetUrl, String rigVersion) {}
+    public record Avatar(String body, String assetUrl, String rigVersion,
+            String id, String name, String fitUrl, String thumbnailUrl) {}
 
     /** One delivered art file: its content-hashed name under {@code base}, and whether the app bundles it. */
     public record AssetFile(String name, String sha256, long bytes, boolean bundled) {}
@@ -33,6 +34,8 @@ public class SlayCatalog {
             List<String> skinTones,
             List<String> facePresets,
             List<Client> clients,
+            Map<String, String> itemColourPalette,
+            Map<String, Map<String, String>> wardrobePresentation,
             Assets assets) {}
 
     private final Manifest manifest;
@@ -69,11 +72,20 @@ public class SlayCatalog {
                         catalog.skinTones(),
                         catalog.facePresets(),
                         catalog.clients(),
+                        catalog.itemColourPalette(),
+                        catalog.wardrobePresentation(),
                         assets);
     }
 
     public Manifest manifest() {
         return manifest;
+    }
+
+    public void validateAvatar(Look look) {
+        if (manifest.avatars().stream().noneMatch(a -> a.body().equals(look.body())
+                && (look.avatarId() == null || Objects.equals(
+                        a.id() == null ? a.body() : a.id(), look.avatarId()))))
+            throw new IllegalArgumentException("Choose an available character for this avatar body");
     }
 
     public Map<String, Item> items() {

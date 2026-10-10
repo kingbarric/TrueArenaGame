@@ -9,12 +9,12 @@ const catalog = JSON.parse(read('backend/ta-api/src/main/resources/slay/catalog.
 const manifest = JSON.parse(read('backend/ta-api/src/main/resources/slay/asset-manifest.json'));
 
 test('the delivery manifest covers every catalogue file under a content-hashed name', () => {
-  const paths = [...catalog.avatars.map(a => a.assetUrl), ...catalog.items.flatMap(i => [i.assetUrl, i.thumbnailUrl])]
+  const paths = [...catalog.avatars.flatMap(a => [a.assetUrl, a.fitUrl, a.thumbnailUrl]), ...catalog.items.flatMap(i => [i.assetUrl, i.thumbnailUrl])]
     .filter(path => path?.startsWith('assets/'));
   for (const path of paths) {
     const file = manifest.files[path];
     assert.ok(file, `${path} missing from asset-manifest.json; run npm run build`);
-    assert.match(file.name, new RegExp(`\\.${file.sha256.slice(0, 16)}\\.(glb|png)$`));
+    assert.match(file.name, new RegExp(`\\.${file.sha256.slice(0, 16)}\\.(glb|png|json)$`));
   }
   assert.match(manifest.base, /^https:\/\/.+\/$/);
 });

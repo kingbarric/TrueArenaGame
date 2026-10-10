@@ -1,6 +1,10 @@
 // Sources are downloaded MakeHuman packs; see docs/SLAYHUUD_ASSET_CREDITS.md.
 import {femaleWardrobe} from './female-wardrobe.mjs';
+import {femaleShoes} from './female-shoes.mjs';
+import {femaleBeauty} from './female-beauty.mjs';
+import {hairExpansion} from './hair-expansion.mjs';
 export const expansion = {
+  ...femaleShoes,
   'female-date-cutout': ['female', 'clothes/toigo_cut_out_dress/dress_cut_outs.obj', 'clothes/toigo_cut_out_dress/cutOutDress.png'],
   'female-date-keyhole': ['female', 'clothes/toigo_keyhole_neck_dress/dress_keyhole_neck.obj', 'clothes/toigo_keyhole_neck_dress/ZebraD.png'],
   'female-date-strapless': ['female', 'clothes/toigo_strapless_ruffle_top_dress/dress_strapless_ruffle_top.obj', 'clothes/toigo_strapless_ruffle_top_dress/SkirtRuffleTop.png'],
@@ -36,3 +40,5 @@ for (const [name, colour] of [['ruby', [.55, .015, .06, 1]], ['rose', [.68, .14,
 }
 
 for (const item of femaleWardrobe) expansion[item.id] = item.asset;
+for (const item of femaleBeauty) expansion[item.id] = item.asset;
+for (const item of hairExpansion) expansion[item.id] = item.asset;

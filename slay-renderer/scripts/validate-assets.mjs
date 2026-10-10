@@ -21,7 +21,8 @@ export function validateDelivery(root, catalog, {partial = false} = {}) {
       check(document, new Set(names), record);
     } catch (error) { record.status = 'invalid'; record.errors.push(error.message); }
   };
-  for (const avatar of catalog.avatars) inspect(avatar.body + '.glb', (document, bones, record) => {
+  for (const avatar of catalog.avatars) inspect(avatar.assetUrl?.split('/').pop() ?? avatar.body + '.glb', (document, bones, record) => {
+    if (avatar.fitUrl && !existsSync(resolve(root, avatar.fitUrl.split('/').pop()))) throw Error('avatar wardrobe fit file missing');
     if (!bones.size) throw Error('base avatar must have a named skeleton');
     const regions = new Set((document.nodes ?? []).filter(node => node.name?.startsWith('region_')).map(node => node.name.slice(7)));
     rigs.set(avatar.body, {bones, regions});

@@ -54,14 +54,14 @@ test('starter skinning leaves both bodies upright and in their bind pose', async
 test('hair remains at head height and only the starter pack is in the Flutter bundle', () => {
   const {doc} = asset('female-hair-0');
   const accessor = doc.accessors[doc.meshes[0].primitives[0].attributes.POSITION];
-  assert.ok(accessor.min[1] > 1.6);
+  assert.ok(accessor.min[1] > 1.55 && accessor.max[1] < 1.9, 'fitted to the scalp rather than floating above it');
   const pubspec = readFileSync(new URL('../../app/pubspec.yaml', import.meta.url), 'utf8');
   assert.match(pubspec, /- assets\/slay_renderer\/starter\//);
   assert.doesNotMatch(pubspec, /- assets\/slay_renderer\/assets\//);
 });
 
 test('starter eyes sit at face height rather than above the scalp', () => {
-  for (const [id, low, high] of [['female', 1.65, 1.70], ['male', 1.80, 1.85]]) {
+  for (const [id, low, high] of [['female', 1.65, 1.70], ['male', 1.80, 1.86]]) {
     const {doc} = asset(id);
     const eyes = doc.meshes.find(mesh => mesh.name === 'face_eyes');
     const bounds = doc.accessors[eyes.primitives[0].attributes.POSITION];

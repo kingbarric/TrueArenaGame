@@ -3,11 +3,16 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/app_state.dart';
+import 'slay_assets.dart';
 import 'slay_models.dart';
 import 'slay_stage.dart';
 import 'slay_theme.dart';
 import '../../theme/neon_theme.dart';
 import 'slay_game_menu.dart';
+import 'slay_pose_picker.dart';
+import 'slay_style_report.dart';
+import 'slay_colour_picker.dart';
+import 'slay_wardrobe.dart';
 
 class SlayStudioScreen extends StatefulWidget {
   const SlayStudioScreen(
@@ -34,7 +39,7 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
           : (widget.theme['bodyEligibility'] as List).first as String);
   late final Set<String> _owned = {...widget.owned};
   final _stage = SlayStageController();
-  String _category = 'outfit', _styleGroup = 'All';
+  String _category = 'outfit', _styleGroup = '';
   SlayLook? _draft;
   int? _coins;
   bool _selecting = false;
@@ -131,6 +136,9 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
           .map((item) => item['id'])
           .toSet();
       if (look.body == _look.body &&
+          (look.avatarId == null ||
+              (widget.catalog['avatars'] as List).any(
+                  (a) => a['body'] == look.body && a['id'] == look.avatarId)) &&
           look.items.values.every(available.contains) &&
           mounted) {
         setState(() => _draft = look);
@@ -227,57 +235,8 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
             context: context,
             isScrollControlled: true,
             backgroundColor: context.neon.bg,
-            builder: (c) => SafeArea(
-                child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(mainAxisSize: MainAxisSize.min, children: [
-                      const SlayLabel('Your style report'),
-                      const SizedBox(height: 10),
-                      Text('${score['overall']}',
-                          style: Theme.of(c)
-                              .textTheme
-                              .displaySmall
-                              ?.copyWith(fontSize: 64)),
-                      Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: List.generate(
-                              3,
-                              (i) => Icon(
-                                  i < (score['stars'] as num)
-                                      ? Icons.star_rounded
-                                      : Icons.star_outline_rounded,
-                                  color: context.neon.gold,
-                                  size: 32))),
-                      const SizedBox(height: 20),
-                      for (final dim in {
-                        'themeFit': 'Theme fit',
-                        'requirements': 'Required items',
-                        'colour': 'Colour harmony',
-                        'completeness': 'Completeness'
-                      }.entries)
-                        Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: Row(children: [
-                              Expanded(child: Text(dim.value)),
-                              Text('${score[dim.key]} / 100',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w600))
-                            ])),
-                      if ((score['missing'] as List).isNotEmpty)
-                        Text(
-                            'Try adding: ${(score['missing'] as List).join(', ')}',
-                            style: TextStyle(color: context.neon.mute)),
-                      const SizedBox(height: 14),
-                      Text('Coins and XP are awarded once per theme each day.',
-                          style: TextStyle(
-                              color: context.neon.mute, fontSize: 12)),
-                      const SizedBox(height: 20),
-                      SizedBox(
-                          width: double.infinity,
-                          child: SlayButton(
-                              onPressed: () => Navigator.pop(c),
-                              child: const Text('Back to the studio'))),
-                    ]))));
+            builder: (c) => SlayStyleReport(
+                score: score, themeTitle: widget.theme['title']));
       }
     } catch (e) {
       if (mounted && !e.toString().contains('cancelled')) {
@@ -297,30 +256,22 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
   Widget build(BuildContext context) => Theme(
       data: slayTheme(context),
       child: Builder(builder: (context) {
-        final clothing = [
-          'outfit',
-          'dress',
-          'tops',
-          'shirts',
-          'trousers',
-          'skirts'
-        ].contains(_category);
-        final categoryItems = (widget.catalog['items'] as List)
-            .cast<Map>()
-            .where((i) =>
-                i['assetUrl'] != null &&
-                i['category'] == _category &&
-                (i['body'] == 'unisex' || i['body'] == _look.body))
+        final wardrobe = SlayWardrobe(widget.catalog, _look.body);
+        final categories = _categories.entries
+            .where((c) => wardrobe.categories.contains(c.key))
             .toList();
-        final groups = [
-          'All',
-          ...slayStyleGroups.keys
-              .where((g) => categoryItems.any((i) => slayMatchesStyle(i, g)))
-        ];
+        final category = categories.any((c) => c.key == _category)
+            ? _category
+            : categories.firstOrNull?.key ?? '';
+        final clothing = SlayWardrobe.clothing.contains(category);
+        final groups = wardrobe.groupsFor(category);
         final selectedGroup =
-            groups.contains(_styleGroup) ? _styleGroup : 'All';
-        final items = categoryItems
-            .where((i) => !clothing || slayMatchesStyle(i, selectedGroup))
+            groups.contains(_styleGroup) ? _styleGroup : groups.firstOrNull;
+        final items =
+            wardrobe.itemsFor(category, clothing ? selectedGroup : null);
+        final equippedSlots = _look.items.entries
+            .where((entry) => wardrobe.categoryForId(entry.value) == category)
+            .map((entry) => entry.key)
             .toList();
         final canRemove = [
           'outfit',
@@ -338,7 +289,7 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
           'glasses',
           'headwear',
           'accessories'
-        ].contains(_category);
+        ].contains(category);
         return Scaffold(
             appBar: AppBar(title: const Text('Your studio'), actions: [
               Padding(
@@ -410,7 +361,7 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                                     _look = SlayLook.initial(selected.single);
                                     _category = 'outfit';
                                     _draft = null;
-                                    _styleGroup = 'All';
+                                    _styleGroup = '';
                                   });
                                   _restore();
                                 },
@@ -568,7 +519,7 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                           ],
                           SlayShowOffControl(
                               controller: _stage,
-                              enabled: !_busy,
+                              enabled: !_busy && !_selecting,
                               onFinished: (pose) =>
                                   _change(_look.copy(pose: pose)),
                               onError: (error) =>
@@ -583,7 +534,7 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                           const SizedBox(width: 8),
                           SlayPill(
                               label:
-                                  'Pose · ${_look.pose[0].toUpperCase()}${_look.pose.substring(1)}',
+                                  'Pose · ${slayPoses[_look.pose]?.label ?? _look.pose}',
                               icon: Icons.accessibility_new,
                               onPressed: (_busy || _selecting)
                                   ? null
@@ -611,22 +562,17 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                         scrollDirection: Axis.horizontal,
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         children: [
-                          for (final c in _categories.entries.where((c) =>
-                              (widget.catalog['items'] as List).any((i) =>
-                                  i['assetUrl'] != null &&
-                                  i['category'] == c.key &&
-                                  (i['body'] == 'unisex' ||
-                                      i['body'] == _look.body))))
+                          for (final c in categories)
                             Padding(
                                 padding: const EdgeInsets.only(right: 4),
                                 child: SlayTab(
                                     label: c.value,
-                                    selected: _category == c.key,
+                                    selected: category == c.key,
                                     onPressed: (_busy || _selecting)
                                         ? null
                                         : () => setState(() {
                                               _category = c.key;
-                                              _styleGroup = 'All';
+                                              _styleGroup = '';
                                             })))
                         ])),
                 if (clothing) ...[
@@ -650,6 +596,22 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                                               () => _styleGroup = group)))
                           ])),
                 ],
+                if ({'shoes', 'shirts', 'tops'}.contains(category) &&
+                    _look.items.containsKey(category))
+                  SlayColourPicker(
+                      palette: Map<String, String>.from(
+                          widget.catalog['itemColourPalette'] ?? {}),
+                      selected: _look.itemColours[category],
+                      enabled: !_busy && !_selecting,
+                      onChanged: (colour) {
+                        final colours = {..._look.itemColours};
+                        if (colour == null) {
+                          colours.remove(category);
+                        } else {
+                          colours[category] = colour;
+                        }
+                        _change(_look.copy(itemColours: colours));
+                      }),
                 Expanded(
                     child: GridView.builder(
                         padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
@@ -667,17 +629,19 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                           if (canRemove && i == 0) {
                             return SlayWardrobeTile(
                                 name: 'None',
-                                selected: !_look.items.containsKey(_category),
+                                selected: equippedSlots.isEmpty,
                                 owned: true,
                                 onTap: (_busy || _selecting)
                                     ? null
                                     : () => _change(_look.copy(
                                         items: {..._look.items}
-                                          ..remove(_category))));
+                                          ..removeWhere((slot, _) =>
+                                              equippedSlots.contains(slot)))));
                           }
                           final item = Map<String, dynamic>.from(
                               items[i - (canRemove ? 1 : 0)]);
-                          final selected = _look.items[_category] == item['id'],
+                          final selected = _look.items.values.any((id) =>
+                                  wardrobe.canonicalId(id) == item['id']),
                               owned = _owned.contains(item['id']);
                           return SlayWardrobeTile(
                             name: item['name'],
@@ -734,44 +698,68 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
             })));
       }));
   Future<void> _pick(String category, List<dynamic> options) async {
-    const poseDescriptions = {
-      'signature': 'Relaxed arms with a little attitude',
-      'confident': 'Hand on hip, ready for the spotlight',
-      'editorial': 'A turned waist and tilted head',
-      'celebrate': 'Arms up — own your win',
-    };
     final chosen = await showModalBottomSheet<String>(
         context: context,
         backgroundColor: context.neon.bg,
-        builder: (c) => SafeArea(
+        builder: (c) => category == 'pose'
+            ? SlayPosePicker(
+                selected: _look.pose,
+                available: options.cast<String>(),
+                onSelected: (pose) => Navigator.pop(c, pose))
+            : SafeArea(
                 child: Wrap(children: [
-              for (final option in options)
-                ListTile(
-                    title: Text(option.toString()[0].toUpperCase() +
-                        option.toString().substring(1)),
-                    subtitle: category == 'pose'
-                        ? Text(poseDescriptions[option] ?? '')
-                        : null,
-                    leading: category == 'pose'
-                        ? const Icon(Icons.accessibility_new_rounded)
-                        : null,
-                    trailing: Icon(
-                        (category == 'pose' ? _look.pose : _look.background) ==
-                                option
-                            ? Icons.check_circle_rounded
-                            : Icons.chevron_right,
-                        color: (category == 'pose'
-                                    ? _look.pose
-                                    : _look.background) ==
-                                option
-                            ? context.neon.gold
-                            : null),
-                    onTap: () => Navigator.pop(c, option))
-            ])));
+                for (final option in options)
+                  ListTile(
+                      title: Text(option.toString()[0].toUpperCase() +
+                          option.toString().substring(1)),
+                      trailing: Icon(
+                          _look.background == option
+                              ? Icons.check_circle_rounded
+                              : Icons.chevron_right,
+                          color: _look.background == option
+                              ? context.neon.gold
+                              : null),
+                      onTap: () => Navigator.pop(c, option))
+              ])));
     if (chosen != null && mounted) {
-      _change(category == 'pose'
-          ? _look.copy(pose: chosen)
-          : _look.copy(background: chosen));
+      if (category == 'pose') {
+        await _previewPose(chosen);
+      } else {
+        _change(_look.copy(background: chosen));
+      }
+    }
+  }
+
+  Future<void> _previewPose(String pose) async {
+    if (_busy || _selecting) return;
+    setState(() {
+      _busy = true;
+      _performing = true;
+      _error = null;
+    });
+    _change(_look.copy(pose: pose));
+    try {
+      // Let the stage's look-change update queue before our acknowledgement;
+      // a later automatic apply would otherwise interrupt the new catwalk.
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
+      // Acknowledge the selected finish before starting its runway preview.
+      await _stage.request('applyLook', {'look': _look.toJson()});
+      if (!mounted) return;
+      await _stage.showOff();
+    } catch (error) {
+      if (mounted &&
+          !error.toString().contains('cancelled') &&
+          !error.toString().contains('restarted')) {
+        setState(() => _error = error.toString());
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _performing = false;
+        });
+      }
     }
   }
 
@@ -787,6 +775,32 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SlayLabel('Make it yours'),
+                      const SizedBox(height: 12),
+                      const SlayLabel('Your character'),
+                      const SizedBox(height: 8),
+                      Wrap(spacing: 8, children: [
+                        for (final avatar in widget.catalog['avatars'] as List)
+                          if (avatar['body'] == _look.body)
+                            ChoiceChip(
+                              avatar: avatar['thumbnailUrl'] == null ||
+                                      SlayAssets.instance.thumbnail(
+                                              avatar['thumbnailUrl']) ==
+                                          null
+                                  ? const Icon(Icons.face_rounded, size: 18)
+                                  : CircleAvatar(
+                                      radius: 14,
+                                      backgroundImage: SlayAssets.instance
+                                          .thumbnail(avatar['thumbnailUrl'])),
+                              label: Text(avatar['name'] ?? 'Original'),
+                              selected: (_look.avatarId ?? _look.body) ==
+                                  (avatar['id'] ?? avatar['body']),
+                              onSelected: (_) {
+                                _change(_look.copy(
+                                    avatarId: avatar['id'] ?? avatar['body']));
+                                Navigator.pop(c);
+                              },
+                            )
+                      ]),
                       const SizedBox(height: 20),
                       Wrap(spacing: 14, children: [
                         for (final tone in widget.catalog['skinTones'] as List)

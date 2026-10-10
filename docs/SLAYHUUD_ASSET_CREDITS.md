@@ -2,7 +2,7 @@
 
 ## MakeHuman system assets — CC0
 
-MakeHuman Community: female1605 and male_generic bodies, African skin textures, high-poly eyes and brown-light/green/deep-blue eye textures, eyebrows, afro01/short01/braid01 hair, system suits and shoes.
+MakeHuman Community: female1605 and male_generic bodies, African skin textures, high-poly eyes and brown-light/green/deep-blue eye textures, eyebrows, afro01/short01/short02/short03/short04/braid01/bob01/ponytail01/long01 hair, system suits and shoes.
 
 Source: https://static.makehumancommunity.org/assets/assetpacks/makehuman_system_assets.html
 License: https://creativecommons.org/publicdomain/zero/1.0/
@@ -44,8 +44,48 @@ Changes to community assets: converted OBJ and textures to embedded GLB, reduced
 
 ## SlayHuud additions
 
-Gold Chronograph, Steel & Leather and Night Smartwatch are original lightweight meshes authored for SlayHuud. Ruby Red, Soft Rose and Deep Plum lipstick are original colour materials on overlays derived from the CC0 female body, carrying matching face and expression morphs. Starter pose clips, garment coverage and fitting code are authored for SlayHuud.
+Gold Chronograph, Steel & Leather, Night Smartwatch and Gold Nose Hoop are original lightweight meshes authored for SlayHuud. Ruby Red, Soft Rose, Deep Plum, Peach Nude, Cocoa Gloss, Coral Kiss, Berry Wine and Hot Pink lipstick are original colour materials on overlays derived from the CC0 female body, carrying matching face and expression morphs. The nose hoop follows the shared head rig and face morphs. Starter pose clips, garment coverage and fitting code are authored for SlayHuud.
 
 These starter models still need final art review and real-device performance testing before release.
 
+## Expanded hairstyles
+
+Cortu: Short Messy Hair; culturalibre: Hair 05. These are listed as CC0 in the MakeHuman Hair 01 pack.
+MargaretToigo: Blunt Bob with Bangs, CC0 in the pack and source metadata.
+Source: https://static.makehumancommunity.org/assets/assetpacks/hair01.html
+License: https://creativecommons.org/publicdomain/zero/1.0/
+
+Elvaerwyn: Reverse French Braid Bun, Inverted Curly Bob, Braided Rows (cornrows), 50s Updo, Maxwell Hair and Grump Hair. Preserve CC-BY attribution from the source metadata. The Reverse French Braid Bun appears in the CC0 Hair 01 pack but its .mhclo says CC_by; this adaptation retains the stricter attribution notice. Source metadata for these assets does not specify a CC-BY version.
+Sources: https://static.makehumancommunity.org/assets/assetpacks/hair01.html and https://static.makehumancommunity.org/assets/assetpacks/hair02.html
+License information: https://static.makehumancommunity.org/about/license.html
+
+Hair modifications: embedded mobile-sized textures, conversion to GLB, fit to the female/male starter head origins, shared head rig binding, and rendered wardrobe thumbnails. Catalogue names describe the game styles; source authors and original asset names are retained here. Models load only when selected.
+
 Starter sports bra and boxer briefs are fitted overlays derived from the CC0 body geometry, clipped at clean garment boundaries and bound to the same animation rig.
+
+## Women’s footwear expansion
+
+MargaretToigo (MRT): Ballet Flats and Stiletto Booties, CC0 in their source metadata.
+Source: https://static.makehumancommunity.org/assets/assetpacks/shoes01.html
+License: https://creativecommons.org/publicdomain/zero/1.0/
+
+DressUpDoc: Mary Jane 1, listed as CC-BY by the MakeHuman Community asset pack. Its older .mhclo header contains an AGPL3/Unknown template notice; preserve this discrepancy and the current pack attribution with this adapted asset.
+Elvaerwyn: Caesar Sandals 1 and Male Flip Flop Sandals 1, listed as CC-BY in the source and pack, adapted for the female avatar; the Caesar sandals are cropped to ankle height.
+Source: https://static.makehumancommunity.org/assets/assetpacks/shoes02.html
+License information (no CC-BY version specified in these pack listings): https://static.makehumancommunity.org/about/license.html
+
+Footwear changes: mobile texture sizing, transparent strap/cutout materials, fit to the female starter body, game rig bindings and boot-shaft weights, rendered thumbnails. Colour selection is a runtime shader effect; original textures remain available through “Original colour”.
+
+## Additional avatar characters — CC0
+
+Girl02 by dariush086 (MakeHuman 1.1.1 character definition):
+http://www.makehumancommunity.org/model/girl02.html
+
+Indian Male by Ragnar (MakeHuman 1.2.0 character definition):
+http://www.makehumancommunity.org/model/indian_male.html
+
+Both source pages explicitly list CC0. Their MHM definitions are retained in `slay-renderer/scripts/models`. MakeHuman 1.2.0 base/morph data supplies the offline shape conversion; the app ships exported meshes and fitting data, not the MakeHuman application code.
+
+Modifications: character shape deltas adapted onto the existing fashion bodies; stature and large vertical offsets normalised for the shared skeleton; feet retain the game's footwear fit. Existing skin textures, expression morphs, underwear and rig are retained. A continuous fitting field adjusts selected wardrobe meshes to the character, rather than duplicating every garment. These are shared-rig adaptations of the definitions, rather than unchanged full MakeHuman scene exports. Source preset hair, optional clothing, expression and skeleton selections are replaced by the player's SlayHuud choices.
+
+The distant studio furniture, lights and flowers are original procedural SlayHuud meshes.
