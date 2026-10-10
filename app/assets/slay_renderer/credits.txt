@@ -2,7 +2,7 @@ SlayHuud asset credits
 
 MakeHuman system assets — CC0
 
-MakeHuman Community: female1605 and male_generic bodies, African skin textures, high-poly eyes and brown-light/green/deep-blue eye textures, eyebrows, afro01/short01/braid01/bob01/ponytail01/long01 hair, system suits and shoes.
+MakeHuman Community: female1605 and male_generic bodies, African skin textures, high-poly eyes and brown-light/green/deep-blue eye textures, eyebrows, afro01/short01/short02/short03/short04/braid01/bob01/ponytail01/long01 hair, system suits and shoes.
 
 Source: https://static.makehumancommunity.org/assets/assetpacks/makehuman_system_assets.html
 License: https://creativecommons.org/publicdomain/zero/1.0/
@@ -47,6 +47,19 @@ SlayHuud additions
 Gold Chronograph, Steel & Leather, Night Smartwatch and Gold Nose Hoop are original lightweight meshes authored for SlayHuud. Ruby Red, Soft Rose, Deep Plum, Peach Nude, Cocoa Gloss, Coral Kiss, Berry Wine and Hot Pink lipstick are original colour materials on overlays derived from the CC0 female body, carrying matching face and expression morphs. The nose hoop follows the shared head rig and face morphs. Starter pose clips, garment coverage and fitting code are authored for SlayHuud.
 
 These starter models still need final art review and real-device performance testing before release.
+
+Expanded hairstyles
+
+Cortu: Short Messy Hair; culturalibre: Hair 05. These are listed as CC0 in the MakeHuman Hair 01 pack.
+MargaretToigo: Blunt Bob with Bangs, CC0 in the pack and source metadata.
+Source: https://static.makehumancommunity.org/assets/assetpacks/hair01.html
+License: https://creativecommons.org/publicdomain/zero/1.0/
+
+Elvaerwyn: Reverse French Braid Bun, Inverted Curly Bob, Braided Rows (cornrows), 50s Updo, Maxwell Hair and Grump Hair. Preserve CC-BY attribution from the source metadata. The Reverse French Braid Bun appears in the CC0 Hair 01 pack but its .mhclo says CC_by; this adaptation retains the stricter attribution notice. Source metadata for these assets does not specify a CC-BY version.
+Sources: https://static.makehumancommunity.org/assets/assetpacks/hair01.html and https://static.makehumancommunity.org/assets/assetpacks/hair02.html
+License information: https://static.makehumancommunity.org/about/license.html
+
+Hair modifications: embedded mobile-sized textures, conversion to GLB, fit to the female/male starter head origins, shared head rig binding, and rendered wardrobe thumbnails. Catalogue names describe the game styles; source authors and original asset names are retained here. Models load only when selected.
 
 Starter sports bra and boxer briefs are fitted overlays derived from the CC0 body geometry, clipped at clean garment boundaries and bound to the same animation rig.
 

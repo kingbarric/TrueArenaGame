@@ -14,6 +14,7 @@ import {rigFor, skinWeights, poses, poseQuaternion} from './starter-rig.mjs';
 import {deletedVertices, proxyCoverage, coveredTriangles} from './makehuman-coverage.mjs';
 import {expansion} from './wardrobe-expansion.mjs';
 import {classicClothing} from './classic-clothing.mjs';
+import {hairFits} from './hair-fits.mjs';
 import {clipMesh, joinMeshes} from './clip-mesh.mjs';
 
 const root = resolve(new URL('..', import.meta.url).pathname);
@@ -162,6 +163,7 @@ function convert({id, body, obj, texture, isAvatar, options = {}}) {
   const sockIsland = id === 'shoe-0' || id === 'shoe-1' ? (uv => id === 'shoe-0' ? uv[0] > .83 && uv[1] < .30 : uv[0] > .76 && uv[1] > .76) : null;
   const eyeOffset = body === 'male' ? -7.65 : -8.98;
   let mesh = parseObj(resolve(source, obj), [0, isHair ? headOffset : options.eyes ? eyeOffset * scale : 0, options.eyes ? -.20 * scale : 0], sockIsland);
+  if (isHair && hairFits[id]) for (let i = 1; i < mesh.position.length; i += 3) mesh.position[i] += hairFits[id];
   if (options.noseRing) {
     // Small nostril hoop fitted to female1605, rather than a floating facial
     // accessory. Bake world-space geometry before assigning the shared rig.

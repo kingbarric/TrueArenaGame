@@ -1,5 +1,5 @@
 {
-  "version": 19,
+  "version": 20,
   "developmentAssets": true,
   "avatars": [
     {
@@ -4742,6 +4742,414 @@
       "coinCost": 0,
       "unlockWins": 0,
       "placeholder": "accessories"
+    },
+    {
+      "id": "female-hair-pixie",
+      "name": "Textured Pixie",
+      "category": "hair",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "brown"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-hair-pixie.glb",
+      "thumbnailUrl": "assets/female-hair-pixie.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "female-hair-fringe-bob",
+      "name": "Blunt Fringe Bob",
+      "category": "hair",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "auburn"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-hair-fringe-bob.glb",
+      "thumbnailUrl": "assets/female-hair-fringe-bob.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "female-hair-braided-bun",
+      "name": "Braided Top Knot",
+      "category": "hair",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "black",
+        "purple"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/female-hair-braided-bun.glb",
+      "thumbnailUrl": "assets/female-hair-braided-bun.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 60,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "female-hair-curls",
+      "name": "Tousled Curls",
+      "category": "hair",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "brown"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/female-hair-curls.glb",
+      "thumbnailUrl": "assets/female-hair-curls.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 100,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "female-hair-cornrows",
+      "name": "Beaded Cornrows",
+      "category": "hair",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "burgundy"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/female-hair-cornrows.glb",
+      "thumbnailUrl": "assets/female-hair-cornrows.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 80,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "female-hair-vintage-updo",
+      "name": "Vintage Updo",
+      "category": "hair",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "brown"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-hair-vintage-updo.glb",
+      "thumbnailUrl": "assets/female-hair-vintage-updo.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "male-hair-textured",
+      "name": "Textured Crop",
+      "category": "hair",
+      "body": "male",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "brown"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/male-hair-textured.glb",
+      "thumbnailUrl": "assets/male-hair-textured.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "male-hair-side-sweep",
+      "name": "Side Sweep",
+      "category": "hair",
+      "body": "male",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "brown"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/male-hair-side-sweep.glb",
+      "thumbnailUrl": "assets/male-hair-side-sweep.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "male-hair-slick-back",
+      "name": "Slick Back",
+      "category": "hair",
+      "body": "male",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "black"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/male-hair-slick-back.glb",
+      "thumbnailUrl": "assets/male-hair-slick-back.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": true,
+      "coinCost": 0,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "male-hair-messy",
+      "name": "Messy Shag",
+      "category": "hair",
+      "body": "male",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "brown"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/male-hair-messy.glb",
+      "thumbnailUrl": "assets/male-hair-messy.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 40,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "male-hair-layered",
+      "name": "Layered Fringe",
+      "category": "hair",
+      "body": "male",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "brown"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/male-hair-layered.glb",
+      "thumbnailUrl": "assets/male-hair-layered.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 60,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "male-hair-spiked",
+      "name": "Spiked Quiff",
+      "category": "hair",
+      "body": "male",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "black",
+        "red"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/male-hair-spiked.glb",
+      "thumbnailUrl": "assets/male-hair-spiked.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 80,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "male-hair-pompadour",
+      "name": "Swept Pompadour",
+      "category": "hair",
+      "body": "male",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "brown"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/male-hair-pompadour.glb",
+      "thumbnailUrl": "assets/male-hair-pompadour.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 100,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "male-hair-cornrows",
+      "name": "Beaded Cornrows",
+      "category": "hair",
+      "body": "male",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "burgundy"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/male-hair-cornrows.glb",
+      "thumbnailUrl": "assets/male-hair-cornrows.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 80,
+      "unlockWins": 0,
+      "placeholder": "hair"
+    },
+    {
+      "id": "male-hair-braided-bun",
+      "name": "Braided Top Knot",
+      "category": "hair",
+      "body": "male",
+      "styleTags": [
+        "casual",
+        "formal"
+      ],
+      "colourTags": [
+        "black",
+        "purple"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "formal"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/male-hair-braided-bun.glb",
+      "thumbnailUrl": "assets/male-hair-braided-bun.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 120,
+      "unlockWins": 0,
+      "placeholder": "hair"
     }
   ],
   "themes": [
