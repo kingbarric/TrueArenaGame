@@ -1,5 +1,5 @@
 {
-  "version": 26,
+  "version": 27,
   "developmentAssets": true,
   "avatars": [
     {
@@ -7,18 +7,18 @@
       "assetUrl": "assets/female.glb",
       "rigVersion": "slay-female-v2",
       "id": "female",
-      "name": "Original"
+      "name": "Amara"
     },
     {
       "body": "male",
       "assetUrl": "assets/male.glb",
       "rigVersion": "slay-male-v2",
       "id": "male",
-      "name": "Original"
+      "name": "Kofi"
     },
     {
       "id": "girl02",
-      "name": "Girl02",
+      "name": "Zuri",
       "body": "female",
       "assetUrl": "assets/avatar-girl02.glb",
       "rigVersion": "slay-female-v2",
@@ -27,7 +27,7 @@
     },
     {
       "id": "indian-male",
-      "name": "Indian Male",
+      "name": "Tayo",
       "body": "male",
       "assetUrl": "assets/avatar-indian-male.glb",
       "rigVersion": "slay-male-v2",
@@ -5521,33 +5521,6 @@
       "placeholder": "tops"
     },
     {
-      "id": "female-s0-cosy-jumper",
-      "name": "Cosy Jumper",
-      "category": "tops",
-      "body": "female",
-      "styleTags": [
-        "casual",
-        "streetwear"
-      ],
-      "colourTags": [
-        "red"
-      ],
-      "cultureTags": [],
-      "eventTags": [
-        "casual",
-        "streetwear"
-      ],
-      "rarity": "common",
-      "assetUrl": "assets/female-s0-cosy-jumper.glb",
-      "thumbnailUrl": "assets/female-s0-cosy-jumper.png",
-      "hidesRegions": [],
-      "attachmentBone": null,
-      "isDefault": false,
-      "coinCost": 40,
-      "unlockWins": 0,
-      "placeholder": "tops"
-    },
-    {
       "id": "female-s0-bubblegum-camo-tee",
       "name": "Bubblegum Camo Tee",
       "category": "tops",
@@ -5629,8 +5602,8 @@
       "placeholder": "tops"
     },
     {
-      "id": "female-s0-sunshine-cosy-jumper",
-      "name": "Sunshine Cosy Jumper",
+      "id": "female-s0-sunshine-lace-up-blouse",
+      "name": "Sunshine Lace-up Blouse",
       "category": "tops",
       "body": "female",
       "styleTags": [
@@ -5645,9 +5618,9 @@
         "casual",
         "streetwear"
       ],
-      "rarity": "rare",
-      "assetUrl": "assets/female-s0-cosy-jumper.glb",
-      "thumbnailUrl": "assets/female-s0-cosy-jumper.png",
+      "rarity": "common",
+      "assetUrl": "assets/female-s1-lace-up-blouse.glb",
+      "thumbnailUrl": "assets/female-s1-lace-up-blouse.png",
       "hidesRegions": [],
       "attachmentBone": null,
       "isDefault": false,
@@ -5656,8 +5629,8 @@
       "placeholder": "tops"
     },
     {
-      "id": "female-s0-tangerine-lace-up-blouse",
-      "name": "Tangerine Lace-up Blouse",
+      "id": "female-s0-tangerine-sleeveless-shirt",
+      "name": "Tangerine Sleeveless Shirt",
       "category": "tops",
       "body": "female",
       "styleTags": [
@@ -5673,8 +5646,8 @@
         "streetwear"
       ],
       "rarity": "rare",
-      "assetUrl": "assets/female-s1-lace-up-blouse.glb",
-      "thumbnailUrl": "assets/female-s1-lace-up-blouse.png",
+      "assetUrl": "assets/female-s1-sleeveless-shirt.glb",
+      "thumbnailUrl": "assets/female-s1-sleeveless-shirt.png",
       "hidesRegions": [],
       "attachmentBone": null,
       "isDefault": false,
@@ -5683,8 +5656,8 @@
       "placeholder": "tops"
     },
     {
-      "id": "female-s0-denim-sleeveless-shirt",
-      "name": "Denim Sleeveless Shirt",
+      "id": "female-s0-denim-ruffle-blouse",
+      "name": "Denim Ruffle Blouse",
       "category": "tops",
       "body": "female",
       "styleTags": [
@@ -5699,9 +5672,36 @@
         "casual",
         "streetwear"
       ],
+      "rarity": "rare",
+      "assetUrl": "assets/female-s1-ruffle-blouse.glb",
+      "thumbnailUrl": "assets/female-s1-ruffle-blouse.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 40,
+      "unlockWins": 0,
+      "placeholder": "tops"
+    },
+    {
+      "id": "female-s0-lilac-off-shoulder-top",
+      "name": "Lilac Off-shoulder Top",
+      "category": "tops",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "streetwear"
+      ],
+      "colourTags": [
+        "purple"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "streetwear"
+      ],
       "rarity": "epic",
-      "assetUrl": "assets/female-s1-sleeveless-shirt.glb",
-      "thumbnailUrl": "assets/female-s1-sleeveless-shirt.png",
+      "assetUrl": "assets/female-s1-off-shoulder-top.glb",
+      "thumbnailUrl": "assets/female-s1-off-shoulder-top.png",
       "hidesRegions": [],
       "attachmentBone": null,
       "isDefault": false,
@@ -6011,33 +6011,6 @@
       "placeholder": "skirts"
     },
     {
-      "id": "female-s0-low-rise-mini",
-      "name": "Low-rise Mini",
-      "category": "skirts",
-      "body": "female",
-      "styleTags": [
-        "casual",
-        "streetwear"
-      ],
-      "colourTags": [
-        "black"
-      ],
-      "cultureTags": [],
-      "eventTags": [
-        "casual",
-        "streetwear"
-      ],
-      "rarity": "common",
-      "assetUrl": "assets/female-s0-low-rise-mini.glb",
-      "thumbnailUrl": "assets/female-s0-low-rise-mini.png",
-      "hidesRegions": [],
-      "attachmentBone": null,
-      "isDefault": false,
-      "coinCost": 40,
-      "unlockWins": 0,
-      "placeholder": "skirts"
-    },
-    {
       "id": "female-s0-bubblegum-denim-skirt",
       "name": "Bubblegum Denim Skirt",
       "category": "skirts",
@@ -6065,8 +6038,8 @@
       "placeholder": "skirts"
     },
     {
-      "id": "female-s0-sky-low-rise-mini",
-      "name": "Sky Low-rise Mini",
+      "id": "female-s0-sky-pencil-skirt",
+      "name": "Sky Pencil Skirt",
       "category": "skirts",
       "body": "female",
       "styleTags": [
@@ -6075,33 +6048,6 @@
       ],
       "colourTags": [
         "blue"
-      ],
-      "cultureTags": [],
-      "eventTags": [
-        "casual",
-        "streetwear"
-      ],
-      "rarity": "common",
-      "assetUrl": "assets/female-s0-low-rise-mini.glb",
-      "thumbnailUrl": "assets/female-s0-low-rise-mini.png",
-      "hidesRegions": [],
-      "attachmentBone": null,
-      "isDefault": false,
-      "coinCost": 40,
-      "unlockWins": 0,
-      "placeholder": "skirts"
-    },
-    {
-      "id": "female-s0-lime-pencil-skirt",
-      "name": "Lime Pencil Skirt",
-      "category": "skirts",
-      "body": "female",
-      "styleTags": [
-        "casual",
-        "streetwear"
-      ],
-      "colourTags": [
-        "green"
       ],
       "cultureTags": [],
       "eventTags": [
@@ -6119,8 +6065,8 @@
       "placeholder": "skirts"
     },
     {
-      "id": "female-s0-sunshine-office-midi-skirt",
-      "name": "Sunshine Office Midi Skirt",
+      "id": "female-s0-lime-office-midi-skirt",
+      "name": "Lime Office Midi Skirt",
       "category": "skirts",
       "body": "female",
       "styleTags": [
@@ -6128,7 +6074,7 @@
         "streetwear"
       ],
       "colourTags": [
-        "yellow"
+        "green"
       ],
       "cultureTags": [],
       "eventTags": [
@@ -6146,8 +6092,8 @@
       "placeholder": "skirts"
     },
     {
-      "id": "female-s0-tangerine-polka-dot-skirt",
-      "name": "Tangerine Polka Dot Skirt",
+      "id": "female-s0-sunshine-polka-dot-skirt",
+      "name": "Sunshine Polka Dot Skirt",
       "category": "skirts",
       "body": "female",
       "styleTags": [
@@ -6155,7 +6101,7 @@
         "streetwear"
       ],
       "colourTags": [
-        "orange"
+        "yellow"
       ],
       "cultureTags": [],
       "eventTags": [
@@ -6173,8 +6119,35 @@
       "placeholder": "skirts"
     },
     {
-      "id": "female-s0-denim-disco-mini-skirt",
-      "name": "Denim Disco Mini Skirt",
+      "id": "female-s0-tangerine-disco-mini-skirt",
+      "name": "Tangerine Disco Mini Skirt",
+      "category": "skirts",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "streetwear"
+      ],
+      "colourTags": [
+        "orange"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "streetwear"
+      ],
+      "rarity": "common",
+      "assetUrl": "assets/female-s2-disco-mini-skirt.glb",
+      "thumbnailUrl": "assets/female-s2-disco-mini-skirt.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 40,
+      "unlockWins": 0,
+      "placeholder": "skirts"
+    },
+    {
+      "id": "female-s0-denim-black-mini-skirt",
+      "name": "Denim Black Mini Skirt",
       "category": "skirts",
       "body": "female",
       "styleTags": [
@@ -6189,9 +6162,9 @@
         "casual",
         "streetwear"
       ],
-      "rarity": "rare",
-      "assetUrl": "assets/female-s2-disco-mini-skirt.glb",
-      "thumbnailUrl": "assets/female-s2-disco-mini-skirt.png",
+      "rarity": "common",
+      "assetUrl": "assets/female-s2-black-mini-skirt.glb",
+      "thumbnailUrl": "assets/female-s2-black-mini-skirt.png",
       "hidesRegions": [],
       "attachmentBone": null,
       "isDefault": false,
@@ -6200,8 +6173,8 @@
       "placeholder": "skirts"
     },
     {
-      "id": "female-s0-lilac-black-mini-skirt",
-      "name": "Lilac Black Mini Skirt",
+      "id": "female-s0-lilac-pleated-mini",
+      "name": "Lilac Pleated Mini",
       "category": "skirts",
       "body": "female",
       "styleTags": [
@@ -6217,8 +6190,8 @@
         "streetwear"
       ],
       "rarity": "rare",
-      "assetUrl": "assets/female-s2-black-mini-skirt.glb",
-      "thumbnailUrl": "assets/female-s2-black-mini-skirt.png",
+      "assetUrl": "assets/female-s2-pleated-mini.glb",
+      "thumbnailUrl": "assets/female-s2-pleated-mini.png",
       "hidesRegions": [],
       "attachmentBone": null,
       "isDefault": false,
@@ -6227,8 +6200,8 @@
       "placeholder": "skirts"
     },
     {
-      "id": "female-s0-mint-pleated-mini",
-      "name": "Mint Pleated Mini",
+      "id": "female-s0-mint-plaid-pleated-mini",
+      "name": "Mint Plaid Pleated Mini",
       "category": "skirts",
       "body": "female",
       "styleTags": [
@@ -6243,9 +6216,36 @@
         "casual",
         "streetwear"
       ],
+      "rarity": "rare",
+      "assetUrl": "assets/female-s2-plaid-pleated-mini.glb",
+      "thumbnailUrl": "assets/female-s2-plaid-pleated-mini.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 40,
+      "unlockWins": 0,
+      "placeholder": "skirts"
+    },
+    {
+      "id": "female-s0-cherry-denim-skirt",
+      "name": "Cherry Denim Skirt",
+      "category": "skirts",
+      "body": "female",
+      "styleTags": [
+        "casual",
+        "streetwear"
+      ],
+      "colourTags": [
+        "red"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "casual",
+        "streetwear"
+      ],
       "rarity": "epic",
-      "assetUrl": "assets/female-s2-pleated-mini.glb",
-      "thumbnailUrl": "assets/female-s2-pleated-mini.png",
+      "assetUrl": "assets/female-s0-denim-skirt.glb",
+      "thumbnailUrl": "assets/female-s0-denim-skirt.png",
       "hidesRegions": [],
       "attachmentBone": null,
       "isDefault": false,
@@ -7609,8 +7609,8 @@
       "placeholder": "skirts"
     },
     {
-      "id": "female-s1-burgundy-low-rise-mini",
-      "name": "Burgundy Low-rise Mini",
+      "id": "female-s1-burgundy-disco-mini-skirt",
+      "name": "Burgundy Disco Mini Skirt",
       "category": "skirts",
       "body": "female",
       "styleTags": [
@@ -7620,35 +7620,6 @@
       ],
       "colourTags": [
         "red"
-      ],
-      "cultureTags": [],
-      "eventTags": [
-        "corporate",
-        "elegant",
-        "formal"
-      ],
-      "rarity": "rare",
-      "assetUrl": "assets/female-s0-low-rise-mini.glb",
-      "thumbnailUrl": "assets/female-s0-low-rise-mini.png",
-      "hidesRegions": [],
-      "attachmentBone": null,
-      "isDefault": false,
-      "coinCost": 60,
-      "unlockWins": 0,
-      "placeholder": "skirts"
-    },
-    {
-      "id": "female-s1-olive-disco-mini-skirt",
-      "name": "Olive Disco Mini Skirt",
-      "category": "skirts",
-      "body": "female",
-      "styleTags": [
-        "corporate",
-        "elegant",
-        "formal"
-      ],
-      "colourTags": [
-        "green"
       ],
       "cultureTags": [],
       "eventTags": [
@@ -7667,8 +7638,37 @@
       "placeholder": "skirts"
     },
     {
-      "id": "female-s1-powder-blue-black-mini-skirt",
-      "name": "Powder Blue Black Mini Skirt",
+      "id": "female-s1-olive-black-mini-skirt",
+      "name": "Olive Black Mini Skirt",
+      "category": "skirts",
+      "body": "female",
+      "styleTags": [
+        "corporate",
+        "elegant",
+        "formal"
+      ],
+      "colourTags": [
+        "green"
+      ],
+      "cultureTags": [],
+      "eventTags": [
+        "corporate",
+        "elegant",
+        "formal"
+      ],
+      "rarity": "rare",
+      "assetUrl": "assets/female-s2-black-mini-skirt.glb",
+      "thumbnailUrl": "assets/female-s2-black-mini-skirt.png",
+      "hidesRegions": [],
+      "attachmentBone": null,
+      "isDefault": false,
+      "coinCost": 60,
+      "unlockWins": 0,
+      "placeholder": "skirts"
+    },
+    {
+      "id": "female-s1-powder-blue-pleated-mini",
+      "name": "Powder Blue Pleated Mini",
       "category": "skirts",
       "body": "female",
       "styleTags": [
@@ -7686,8 +7686,8 @@
         "formal"
       ],
       "rarity": "epic",
-      "assetUrl": "assets/female-s2-black-mini-skirt.glb",
-      "thumbnailUrl": "assets/female-s2-black-mini-skirt.png",
+      "assetUrl": "assets/female-s2-pleated-mini.glb",
+      "thumbnailUrl": "assets/female-s2-pleated-mini.png",
       "hidesRegions": [],
       "attachmentBone": null,
       "isDefault": false,
@@ -12304,35 +12304,6 @@
       "coinCost": 180,
       "unlockWins": 0,
       "placeholder": "shoes"
-    },
-    {
-      "id": "female-s4-halter-jumpsuit",
-      "name": "Halter Jumpsuit",
-      "category": "outfit",
-      "body": "female",
-      "styleTags": [
-        "evening",
-        "formal",
-        "luxury"
-      ],
-      "colourTags": [
-        "black"
-      ],
-      "cultureTags": [],
-      "eventTags": [
-        "evening",
-        "formal",
-        "luxury"
-      ],
-      "rarity": "common",
-      "assetUrl": "assets/female-s4-halter-jumpsuit.glb",
-      "thumbnailUrl": "assets/female-s4-halter-jumpsuit.png",
-      "hidesRegions": [],
-      "attachmentBone": null,
-      "isDefault": false,
-      "coinCost": 180,
-      "unlockWins": 0,
-      "placeholder": "outfit"
     },
     {
       "id": "male-s0-logo-tee",
@@ -18104,10 +18075,6 @@
       "category": "tops",
       "styleGroup": "Casual"
     },
-    "female-s0-cosy-jumper": {
-      "category": "tops",
-      "styleGroup": "Casual"
-    },
     "female-s0-bubblegum-camo-tee": {
       "category": "tops",
       "styleGroup": "Casual",
@@ -18126,23 +18093,29 @@
       "maskOf": "female-s0-everyday-tank",
       "dye": "#9be15d"
     },
-    "female-s0-sunshine-cosy-jumper": {
-      "category": "tops",
-      "styleGroup": "Casual",
-      "maskOf": "female-s0-cosy-jumper",
-      "dye": "#ffd23f"
-    },
-    "female-s0-tangerine-lace-up-blouse": {
+    "female-s0-sunshine-lace-up-blouse": {
       "category": "tops",
       "styleGroup": "Casual",
       "maskOf": "female-s1-lace-up-blouse",
-      "dye": "#ff9a3c"
+      "dye": "#ffd23f"
     },
-    "female-s0-denim-sleeveless-shirt": {
+    "female-s0-tangerine-sleeveless-shirt": {
       "category": "tops",
       "styleGroup": "Casual",
       "maskOf": "female-s1-sleeveless-shirt",
+      "dye": "#ff9a3c"
+    },
+    "female-s0-denim-ruffle-blouse": {
+      "category": "tops",
+      "styleGroup": "Casual",
+      "maskOf": "female-s1-ruffle-blouse",
       "dye": "#4a6fa5"
+    },
+    "female-s0-lilac-off-shoulder-top": {
+      "category": "tops",
+      "styleGroup": "Casual",
+      "maskOf": "female-s1-off-shoulder-top",
+      "dye": "#b49cff"
     },
     "female-s0-skinny-jeans": {
       "category": "trousers",
@@ -18202,57 +18175,59 @@
       "category": "skirts",
       "styleGroup": "Casual"
     },
-    "female-s0-low-rise-mini": {
-      "category": "skirts",
-      "styleGroup": "Casual"
-    },
     "female-s0-bubblegum-denim-skirt": {
       "category": "skirts",
       "styleGroup": "Casual",
       "maskOf": "female-s0-denim-skirt",
       "dye": "#ff8fb8"
     },
-    "female-s0-sky-low-rise-mini": {
-      "category": "skirts",
-      "styleGroup": "Casual",
-      "maskOf": "female-s0-low-rise-mini",
-      "dye": "#6cc4ff"
-    },
-    "female-s0-lime-pencil-skirt": {
+    "female-s0-sky-pencil-skirt": {
       "category": "skirts",
       "styleGroup": "Casual",
       "maskOf": "female-s1-pencil-skirt",
-      "dye": "#9be15d"
+      "dye": "#6cc4ff"
     },
-    "female-s0-sunshine-office-midi-skirt": {
+    "female-s0-lime-office-midi-skirt": {
       "category": "skirts",
       "styleGroup": "Casual",
       "maskOf": "female-s1-office-midi-skirt",
-      "dye": "#ffd23f"
+      "dye": "#9be15d"
     },
-    "female-s0-tangerine-polka-dot-skirt": {
+    "female-s0-sunshine-polka-dot-skirt": {
       "category": "skirts",
       "styleGroup": "Casual",
       "maskOf": "female-s1-polka-dot-skirt",
-      "dye": "#ff9a3c"
+      "dye": "#ffd23f"
     },
-    "female-s0-denim-disco-mini-skirt": {
+    "female-s0-tangerine-disco-mini-skirt": {
       "category": "skirts",
       "styleGroup": "Casual",
       "maskOf": "female-s2-disco-mini-skirt",
-      "dye": "#4a6fa5"
+      "dye": "#ff9a3c"
     },
-    "female-s0-lilac-black-mini-skirt": {
+    "female-s0-denim-black-mini-skirt": {
       "category": "skirts",
       "styleGroup": "Casual",
       "maskOf": "female-s2-black-mini-skirt",
-      "dye": "#b49cff"
+      "dye": "#4a6fa5"
     },
-    "female-s0-mint-pleated-mini": {
+    "female-s0-lilac-pleated-mini": {
       "category": "skirts",
       "styleGroup": "Casual",
       "maskOf": "female-s2-pleated-mini",
+      "dye": "#b49cff"
+    },
+    "female-s0-mint-plaid-pleated-mini": {
+      "category": "skirts",
+      "styleGroup": "Casual",
+      "maskOf": "female-s2-plaid-pleated-mini",
       "dye": "#7ce0c3"
+    },
+    "female-s0-cherry-denim-skirt": {
+      "category": "skirts",
+      "styleGroup": "Casual",
+      "maskOf": "female-s0-denim-skirt",
+      "dye": "#e23d5b"
     },
     "female-s0-bubblegum-street-sneakers": {
       "category": "shoes",
@@ -18488,22 +18463,22 @@
       "maskOf": "female-s0-denim-skirt",
       "dye": "#efe6d2"
     },
-    "female-s1-burgundy-low-rise-mini": {
-      "category": "skirts",
-      "styleGroup": "Corporate",
-      "maskOf": "female-s0-low-rise-mini",
-      "dye": "#7a1f34"
-    },
-    "female-s1-olive-disco-mini-skirt": {
+    "female-s1-burgundy-disco-mini-skirt": {
       "category": "skirts",
       "styleGroup": "Corporate",
       "maskOf": "female-s2-disco-mini-skirt",
-      "dye": "#6b7043"
+      "dye": "#7a1f34"
     },
-    "female-s1-powder-blue-black-mini-skirt": {
+    "female-s1-olive-black-mini-skirt": {
       "category": "skirts",
       "styleGroup": "Corporate",
       "maskOf": "female-s2-black-mini-skirt",
+      "dye": "#6b7043"
+    },
+    "female-s1-powder-blue-pleated-mini": {
+      "category": "skirts",
+      "styleGroup": "Corporate",
+      "maskOf": "female-s2-pleated-mini",
       "dye": "#9db8d9"
     },
     "female-s1-navy-brogues": {
@@ -19279,10 +19254,6 @@
       "styleGroup": "Formal",
       "maskOf": "female-s3-bow-flats",
       "dye": "#121212"
-    },
-    "female-s4-halter-jumpsuit": {
-      "category": "outfit",
-      "styleGroup": "Formal"
     },
     "male-s0-logo-tee": {
       "category": "shirts",

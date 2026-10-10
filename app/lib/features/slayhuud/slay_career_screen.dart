@@ -239,7 +239,7 @@ class _RankCard extends StatelessWidget {
                         letterSpacing: 1.4,
                         fontSize: 11)),
                 SlayHeadline(rank['name'], size: 28, colour: stage.ink),
-                if (avatar['name'] != null && avatar['name'] != 'Original')
+                if (avatar['name'] != null)
                   Text(avatar['name'],
                       style: TextStyle(
                           color: stage.ink.withValues(alpha: .8),
@@ -834,18 +834,13 @@ class _SlayCharacterPickerState extends State<SlayCharacterPicker> {
 
   SlayLook _lookFor(Map<String, dynamic> avatar) {
     final body = avatar['body'] as String;
-    return SlayLook.initial(body).copy(avatarId: avatar['id'] ?? body, items: {
-      'hair': '$body-hair-0',
-      'outfit': '$body-essential',
-      'shoes': 'shoe-1'
-    });
+    // Characters are shown as they start: underwear only, so nothing distorts.
+    return SlayLook.initial(body).copy(avatarId: avatar['id'] ?? body);
   }
 
   Future<void> _confirm() async {
     final avatar = _avatars[_index];
-    final name = avatar['name'] == null || avatar['name'] == 'Original'
-        ? (avatar['body'] == 'male' ? 'him' : 'her')
-        : avatar['name'];
+    final name = avatar['name'] ?? (avatar['body'] == 'male' ? 'him' : 'her');
     final sure = await showDialog<bool>(
         context: context,
         builder: (c) => AlertDialog(
@@ -879,9 +874,7 @@ class _SlayCharacterPickerState extends State<SlayCharacterPicker> {
   Widget build(BuildContext context) {
     final n = context.neon;
     final avatars = _avatars, avatar = avatars[_index];
-    final name = avatar['name'] == null || avatar['name'] == 'Original'
-        ? (avatar['body'] == 'male' ? 'Classic him' : 'Classic her')
-        : avatar['name'];
+    final name = avatar['name'] ?? (avatar['body'] == 'male' ? 'Him' : 'Her');
     return Column(children: [
       Padding(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),

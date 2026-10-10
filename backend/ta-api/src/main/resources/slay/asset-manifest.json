@@ -8,9 +8,9 @@
    "bundled": false
   },
   "assets/avatar-girl02.glb": {
-   "name": "avatar-girl02.b3aedc3e3db67ffd.glb",
-   "sha256": "b3aedc3e3db67ffd20e97e7589cf85a6b8884256a77a262cb5aa7251a75b6355",
-   "bytes": 423900,
+   "name": "avatar-girl02.68388a2d5ad47b5e.glb",
+   "sha256": "68388a2d5ad47b5e15676ecfd0b6fe3cdbee5e0f513cbdf89ed6c4445899bdd6",
+   "bytes": 422384,
    "bundled": false
   },
   "assets/avatar-girl02.png": {
@@ -26,9 +26,9 @@
    "bundled": false
   },
   "assets/avatar-indian-male.glb": {
-   "name": "avatar-indian-male.1781c75d393eeef2.glb",
-   "sha256": "1781c75d393eeef24ce9f869576610bcf212e8e681d9ed3ddc082518930faccc",
-   "bytes": 964308,
+   "name": "avatar-indian-male.68b1d0feacfc2269.glb",
+   "sha256": "68b1d0feacfc2269200cef445f1af2f17479bee823d56a1a4641a74c8fe9bae0",
+   "bytes": 933280,
    "bundled": false
   },
   "assets/avatar-indian-male.png": {
@@ -661,18 +661,6 @@
    "bytes": 7857,
    "bundled": true
   },
-  "assets/female-s0-cosy-jumper.glb": {
-   "name": "female-s0-cosy-jumper.5657914328141124.glb",
-   "sha256": "5657914328141124f0d1b0de807fd7a50f8ab67bf0734aa06aefac9cfb8ce0c3",
-   "bytes": 44020,
-   "bundled": false
-  },
-  "assets/female-s0-cosy-jumper.png": {
-   "name": "female-s0-cosy-jumper.0c68035a6decfedd.png",
-   "sha256": "0c68035a6decfedd9efd6bf93f7e955d5f8ca6778fb60a501c1f1b537f4d1dc7",
-   "bytes": 16948,
-   "bundled": true
-  },
   "assets/female-s0-denim-cut-offs.glb": {
    "name": "female-s0-denim-cut-offs.b6fd39eb235b9018.glb",
    "sha256": "b6fd39eb235b90187719aeaab84091d78948b98ace0e2a01cb7d66747b1f7b5c",
@@ -743,18 +731,6 @@
    "name": "female-s0-hoodie-dress.7fe209bb09b8a455.png",
    "sha256": "7fe209bb09b8a455e06f26fcdb9e23a97cbf79191e03b28adf51934e665b87a2",
    "bytes": 14121,
-   "bundled": true
-  },
-  "assets/female-s0-low-rise-mini.glb": {
-   "name": "female-s0-low-rise-mini.d463610d5f03dbde.glb",
-   "sha256": "d463610d5f03dbde0224e5da7582ee971da1eae5a1213ed547c37da343743164",
-   "bytes": 70276,
-   "bundled": false
-  },
-  "assets/female-s0-low-rise-mini.png": {
-   "name": "female-s0-low-rise-mini.f0ede1087eb98e82.png",
-   "sha256": "f0ede1087eb98e82fe6e54f3f09a32f1988bb772f0d6edfe687b6704bd1a1df0",
-   "bytes": 27859,
    "bundled": true
   },
   "assets/female-s0-picnic-midi-dress.glb": {
@@ -1669,18 +1645,6 @@
    "bytes": 12769,
    "bundled": true
   },
-  "assets/female-s4-halter-jumpsuit.glb": {
-   "name": "female-s4-halter-jumpsuit.8fdf2c895fcc67f4.glb",
-   "sha256": "8fdf2c895fcc67f4a0905fb35745763ee4e8d1c94a5e2fb225c886a4ac6534ba",
-   "bytes": 139324,
-   "bundled": false
-  },
-  "assets/female-s4-halter-jumpsuit.png": {
-   "name": "female-s4-halter-jumpsuit.adea5743fd2a68aa.png",
-   "sha256": "adea5743fd2a68aa9f2b4348b4380824d945bf0feebb6acb9fbdc71272ca1a9f",
-   "bytes": 6765,
-   "bundled": true
-  },
   "assets/female-s4-over-knee-boots.glb": {
    "name": "female-s4-over-knee-boots.56ad66676454a724.glb",
    "sha256": "56ad66676454a7243a9bf507c1f288be7f8536635945fdbf9d4f8b628bd04640",
@@ -2258,9 +2222,9 @@
    "bundled": true
   },
   "assets/female.glb": {
-   "name": "female.5b911bfaa0aaaf70.glb",
-   "sha256": "5b911bfaa0aaaf70f58af710f31cf78bc9239932ca95eed7892e4a02bc513640",
-   "bytes": 423760,
+   "name": "female.3a26ebbca1d6e709.glb",
+   "sha256": "3a26ebbca1d6e7097a07c346e6036b1ea21844dcb64264edf4f29784cb95a81e",
+   "bytes": 422244,
    "bundled": true
   },
   "assets/male-bowtie-suit.glb": {
@@ -2912,9 +2876,9 @@
    "bundled": true
   },
   "assets/male.glb": {
-   "name": "male.dd14c88a3d8769f1.glb",
-   "sha256": "dd14c88a3d8769f1ae6d63b2f1b41ba61f9f4eb1bd9e2cbf9293f41cd43f20b9",
-   "bytes": 964000,
+   "name": "male.e81c0c8eb1b774d3.glb",
+   "sha256": "e81c0c8eb1b774d361c210bf6600205eaa20da16a5a5ccbd8c1f6d4057bdc98c",
+   "bytes": 932972,
    "bundled": true
   },
   "assets/shoe-0.glb": {

@@ -51,7 +51,11 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
       .copy(
           background: widget.initialBackground,
           avatarId: widget.careerCharacter?['avatarId'] as String?);
-  late final Set<String> _owned = {...widget.owned};
+  // Stage pieces opened by the career are already in the player's wardrobe.
+  late final Set<String> _owned = {
+    ...widget.owned,
+    ...List<String>.from(widget.careerCharacter?['items'] ?? const []),
+  };
   bool get _career => widget.careerCharacter != null;
   late final Set<String> _careerItems =
       Set<String>.from(widget.careerCharacter?['items'] ?? const []);
@@ -321,8 +325,9 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                         .firstOrNull
                     : null) ??
                 groups.firstOrNull;
-        final items =
-            wardrobe.itemsFor(category, clothing ? selectedGroup : null);
+        // A career stage is already its own set: no style-group filter.
+        final items = wardrobe.itemsFor(
+            category, clothing && !_career ? selectedGroup : null);
         // In a career, what you can wear now comes before what unlocks later.
         if (_career) {
           items.sort(
@@ -389,8 +394,15 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                 ]),
             body:
                 SafeArea(child: LayoutBuilder(builder: (context, constraints) {
+              // The wardrobe always keeps at least two full rows of items;
+              // the stage takes what is left, between 170 and 400 points.
+              const controlsBelowStage = 250.0, wardrobeRows = 200.0;
+              // Short phones let the stage shrink further.
+              final minStage = constraints.maxHeight < 650 ? 120.0 : 170.0;
               final stageHeight =
-                  (constraints.maxHeight * .41).clamp(180.0, 400.0);
+                  (constraints.maxHeight - controlsBelowStage - wardrobeRows)
+                      .clamp(minStage,
+                          (constraints.maxHeight * .45).clamp(minStage, 400.0));
               return Column(children: [
                 Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
@@ -399,17 +411,15 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                           child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                            SlayLabel(_career
-                                ? 'YOU’RE STYLING FOR'
-                                : 'Your challenge'),
-                            const SizedBox(height: 4),
                             Text(widget.theme['title'],
-                                style:
-                                    Theme.of(context).textTheme.headlineMedium),
-                            if (_required.isNotEmpty) ...[
-                              const SizedBox(height: 6),
-                              _checklist(context),
-                            ],
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleLarge
+                                    ?.copyWith(fontWeight: FontWeight.w900)),
+                            const SizedBox(height: 4),
+                            _guide(context),
                           ])),
                       if (widget.competitionId == null && !_career)
                         SegmentedButton<String>(
@@ -467,8 +477,9 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                                       look: _look,
                                       controller: _stage)),
                               Positioned(
-                                  top: 12,
-                                  left: 14,
+                                  top: 10,
+                                  left: 10,
+                                  right: 64,
                                   child: ValueListenableBuilder<bool>(
                                       valueListenable: _stage.showingOff,
                                       builder: (_, playing, __) => playing
@@ -642,7 +653,7 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                         ])),
                 const SizedBox(height: 4),
                 Divider(
-                    height: 16,
+                    height: 8,
                     thickness: 1,
                     indent: 16,
                     endIndent: 16,
@@ -668,7 +679,7 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                                               _styleGroup = '';
                                             })))
                         ])),
-                if (clothing) ...[
+                if (clothing && !_career) ...[
                   const SizedBox(height: 8),
                   SizedBox(
                       height: 36,
@@ -758,10 +769,6 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                       child: Text(_error!,
                           style: const TextStyle(
                               color: Colors.red, fontSize: 12))),
-                if (!_busy)
-                  Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
-                      child: _tipBubble(context)),
                 Padding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                     child: SizedBox(
@@ -888,24 +895,31 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
 
   Widget _checklist(BuildContext context) {
     final n = context.neon;
-    return Wrap(spacing: 6, runSpacing: 6, children: [
+    return Row(mainAxisSize: MainAxisSize.min, children: [
       for (final category in _required)
-        Builder(builder: (context) {
-          final done = _wearing(category);
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 250),
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-            decoration: BoxDecoration(
-              color: done ? n.jade.withValues(alpha: .22) : n.plate,
-              borderRadius: BorderRadius.circular(99),
-              border: Border.all(color: done ? n.jade : n.line, width: 1.5),
+        Padding(
+          padding: const EdgeInsets.only(right: 4),
+          child: Tooltip(
+            message: slayCategoryName(category),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+              decoration: BoxDecoration(
+                color: _wearing(category)
+                    ? n.jade.withValues(alpha: .25)
+                    : n.plate,
+                borderRadius: BorderRadius.circular(99),
+                border: Border.all(
+                    color: _wearing(category) ? n.jade : n.line, width: 1.5),
+              ),
+              child: Text(
+                  '${slayCategoryEmoji[category] ?? '✨'}${_wearing(category) ? '✅' : '⬜'}',
+                  semanticsLabel:
+                      '${slayCategoryName(category)} ${_wearing(category) ? 'done' : 'still needed'}',
+                  style: const TextStyle(fontSize: 13)),
             ),
-            child: Text(
-                '${done ? '✅' : '⬜'} ${slayCategoryEmoji[category] ?? '✨'} ${slayCategoryName(category)}',
-                style:
-                    const TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
-          );
-        }),
+          ),
+        ),
     ]);
   }
 
@@ -922,26 +936,32 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
     return '✨ Looking great! Tap the big button to show it off!';
   }
 
-  Widget _tipBubble(BuildContext context) {
+  /// Checklist and next-step tip under the title: always visible, and
+  /// never covering the model or the wardrobe.
+  Widget _guide(BuildContext context) {
     final n = context.neon;
     return Semantics(
       liveRegion: true,
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 250),
-        child: Container(
-          key: ValueKey(_tip),
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: n.gold.withValues(alpha: .14),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: n.gold.withValues(alpha: .7), width: 1.5),
+      child: Row(children: [
+        if (_required.isNotEmpty) ...[
+          _checklist(context),
+          const SizedBox(width: 8)
+        ],
+        Expanded(
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 250),
+            child: Text(_busy ? '' : _tip,
+                key: ValueKey(_busy ? '' : _tip),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    color: n.gold,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                    height: 1.2)),
           ),
-          child: Text(_tip,
-              style: TextStyle(
-                  color: n.ink, fontWeight: FontWeight.w800, fontSize: 13)),
         ),
-      ),
+      ]),
     );
   }
 
@@ -978,7 +998,7 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                                         radius: 14,
                                         backgroundImage: SlayAssets.instance
                                             .thumbnail(avatar['thumbnailUrl'])),
-                                label: Text(avatar['name'] ?? 'Original'),
+                                label: Text(avatar['name'] ?? 'Star'),
                                 selected: (_look.avatarId ?? _look.body) ==
                                     (avatar['id'] ?? avatar['body']),
                                 onSelected: (_) {

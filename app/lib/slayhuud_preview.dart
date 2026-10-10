@@ -16,6 +16,12 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final catalog = Map<String, dynamic>.from(jsonDecode(
       await rootBundle.loadString('assets/slay_renderer/catalog.json')));
+  // Art not yet published to playhuud.com can be served from the dev machine:
+  // --dart-define=SLAY_ASSET_BASE=http://localhost:8932/
+  const assetBase = String.fromEnvironment('SLAY_ASSET_BASE');
+  if (assetBase.isNotEmpty && catalog['assets'] is Map) {
+    catalog['assets'] = {...catalog['assets'] as Map, 'base': assetBase};
+  }
   final owned = (catalog['items'] as List)
       .where((i) => i['isDefault'] == true)
       .map((i) => i['id'])
