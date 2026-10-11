@@ -812,6 +812,7 @@ public class HuudSpaceService {
     static Map<String, Object> gameConfigFor(String gameType, String mode) {
         if ("slayhuud".equals(gameType)) return slayConfigFor(mode);
         if ("truearena".equals(gameType)) return traitorsConfigFor(mode);
+        if ("draughts".equals(gameType)) return draughtsConfigFor(mode);
         if (!"whot".equals(gameType)) return null;
         String m = mode == null || mode.isBlank() ? "classic" : mode.trim().toLowerCase();
         if (!WHOT_MODES.contains(m)) throw new IllegalArgumentException("Whot mode must be classic or tell");
@@ -847,6 +848,20 @@ public class HuudSpaceService {
         return JSON.convertValue(preset.config(), Map.class);
     }
 
+    /**
+     * Draughts' rules in a Huud: "casual" (captures optional), "seizure"
+     * (optional, but a missed capture can cost the piece) or "official"
+     * (captures forced, the most pieces). No mode keeps the casual default.
+     */
+    private static final Set<String> DRAUGHTS_MODES = Set.of("casual", "seizure", "official");
+
+    static Map<String, Object> draughtsConfigFor(String mode) {
+        if (mode == null || mode.isBlank()) return null;
+        String m = mode.trim().toLowerCase();
+        if (!DRAUGHTS_MODES.contains(m)) throw new IllegalArgumentException("Draughts rules must be casual, seizure or official");
+        return Map.of("mandatoryCapture", "official".equals(m), "seizure", "seizure".equals(m));
+    }
+
     static int seatsFor(String gameType, String mode) {
         if ("truearena".equals(gameType) && mode != null && Presets.bySlug(mode) != null) {
             return Presets.bySlug(mode).config().table().maxPlayers();
@@ -857,6 +872,17 @@ public class HuudSpaceService {
     }
 
     private static final ObjectMapper JSON = new ObjectMapper();
+
+    /** Draughts' rules from the room's stored config: casual unless set otherwise. */
+    private static String draughtsModeOf(String gameConfig) {
+        try {
+            Map<?, ?> raw = gameConfig == null || gameConfig.isBlank() ? Map.of() : JSON.readValue(gameConfig, Map.class);
+            if (Boolean.TRUE.equals(raw.get("mandatoryCapture"))) return "official";
+            return Boolean.TRUE.equals(raw.get("seizure")) ? "seizure" : "casual";
+        } catch (Exception e) {
+            return "casual";
+        }
+    }
 
     /** The Traitors mode a room was set up with, when it's one of the built-in ones. */
     private static String traitorsModeOf(String gameConfig) {
@@ -876,6 +902,7 @@ public class HuudSpaceService {
     static String modeOf(String gameType, String gameConfig) {
         boolean slay = "slayhuud".equals(gameType);
         if ("truearena".equals(gameType)) return traitorsModeOf(gameConfig);
+        if ("draughts".equals(gameType)) return draughtsModeOf(gameConfig);
         if (!"whot".equals(gameType) && !slay) return null;
         try {
             Object mode = gameConfig == null || gameConfig.isBlank() ? null : JSON.readValue(gameConfig, Map.class).get("mode");

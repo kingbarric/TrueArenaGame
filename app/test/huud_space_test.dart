@@ -295,10 +295,11 @@ void main() {
     expect(find.text('Which Whot?'), findsNothing);
     expect(calls.where((c) => c.startsWith('POST /api/v1/huud-spaces/h1/game')), isEmpty);
 
-    await tester.tap(find.byKey(const ValueKey('huud-pick-draughts')));
+    await tester.ensureVisible(find.byKey(const ValueKey('huud-pick-chess')));
+    await tester.tap(find.byKey(const ValueKey('huud-pick-chess')));
     await tester.pump();
     expect(find.text('Which Whot?'), findsNothing);
-    expect(calls, contains('POST /api/v1/huud-spaces/h1/game {"gameType":"draughts"}'));
+    expect(calls, contains('POST /api/v1/huud-spaces/h1/game {"gameType":"chess"}'));
   });
 
   testWidgets('inside: a member waits for the host, then can join the game the host picked', (tester) async {

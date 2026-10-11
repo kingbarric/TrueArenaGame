@@ -1,3 +1,4 @@
+import '../../core/share_origin.dart';
 import '../../core/api_client.dart' show userErrorMessage;
 import 'dart:async';
 
@@ -307,7 +308,8 @@ class _ChampionshipDetailScreenState extends State<ChampionshipDetailScreen> {
           _starting ? 'Starting…' : 'Start now', onPressed: _starting ? null : _startNow),
         if (_error != null) Padding(padding: const EdgeInsets.all(8), child: Text(userErrorMessage, style: TextStyle(color: n.danger))),
         if (joined) ...[
-          NeonButton('Invite Friends', onPressed: () => Share.share('${c['name']} · Draughts knockout championship\n${c['inviteLink']}\nCode: ${c['code']}')),
+          NeonButton('Invite Friends', onPressed: () => Share.share('${c['name']} · Draughts knockout championship\n${c['inviteLink']}\nCode: ${c['code']}',
+              sharePositionOrigin: shareOrigin(context))),
           TextButton.icon(onPressed: () { Clipboard.setData(ClipboardData(text: c['code'].toString()));
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Code copied'))); },
             icon: const Icon(Icons.copy), label: Text('Code ${c['code']}')),

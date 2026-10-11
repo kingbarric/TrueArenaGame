@@ -915,7 +915,8 @@ public class GameOrchestrator {
             // Missing rules use the casual default. An explicit true keeps
             // compulsory captures available for hosts who choose them.
             boolean mandatory = Boolean.TRUE.equals(raw.get("mandatoryCapture"));
-            return new DraughtsConfig(turnSeconds, mandatory);
+            boolean seizure = Boolean.TRUE.equals(raw.get("seizure"));
+            return new DraughtsConfig(turnSeconds, mandatory, seizure);
         } catch (Exception e) {
             log.warn("unreadable draughts config, using defaults: {}", e.toString());
             return DraughtsConfig.defaults();

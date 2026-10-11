@@ -17,6 +17,7 @@ class DraughtsVarStep {
     required this.to,
     this.captured,
     this.promoted = false,
+    this.seized = false,
   });
 
   final int from;
@@ -24,11 +25,16 @@ class DraughtsVarStep {
   final int? captured;
   final bool promoted;
 
+  /// A seizure: the opponent's piece on [captured] was taken because it
+  /// missed an obvious capture. Nothing moves.
+  final bool seized;
+
   DraughtsVarStep withPromotion() => DraughtsVarStep(
         from: from,
         to: to,
         captured: captured,
         promoted: true,
+        seized: seized,
       );
 }
 
@@ -54,6 +60,16 @@ class DraughtsVarRecorder {
       _steps.clear();
     }
     _steps.add(DraughtsVarStep(from: from, to: to, captured: captured));
+  }
+
+  /// A seizure opens the seizing side's turn, before their move.
+  void seize(List<String?> boardBeforeEvent, String side, int square) {
+    if (_before == null || _side != side) {
+      _before = List<String?>.of(boardBeforeEvent);
+      _side = side;
+      _steps.clear();
+    }
+    _steps.add(DraughtsVarStep(from: square, to: square, captured: square, seized: true));
   }
 
   void promote(int square) {

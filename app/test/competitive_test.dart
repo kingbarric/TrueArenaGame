@@ -450,7 +450,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final switches = find.byType(Switch);
-    expect(switches, findsNWidgets(2)); // ranked, captures
+    expect(switches, findsNWidgets(3)); // ranked, captures, seizure (offered while captures are optional)
     expect(tester.widget<Switch>(switches.at(1)).value, isFalse); // casual default: optional captures
 
     await tester.tap(switches.at(0));
@@ -480,6 +480,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Ranked'), findsNothing);
-    expect(find.byType(Switch), findsOneWidget);
+    expect(find.byType(Switch), findsNWidgets(2)); // captures, seizure
   });
 }

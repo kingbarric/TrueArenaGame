@@ -14,8 +14,10 @@ import app.truearena.engine.WinResult;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.Optional;
 
 /**
@@ -98,6 +100,7 @@ public final class DraughtsModule implements GameModule {
 
         switch (action.type()) {
             case "MOVE" -> move(d, s, action);
+            case "SEIZE" -> seize(d, s, action);
             case "FORFEIT" -> forfeit(d, s, action);
             case "OFFER_DRAW" -> offerDraw(d, s, action);
             case "ACCEPT_DRAW" -> acceptDraw(d, s, action);
@@ -184,8 +187,9 @@ public final class DraughtsModule implements GameModule {
             d.emit("UNDO_DECLINED", Map.of("by", a.actor()));
             d.pendingUndo = null;
         }
-        // The board as this turn began — what an undo would go back to.
-        if (d.activeSquare == null && d.capturedSoFarThisTurn == 0) {
+        // The board as this turn began — what an undo would go back to
+        // (already taken if the turn opened with a seizure).
+        if (d.activeSquare == null && d.capturedSoFarThisTurn == 0 && !d.seizedThisTurn) {
             d.turnStartBoard = d.board.clone();
             d.turnStartRequired = d.requiredCaptureCount;
         }
@@ -234,7 +238,8 @@ public final class DraughtsModule implements GameModule {
         require(side != null, "NOT_A_PLAYER", "only a player can ask for an undo");
         require(a.actor().equals(s.lastMover) && s.undoBoard != null, "NOTHING_TO_UNDO",
                 "you can only take back the move you just played");
-        require(!side.equals(s.turnSide()) && s.phase.startsWith("Turn") && s.activeSquare == null,
+        require(!side.equals(s.turnSide()) && s.phase.startsWith("Turn") && s.activeSquare == null
+                        && !s.seizedThisTurn,
                 "TOO_LATE_TO_UNDO", "the other player has already started their move");
         require(s.pendingUndo == null, "UNDO_ALREADY_ASKED", "you've already asked — wait for their answer");
         d.pendingUndo = a.actor();
@@ -262,6 +267,8 @@ public final class DraughtsModule implements GameModule {
         d.undoBoard = null;
         d.lastMover = null;
         d.turnStartBoard = null;
+        d.seizable.clear();
+        d.seizedThisTurn = false;
         d.emit("UNDO_ACCEPTED", Map.of("by", a.actor(), "side", side, "board", boardSnapshot(d.board)));
         d.emit("TURN_STARTED", Map.of("side", side, "mustCapture", d.requiredCaptureCount > 0));
     }
@@ -316,13 +323,62 @@ public final class DraughtsModule implements GameModule {
 
     private void simpleMove(DraughtsState.Draft d, String side, int from, int to) {
         require(CaptureEngine.simpleLandings(d.board, from).contains(to), "ILLEGAL_MOVE", "not a legal move");
+        // A plain move while a capture was on offer: with seizure on, the
+        // pieces that could have taken are forfeit to the opponent's choice.
+        Set<Integer> missed = new LinkedHashSet<>();
+        if (d.config.seizure()) {
+            for (int sq = 0; sq < Board.SIZE; sq++) {
+                Piece p = d.board[sq];
+                if (p != null && p.side().equals(side) && !CaptureEngine.captureLandings(d.board, sq).isEmpty()) {
+                    missed.add(sq == from ? to : sq);
+                }
+            }
+        }
         d.board = CaptureEngine.applySimpleMove(d.board, from, to);
         d.emit("PIECE_MOVED", Map.of("from", from, "to", to, "side", side));
-        endTurn(d, side, to);
+        endTurn(d, side, to, missed);
+    }
+
+    /**
+     * Seizure: the side on turn takes one of the opponent's pieces that
+     * could have captured last turn but didn't. Before their own move, once
+     * a turn; it doesn't use up the move.
+     */
+    private void seize(DraughtsState.Draft d, DraughtsState s, PlayerAction a) {
+        String side = s.sideOf(a.actor());
+        require(side != null, "NOT_A_PLAYER", "you're not one of the two players in this game");
+        require(s.config.seizure(), "NO_SEIZURE", "seizure isn't on in this game");
+        require(side.equals(s.turnSide()), "NOT_YOUR_TURN", "it's not your turn");
+        require(s.activeSquare == null && s.capturedSoFarThisTurn == 0 && !s.seizedThisTurn,
+                "SEIZE_FIRST", "seize before you move, once a turn");
+        int square = intField(a, "square");
+        require(s.seizable.contains(square) && s.board[square] != null
+                        && s.board[square].side().equals(s.otherSide(side)),
+                "NOT_SEIZABLE", "only a piece that missed an obvious capture can be seized");
+        if (d.pendingUndo != null) {
+            d.emit("UNDO_DECLINED", Map.of("by", a.actor()));
+            d.pendingUndo = null;
+        }
+        d.pendingDrawOffer = null;
+        d.turnStartBoard = d.board.clone();
+        d.turnStartRequired = d.requiredCaptureCount;
+        d.board[square] = null;
+        d.seizable.clear();
+        d.seizedThisTurn = true;
+        d.emit("PIECE_SEIZED", Map.of("square", square, "side", s.otherSide(side), "by", a.actor(),
+                "reason", "missed_capture"));
+        if (d.build().pieceCount(s.otherSide(side)) == 0) {
+            finish(d, side);
+        }
     }
 
     /** Promotes if the landing square earns it, then hands the turn to the other side (or ends the game). */
     private void endTurn(DraughtsState.Draft d, String side, int landedSquare) {
+        endTurn(d, side, landedSquare, Set.of());
+    }
+
+    /** {@code missed}: this side's pieces that could have captured and didn't — seizable next turn. */
+    private void endTurn(DraughtsState.Draft d, String side, int landedSquare, Set<Integer> missed) {
         Piece landed = d.board[landedSquare];
         if (landed != null && !landed.isKing()) {
             int row = Board.rowOf(landedSquare);
@@ -334,6 +390,8 @@ public final class DraughtsModule implements GameModule {
         }
         d.activeSquare = null;
         d.capturedSoFarThisTurn = 0;
+        d.seizable.clear();
+        d.seizedThisTurn = false;
         // Remember this turn so its player can ask to take it back.
         d.undoBoard = d.turnStartBoard;
         d.undoRequired = d.turnStartRequired;
@@ -354,7 +412,9 @@ public final class DraughtsModule implements GameModule {
                 : 0;
         d.phase = DraughtsState.SIDE_A.equals(next) ? "TurnA" : "TurnB";
         d.round++;
-        d.emit("TURN_STARTED", Map.of("side", next, "mustCapture", d.requiredCaptureCount > 0));
+        d.seizable.addAll(missed);
+        d.emit("TURN_STARTED", Map.of("side", next, "mustCapture", d.requiredCaptureCount > 0,
+                "seizable", new java.util.TreeSet<>(missed).stream().toList()));
     }
 
     private void finish(DraughtsState.Draft d, String winningSide) {
@@ -425,6 +485,11 @@ public final class DraughtsModule implements GameModule {
         m.put("activeSquare", s.activeSquare);
         m.put("mustCapture", s.requiredCaptureCount > 0);
         m.put("mandatoryCapture", s.config.mandatoryCapture());
+        m.put("seizure", s.config.seizure());
+        // Pieces the side on turn may seize, sorted for a stable view.
+        boolean canSeize = !s.finished() && !s.seizable.isEmpty() && !s.seizedThisTurn && s.activeSquare == null;
+        m.put("seizable", canSeize ? new java.util.TreeSet<>(s.seizable).stream().toList() : List.of());
+        m.put("seizableBy", canSeize ? s.turnSide() : null);
         m.put("pendingDrawOffer", s.pendingDrawOffer);
         m.put("pendingUndo", s.pendingUndo);
         // Who may ask for an undo right now: whoever just played, until the other side starts.

@@ -1,3 +1,4 @@
+import '../../core/share_origin.dart';
 import '../../core/api_client.dart' show userErrorMessage;
 import 'dart:async';
 import 'dart:io';
@@ -163,6 +164,7 @@ class _PublishVictoryState extends State<_PublishVictory> {
   }
 
   Future<void> _share() async {
+    final origin = shareOrigin(context);
     setState(() => _busy = true);
     try {
       final boundary =
@@ -175,7 +177,8 @@ class _PublishVictoryState extends State<_PublishVictory> {
       final file = File(
           '${(await getTemporaryDirectory()).path}/playhuud-victory-${DateTime.now().millisecondsSinceEpoch}.png');
       await file.writeAsBytes(bytes.buffer.asUint8List());
-      await Share.shareXFiles([XFile(file.path)],
+      await Share.shareXFiles([XFile(file.path, mimeType: 'image/png')],
+          sharePositionOrigin: origin,
           text:
               'I won ${gameStatusNames[widget.gameType] ?? widget.gameType} on PlayHuud!');
     } catch (_) {

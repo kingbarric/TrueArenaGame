@@ -17,7 +17,7 @@ class HuudSpaceWhotModeTest {
 
     @Test
     void otherGamesHaveNoModeAndWhotRejectsUnknownOnes() {
-        assertThat(HuudSpaceService.gameConfigFor("draughts", "tell")).isNull();
+        assertThat(HuudSpaceService.gameConfigFor("chess", "tell")).isNull();
         assertThatThrownBy(() -> HuudSpaceService.gameConfigFor("whot", "bluff"))
                 .isInstanceOf(IllegalArgumentException.class);
     }
