@@ -86,6 +86,14 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-26187322342-o2squi475tmt3ubs8k9rh2d2b7pfivgf.apps.googleusercontent.com}
       # Shared secret for the /notvisible/analytics admin dashboard (X-Admin-Key header).
       ADMIN_API_KEY: ${ADMIN_API_KEY:?set ADMIN_API_KEY}
+      # SlayHuud art and look snapshots: Cloudflare R2, bucket playhuud-assets.
+      # LATER: point SLAY_ASSET_BASE at a custom domain (assets.playhuud.com, needs
+      # playhuud.com DNS on Cloudflare) — r2.dev is rate-limited — and give prod its
+      # own R2 token instead of sharing test's.
+      SLAY_ASSET_BASE: ${SLAY_ASSET_BASE:-https://pub-add3eaff74154969a3810cabdb63ef40.r2.dev/slay/}
+      R2_ENDPOINT: ${R2_ENDPOINT:-}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
     ports: ["8080:8080"]
 
   # Reverse proxy + automatic Let's Encrypt. Needs DOMAIN set to a real hostname that
