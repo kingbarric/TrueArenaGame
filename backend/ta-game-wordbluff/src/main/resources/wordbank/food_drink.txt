@@ -83,19 +83,8 @@ vanilla
 chocolate
 coffee
 tea
-cocktail
 mocktail
 smoothie bowl
 juice
 soda
 sparkling water
-champagne
-wine
-beer
-cider
-whiskey
-tequila
-rum
-cocktail shaker
-bartender
-sommelier

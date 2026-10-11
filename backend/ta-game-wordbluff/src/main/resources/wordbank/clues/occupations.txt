@@ -1,0 +1,101 @@
+# word | first clue | second clue
+firefighter | Someone who puts out blazes and rescues people. | They ride a red engine and climb ladders.
+surgeon | A doctor who operates on people. | They wear a mask and use a scalpel.
+electrician | Someone who fixes wiring and sockets. | They make sure the lights work safely.
+journalist | Someone who writes news stories. | A reporter for a newspaper.
+architect | Someone who designs buildings. | They draw plans for houses and towers.
+plumber | Someone who fixes pipes and leaks. | Mario's job.
+librarian | Someone who looks after books and says shhh. | They stamp your book with a return date.
+pilot | Someone who flies planes. | Captain in the cockpit.
+chef | Someone who cooks in a restaurant kitchen. | Tall white hat.
+lawyer | Someone who argues cases in court. | An attorney who defends you.
+teacher | Someone who helps children learn at school. | They mark your homework.
+mechanic | Someone who fixes cars. | They work in a garage with spanners.
+dentist | Someone who looks after your teeth. | Open wide and say ahh.
+farmer | Someone who grows crops and keeps animals. | Old MacDonald, with his cows and pigs.
+astronaut | Someone who travels into space. | Neil Armstrong walked on the moon.
+nurse | Someone who cares for patients in hospital. | They take your temperature and give injections.
+paramedic | Someone who comes in an ambulance. | First on the scene at emergencies.
+police officer | Someone who keeps law and order. | They arrest criminals and wear a badge.
+detective | Someone who solves mysteries. | Sherlock Holmes.
+judge | The person in charge of a court. | They wear a wig and bang a gavel.
+accountant | Someone who handles money and taxes. | Number cruncher with spreadsheets.
+banker | Someone who works with money, loans and savings. | Works in a building with a vault.
+economist | An expert on money, trade and markets. | They predict booms and busts.
+scientist | Someone who does experiments. | Lab coat and goggles.
+biologist | A scientist who studies living things. | Plants, animals and cells.
+chemist | A scientist who mixes substances. | Test tubes and reactions; also a pharmacy.
+physicist | A scientist who studies energy and forces. | Einstein and Newton.
+geologist | A scientist who studies rocks. | Volcanoes and minerals.
+zoologist | A scientist who studies animals. | Researching lions and penguins.
+botanist | A scientist who studies plants. | Flowers and trees.
+veterinarian | An animal doctor. | Takes care of sick pets.
+pharmacist | Someone who gives out medicine. | Behind the counter at the chemist.
+therapist | Someone who helps you with your feelings. | You talk on a couch.
+psychologist | Someone who studies the mind and behaviour. | They help people understand their thoughts.
+counselor | Someone who gives advice and guidance. | A school one helps students.
+social worker | Someone who helps families in trouble. | They protect children.
+translator | Someone who turns writing into another language. | French to English on paper.
+interpreter | Someone who translates speech out loud. | At the United Nations with headphones.
+editor | Someone who checks and corrects writing. | They decide what goes in the magazine.
+publisher | A company or person who prints and sells books. | Penguin is a famous one.
+photographer | Someone who takes pictures. | Say cheese.
+videographer | Someone who films events. | They shoot weddings on camera.
+graphic designer | Someone who designs logos and posters. | Working in Photoshop.
+illustrator | Someone who draws pictures for books. | Picture book artist.
+animator | Someone who makes cartoons move. | At Pixar or Disney.
+sculptor | Someone who carves statues. | Michelangelo made David.
+painter | An artist with a brush and canvas. | Picasso or Van Gogh; also decorates walls.
+musician | Someone who plays an instrument. | A performer of songs.
+composer | Someone who writes music. | Mozart.
+choreographer | Someone who creates dance routines. | Plans the moves for a show.
+dancer | Someone who moves to music. | Ballet or hip hop.
+actor | Someone who performs in films or plays. | Hollywood star.
+stuntman | A person who does dangerous film scenes. | Jumps from buildings.
+makeup artist | Someone who paints actors' faces. | Lipstick and foundation.
+hairdresser | Someone who cuts and styles your fringe. | A visit to the salon.
+tailor | Someone who makes and fixes clothes. | Measures you for a suit.
+carpenter | Someone who builds with wood. | Saw and hammer.
+bricklayer | Someone who builds walls. | Mortar and a trowel.
+welder | Someone who joins metal with heat. | Sparks fly; mask on.
+blacksmith | Someone who hammers metal on an anvil. | Makes horseshoes in a forge.
+locksmith | Someone who fixes and opens doors you can't get into. | Call them when you've lost your keys.
+plumber's apprentice | A young trainee learning to fix pipes. | Learning the trade with a spanner.
+electrician's apprentice | A trainee learning to fix wiring. | Learning to install sockets safely.
+construction worker | Someone building on a site. | Hard hat and hi-vis.
+crane operator | Someone who works the big lifting machine. | High up in the cab.
+surveyor | Someone who measures land. | With a tripod and measuring tools.
+urban planner | Someone who plans how cities grow. | Designs roads and parks.
+real estate agent | Someone who sells houses. | Shows you round homes.
+insurance agent | Someone who sells protection plans. | Covers your car and house.
+sales representative | Someone who sells products to customers. | They go round shops with samples.
+marketing manager | Someone in charge of advertising. | Brand campaigns.
+project manager | Someone who organises a team's work. | Deadlines and plans.
+human resources manager | Someone who handles hiring and staff issues. | HR boss.
+recruiter | Someone who finds new staff. | Headhunter.
+receptionist | Someone at the front desk. | Greets visitors.
+secretary | Someone who organises an office. | Takes notes and answers phones.
+janitor | Someone who cleans buildings. | School caretaker with a mop.
+security guard | Someone who protects a building. | Bouncer at the door.
+lifeguard | Someone who watches swimmers. | Baywatch, red float.
+flight attendant | Someone who serves you on a plane. | Safety demo.
+air traffic controller | Someone who guides planes from a tower. | Tower to pilot.
+ship captain | The leader on board a vessel. | Steers at the wheel.
+truck driver | Someone who drives lorries. | Long haul on highways.
+taxi driver | Someone who drives people for a fare. | Yellow cab.
+delivery driver | Someone who drops off parcels. | Amazon van.
+postal worker | Someone who delivers letters. | Postman Pat.
+librarian assistant | Someone who helps out in the book room. | Shelving returned books.
+tour guide | Someone who shows visitors around. | Holds up an umbrella.
+park ranger | Someone who looks after the wild land at Yellowstone. | Smokey Bear hat.
+zookeeper | Someone who looks after animals in a zoo. | Feeds the penguins.
+beekeeper | Someone who looks after hives. | Wears a veil to collect honey.
+fisherman | Someone who casts nets and lines from a boat. | Rods, bait and the catch of the day.
+miner | Someone who digs underground for coal. | Hard hat with a lamp.
+diplomat | Someone who represents their country abroad. | Ambassador.
+politician | Someone elected to government. | Makes speeches and laws.
+soldier | Someone in the army. | Wears camouflage.
+spy | Someone who gathers secrets. | James Bond.
+referee | Someone who enforces the rules in a match. | Blows the whistle.
+coach | Someone who trains a team. | Shouts from the sideline; also a bus.
+personal trainer | Someone who helps you get fit at the gym. | Pushes you through workouts.

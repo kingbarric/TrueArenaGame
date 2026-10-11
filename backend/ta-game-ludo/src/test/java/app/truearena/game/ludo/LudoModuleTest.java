@@ -81,6 +81,8 @@ class LudoModuleTest {
         pieces.put("green", List.of(1, -1, -1, -1));
         LudoState result = act(state(start(4), pieces, List.of(3)), "red", "MOVE", Map.of("die", 3, "token", 0));
         assertThat(result.pieces().get("green")).containsExactly(-1, -1, -1, -1);
+        assertThat(result.pieces().get("red")).containsExactly(56, -1, -1, -1);
+        assertThat(result.events().get(result.events().size() - 2).payload()).containsEntry("to", 56).containsEntry("captureSquare", 14);
         assertThat(result.turnPlayer()).isEqualTo("green");
         assertThat(result.events().getLast().type()).isEqualTo("TURN_STARTED");
 
@@ -88,6 +90,91 @@ class LudoModuleTest {
         pieces.put("green", List.of(47, -1, -1, -1)); // absolute square 8
         result = act(state(start(4), pieces, List.of(3)), "red", "MOVE", Map.of("die", 3, "token", 0));
         assertThat(result.pieces().get("green").get(0)).isEqualTo(47);
+        assertThat(result.pieces().get("red").get(0)).isEqualTo(8);
+    }
+
+    @Test void aFinishedCapturingPieceCannotUseTheRemainingDie() {
+        var pieces = new LinkedHashMap<>(start(4).pieces());
+        pieces.put("red", List.of(11, 0, -1, -1));
+        pieces.put("green", List.of(1, -1, -1, -1));
+        var captured = act(state(start(4), pieces, List.of(3, 2)), "red", "MOVE", Map.of("die", 3, "token", 0));
+        assertThat(captured.pieces().get("red")).containsExactly(56, 0, -1, -1);
+        assertThat(captured.dice()).containsExactly(2);
+        assertThat(module.broadcastState(captured).data().get("legalMoves"))
+                .isEqualTo(List.of(Map.of("die", 2, "token", 1)));
+        assertThatThrownBy(() -> act(captured, "red", "MOVE", Map.of("die", 2, "token", 0)))
+                .isInstanceOf(RuleViolation.class);
+    }
+
+    @Test void lonePieceMustUseBothDiceBeforeItCanCapture() {
+        var pieces = new LinkedHashMap<>(start(4).pieces());
+        pieces.put("red", List.of(11, -1, -1, -1));
+        pieces.put("green", List.of(1, -1, -1, -1));
+        var first = act(state(start(4), pieces, List.of(3, 4)), "red", "MOVE", Map.of("die", 3, "token", 0));
+        assertThat(first.pieces().get("red")).containsExactly(14, -1, -1, -1);
+        assertThat(first.pieces().get("green").getFirst()).isEqualTo(1);
+        assertThat(first.dice()).containsExactly(4);
+        assertThat(first.events().getLast().payload().get("captured")).isEqualTo(List.of());
+        var second = act(first, "red", "MOVE", Map.of("die", 4, "token", 0));
+        assertThat(second.pieces().get("red").getFirst()).isEqualTo(18);
+        assertThat(second.pieces().get("green").getFirst()).isEqualTo(1);
+    }
+
+    @Test void anotherPieceMustActuallyBeAbleToUseTheRemainingDie() {
+        var pieces = new LinkedHashMap<>(start(4).pieces());
+        pieces.put("red", List.of(11, 54, 56, 56));
+        pieces.put("green", List.of(1, -1, -1, -1));
+        var first = act(state(start(4), pieces, List.of(3, 4)), "red", "MOVE", Map.of("die", 3, "token", 0));
+        assertThat(first.pieces().get("red").getFirst()).isEqualTo(14);
+        assertThat(first.pieces().get("green").getFirst()).isEqualTo(1);
+        assertThat(first.dice()).containsExactly(4);
+    }
+
+    @Test void remainingSixCanReleaseAnotherPieceAfterACapture() {
+        var pieces = new LinkedHashMap<>(start(4).pieces());
+        pieces.put("red", List.of(11, -1, -1, -1));
+        pieces.put("green", List.of(1, -1, -1, -1));
+        var first = act(state(start(4), pieces, List.of(3, 6)), "red", "MOVE", Map.of("die", 3, "token", 0));
+        assertThat(first.pieces().get("red").getFirst()).isEqualTo(56);
+        assertThat(first.pieces().get("green").getFirst()).isEqualTo(-1);
+        assertThat(first.dice()).containsExactly(6);
+    }
+
+    @Test void releasingAtOwnDoorCapturesOnlyIfAnotherPieceCanUseTheOtherDie() {
+        for (boolean alternative : List.of(false, true)) {
+            var pieces = new LinkedHashMap<>(start(4).pieces());
+            pieces.put("red", List.of(-1, alternative ? 10 : -1, -1, -1));
+            pieces.put("green", List.of(39, -1, -1, -1)); // Red's door, absolute square 0.
+            var first = act(state(start(4), pieces, List.of(6, 4)), "red", "MOVE", Map.of("die", 6, "token", 0));
+            assertThat(first.pieces().get("red").getFirst()).isEqualTo(alternative ? 56 : 0);
+            assertThat(first.pieces().get("green").getFirst()).isEqualTo(alternative ? -1 : 39);
+            assertThat(first.dice()).containsExactly(4);
+            var second = act(first, "red", "MOVE", Map.of("die", 4, "token", alternative ? 1 : 0));
+            assertThat(second.pieces().get("red").get(alternative ? 1 : 0)).isEqualTo(alternative ? 14 : 4);
+        }
+    }
+
+    @Test void capturingWithTheLastPieceWinsImmediately() {
+        var pieces = new LinkedHashMap<>(start(4).pieces());
+        pieces.put("red", List.of(11, 56, 56, 56));
+        pieces.put("green", List.of(1, -1, -1, -1));
+        var captured = act(state(start(4), pieces, List.of(3)), "red", "MOVE", Map.of("die", 3, "token", 0));
+        assertThat(captured.pieces().get("red")).containsOnly(56);
+        assertThat(captured.pieces().get("green")).containsOnly(-1);
+        assertThat(captured.winner()).isEqualTo("red");
+        assertThat(captured.finished()).isTrue();
+    }
+
+    @Test void anAcceptedUndoRestoresBothTheVictimAndTheCompletedAttacker() {
+        var pieces = new LinkedHashMap<>(start(4).pieces());
+        pieces.put("red", List.of(11, -1, -1, -1));
+        pieces.put("green", List.of(1, -1, -1, -1));
+        var before = state(start(4), pieces, List.of(3)).withUndo(new LudoState.Undo(
+                pieces, List.of(3), 0, null, null, 0, -1, null, null));
+        var captured = act(before, "red", "MOVE", Map.of("die", 3, "token", 0));
+        var restored = act(act(captured, "red", "REQUEST_UNDO", Map.of()), "green", "ACCEPT_UNDO", Map.of());
+        assertThat(restored.pieces()).isEqualTo(before.pieces());
+        assertThat(restored.dice()).containsExactly(3);
     }
 
     @Test void oppositeTwoPlayerSeatsCaptureWithFourOrEightPieces() {
@@ -99,6 +186,7 @@ class LudoModuleTest {
         LudoState captured = act(state(four, pieces, List.of(3)), "red", "MOVE",
                 Map.of("die", 3, "token", 0));
         assertThat(captured.pieces().get("green")).containsOnly(-1);
+        assertThat(captured.pieces().get("red")).contains(56);
         assertThat(captured.events().get(captured.events().size() - 2).payload().get("captured"))
                 .isEqualTo(List.of("green:0"));
 
@@ -110,6 +198,7 @@ class LudoModuleTest {
         captured = act(state(eight, pieces, List.of(3)), "red", "MOVE",
                 Map.of("die", 3, "token", 7));
         assertThat(captured.pieces().get("green")).containsOnly(-1);
+        assertThat(captured.pieces().get("red")).contains(56);
         assertThat(captured.events().get(captured.events().size() - 2).payload().get("captured"))
                 .isEqualTo(List.of("green:7"));
     }
@@ -266,5 +355,50 @@ class LudoModuleTest {
                 base.turnIndex(), base.dice(), base.rollCount(), base.bonusRolls(), base.seed(),
                 "red", base.eliminated(), base.actionIds(), base.events(), base.config());
         assertThat(module.playersToAct(won)).isEmpty();
+    }
+
+    /** Red rolls and plays out the turn (always picking the first legal move), so it passes to green. */
+    @SuppressWarnings("unchecked")
+    private LudoState redPlaysATurn(LudoState s) {
+        LudoState rolled = act(s, "red", "ROLL", Map.of());
+        LudoState now = rolled;
+        while (now.turnPlayer().equals("red") && !now.dice().isEmpty()) {
+            var legal = (List<Map<String, Integer>>) module.broadcastState(now).data().get("legalMoves");
+            var m = legal.getFirst();
+            now = act(now, "red", "MOVE", Map.of("die", m.get("die"), "token", m.get("token")));
+        }
+        return now;
+    }
+
+    @Test void anAgreedUndoGivesTheTurnBackWithTheSameDice() {
+        LudoState base = start(2);
+        LudoState s = state(base, Map.of("red", List.of(5, 10, -1, -1), "green", List.of(-1, -1, -1, -1)), List.of());
+        LudoState rolled = act(s, "red", "ROLL", Map.of());
+        LudoState after = redPlaysATurn(s);
+        assertThat(after.turnPlayer()).as("this seed passes the turn to green").isEqualTo("green");
+        assertThat(module.broadcastState(after).data()).containsEntry("undoableBy", "red");
+        assertThatThrownBy(() -> act(after, "green", "REQUEST_UNDO", Map.of())).isInstanceOf(RuleViolation.class);
+
+        LudoState asked = act(after, "red", "REQUEST_UNDO", Map.of());
+        assertThat(module.broadcastState(asked).data()).containsEntry("pendingUndo", "red");
+        LudoState back = act(asked, "green", "ACCEPT_UNDO", Map.of());
+        assertThat(back.turnPlayer()).isEqualTo("red");
+        assertThat(back.pieces()).isEqualTo(s.pieces());
+        assertThat(back.dice()).isEqualTo(rolled.dice());
+        assertThat(module.broadcastState(back).data()).containsEntry("undoableBy", null);
+    }
+
+    @Test void theNextRollOrANoKeepsTheTurn() {
+        LudoState base = start(2);
+        LudoState s = state(base, Map.of("red", List.of(5, 10, -1, -1), "green", List.of(-1, -1, -1, -1)), List.of());
+        LudoState after = redPlaysATurn(s);
+        assertThat(after.turnPlayer()).isEqualTo("green");
+        LudoState declined = act(act(after, "red", "REQUEST_UNDO", Map.of()), "green", "DECLINE_UNDO", Map.of());
+        assertThat(declined.turnPlayer()).isEqualTo("green");
+        assertThat(declined.undo().pending()).isNull();
+
+        LudoState greenRolled = act(act(after, "red", "REQUEST_UNDO", Map.of()), "green", "ROLL", Map.of());
+        assertThat(greenRolled.undo().pending()).isNull();
+        assertThatThrownBy(() -> act(greenRolled, "red", "REQUEST_UNDO", Map.of())).isInstanceOf(RuleViolation.class);
     }
 }

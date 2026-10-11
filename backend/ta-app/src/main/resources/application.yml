@@ -11,6 +11,10 @@ spring:
     user: ${DB_USERNAME:truearena}
     password: ${DB_PASSWORD:truearena}
     locations: classpath:db/migration
+    # Production applied V37 (slayhuud) and V38 (social huud sessions) from a
+    # branch that was dropped; their tables are unused. Tolerate applied
+    # migrations that aren't in this tree instead of refusing to start.
+    ignore-migration-patterns: "*:missing"
   data:
     redis:
       host: ${REDIS_HOST:localhost}

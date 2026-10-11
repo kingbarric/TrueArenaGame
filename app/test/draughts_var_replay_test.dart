@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:truearena/widgets/neon.dart' show Presence;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -13,6 +14,10 @@ import 'package:truearena/features/draughts/draughts_game_screen.dart';
 import 'package:truearena/theme/neon_theme.dart';
 
 class _Socket implements GameSocket {
+  @override
+  final awaySince = <String, DateTime>{};
+  @override
+  Presence presenceOf(String userId) => Presence.here;
   @override
   final memberAvatars = <String, String?>{};
   final frames = StreamController<Map<String, dynamic>>.broadcast();
@@ -94,14 +99,11 @@ void main() {
     socket.event('TURN_STARTED', {'side': 'A'});
     await tester.pump();
 
-    final varButton = find.byKey(const Key('draughts-var-tv'));
+    // VAR now lives in the shared control row under the board.
+    final varButton = find.byKey(const ValueKey('game-control-var'));
     expect(varButton, findsOneWidget);
-    expect(tester.widget<TextButton>(varButton).onPressed, isNotNull);
-    expect(
-        find.descendant(of: varButton, matching: find.byIcon(Icons.tv_rounded)),
-        findsOneWidget);
-    expect(find.descendant(of: varButton, matching: find.text('VAR')),
-        findsOneWidget);
+    expect(tester.widget<InkWell>(find.descendant(of: varButton, matching: find.byType(InkWell))).onTap, isNotNull);
+    expect(find.descendant(of: varButton, matching: find.text('VAR')), findsOneWidget);
 
     await tester.ensureVisible(varButton);
     await tester.pump();

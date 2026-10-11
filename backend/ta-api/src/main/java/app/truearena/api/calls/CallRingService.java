@@ -53,6 +53,9 @@ public class CallRingService {
     @org.springframework.beans.factory.annotation.Autowired
     private VoiceSessionService sessions;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private app.truearena.api.huudspace.HuudSpaceAccess huudSpaces;
+
     /** roomName → (invited user → when the invitation lapses). */
     private final Map<String, Map<UUID, Instant>> invites = new ConcurrentHashMap<>();
 
@@ -96,6 +99,11 @@ public class CallRingService {
     // ------------------------------------------------------- in the call
 
     /** A token for a call room you belong to or were invited into — how an answered ring joins. */
+    /** How people are named in voice ("Ada is talking"): their username, else their display name. */
+    static String shownName(app.truearena.persistence.UserRow user) {
+        return user.username() != null && !user.username().isBlank() ? user.username() : user.displayName();
+    }
+
     public Mono<CallToken> joinToken(UUID userId, String roomName) {
         return (sessions == null ? canJoin(userId, roomName) :
                 sessions.removed(userId,roomName).flatMap(removed -> removed ? Mono.just(false) :
@@ -105,8 +113,11 @@ public class CallRingService {
                 .switchIfEmpty(Mono.error(ApiExceptions.forbidden("you're not part of that call")))
                 .then(users.findById(userId))
                 .switchIfEmpty(Mono.error(ApiExceptions.notFound("no such user")))
-                .map(self -> new CallToken(roomName,
-                        tokens.mintToken(roomName, self.id().toString(), self.displayName()), tokens.wsUrl()));
+                // In a Huud you listen until the host hands you the mic.
+                .flatMap(self -> (huudSpaces != null && roomName.startsWith(app.truearena.api.huudspace.HuudSpaceAccess.VOICE_PREFIX)
+                        ? huudSpaces.canSpeak(userId, roomName) : Mono.just(true))
+                        .map(speak -> new CallToken(roomName,
+                                tokens.mintToken(roomName, self.id().toString(), shownName(self), speak), tokens.wsUrl())));
     }
 
     /**
@@ -180,6 +191,9 @@ public class CallRingService {
             } catch (IllegalArgumentException e) {
                 return Mono.just(false);
             }
+        }
+        if (roomName.startsWith(app.truearena.api.huudspace.HuudSpaceAccess.VOICE_PREFIX)) {
+            return huudSpaces == null ? Mono.just(false) : huudSpaces.canTalk(userId, roomName);
         }
         if (roomName.startsWith("group-")) {
             try {

@@ -1,0 +1,101 @@
+# word | first clue | second clue — read by the Cyber Agents when they describe.
+# A clue never says the word or any part of it. Checked by WordCluesTest.
+lion | The king of the jungle, a big cat with a shaggy mane. | It roars, and the males have a fluffy collar of hair round the head.
+tiger | A huge orange cat with black stripes. | The biggest wild cat, striped from nose to tail, lives in Asian jungles.
+elephant | The largest land animal, grey with a long trunk. | It has big flapping ears, ivory tusks and never forgets.
+snake | A long reptile with no legs that slithers. | It hisses, sheds its skin and some have a poisonous bite.
+dolphin | A smart, friendly sea mammal that jumps and clicks. | It has a curved fin, a smiley face and swims in pods.
+eagle | A huge bird of prey with sharp talons and a hooked beak. | It soars high over mountains and is a symbol of America.
+kangaroo | An Australian animal that hops on big back legs. | The mum carries her baby, a joey, in a pouch.
+penguin | A black and white bird that waddles on the ice. | It can't fly but it's a brilliant swimmer near the South Pole.
+giraffe | The tallest animal, with a very long neck. | It has brown patches and eats leaves from the tops of trees.
+octopus | A sea creature with eight arms. | It squirts ink, has suckers and can squeeze through tiny gaps.
+cheetah | The fastest land animal, a spotted cat. | It sprints after gazelles on the African plains.
+gorilla | The biggest ape, strong and hairy, that beats its chest. | A large black ape from African forests, with a silverback leader.
+flamingo | A pink bird that stands on one leg. | It wades in shallow lakes and gets its colour from what it eats.
+hedgehog | A small animal covered in spikes. | It rolls into a prickly ball when it's scared.
+crocodile | A big reptile with sharp teeth that lurks in rivers. | It looks like a log in the water, then snaps its huge jaws.
+butterfly | An insect with big colourful wings. | It starts life as a caterpillar and flutters from flower to flower.
+zebra | A horse-like animal with black and white stripes. | It lives in herds on the African grasslands.
+rhinoceros | A huge grey animal with a horn on its nose. | Thick armoured skin, poor eyesight, and it charges.
+hippopotamus | A giant animal that spends its day in rivers. | It has a massive mouth, short legs and lives in Africa.
+chameleon | A lizard that changes colour to match its mood. | Its eyes swivel separately and it catches bugs with a long sticky tongue.
+peacock | A bird with a huge fan of shimmering blue and green tail feathers. | The male shows off eye-patterned feathers to impress.
+otter | A playful furry swimmer that floats on its back. | It holds hands while sleeping and cracks shells on its tummy.
+raccoon | A masked bandit that raids rubbish bins at night. | Grey fur, a striped ringed tail and little hand-like paws.
+squirrel | A small furry animal with a bushy tail that collects nuts. | It scampers up trees and hides acorns for winter.
+koala | A sleepy grey animal from Australia that hugs gum trees. | It eats eucalyptus leaves and looks like a teddy.
+sloth | The slowest animal, hanging upside down in trees. | It moves so slowly that green algae grows on its fur.
+platypus | An Australian mammal with a duck's bill that lays eggs. | Webbed feet, a beaver-like tail and a venomous spur.
+armadillo | A small animal covered in bony armour plates. | Some can roll into a hard ball to stay safe.
+meerkat | A small animal that stands up on its back legs to keep watch. | They live in groups in the Kalahari desert and dig burrows.
+wolf | A wild dog that howls at the moon. | It hunts in packs and is the villain in Red Riding Hood.
+fox | A clever wild animal with red fur and a bushy tail. | Sly and sneaky in stories, it lives in a den.
+bear | A big furry animal that loves honey. | It sleeps all winter in a cave and can be brown, black or polar.
+panda | A black and white bear from China. | It munches bamboo all day.
+camel | A desert animal with one or two humps. | It can go days without water and carries people across sand.
+llama | A woolly animal from the Andes with a long neck. | It's famous for spitting when it's annoyed.
+donkey | A small grey animal with long ears that says hee-haw. | It's stubborn and carries heavy loads.
+goat | A farm animal with horns and a little beard. | It climbs rocks, eats almost anything and says maa.
+sheep | A farm animal covered in fluffy wool. | It says baa, and you might count them to fall asleep.
+pig | A pink farm animal with a curly tail that says oink. | It rolls in mud and has a flat snout.
+cow | A farm animal that gives us milk and says moo. | Black and white patches, it chews grass in the field.
+horse | An animal you ride, that gallops and neighs. | It has hooves, a mane and wears a saddle.
+rabbit | A fluffy animal with long ears that hops. | It loves carrots and lives in a burrow.
+mouse | A tiny squeaky rodent that loves cheese. | Small, grey, with a long thin tail; cats chase it.
+rat | A rodent bigger than a mouse with a long bare tail. | It lives in sewers and the city at night.
+bat | A flying mammal that hangs upside down. | It comes out at night and finds its way with echoes.
+owl | A bird that comes out at night and hoots. | Huge round eyes, it can turn its head almost all the way round.
+parrot | A colourful bird that can copy what you say. | Pirates often have one sitting on their shoulder.
+hawk | A bird of prey with sharp eyes that hunts mice. | It circles high above fields, then dives.
+vulture | A big bald-headed bird that eats dead animals. | It circles over the desert waiting for leftovers.
+swan | A graceful white bird with a long curved neck. | It glides on lakes; in the story the ugly duckling becomes one.
+duck | A bird that quacks and swims on ponds. | It has webbed feet and a flat orange bill.
+goose | A big bird that honks and flies in a V shape. | In the story it laid golden eggs.
+turkey | A big farm bird that gobbles. | People eat it roasted at Thanksgiving and Christmas.
+rooster | A male farm bird that crows at sunrise. | It says cock-a-doodle-doo and has a red comb.
+chicken | A farm bird that lays eggs and clucks. | It pecks at seeds in the yard; why did it cross the road?
+frog | A green animal that hops and croaks. | It starts life as a tadpole and catches flies with its tongue.
+toad | Like a frog, but with dry, bumpy, warty skin. | It hops slowly in gardens and croaks at night.
+turtle | A reptile with a hard shell that swims in the sea. | It hides its head inside its shell and lays eggs on beaches.
+tortoise | A slow land reptile with a domed shell. | It famously beat the hare in a race.
+lizard | A small reptile with scaly skin and a long tail. | It basks on hot rocks and can drop its tail to escape.
+gecko | A small lizard that can climb up walls and glass. | It has sticky toes and licks its own eyes.
+iguana | A big green lizard with spikes down its back. | It has a dewlap under its chin and lives in tropical trees.
+shark | A big fish with lots of sharp teeth and a fin. | It's the scary one in Jaws.
+whale | The biggest animal in the ocean. | It sprays water out of a blowhole and sings.
+seal | A sea animal with flippers that barks and lies on rocks. | It balances balls in shows and swims in cold water.
+walrus | A big sea animal with long tusks and whiskers. | It lies on Arctic ice and is huge and blubbery.
+jellyfish | A see-through sea creature that wobbles and stings. | It has no brain and trails long tentacles.
+starfish | A five-armed sea creature that clings to rocks. | Patrick in SpongeBob is one.
+crab | A sea creature that walks sideways and has pincers. | It has a hard shell and scuttles on the beach.
+lobster | A red sea creature with big claws when cooked. | It has a hard shell, long antennae and lives on the sea floor.
+shrimp | A tiny pink sea creature you can eat. | It has lots of legs and a curled body; also a word for a small person.
+snail | A slow creature that carries its shell on its back. | It leaves a slimy trail.
+slug | Like a snail but with no shell. | A slimy garden creature that eats lettuce leaves.
+spider | A creepy-crawly with eight legs that spins webs. | It catches flies in a sticky silk trap.
+scorpion | A desert creature with pincers and a stinging tail. | It curls its tail over its back, ready to sting.
+ant | A tiny insect that lives in a big colony. | It can carry many times its own weight and loves picnics.
+bee | A buzzing insect that makes honey. | Yellow and black, it lives in a hive and visits flowers.
+wasp | A yellow and black insect with a nasty sting. | It buzzes round your jam and fizzy drinks in summer.
+beetle | An insect with a hard shiny shell over its wings. | Ladybirds and stag horns are kinds of this bug.
+grasshopper | A green insect that leaps really far. | It chirps in summer fields by rubbing its legs.
+cricket | A chirping insect that sings at night. | It's also a bat-and-ball sport played in England and India.
+dragonfly | An insect with four see-through wings and a long body. | It zips over ponds and hovers like a helicopter.
+mosquito | A tiny insect that bites you and leaves an itchy bump. | It buzzes in your ear at night and sucks blood.
+firefly | A beetle whose bottom glows at night. | It blinks little lights in summer gardens.
+ladybug | A small red beetle with black spots. | It's thought to be lucky when it lands on you.
+caterpillar | A fuzzy crawling creature that turns into a butterfly. | It munches leaves, then wraps itself in a cocoon.
+moth | Like a butterfly but comes out at night. | It flutters round lamps and nibbles your clothes.
+worm | A long wiggly creature that lives in the soil. | Birds pull it out of the ground; it's pink and has no legs.
+centipede | A creepy-crawly with lots and lots of legs. | A long segmented bug; its name means a hundred feet.
+puma | A big wild cat from the Americas, also called a cougar. | A sleek, sand-coloured mountain lion.
+jaguar | A big spotted cat from the Amazon rainforest. | Its spots have little dots inside, and it's also a car brand.
+leopard | A big cat covered in dark rosette spots. | It drags its dinner up into a tree; it can't change its spots.
+hyena | An African animal famous for its laughing call. | It scavenges in packs and has a sloping back.
+buffalo | A huge horned animal like a wild cow. | It roams in big herds on the plains.
+antelope | A fast, graceful animal with horns, like a gazelle. | It leaps across the African savanna away from lions.
+moose | The biggest deer, with huge flat antlers. | It lives in Canada and has a dangly flap under its chin.
+elk | A big deer with large antlers. | It bugles loudly in autumn in North American forests.
+reindeer | An antlered animal from the snowy north. | It pulls Santa's sleigh; Rudolph is one.
+porcupine | An animal covered in long sharp quills. | It raises its quills when it feels threatened.

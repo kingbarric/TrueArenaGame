@@ -1,0 +1,97 @@
+# word | first clue | second clue
+passport | The little book you show to enter another country. | It has your photo and gets stamped at borders.
+boarding pass | Your ticket to get on a plane. | It shows your seat and gate.
+suitcase | A bag on wheels you pack clothes in. | Luggage for holidays.
+backpacking | Travelling cheaply with a rucksack. | Gap year adventure.
+road trip | A long journey by car for fun. | Driving across the country.
+layover | A stop between flights. | Waiting at a connecting airport.
+customs | Where officers check your bags for goods. | Anything to declare?
+visa | Permission to enter a country. | Stamp in your passport.
+itinerary | A plan of your trip. | Schedule of places.
+hostel | Cheap shared accommodation. | Bunk beds for travellers.
+resort | A holiday place with pools. | All-inclusive.
+cruise ship | A huge floating hotel. | Holiday at sea.
+sailboat | A vessel pushed by the wind. | Sails up.
+ferry | A boat carrying people and cars. | Crossing the Channel.
+canoe | A narrow boat paddled with one blade. | River paddling.
+kayak | A small boat with a double paddle. | Sea paddling.
+speedboat | A fast motorboat. | Zooming on water.
+yacht | A luxury boat. | Millionaire's toy.
+submarine | A boat that goes underwater. | Yellow one in a Beatles song.
+helicopter | Flies with spinning blades on top. | Chopper.
+hot air balloon | A basket under a giant bag of heated gas. | Floating over fields.
+glider | A plane without an engine. | Soars on air currents.
+jet | A fast plane. | Leaves white trails.
+propeller plane | An aircraft with spinning blades on the nose. | Old-fashioned aircraft.
+cargo plane | An aircraft carrying goods. | Freight flights.
+train | Carriages on rails. | Choo choo.
+subway | Underground trains. | Tube.
+tram | A streetcar on rails. | Rides through city streets.
+trolley | A streetcar; also a shopping cart. | Supermarket push cart.
+cable car | Cabins hanging from a wire. | San Francisco.
+gondola | A Venetian boat. | Also a ski lift cabin.
+bus | A big vehicle carrying lots of people. | Wheels go round and round.
+double-decker bus | A two-floor vehicle. | Red ones in London.
+taxi | A car you pay to ride. | Yellow cab.
+rickshaw | A cart pulled by a person or bike. | Tuk-tuk.
+scooter | A small motorbike or a kick board. | Vespa.
+motorcycle | A two-wheel engine vehicle. | Harley-Davidson.
+bicycle | Two wheels and pedals. | Bike.
+tandem bike | A bicycle for two. | Two seats.
+skateboard | A deck with four wheels. | Tony Hawk.
+rollerblades | Skates with inline wheels. | Inline skates.
+hiking boots | Sturdy shoes for walking trails. | Mountain footwear.
+walking stick | A cane that helps you stroll. | Grandpa leans on it.
+compass | Shows north. | Needle points the way.
+map | A drawing showing places. | Atlas page.
+GPS device | Satellite navigator. | Sat nav.
+travel guide | A book about a destination. | Lonely Planet.
+tour operator | A company running holidays. | Package holidays.
+travel agent | Someone who books your holidays. | Booking agency.
+souvenir | Something you bring home from a trip. | Keepsake.
+postcard | A picture you send home. | Wish you were here.
+travel journal | A diary of your trip. | Holiday diary.
+jet lag | Tiredness from time zones. | Body clock confused.
+time zone | A region with the same clock time. | GMT.
+departure gate | Where you board a plane. | Number 12.
+arrival lounge | Where people meet arriving passengers. | Waiting area.
+baggage claim | Where you get your suitcases. | Carousel.
+carry-on | A small bag on the plane. | Cabin bag.
+checked luggage | Bags in the hold. | Suitcases at the counter.
+security checkpoint | Where you get scanned at the airport. | X-ray.
+metal detector | Beeps at keys. | Walk-through scanner.
+duty-free shop | Tax-exempt perfume and chocolate at the airport. | Buying things cheaply after security.
+airport lounge | A comfy waiting area. | VIP room.
+frequent flyer | Someone who flies a lot. | Air miles.
+loyalty program | Rewards for repeat customers. | Points card.
+road sign | Boards telling drivers what to do. | Stop.
+traffic jam | Cars stuck in a queue. | Gridlock.
+highway | A big main road. | Motorway.
+toll booth | Where you pay to use a road. | Barrier.
+rest stop | A place to take a break on the motorway. | Service station.
+gas station | Where you fill up your car. | Petrol pump.
+parking lot | Where cars are left. | Car space.
+roundabout | Circular junction. | Third exit.
+pedestrian crossing | Where walkers get to the other side of the road. | Zebra.
+bike lane | A path just for cyclists. | Cycle track.
+carpool | Sharing car rides. | Lift share.
+rideshare | Uber. | App taxi.
+navigation app | Google Maps. | Directions on your phone.
+travel insurance | Cover in case your trip goes wrong. | Protection.
+vaccination certificate | Proof you've had your jabs. | Health pass.
+border crossing | Passing between countries. | Frontier.
+immigration officer | Checks passports at the border. | Border agent.
+language barrier | Not speaking the same tongue. | Lost in translation.
+tourist trap | Overpriced place for visitors. | Rip-off.
+local cuisine | Traditional food of a place. | Regional dishes.
+cultural exchange | Sharing traditions between countries. | Swapping students with a school abroad.
+backpacker hostel | Cheap dorm for travellers. | Bunk beds.
+camping tent | Shelter of canvas. | Pegs and poles.
+sleeping bag | A warm zip-up to nap in outdoors. | Zip up.
+campfire | Logs burning in the woods. | Marshmallows.
+road atlas | A book of maps for driving. | Maps.
+scenic route | The pretty way. | Long but beautiful.
+detour | A different route around something. | Diversion.
+pit stop | A quick break during a race or trip. | Refuel.
+travel companion | Someone you take a trip with. | Holiday buddy.
+solo traveler | Someone travelling alone. | Lone explorer.

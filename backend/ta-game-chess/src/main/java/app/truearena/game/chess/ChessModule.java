@@ -145,7 +145,21 @@ public final class ChessModule implements GameModule {
         }
 
         switch (action.type()) {
-            case "MOVE" -> move(d, action, remaining);
+            case "MOVE" -> {
+                // Moving instead of answering is a no; and this move is now the one
+                // its player may ask to take back.
+                if (d.pendingUndo != null) {
+                    d.emit("UNDO_DECLINED", Map.of("by", action.actor()));
+                    d.pendingUndo = null;
+                }
+                ChessState before = s.withoutUndo();
+                move(d, action, remaining);
+                d.undoTo = d.win == null ? before : null;
+                d.undoMover = d.win == null ? action.actor() : null;
+            }
+            case "REQUEST_UNDO" -> requestUndo(d, action);
+            case "ACCEPT_UNDO" -> { return answerUndo(s, d, action, true); }
+            case "DECLINE_UNDO" -> { return answerUndo(s, d, action, false); }
             case "RESIGN" -> resign(d, action, REASON_RESIGNATION);
             case "FORFEIT" -> resign(d, action, REASON_FORFEIT);
             case "OFFER_DRAW" -> offerDraw(d, action);
@@ -176,6 +190,39 @@ public final class ChessModule implements GameModule {
         if (!concludeIfOver(d, mover)) {
             nextTurn(d);
         }
+    }
+
+    /** Take back the move you just played — before the other player moves, and with their yes. */
+    private void requestUndo(ChessState.Draft d, PlayerAction a) {
+        Color color = requirePlayer(d, a);
+        require(d.undoTo != null && a.actor().equals(d.undoMover), "NOTHING_TO_UNDO",
+                "you can only take back the move you just played");
+        require(d.position.sideToMove() != color, "TOO_LATE_TO_UNDO", "your opponent has already moved");
+        require(d.pendingUndo == null, "UNDO_ALREADY_ASKED", "you've already asked — wait for their answer");
+        d.pendingUndo = a.actor();
+        d.emit("UNDO_REQUESTED", Map.of("by", a.actor(), "side", color.wire()));
+    }
+
+    /** Yes: the game goes back to just before that move (clocks too). No: it stands. */
+    private ChessState answerUndo(ChessState s, ChessState.Draft d, PlayerAction a, boolean yes) {
+        requirePlayer(d, a);
+        require(d.pendingUndo != null && !d.pendingUndo.equals(a.actor()), "NO_UNDO_REQUEST",
+                "your opponent hasn't asked for an undo");
+        if (!yes) {
+            d.pendingUndo = null;
+            d.emit("UNDO_DECLINED", Map.of("by", a.actor()));
+            return d.build();
+        }
+        ChessState.Draft back = new ChessState.Draft(s.undoTo);
+        back.appliedActionIds = d.appliedActionIds;
+        back.events = d.events;
+        back.seq = d.seq;
+        back.round = d.round + 1;
+        back.undoTo = null;
+        back.undoMover = null;
+        back.pendingUndo = null;
+        back.emit("UNDO_ACCEPTED", Map.of("by", a.actor(), "fen", back.position.fen()));
+        return back.build();
     }
 
     private void resign(ChessState.Draft d, PlayerAction a, String reason) {
@@ -471,6 +518,10 @@ public final class ChessModule implements GameModule {
         m.put("blackMs", s.blackClockMs);
         m.put("incrementMs", s.config.incrementMs());
         m.put("pendingDrawOffer", s.pendingDrawOffer);
+        m.put("pendingUndo", s.pendingUndo);
+        // Who may ask to take back their move right now (the last mover, until the other side moves).
+        m.put("undoableBy", s.undoTo != null && s.pendingUndo == null && !s.finished() && s.undoMover != null
+                && !s.undoMover.equals(s.playerOf(s.position.sideToMove())) ? s.undoMover : null);
         m.put("halfmoveClock", p.halfmoveClock());
         m.put("canClaimThreefold", !s.finished() && s.repetitionCount() >= 3);
         m.put("canClaimFiftyMove", !s.finished() && p.halfmoveClock() >= FIFTY_MOVE_HALFMOVES);

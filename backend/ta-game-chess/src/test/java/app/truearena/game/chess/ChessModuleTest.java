@@ -493,4 +493,33 @@ class ChessModuleTest {
                     .containsEntry("resultReason", "resignation");
         }
     }
+
+    @Test
+    void anAgreedUndoTakesBackTheLastMoveOnlyOnce() {
+        ChessState s0 = start();
+        ChessState s1 = act(s0, W, "MOVE", moveData("e2e4"));
+        assertThat(module.broadcastState(s1).data()).containsEntry("undoableBy", W);
+        assertThatThrownBy(() -> act(s1, B, "REQUEST_UNDO")).isInstanceOf(RuleViolation.class);
+
+        ChessState asked = act(s1, W, "REQUEST_UNDO");
+        assertThat(module.broadcastState(asked).data()).containsEntry("pendingUndo", W);
+        ChessState undone = act(asked, B, "ACCEPT_UNDO");
+        assertThat(undone.position.fen()).isEqualTo(s0.position.fen());
+        assertThat(undone.phase()).isEqualTo(s0.phase());
+        assertThat(undone.sanMoves).isEmpty();
+        assertThatThrownBy(() -> act(undone, W, "REQUEST_UNDO")).isInstanceOf(RuleViolation.class);
+    }
+
+    @Test
+    void sayingNoOrMovingKeepsTheMove() {
+        ChessState s1 = act(start(), W, "MOVE", moveData("e2e4"));
+        ChessState declined = act(act(s1, W, "REQUEST_UNDO"), B, "DECLINE_UNDO");
+        assertThat(declined.sanMoves).hasSize(1);
+        assertThat(declined.pendingUndo).isNull();
+
+        ChessState replied = act(act(s1, W, "REQUEST_UNDO"), B, "MOVE", moveData("e7e5"));
+        assertThat(replied.pendingUndo).isNull();
+        assertThat(replied.sanMoves).hasSize(2);
+        assertThat(replied.undoMover).isEqualTo(B);
+    }
 }

@@ -1,0 +1,94 @@
+# word | first clue | second clue
+wizard | A magic man with a pointy hat and a wand. | Gandalf or Harry Potter.
+vampire | A creature that drinks blood and hates garlic. | Dracula.
+werewolf | A person who becomes a beast at full moon. | Howls when the moon is round.
+superhero | Someone with powers who saves people. | Spider-Man.
+supervillain | An evil genius with powers. | Lex Luthor.
+sidekick | The hero's helper. | Robin to Batman.
+mermaid | Half woman, half fish. | Ariel.
+ghost | A see-through spirit of a dead person. | Says boo and haunts houses.
+ninja | A Japanese warrior in black who moves silently. | Teenage Mutant Turtles.
+pirate | A sailor who robs ships. | Eye patch, parrot, treasure.
+zombie | A walking dead creature that wants brains. | Shuffling undead.
+alien | A creature from another planet. | Little green man from space.
+knight | A soldier in armour who rides a horse. | Sir Lancelot.
+dragon | A giant flying lizard that breathes fire. | Guards treasure.
+fairy | A tiny magical creature with wings. | Tinker Bell.
+robot | A mechanical being. | WALL-E.
+android | A robot that looks like a person. | Also a type of phone.
+cyborg | Part human, part machine. | Terminator.
+witch | A woman who casts spells and rides a broomstick. | Black hat and cauldron.
+warlock | A male magic user, usually evil. | A man doing dark spells.
+sorcerer | A powerful magician. | Doctor Strange.
+elf | A pointy-eared magical being. | Legolas or Santa's helpers.
+dwarf | A short, bearded miner. | Gimli, or the seven in Snow White.
+orc | A brutish monster in Lord of the Rings. | Ugly green warriors.
+goblin | A small, ugly, mischievous creature. | Gringotts bank workers.
+troll | A big ugly creature under a bridge. | Also someone mean online.
+giant | A huge person in fairy tales. | Fee fi fo fum.
+gnome | A little bearded man in the garden. | Pointy red hat.
+genie | A magic being in a lamp who grants wishes. | Three wishes from Aladdin's lamp.
+angel | A heavenly being with wings and a halo. | Guardian.
+monster | A scary creature. | Frankenstein's creation.
+beast | A wild animal or creature. | Beauty's partner.
+shapeshifter | Someone who can change form. | Morphs into animals.
+time traveler | Someone who journeys to the past or future. | Doctor Who.
+secret agent | A spy on a mission. | 007.
+double agent | A spy working for both sides. | Traitor spy.
+master thief | An expert robber. | Pulls off heists.
+bounty hunter | Someone who captures criminals for money. | Boba Fett.
+gladiator | A Roman fighter in an arena. | Maximus.
+samurai | A Japanese sword warrior. | Katana and honour.
+viking | A Scandinavian raider with a horned helmet. | Longships.
+barbarian | A wild warrior. | Conan.
+outlaw | Someone on the run from the law. | Robin Hood.
+bandit | A robber who attacks travellers. | Highway robber.
+rebel leader | Someone leading an uprising. | Leading the resistance.
+chosen one | The hero destined to save the world. | Neo or Harry Potter.
+prophecy child | A kid foretold to change everything. | Destined from birth.
+lost prince | A royal heir who disappeared. | Missing royal.
+exiled king | A ruler forced to leave his realm. | Banished monarch.
+evil queen | Snow White's wicked stepmother. | Mirror mirror on the wall.
+wicked stepmother | Cinderella's cruel guardian. | Mean parent figure.
+fairy godmother | The magic helper who sends Cinderella to the ball. | Bibbidi-bobbidi-boo.
+talking animal | A creature that can speak. | Donkey in Shrek.
+sentient object | A thing that's alive and thinks. | The teapot in Beauty and the Beast.
+imaginary friend | A pretend buddy only you can see. | Invisible companion.
+doppelganger | Someone who looks exactly like you. | Your double.
+clone | An exact copy. | Stormtroopers.
+hologram character | A light projection person. | Rimmer in Red Dwarf.
+AI companion | A computer friend. | JARVIS.
+rogue AI | A computer that turns evil. | Skynet or HAL.
+mad scientist | A crazy inventor with wild hair. | Doc Brown.
+evil twin | A bad copy of a good character. | Wicked sibling double.
+long-lost sibling | A brother or sister you never knew. | Separated at birth.
+secret heir | Someone who doesn't know they're royal. | Hidden princess.
+undercover cop | A police officer pretending to be a criminal. | Infiltrating a gang.
+vigilante | Someone who fights crime outside the law. | Batman.
+masked hero | A crime fighter hiding their face. | Zorro.
+caped crusader | A hero with a cloak. | Batman's nickname.
+anti-hero | A flawed main character. | Deadpool.
+tragic hero | A great person brought down by a flaw. | Macbeth.
+comic relief | The funny character. | Olaf in Frozen.
+wise mentor | An old guide to the hero. | Dumbledore.
+loyal companion | A faithful friend. | Samwise Gamgee.
+treacherous ally | A friend who betrays you. | Backstabber.
+mysterious stranger | Someone unknown who appears. | Arrives in town with no name.
+hooded figure | Someone with a cloak hiding their face. | Shadowy cloaked person.
+oracle | Someone who sees the future. | Delphi.
+prophet | Someone who speaks for the gods. | Predicts what's to come.
+seer | Someone with visions. | Fortune teller.
+shaman | A spiritual healer. | Tribal medicine person.
+druid | A Celtic nature priest. | Getafix in Asterix.
+paladin | A holy knight. | Holy warrior in games.
+rogue | A sneaky thief character. | Dishonest scoundrel.
+smuggler | Someone moving illegal goods. | Han Solo.
+con artist | A swindler. | Tricks people out of money.
+trickster | A mischievous prankster. | Loki.
+jester | A clown for a king. | Bells on his hat.
+court fool | A royal entertainer. | Jester.
+storyteller | Someone who tells tales. | Once upon a time.
+narrator | The voice telling the story. | Morgan Freeman voice.
+chosen champion | The hero picked to fight. | Hunger Games tribute.
+last survivor | The only one left alive. | Final girl.
+final boss | The hardest enemy at the end of a game. | Bowser.

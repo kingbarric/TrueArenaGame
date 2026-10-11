@@ -1,7 +1,6 @@
 rockstar
 superhero
 supervillain
-dictator
 monarch
 supermodel
 mastermind
@@ -11,11 +10,9 @@ tycoon
 maverick
 celebrity chef
 popstar
-warlord
 philanthropist
 prodigy
 influencer
-paparazzi target
 talk show host
 stand-up comedian
 Nobel laureate
@@ -26,15 +23,12 @@ recluse
 comeback kid
 underdog champion
 whistleblower
-cult leader
 visionary
 pioneer
 icon
 legend
 mentor
 rival
-scandal magnet
-tabloid regular
 red carpet fixture
 awards darling
 box office star
@@ -45,7 +39,6 @@ household name
 overnight sensation
 self-made billionaire
 heir to a fortune
-disgraced official
 reformed villain
 retired champion
 comeback artist

@@ -101,6 +101,9 @@ public final class DraughtsModule implements GameModule {
             case "FORFEIT" -> forfeit(d, s, action);
             case "OFFER_DRAW" -> offerDraw(d, s, action);
             case "ACCEPT_DRAW" -> acceptDraw(d, s, action);
+            case "REQUEST_UNDO" -> requestUndo(d, s, action);
+            case "ACCEPT_UNDO" -> answerUndo(d, s, action, true);
+            case "DECLINE_UNDO" -> answerUndo(d, s, action, false);
             default -> throw new RuleViolation("UNKNOWN_ACTION", "no handler for " + action.type());
         }
         return d.build();
@@ -176,6 +179,17 @@ public final class DraughtsModule implements GameModule {
         Piece piece = d.board[from];
         require(piece != null && piece.side().equals(side), "NOT_YOUR_PIECE", "that's not your piece");
 
+        // Moving instead of answering is a no to any undo they asked for.
+        if (d.pendingUndo != null) {
+            d.emit("UNDO_DECLINED", Map.of("by", a.actor()));
+            d.pendingUndo = null;
+        }
+        // The board as this turn began — what an undo would go back to.
+        if (d.activeSquare == null && d.capturedSoFarThisTurn == 0) {
+            d.turnStartBoard = d.board.clone();
+            d.turnStartRequired = d.requiredCaptureCount;
+        }
+
         int requiredTotal = d.requiredCaptureCount;
         if (requiredTotal > 0) {
             captureMove(d, side, from, to, requiredTotal);
@@ -209,6 +223,47 @@ public final class DraughtsModule implements GameModule {
         d.phase = "Results";
         d.pendingDrawOffer = null;
         d.emit("GAME_OVER", Map.of("winningSide", "draw"));
+    }
+
+    /**
+     * Ask to take back the turn you just played. Only straight after it —
+     * before the other player has started theirs — and one ask at a time.
+     */
+    private void requestUndo(DraughtsState.Draft d, DraughtsState s, PlayerAction a) {
+        String side = s.sideOf(a.actor());
+        require(side != null, "NOT_A_PLAYER", "only a player can ask for an undo");
+        require(a.actor().equals(s.lastMover) && s.undoBoard != null, "NOTHING_TO_UNDO",
+                "you can only take back the move you just played");
+        require(!side.equals(s.turnSide()) && s.phase.startsWith("Turn") && s.activeSquare == null,
+                "TOO_LATE_TO_UNDO", "the other player has already started their move");
+        require(s.pendingUndo == null, "UNDO_ALREADY_ASKED", "you've already asked — wait for their answer");
+        d.pendingUndo = a.actor();
+        d.emit("UNDO_REQUESTED", Map.of("by", a.actor(), "side", side));
+    }
+
+    /** The other player says yes (the board goes back and it's the asker's turn again) or no. */
+    private void answerUndo(DraughtsState.Draft d, DraughtsState s, PlayerAction a, boolean yes) {
+        require(s.pendingUndo != null && s.sideOf(a.actor()) != null && !s.pendingUndo.equals(a.actor()),
+                "NO_UNDO_REQUEST", "the other player hasn't asked for an undo");
+        d.pendingUndo = null;
+        if (!yes) {
+            d.emit("UNDO_DECLINED", Map.of("by", a.actor()));
+            return;
+        }
+        String side = s.sideOf(s.pendingUndo);
+        d.board = s.undoBoard.clone();
+        d.requiredCaptureCount = s.undoRequired;
+        d.phase = s.undoPhase;
+        d.round = s.undoRound;
+        d.activeSquare = null;
+        d.capturedSoFarThisTurn = 0;
+        d.pendingDrawOffer = null;
+        // One step back only — no undoing the undo, or going further.
+        d.undoBoard = null;
+        d.lastMover = null;
+        d.turnStartBoard = null;
+        d.emit("UNDO_ACCEPTED", Map.of("by", a.actor(), "side", side, "board", boardSnapshot(d.board)));
+        d.emit("TURN_STARTED", Map.of("side", side, "mustCapture", d.requiredCaptureCount > 0));
     }
 
     private void captureMove(DraughtsState.Draft d, String side, int from, int to, int requiredTotal) {
@@ -279,6 +334,13 @@ public final class DraughtsModule implements GameModule {
         }
         d.activeSquare = null;
         d.capturedSoFarThisTurn = 0;
+        // Remember this turn so its player can ask to take it back.
+        d.undoBoard = d.turnStartBoard;
+        d.undoRequired = d.turnStartRequired;
+        d.undoPhase = DraughtsState.SIDE_A.equals(side) ? "TurnA" : "TurnB";
+        d.undoRound = d.round;
+        d.lastMover = DraughtsState.SIDE_A.equals(side) ? d.playerA : d.playerB;
+        d.turnStartBoard = null;
 
         String next = opposite(side);
         if (!CaptureEngine.hasAnyLegalMove(d.board, next)) {
@@ -364,6 +426,11 @@ public final class DraughtsModule implements GameModule {
         m.put("mustCapture", s.requiredCaptureCount > 0);
         m.put("mandatoryCapture", s.config.mandatoryCapture());
         m.put("pendingDrawOffer", s.pendingDrawOffer);
+        m.put("pendingUndo", s.pendingUndo);
+        // Who may ask for an undo right now: whoever just played, until the other side starts.
+        m.put("undoableBy", s.undoBoard != null && s.lastMover != null && s.pendingUndo == null
+                && s.activeSquare == null && s.phase.startsWith("Turn")
+                && !s.lastMover.equals(s.playerOf(s.turnSide())) ? s.lastMover : null);
         // Server-computed legal destinations per square, keyed by square as a
         // string (JSON object keys must be strings) — so the client never has
         // to reimplement flying-king or mandatory-maximum-capture logic just

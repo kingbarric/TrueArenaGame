@@ -247,13 +247,34 @@ public final class WordBluffModule implements GameModule {
                 "NOT_A_GUESSER", "only the describer's teammates guess");
         String text = String.valueOf(a.data().getOrDefault("text", "")).strip();
         require(!text.isBlank() && text.length() <= 240, "BAD_GUESS", "use a guess of 1–240 characters");
-        boolean correct = normalizeText(text).equals(normalizeText(d.currentWord));
+        boolean correct = guessMatches(text, d.currentWord);
         d.emit("TEXT_GUESS", Map.of("from", a.actor(), "text", text, "correct", correct,
                 "wordIndex", d.usedWords.size()));
         if (correct) record(d, true, false, a.actor(), s.currentDescriber());
     }
 
-    private static String normalizeText(String text) {
+    /**
+     * A typed guess is right when it's the word, give or take case, accents,
+     * spaces and punctuation, a leading "a"/"an"/"the", or a plural ending —
+     * "An elephant" and "elephants" both get "elephant".
+     */
+    static boolean guessMatches(String guess, String word) {
+        // "a cappella" starts with "a" too, so try it with and without.
+        return sameWord(normalizeText(guess), normalizeText(word))
+                || sameWord(normalizeText(guess.strip().replaceFirst("(?i)^(a|an|the)\\s+", "")), normalizeText(word));
+    }
+
+    private static boolean sameWord(String g, String w) {
+        if (g.isEmpty() || w.isEmpty()) return false;
+        if (g.equals(w)) return true;
+        for (String[] ends : new String[][] {{"", "s"}, {"", "es"}, {"y", "ies"}}) {
+            if (w.endsWith(ends[0]) && g.equals(w.substring(0, w.length() - ends[0].length()) + ends[1])) return true;
+            if (g.endsWith(ends[0]) && w.equals(g.substring(0, g.length() - ends[0].length()) + ends[1])) return true;
+        }
+        return false;
+    }
+
+    static String normalizeText(String text) {
         return java.text.Normalizer.normalize(text.toLowerCase(java.util.Locale.ROOT), java.text.Normalizer.Form.NFD)
                 .replaceAll("\\p{M}", "").replaceAll("[^\\p{L}\\p{N}]", "");
     }

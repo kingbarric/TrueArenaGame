@@ -37,6 +37,9 @@ public final class RoomRuntime {
 
     public final Set<String> connectedUserIds = ConcurrentHashMap.newKeySet();
 
+    /** When each player left the game (epoch ms) — gone a few minutes reads as offline. */
+    public final java.util.Map<String, Long> awaySinceMs = new ConcurrentHashMap<>();
+
     /** Read-only viewers — never in {@link #connectedUserIds}, never gated by room membership. */
     public final Set<String> spectatorUserIds = ConcurrentHashMap.newKeySet();
 

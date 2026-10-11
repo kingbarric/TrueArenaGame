@@ -108,6 +108,13 @@ public class VoiceSessionService {
     public Mono<Void> leave(UUID user, String roomName) {
         return active(user).filter(s -> s.roomName().equals(roomName)).flatMap(s -> {
             if (s.ownerId().equals(user) && s.participants().size()>1) {
+                // A Huud's voice room belongs to the Huud: the next person just carries on.
+                if (roomName.startsWith("huud-")) {
+                    UUID next = s.participants().stream().map(Participant::userId).filter(p -> !p.equals(user)).findFirst().orElseThrow();
+                    return db.sql("UPDATE voice_sessions SET owner_id=:next WHERE id=:id AND owner_id=:user")
+                            .bind("next",next).bind("id",s.voiceSessionId()).bind("user",user).fetch().rowsUpdated()
+                            .then(leave(user, roomName));
+                }
                 return Mono.error(ApiExceptions.conflict("choose the next host before leaving"));
             }
             return voice.remove(roomName,user.toString()).onErrorResume(e -> Mono.empty())

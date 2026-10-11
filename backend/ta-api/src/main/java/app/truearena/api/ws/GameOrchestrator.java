@@ -6,6 +6,7 @@ import app.truearena.engine.GameConfig;
 import app.truearena.engine.GameEvent;
 import app.truearena.engine.GameModule;
 import app.truearena.engine.GameRunner;
+import app.truearena.engine.GameSettings;
 import app.truearena.engine.GameState;
 import app.truearena.api.bot.BotRuntimeRegistry;
 import app.truearena.api.coins.CoinService;
@@ -173,6 +174,7 @@ public class GameOrchestrator {
 
     public Mono<Void> onConnect(RoomRuntime rt, String userId) {
         rt.connectedUserIds.add(userId);
+        rt.awaySinceMs.remove(userId);
         return setConnection(rt.roomId, userId, "connected")
                 .then(championships == null ? Mono.empty()
                         : championships.connection(rt.roomId, UUID.fromString(userId), true))
@@ -181,6 +183,9 @@ public class GameOrchestrator {
 
     public Mono<Void> onDisconnect(RoomRuntime rt, String userId) {
         rt.connectedUserIds.remove(userId);
+        // Already away (app in the background) keeps the earlier time — the
+        // five minutes count from when they actually left.
+        long leftAt = rt.awaySinceMs.computeIfAbsent(userId, id -> System.currentTimeMillis());
         rt.unicast.remove(userId);
         // Nothing about the game state changes on a disconnect, so
         // pushTurnReminders' own dedupe (keyed on the set of players-to-act
@@ -210,9 +215,9 @@ public class GameOrchestrator {
             return freeze.then(rt.tournament ? persistTournamentClock(rt.roomId) : Mono.empty())
                     .then(disconnect).then(championships.isTournamentRoom(rt.roomId).flatMap(tournament ->
                     tournament ? championships.connection(rt.roomId, UUID.fromString(userId), false)
-                            : migrate)).then(broadcastLobby(rt, "MEMBER_DISCONNECTED", Map.of("userId", userId)));
+                            : migrate)).then(broadcastLobby(rt, "MEMBER_DISCONNECTED", Map.of("userId", userId, "at", leftAt)));
         }
-        return disconnect.then(migrate).then(broadcastLobby(rt, "MEMBER_DISCONNECTED", Map.of("userId", userId)));
+        return disconnect.then(migrate).then(broadcastLobby(rt, "MEMBER_DISCONNECTED", Map.of("userId", userId, "at", leftAt)));
     }
 
     /** Spectators never touch {@code room_members} or host migration — they're not participants. */
@@ -308,6 +313,7 @@ public class GameOrchestrator {
                 case SPECTATOR_VOICE_DECLINE -> handleSpectatorVoiceDecline(rt, userId, in);
                 case SPECTATOR_VOICE_MUTE_TOGGLE -> handleSpectatorVoiceMuteToggle(rt, userId, in);
                 case SPECTATOR_VOICE_REMOVE -> handleSpectatorVoiceRemove(rt, userId, in);
+                case PRESENCE -> handlePresence(rt, userId, in);
                 case PING -> {
                     rt.tellUser(userId, Envelope.of(MessageType.PONG, Map.of()));
                     yield Mono.empty();
@@ -318,6 +324,21 @@ public class GameOrchestrator {
             log.warn("frame handling failed for room {} user {}: {}", rt.roomId, userId, e.toString());
             return tellError(rt, userId, "INTERNAL", "could not process that frame");
         }
+    }
+
+    /**
+     * The app left the foreground (or came back) while still connected — so
+     * the others see this player go amber, then grey after a few minutes,
+     * without anything about the game itself changing.
+     */
+    private Mono<Void> handlePresence(RoomRuntime rt, String userId, Envelope in) {
+        boolean away = Boolean.TRUE.equals(in.payload().get("away"));
+        if (away) {
+            long at = rt.awaySinceMs.computeIfAbsent(userId, id -> System.currentTimeMillis());
+            return broadcastLobby(rt, "MEMBER_AWAY", Map.of("userId", userId, "at", at));
+        }
+        rt.awaySinceMs.remove(userId);
+        return broadcastLobby(rt, "MEMBER_BACK", Map.of("userId", userId));
     }
 
     @SuppressWarnings("unchecked")
@@ -430,6 +451,7 @@ public class GameOrchestrator {
         view.put("spectatorCount", rt.spectatorUserIds.size());
         view.put("spectatorsMuted", rt.spectatorsMuted);
         view.put("connectedPlayers", List.copyOf(rt.connectedUserIds));
+        view.put("awaySince", Map.copyOf(rt.awaySinceMs));
         view.put("spectatorVoiceRequests", List.copyOf(rt.spectatorVoiceRequests));
         view.put("spectatorVoiceSpeakers", List.copyOf(rt.spectatorVoiceSpeakers));
         view.put("mutedSpectatorVoiceSpeakers", List.copyOf(rt.mutedSpectatorVoiceSpeakers));
@@ -883,18 +905,23 @@ public class GameOrchestrator {
                     .flatMap(players -> {
                         if (players.size() != 2)
                             return Mono.error(new IllegalStateException("tournament pairing must have two players"));
-                        return sessions.findFirstByRoomIdOrderByStartedAtDesc(roomId)
-                                .flatMap(session -> restoreTournamentRoom(rt, players, session).thenReturn(true))
-                                .defaultIfEmpty(false)
-                                .flatMap(restored -> restored ? Mono.empty()
-                                        : startDraughtsWith(rt, rt.hostUserId, players, DraughtsConfig.defaults()));
+                        return rooms.findById(roomId).map(RoomRow::gameType).defaultIfEmpty("draughts")
+                                .flatMap(gameType -> sessions.findFirstByRoomIdOrderByStartedAtDesc(roomId)
+                                        .flatMap(session -> restoreTournamentRoom(rt, players, session).thenReturn(true))
+                                        .defaultIfEmpty(false)
+                                        .flatMap(restored -> restored ? Mono.empty()
+                                                : "chess".equals(gameType)
+                                                        ? startChess(rt, rt.hostUserId, players, null)
+                                                        : startDraughtsWith(rt, rt.hostUserId, players, DraughtsConfig.defaults())));
                     });
         }));
     }
 
     private Mono<Void> restoreTournamentRoom(RoomRuntime rt, List<String> players, GameSessionRow session) {
-        DraughtsModule module = new DraughtsModule();
-        DraughtsConfig cfg = draughtsConfigFrom(session.config().asString());
+        boolean chess = "chess".equals(session.gameType());
+        GameModule module = chess ? new ChessModule() : new DraughtsModule();
+        GameSettings cfg = chess ? chessConfigFrom(session.config().asString())
+                : draughtsConfigFrom(session.config().asString());
         return championships.savedActions(session.id()).collectList().flatMap(actions -> Mono.fromCallable(() -> {
             GameState state = module.initialState(players, cfg, RandomSource.seeded(session.rngSeed()));
             GameRunner runner = new GameRunner(module);
@@ -957,22 +984,27 @@ public class GameOrchestrator {
         return ensureRuntime(roomId).flatMap(rt -> lock.withLock(roomId, LOCK_TTL, () -> {
             if (!rt.started() || rt.state().finished())
                 return Mono.empty();
-            String opponent = rt.module().broadcastState(rt.state()).data().get("playerA").toString().equals(loser.toString())
-                    ? rt.module().broadcastState(rt.state()).data().get("playerB").toString()
-                    : rt.module().broadcastState(rt.state()).data().get("playerA").toString();
-            if (!rt.connectedUserIds.contains(opponent)) return Mono.empty();
-            return championships.forfeitAllowed(roomId, loser).flatMap(allowed -> {
-                if (!allowed) return Mono.empty();
-                String actionId = UUID.randomUUID().toString();
-                GameRunner.Step step = new GameRunner(rt.module()).apply(rt.state(),
-                        new PlayerAction(actionId, loser.toString(), "FORFEIT", Map.of()));
-                return championships.recordAction(roomId, rt.gameSessionId, actionId, loser, "FORFEIT", "{}")
-                        .then(Mono.defer(() -> {
-                            rt.setState(step.state());
-                            return afterMutation(rt, step.events());
-                        }));
-            });
+            // Draughts names its sides playerA/playerB, chess white/black — the
+            // room's two members are the same two people either way.
+            return members.findByRoomId(roomId).map(m -> m.userId().toString())
+                    .filter(id -> !id.equals(loser.toString())).next()
+                    .filter(rt.connectedUserIds::contains)
+                    .flatMap(opponent -> forfeitTournamentSeat(rt, roomId, loser));
         }));
+    }
+
+    private Mono<Void> forfeitTournamentSeat(RoomRuntime rt, UUID roomId, UUID loser) {
+        return championships.forfeitAllowed(roomId, loser).flatMap(allowed -> {
+            if (!allowed) return Mono.empty();
+            String actionId = UUID.randomUUID().toString();
+            GameRunner.Step step = new GameRunner(rt.module()).apply(rt.state(),
+                    new PlayerAction(actionId, loser.toString(), "FORFEIT", Map.of()));
+            return championships.recordAction(roomId, rt.gameSessionId, actionId, loser, "FORFEIT", "{}")
+                    .then(Mono.defer(() -> {
+                        rt.setState(step.state());
+                        return afterMutation(rt, step.events());
+                    }));
+        });
     }
 
     /** End an ordinary Draughts or Chess match against a Cyber Agent before its socket closes. */
@@ -1703,16 +1735,24 @@ public class GameOrchestrator {
         // Roles as they ended, not as they were dealt: a Faithful recruited mid-game
         // (Hidden Legacy, Double Agent) played and won or lost as a Traitor, but the
         // roles table only holds the starting deal.
+        // Everyone with a result counts — every game type, not just the ones
+        // that deal roles (that's how Whot, Draughts & co. never counted).
+        // Agents don't keep stats.
         Map<String, String> finalRoles = rt.roleByUser();
         return roleRows.findByGameSessionId(rt.gameSessionId)
-                .concatMap(role -> {
-                    boolean won = "won".equals(perPlayerOutcome.get(role.userId().toString()));
-                    String endedAs = finalRoles.getOrDefault(role.userId().toString(), role.roleType());
-                    boolean wasTraitor = "traitor".equals(endedAs) || "recruited_traitor".equals(endedAs);
-                    return statsRows.findByUserIdAndGroupIdIsNull(role.userId())
-                            .defaultIfEmpty(PlayerStatsRow.lifetimeZero(role.userId()))
-                            .flatMap(row -> statsRows.save(row.plusGame(won, wasTraitor)));
-                })
+                .collectMap(role -> role.userId().toString(), role -> role.roleType())
+                .flatMapMany(dealt -> Flux.fromIterable(perPlayerOutcome.entrySet())
+                        .filter(e -> parseUuid(e.getKey()) != null)
+                        .concatMap(e -> {
+                            UUID userId = parseUuid(e.getKey());
+                            boolean won = "won".equals(e.getValue());
+                            String endedAs = finalRoles.getOrDefault(e.getKey(), dealt.get(e.getKey()));
+                            boolean wasTraitor = "traitor".equals(endedAs) || "recruited_traitor".equals(endedAs);
+                            return users.findById(userId).filter(u -> !u.isBot())
+                                    .flatMap(u -> statsRows.findByUserIdAndGroupIdIsNull(userId)
+                                            .defaultIfEmpty(PlayerStatsRow.lifetimeZero(userId))
+                                            .flatMap(row -> statsRows.save(row.plusGame(won, wasTraitor))));
+                        }))
                 .then()
                 .onErrorResume(e -> {
                     log.warn("stats update failed for session {}: {}", rt.gameSessionId, e.toString());

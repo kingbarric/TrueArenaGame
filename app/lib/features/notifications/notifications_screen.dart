@@ -53,6 +53,9 @@ class NotificationsScreen extends StatefulWidget {
 class _NotificationsScreenState extends State<NotificationsScreen> {
   Future<List<NotificationItem>>? _future;
 
+  /// Swiped away — hidden straight away, deleted on the server behind it.
+  final _removed = <String>{};
+
   @override
   void initState() {
     super.initState();
@@ -69,9 +72,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Future<List<NotificationItem>> _fetch() async {
     final app = AppScope.of(context);
     final raw = await app.api.get('/notifications') as List;
-    return raw
-        .map((e) => NotificationItem.fromJson((e as Map).cast<String, dynamic>()))
-        .toList();
+    return raw.map((e) => NotificationItem.fromJson((e as Map).cast<String, dynamic>())).toList();
   }
 
   Future<void> _openItem(NotificationItem item) async {
@@ -94,6 +95,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       });
     }
     await PushNotifications.open(item.data);
+  }
+
+  Future<void> _delete(NotificationItem item) async {
+    setState(() => _removed.add(item.id));
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await AppScope.of(context).api.delete('/notifications/${item.id}');
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _removed.remove(item.id));
+      messenger.showSnackBar(const SnackBar(content: Text("Couldn't delete that — try again.")));
+    }
   }
 
   @override
@@ -120,24 +133,36 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 ),
               );
             }
-            final items = snap.data!;
+            final items = snap.data!.where((i) => !_removed.contains(i.id)).toList();
             if (items.isEmpty) {
               return Center(
-                child: Text('Nothing yet — messages, invites and your turn\n'
-                        'reminders will show up here.',
-                    textAlign: TextAlign.center, style: TextStyle(color: n.mute)),
+                child: Text(
+                    'Nothing yet — messages, invites and your turn\n'
+                    'reminders will show up here.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: n.mute)),
               );
             }
             return RefreshIndicator(
               onRefresh: () async => _load(),
               child: ListView.separated(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-                itemCount: items.length,
+                itemCount: items.length + 1,
                 separatorBuilder: (_, __) => const SizedBox(height: 10),
-                itemBuilder: (context, i) => _NotificationTile(
-                  item: items[i],
-                  onTap: () => _openItem(items[i]),
-                ),
+                itemBuilder: (context, i) {
+                  if (i == 0) {
+                    return Text('Swipe one sideways to delete it',
+                        textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: n.mute));
+                  }
+                  final item = items[i - 1];
+                  return Dismissible(
+                    key: ValueKey('notification-${item.id}'),
+                    background: const _DeleteBackground(alignment: Alignment.centerLeft),
+                    secondaryBackground: const _DeleteBackground(alignment: Alignment.centerRight),
+                    onDismissed: (_) => _delete(item),
+                    child: _NotificationTile(item: item, onTap: () => _openItem(item)),
+                  );
+                },
               ),
             );
           },
@@ -145,6 +170,24 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       ),
     );
   }
+}
+
+/// What shows under a notification as it's swiped away.
+class _DeleteBackground extends StatelessWidget {
+  const _DeleteBackground({required this.alignment});
+  final Alignment alignment;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        alignment: alignment,
+        padding: const EdgeInsets.symmetric(horizontal: 22),
+        decoration: BoxDecoration(color: const Color(0xFFE5484D), borderRadius: BorderRadius.circular(18)),
+        child: const Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.delete_rounded, color: Colors.white, size: 24),
+          SizedBox(width: 6),
+          Text('Delete', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900)),
+        ]),
+      );
 }
 
 class _NotificationTile extends StatelessWidget {
@@ -174,16 +217,17 @@ class _NotificationTile extends StatelessWidget {
             Text(item.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: item.isUnread ? FontWeight.w800 : FontWeight.w600)),
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(fontWeight: item.isUnread ? FontWeight.w800 : FontWeight.w600)),
             const SizedBox(height: 2),
             Text(item.body,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(color: n.mid)),
             const SizedBox(height: 6),
-            Text(_relativeTime(item.createdAt),
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute)),
+            Text(_relativeTime(item.createdAt), style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute)),
           ]),
         ),
         if (item.isUnread) ...[

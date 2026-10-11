@@ -10,6 +10,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'api_client.dart';
+import 'game_socket.dart';
 import 'hangout_state.dart';
 import 'device_id.dart';
 import 'e2e_crypto.dart';
@@ -49,6 +50,17 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   String? pendingConversationId;
   String? pendingRoomId;
 
+  /// A Huud notification tapped from a cold start — opened once the app is up.
+  String? pendingHuudSpaceId;
+
+  /// A playhuud.com/huud/CODE link opened before you were signed in (or from
+  /// a cold start) — joined once you're in.
+  String? pendingHuudCode;
+
+  /// First launch after installing — the one time the app looks for an
+  /// invite link left on the clipboard by playhuud.com/huud/….
+  bool freshInstall = false;
+
   /// A call push tapped while the app was closed — rung once the app is up.
   Map<String, dynamic>? pendingIncomingCall;
   GoogleSignIn? _googleClient;
@@ -56,6 +68,12 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   Identity identity = Identity.anonymous;
   UserView? user;
   String? activeRoomId;
+
+  /// The game screen the app was closed on, if it was closed on one — the
+  /// only room startup reopens. Leaving a lobby (without cancelling it)
+  /// keeps it as [activeRoomId] for Home's "your game" banner, but it no
+  /// longer jumps back open every time the app starts.
+  String? resumeRoomId;
   ThemeMode themeMode = ThemeMode.system;
   VisualTheme visualTheme = VisualTheme.palmWine;
 
@@ -98,6 +116,33 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   /// you) and `HUUD_CHALLENGE_ANSWERED`, each as `{type, data}`.
   final _huudController = StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get huudEvents => _huudController.stream;
+
+  /// Something changed in a Huud space you're in (someone joined, a game was
+  /// picked, the host moved on…) — the payload's `data.huudSpaceId` says which.
+  final _huudSpaceController = StreamController<Map<String, dynamic>>.broadcast();
+
+  /// Coin gifts that just arrived for you — `{from, fromName, coins}`.
+  final _coinGiftController = StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get coinGifts => _coinGiftController.stream;
+  Stream<Map<String, dynamic>> get huudSpaceEvents => _huudSpaceController.stream;
+
+  /// Tests: deliver a Huud event as if it came over the inbox.
+  @visibleForTesting
+  void debugHuudSpaceEvent(Map<String, dynamic> event) => _huudSpaceController.add(event);
+
+  /// "Still here" for every Huud you're in, while the app is open. A host whose
+  /// app goes quiet for a few minutes hands their Huud to the next person.
+  Timer? _huudHeartbeat;
+  void _startHuudHeartbeat() {
+    _huudHeartbeat?.cancel();
+    _sendHuudHeartbeat();
+    _huudHeartbeat = Timer.periodic(const Duration(seconds: 45), (_) => _sendHuudHeartbeat());
+  }
+
+  void _sendHuudHeartbeat() {
+    if (api.bearer == null) return;
+    api.post('/huud-spaces/heartbeat').catchError((Object _) => null);
+  }
 
   void dismissGameInvite() {
     pendingGameInvite = null;
@@ -143,6 +188,10 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       } else if (const {'HUUD_CHALLENGE', 'HUUD_CHALLENGE_ANSWERED'}
           .contains(payload?['type'])) {
         _huudController.add(payload!);
+      } else if (payload?['type'] == 'HUUD_SPACE') {
+        _huudSpaceController.add(payload!);
+      } else if (payload?['type'] == 'COIN_GIFT') {
+        _coinGiftController.add((payload!['data'] as Map).cast<String, dynamic>());
       }
     }, onDone: () => _scheduleInboxReconnect(generation));
     client.ready.then((_) {
@@ -155,9 +204,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       _scheduleInboxReconnect(generation);
     });
     _presenceTimer?.cancel();
+    _huudHeartbeat?.cancel();
     _refreshPresence();
     _presenceTimer =
         Timer.periodic(const Duration(seconds: 15), (_) => _refreshPresence());
+    _startHuudHeartbeat();
   }
 
   Future<void> _refreshPresence() async {
@@ -204,6 +255,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   static const _kVoiceMatchEnabled = 'ta_voice_match_enabled';
   static const _kVoiceMatchThreshold = 'ta_voice_match_threshold';
   static const _kActiveRoom = 'ta_active_room';
+  static const _kResumeRoom = 'ta_resume_room';
   static const _kActiveRoomUser = 'ta_active_room_user';
   static const _kActiveRoomSavedAt = 'ta_active_room_saved_at';
   static const _kCachedUser = 'ta_cached_user';
@@ -256,6 +308,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _refreshPresence();
+      if (api.bearer != null) _startHuudHeartbeat();
       if (api.bearer != null) _chatController.add({'type': 'sync'});
       inbox?.send('APP_FOREGROUND');
     }
@@ -265,10 +318,25 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       // PushNotificationService.sendToUserIfOffline still sends an OS push
       // instead of assuming the live in-app frame was enough.
       inbox?.send('APP_BACKGROUND');
+      _huudHeartbeat?.cancel();
       if (activeRoomId != null) {
         SharedPreferences.getInstance().then((prefs) => prefs.setInt(
             _kActiveRoomSavedAt, DateTime.now().millisecondsSinceEpoch));
       }
+    }
+  }
+
+  /// Written as game screens open and close, so a closed app reopens on
+  /// the screen it was closed on — and nowhere else.
+  Future<void> _saveResumeRoom() async {
+    final room = GameSocket.currentPlayerRoom.value;
+    final prefs = await SharedPreferences.getInstance();
+    if (room == null) {
+      await prefs.remove(_kResumeRoom);
+    } else {
+      await prefs.setString(_kResumeRoom, room);
+      final userId = user?.id;
+      if (userId != null) await prefs.setString(_kActiveRoomUser, userId);
     }
   }
 
@@ -296,6 +364,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> bootstrap() async {
     WidgetsBinding.instance.addObserver(this);
+    try {
+      freshInstall = (await SharedPreferences.getInstance()).getKeys().isEmpty;
+    } catch (_) {}
     api.deviceId = await DeviceId.get();
     // Lets ApiClient recover a mid-session 401 on its own (the access token
     // is only good for 15 min) instead of every call site having to special-
@@ -338,6 +409,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         _restoreCachedUser(prefs);
       }
     }
+    final resume = prefs.getString(_kResumeRoom);
+    resumeRoomId = resume != null && user?.id == prefs.getString(_kActiveRoomUser) ? resume : null;
+    GameSocket.currentPlayerRoom.addListener(_saveResumeRoom);
     final savedRoom = prefs.getString(_kActiveRoom);
     final savedAt = prefs.getInt(_kActiveRoomSavedAt);
     if (savedRoom != null &&
@@ -649,6 +723,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     _inboxRetry?.cancel();
     _inboxRetry = null;
     _presenceTimer?.cancel();
+    _huudHeartbeat?.cancel();
     _presenceTimer = null;
     onlineFriends.value = <String>{};
     user = null;
@@ -669,6 +744,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _presenceTimer?.cancel();
+    _huudHeartbeat?.cancel();
     onlineFriends.dispose();
     super.dispose();
   }

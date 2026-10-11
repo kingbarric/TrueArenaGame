@@ -1,0 +1,12 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["WD4GX3YYY8.app.truearena.truearena"],
+        "components": [
+          { "/": "/huud/*", "comment": "Huud invite links open the Huud in the app" }
+        ]
+      }
+    ]
+  }
+}

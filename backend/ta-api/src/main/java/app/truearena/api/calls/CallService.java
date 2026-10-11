@@ -103,7 +103,7 @@ public class CallService {
                                         Mono<Boolean> allowed = name.startsWith("dm-") && sessions != null ? sessions.isMember(selfId,name) : Mono.just(true);
                                         return allowed.filter(Boolean::booleanValue)
                                                 .switchIfEmpty(Mono.error(ApiExceptions.forbidden("join the encrypted call by invitation first")))
-                                                .map(ok -> new CallToken(name,tokens.mintToken(name,self.id().toString(),self.displayName(),isPlayer),tokens.wsUrl()));
+                                                .map(ok -> new CallToken(name,tokens.mintToken(name,self.id().toString(),CallRingService.shownName(self),isPlayer),tokens.wsUrl()));
                                     }));
                 });
     }

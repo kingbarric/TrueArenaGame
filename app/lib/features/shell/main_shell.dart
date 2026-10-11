@@ -1,15 +1,20 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/app_state.dart';
+import '../../core/push_notifications.dart';
 import '../../widgets/hide_on_scroll_nav.dart';
 import '../../widgets/playground_nav_pill.dart';
-import '../chat/chat_list_screen.dart';
 import '../friends/friends_screen.dart';
 import '../home/home_screen.dart';
 import '../huud/huud_screen.dart';
+import '../huudspace/huud_home_screen.dart';
+import '../huudspace/huud_kit.dart' show huudIconSnack;
 import '../onboarding/guest_gate.dart';
 import '../profile/profile_screen.dart';
-import '../spectate/spectator_discovery_screen.dart';
+import '../huudspace/huud_link.dart';
 
 /// The app's persistent nav shell. Before this, the pill nav lived only on
 /// Home and everything else was a pushed route, so reaching Chats from
@@ -27,13 +32,26 @@ class MainShell extends StatefulWidget {
 
   final int initialIndex;
 
-  /// The Huud feed's slot, for anything that wants to open it (a challenge
-  /// push tapped while the app was in the background).
-  static const huudTab = 1;
+  /// Live (what's on now + the feed), for anything that wants to open it — a
+  /// challenge push tapped while the app was in the background.
+  static const liveTab = 0;
+
+  /// Making a Huud and your Huud history.
+  static const huudSpacesTab = 1;
+
+  /// The game catalogue.
+  static const gamesTab = 2;
+
+  /// Friends, messages and friend requests.
+  static const friendsTab = 3;
 
   /// Set from outside the widget tree — a push tap only has the root
   /// navigator — and picked up by whichever shell is mounted.
   static final requestedTab = ValueNotifier<int?>(null);
+
+  /// The tab on screen — so a kept-alive tab (like You) can refresh when it's opened again.
+  static final shownTab = ValueNotifier<int?>(null);
+  static const youTab = 4;
 
   @override
   State<MainShell> createState() => _MainShellState();
@@ -41,9 +59,10 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   late int _index = widget.initialIndex;
-  // v2: the Huud tab was inserted second, which shifted every saved index —
-  // a fresh key rather than reopening someone on the tab next to theirs.
-  static const _tabKey = 'ta_main_tab_v2';
+  // v4: Live · Huud · Games · Friends · You (Chats moved inside Friends),
+  // which shifted every saved index — a fresh key rather than reopening
+  // someone on the tab next to theirs.
+  static const _tabKey = 'ta_main_tab_v4';
 
   @override
   void initState() {
@@ -55,12 +74,41 @@ class _MainShellState extends State<MainShell> {
       }
     });
     MainShell.requestedTab.addListener(_onTabRequested);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _onTabRequested());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _onTabRequested();
+      _huudEvents = AppScope.of(context).huudSpaceEvents.listen(_onHuudEvent);
+      // A Huud invite link opened before signing up (or left by the invite page).
+      consumeHuudInvite(context);
+    });
+  }
+
+  StreamSubscription? _huudEvents;
+
+  static const _bannerFor = {
+    'invited': "You're invited to a Huud!",
+    'request': 'Someone is asking you something in your Huud ✋',
+    'accepted-join': "You're in! The host let you into the Huud",
+    'picked': "You're picked to play! Open the Huud 🎮",
+    'live': 'A Huud you\'re in just went Live! 🔴',
+  };
+
+  /// Invites, requests and answers while you're on the main tabs — inside a
+  /// Huud its own screen says so.
+  void _onHuudEvent(Map<String, dynamic> event) {
+    final data = (event['data'] as Map?)?.cast<String, dynamic>() ?? const {};
+    final text = _bannerFor[data['event']];
+    final id = data['huudSpaceId'] as String?;
+    if (text == null || id == null || !mounted || ModalRoute.of(context)?.isCurrent != true) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+          huudIconSnack(text, action: SnackBarAction(label: 'Open', onPressed: () => PushNotifications.openHuud(id))));
   }
 
   @override
   void dispose() {
     MainShell.requestedTab.removeListener(_onTabRequested);
+    _huudEvents?.cancel();
     super.dispose();
   }
 
@@ -77,22 +125,22 @@ class _MainShellState extends State<MainShell> {
   final _built = <int, Widget>{};
 
   static const _tabs = [
-    _Tab(icon: Icons.sports_esports_rounded, label: 'Games'),
-    _Tab(icon: Icons.track_changes_rounded, label: 'Huud'),
-    _Tab(icon: Icons.chat_bubble_rounded, label: 'Chats', needsAccount: true),
-    _Tab(icon: Icons.people_alt_rounded, label: 'Friends', needsAccount: true),
-    _Tab(icon: Icons.visibility_rounded, label: 'Watch', needsAccount: true),
-    _Tab(icon: Icons.emoji_emotions_rounded, label: 'You'),
+    _Tab(icon: Icons.live_tv_rounded, label: 'Live', art: 'live'),
+    _Tab(icon: Icons.groups_rounded, label: 'Huud', art: 'huud'),
+    _Tab(icon: Icons.sports_esports_rounded, label: 'Games', art: 'games'),
+    _Tab(icon: Icons.people_alt_rounded, label: 'Friends', needsAccount: true, art: 'friends'),
+    _Tab(icon: Icons.emoji_emotions_rounded, label: 'You', art: 'you'),
   ];
 
-  Widget _screenFor(int i) => _built.putIfAbsent(i, () => switch (i) {
-        0 => const HomeScreen(),
-        1 => const HuudScreen(),
-        2 => const ChatListScreen(),
-        3 => const FriendsScreen(),
-        4 => const SpectatorDiscoveryScreen(),
-        _ => const ProfileScreen(),
-      });
+  Widget _screenFor(int i) => _built.putIfAbsent(
+      i,
+      () => switch (i) {
+            0 => const HuudScreen(),
+            1 => const HuudHomeScreen(),
+            2 => const HomeScreen(),
+            3 => const FriendsScreen(),
+            _ => const ProfileScreen(),
+          });
 
   Future<void> _select(int i) async {
     if (i == _index) return;
@@ -102,6 +150,7 @@ class _MainShellState extends State<MainShell> {
     if (_tabs[i].needsAccount && !await canUseFriendsOrPromptToVerify(context)) return;
     if (!mounted) return;
     setState(() => _index = i);
+    MainShell.shownTab.value = i;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_tabKey, i);
   }
@@ -124,12 +173,20 @@ class _MainShellState extends State<MainShell> {
         nav: Center(
           child: SafeArea(
             top: false,
-            child: PlaygroundNavPill(
-              activeIndex: _index,
-              items: [
-                for (var i = 0; i < _tabs.length; i++)
-                  PlaygroundNavItem(icon: _tabs[i].icon, onTap: () => _select(i)),
-              ],
+            // Labelled tabs — shrink rather than overflow on the narrowest phones.
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: PlaygroundNavPill(
+                  activeIndex: _index,
+                  items: [
+                    for (var i = 0; i < _tabs.length; i++)
+                      PlaygroundNavItem(
+                          icon: _tabs[i].icon, label: _tabs[i].label, art: _tabs[i].art, onTap: () => _select(i)),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
@@ -139,8 +196,9 @@ class _MainShellState extends State<MainShell> {
 }
 
 class _Tab {
-  const _Tab({required this.icon, required this.label, this.needsAccount = false});
+  const _Tab({required this.icon, required this.label, this.needsAccount = false, this.art});
   final IconData icon;
+  final String? art;
   final String label;
   final bool needsAccount;
 }

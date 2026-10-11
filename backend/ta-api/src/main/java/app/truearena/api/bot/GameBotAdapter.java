@@ -61,6 +61,21 @@ public interface GameBotAdapter {
     default String fallbackSpeech(BotPrompt prompt) { return ""; }
 
     /**
+     * After the agent's said a clue through {@link #speechAction}: which
+     * word it was about, for {@link #followUp} to check it's still current.
+     * Negative when there's nothing to follow up.
+     */
+    default int describingToken() { return -1; }
+
+    /**
+     * What to do when the table's had a while with the clue for word
+     * {@code token} and hasn't got it — another clue, or giving up on it.
+     * Empty once that word has moved on. The runtime calls this on a timer,
+     * off the frame thread, and again after each clue it returns.
+     */
+    default Optional<PlayerAction> followUp(String botUserId, int token) { return Optional.empty(); }
+
+    /**
      * What to ask the model for.
      *
      * <p>Usually the answer is a move, parsed by {@link #parseAction}. When

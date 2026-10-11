@@ -175,7 +175,13 @@ class CompetitiveRecordSection extends StatelessWidget {
     this.onChanged,
     this.horizontalPadding = 20,
     this.belowPrompt,
+    this.avatarUrl,
+    this.avatarPath,
   });
+
+  /// Your own photo, fresher than the profile's copy (see [PlayerCardData.avatarPath]).
+  final String? avatarUrl;
+  final String? avatarPath;
 
   final CompetitiveProfile profile;
   final bool own;
@@ -196,7 +202,7 @@ class CompetitiveRecordSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final n = context.neon;
     final t = Theme.of(context).textTheme;
-    final cards = buildPlayerCards(profile, ratedGames: ratedGames);
+    final cards = buildPlayerCards(profile, ratedGames: ratedGames, avatarUrl: avatarUrl, avatarPath: avatarPath);
     final side = EdgeInsets.symmetric(horizontal: horizontalPadding);
     // The cards come first; everything about finishing your profile sits under them.
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -551,7 +557,10 @@ class MatchRow extends StatelessWidget {
     };
     final opponent = m.opponents.isEmpty
         ? 'Unknown'
-        : m.opponents.map((o) => o.isBot ? '${o.displayName} (agent)' : o.displayName).join(', ');
+        // Usernames, like everywhere people play — full names are for profile cards.
+        : m.opponents
+            .map((o) => o.isBot ? '${o.displayName} (agent)' : (o.username?.isNotEmpty == true ? o.username! : o.displayName))
+            .join(', ');
     final opponentRating = m.opponents.length == 1 ? m.opponents.first.ratingBefore : null;
     return NeonCard(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -571,6 +580,7 @@ class MatchRow extends StatelessWidget {
             const SizedBox(height: 2),
             Text(
               [
+                gameDisplayName(m.gameType),
                 m.championship ? 'Championship' : (m.ranked ? 'Ranked' : 'Casual'),
                 if (m.completedAt != null) _ago(m.completedAt!),
               ].join(' · '),

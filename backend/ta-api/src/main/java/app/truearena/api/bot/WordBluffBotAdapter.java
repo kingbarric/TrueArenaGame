@@ -1,6 +1,7 @@
 package app.truearena.api.bot;
 
 import app.truearena.engine.PlayerAction;
+import app.truearena.game.wordbluff.WordClues;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -50,6 +51,9 @@ public final class WordBluffBotAdapter implements GameBotAdapter {
     private int pendingGuessIndex;
     private final List<String> clueHistory = new ArrayList<>();
 
+    /// What this agent has already said about the word in hand, so a
+    /// follow-up never repeats itself; cleared whenever the word changes.
+    private final List<String> saidClues = new ArrayList<>();
     @Override
     public String gameType() {
         return "wordbluff";
@@ -57,7 +61,7 @@ public final class WordBluffBotAdapter implements GameBotAdapter {
 
     @Override
     @SuppressWarnings("unchecked")
-    public Optional<BotPrompt> onFrame(String frameType, Map<String, Object> payload, String botUserId, Difficulty difficulty) {
+    public synchronized Optional<BotPrompt> onFrame(String frameType, Map<String, Object> payload, String botUserId, Difficulty difficulty) {
         switch (frameType) {
             case "SNAPSHOT" -> applySnapshot(payload);
             case "EVENT" -> applyEvent((Map<String, Object>) payload.getOrDefault("data", Map.of()),
@@ -213,6 +217,7 @@ public final class WordBluffBotAdapter implements GameBotAdapter {
                 describedWord = null;
                 pendingClue = null;
                 clueHistory.clear();
+                forgetWordClues();
                 acceptedTeams.clear();
                 reviewAcceptSent = false;
             }
@@ -224,6 +229,7 @@ public final class WordBluffBotAdapter implements GameBotAdapter {
             case "TURN_CLOCK_STARTED" -> clockStarted = true;
             case "WORD_REVEALED" -> {
                 hasWord = true;
+                forgetWordClues();
                 Object w = data.get("word");
                 if (w != null) word = String.valueOf(w);
                 if (data.get("wordIndex") instanceof Number n) wordIndex = n.intValue();
@@ -236,6 +242,7 @@ public final class WordBluffBotAdapter implements GameBotAdapter {
                 word = null;
                 pendingClue = null;
                 clueHistory.clear();
+                forgetWordClues();
                 if (data.get("wordIndex") instanceof Number n) wordIndex = n.intValue();
             }
             case "GAME_OVER" -> finished = true;
@@ -281,7 +288,7 @@ public final class WordBluffBotAdapter implements GameBotAdapter {
     }
 
     @Override
-    public Optional<PlayerAction> parseAction(String rawResponse, String botUserId) {
+    public synchronized Optional<PlayerAction> parseAction(String rawResponse, String botUserId) {
         if (pendingClue != null) {
             String guess = rawResponse == null ? "" : rawResponse.trim().replaceAll("^[\"'`]+|[\"'`.]+$", "");
             if (guess.isBlank() || guess.length() > 80) return Optional.empty();
@@ -292,9 +299,9 @@ public final class WordBluffBotAdapter implements GameBotAdapter {
     }
 
     @Override
-    public Optional<PlayerAction> fallbackAction(String botUserId) {
+    public synchronized Optional<PlayerAction> fallbackAction(String botUserId) {
         if (pendingClue != null) {
-            var offline = WordBluffTextHints.guess(String.join(" ", clueHistory));
+            var offline = WordBluffTextHints.guess(String.join(" ", clueHistory), category);
             pendingClue = null;
             if (offline.isPresent()) return Optional.of(PlayerAction.of(botUserId, "TEXT_GUESS",
                     Map.of("text", offline.get(), "wordIndex", pendingGuessIndex)));
@@ -306,14 +313,78 @@ public final class WordBluffBotAdapter implements GameBotAdapter {
 
     @Override public boolean speaksThroughActions() { return textMode; }
 
-    @Override public Optional<PlayerAction> speechAction(BotPrompt p, String text, String botUserId) {
-        if (!"Turn".equals(phase) || !botUserId.equals(describer) || text.isBlank()
+    @Override public synchronized Optional<PlayerAction> speechAction(BotPrompt p, String text, String botUserId) {
+        if (!"Turn".equals(phase) || !botUserId.equals(describer)
                 || word == null || !word.equals(p.forbidden())) return Optional.empty();
-        return Optional.of(PlayerAction.of(botUserId, "TEXT_CLUE", Map.of("text", text, "wordIndex", wordIndex)));
+        // The table checks clues more strictly than "doesn't contain the
+        // word" (it ignores spaces too) — anything it would turn away is
+        // swapped for the clue book's, so the agent is never left mute.
+        if (text.isBlank() || WordClues.saysWord(text, word)) text = nextBookClue().orElse("");
+        if (text.isBlank()) return Optional.empty();
+        saidClues.add(text);
+        return Optional.of(clueAction(botUserId, text));
     }
 
-    @Override public String fallbackSpeech(BotPrompt p) {
-        return WordBluffTextHints.clue(p.forbidden()).orElse(
-                "Think of something in " + category + ". You can skip this word if you need another clue.");
+    @Override public synchronized String fallbackSpeech(BotPrompt p) {
+        if (p.forbidden() == null || !p.forbidden().equals(word)) return "";
+        return nextBookClue().orElseGet(this::shapeHint);
+    }
+
+    @Override public synchronized int describingToken() {
+        return textMode && word != null ? wordIndex : -1;
+    }
+
+    /**
+     * Still describing the same word and nobody's got it: another clue from
+     * the book, then how long the word is, then give it up and move on to
+     * the next — so the agent keeps the table playing rather than sitting
+     * silently on one word for the rest of the turn.
+     */
+    @Override public synchronized Optional<PlayerAction> followUp(String botUserId, int token) {
+        if (finished || !textMode || token < 0 || token != wordIndex || word == null
+                || !"Turn".equals(phase) || !botUserId.equals(describer)) return Optional.empty();
+        Optional<String> more = nextBookClue();
+        if (more.isPresent()) {
+            saidClues.add(more.get());
+            return Optional.of(clueAction(botUserId, more.get()));
+        }
+        String shape = shapeHint();
+        if (!saidClues.contains(shape)) {
+            saidClues.add(shape);
+            return Optional.of(clueAction(botUserId, shape));
+        }
+        return Optional.of(PlayerAction.of(botUserId, "SKIP", Map.of()));
+    }
+
+    private PlayerAction clueAction(String botUserId, String text) {
+        return PlayerAction.of(botUserId, "TEXT_CLUE", Map.of("text", text, "wordIndex", wordIndex));
+    }
+
+    /** The book's next clue for the word in hand that hasn't been said yet. */
+    private Optional<String> nextBookClue() {
+        if (word == null) return Optional.empty();
+        return WordBluffTextHints.clues(word).stream()
+                .filter(c -> !saidClues.contains(c) && !WordClues.saysWord(c, word))
+                .findFirst();
+    }
+
+    /** "It's 8 letters long." / "It's 2 words: 5 and 4 letters." — never the letters themselves. */
+    private String shapeHint() {
+        String[] parts = word.strip().split("[\\s-]+");
+        if (parts.length == 1) return "It's " + lettersIn(parts[0]) + " letters long.";
+        StringBuilder out = new StringBuilder("It's " + parts.length + " words: ");
+        for (int i = 0; i < parts.length; i++) {
+            if (i > 0) out.append(i == parts.length - 1 ? " and " : ", ");
+            out.append(lettersIn(parts[i]));
+        }
+        return out.append(" letters.").toString();
+    }
+
+    private static int lettersIn(String part) {
+        return (int) part.chars().filter(Character::isLetterOrDigit).count();
+    }
+
+    private void forgetWordClues() {
+        saidClues.clear();
     }
 }

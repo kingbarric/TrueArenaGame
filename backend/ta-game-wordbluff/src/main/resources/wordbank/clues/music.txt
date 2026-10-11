@@ -1,0 +1,101 @@
+# word | first clue | second clue
+melody | The tune of a song that you hum. | The main line of notes you remember.
+chorus | The part of a song that repeats and everyone sings along. | It comes after each verse.
+remix | A new version of a song with a different beat. | A DJ changes up an old track.
+concert | A live music show. | Going to see your favourite singer perform on stage.
+playlist | Songs you line up together in an app. | Your favourite tracks saved on Spotify.
+harmony | Different notes sung together that sound nice. | Singers blending voices.
+ballad | A slow, emotional love song. | A gentle tearjerker tune.
+rhythm | The beat of the music. | You clap along to it.
+lyrics | The words of a song. | What the singer sings.
+orchestra | A big group playing violins, trumpets and drums together. | Led by a conductor with a baton.
+duet | A song sung by two people. | Two singers sharing a song.
+encore | When the crowd shouts for one more song. | The extra song at the end of a show.
+vinyl | Old-style records that spin on a turntable. | Big black discs your grandparents played.
+karaoke | Singing along to music with the words on a screen. | Grabbing the mic at a party.
+headphones | You wear these over your ears to listen privately. | A pair joined by a band across the top of your skull.
+percussion | Instruments you hit, like drums. | The section with cymbals and tambourines.
+tempo | How fast or slow music is. | Measured in beats per minute.
+pitch | How high or low a note is. | Also a football field.
+octave | Eight notes from one to the same note higher. | Do re mi all the way up to do again.
+chord | Three or more notes played together. | Strumming on a guitar.
+scale | Notes going up and down in steps. | Do re mi fa so la ti do; also what fish have.
+bassline | The low, deep part of a song. | The thumping notes that make you nod your head.
+guitar solo | When the six-string player shows off alone. | A rock star shredding on stage.
+drum beat | The rhythm pattern the kit plays. | Boom-tsss, boom-boom-tsss.
+piano key | One of the black or white bars you press. | There are 88 on a grand.
+violin bow | The stick with horsehair you pull across strings. | Used to play a fiddle.
+trumpet | A brass instrument you blow with three valves. | Loud fanfares; Louis Armstrong played it.
+saxophone | A curvy brass jazz instrument. | Lisa Simpson plays this.
+flute | A silver instrument you blow across, held sideways. | A high, airy woodwind.
+clarinet | A black woodwind instrument with a reed. | Squeaky when you're learning; Squidward plays one.
+cello | A big string instrument you play sitting down. | Bigger than a violin, rests on the floor.
+harp | A big string instrument plucked with fingers. | Angels play it in clouds.
+accordion | Squeeze-box with buttons and keys. | You push and pull it to make music.
+ukulele | A tiny four-string guitar from Hawaii. | Strummed on the beach.
+bagpipes | A Scottish instrument that wails. | Played by men in kilts squeezing a bag.
+tambourine | A round instrument with jingles that you shake. | Hit it against your hand.
+xylophone | Wooden bars you hit with sticks. | Plink plonk notes, often in kids' music.
+synthesizer | An electronic keyboard that makes all sorts of sounds. | Used in eighties pop and electronic music.
+turntable | A spinning record player. | DJs scratch on them.
+microphone | You speak or sing into it to sound louder. | Karaoke stars hold one.
+amplifier | A box that makes a guitar sound loud. | Turn it up to eleven.
+speaker | The box where the sound comes out. | Bluetooth ones play your music.
+soundcheck | Testing the mics before a show. | One, two, testing.
+setlist | The order of songs at a concert. | The running order taped to the floor by the band.
+backstage | Behind the scenes where performers wait. | VIPs get passes to go there.
+festival | A big outdoor music event over several days. | Glastonbury or Coachella.
+tour | When a band travels playing shows in many cities. | Going on the road.
+band | A group of musicians playing together. | The Beatles were one.
+bandmate | Another member of your group. | Someone you play music with.
+lead singer | The main vocalist in a group. | Freddie Mercury in Queen.
+backup vocals | Singers behind the main one. | Ooohs and aahs in the background.
+music video | A short film for a song. | You watch it on YouTube or MTV.
+album cover | The picture on the front of a record. | Iconic artwork like Abbey Road.
+record label | The company that releases an artist's songs. | They sign singers to contracts.
+producer | The person in the studio shaping how a song sounds. | They mix and record the tracks.
+songwriter | Someone who writes songs. | They create the words and tune.
+composer | Someone who writes music, especially classical. | Mozart and Beethoven.
+conductor | The person waving a baton in front of an orchestra. | They lead the musicians; also on a train.
+choir | A group of singers. | They sing together in church or at school.
+a cappella | Singing with no instruments at all. | Pitch Perfect style, just voices.
+lullaby | A gentle song to send a baby to sleep. | Rock-a-bye baby.
+anthem | A national song sung at big events. | Everyone stands for it at the football.
+jingle | A short catchy tune in an advert. | Also the sound of bells.
+theme song | The tune that plays at the start of a TV show. | A catchy opening tune everyone hums.
+cover song | A different artist's version of an old track. | Singing someone else's hit.
+mashup | Two songs mixed together into one. | Blending tracks.
+sample | A bit of an old song used in a new one. | A small taster; also a free try.
+beatbox | Making drum sounds with your mouth. | Boots and cats and boots and cats.
+freestyle | Rapping or dancing made up on the spot. | Improvised with no plan.
+rap battle | Two MCs trading insults in rhyme. | Like in 8 Mile.
+hip hop | Music with rapping and beats from New York. | Breakdancing, DJs and MCs.
+jazz | Music with saxophones and improvised solos. | From New Orleans; swing and smooth.
+blues | Sad music from the American south with guitar. | Feeling down; B.B. King.
+reggae | Music from Jamaica with a relaxed beat. | Bob Marley.
+country music | Songs with cowboy hats and guitars from Nashville. | Dolly Parton sings it.
+classical music | Mozart and Beethoven. | Orchestras and symphonies.
+opera | A play where all the words are sung. | Big dramatic singing in Italian.
+folk music | Traditional songs passed down, often on acoustic guitar. | Songs of the people.
+punk rock | Loud, fast, rebellious music with mohawks. | The Sex Pistols and safety pins.
+heavy metal | Very loud rock with screaming guitars and headbanging. | Iron Maiden and Black Sabbath.
+disco | Dance music from the seventies with glitter balls. | Saturday Night Fever; boogie wonderland.
+techno | Electronic dance music with a repetitive beat. | Thumping at a rave.
+gospel | Joyful church music with a choir. | Singing praise and clapping.
+lo-fi | Chill, relaxed beats to study to. | Crackly, calm music.
+crescendo | Music getting louder and louder. | Building to a big climax.
+diminuendo | Music getting gradually softer. | Fading quieter.
+staccato | Short, sharp, separated notes. | Bouncy, detached playing.
+vibrato | A wobble in a singer's voice. | A shaky effect on a held note.
+falsetto | A very high voice above the normal range. | The Bee Gees sang this way.
+key change | When a song suddenly shifts higher. | The big lift in the final chorus.
+time signature | Numbers telling you how many beats in a bar. | Four-four or three-four.
+sheet music | Written notes on paper for players to read. | Staves and notes on a stand.
+metronome | A ticking device that keeps time for practice. | Tick tock at the right speed.
+earworm | A song you can't get out of your head. | Catchy tune stuck in your brain.
+one-hit wonder | A singer famous for only a single song. | Remember Macarena?
+platinum record | An award for selling a million copies. | Better than gold.
+music streaming | Listening to songs online, like on Spotify. | Apps playing tracks over the internet.
+fan club | A group of people who love a star. | Signing up for news about your idol.
+groupie | A super fan who follows a band everywhere. | They chase rock stars on tour.
+mosh pit | A wild crowd pushing and jumping at a rock gig. | The crushing area in front of the stage.

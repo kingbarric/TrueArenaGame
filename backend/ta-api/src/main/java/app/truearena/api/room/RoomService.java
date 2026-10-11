@@ -260,6 +260,27 @@ public class RoomService {
      * stake through the normal win/loss payout instead of a refund.
      */
     @org.springframework.transaction.annotation.Transactional
+    /**
+     * The room's host frees someone's seat before the game starts (a Huud host
+     * changing who plays). Everyone in the lobby refreshes; the person who
+     * lost the seat is told.
+     */
+    public Mono<Void> removeFromLobby(UUID roomId, UUID hostId, UUID userId) {
+        return rooms.findById(roomId)
+                .switchIfEmpty(Mono.error(ApiExceptions.notFound("huud not found")))
+                .flatMap(room -> {
+                    if (!room.hostId().equals(hostId)) return Mono.error(ApiExceptions.forbidden("only the host can do that"));
+                    if (room.hostId().equals(userId)) return Mono.error(ApiExceptions.badRequest("the host keeps their seat"));
+                    boolean started = runtimes.find(roomId).map(RoomRuntime::started).orElse(false);
+                    if (started || !"lobby".equals(room.status())) {
+                        return Mono.error(ApiExceptions.conflict("the game has already started"));
+                    }
+                    return members.deleteByRoomIdAndUserId(roomId, userId)
+                            .doOnSuccess(v -> runtimes.find(roomId).ifPresent(rt -> rt.bus.tryEmitNext(
+                                    new app.truearena.room.LobbyBroadcast("MEMBER_REMOVED", Map.of("userId", userId.toString())))));
+                });
+    }
+
     public Mono<Void> abandon(UUID roomId, UUID callerId) {
         return rooms.findById(roomId)
                 .switchIfEmpty(Mono.error(ApiExceptions.notFound("huud not found")))
@@ -417,7 +438,8 @@ public class RoomService {
 
     /**
      * Rooms you can spectate right now: a friend's game that's actually
-     * started (not just sitting in the lobby), sourced from the live
+     * being played — started, not over, and with a player still connected —
+     * sourced from the live
      * in-memory runtimes on this pod (v1, single-pod scope — same as
      * everywhere else runtimes are read directly). Joining as a spectator
      * is then just {@code GET /rooms/{id}} for a session token, same as any
@@ -429,14 +451,9 @@ public class RoomService {
                 .map(row -> row.otherUser(selfId))
                 .collect(Collectors.toSet())
                 .flatMapMany(friendIds -> {
-                    Set<UUID> hosts = runtimes.all().stream()
-                            .filter(RoomRuntime::started)
-                            .map(rt -> UUID.fromString(rt.hostUserId))
-                            .filter(friendIds::contains)
-                            .collect(Collectors.toSet());
                     Flux<DiscoverableRoomView> regular = Flux.fromIterable(runtimes.all())
-                            .filter(RoomRuntime::started)
-                            .filter(rt -> hosts.contains(UUID.fromString(rt.hostUserId)))
+                            .filter(RoomService::watchable)
+                            .filter(rt -> friendIds.contains(UUID.fromString(rt.hostUserId)))
                             .concatMap(rt -> championships == null ? discoverableView(rt)
                                     : championships.spectatorAllowed(rt.roomId, selfId)
                                             .flatMapMany(allowed -> allowed ? discoverableView(rt) : Flux.empty()));
@@ -447,8 +464,18 @@ public class RoomService {
                 });
     }
 
+    /**
+     * Worth watching: a game in play with someone still at the table. A
+     * finished game's runtime stays in memory until a restart (for late
+     * reconnects), and a game everyone walked away from has nobody to watch.
+     */
+    static boolean watchable(RoomRuntime rt) {
+        return rt.started() && !rt.state().finished() && !rt.connectedUserIds.isEmpty();
+    }
+
     private Mono<DiscoverableRoomView> discoverableView(RoomRuntime rt) {
         return rooms.findById(rt.roomId)
+                .filter(room -> "in_game".equals(room.status()))
                 .flatMap(room -> users.findById(room.hostId())
                         .map(host -> new DiscoverableRoomView(
                                 room.id(), room.code(), room.gameType(), host.displayName(), rt.connectedUserIds.size()))

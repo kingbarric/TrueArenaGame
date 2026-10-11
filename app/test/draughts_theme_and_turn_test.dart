@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:truearena/widgets/neon.dart' show Presence;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -16,6 +17,10 @@ import 'package:truearena/theme/neon_theme.dart';
 
 class _Socket implements GameSocket {
   @override
+  final awaySince = <String, DateTime>{};
+  @override
+  Presence presenceOf(String userId) => Presence.here;
+  @override
   final memberAvatars = <String, String?>{};
   final frames = StreamController<Map<String, dynamic>>.broadcast();
   @override
@@ -28,8 +33,9 @@ class _Socket implements GameSocket {
   int get lastSeq => 0;
   @override
   String get roomId => '00000000-0000-0000-0000-000000000001';
+  final sent = <String>[];
   @override
-  void send(String type, [Map<String, dynamic>? payload]) {}
+  void send(String type, [Map<String, dynamic>? payload]) => sent.add('$type ${payload?['action'] ?? ''}');
   @override
   Future<void> close() => frames.close();
   void snapshot(Map<String, dynamic> payload) => frames.add({'type': 'SNAPSHOT', 'payload': payload});
@@ -81,7 +87,7 @@ void main() {
 
     test('colour choices saved from the old brown set fall back to the new default', () {
       expect(boardPaletteById('walnut').id, 'classic');
-      expect(piecePaletteById('terracotta_ivory').id, 'red_white');
+      expect(piecePaletteById('terracotta_ivory').id, 'red_blue');
     });
   });
 
@@ -97,7 +103,7 @@ void main() {
           home: DraughtsGameScreen(
             socket: socket,
             selfId: selfId,
-            nicknames: const {'me': 'You', 'opponent': 'Ada'},
+            nicknames: const {'me': 'eric', 'opponent': 'ada'},
           ),
         ),
       ));
@@ -113,40 +119,67 @@ void main() {
           'turnSeconds': 60,
         };
 
-    double textSize(WidgetTester tester) =>
-        tester.widget<Text>(find.byKey(const ValueKey('draughts-turn-text'))).style!.fontSize!;
+    /// The ring round a side's picture: 'active' (green) or 'waiting' (amber).
+    String ring(WidgetTester tester, String side) {
+      final active = find.descendant(
+          of: find.byKey(ValueKey('draughts-side-$side')), matching: find.byKey(const ValueKey('turn-ring-active')));
+      return active.evaluate().isNotEmpty ? 'active' : 'waiting';
+    }
 
-    testWidgets('"your turn" is big and bold, on a bright banner', (tester) async {
+    Alignment handAt(WidgetTester tester) => tester
+        .widget<AnimatedAlign>(find.ancestor(of: find.byKey(const ValueKey('turn-hand')), matching: find.byType(AnimatedAlign)))
+        .alignment as Alignment;
+
+    testWidgets('no turn banner: you glow green with the hand, the other player amber', (tester) async {
       final socket = await open(tester, 'me');
       socket.snapshot(snap('TurnA'));
       await tester.pump();
 
-      expect(find.text('YOUR TURN'), findsOneWidget);
-      expect(textSize(tester), greaterThanOrEqualTo(20), reason: 'it was 9pt before');
-      final banner = tester.widget<AnimatedContainer>(find.byKey(const ValueKey('draughts-turn-banner')));
-      expect((banner.decoration as BoxDecoration).color, const Color(0xffffc233));
+      expect(find.byKey(const ValueKey('draughts-turn-banner')), findsNothing);
+      expect(ring(tester, 'A'), 'active');
+      expect(ring(tester, 'B'), 'waiting');
+      expect(handAt(tester).x, -1, reason: 'the hand sits with player A (left)');
     });
 
-    testWidgets('"opponent is thinking" is just as readable', (tester) async {
+    testWidgets("on the other player's turn the green ring and the hand move over to them", (tester) async {
       final socket = await open(tester, 'me');
       socket.snapshot(snap('TurnB'));
       await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
 
-      expect(find.text('OPPONENT IS THINKING'), findsOneWidget);
-      expect(textSize(tester), greaterThanOrEqualTo(20));
-      expect(find.byType(CircularProgressIndicator), findsWidgets, reason: 'a spinner says it is working');
+      expect(ring(tester, 'A'), 'waiting');
+      expect(ring(tester, 'B'), 'active');
+      expect(handAt(tester).x, 1);
+      expect(find.text('ada'), findsOneWidget, reason: 'names stay under the pictures');
     });
 
-    testWidgets('a spectator is told whose turn it is by name, not "opponent"', (tester) async {
+    testWidgets('a spectator sees whose turn it is from the green ring and the hand', (tester) async {
       final socket = await open(tester, 'a-watcher');
       socket.snapshot(snap('TurnB'));
       await tester.pump();
 
-      expect(find.text("ADA'S TURN"), findsOneWidget);
-      expect(find.text('OPPONENT IS THINKING'), findsNothing);
+      expect(ring(tester, 'B'), 'active');
+      expect(find.byKey(const ValueKey('turn-hand')), findsOneWidget);
     });
 
-    testWidgets('the banner fits a small phone without overflowing', (tester) async {
+    testWidgets('when the other player asks to undo, you see it and can allow it', (tester) async {
+      final socket = await open(tester, 'me');
+      socket.snapshot({...snap('TurnB'), 'pendingUndo': 'opponent'});
+      await tester.pump();
+      expect(find.byKey(const ValueKey('undo-ask')), findsOneWidget);
+      expect(find.text('ada wants to undo their move'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('undo-yes')));
+      expect(socket.sent, contains('PLAYER_ACTION ACCEPT_UNDO'));
+    });
+
+    testWidgets('your own undo request does not ask you', (tester) async {
+      final socket = await open(tester, 'me');
+      socket.snapshot({...snap('TurnB'), 'pendingUndo': 'me'});
+      await tester.pump();
+      expect(find.byKey(const ValueKey('undo-ask')), findsNothing);
+    });
+
+    testWidgets('the players and board fit a small phone without overflowing', (tester) async {
       await tester.binding.setSurfaceSize(const Size(320, 568));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       final socket = _Socket();
@@ -160,7 +193,7 @@ void main() {
       socket.snapshot(snap('TurnB'));
       await tester.pump();
       expect(tester.takeException(), isNull);
-      expect(find.text('OPPONENT IS THINKING'), findsOneWidget);
+      expect(find.byKey(const ValueKey('turn-hand')), findsOneWidget);
     });
   });
 }

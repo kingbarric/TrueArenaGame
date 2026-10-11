@@ -1,0 +1,95 @@
+# word | first clue | second clue
+empire | Many lands ruled by one powerful ruler. | The Roman one was huge.
+dynasty | A family ruling for generations. | The Ming in China.
+monarchy | A country ruled by a king or queen. | Royal rule.
+revolution | When people overthrow their government. | The French one in 1789.
+independence | Freedom from another country's rule. | America's day is the Fourth of July.
+colonization | Settling and controlling another land. | Empires taking over territories.
+conquest | Taking over land by force. | William the Conqueror in 1066.
+invasion | An army entering another country. | D-Day landings.
+siege | Surrounding a city to make it surrender. | Castle walls under attack.
+treaty | A peace agreement between nations. | Versailles.
+alliance | Countries agreeing to help each other. | Teaming up.
+crusade | Medieval holy wars to Jerusalem. | Knights with red crosses.
+pilgrimage | A religious journey to a holy place. | Mecca or Canterbury.
+migration | People or animals moving to a new place. | Birds flying south.
+exploration | Discovering new lands. | Age of discovery.
+expedition | An organised journey with a goal. | Trek to the South Pole.
+voyage | A long journey by sea. | Columbus sailing.
+shipwreck | A vessel destroyed at sea. | Titanic.
+mutiny | Sailors rebelling against their captain. | Bounty.
+rebellion | Rising up against authority. | Revolt.
+uprising | A revolt by the people. | Rebellion.
+civil war | A fight between people of the same country. | American North versus South.
+world war | A conflict involving most nations. | 1914 or 1939.
+armistice | An agreement to stop fighting. | 11 November 1918.
+surrender | Giving up in battle. | White flag.
+liberation | Being set free. | Paris freed in 1944.
+occupation | An army controlling another country. | Enemy troops in charge.
+resistance movement | Secret fighters against an occupier. | French fighters in WW2.
+underground railroad | Secret routes helping slaves escape. | Harriet Tubman.
+abolition | Ending slavery. | Wilberforce.
+emancipation | Freeing enslaved people. | Lincoln's proclamation.
+suffrage | The right to vote. | Emmeline Pankhurst fought for women to get it.
+civil rights movement | The fight for equality for Black Americans. | Martin Luther King.
+industrial revolution | When factories and machines changed everything. | Steam engines.
+renaissance | A rebirth of art and learning in Italy. | Leonardo da Vinci.
+enlightenment | An age of reason and science. | Voltaire.
+reformation | Martin Luther splitting from the Catholic Church. | Protestant movement.
+plague | A deadly disease spreading widely. | The Black Death.
+famine | A severe shortage of food. | Irish potato.
+drought era | A long dry period in history. | Dust Bowl.
+gold rush | Crowds hurrying west to find shiny nuggets. | California 1849.
+stock market crash | When share prices collapse. | 1929.
+great depression | The huge economic slump of the 1930s. | Breadlines.
+cold war | The long standoff between the USA and USSR. | Iron curtain.
+iron curtain | The divide between East and West Europe. | Churchill's phrase.
+arms race | Nations building more weapons. | Nuclear stockpiles.
+space race | The USA and USSR competing to reach the stars. | Sputnik versus Apollo.
+moon landing | Humans stepping on the lunar surface. | 1969, one small step.
+ancient civilization | An early great society. | Egypt or Mesopotamia.
+lost city | A place that disappeared from the map. | Atlantis.
+archaeological dig | Excavating to find the past. | Trowels and brushes uncovering ruins.
+excavation | Digging up historic remains. | Trowel and brush.
+artifact | An object made by people long ago. | Pottery from the past.
+relic | An old object or remains. | Holy bones.
+hieroglyph | Egyptian picture writing. | Rosetta Stone.
+scroll | Rolled-up ancient paper. | Dead Sea.
+manuscript | A handwritten book. | Monks copied them.
+chronicle | A record of events in order. | Narnia.
+census record | Old population lists. | Family history source.
+royal decree | An order from a king. | Proclamation.
+coronation | Crowning a new king or queen. | Westminster Abbey.
+abdication | A king giving up the throne. | Edward VIII.
+regime change | Replacing a government. | New rulers.
+dictatorship | Rule by one person with total power. | Tyranny.
+democracy | Government by the people. | Ancient Athens.
+republic | A country with no king, led by elected people. | Rome before emperors.
+feudalism | Medieval system of lords and peasants. | Serfs and vassals.
+serfdom | Peasants tied to the land. | Medieval servitude.
+trade route | A path merchants used. | Caravans.
+silk road | The ancient route between China and Europe. | Marco Polo.
+spice trade | Ships carrying pepper and cinnamon. | Dutch East India.
+colonial rule | Being governed by a foreign power. | British Raj.
+tribal council | A meeting of tribe leaders. | Elders deciding.
+ancient ruins | Remains of old buildings. | Machu Picchu.
+tomb | A burial chamber. | Tutankhamun.
+pharaoh | An Egyptian king. | Tutankhamun.
+emperor | A ruler of an empire. | Napoleon.
+empress | A female ruler of an empire. | Catherine the Great.
+knight's code | Chivalry rules. | Honour and courtesy.
+medieval castle | A stone fortress from the Middle Ages. | Moat and drawbridge.
+viking raid | Norse warriors attacking a village. | Longships at Lindisfarne.
+samurai era | Japan's age of sword warriors. | Shogun.
+gladiator arena | Where Roman fighters battled. | Colosseum.
+Roman legion | A unit of soldiers from ancient Rome. | Centurions.
+Greek philosopher | A thinker from ancient Greece. | Socrates.
+ancient library | A great old book collection. | Alexandria.
+oral tradition | Stories passed down by speaking. | Told round fires.
+folklore | Traditional stories and beliefs. | Myths and fairy tales.
+legend | A traditional story, maybe true. | King Arthur.
+myth | An ancient story about gods. | Zeus and Hercules.
+prehistoric era | Before written history. | Cavemen.
+stone age | When tools were made from rocks and flint. | Cavemen with clubs, long before metal.
+bronze age | When tools were made from copper and tin. | Second metal era.
+iron age | When people made tools from a strong grey metal. | After the bronze period.

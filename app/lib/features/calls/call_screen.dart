@@ -47,6 +47,7 @@ class CallScreen extends StatefulWidget {
     this.ringPeerId,
     this.refreshToken,
     this.onConnected,
+    this.onAskToSpeak,
   });
 
   final String roomName;
@@ -71,6 +72,10 @@ class CallScreen extends StatefulWidget {
   /// Fetches a new token for this room when rejoining after a drop.
   final Future<String> Function()? refreshToken;
   final Future<void> Function()? onConnected;
+
+  /// For rooms where you listen until someone hands you the mic (a Huud):
+  /// tapping the mic without permission asks instead.
+  final Future<void> Function()? onAskToSpeak;
 
   /// True for an app-scoped hangout, including while its screen is minimized.
   static bool get inCall => HangoutState.instance.active;
@@ -125,6 +130,10 @@ class _CallScreenState extends State<CallScreen> {
 
   bool _connecting = true;
   bool _muted = false;
+
+  /// False while the room only lets you listen (a Huud, until the host hands
+  /// you the mic). The server flips it live.
+  bool _canSpeak = true;
   bool _e2ee = false;
   bool _leaving = false;
   bool _ringing = false;
@@ -304,6 +313,19 @@ class _CallScreenState extends State<CallScreen> {
           if (who != null) _saidGoodbye.add(who);
         }
       })
+      ..on<lk.ParticipantPermissionsUpdatedEvent>((e) {
+        if (e.participant is! lk.LocalParticipant || !mounted) return;
+        final can = e.permissions.canPublish;
+        if (can == _canSpeak) return;
+        setState(() {
+          _canSpeak = can;
+          if (!can) _muted = true;
+        });
+        HangoutState.instance.muted = _muted;
+        HangoutState.instance.changed();
+        // Granted: still off until they tap it, so nobody is suddenly live.
+        _note(can ? 'You can talk now — tap the mic 🎙️' : 'The host turned your mic off');
+      })
       ..on<lk.TrackMutedEvent>((e) {
         if (e.participant is lk.LocalParticipant && !_muted && mounted) {
           setState(() => _muted = true);
@@ -315,7 +337,13 @@ class _CallScreenState extends State<CallScreen> {
         }
       });
     await room.connect(widget.livekitUrl, token);
-    await room.localParticipant?.setMicrophoneEnabled(!_muted);
+    _canSpeak = room.localParticipant?.permissions.canPublish ?? true;
+    if (_canSpeak) {
+      await room.localParticipant?.setMicrophoneEnabled(!_muted);
+    } else {
+      _muted = true;
+      HangoutState.instance.muted = true;
+    }
   }
 
   void _setReconnecting(bool value) {
@@ -458,6 +486,11 @@ class _CallScreenState extends State<CallScreen> {
   // ------------------------------------------------------------ actions
 
   Future<void> _toggleMute() async {
+    if (!_canSpeak) {
+      await widget.onAskToSpeak?.call();
+      _note(widget.onAskToSpeak == null ? 'You can only listen here' : 'Asked the host for the mic ✋');
+      return;
+    }
     final next = !_muted;
     await _room?.localParticipant?.setMicrophoneEnabled(!next);
     if (mounted) setState(() => _muted = next);
@@ -996,8 +1029,11 @@ class _CallScreenState extends State<CallScreen> {
               child:
                   Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 _roundButton(
-                  icon: _muted ? Icons.mic_off_rounded : Icons.mic_rounded,
-                  active: !_muted,
+                  key: const ValueKey('call-mic'),
+                  icon: !_canSpeak
+                      ? Icons.front_hand_rounded
+                      : (_muted ? Icons.mic_off_rounded : Icons.mic_rounded),
+                  active: _canSpeak && !_muted,
                   onTap: _connecting ? null : _toggleMute,
                 ),
                 if (_manageable) ...[

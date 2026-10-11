@@ -119,7 +119,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(AppScope(
       state: state,
-      child: MaterialApp(theme: NeonTheme.dark, home: const HuudScreen()),
+      child: MaterialApp(theme: NeonTheme.dark, home: const HuudScreen(startOnLiveNow: false)),
     ));
     if (settle) {
       await tester.pumpAndSettle();
@@ -130,7 +130,7 @@ void main() {
     return calls;
   }
 
-  testWidgets('Your Huud comes first and pins a challenge with Accept / Not now', (tester) async {
+  testWidgets('Friends comes before For you and pins a challenge with Accept / Not now', (tester) async {
     final calls = await pumpFeed(tester, (request) async {
       if (request.url.path == '/api/v1/huud/feed') {
         expect(request.url.queryParameters['tab'], 'friends');
@@ -141,10 +141,14 @@ void main() {
     });
 
     expect(calls.first, 'GET /api/v1/huud/feed?tab=friends&filter=all');
-    expect(find.text('Your Huud'), findsOneWidget);
-    expect(find.text('For you'), findsOneWidget);
-    // Your Huud sits left of For you.
-    expect(tester.getCenter(find.text('Your Huud')).dx, lessThan(tester.getCenter(find.text('For you')).dx));
+    final friendsTab = find.byKey(const ValueKey('huud-tab-friends'));
+    final forYouTab = find.byKey(const ValueKey('huud-tab-for_you'));
+    expect(find.descendant(of: friendsTab, matching: find.textContaining('Friends')), findsOneWidget);
+    expect(find.descendant(of: forYouTab, matching: find.textContaining('For you')), findsOneWidget);
+    // Friends sits left of For you, with Live now in front of both.
+    expect(tester.getCenter(friendsTab).dx, lessThan(tester.getCenter(forYouTab).dx));
+    expect(tester.getCenter(find.byKey(const ValueKey('huud-tab-live'))).dx,
+        lessThan(tester.getCenter(friendsTab).dx));
 
     expect(find.textContaining('a Whot rematch'), findsOneWidget);
     expect(find.textContaining('You won the last one.'), findsOneWidget);
@@ -191,25 +195,52 @@ void main() {
     expect(find.text('Nigeria Draughts Championship'), findsNothing);
   });
 
-  testWidgets('posting sends the game, message and ranked flag', (tester) async {
-    Map<String, dynamic>? posted;
-    await pumpFeed(tester, (request) async {
-      if (request.url.path == '/api/v1/huud/feed') return _json([]);
-      if (request.method == 'POST' && request.url.path == '/api/v1/huud/posts') {
-        posted = jsonDecode(request.body) as Map<String, dynamic>;
-        return _json({'message': 'not enough coins'}, 409);
+  testWidgets('the feed has no game-request box — it points to making a Huud instead', (tester) async {
+    await pumpFeed(tester, (request) async => _json([]));
+    expect(find.byKey(const ValueKey('huud-composer')), findsNothing);
+    expect(find.text('What do you want to play?'), findsNothing);
+    expect(find.byKey(const ValueKey('feed-make-huud')), findsOneWidget);
+  });
+
+  testWidgets('a shared Huud shows its line, the game and seats, and Join Huud', (tester) async {
+    final calls = await pumpFeed(tester, (request) async {
+      if (request.url.path == '/api/v1/huud/feed') {
+        return _json([
+          {
+            'kind': 'huud',
+            'id': 'huud:h1',
+            'at': _now.subtract(const Duration(minutes: 1)).toIso8601String(),
+            'actor': _person('eric', 'Eric'),
+            'gameType': 'whot',
+            'message': 'Who wants to play Whot?',
+            'huud': {
+              'huudSpaceId': 'h1',
+              'name': "Eric's Huud",
+              'privacy': 'friends',
+              'people': 3,
+              'players': 2,
+              'seats': 4,
+              'access': 'join',
+              'gameStatus': 'waiting',
+            },
+          },
+        ]);
       }
+      if (request.url.path == '/api/v1/huud-spaces/h1/join') return http.Response('{}', 500);
       return http.Response('not found', 404);
-    });
+    }, settle: false);
+    await tester.pump(const Duration(milliseconds: 500));
 
-    await tester.enterText(find.byKey(const ValueKey('huud-composer')), 'Winner stays on.');
-    await tester.tap(find.text('Casual')); // draughts is rated → toggle to ranked
+    expect(find.text('“Who wants to play Whot?”'), findsOneWidget);
+    expect(find.text("Eric's Huud"), findsOneWidget);
+    expect(find.text('Whot · 2/4 playing'), findsOneWidget);
+    expect(find.byKey(const ValueKey('feed-huud-open-h1')), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const ValueKey('feed-huud-open-h1')), matching: find.text('Join Huud')),
+        findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('feed-huud-open-h1')));
     await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('huud-post')));
-    await tester.pumpAndSettle();
-
-    expect(posted, {'gameType': 'draughts', 'message': 'Winner stays on.', 'ranked': true});
-    expect(find.text('not enough coins'), findsOneWidget);
+    expect(calls, contains('POST /api/v1/huud-spaces/h1/join'));
   });
 
   Map<String, dynamic> requestNo(int i, {int taken = 1, int seats = 4, bool? filled, Duration left = const Duration(minutes: 8)}) => {
@@ -245,7 +276,10 @@ void main() {
     expect(built, lessThan(40), reason: 'every card was built up front — the feed lost its lazy list');
 
     await tester.scrollUntilVisible(find.text('Table number 39'), 600,
-        scrollable: find.byType(Scrollable).first);
+        scrollable: find
+            .descendant(
+                of: find.byKey(const PageStorageKey('huud-feed-friends')), matching: find.byType(Scrollable))
+            .first);
     await tester.pumpAndSettle();
     expect(find.text('Table number 39'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -298,8 +332,10 @@ void main() {
     }, settle: false);
 
     await tester.tap(find.byKey(const ValueKey('huud-tab-for_you')));
-    await tester.pump(const Duration(milliseconds: 50));
-    await tester.pump(const Duration(milliseconds: 50));
+    // The page slides across, then loads.
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
     expect(find.textContaining('8 Draughts games in a row'), findsOneWidget);
 
     friends.complete(_json([_request()]));
@@ -309,7 +345,9 @@ void main() {
 
     // …and that answer is waiting, already loaded, when you go back.
     await tester.tap(find.byKey(const ValueKey('huud-tab-friends')));
-    await tester.pump();
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
     expect(find.text('Ranked Draughts, anyone? Winner stays on.'), findsOneWidget);
     await tester.pumpAndSettle();
   });
@@ -404,5 +442,111 @@ void main() {
     expect(huudGrouped(1824.4), '1,824');
     expect(huudGrouped(999), '999');
     expect(huudArtworkId('wordbluff'), 'bluff');
+  });
+
+  testWidgets('friends can post a short text, and others\' posts can be reported', (tester) async {
+    final calls = await pumpFeed(tester, (request) async {
+      if (request.url.path == '/api/v1/huud/feed') {
+        return _json([
+          {
+            'kind': 'post',
+            'id': 'text:p1',
+            'at': _now.subtract(const Duration(minutes: 3)).toIso8601String(),
+            'actor': _person('tobi', 'Tobi'),
+            'gameType': null,
+            'message': 'Ludo at 6?',
+          },
+        ]);
+      }
+      if (request.url.path == '/api/v1/huud/text-posts') return _json({'kind': 'post'}, 201);
+      return http.Response('', 200);
+    });
+    expect(find.byKey(const ValueKey('feed-say')), findsOneWidget);
+    expect(find.text('👫 Only your friends see it'), findsOneWidget);
+    expect(find.text('Ludo at 6?'), findsOneWidget);
+
+    await tester.enterText(find.byKey(const ValueKey('feed-say')), 'Who wants to play later?');
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('feed-say-post')));
+    await tester.pumpAndSettle();
+    expect(calls, contains('POST /api/v1/huud/text-posts'));
+
+    await tester.tap(find.byKey(const ValueKey('feed-post-menu-text:p1')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('safety-report')), findsOneWidget);
+  });
+
+
+  testWidgets('posts show reactions with counts, and tapping a reaction sends it', (tester) async {
+    final calls = await pumpFeed(tester, (request) async {
+      if (request.url.path == '/api/v1/huud/feed') {
+        return _json([
+          {
+            'kind': 'post',
+            'id': 'text:p1',
+            'at': _now.subtract(const Duration(minutes: 3)).toIso8601String(),
+            'actor': _person('tobi', 'Tobi'),
+            'message': 'Ludo at 6?',
+            'reactions': {
+              'total': 3,
+              'counts': {'❤️': 2, '😂': 1},
+              'mine': null,
+            },
+          },
+        ]);
+      }
+      if (request.url.path == '/api/v1/huud/text-posts/p1/reaction') {
+        return _json({
+          'total': 4,
+          'counts': {'❤️': 3, '😂': 1},
+          'mine': '❤️',
+        });
+      }
+      return http.Response('', 200);
+    });
+    expect(find.text('❤️ 2'), findsOneWidget);
+    expect(find.text('😂 1'), findsOneWidget);
+    expect(find.text('3 reactions'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('react-text:p1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('react-pick-❤️')));
+    await tester.pumpAndSettle();
+    expect(calls, contains('POST /api/v1/huud/text-posts/p1/reaction'));
+    expect(find.text('❤️ 3'), findsOneWidget);
+    expect(find.text('4 reactions'), findsOneWidget);
+    expect(find.text('Change'), findsOneWidget);
+  });
+
+
+  testWidgets('swiping sideways moves between Live now, Friends and For you', (tester) async {
+    final calls = await pumpFeed(tester, (request) async {
+      if (request.url.path == '/api/v1/huud/feed') {
+        return _json(request.url.queryParameters['tab'] == 'friends' ? [_request()] : [_win()]);
+      }
+      if (request.url.path == '/api/v1/huud-spaces/live' || request.url.path == '/api/v1/rooms/discoverable') {
+        return _json(const []);
+      }
+      return http.Response('not found', 404);
+    }, settle: false);
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('Ranked Draughts, anyone? Winner stays on.'), findsOneWidget);
+
+    // Swipe left: For you.
+    await tester.fling(find.byKey(const ValueKey('huud-pages')), const Offset(-400, 0), 1500);
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 200));
+    }
+    expect(calls, contains('GET /api/v1/huud/feed?tab=for_you&filter=all'));
+    expect(find.textContaining('8 Draughts games in a row'), findsOneWidget);
+    expect(tester.getSemantics(find.byKey(const ValueKey('huud-tab-for_you'))), isSemantics(isSelected: true));
+
+    // Swipe right twice: back past Friends to Live now.
+    await tester.fling(find.byKey(const ValueKey('huud-pages')), const Offset(400, 0), 1500);
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.fling(find.byKey(const ValueKey('huud-pages')), const Offset(400, 0), 1500);
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(tester.getSemantics(find.byKey(const ValueKey('huud-tab-live'))), isSemantics(isSelected: true));
   });
 }

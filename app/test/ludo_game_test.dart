@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:truearena/widgets/neon.dart' show Presence;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:truearena/core/api_client.dart';
@@ -12,6 +13,10 @@ import 'package:truearena/features/ludo/ludo_game_screen.dart';
 import 'package:truearena/theme/neon_theme.dart';
 
 class _Socket implements GameSocket {
+  @override
+  final awaySince = <String, DateTime>{};
+  @override
+  Presence presenceOf(String userId) => Presence.here;
   @override
   final memberAvatars = <String, String?>{};
   final frames = StreamController<Map<String, dynamic>>.broadcast(sync: true);
@@ -42,6 +47,8 @@ class _Socket implements GameSocket {
       bool paused = false,
       List<Map<String, int>> legal = const [],
       int pieceCount = 4,
+      String? pendingUndo,
+      String? undoableBy,
       String turn = 'me'}) {
     frames.add({
       'type': 'SNAPSHOT',
@@ -59,6 +66,8 @@ class _Socket implements GameSocket {
         'paused': paused,
         'legalMoves': legal,
         'secondsLeft': 42,
+        'pendingUndo': pendingUndo,
+        'undoableBy': undoableBy,
       }
     });
   }
@@ -159,6 +168,44 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
     await tester.tap(find.byKey(const ValueKey('me:1')));
     expect(socket.sent.last['data'], {'die': 3, 'token': 1});
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('released piece stays on top of a rival at its door and uses the other die', (tester) async {
+    final socket = await open(tester);
+    socket.snapshot(players: ['me', 'friend'], seats: [0, 2], pieces: {
+      'me': [0, -1, -1, -1], 'friend': [26, -1, -1, -1],
+    }, dice: [4], legal: [{'die': 4, 'token': 0}]);
+    await tester.pumpAndSettle();
+    final myPiece = find.byKey(const ValueKey('me:0'));
+    final rival = find.byKey(const ValueKey('friend:0'));
+    expect(tester.getCenter(myPiece), tester.getCenter(rival));
+    await tester.tapAt(tester.getCenter(myPiece));
+    expect(socket.sent.last['action'], 'MOVE');
+    expect(socket.sent.last['data'], {'die': 4, 'token': 0});
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('capture snapshot moves killer into centre and victim back to box', (tester) async {
+    final socket = await open(tester);
+    socket.snapshot(players: ['me', 'friend'], seats: [0, 2], pieces: {
+      'me': [11, -1, -1, -1], 'friend': [40, -1, -1, -1],
+    });
+    await tester.pumpAndSettle();
+    final killer = find.byKey(const ValueKey('me:0'));
+    final victim = find.byKey(const ValueKey('friend:0'));
+    final oldKiller = tester.getCenter(killer);
+    final oldVictim = tester.getCenter(victim);
+    socket.snapshot(players: ['me', 'friend'], seats: [0, 2], pieces: {
+      'me': [56, -1, -1, -1], 'friend': [-1, -1, -1, -1],
+    }, turn: 'friend');
+    await tester.pumpAndSettle();
+    expect(tester.getCenter(killer), isNot(oldKiller));
+    expect(tester.getCenter(victim), isNot(oldVictim));
+    expect(tester.getCenter(victim).dy, closeTo(tester.getCenter(find.byKey(const ValueKey('friend:1'))).dy, 1));
+    expect((tester.getCenter(killer) - tester.getCenter(victim)).distance, greaterThan(50));
+    expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });
 
@@ -266,7 +313,7 @@ void main() {
           {'die': 6, 'token': 7}
         ]);
     await tester.pump();
-    expect(find.text('You'), findsOneWidget);
+    expect(find.text('You'), findsWidgets); // on the board and in the players row
     expect(find.byKey(const ValueKey('me:7')), findsOneWidget);
     expect(find.byKey(const ValueKey('friend:7')), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -506,4 +553,33 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
   }
+
+  testWidgets('the same control row as the other games, rings with the hand, and the undo box', (tester) async {
+    final socket = await open(tester);
+    socket.snapshot(
+        players: ['me', 'friend'],
+        seats: [0, 2],
+        pieces: {'me': List.filled(4, -1), 'friend': List.filled(4, -1)},
+        turn: 'me',
+        pendingUndo: 'friend');
+    await tester.pump();
+
+    for (final id in ['undo', 'var', 'rules', 'resign']) {
+      expect(find.byKey(ValueKey('game-control-$id')), findsOneWidget, reason: id);
+    }
+    expect(find.byKey(const ValueKey('game-control-draw')), findsNothing, reason: 'Ludo has no draws');
+    expect(
+        find.descendant(of: find.byKey(const ValueKey('ludo-player-me')), matching: find.byKey(const ValueKey('turn-ring-active'))),
+        findsOneWidget);
+    expect(
+        find.descendant(
+            of: find.byKey(const ValueKey('ludo-player-friend')), matching: find.byKey(const ValueKey('turn-ring-waiting'))),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('turn-hand')), findsOneWidget);
+
+    expect(find.text('Ama wants to undo their move'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('undo-yes')));
+    expect(socket.sent.last['action'], 'ACCEPT_UNDO');
+    await tester.pumpWidget(const SizedBox());
+  });
 }
