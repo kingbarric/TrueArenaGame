@@ -52,6 +52,9 @@ public class SlayService {
     @org.springframework.beans.factory.annotation.Autowired
     private app.truearena.api.competitive.CompetitiveSettings competitive;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private app.truearena.api.storage.ObjectStorage storage;
+
     public SlayService(
             DatabaseClient db,
             ObjectMapper json,
@@ -331,7 +334,8 @@ public class SlayService {
 
     Mono<SavedLook> look(UUID user, UUID id) {
         return db.sql(
-                        "SELECT id,look,catalog_version,snapshot IS NOT NULL AS has_image FROM"
+                        "SELECT id,look,catalog_version,(snapshot IS NOT NULL OR snapshot_key IS NOT NULL)"
+                                + " AS has_image FROM"
                                 + " slay_looks WHERE id=:id AND user_id=:u")
                 .bind("id", id)
                 .bind("u", user)
@@ -381,47 +385,65 @@ public class SlayService {
                             return bytes;
                         })
                 .subscribeOn(Schedulers.boundedElastic())
+                .flatMap(image -> look(user, id).then(storeSnapshot(user, id, image)));
+    }
+
+    /** A look's picture can be set once, and never after it was entered in a competition. */
+    private static final String SNAPSHOT_WRITABLE =
+            " WHERE id=:id AND user_id=:u AND snapshot IS NULL AND snapshot_key IS NULL"
+                    + " AND NOT EXISTS (SELECT 1 FROM slay_competitions c"
+                    + " WHERE c.state->'entries' @> :entry)";
+
+    /**
+     * Into the bucket when there is one (under a name nobody can guess; the
+     * API still decides who sees it), else into the database as before.
+     */
+    private Mono<Void> storeSnapshot(UUID user, UUID id, byte[] image) {
+        Json entry = Json.of("[{\"lookId\":\"" + id + "\"}]");
+        Mono<Void> immutable =
+                Mono.error(ApiExceptions.conflict("Submitted look images are immutable"));
+        if (storage == null || !storage.enabled()) {
+            return db.sql("UPDATE slay_looks SET snapshot=:p" + SNAPSHOT_WRITABLE)
+                    .bind("p", image)
+                    .bind("id", id)
+                    .bind("u", user)
+                    .bind("entry", entry)
+                    .fetch()
+                    .rowsUpdated()
+                    .flatMap(n -> n == 1 ? Mono.<Void>empty() : immutable);
+        }
+        byte[] suffix = new byte[8];
+        new java.security.SecureRandom().nextBytes(suffix);
+        String key = "slay/looks/" + id + "-" + HexFormat.of().formatHex(suffix) + ".jpg";
+        return db.sql("SELECT 1 FROM slay_looks" + SNAPSHOT_WRITABLE)
+                .bind("id", id)
+                .bind("u", user)
+                .bind("entry", entry)
+                .fetch()
+                .first()
+                .hasElement()
                 .flatMap(
-                        image ->
-                                look(user, id)
-                                        .flatMap(
-                                                l ->
+                        writable ->
+                                !writable
+                                        ? immutable
+                                        : storage.put(key, image, "image/jpeg")
+                                                .then(
                                                         db.sql(
                                                                         "UPDATE slay_looks SET"
-                                                                            + " snapshot=:p WHERE"
-                                                                            + " id=:id AND"
-                                                                            + " user_id=:u AND"
-                                                                            + " snapshot IS NULL"
-                                                                            + " AND NOT EXISTS"
-                                                                            + " (SELECT 1 FROM"
-                                                                            + " slay_competitions c"
-                                                                            + " WHERE"
-                                                                            + " c.state->'entries'"
-                                                                            + " @> :entry)")
-                                                                .bind("p", image)
+                                                                                + " snapshot_key=:k"
+                                                                                + SNAPSHOT_WRITABLE)
+                                                                .bind("k", key)
                                                                 .bind("id", id)
                                                                 .bind("u", user)
-                                                                .bind(
-                                                                        "entry",
-                                                                        Json.of(
-                                                                                "[{\"lookId\":\""
-                                                                                        + id
-                                                                                        + "\"}]"))
+                                                                .bind("entry", entry)
                                                                 .fetch()
-                                                                .rowsUpdated()
-                                                                .flatMap(
-                                                                        n ->
-                                                                                n == 1
-                                                                                        ? Mono
-                                                                                                .empty()
-                                                                                        : Mono
-                                                                                                .error(
-                                                                                                        ApiExceptions
-                                                                                                                .conflict(
-                                                                                                                        "Submitted"
-                                                                                                                            + " look"
-                                                                                                                            + " images"
-                                                                                                                            + " are immutable")))));
+                                                                .rowsUpdated())
+                                                .flatMap(
+                                                        n -> {
+                                                            if (n != 1) return immutable;
+                                                            recentImages.put(key, image);
+                                                            return Mono.<Void>empty();
+                                                        }));
     }
 
     public record RunwayLook(Look look, int catalogVersion) {}
@@ -432,7 +454,7 @@ public class SlayService {
                 id,
                 db.sql(
                                 "SELECT look,catalog_version FROM slay_looks WHERE id=:id AND"
-                                    + " snapshot IS NOT NULL")
+                                    + " (snapshot IS NOT NULL OR snapshot_key IS NOT NULL)")
                         .bind("id", id)
                         .map(
                                 r ->
@@ -509,11 +531,38 @@ public class SlayService {
     }
 
     public Mono<byte[]> image(UUID id) {
-        return db.sql("SELECT snapshot FROM slay_looks WHERE id=:id AND snapshot IS NOT NULL")
+        return db.sql(
+                        "SELECT snapshot,snapshot_key FROM slay_looks WHERE id=:id AND"
+                                + " (snapshot IS NOT NULL OR snapshot_key IS NOT NULL)")
                 .bind("id", id)
-                .map(r -> r.get("snapshot", byte[].class))
+                .map(
+                        r ->
+                                Optional.ofNullable(r.get("snapshot", byte[].class))
+                                        .map(Mono::just)
+                                        .orElseGet(() -> bucketImage(r.get("snapshot_key", String.class))))
                 .one()
+                .flatMap(image -> image)
                 .switchIfEmpty(Mono.error(ApiExceptions.notFound("Image not found")));
+    }
+
+    /**
+     * Recent look images from the bucket. Everyone in a show sees the same
+     * few looks, so most reads never leave the server. Keys are immutable.
+     */
+    private final Map<String, byte[]> recentImages =
+            Collections.synchronizedMap(
+                    new LinkedHashMap<>(64, 0.75f, true) {
+                        @Override
+                        protected boolean removeEldestEntry(Map.Entry<String, byte[]> eldest) {
+                            return size() > 128;
+                        }
+                    });
+
+    private Mono<byte[]> bucketImage(String key) {
+        byte[] cached = recentImages.get(key);
+        if (cached != null) return Mono.just(cached);
+        if (storage == null || !storage.enabled()) return Mono.empty();
+        return storage.get(key).doOnNext(bytes -> recentImages.put(key, bytes));
     }
 
     public Mono<Score> solo(UUID user, String theme, UUID id) {

@@ -99,6 +99,12 @@ public class SlayController {
                         bytes ->
                                 ResponseEntity.ok()
                                         .contentType(SlayService.snapshotType(bytes))
+                                        // A look's picture never changes once set.
+                                        .cacheControl(
+                                                org.springframework.http.CacheControl.maxAge(
+                                                                java.time.Duration.ofDays(365))
+                                                        .cachePrivate()
+                                                        .immutable())
                                         .body(bytes));
     }
 

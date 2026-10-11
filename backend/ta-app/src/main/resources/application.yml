@@ -91,6 +91,14 @@ truearena:
     # slay-renderer/scripts/publish-assets.mjs). Blank uses the manifest's
     # default, https://playhuud.com/slay-assets/.
     asset-base: ${SLAY_ASSET_BASE:}
+  storage:
+    # Cloudflare R2 (S3 API) for files PlayHuud writes: SlayHuud look
+    # snapshots under slay/looks/. Blank keys keep them in the database.
+    r2:
+      endpoint: ${R2_ENDPOINT:}
+      bucket: ${R2_BUCKET:playhuud-assets}
+      access-key: ${R2_ACCESS_KEY_ID:}
+      secret-key: ${R2_SECRET_ACCESS_KEY:}
 
 # Cyber Agent brains. Both read from the environment only — never paste a
 # key here. Gemini wins when both are present (see BotLlmConfig); with

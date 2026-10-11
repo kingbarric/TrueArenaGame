@@ -100,6 +100,10 @@ services:
       TEST_OTP_ALLOWED_IDENTIFIERS: ${TEST_OTP_ALLOWED_IDENTIFIERS:-}
       # SlayHuud art: Cloudflare R2 bucket playhuud-assets, slay/ (infra/publish-slay-assets-r2.sh).
       SLAY_ASSET_BASE: ${SLAY_ASSET_BASE:-https://pub-add3eaff74154969a3810cabdb63ef40.r2.dev/slay/}
+      # Files PlayHuud writes (SlayHuud look snapshots) go to R2 when these are set in .env.
+      R2_ENDPOINT: ${R2_ENDPOINT:-}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
     mem_limit: 1g
     networks:
       default: {}
