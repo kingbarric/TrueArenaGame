@@ -8,7 +8,7 @@ import 'go_live_sheet.dart';
 import 'huud_kit.dart';
 import 'huud_space_models.dart';
 import 'huud_space_screen.dart';
-import 'whot_mode_sheet.dart';
+import 'slay_mode_sheet.dart';
 
 /// Opens the "Make a Huud" sheet and, once made, walks straight into it.
 /// Hosting a Huud already? The server hands that one back instead of making
@@ -47,8 +47,8 @@ class _CreateHuudSheetState extends State<CreateHuudSheet> {
   HuudPrivacy _privacy = HuudPrivacy.friends;
   late String? _game = widget.gameType;
 
-  /// Whot's "classic" or "tell", asked when Whot is picked.
-  String? _whotMode;
+  /// Whot's "classic" or "tell", SlayHuud's "battle" or "group" — asked when the game is picked.
+  String? _mode;
   late bool _share = widget.share;
   bool _busy = false;
   String? _error;
@@ -74,11 +74,12 @@ class _CreateHuudSheetState extends State<CreateHuudSheet> {
 
   Future<void> _create() async {
     if (_busy) return;
-    // Whot came already picked: still ask which one.
-    if (_game == 'whot' && _whotMode == null) {
-      final mode = await askWhotMode(context);
+    // A game with modes came already picked: still ask which one.
+    final game = _game;
+    if (game != null && huudGameHasModes(game) && _mode == null) {
+      final mode = await askHuudGameMode(context, game);
       if (mode == null || !mounted) return;
-      setState(() => _whotMode = mode);
+      setState(() => _mode = mode);
     }
     setState(() {
       _busy = true;
@@ -89,7 +90,7 @@ class _CreateHuudSheetState extends State<CreateHuudSheet> {
         'name': _name.text.trim(),
         'privacy': _privacy.wire,
         if (_game != null) 'gameType': _game,
-        if (_game == 'whot' && _whotMode != null) 'mode': _whotMode,
+        if (huudGameHasModes(_game) && _mode != null) 'mode': _mode,
         if (_share) 'share': true,
         if (_share && _message.text.trim().isNotEmpty) 'message': _message.text.trim(),
       }) as Map<String, dynamic>;
@@ -235,18 +236,21 @@ class _CreateHuudSheetState extends State<CreateHuudSheet> {
     ]);
   }
 
-  /// Whot is two games: ask which as it's picked.
+  /// Whot and SlayHuud are two games each: ask which as it's picked.
   Future<void> _pick(String? game) async {
-    if (game == 'whot') {
-      final mode = await askWhotMode(context);
+    if (game != null && huudGameHasModes(game)) {
+      final mode = await askHuudGameMode(context, game);
       if (mode == null || !mounted) return;
       setState(() {
         _game = game;
-        _whotMode = mode;
+        _mode = mode;
       });
       return;
     }
-    setState(() => _game = game);
+    setState(() {
+      _game = game;
+      _mode = null;
+    });
   }
 
   Widget _gamePicker(NeonColors n) {
@@ -281,9 +285,11 @@ class _CreateHuudSheetState extends State<CreateHuudSheet> {
                 Text(
                     game == null
                         ? 'No game yet'
-                        : game == 'whot' && on && _whotMode == 'tell'
+                        : game == 'whot' && on && _mode == 'tell'
                             ? 'The Tell'
-                            : huudGameName(game),
+                            : game == 'slayhuud' && on && _mode == 'group'
+                                ? 'Group Show'
+                                : huudGameName(game),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: n.ink)),

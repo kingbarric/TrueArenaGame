@@ -809,6 +809,7 @@ public class HuudSpaceService {
 
     /** The room's rules for a Huud game: only Whot has a choice to make — Classic or The Tell. */
     static Map<String, Object> gameConfigFor(String gameType, String mode) {
+        if ("slayhuud".equals(gameType)) return slayConfigFor(mode);
         if (!"whot".equals(gameType)) return null;
         String m = mode == null || mode.isBlank() ? "classic" : mode.trim().toLowerCase();
         if (!WHOT_MODES.contains(m)) throw new IllegalArgumentException("Whot mode must be classic or tell");
@@ -819,20 +820,40 @@ public class HuudSpaceService {
     private static final Set<String> WHOT_MODES = Set.of("classic", "tell");
     private static final int TELL_SEATS = 8;
 
+    /**
+     * SlayHuud in a Huud: a Style Battle for two, or a Group Show that starts
+     * with 4 and seats up to 8. SlayHuud picks the theme when the room opens.
+     */
+    private static final Set<String> SLAY_MODES = Set.of("battle", "group");
+    private static final int SLAY_SHOW_SEATS = 8;
+
+    static Map<String, Object> slayConfigFor(String mode) {
+        String m = mode == null || mode.isBlank() ? "battle" : mode.trim().toLowerCase();
+        if (!SLAY_MODES.contains(m)) throw new IllegalArgumentException("SlayHuud mode must be battle or group");
+        return Map.of("mode", m, "seats", "group".equals(m) ? SLAY_SHOW_SEATS : 2);
+    }
+
     static int seatsFor(String gameType, String mode) {
-        return "whot".equals(gameType) && "tell".equals(mode) ? TELL_SEATS : HuudService.seatsFor(gameType);
+        if ("whot".equals(gameType) && "tell".equals(mode)) return TELL_SEATS;
+        if ("slayhuud".equals(gameType) && "group".equals(mode)) return SLAY_SHOW_SEATS;
+        return HuudService.seatsFor(gameType);
     }
 
     private static final ObjectMapper JSON = new ObjectMapper();
 
-    /** Whot's mode from the room's stored rules — "classic" when none was chosen; null for other games. */
+    /**
+     * The mode from the room's stored rules: Whot's "classic" or "tell",
+     * SlayHuud's "battle" or "group"; null for games without one.
+     */
     static String modeOf(String gameType, String gameConfig) {
-        if (!"whot".equals(gameType)) return null;
+        boolean slay = "slayhuud".equals(gameType);
+        if (!"whot".equals(gameType) && !slay) return null;
         try {
             Object mode = gameConfig == null || gameConfig.isBlank() ? null : JSON.readValue(gameConfig, Map.class).get("mode");
+            if (slay) return "group".equals(mode) ? "group" : "battle";
             return "tell".equals(mode) ? "tell" : "classic";
         } catch (Exception e) {
-            return "classic";
+            return slay ? "battle" : "classic";
         }
     }
 

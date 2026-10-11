@@ -717,7 +717,8 @@ public class SlayService {
         c.hostId = room.hostId().toString();
         c.mode = String.valueOf(cfg.getOrDefault("mode", "battle"));
         check(Set.of("battle", "group", "slay_or_pass").contains(c.mode), "Unknown SlayHuud mode");
-        c.themeId = String.valueOf(cfg.getOrDefault("themeId", "first-date"));
+        // A room opened without a theme (a Huud's SlayHuud game) gets one of the catalogue's at random.
+        c.themeId = cfg.get("themeId") instanceof String id ? id : randomThemeId();
         c.seats = cfg.get("seats") instanceof Number n ? n.intValue() : 2;
         if (c.isElimination()) c.seats -= 6;
         check(
@@ -738,6 +739,11 @@ public class SlayService {
         c.roundThemes = List.of(c.themeId, "wedding-guest", "red-carpet", "african-royalty");
         c.deadline = Instant.now().plusSeconds(3600);
         return c;
+    }
+
+    private String randomThemeId() {
+        List<Theme> themes = catalog.manifest().themes();
+        return themes.get(java.util.concurrent.ThreadLocalRandom.current().nextInt(themes.size())).id();
     }
 
     public Mono<Void> startTournament(UUID roomId) {

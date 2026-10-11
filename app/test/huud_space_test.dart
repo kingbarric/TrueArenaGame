@@ -628,6 +628,19 @@ void main() {
             '"mode":"classic","share":true,"message":"Who wants to play Whot?"}'));
   });
 
+  testWidgets('a Huud made for SlayHuud asks Style Battle or Group Show first', (tester) async {
+    final calls =
+        await pump(tester, const Scaffold(body: CreateHuudSheet(gameType: 'slayhuud')), (r) async => _json(_huud()));
+    expect(tester.getSemantics(find.byKey(const ValueKey('huud-first-game-slayhuud'))), isSemantics(isSelected: true));
+    await tester.tap(find.byKey(const ValueKey('huud-create')));
+    await tester.pumpAndSettle();
+    expect(find.text('Which SlayHuud?'), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const ValueKey('slay-mode-group')));
+    await tester.tap(find.byKey(const ValueKey('slay-mode-group')));
+    await tester.pumpAndSettle();
+    expect(calls, contains(contains('"gameType":"slayhuud","mode":"group"')));
+  });
+
   test('the call bar says who is talking in plain words', () {
     expect(TalkingRow.said([]), '');
     expect(TalkingRow.said(['Ada']), 'Ada is talking');

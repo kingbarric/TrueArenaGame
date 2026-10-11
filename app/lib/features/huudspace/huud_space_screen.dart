@@ -23,7 +23,7 @@ import '../../widgets/mic_button.dart';
 import '../../widgets/swipe_to_switch.dart';
 import 'huud_space_models.dart';
 import 'huud_roster.dart';
-import 'whot_mode_sheet.dart';
+import 'slay_mode_sheet.dart';
 import 'safety_sheet.dart';
 import '../../core/keep_awake.dart';
 import '../competitive/player_profile_screen.dart';
@@ -375,9 +375,10 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
   }
 
   Future<void> _pickGame(String gameType) async {
-    // Whot is two games: ask which before anyone is seated.
-    final mode = gameType == 'whot' ? await askWhotMode(context) : null;
-    if (gameType == 'whot' && (mode == null || !mounted)) return;
+    // Whot and SlayHuud are two games each: ask which before anyone is seated.
+    final asks = huudGameHasModes(gameType);
+    final mode = asks ? await askHuudGameMode(context, gameType) : null;
+    if (asks && (mode == null || !mounted)) return;
     final raw = await _run('game-$gameType',
         (api) => api.post('/huud-spaces/${widget.id}/game', {'gameType': gameType, if (mode != null) 'mode': mode}));
     if (raw is Map && mounted) {
@@ -1486,7 +1487,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
       return _picker(n, huud, title: 'Pick a game to play');
     }
 
-    final name = game.gameType == 'whot' ? whotModeName(game.mode) : huudGameName(game.gameType);
+    final name = huudGameTitle(game.gameType, game.mode);
     final h = HuudColors.of(context);
     final (String emoji, String title) = game.playing
         ? ('🔥', '$name is on!')
