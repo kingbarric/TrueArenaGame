@@ -56,8 +56,32 @@ The user requested a complete production PostgreSQL snapshot in isolated test. S
 ## Phone layout and cinematic music — 11 October 2026
 
 - The board now uses the available phone width with a deeper perimeter and a smaller centre. Tile names and prices are bold; short labels such as Chance and Luxury Tax stay readable without splitting their words, while long property names use balanced lines. All 40 spaces share the same drawing, tap and animation geometry.
-- Removed the separate Your Turn banner. The active player's card carries the gold highlight and the timer/paused state sits in the header. Properties and Trade now live in the settings menu, leaving more room for the board.
+- Removed the separate Your Turn banner. The active player's card carries the gold highlight and the timer/paused state sits in the header. Trade lives in the settings menu; the later update below moves Properties beside Chance on the board.
 - Reuses `GameVoiceControl` for the existing mic access/request/moderation behavior and the ordinary `PAUSE_TOGGLE` transport for pause/resume. Pausing disables move controls until the server resumes the match.
 - Reuses Chess's `TableChatPanel` at the bottom, initially minimised with the latest message visible. Expand it to read/send Huud chat; collapse it for more space. Huud message persistence and offline cache remain unchanged. Smaller screens, enlarged text and the keyboard retain scrolling as a fallback.
 - Bundles Kevin MacLeod's **Drums of the Deep**, a 174-second cinematic percussion/strings track, normalised to −22 LUFS and played at 14% volume. It loops locally without a network dependency and honours the shared persisted music toggle. Settings includes the existing music/game-sounds toggles and attribution/license/modification notice. See [music credits](../../app/assets/music/CREDITS.md).
 - This update changes the app only; it requires no backend or database deployment.
+
+## Icon, dice and landing inspection — 11 October 2026
+
+- Uses the exact user-provided cash/top-hat mascot PNG as the Monopoly catalogue
+  badge. The source image is bundled unchanged for offline use.
+- A raised **Properties** button sits inside the board beside Chance and opens
+  the existing property/building sheet. It replaces the menu entry.
+- The dice are clickable on the active player's roll phase, with shaded front,
+  top and side faces. They tumble while waiting for the server, settle on its
+  actual values, and then animate the token to the destination. Repeated values
+  are supported through `DICE_ROLLED`; cash-only updates do not replay animation.
+- After the token arrives, a gold circular magnifier shows the actual tile/token
+  for **three seconds**, then disappears. It does not intercept board taps.
+  Reduced-motion settings skip tumbling/movement and retain landing inspection.
+- The shared bottom chat, voice/mic, settings, offline snapshot and server-side
+  game authority remain in use.
+
+Validation: **318 full Flutter tests passed**, including the new Properties,
+settled dice, repeated-roll and three-second landing checks. The changed Flutter
+files have no analyzer issues. Rendered phone layout and magnifier were inspected.
+
+The branch policy now reserves **main for isolated test** and **release for
+production**. Release was preserved from pre-merge main at `b2dc34d` before
+these changes. See [deployment policy](../../infra/TEST_ENVIRONMENT.md).

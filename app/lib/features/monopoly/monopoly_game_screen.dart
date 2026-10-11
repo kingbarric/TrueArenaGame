@@ -44,7 +44,9 @@ class _MonopolyGameScreenState extends State<MonopolyGameScreen> {
       _loadingChat = false,
       _sendingChat = false,
       _started = false;
-  int _seconds = 180, _watching = 0;
+  int _seconds = 180, _watching = 0, _rollSequence = 0, _lastRollSeq = 0;
+  bool _pendingRoll = false;
+  List<int> _rolledDice = const [];
   String get _cacheKey =>
       'monopoly_snapshot_${widget.selfId}_${widget.socket.roomId}';
   @override
@@ -138,6 +140,7 @@ class _MonopolyGameScreenState extends State<MonopolyGameScreen> {
           if (!_connected) {
             _liveSnapshot = false;
             _pending = false;
+            _pendingRoll = false;
           }
         });
       case 'SNAPSHOT':
@@ -147,6 +150,7 @@ class _MonopolyGameScreenState extends State<MonopolyGameScreen> {
             _connected = widget.socket.isConnected;
             _liveSnapshot = _connected;
             _pending = false;
+            _pendingRoll = false;
             _error = null;
             _seconds = (p['secondsLeft'] as num?)?.toInt() ?? _seconds;
             _watching = (p['spectatorCount'] as num?)?.toInt() ?? _watching;
@@ -166,11 +170,29 @@ class _MonopolyGameScreenState extends State<MonopolyGameScreen> {
       case 'ERROR':
         setState(() {
           _pending = false;
+          _pendingRoll = false;
           _error = p['message']?.toString() ?? 'That action is not available';
         });
         _pendingTimer?.cancel();
       case 'EVENT':
         final data = monopolyMap(p['data']);
+        final seq = (p['seq'] as num?)?.toInt() ?? 0;
+        if (p['type'] == 'DICE_ROLLED' &&
+            _connected &&
+            _liveSnapshot &&
+            (seq == 0 || seq > _lastRollSeq)) {
+          final dice = (data['dice'] as List? ?? [])
+              .whereType<num>()
+              .map((v) => v.toInt())
+              .toList();
+          if (dice.length == 2) {
+            setState(() {
+              _lastRollSeq = seq;
+              _rolledDice = dice;
+              _rollSequence++;
+            });
+          }
+        }
         if (p['type'] == 'GAME_PAUSED' || p['type'] == 'GAME_RESUMED') {
           setState(() {
             _state = Map.of(_state)..['paused'] = p['type'] == 'GAME_PAUSED';
@@ -280,6 +302,7 @@ class _MonopolyGameScreenState extends State<MonopolyGameScreen> {
     }
     setState(() {
       _pending = true;
+      _pendingRoll = action == 'ROLL';
       _error = null;
     });
     if (action == 'ROLL') GameSfx.diceRoll();
@@ -293,6 +316,7 @@ class _MonopolyGameScreenState extends State<MonopolyGameScreen> {
       if (mounted && _pending) {
         setState(() {
           _pending = false;
+          _pendingRoll = false;
           _liveSnapshot = false;
           _error = 'Checking the latest board…';
         });
@@ -657,6 +681,9 @@ class _MonopolyGameScreenState extends State<MonopolyGameScreen> {
                     .toSet()
                 : const {},
         state: _state,
+        rollPending: _pendingRoll,
+        rollSequence: _rollSequence,
+        rolledDice: _rolledDice,
         selfId: widget.selfId,
         names: widget.nicknames,
         huudName: _huudName,

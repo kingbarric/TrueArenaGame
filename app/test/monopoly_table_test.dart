@@ -207,4 +207,101 @@ void main() {
     expect(find.text('Pay now'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+  Future<ValueNotifier<Map<String, dynamic>>> liveBoard(
+      WidgetTester tester) async {
+    final state = ValueNotifier(snapshot());
+    addTearDown(state.dispose);
+    await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+            body: Center(
+                child: SizedBox(
+                    width: 390,
+                    child: RepaintBoundary(
+                        key: const Key('landing-capture'),
+                        child: ValueListenableBuilder<Map<String, dynamic>>(
+                            valueListenable: state,
+                            builder: (_, value, __) => MonopolyBoard(
+                                state: value, onSpace: (_) {}))))))));
+    await tester.pumpAndSettle();
+    return state;
+  }
+
+  testWidgets(
+      'dice settle before movement and the landing lens lasts three seconds',
+      (tester) async {
+    final semantics = tester.ensureSemantics();
+    final state = await liveBoard(tester);
+    final next = snapshot()
+      ..['dice'] = [5, 2]
+      ..['round'] = 2;
+    (next['playerState'] as Map)['eric']['position'] = 7;
+    state.value = next;
+    await tester.pump();
+    expect(find.byKey(const Key('monopoly-dice-rolling')), findsOneWidget);
+    expect(find.byKey(const Key('monopoly-landing-magnifier')), findsNothing);
+    await tester.pump(const Duration(milliseconds: 1200));
+    expect(find.byKey(const Key('monopoly-dice-rolling')), findsNothing);
+    expect(find.bySemanticsLabel('Dice result: 5 and 2'), findsOneWidget);
+    expect(find.byKey(const Key('monopoly-landing-magnifier')), findsNothing);
+    await tester.pump(const Duration(milliseconds: 900));
+    expect(find.byKey(const Key('monopoly-landing-magnifier')), findsOneWidget);
+    expect(find.bySemanticsLabel('Landed on Chance'), findsOneWidget);
+    const path = String.fromEnvironment('MONOPOLY_LANDING_CAPTURE');
+    if (path.isNotEmpty) {
+      await tester.runAsync(() async {
+        final boundary = tester.renderObject<RenderRepaintBoundary>(
+            find.byKey(const Key('landing-capture')));
+        final image = await boundary.toImage(pixelRatio: 2);
+        final data = await image.toByteData(format: ui.ImageByteFormat.png);
+        await File(path).writeAsBytes(data!.buffer.asUint8List());
+        image.dispose();
+      });
+    }
+    await tester.pump(const Duration(milliseconds: 2999));
+    expect(find.byKey(const Key('monopoly-landing-magnifier')), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 2));
+    expect(find.byKey(const Key('monopoly-landing-magnifier')), findsNothing);
+    expect(next['dice'], [5, 2],
+        reason: 'animation never changes authoritative dice');
+    semantics.dispose();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('cash-only updates do not replay dice or magnify a landing',
+      (tester) async {
+    final state = await liveBoard(tester);
+    final next = snapshot()..['round'] = 2;
+    (next['playerState'] as Map)['eric']['cash'] = 1400;
+    state.value = next;
+    await tester.pump();
+    expect(find.byKey(const Key('monopoly-dice-rolling')), findsNothing);
+    expect(find.byKey(const Key('monopoly-landing-magnifier')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a roll event animates repeated dice without a position change',
+      (tester) async {
+    final sequence = ValueNotifier(0);
+    addTearDown(sequence.dispose);
+    await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+            body: Center(
+                child: SizedBox(
+                    width: 390,
+                    child: ValueListenableBuilder<int>(
+                        valueListenable: sequence,
+                        builder: (_, value, __) => MonopolyBoard(
+                            state: snapshot(),
+                            onSpace: (_) {},
+                            rollSequence: value,
+                            rolledDice: const [3, 4])))))));
+    await tester.pumpAndSettle();
+    sequence.value++;
+    await tester.pump();
+    expect(find.byKey(const Key('monopoly-dice-rolling')), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 1200));
+    expect(find.byKey(const Key('monopoly-dice-rolling')), findsNothing);
+    expect(find.byKey(const Key('monopoly-landing-magnifier')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 }

@@ -22,6 +22,9 @@ class MonopolyTable extends StatefulWidget {
       required this.onBack,
       this.huudName = 'Your Huud',
       this.voice,
+      this.rollPending = false,
+      this.rollSequence = 0,
+      this.rolledDice = const [],
       this.onPause,
       this.onToggleMusic,
       this.onToggleSounds,
@@ -43,6 +46,9 @@ class MonopolyTable extends StatefulWidget {
   final TextEditingController chatController;
   final List<({String who, String text})> messages;
   final Widget? voice;
+  final bool rollPending;
+  final int rollSequence;
+  final List<int> rolledDice;
   final VoidCallback? onPause, onToggleMusic, onToggleSounds;
   final bool musicEnabled, soundsEnabled;
   final Set<String> speaking;
@@ -157,7 +163,10 @@ class _MonopolyTableState extends State<MonopolyTable> {
                             iconTheme:
                                 const IconThemeData(color: monopolyCream)),
                         child: widget.voice!),
-                  if (!widget.spectating && players.contains(widget.selfId) && winner == null && widget.onPause != null)
+                  if (!widget.spectating &&
+                      players.contains(widget.selfId) &&
+                      winner == null &&
+                      widget.onPause != null)
                     IconButton(
                         onPressed: widget.connected ? widget.onPause : null,
                         tooltip: state['paused'] == true
@@ -273,7 +282,15 @@ class _MonopolyTableState extends State<MonopolyTable> {
                                     child: MonopolyBoard(
                                         state: state,
                                         selected: _selected,
-                                        onSpace: (id) => _inspectSpace(id)))))
+                                        onSpace: (id) => _inspectSpace(id),
+                                        onProperties: widget.onProperties,
+                                        canRoll:
+                                            _myDecision && _phase == 'Roll',
+                                        onRoll: () =>
+                                            widget.onAction('ROLL', {}),
+                                        rollPending: widget.rollPending,
+                                        rollSequence: widget.rollSequence,
+                                        rolledDice: widget.rolledDice))))
                       else
                         const SizedBox(
                             height: 260,
@@ -667,8 +684,6 @@ class _MonopolyTableState extends State<MonopolyTable> {
       icon: const Icon(Icons.settings_rounded, color: monopolyCream),
       onSelected: (value) {
         switch (value) {
-          case 'properties':
-            widget.onProperties();
           case 'trade':
             widget.onTrade();
           case 'music':
@@ -707,12 +722,6 @@ class _MonopolyTableState extends State<MonopolyTable> {
         }
       },
       itemBuilder: (_) => [
-            const PopupMenuItem(
-                value: 'properties',
-                child: ListTile(
-                    leading: Icon(Icons.domain_rounded),
-                    title: Text('Properties'),
-                    contentPadding: EdgeInsets.zero)),
             PopupMenuItem(
                 value: 'trade',
                 enabled: _enabled &&

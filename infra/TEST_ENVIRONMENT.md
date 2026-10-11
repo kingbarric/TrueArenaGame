@@ -16,7 +16,44 @@ production PostgreSQL snapshot; later changes in either environment remain indep
 | Spring profile, `APP_ENV` | none, `production` | `test`, `test` |
 | Secrets | `infra/keys/prod.env.local` | `infra/keys/test.env.local` |
 
-## Push to test
+## Branch deployment policy — 11 October 2026
+
+- **`main` is the test branch.** Pushes build/test the backend and Flutter app,
+  validate the contract, then automatically deploy the verified backend jar to
+  `~/truearena-test`. Existing test data and credentials are retained; Flyway
+  applies new migrations. Installing phone/simulator builds remains a separate step.
+- **`release` is the production branch.** Created from pre-merge main at
+  `b2dc34dc07e7ff108970411010037c221a47e542` before the Monopoly merge. Only
+  release pushes may publish GHCR production images or run the production job.
+  Production deployment still requires its existing `DEPLOY_*` configuration.
+- Main never moves the production `:latest` image tag. Its deployment does not
+  reload Caddy, change ports, reset test data, or touch production containers.
+- Test deployment depends on backend unit/build checks, Flutter tests/analyzer
+  errors, and contract validation. Existing advisory Flutter lints are printed.
+  The separate full-session integration jobs remain visible in CI; production
+  deployment additionally depends on them passing.
+
+### Automatic test deployment credentials
+
+GitHub Actions uses encrypted `TEST_DEPLOY_SSH_KEY` and repository variables
+`TEST_DEPLOY_HOST`, `TEST_DEPLOY_USER`, `TEST_DEPLOY_KNOWN_HOSTS`. The key is
+new and separate from the shared developer/production deployment key. Its VPS
+`authorized_keys` entry uses `restrict` and a forced command pointing to
+`/home/ubuntu/truearena-test/infra/ci-deploy-test-restricted.sh`.
+
+The server wrapper accepts only `deploy-test <40-character commit>` and one
+verified jar. It serialises deployments, packages the test runtime image with the
+commit label, and restarts only `truearena-test`. Shell commands, forwarding,
+file transfers, configuration replacement and production deployment are denied.
+The server's existing Compose configuration and secrets are never uploaded from
+CI. Update those separately with the administrator's local deployment command
+when infrastructure configuration changes.
+
+[CI upload](deploy-test-ci.sh) streams the jar over host-key-pinned SSH and checks
+public test health. [Restricted server wrapper](ci-deploy-test-restricted.sh)
+must be installed by an administrator; CI cannot replace it.
+
+## Manual push to test
 
 ```
 infra/deploy-test.sh              # build this checkout's backend and restart test

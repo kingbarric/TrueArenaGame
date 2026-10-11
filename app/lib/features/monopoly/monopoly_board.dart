@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 const monopolyCream = Color(0xfffff1d8);
@@ -63,85 +64,291 @@ Rect monopolySpaceRect(int id, double size) {
 
 class MonopolyBoard extends StatefulWidget {
   const MonopolyBoard(
-      {super.key, required this.state, required this.onSpace, this.selected});
+      {super.key,
+      required this.state,
+      required this.onSpace,
+      this.selected,
+      this.onProperties,
+      this.onRoll,
+      this.canRoll = false,
+      this.rollPending = false,
+      this.rollSequence = 0,
+      this.rolledDice = const []});
   final Map<String, dynamic> state;
   final ValueChanged<int> onSpace;
   final int? selected;
+  final VoidCallback? onProperties, onRoll;
+  final bool canRoll, rollPending;
+  final int rollSequence;
+  final List<int> rolledDice;
   @override
   State<MonopolyBoard> createState() => _MonopolyBoardState();
 }
 
 class _MonopolyBoardState extends State<MonopolyBoard>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _motion = AnimationController(
       vsync: this, duration: const Duration(milliseconds: 850))
     ..value = 1;
+  late final AnimationController _roll = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 1100))
+    ..value = 1;
   Map<String, dynamic> _previous = {};
+  List<int> _dice = [1, 1];
+  bool _rolling = false, _resolvedRoll = false, _moveWaiting = false;
+  String? _landingPlayer;
+  int? _landingSpace;
+  Timer? _landingTimer, _abortRoll;
+
+  List<int> _diceIn(Map<String, dynamic> state) =>
+      (state['dice'] as List? ?? [])
+          .whereType<num>()
+          .map((v) => v.toInt())
+          .toList();
+
+  @override
+  void initState() {
+    super.initState();
+    final dice = _diceIn(widget.state);
+    if (dice.length == 2) _dice = dice;
+    _roll.addStatusListener((status) {
+      if (status != AnimationStatus.completed || !_resolvedRoll || !mounted) {
+        return;
+      }
+      setState(() {
+        _rolling = false;
+        _resolvedRoll = false;
+      });
+      if (_moveWaiting) _motion.forward(from: 0);
+    });
+    _motion.addStatusListener((status) {
+      if (status == AnimationStatus.completed && _moveWaiting && mounted) {
+        _moveWaiting = false;
+        _showLanding();
+      }
+    });
+  }
+
+  void _hideLanding() {
+    _landingTimer?.cancel();
+    _landingSpace = null;
+  }
+
+  void _showLanding() {
+    if (_landingPlayer == null) return;
+    final player =
+        monopolyMap(monopolyMap(widget.state['playerState'])[_landingPlayer]);
+    final space = (player['position'] as num?)?.toInt();
+    if (space == null) return;
+    setState(() => _landingSpace = space);
+    _landingTimer?.cancel();
+    _landingTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _landingSpace = null);
+    });
+  }
+
+  void _resolveRoll() {
+    _abortRoll?.cancel();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _roll.stop();
+      _rolling = false;
+      _resolvedRoll = false;
+      _motion.value = 1;
+      if (_moveWaiting) {
+        _moveWaiting = false;
+        _showLanding();
+      }
+      return;
+    }
+    // A snapshot and DICE_ROLLED event describe the same roll. Refresh the
+    // authoritative faces without restarting an animation already settling.
+    if (_rolling && _resolvedRoll) return;
+    _rolling = true;
+    _resolvedRoll = true;
+    _roll.forward(from: 0);
+  }
+
   @override
   void didUpdateWidget(covariant MonopolyBoard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.state['playerState'].toString() !=
-        widget.state['playerState'].toString()) {
+    final oldPeople = monopolyMap(oldWidget.state['playerState']);
+    final people = monopolyMap(widget.state['playerState']);
+    final moved = monopolyPlayers(widget.state)
+        .where((id) =>
+            oldPeople.containsKey(id) &&
+            monopolyMap(oldPeople[id])['position'] !=
+                monopolyMap(people[id])['position'])
+        .toList();
+    final newDice = _diceIn(widget.state), oldDice = _diceIn(oldWidget.state);
+    final eventRolled = widget.rollSequence != oldWidget.rollSequence;
+    final snapshotRolled = newDice.length == 2 &&
+        (newDice.toString() != oldDice.toString() ||
+            oldWidget.state['phase'] == 'Roll' &&
+                widget.state['round'] != oldWidget.state['round']);
+    if (newDice.length == 2) _dice = newDice;
+    if (eventRolled && widget.rolledDice.length == 2) {
+      _dice = List.of(widget.rolledDice);
+    }
+    if (widget.rollPending &&
+        !oldWidget.rollPending &&
+        !MediaQuery.disableAnimationsOf(context)) {
+      _hideLanding();
+      _rolling = true;
+      _resolvedRoll = false;
+      _roll.repeat();
+    }
+    if (moved.isNotEmpty) {
+      _hideLanding();
       _previous = oldWidget.state;
-      if (MediaQuery.disableAnimationsOf(context)) {
-        _motion.value = 1;
-      } else {
-        _motion.forward(from: 0);
-      }
+      _landingPlayer = moved.first;
+      _moveWaiting = true;
+      _motion.stop();
+      _motion.value = 0;
+    }
+    if (eventRolled || snapshotRolled || moved.isNotEmpty) _resolveRoll();
+    if (!widget.rollPending &&
+        oldWidget.rollPending &&
+        _rolling &&
+        !_resolvedRoll) {
+      // Give the event arriving just after its snapshot a moment to resolve.
+      // Rejections/disconnections leave the last confirmed faces on screen.
+      _abortRoll?.cancel();
+      _abortRoll = Timer(const Duration(milliseconds: 100), () {
+        if (!mounted || _resolvedRoll) return;
+        _roll.stop();
+        setState(() => _rolling = false);
+      });
     }
   }
 
   @override
   void dispose() {
+    _landingTimer?.cancel();
+    _abortRoll?.cancel();
     _motion.dispose();
+    _roll.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) => AspectRatio(
-        aspectRatio: 1,
-        child: InteractiveViewer(
-          minScale: 1,
-          maxScale: 3,
-          boundaryMargin: const EdgeInsets.all(24),
-          child: LayoutBuilder(
-              builder: (_, constraints) => GestureDetector(
-                    onTapUp: (details) {
-                      for (int i = 0; i < 40; i++) {
-                        if (monopolySpaceRect(i, constraints.maxWidth)
-                            .contains(details.localPosition)) {
-                          widget.onSpace(i);
-                          return;
-                        }
-                      }
-                    },
-                    child: AnimatedBuilder(
-                        animation: _motion,
-                        builder: (_, __) => Container(
-                              decoration: BoxDecoration(
-                                image: const DecorationImage(
-                                    image: AssetImage(
-                                        'assets/images/monopoly/walnut.png'),
-                                    fit: BoxFit.cover),
-                                borderRadius: BorderRadius.circular(15),
-                                boxShadow: const [
-                                  BoxShadow(
-                                      color: Color(0xb0000000),
-                                      blurRadius: 12,
-                                      offset: Offset(0, 9))
-                                ],
-                              ),
-                              child: CustomPaint(
-                                  painter: _BoardPainter(
-                                      widget.state,
-                                      _previous,
-                                      _motion.value,
-                                      widget.selected),
-                                  size: Size.square(constraints.maxWidth)),
-                            )),
-                  )),
-        ),
-      );
+      aspectRatio: 1,
+      child: InteractiveViewer(
+        minScale: 1,
+        maxScale: 3,
+        boundaryMargin: const EdgeInsets.all(24),
+        child: LayoutBuilder(builder: (_, constraints) {
+          final w = constraints.maxWidth;
+          return GestureDetector(
+              onTapUp: (details) {
+                for (int i = 0; i < 40; i++) {
+                  if (monopolySpaceRect(i, w).contains(details.localPosition)) {
+                    widget.onSpace(i);
+                    return;
+                  }
+                }
+              },
+              child: AnimatedBuilder(
+                animation: Listenable.merge([_motion, _roll]),
+                builder: (_, __) => Container(
+                    decoration: BoxDecoration(
+                        image: const DecorationImage(
+                            image:
+                                AssetImage('assets/images/monopoly/walnut.png'),
+                            fit: BoxFit.cover),
+                        borderRadius: BorderRadius.circular(15),
+                        boxShadow: const [
+                          BoxShadow(
+                              color: Color(0xb0000000),
+                              blurRadius: 12,
+                              offset: Offset(0, 9))
+                        ]),
+                    child: Stack(children: [
+                      CustomPaint(
+                          painter: _BoardPainter(widget.state, _previous,
+                              _motion.value, widget.selected,
+                              dice: _dice,
+                              rolling: _rolling,
+                              rollProgress: _roll.value,
+                              canRoll: widget.canRoll,
+                              landingSpace: _landingSpace),
+                          size: Size.square(w)),
+                      if (widget.onProperties != null)
+                        Positioned(
+                            left: w * .53,
+                            top: w * .245,
+                            width: w * .25,
+                            height: w * .115,
+                            child: ElevatedButton.icon(
+                                key: const Key('monopoly-board-properties'),
+                                onPressed: widget.onProperties,
+                                style: ElevatedButton.styleFrom(
+                                    backgroundColor: monopolyCream,
+                                    foregroundColor: monopolyInk,
+                                    surfaceTintColor: Colors.transparent,
+                                    elevation: 6,
+                                    shadowColor: Colors.black,
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 5),
+                                    minimumSize: Size.zero,
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                    side: const BorderSide(
+                                        color: monopolyGold, width: 2),
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(9)),
+                                    textStyle: TextStyle(
+                                        fontFamily: 'MonopolySans',
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: w * .029)),
+                                icon:
+                                    Icon(Icons.domain_rounded, size: w * .039),
+                                label: const Text('Properties'))),
+                      Positioned(
+                          left: w * .345,
+                          top: w * .585,
+                          width: w * .22,
+                          height: w * .16,
+                          child: Semantics(
+                              button: true,
+                              label: _rolling
+                                  ? 'Dice rolling'
+                                  : 'Dice result: ${_dice[0]} and ${_dice[1]}',
+                              child: Tooltip(
+                                  message:
+                                      widget.canRoll ? 'Roll dice' : 'Dice',
+                                  child: Material(
+                                      color: Colors.transparent,
+                                      child: InkWell(
+                                          key: const Key('monopoly-board-dice'),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          onTap: widget.canRoll &&
+                                                  !_rolling &&
+                                                  !_moveWaiting
+                                              ? widget.onRoll
+                                              : null,
+                                          child: SizedBox.expand(
+                                              key: _rolling
+                                                  ? const Key(
+                                                      'monopoly-dice-rolling')
+                                                  : const Key(
+                                                      'monopoly-dice-settled'))))))),
+                      if (_landingSpace != null)
+                        Positioned.fill(
+                            child: IgnorePointer(
+                                child: Semantics(
+                                    key:
+                                        const Key('monopoly-landing-magnifier'),
+                                    container: true,
+                                    liveRegion: true,
+                                    label:
+                                        'Landed on ${monopolyMap((widget.state['board'] as List)[_landingSpace!])['name']}',
+                                    child: const SizedBox.expand()))),
+                    ])),
+              ));
+        }),
+      ));
 }
 
 class MonopolyToken extends StatelessWidget {
@@ -307,7 +514,16 @@ void _metalToken(Canvas canvas, Offset center, double size, int seat) {
 }
 
 class _BoardPainter extends CustomPainter {
-  _BoardPainter(this.state, this.previous, this.motion, this.selected);
+  _BoardPainter(this.state, this.previous, this.motion, this.selected,
+      {this.dice = const [1, 1],
+      this.rolling = false,
+      this.rollProgress = 1,
+      this.canRoll = false,
+      this.landingSpace});
+  final List<int> dice;
+  final bool rolling, canRoll;
+  final double rollProgress;
+  final int? landingSpace;
   final Map<String, dynamic> state, previous;
   final double motion;
   final int? selected;
@@ -365,6 +581,11 @@ class _BoardPainter extends CustomPainter {
 
   @override
   void paint(Canvas c, Size size) {
+    _paintBoard(c, size);
+    if (landingSpace != null) _paintMagnifier(c, size);
+  }
+
+  void _paintBoard(Canvas c, Size size) {
     final w = size.width;
     final edge = Rect.fromLTWH(w * .006, w * .006, w * .988, w * .988);
     c.drawRRect(
@@ -570,13 +791,29 @@ class _BoardPainter extends CustomPainter {
         const Color(0xffc88747), -.13);
     _deck(c, Rect.fromLTWH(w * .57, w * .63, w * .2, w * .115),
         'COMMUNITY\nCHEST', const Color(0xffa8c9c0), -.13);
-    final dice = (state['dice'] as List? ?? [])
-        .whereType<num>()
-        .map((e) => e.toInt())
-        .toList();
-    if (dice.length == 2) {
-      _die(c, Offset(w * .43, w * .66), w * .075, dice[0], -.13);
-      _die(c, Offset(w * .52, w * .68), w * .075, dice[1], .12);
+    for (int i = 0; i < 2; i++) {
+      final p = rolling ? rollProgress : 1.0;
+      final bounce =
+          rolling ? math.sin(p * math.pi * 6).abs() * (1 - p * .55) : 0.0;
+      final drift =
+          rolling ? math.sin(p * math.pi * 8 + i) * w * .018 * (1 - p) : 0.0;
+      final angle = (i == 0 ? -.13 : .12) +
+          (rolling ? (i == 0 ? 1 : -1) * p * math.pi * 8 : 0);
+      final face =
+          rolling && p < .94 ? (p * 22 + i * 3).floor() % 6 + 1 : dice[i];
+      _die(
+          c,
+          Offset(w * (i == 0 ? .405 : .515) + drift,
+              w * (i == 0 ? .66 : .68) - bounce * w * .035),
+          w * .085,
+          face,
+          angle,
+          lift: bounce);
+    }
+    if (canRoll && !rolling) {
+      text(c, 'TAP DICE TO ROLL',
+          Rect.fromLTWH(w * .32, w * .585, w * .29, w * .04),
+          font: w * .021, color: monopolyGold);
     }
     text(
         c,
@@ -618,6 +855,56 @@ class _BoardPainter extends CustomPainter {
           : Offset.zero;
       _metalToken(c, location + Offset(0, w * .016) + offset, w * .07, seat);
     }
+  }
+
+  void _paintMagnifier(Canvas c, Size size) {
+    final w = size.width;
+    final target = monopolySpaceRect(landingSpace!, w);
+    final focus = target.center;
+    final direction = Offset(w / 2, w / 2) - focus;
+    final radius = w * .15;
+    final raw = focus + direction / direction.distance * (w * .205);
+    final lens = Offset(raw.dx.clamp(radius + 5, w - radius - 5),
+        raw.dy.clamp(radius + 5, w - radius - 5));
+    c.drawRRect(
+        RRect.fromRectAndRadius(target.inflate(2), const Radius.circular(3)),
+        Paint()
+          ..color = monopolyGold
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3);
+    c.drawLine(
+        focus,
+        lens,
+        Paint()
+          ..color = monopolyGold
+          ..strokeWidth = 2);
+    final circle = Path()
+      ..addOval(Rect.fromCircle(center: lens, radius: radius));
+    c.drawShadow(circle, Colors.black, 9, false);
+    c.drawPath(circle, Paint()..color = monopolyCream);
+    c.save();
+    c.clipPath(circle);
+    c.translate(lens.dx, lens.dy);
+    c.scale(1.65);
+    c.translate(-focus.dx, -focus.dy);
+    _paintBoard(c, size);
+    c.restore();
+    c.drawCircle(
+        lens,
+        radius,
+        Paint()
+          ..color = monopolyGold
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 4);
+    c.drawArc(
+        Rect.fromCircle(center: lens, radius: radius - 4),
+        math.pi * 1.1,
+        math.pi * .55,
+        false,
+        Paint()
+          ..color = const Color(0xc0ffffff)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2);
   }
 
   void _deck(Canvas c, Rect rect, String label, Color color, double angle) {
@@ -667,14 +954,37 @@ class _BoardPainter extends CustomPainter {
           ..strokeWidth = 1);
   }
 
-  void _die(Canvas c, Offset p, double size, int value, double angle) {
+  void _die(Canvas c, Offset p, double size, int value, double angle,
+      {double lift = 0}) {
     c.save();
     c.translate(p.dx, p.dy);
     c.rotate(angle);
     final r = Rect.fromCenter(center: Offset.zero, width: size, height: size);
-    c.drawRRect(
-        RRect.fromRectAndRadius(r.translate(2, 3), Radius.circular(size * .17)),
-        Paint()..color = const Color(0x80000000));
+    final depth = Offset(size * .18, -size * .18);
+    final top = Path()
+      ..moveTo(r.left, r.top)
+      ..lineTo(r.left + depth.dx, r.top + depth.dy)
+      ..lineTo(r.right + depth.dx, r.top + depth.dy)
+      ..lineTo(r.right, r.top)
+      ..close();
+    final side = Path()
+      ..moveTo(r.right, r.top)
+      ..lineTo(r.right + depth.dx, r.top + depth.dy)
+      ..lineTo(r.right + depth.dx, r.bottom + depth.dy)
+      ..lineTo(r.right, r.bottom)
+      ..close();
+    c.drawOval(r.translate(size * .1, size * (.32 + lift * .18)),
+        Paint()..color = const Color(0x75000000));
+    c.drawPath(
+        side,
+        Paint()
+          ..shader = const LinearGradient(
+              colors: [Color(0xffb89b68), Color(0xff786443)]).createShader(r));
+    c.drawPath(
+        top,
+        Paint()
+          ..shader = const LinearGradient(
+              colors: [Color(0xffffffff), Color(0xffe9d7b1)]).createShader(r));
     c.drawRRect(
         RRect.fromRectAndRadius(r, Radius.circular(size * .17)),
         Paint()
@@ -701,5 +1011,12 @@ class _BoardPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_BoardPainter old) =>
-      old.state != state || old.motion != motion || old.selected != selected;
+      old.state != state ||
+      old.motion != motion ||
+      old.selected != selected ||
+      old.rollProgress != rollProgress ||
+      old.rolling != rolling ||
+      old.canRoll != canRoll ||
+      old.dice.toString() != dice.toString() ||
+      old.landingSpace != landingSpace;
 }

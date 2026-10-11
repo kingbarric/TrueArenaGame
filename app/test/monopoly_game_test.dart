@@ -179,6 +179,19 @@ void main() {
     expect(stored, isNot(contains('legalActions')));
     expect(tester.takeException(), isNull);
   });
+  testWidgets(
+      'the raised Properties control on the board opens property management',
+      (tester) async {
+    final socket = _Socket();
+    await open(tester, socket);
+    socket.frame('SNAPSHOT', _board());
+    await tester.pump();
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('monopoly-board-properties')));
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(find.text('PROPERTIES & BUILDINGS'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('shared pause control freezes moves and accepts resume events',
       (tester) async {
     final socket = _Socket();
