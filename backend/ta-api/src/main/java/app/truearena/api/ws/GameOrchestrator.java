@@ -1252,7 +1252,8 @@ public class GameOrchestrator {
             } catch (Exception e) {
                 raw = Map.of();
             }
-            int storedPieces = raw.get("twoPlayerPieces") instanceof Number n ? n.intValue() : 4;
+            // A Huud starts Ludo without asking: two players get eight pieces each.
+            int storedPieces = raw.get("twoPlayerPieces") instanceof Number n ? n.intValue() : 8;
             int chosenPieces = playerIds.size() == 2
                     ? requested instanceof Number n ? n.intValue() : storedPieces
                     : 4;
@@ -1260,7 +1261,7 @@ public class GameOrchestrator {
             try {
                 return new LudoConfig(turnSeconds, chosenPieces);
             } catch (IllegalArgumentException e) {
-                return new LudoConfig(60, requested instanceof Number n ? n.intValue() : 4);
+                return new LudoConfig(60, requested instanceof Number n ? n.intValue() : 8);
             }
         }).defaultIfEmpty(LudoConfig.defaults()).flatMap(cfg -> {
             LudoModule module = new LudoModule();
