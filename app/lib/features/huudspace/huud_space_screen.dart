@@ -23,7 +23,7 @@ import '../../widgets/mic_button.dart';
 import '../../widgets/swipe_to_switch.dart';
 import 'huud_space_models.dart';
 import 'huud_roster.dart';
-import 'slay_mode_sheet.dart';
+import 'huud_game_modes.dart';
 import 'safety_sheet.dart';
 import '../../core/keep_awake.dart';
 import '../competitive/player_profile_screen.dart';

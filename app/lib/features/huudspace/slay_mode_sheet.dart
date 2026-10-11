@@ -1,28 +1,18 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/neon_theme.dart';
+import '../../theme/huud_colors.dart';
 import 'huud_kit.dart';
 import 'whot_mode_sheet.dart';
 
 /// SlayHuud's two ways to play in a Huud, as the wire names them.
 const slayModes = ['battle', 'group'];
 
+/// What the sheet returns for "play solo": not a Huud game, the SlayHuud hub.
+const slaySolo = 'solo';
+
 /// "SlayHuud · Style Battle" or "SlayHuud · Group Show" — what a Huud calls its SlayHuud game.
 String slayModeName(String? mode) => mode == 'group' ? 'SlayHuud · Group Show' : 'SlayHuud · Style Battle';
-
-/// Games that ask a question before anyone sits down: which Whot, which SlayHuud.
-bool huudGameHasModes(String? gameType) => gameType == 'whot' || gameType == 'slayhuud';
-
-/// The question for [gameType]. Null when the sheet is closed without choosing.
-Future<String?> askHuudGameMode(BuildContext context, String gameType) =>
-    gameType == 'slayhuud' ? askSlayMode(context) : askWhotMode(context);
-
-/// What the Huud calls the game on its card: the mode where there is one.
-String huudGameTitle(String gameType, String? mode) => switch (gameType) {
-      'whot' => whotModeName(mode),
-      'slayhuud' => slayModeName(mode),
-      _ => huudGameName(gameType),
-    };
 
 /// Before anyone sits down: a Style Battle or a Group Show? The theme is a
 /// surprise, revealed when the styling starts.
@@ -67,6 +57,13 @@ Future<String?> askSlayMode(BuildContext context) => showHuudSheet<String>(
                   'Votes and the style score crown the winner.',
                   '4 to 8 players · starts once 4 are in.',
                 ],
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                key: const ValueKey('slay-mode-solo'),
+                onPressed: () => Navigator.of(context).pop(slaySolo),
+                child: Text('Play solo instead — My Career, Daily Slay',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: HuudColors.of(context).orangeText)),
               ),
             ]),
           ),

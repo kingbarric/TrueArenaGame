@@ -302,6 +302,17 @@ class _SlayStageState extends State<SlayStage> with WidgetsBindingObserver {
               action.request.url?.host == 'localhost'
                   ? NavigationActionPolicy.ALLOW
                   : NavigationActionPolicy.CANCEL,
+          onConsoleMessage: (web, message) =>
+              debugPrint('SlayHuud studio console: ${message.message}'),
+          onLoadStop: (web, url) async {
+            // Startup breaks quietly if the page script throws before it says
+            // "ready"; log what the page managed to set up.
+            final probe = await web.evaluateJavascript(
+                source: 'JSON.stringify({bridge: typeof window.slayReceive,'
+                    ' handler: typeof window.flutter_inappwebview,'
+                    ' webgl2: !!document.createElement("canvas").getContext("webgl2")})');
+            debugPrint('SlayHuud studio loaded $url: $probe');
+          },
           onReceivedError: (web, request, error) {
             if (request.isForMainFrame == true && mounted) {
               setState(

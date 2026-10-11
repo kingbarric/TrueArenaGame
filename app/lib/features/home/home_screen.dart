@@ -253,13 +253,6 @@ class HomeScreen extends StatelessWidget {
           .showSnackBar(SnackBar(content: Text('${g.name} is coming soon')));
       return;
     }
-    // SlayHuud has its own hub (career, battles, shows), not a Huud table.
-    if (g.id == 'slayhuud') {
-      Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => const SlayHubScreen(),
-      ));
-      return;
-    }
     // Games are played in a Huud. Only an account can host one, so guests
     // (and anyone signed out) keep the quick lobby: bots, a friend's code.
     final app = AppScope.of(context);
@@ -274,6 +267,11 @@ class HomeScreen extends StatelessWidget {
 
   /// The game's own lobby: play a bot, open a quick table, join by code.
   Future<void> _openQuickLobby(BuildContext context, GameCatalogEntry g) async {
+    if (g.id == 'slayhuud') {
+      // Solo and guests: career, Daily Slay and the SlayHuud hub.
+      await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SlayHubScreen()));
+      return;
+    }
     if (g.id == 'monopoly') {
       await openHuudForGame(context, 'monopoly');
       return;

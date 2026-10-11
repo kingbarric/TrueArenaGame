@@ -17,6 +17,7 @@ import app.truearena.persistence.UserRepository;
 import app.truearena.room.RoomRuntimeRegistry;
 import app.truearena.api.bot.BotRuntimeRegistry;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import app.truearena.game.truearena.Presets;
 import app.truearena.voice.LiveKitRoomAdmin;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.r2dbc.core.DatabaseClient;
@@ -810,6 +811,7 @@ public class HuudSpaceService {
     /** The room's rules for a Huud game: only Whot has a choice to make — Classic or The Tell. */
     static Map<String, Object> gameConfigFor(String gameType, String mode) {
         if ("slayhuud".equals(gameType)) return slayConfigFor(mode);
+        if ("truearena".equals(gameType)) return traitorsConfigFor(mode);
         if (!"whot".equals(gameType)) return null;
         String m = mode == null || mode.isBlank() ? "classic" : mode.trim().toLowerCase();
         if (!WHOT_MODES.contains(m)) throw new IllegalArgumentException("Whot mode must be classic or tell");
@@ -833,7 +835,22 @@ public class HuudSpaceService {
         return Map.of("mode", m, "seats", "group".equals(m) ? SLAY_SHOW_SEATS : 2);
     }
 
+    /**
+     * Traitors in a Huud plays one of the five built-in modes, rules and all;
+     * the table seats that mode's most players. No mode keeps the old default.
+     */
+    @SuppressWarnings("unchecked")
+    static Map<String, Object> traitorsConfigFor(String mode) {
+        if (mode == null || mode.isBlank()) return null;
+        Presets.Mode preset = Presets.bySlug(mode.trim());
+        if (preset == null) throw new IllegalArgumentException("Pick one of the Traitors modes");
+        return JSON.convertValue(preset.config(), Map.class);
+    }
+
     static int seatsFor(String gameType, String mode) {
+        if ("truearena".equals(gameType) && mode != null && Presets.bySlug(mode) != null) {
+            return Presets.bySlug(mode).config().table().maxPlayers();
+        }
         if ("whot".equals(gameType) && "tell".equals(mode)) return TELL_SEATS;
         if ("slayhuud".equals(gameType) && "group".equals(mode)) return SLAY_SHOW_SEATS;
         return HuudService.seatsFor(gameType);
@@ -841,12 +858,24 @@ public class HuudSpaceService {
 
     private static final ObjectMapper JSON = new ObjectMapper();
 
+    /** The Traitors mode a room was set up with, when it's one of the built-in ones. */
+    private static String traitorsModeOf(String gameConfig) {
+        try {
+            Object preset = gameConfig == null || gameConfig.isBlank() ? null
+                    : JSON.readValue(gameConfig, Map.class).get("preset");
+            return preset instanceof String slug && Presets.bySlug(slug) != null ? slug : null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     /**
      * The mode from the room's stored rules: Whot's "classic" or "tell",
      * SlayHuud's "battle" or "group"; null for games without one.
      */
     static String modeOf(String gameType, String gameConfig) {
         boolean slay = "slayhuud".equals(gameType);
+        if ("truearena".equals(gameType)) return traitorsModeOf(gameConfig);
         if (!"whot".equals(gameType) && !slay) return null;
         try {
             Object mode = gameConfig == null || gameConfig.isBlank() ? null : JSON.readValue(gameConfig, Map.class).get("mode");

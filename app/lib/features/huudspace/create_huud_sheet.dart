@@ -8,7 +8,7 @@ import 'go_live_sheet.dart';
 import 'huud_kit.dart';
 import 'huud_space_models.dart';
 import 'huud_space_screen.dart';
-import 'slay_mode_sheet.dart';
+import 'huud_game_modes.dart';
 
 /// Opens the "Make a Huud" sheet and, once made, walks straight into it.
 /// Hosting a Huud already? The server hands that one back instead of making
@@ -447,8 +447,14 @@ Future<void> openHuudForGame(BuildContext context, String gameType, {VoidCallbac
   }
   final game = huud.currentGame;
   if (game == null || game.finished) {
+    // Which Traitors, Whot or SlayHuud — asked before the table is set.
+    String? mode;
+    if (huudGameHasModes(gameType)) {
+      mode = await askHuudGameMode(context, gameType);
+      if (mode == null || !context.mounted) return;
+    }
     try {
-      await api.post('/huud-spaces/${huud.id}/game', {'gameType': gameType});
+      await api.post('/huud-spaces/${huud.id}/game', {'gameType': gameType, if (mode != null) 'mode': mode});
       huud = HuudSpace.fromJson((await api.get('/huud-spaces/${huud.id}') as Map).cast<String, dynamic>());
     } on ApiException catch (e) {
       if (context.mounted) huudSnack(context, e.message);

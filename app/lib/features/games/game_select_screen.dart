@@ -1,3 +1,4 @@
+import '../../core/app_state.dart';
 import '../huudspace/create_huud_sheet.dart';
 import 'package:flutter/material.dart';
 
@@ -135,8 +136,15 @@ class GameSelectScreen extends StatelessWidget {
                   return;
                 }
                 if (g.id == 'slayhuud') {
-                  Navigator.of(context).push(
+                  void solo() => Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const SlayHubScreen()));
+                  // Accounts play it in a Huud ("quick game" is SlayHuud
+                  // solo); guests get the hub, as on Home.
+                  if (AppScope.of(context).identity == Identity.account) {
+                    await openHuudForGame(context, 'slayhuud', quickPlay: solo);
+                  } else {
+                    solo();
+                  }
                   return;
                 }
                 if (g.id == 'monopoly') {
