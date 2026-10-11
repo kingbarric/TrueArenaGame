@@ -24,8 +24,11 @@ class SlayStageController {
   int _indicatorRevision = 0;
   final Map<String, Completer<Map<String, dynamic>>> _pending = {};
   Completer<void> _ready = Completer<void>();
+  /// [timeout] covers the renderer's answer. Putting a look on can mean
+  /// downloading its art first, so that waits longer than a camera move.
   Future<Map<String, dynamic>> request(
-      String type, Map<String, dynamic> payload) async {
+      String type, Map<String, dynamic> payload,
+      {Duration timeout = const Duration(seconds: 25)}) async {
     await _ready.future.timeout(const Duration(seconds: 25));
     final id = 'slay-${++_sequence}';
     final completer = Completer<Map<String, dynamic>>();
@@ -41,7 +44,7 @@ class SlayStageController {
               'type': type,
               'payload': payload
             })});'),
-        completer.future.timeout(const Duration(seconds: 25)),
+        completer.future.timeout(timeout),
       ], eagerError: true);
       return results[1] as Map<String, dynamic>;
     } finally {
@@ -96,6 +99,18 @@ class SlayStage extends StatefulWidget {
 }
 
 class _SlayStageState extends State<SlayStage> with WidgetsBindingObserver {
+  /// A first visit downloads the character and every garment before the
+  /// look shows; on a phone network that can take well over 25 seconds.
+  static const _lookTimeout = Duration(minutes: 2);
+
+  /// The cause, short enough for the retry button.
+  static String _reason(Object e) {
+    final text = e is TimeoutException
+        ? 'timed out'
+        : e.toString().replaceFirst(RegExp(r'^(Bad state|Exception|StateError): ?'), '');
+    return text.length > 90 ? '${text.substring(0, 90)}…' : text;
+  }
+
   bool _loading = true,
       _booting = false,
       _routeActive = true,
@@ -119,7 +134,7 @@ class _SlayStageState extends State<SlayStage> with WidgetsBindingObserver {
       if (mounted) setState(() => _loading = false);
     } catch (e) {
       if (mounted) {
-        setState(() => _error = 'Could not open the 3D studio. Tap to retry.');
+        setState(() => _error = 'Could not open the 3D studio (${_reason(e)}). Tap to retry.');
       }
     }
   }
@@ -157,8 +172,8 @@ class _SlayStageState extends State<SlayStage> with WidgetsBindingObserver {
     final revision = ++_applyRevision;
     widget.controller.ready.value = false;
     try {
-      await widget.controller
-          .request('applyLook', {'look': widget.look.toJson()});
+      await widget.controller.request('applyLook', {'look': widget.look.toJson()},
+          timeout: _lookTimeout);
       if (mounted && revision == _applyRevision) {
         widget.controller.ready.value = true;
         setState(() => _error = null);
@@ -166,7 +181,7 @@ class _SlayStageState extends State<SlayStage> with WidgetsBindingObserver {
     } catch (e) {
       debugPrint('SlayHuud applyLook failed: $e');
       if (mounted && revision == _applyRevision) {
-        setState(() => _error = 'The look could not be loaded. Tap to retry.');
+        setState(() => _error = 'The look could not be loaded (${_reason(e)}). Tap to retry.');
       }
     }
   }
@@ -203,12 +218,15 @@ class _SlayStageState extends State<SlayStage> with WidgetsBindingObserver {
             .request('init', {'catalog': widget.catalog, 'tier': 'high'});
         _initialised = true;
         await _apply();
+        // Queued behind the look: if that was slow, this must not turn a
+        // look still loading into "the studio could not load".
         await widget.controller
-            .request('pause', {'paused': !_routeActive || !_appActive});
+            .request('pause', {'paused': !_routeActive || !_appActive})
+            .catchError((_) => <String, dynamic>{});
       } catch (e) {
         debugPrint('SlayHuud studio initialisation failed: $e');
         if (mounted) {
-          setState(() => _error = 'The studio could not load. Tap to retry.');
+          setState(() => _error = 'The studio could not load (${_reason(e)}). Tap to retry.');
         }
       } finally {
         _booting = false;
