@@ -72,3 +72,26 @@ and `--stack-only`. Refresh the full snapshot using
 [mirror-production-to-test.sh](../../infra/mirror-production-to-test.sh), then
 redeploy to migrate and start test. The workflow is documented in
 [TEST_ENVIRONMENT.md](../../infra/TEST_ENVIRONMENT.md).
+
+## UI/music phone update — 11 October 2026
+
+Application revision **`9ddc5a3`** enlarges the board/perimeter, removes the
+separate turn banner, reuses the existing mic and pause controls, and adopts
+Chess's minimisable chat. Monopoly's cinematic track is bundled for offline
+playback and controlled by the existing persisted music setting. Music source,
+license and preparation are recorded in the app's credits and game settings.
+
+The signed release **1.0.1 (2026101101)** was installed on and launched on
+**iKingbarric — iPhone 16 Pro**. CoreDevice verified that bundle version on the
+phone. The build uses `API_BASE=https://vps-8030ec94.vps.ovh.net/test`; the bundled
+music asset's SHA-256 matches the checked-in file.
+
+Validation: **314 full Flutter tests passed**, followed by **13 Monopoly
+layout/screen tests** after final label fitting; the changed components' Flutter
+analysis reports no issues. Rendered phone UI was inspected, including all
+40 spaces; tests cover small screens, enlarged text, keyboard chat, spectators,
+offline state and the shared pause/resume transport.
+
+Remote main remains **`b2dc34d`** and is contained in this branch. This is an
+app-only release: no backend deployment, data refresh, proxy change, production
+write or merge into main was performed.
