@@ -92,3 +92,9 @@ these changes. See [deployment policy](../../infra/TEST_ENVIRONMENT.md).
 - **Music starts when the live match snapshot arrives.** The shared mute control still works during play. Cached/offline boards do not start playback.
 - **Quit Game** in settings asks for confirmation, forfeits the player's seat and resolves their estate. Other players continue; two-player forfeits produce the real match result. Navigating back to the Huud remains separate.
 - Validation: **321 full Flutter tests**, **30 Monopoly engine tests** and **37 PostgreSQL/Redis Huud integration tests**, including checkpoint restoration, pause state, private offers, legacy recovery and forfeiting. Modified Flutter files have no analyzer issues.
+
+The live test-server restart check also verified paused-board stability,
+agent resumption and results. Server-side pause rejects Monopoly moves while
+still allowing a confirmed forfeit; agents clear their choices while paused
+and receive a fresh snapshot on resume. **710 backend unit tests passed.**
+See [the deployment record](TEST_DEPLOYMENT.md) for the installed phone build.

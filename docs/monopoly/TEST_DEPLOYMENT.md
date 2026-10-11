@@ -63,9 +63,11 @@ private test code; real production login sessions do not transfer to test.
 ## Runtime limit
 
 A database copy preserves records, not running game processes or live voice.
-Reconnect to a running backend is supported. Recovery of an ordinary match after
-a backend process restart remains outside this implementation; see
-[implementation notes](IMPLEMENTATION.md).
+Monopoly now saves a private PostgreSQL checkpoint before publishing state and
+restores it after a backend restart, including pause/clock, private offers and
+future randomness. Matches interrupted before V50 return to setup in the same
+Huud because their earlier boards were never persisted. Other games retain
+their existing recovery behavior; see [implementation notes](IMPLEMENTATION.md).
 
 Repeat a test-only deployment with [deploy-test.sh](../../infra/deploy-test.sh)
 and `--stack-only`. Refresh the full snapshot using
@@ -95,3 +97,23 @@ offline state and the shared pause/resume transport.
 Remote main remains **`b2dc34d`** and is contained in this branch. This is an
 app-only release: no backend deployment, data refresh, proxy change, production
 write or merge into main was performed.
+
+## Match recovery, autoplay and quit — 11 October 2026
+
+The recovery changes were merged into main at **`da42808`**, followed by the
+server/agent pause correction **`b4740f0`**. The test backend runs `b4740f0`,
+with Flyway **V50** applied. The signed **1.0.1 (2026101103)** build is installed
+on iKingbarric's iPhone 16 Pro and uses the test API. Music starts with the live
+match; settings provides a confirmed **Quit Game** action.
+
+Validation: **321 Flutter tests**, **710 backend unit tests** and **37 local
+PostgreSQL/Redis Huud integration tests passed**. A disposable Huud on the public
+test endpoint verified start, positive-sequence reopen, an actual test-backend
+restart preserving board/session/paused clock, duplicate Start, player forfeit,
+agent resumption and saved results. The fixture was removed. Production's
+backend, PostgreSQL, Redis, Caddy and LiveKit identities/start times were
+identical before and after; `release` remains **`b2dc34d`**.
+
+This deployment used the restricted test SSH command manually. Automatic
+main deployment still needs the encrypted `TEST_DEPLOY_SSH_KEY` credential;
+uploading the new restricted key awaits the user's pending approval.
