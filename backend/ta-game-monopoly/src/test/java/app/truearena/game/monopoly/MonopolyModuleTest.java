@@ -35,6 +35,69 @@ class MonopolyModuleTest {
   }
 
   @Test
+  void durableCheckpointPreservesPrivateOffersRandomnessAndActionDedupe() throws Exception {
+    var mapper = new ObjectMapper().disable(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+    MonopolyState state = act(start(), "eric", "OFFER_TRADE", Map.of("to", "ada", "giveCash", 20, "takeCash", 0));
+    var action = new PlayerAction("stable-roll", "eric", "ROLL", Map.of());
+    state = (MonopolyState) game.onPlayerAction(state, action);
+    var restored = MonopolyState.restore(mapper.readValue(mapper.writeValueAsString(state.checkpoint()), MonopolyState.Checkpoint.class));
+    for (String id : List.of("eric", "ada", "chidi", "watcher"))
+      assertEquals(mapper.writeValueAsString(game.visibleStateFor(state,id).data()), mapper.writeValueAsString(game.visibleStateFor(restored,id).data()));
+    assertEquals(mapper.writeValueAsString(state.events()), mapper.writeValueAsString(restored.events()));
+    assertEquals(restored.round(), game.onPlayerAction(restored, action).round());
+    // Continue both states with exactly the same decisions; next dice/deck draws agree.
+    for (int i=0; i<150 && !state.finished(); i++) {
+      String actor = game.playersToAct(state).iterator().next();
+      var choices = game.legalActions(state,actor);
+      var choice = choices.stream().filter(c -> Set.of("BUY","PAY_DEBT","END_TURN","PASS","ROLL").contains(c.get("action"))).findFirst().orElse(choices.getFirst());
+      @SuppressWarnings("unchecked") var data = (Map<String,Object>)choice.get("data");
+      action = new PlayerAction("future-"+i,actor,(String)choice.get("action"),data);
+      state=(MonopolyState)game.onPlayerAction(state,action);
+      restored=(MonopolyState)game.onPlayerAction(restored,action);
+      assertEquals(mapper.writeValueAsString(state.checkpoint()),mapper.writeValueAsString(restored.checkpoint()));
+    }
+  }
+
+  @Test
+  void quittingOffTurnPreservesTheCurrentDecisionAndAuctionsTheEstate() {
+    for (String phase : List.of("Roll","Purchase","Manage")) {
+      var state = fixture(d -> { d.phase=phase; d.deeds.put(1,new Deed("ada",0,false)); });
+      var next = act(state,"ada","FORFEIT");
+      assertTrue(next.copy().people.get("ada").bankrupt());
+      assertEquals("Auction",next.phase());
+      while (next.copy().auction != null) next=act(next,next.copy().auction.actor(),"PASS");
+      assertEquals(phase,next.phase());
+      assertEquals("eric",next.copy().turn());
+      assertNull(next.copy().deeds.get(1).owner());
+    }
+  }
+
+  @Test
+  void quittingTurnDebtorOrBidderNeverLeavesADeadDecisionSeat() {
+    var state = act(start(),"eric","FORFEIT");
+    assertEquals("ada",state.copy().turn());
+    assertEquals("Roll",state.phase());
+    var debt = fixture(d -> {d.phase="Debt";d.bills.add(new Bill("eric","ada",9000,"rent"));d.deeds.put(1,new Deed("eric",0,false));});
+    var quit = act(debt,"eric","FORFEIT");
+    assertEquals("ada",quit.copy().deeds.get(1).owner());
+    assertFalse(game.playersToAct(quit).contains("eric"));
+    var auction = fixture(d -> {d.phase="Auction"; d.auction=new Auction(1,20,"ada",List.of("eric","ada","chidi","sarah"),2,"Manage");});
+    quit=act(auction,"ada","FORFEIT");
+    assertFalse(quit.copy().auction.eligible().contains("ada"));
+    assertNull(quit.copy().auction.bidder());
+    assertThrows(RuleViolation.class,()->act(start(),"viewer","FORFEIT"));
+  }
+
+  @Test
+  void twoPlayerQuitProducesARealResultAndRejectsFurtherActions() {
+    var state=game.initialState(List.of("eric","ada"),MonopolyConfig.defaults(),RandomSource.seeded(4));
+    var quit=act(state,"ada","FORFEIT");
+    assertTrue(quit.finished());assertEquals("eric",quit.copy().winner);
+    assertEquals("Results",quit.phase());
+    assertThrows(RuleViolation.class,()->act(quit,"ada","ROLL"));
+  }
+
+  @Test
   void rosterCapacityAndAuthority() {
     assertThrows(
         RuleViolation.class,

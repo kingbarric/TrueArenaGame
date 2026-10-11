@@ -111,6 +111,103 @@ public final class MonopolyState implements GameState {
     }
   }
 
+  /** Server-only durable state. Never use this record as a player/spectator response. */
+  public record Checkpoint(int version,
+      MonopolyConfig config,
+      long seed,
+      int rollCount,
+      int revision,
+      int turnIndex,
+      int turnNumber,
+      int doubles,
+      String phase,
+      String message,
+      String winner,
+      String resume,
+      List<String> players,
+      Map<String, Player> people,
+      Map<Integer, Deed> deeds,
+      List<Integer> dice,
+      List<Integer> chance,
+      List<Integer> chest,
+      List<Integer> bankAuctions,
+      List<Bill> bills,
+      List<Trade> trades,
+      Auction auction,
+      Bill lastPayment,
+      String drawnCard,
+      Set<String> actionIds,
+      List<GameEvent> events,
+      boolean rollAgain) {}
+
+  public Checkpoint checkpoint() {
+    Data d = copy();
+    return new Checkpoint(1,
+        d.config,
+        d.seed,
+        d.rollCount,
+        d.revision,
+        d.turnIndex,
+        d.turnNumber,
+        d.doubles,
+        d.phase,
+        d.message,
+        d.winner,
+        d.resume,
+        d.players,
+        d.people,
+        d.deeds,
+        d.dice,
+        d.chance,
+        d.chest,
+        d.bankAuctions,
+        d.bills,
+        d.trades,
+        d.auction,
+        d.lastPayment,
+        d.drawnCard,
+        d.actionIds,
+        d.events,
+        d.rollAgain);
+  }
+
+  public static MonopolyState restore(Checkpoint saved) {
+    if (saved.version() != 1 || saved.config() == null || saved.players() == null
+        || saved.players().size() < 2 || saved.players().size() > MonopolyConfig.MAX_PLAYERS
+        || saved.turnIndex() < 0 || saved.turnIndex() >= saved.players().size()
+        || saved.people() == null || !saved.people().keySet().equals(new HashSet<>(saved.players()))) {
+      throw new IllegalArgumentException("Invalid Monopoly checkpoint");
+    }
+    Data d = new Data();
+    d.config = saved.config();
+    d.seed = saved.seed();
+    d.rollCount = saved.rollCount();
+    d.revision = saved.revision();
+    d.turnIndex = saved.turnIndex();
+    d.turnNumber = saved.turnNumber();
+    d.doubles = saved.doubles();
+    d.phase = saved.phase();
+    d.message = saved.message();
+    d.winner = saved.winner();
+    d.resume = saved.resume();
+    d.players = saved.players();
+    d.people = saved.people();
+    d.deeds = saved.deeds();
+    d.dice = saved.dice();
+    d.chance = saved.chance();
+    d.chest = saved.chest();
+    d.bankAuctions = saved.bankAuctions();
+    d.bills = saved.bills();
+    d.trades = saved.trades();
+    d.auction = saved.auction();
+    d.lastPayment = saved.lastPayment();
+    d.drawnCard = saved.drawnCard();
+    d.actionIds = saved.actionIds();
+    d.events = saved.events();
+    d.rollAgain = saved.rollAgain();
+    return new MonopolyState(d);
+  }
+
   private final Data frozen;
 
   MonopolyState(Data d) {

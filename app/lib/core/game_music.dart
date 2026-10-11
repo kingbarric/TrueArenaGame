@@ -103,8 +103,10 @@ class GameMusic {
   /// Starts a session's music. [seed] makes the shuffle reproducible in
   /// tests; in the app it comes from the clock, which is what makes each
   /// session's running order different.
-  static Future<void> start(MusicMood mood, {int? seed}) async {
+  static Future<void> start(MusicMood mood,
+      {int? seed, bool autoplay = false}) async {
     await stop();
+    if (autoplay) _enabled = true;
     _sessionVolume = mood == MusicMood.cinematic ? 0.14 : _volume;
     _playlist =
         _shuffleFor(mood, seed ?? DateTime.now().microsecondsSinceEpoch);

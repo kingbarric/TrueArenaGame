@@ -10,6 +10,8 @@ import '../../core/game_sfx.dart';
 import '../../core/hangout_state.dart';
 import '../../widgets/game_voice_control.dart';
 import '../huudspace/leave_game.dart';
+import '../lobby/joined_room_screen.dart';
+import '../../core/models.dart';
 import 'monopoly_board.dart';
 import 'monopoly_table.dart';
 
@@ -46,6 +48,7 @@ class _MonopolyGameScreenState extends State<MonopolyGameScreen> {
       _started = false;
   int _seconds = 180, _watching = 0, _rollSequence = 0, _lastRollSeq = 0;
   bool _pendingRoll = false;
+  bool _musicStarted = false, _quitting = false, _returningToSetup = false;
   List<int> _rolledDice = const [];
   String get _cacheKey =>
       'monopoly_snapshot_${widget.selfId}_${widget.socket.roomId}';
@@ -56,7 +59,6 @@ class _MonopolyGameScreenState extends State<MonopolyGameScreen> {
     _connected = widget.socket.isConnected;
     _socketSub = widget.socket.envelopes.listen(_onEnvelope);
     unawaited(_restore());
-    unawaited(GameMusic.start(GameMusic.moodFor('monopoly')));
     unawaited(GameSfx.warmUp());
     widget.socket.send('HELLO', {'lastSeq': 0});
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -88,7 +90,7 @@ class _MonopolyGameScreenState extends State<MonopolyGameScreen> {
   Future<void> _restore() async {
     final prefs = await SharedPreferences.getInstance();
     final value = prefs.getString(_cacheKey);
-    if (!mounted || _liveSnapshot || value == null) return;
+    if (!mounted || _liveSnapshot || _returningToSetup || value == null) return;
     try {
       final saved = monopolyMap(jsonDecode(value));
       setState(() {
@@ -156,13 +158,32 @@ class _MonopolyGameScreenState extends State<MonopolyGameScreen> {
             _watching = (p['spectatorCount'] as num?)?.toInt() ?? _watching;
           });
           _pendingTimer?.cancel();
+          if (!_musicStarted && _liveSnapshot) {
+            _musicStarted = true;
+            unawaited(
+                GameMusic.start(GameMusic.moodFor('monopoly'), autoplay: true));
+          }
+          if (_quitting &&
+              monopolyMap(monopolyMap(p['playerState'])[widget.selfId])[
+                      'bankrupt'] ==
+                  true) {
+            _quitting = false;
+            unawaited(_completeQuit());
+          }
           unawaited(_save());
         } else if (p['lobby'] == true) {
           setState(() {
             _liveSnapshot = false;
-            _error =
-                'This match has ended. Return to your Huud to choose the next game.';
+            _pending = false;
+            _pendingRoll = false;
+            _error = null;
           });
+          _pendingTimer?.cancel();
+          if (p['status'] == 'lobby') {
+            unawaited(_returnToSetup(p));
+          } else {
+            unawaited(leaveGame(context, widget.socket.roomId));
+          }
         }
       case 'PHASE':
         setState(
@@ -171,6 +192,7 @@ class _MonopolyGameScreenState extends State<MonopolyGameScreen> {
         setState(() {
           _pending = false;
           _pendingRoll = false;
+          _quitting = false;
           _error = p['message']?.toString() ?? 'That action is not available';
         });
         _pendingTimer?.cancel();
@@ -294,7 +316,7 @@ class _MonopolyGameScreenState extends State<MonopolyGameScreen> {
   void _action(String action, Map<String, dynamic> data) {
     if (!_connected ||
         !_liveSnapshot ||
-        _state['paused'] == true ||
+        (_state['paused'] == true && action != 'FORFEIT') ||
         _pending ||
         widget.spectating ||
         !monopolyPlayers(_state).contains(widget.selfId)) {
@@ -318,11 +340,60 @@ class _MonopolyGameScreenState extends State<MonopolyGameScreen> {
           _pending = false;
           _pendingRoll = false;
           _liveSnapshot = false;
-          _error = 'Checking the latest board…';
+          _error = null;
         });
         widget.socket.send('HELLO', {'lastSeq': 0});
       }
     });
+  }
+
+  Future<void> _returnToSetup(Map<String, dynamic> lobby) async {
+    if (_returningToSetup) return;
+    _returningToSetup = true;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_cacheKey);
+    if (!mounted) return;
+    final room = RoomView.fromJson({...lobby, 'gameType': 'monopoly'});
+    Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => JoinedRoomScreen(room: room)));
+  }
+
+  Future<void> _quitGame() async {
+    if (!_connected || !_liveSnapshot || _pending) return;
+    final accepted = await showDialog<bool>(
+        context: context,
+        builder: (dialog) => AlertDialog(
+                backgroundColor: monopolyCream,
+                title: const Text('Quit this match?',
+                    style: TextStyle(fontWeight: FontWeight.w900)),
+                content: const Text(
+                    'You will forfeit your seat and properties. The other players can continue, and you will return to the Huud.'),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(dialog, false),
+                      child: const Text('Keep playing')),
+                  FilledButton(
+                      onPressed: () => Navigator.pop(dialog, true),
+                      style:
+                          FilledButton.styleFrom(backgroundColor: monopolyWine),
+                      child: const Text('Quit Game')),
+                ]));
+    if (accepted != true ||
+        !mounted ||
+        !_connected ||
+        !_liveSnapshot ||
+        _pending) {
+      return;
+    }
+    _quitting = true;
+    _action('FORFEIT', {});
+  }
+
+  Future<void> _completeQuit() async {
+    await AppScope.of(context).clearActiveRoom(widget.socket.roomId);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_cacheKey);
+    if (mounted) await leaveGame(context, widget.socket.roomId);
   }
 
   Future<void> _properties() async {
@@ -709,6 +780,7 @@ class _MonopolyGameScreenState extends State<MonopolyGameScreen> {
           if (mounted) setState(() {});
         },
         onPause: () => widget.socket.send('PAUSE_TOGGLE', {}),
+        onQuit: _quitGame,
         onTrade: _trade,
         onSendChat: _sendChat,
         onBack: () => leaveGame(context, widget.socket.roomId),

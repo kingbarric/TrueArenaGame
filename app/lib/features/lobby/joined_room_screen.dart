@@ -29,8 +29,9 @@ import '../../widgets/lobby_start_bar.dart';
 /// `POST /rooms/join` response says so) and never posts `GAME_START` itself
 /// since a joiner is essentially never the host.
 class JoinedRoomScreen extends StatefulWidget {
-  const JoinedRoomScreen({super.key, required this.room});
+  const JoinedRoomScreen({super.key, required this.room, this.socket});
   final RoomView room;
+  final GameSocket? socket;
 
   @override
   State<JoinedRoomScreen> createState() => _JoinedRoomScreenState();
@@ -79,7 +80,7 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
 
   void _connect() {
     _app = AppScope.of(context);
-    final socket = GameSocket.connect(_app.api, _room.id);
+    final socket = widget.socket ?? GameSocket.connect(_app.api, _room.id);
     _socket = socket;
     _sub = socket.envelopes.listen((env) {
       if (!mounted) return;
@@ -91,7 +92,8 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
           // HELLO response arrives, so the game screen receives the first
           // snapshot itself instead of briefly rendering an empty board.
           final payload = (env['payload'] as Map?)?.cast<String, dynamic>();
-          if (payload?['connected'] == true && _room.status == 'in_game') {
+          if (payload?['connected'] == true && _room.status == 'in_game' &&
+              _room.gameType != 'monopoly') {
             _handOffToGame();
           }
         case 'SNAPSHOT':
@@ -135,6 +137,7 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
     final self = _selfId();
     if ((p['status'] as String? ?? 'lobby') == 'lobby' &&
         self.isNotEmpty &&
+        !(_room.gameType == 'monopoly' && p['hostId'] == self) &&
         !members.any((m) => m.userId == self)) {
       _handedOff = false;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(

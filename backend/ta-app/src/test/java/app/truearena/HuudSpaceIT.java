@@ -120,6 +120,54 @@ class HuudSpaceIT {
                 .fetch().rowsUpdated().block();
     }
 
+    @Test void monopolyReopensSavedBoardPrivateOffersAndPausedTimerAfterRuntimeLoss() throws Exception {
+        UUID host=person("Recovery host"), player=person("Recovery player"), viewer=person("Recovery watcher");
+        var huud=huuds.create(host,"Recovery table","public").block();
+        var room=huuds.addGame(host,huud.id(),"monopoly").block();
+        huuds.joinByCode(player,huud.code()).block();
+        requests.askToPlay(player,huud.id()).block();requests.answer(host,huud.id(),player,"play",true).block();
+        var rt=games.ensureRuntime(room.id()).block();
+        rt.connectedUserIds.add(host.toString());
+        games.handleFrame(rt,host.toString(),mapper.writeValueAsString(app.truearena.ws.contract.Envelope.of(app.truearena.ws.contract.MessageType.GAME_START,java.util.Map.of())),false).block();
+        games.handleFrame(rt,host.toString(),mapper.writeValueAsString(app.truearena.ws.contract.Envelope.of(app.truearena.ws.contract.MessageType.PLAYER_ACTION,java.util.Map.of("action","OFFER_TRADE","actionId","recovery-offer","data",java.util.Map.of("to",player.toString(),"giveCash",10,"takeCash",0)))),false).block();
+        games.handleFrame(rt,host.toString(),mapper.writeValueAsString(app.truearena.ws.contract.Envelope.of(app.truearena.ws.contract.MessageType.PLAYER_ACTION,java.util.Map.of("action","ROLL","actionId","recovery-roll","data",java.util.Map.of()))),false).block();
+        games.handleFrame(rt,host.toString(),mapper.writeValueAsString(app.truearena.ws.contract.Envelope.of(app.truearena.ws.contract.MessageType.PAUSE_TOGGLE,java.util.Map.of())),false).block();
+        String before=mapper.writeValueAsString(rt.module().visibleStateFor(rt.state(),host.toString()).data());
+        UUID session=rt.gameSessionId; long remaining=rt.timerRemainingMs;
+        assertThat(db.sql("SELECT runtime_state IS NOT NULL AS saved FROM game_sessions WHERE id=:id").bind("id",session).map((r,m)->r.get("saved",Boolean.class)).one().block()).isTrue();
+        rt.cancelTimer();runtimes.remove(room.id());
+        var recovered=games.ensureRuntime(room.id()).block();
+        assertThat(recovered).isNotSameAs(rt);assertThat(recovered.gameSessionId).isEqualTo(session);
+        assertThat(recovered.paused).isTrue();assertThat(recovered.timer).isNull();
+        assertThat(recovered.timerRemainingMs).isEqualTo(remaining);
+        assertThat(mapper.writeValueAsString(recovered.module().visibleStateFor(recovered.state(),host.toString()).data())).isEqualTo(before);
+        var publicView=mapper.convertValue(recovered.module().broadcastState(recovered.state()).data(),java.util.Map.class);
+        assertThat(publicView).doesNotContainKeys("seed","chance","chest","tradeOffers","legalActions");
+        assertThat(huuds.view(huud.id(),host).block().currentGame().status()).isEqualTo("playing");
+        games.handleFrame(recovered,player.toString(),mapper.writeValueAsString(app.truearena.ws.contract.Envelope.of(
+                app.truearena.ws.contract.MessageType.PLAYER_ACTION,java.util.Map.of("action","FORFEIT","actionId","recovery-quit","data",java.util.Map.of()))),false).block();
+        assertThat(recovered.state().finished()).isTrue();
+        assertThat(huuds.view(huud.id(),host).block().currentGame().status()).isEqualTo("finished");
+        assertThat(huuds.view(huud.id(),player).block().youAreIn()).isTrue();
+    }
+
+    @Test void interruptedLegacyMonopolyReturnsToSetupWithoutEndingTheHuud() {
+        UUID host=person("Legacy host");
+        var huud=huuds.create(host,"Legacy table","private").block();
+        var room=huuds.addGame(host,huud.id(),"monopoly").block();
+        db.sql("UPDATE rooms SET status='in_game' WHERE id=:id").bind("id",room.id()).fetch().rowsUpdated().block();
+        db.sql("INSERT INTO game_sessions(room_id,game_type,config,catalog_version,rng_seed,phase,round) "
+                + "VALUES(:id,'monopoly','{}'::jsonb,1,9,'Roll',1)").bind("id",room.id()).fetch().rowsUpdated().block();
+        var rt=games.ensureRuntime(room.id()).block();
+        assertThat(rt.started()).isFalse();
+        var view=huuds.view(huud.id(),host).block();
+        assertThat(view.status()).isEqualTo("active");assertThat(view.currentGame().status()).isEqualTo("waiting");
+        assertThat(view.currentGame().playerIds()).contains(host);
+        assertThat(view.youAreIn()).isTrue();
+        assertThat(db.sql("SELECT phase FROM game_sessions WHERE room_id=:id").bind("id",room.id())
+                .map((r,m)->r.get("phase",String.class)).one().block()).isEqualTo("Interrupted");
+    }
+
     @Test void monopolyUsesSeparateJoinAndPlayRequestsAndKeepsTheHuudAcrossActivities() throws Exception {
         UUID host=person("Monopoly host"), player=person("Monopoly player"), viewer=person("Monopoly viewer");
         var huud=huuds.create(host,"Classic table","public").block();

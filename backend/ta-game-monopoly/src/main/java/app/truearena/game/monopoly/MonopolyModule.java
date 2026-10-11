@@ -126,6 +126,27 @@ public final class MonopolyModule implements GameModule {
         bankrupt(d, actor, d.bills.getFirst().creditor());
         settle(d);
       }
+      case "FORFEIT" -> {
+        boolean wasTurn = actor.equals(d.turn());
+        boolean wasDebtor = "Debt".equals(d.phase) && actor.equals(d.bills.getFirst().debtor());
+        boolean hadAuction = d.auction != null;
+        String creditor = wasDebtor ? d.bills.getFirst().creditor() : null;
+        event(d, "PLAYER_QUIT", Map.of("player", actor));
+        bankrupt(d, actor, creditor);
+        if (d.winner == null) {
+          if (d.auction != null && wasTurn) {
+            Auction auction = d.auction;
+            d.auction = new Auction(auction.property(), auction.bid(), auction.bidder(),
+                auction.eligible(), auction.index(), "Next");
+          } else if (!hadAuction && (wasTurn || wasDebtor)) {
+            d.resume = "Next";
+            settle(d);
+          } else if (!hadAuction && !"Debt".equals(beforePhase) && !d.bankAuctions.isEmpty()) {
+            d.resume = beforePhase;
+            settle(d);
+          }
+        }
+      }
       case "PAY_JAIL" -> {
         turn(d, actor, "Roll");
         Player p = d.people.get(actor);
@@ -430,6 +451,11 @@ public final class MonopolyModule implements GameModule {
     if (resume.equals("JailMove")) {
       release(d, d.turn());
       move(d, d.dice.stream().mapToInt(Integer::intValue).sum());
+      return;
+    }
+    if (resume.equals("Roll") || resume.equals("Purchase")) {
+      d.phase = resume;
+      d.message = resume.equals("Roll") ? "Roll the dice" : "Buy the property or auction it";
       return;
     }
     manage(d);

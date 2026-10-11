@@ -52,7 +52,7 @@ class MonopolySpectatorTest {
           .handleFrame(
               rt,
               user,
-              mapper.writeValueAsString(Envelope.of(MessageType.HELLO, Map.of("lastSeq", 0))),
+              mapper.writeValueAsString(Envelope.of(MessageType.HELLO, Map.of("lastSeq", 12))),
               user.equals("watcher"))
           .block();
       sub.dispose();

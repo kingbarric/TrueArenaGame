@@ -41,7 +41,7 @@ The database suite is `HuudSpaceIT` under `ta-app`. It supports temporary extern
 
 **This is isolated branch work.** Production deployment, installation on the phone and a merge into main are separate release steps. The app must run with the corresponding Monopoly-enabled backend.
 
-The shared ordinary-game runtime remains in memory, as for the existing games. **Reconnect to a running server is supported; recovery after a server process restart is not added here.** Durable checkpoints should be addressed before relying on long Monopoly matches across backend deployments.
+Monopoly now saves a server-private checkpoint in PostgreSQL before publishing each board change. Reopening after a backend restart restores the same match, future dice/decks, private trades, action deduplication and paused clock; Cyber Agents reconnect to their existing seats. Other games retain their existing runtime behavior. Old Monopoly matches interrupted before checkpoints were introduced return to setup in their existing Huud, preserving membership and the roster; their lost boards cannot be reconstructed.
 
 **Cyber Agents:** the host can add agents from the Huud roster. They choose only engine-validated actions from their own player snapshot, including purchase/auction, jail, debt, property management and trade responses. An economical fallback keeps games moving without model credentials. Private offers stay out of spectator state and Huud chat is never passed to the move picker.
 
@@ -85,3 +85,10 @@ files have no analyzer issues. Rendered phone layout and magnifier were inspecte
 The branch policy now reserves **main for isolated test** and **release for
 production**. Release was preserved from pre-merge main at `b2dc34d` before
 these changes. See [deployment policy](../../infra/TEST_ENVIRONMENT.md).
+
+## Reopening, music and quitting — 11 October 2026
+
+- **V50** adds the private checkpoint column. Reconnect always sends the subscriber's complete safe snapshot, even with a positive event sequence. The lobby waits for that response before opening Monopoly; an organising host can remain without a player seat. Duplicate Start returns the existing match.
+- **Music starts when the live match snapshot arrives.** The shared mute control still works during play. Cached/offline boards do not start playback.
+- **Quit Game** in settings asks for confirmation, forfeits the player's seat and resolves their estate. Other players continue; two-player forfeits produce the real match result. Navigating back to the Huud remains separate.
+- Validation: **321 full Flutter tests**, **30 Monopoly engine tests** and **37 PostgreSQL/Redis Huud integration tests**, including checkpoint restoration, pause state, private offers, legacy recovery and forfeiting. Modified Flutter files have no analyzer issues.

@@ -26,6 +26,7 @@ class MonopolyTable extends StatefulWidget {
       this.rollSequence = 0,
       this.rolledDice = const [],
       this.onPause,
+      this.onQuit,
       this.onToggleMusic,
       this.onToggleSounds,
       this.musicEnabled = true,
@@ -49,7 +50,7 @@ class MonopolyTable extends StatefulWidget {
   final bool rollPending;
   final int rollSequence;
   final List<int> rolledDice;
-  final VoidCallback? onPause, onToggleMusic, onToggleSounds;
+  final VoidCallback? onPause, onToggleMusic, onToggleSounds, onQuit;
   final bool musicEnabled, soundsEnabled;
   final Set<String> speaking;
   final bool connected, pending, spectating, canChat;
@@ -719,6 +720,8 @@ class _MonopolyTableState extends State<MonopolyTable> {
                         ]));
           case 'leave':
             widget.onBack();
+          case 'quit':
+            widget.onQuit?.call();
         }
       },
       itemBuilder: (_) => [
@@ -760,6 +763,22 @@ class _MonopolyTableState extends State<MonopolyTable> {
                       contentPadding: EdgeInsets.zero)),
             const PopupMenuItem(value: 'credits', child: Text('Music credits')),
             const PopupMenuDivider(),
+            if (widget.onQuit != null &&
+                !widget.spectating &&
+                monopolyPlayers(widget.state).contains(widget.selfId) &&
+                me['bankrupt'] != true &&
+                widget.state['winner'] == null)
+              PopupMenuItem(
+                  key: const Key('monopoly-quit-game'),
+                  value: 'quit',
+                  enabled: widget.connected && !widget.pending,
+                  child: const ListTile(
+                      leading: Icon(Icons.logout_rounded, color: monopolyWine),
+                      title: Text('Quit Game',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w900,
+                              color: monopolyWine)),
+                      contentPadding: EdgeInsets.zero)),
             const PopupMenuItem(
                 value: 'leave',
                 child: ListTile(

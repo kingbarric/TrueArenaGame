@@ -7,6 +7,7 @@ import app.truearena.engine.GameEvent;
 import app.truearena.engine.GameModule;
 import app.truearena.game.monopoly.MonopolyModule;
 import app.truearena.game.monopoly.MonopolyConfig;
+import app.truearena.game.monopoly.MonopolyState;
 import app.truearena.engine.GameRunner;
 import app.truearena.engine.GameSettings;
 import app.truearena.engine.GameState;
@@ -114,6 +115,11 @@ public class GameOrchestrator {
     private LiveKitRoomAdmin voiceAdmin;
     @Autowired(required = false)
     private app.truearena.api.competitive.RatingService ratings;
+    @Autowired(required = false)
+    private MonopolyRuntimeStore monopolyStore;
+    @Autowired(required = false)
+    private app.truearena.api.bot.BotService botService;
+    private final java.util.concurrent.ConcurrentMap<UUID, Mono<RoomRuntime>> recovering = new java.util.concurrent.ConcurrentHashMap<>();
 
     public GameOrchestrator(RoomRuntimeRegistry registry, RoomLock lock, RoomEventLog eventLog,
                             RoomRepository rooms, RoomMemberRepository members,
@@ -173,11 +179,47 @@ public class GameOrchestrator {
     }
 
     public Mono<RoomRuntime> ensureRuntime(UUID roomId) {
-        return registry.find(roomId)
-                .map(Mono::just)
-                .orElseGet(() -> rooms.findById(roomId)
+        return Mono.defer(() -> registry.find(roomId).map(Mono::just).orElseGet(() ->
+                recovering.computeIfAbsent(roomId, id -> rooms.findById(id)
                         .switchIfEmpty(Mono.error(new IllegalStateException("room not found")))
-                        .map(room -> registry.computeIfAbsent(roomId, id -> new RoomRuntime(id, room.hostId().toString()))));
+                        .flatMap(room -> recoverMonopoly(room)
+                                .map(rt -> registry.computeIfAbsent(id, ignored -> rt))
+                                .doOnNext(rt -> {
+                                    if (botService != null) botService.resumeMonopolyRoom(room).subscribe(
+                                            ignored -> {}, error -> log.warn("agent recovery failed for room {}", id, error));
+                                }))
+                        .doFinally(signal -> recovering.remove(id)).cache())));
+    }
+
+    private Mono<RoomRuntime> recoverMonopoly(RoomRow room) {
+        RoomRuntime rt = new RoomRuntime(room.id(), room.hostId().toString());
+        if (!"monopoly".equals(room.gameType()) || !"in_game".equals(room.status()) || monopolyStore == null)
+            return Mono.just(rt);
+        return lock.withLock(room.id(), LOCK_TTL, () -> monopolyStore.load(room.id())
+                .map(recovery -> {
+                    MonopolyState state = MonopolyState.restore(recovery.saved().state());
+                    rt.config = recovery.saved().state().config();
+                    rt.start(new MonopolyModule(), state, recovery.sessionId());
+                    rt.paused = recovery.saved().paused();
+                    rescheduleTimer(rt);
+                    long remaining = Math.max(1000, recovery.saved().remainingMs());
+                    if (rt.paused) rt.timerRemainingMs = remaining;
+                    else if (!state.finished()) {
+                        if (rt.timer != null) rt.timer.dispose();
+                        rt.timerDeadlineMs = System.currentTimeMillis() + remaining;
+                        rt.timer = Mono.delay(Duration.ofMillis(remaining)).subscribe(
+                                ignored -> triggerElapse(rt, state.phase(), state.round()));
+                    }
+                    return rt;
+                })
+                .switchIfEmpty(Mono.defer(() -> monopolyStore.returnInterruptedToSetup(room.id())
+                        .then(eventLog.clear(room.id()))
+                        .doOnSuccess(ignored -> log.info("Monopoly room {} returned to setup: pre-checkpoint runtime was interrupted", room.id()))
+                        .thenReturn(rt)))
+                .flatMap(recovered -> members.findByRoomId(room.id())
+                        .filter(member -> member.botDifficulty() != null)
+                        .doOnNext(member -> recovered.botPlayerIds.add(member.userId().toString()))
+                        .then(Mono.just(recovered))));
     }
 
     public Mono<Void> onConnect(RoomRuntime rt, String userId) {
@@ -361,6 +403,13 @@ public class GameOrchestrator {
             return championships.reconnectStatus(rt.roomId)
                     .doOnNext(status -> rt.tellUser(userId, Envelope.of(MessageType.EVENT,
                             Map.of("type", "RECONNECT_WAIT", "data", status)))).then();
+        }
+        // Monopoly clients render authoritative snapshots, rather than reducing
+        // economic events. Reopen/reconnect must refresh the complete board.
+        if ("monopoly".equals(rt.module().gameType())) {
+            sendSnapshot(rt, userId);
+            sendPhase(rt, userId);
+            return Mono.empty();
         }
         if (lastSeq > 0) {
             return eventLog.replayAfter(rt.roomId, lastSeq)
@@ -563,6 +612,12 @@ public class GameOrchestrator {
     }
 
     private Mono<Void> togglePause(RoomRuntime rt, String userId) {
+        if (rt.started() && "monopoly".equals(rt.module().gameType()) && monopolyStore != null)
+            return lock.withLock(rt.roomId, LOCK_TTL, () -> togglePauseLocked(rt, userId));
+        return togglePauseLocked(rt, userId);
+    }
+
+    private Mono<Void> togglePauseLocked(RoomRuntime rt, String userId) {
         if (!rt.started()) {
             return tellError(rt, userId, "NOT_STARTED", "the game hasn't started yet");
         }
@@ -581,8 +636,9 @@ public class GameOrchestrator {
         data.put("by", userId);
         data.put("secondsLeft", secondsLeft(rt));
         liveClockMs(rt).ifPresent(ms -> data.put("clockMsLeft", ms));
-        rt.bus.tryEmitNext(new LobbyBroadcast(rt.paused ? "GAME_PAUSED" : "GAME_RESUMED", data));
-        return Mono.empty();
+        Mono<Void> persist = monopolyStore == null ? Mono.empty() : monopolyStore.save(rt);
+        return persist.doOnSuccess(ignored -> rt.bus.tryEmitNext(
+                new LobbyBroadcast(rt.paused ? "GAME_PAUSED" : "GAME_RESUMED", data)));
     }
 
     /**
@@ -736,6 +792,11 @@ public class GameOrchestrator {
             return tellError(rt, userId, "NOT_HOST", "only the host can start the game");
         }
         if (rt.started()) {
+            if ("monopoly".equals(rt.module().gameType())) {
+                sendSnapshot(rt, userId);
+                sendPhase(rt, userId);
+                return Mono.empty();
+            }
             return tellError(rt, userId, "ALREADY_STARTED", "this huud's game is already running");
         }
         return lock.withLock(rt.roomId, LOCK_TTL, () -> rooms.findById(rt.roomId)
@@ -743,6 +804,15 @@ public class GameOrchestrator {
                 .zipWith(members.findByRoomId(rt.roomId).collectList())
                 .flatMap(t -> {
                     String gameType = t.getT1().gameType();
+                    if ("monopoly".equals(gameType)) {
+                        if (rt.started()) {
+                            sendSnapshot(rt, userId);
+                            sendPhase(rt, userId);
+                            return Mono.empty();
+                        }
+                        if (!"lobby".equals(t.getT1().status()))
+                            return tellError(rt, userId, "NOT_WAITING", "This match is not waiting to start");
+                    }
                     List<String> playerIds = t.getT2().stream().map(m -> m.userId().toString()).toList();
                     rt.botPlayerIds.clear();
                     t.getT2().stream().filter(m -> m.botDifficulty() != null)
@@ -1409,6 +1479,17 @@ public class GameOrchestrator {
                 .concatMap(ge -> eventLog.append(rt.roomId, writeJson(ge)).doOnSuccess(v -> rt.bus.tryEmitNext(ge)))
                 .then();
         rescheduleTimer(rt);
+        if (monopolyStore != null && rt.state() instanceof MonopolyState) {
+            // A client must never receive/acknowledge a board that only exists in memory.
+            return monopolyStore.save(rt).then(appendAndBroadcast)
+                    .then(Mono.fromRunnable(() -> {
+                        broadcastPhase(rt);
+                        broadcastPrivateState(rt);
+                        broadcastSpectatorState(rt);
+                        pushTurnReminders(rt);
+                    }))
+                    .then(Mono.defer(() -> rt.state().finished() ? finishGame(rt) : Mono.empty()));
+        }
         broadcastPhase(rt);
         broadcastPrivateState(rt);
         broadcastSpectatorState(rt);

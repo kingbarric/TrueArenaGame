@@ -10,9 +10,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:truearena/core/api_client.dart';
 import 'package:truearena/core/app_state.dart';
 import 'package:truearena/core/hangout_state.dart';
+import 'package:truearena/core/game_music.dart';
 import 'package:truearena/core/models.dart';
 import 'package:truearena/features/huudspace/huud_voice.dart';
 import 'package:truearena/features/monopoly/monopoly_game_screen.dart';
+import 'package:truearena/features/lobby/joined_room_screen.dart';
 import 'package:truearena/features/monopoly/monopoly_board.dart';
 import 'whot_game_test.dart' show TestSocket;
 
@@ -64,6 +66,93 @@ void main() {
       app.dispose();
     });
   }
+
+  testWidgets('reopening waits for the server and repairs an interrupted match into setup',
+      (tester) async {
+    final socket = _Socket();
+    final app = AppState(ApiClient(client: MockClient((_) async => http.Response('offline', 503))))
+      ..user = const UserView(id: 'ada', displayName: 'Ada', username: 'ada')
+      ..identity = Identity.account;
+    final navigator = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(AppScope(state: app, child: MaterialApp(
+      navigatorKey: navigator,
+      theme: ThemeData(fontFamily: 'MonopolySans', extensions: const [
+        NeonColors.dark, NeonDesign(NeonDesignKind.cabinet)]),
+      home: const Scaffold(body: Text('Home')))));
+    navigator.currentState!.push(MaterialPageRoute(builder: (_) => JoinedRoomScreen(
+      socket: socket,
+      room: RoomView(id: socket.roomId, code: 'ABCDEF', hostId: 'ada',
+        status: 'in_game', gameType: 'monopoly', members: const []))));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    socket.frame('CONNECTION', {'connected': true});
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(JoinedRoomScreen), findsOneWidget);
+    expect(find.byType(MonopolyGameScreen), findsNothing);
+    socket.frame('SNAPSHOT', {'lobby': true, 'roomId': socket.roomId,
+      'code': 'ABCDEF', 'hostId': 'ada', 'status': 'lobby',
+      'members': [
+        {'userId': 'eric', 'nickname': 'Eric', 'ready': true},
+        {'userId': 'chidi', 'nickname': 'Chidi', 'ready': true}
+      ]});
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    // The organising host remains even without a selected game seat.
+    expect(find.byType(JoinedRoomScreen), findsOneWidget);
+    expect(find.byType(MonopolyGameScreen), findsNothing);
+    expect(find.textContaining('The host changed the players'), findsNothing);
+    expect(find.textContaining('Error has occurred'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    app.dispose();
+  });
+
+  testWidgets('music starts with the live match and can still be muted',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({'ta_music_enabled': false});
+    await GameMusic.load();
+    expect(GameMusic.enabled, isFalse);
+    final socket = _Socket();
+    await open(tester, socket);
+    expect(GameMusic.enabled, isFalse);
+    socket.frame('SNAPSHOT', _board());
+    await tester.pumpAndSettle();
+    expect(GameMusic.enabled, isTrue);
+    await tester.tap(find.byTooltip('Game settings'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mute music'));
+    await tester.pumpAndSettle();
+    expect(GameMusic.enabled, isFalse);
+  });
+
+  testWidgets('Quit Game requires confirmation and can forfeit a paused match',
+      (tester) async {
+    final socket = _Socket();
+    await open(tester, socket);
+    socket.frame('SNAPSHOT', _board()..['paused'] = true);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Game settings'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('monopoly-quit-game')));
+    await tester.pumpAndSettle();
+    expect(find.text('Quit this match?'), findsOneWidget);
+    await tester.tap(find.text('Keep playing'));
+    await tester.pumpAndSettle();
+    expect(socket.sent.where((e) => e['type'] == 'PLAYER_ACTION'), isEmpty);
+    await tester.tap(find.byTooltip('Game settings'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('monopoly-quit-game')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Quit Game'));
+    await tester.pump();
+    final actions =
+        socket.sent.where((e) => e['type'] == 'PLAYER_ACTION').toList();
+    expect(actions, hasLength(1));
+    expect(actions.single['action'], 'FORFEIT');
+    socket.frame('ERROR', {'message': 'Error has occurred, try again later.'});
+    await tester.pumpAndSettle();
+  });
 
   testWidgets(
       'offline reopening restores the saved board without enabling moves',

@@ -49,6 +49,10 @@
 
 **Separate public and private state:** publish positions, cash, deeds, buildings, current dice, auction state and resolved events. Hide future random outcomes, deck order and pending trade offers from other players and spectators. Publish a player's private offers only to that player.
 
+**Quit Game:** settings offers a confirmed voluntary forfeit. Resolve the estate using the bankruptcy rules, let the remaining players continue, and return the quitter to the Huud. This differs from simply navigating away.
+
+**Music:** start quiet background music with the live match; the shared menu can mute it.
+
 **Reconnection:** the transport retrieves the authoritative snapshot, including the current decision, when a player reconnects. A decision allows **180 seconds** before a conservative server action keeps the match moving: roll, auction an unpurchased deed, pass an auction bid, or end the turn. For an unpaid debt, automatic building sales and mortgages attempt payment first; insolvency is resolved only if that real debt cannot be covered. These timeouts are digital rules and are shown in the match.
 
 **Required checks:** purchases and auctions; correct rents; doubles and jail; stock/even building; mortgages and trades; debt and bankruptcy; action idempotency; private spectator payloads; reconnect snapshots; full Huud roster/voice/chat integration; narrow phone layouts and visible chat while playing.
