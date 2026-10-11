@@ -16,11 +16,16 @@ public final class MonopolyBotAdapter implements GameBotAdapter {
 
     @Override public Optional<BotPrompt> onFrame(String type, Map<String, Object> payload,
                                                 String botId, Difficulty difficulty) {
+        if ("EVENT".equals(type) && "GAME_PAUSED".equals(payload.get("type"))) {
+            choices = List.of();
+            return Optional.empty();
+        }
         if (!"SNAPSHOT".equals(type)) return Optional.empty();
         choices = List.of();
         actor = botId;
         state = payload;
         level = difficulty;
+        if (Boolean.TRUE.equals(payload.get("paused"))) return Optional.empty();
         if ("Results".equals(payload.get("phase")) || payload.get("winner") != null) return Optional.empty();
         if (!(payload.get("legalActions") instanceof List<?> actions)) return Optional.empty();
         @SuppressWarnings("unchecked") List<Map<String, Object>> legal = (List<Map<String, Object>>) (List<?>) actions;

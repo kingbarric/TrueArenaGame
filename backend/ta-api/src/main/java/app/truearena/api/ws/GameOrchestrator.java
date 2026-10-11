@@ -637,8 +637,13 @@ public class GameOrchestrator {
         data.put("secondsLeft", secondsLeft(rt));
         liveClockMs(rt).ifPresent(ms -> data.put("clockMsLeft", ms));
         Mono<Void> persist = monopolyStore == null ? Mono.empty() : monopolyStore.save(rt);
-        return persist.doOnSuccess(ignored -> rt.bus.tryEmitNext(
-                new LobbyBroadcast(rt.paused ? "GAME_PAUSED" : "GAME_RESUMED", data)));
+        return persist.doOnSuccess(ignored -> {
+            rt.bus.tryEmitNext(new LobbyBroadcast(rt.paused ? "GAME_PAUSED" : "GAME_RESUMED", data));
+            if (rt.state() instanceof MonopolyState) {
+                broadcastPrivateState(rt);
+                broadcastSpectatorState(rt);
+            }
+        });
     }
 
     /**
@@ -1365,6 +1370,8 @@ public class GameOrchestrator {
             return tellError(rt, userId, "MATCH_PAUSED", "waiting for both players to reconnect");
         }
         String action = String.valueOf(in.payload().get("action"));
+        if (rt.paused && rt.state() instanceof MonopolyState && !"FORFEIT".equals(action))
+            return tellError(rt, userId, "GAME_PAUSED", "the game is paused — resume it to move");
         // A frozen clock can't be moved on — otherwise pausing would be a
         // way to think for free.
         if (rt.paused && "MOVE".equals(action) && rt.module().runningClockMs(rt.state()).isPresent()) {
@@ -1381,6 +1388,8 @@ public class GameOrchestrator {
         }
 
         return lock.withLock(rt.roomId, LOCK_TTL, () -> {
+            if (rt.paused && rt.state() instanceof MonopolyState && !"FORFEIT".equals(action))
+                return tellError(rt, userId, "GAME_PAUSED", "the game is paused — resume it to move");
             GameRunner runner = new GameRunner(rt.module());
             GameRunner.Step step;
             try {

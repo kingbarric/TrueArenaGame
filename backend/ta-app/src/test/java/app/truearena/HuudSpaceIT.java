@@ -133,6 +133,9 @@ class HuudSpaceIT {
         games.handleFrame(rt,host.toString(),mapper.writeValueAsString(app.truearena.ws.contract.Envelope.of(app.truearena.ws.contract.MessageType.PLAYER_ACTION,java.util.Map.of("action","ROLL","actionId","recovery-roll","data",java.util.Map.of()))),false).block();
         games.handleFrame(rt,host.toString(),mapper.writeValueAsString(app.truearena.ws.contract.Envelope.of(app.truearena.ws.contract.MessageType.PAUSE_TOGGLE,java.util.Map.of())),false).block();
         String before=mapper.writeValueAsString(rt.module().visibleStateFor(rt.state(),host.toString()).data());
+        games.handleFrame(rt,host.toString(),mapper.writeValueAsString(app.truearena.ws.contract.Envelope.of(
+                app.truearena.ws.contract.MessageType.PLAYER_ACTION,java.util.Map.of("action","END_TURN","actionId","paused-move","data",java.util.Map.of()))),false).block();
+        assertThat(mapper.writeValueAsString(rt.module().visibleStateFor(rt.state(),host.toString()).data())).isEqualTo(before);
         UUID session=rt.gameSessionId; long remaining=rt.timerRemainingMs;
         assertThat(db.sql("SELECT runtime_state IS NOT NULL AS saved FROM game_sessions WHERE id=:id").bind("id",session).map((r,m)->r.get("saved",Boolean.class)).one().block()).isTrue();
         rt.cancelTimer();runtimes.remove(room.id());

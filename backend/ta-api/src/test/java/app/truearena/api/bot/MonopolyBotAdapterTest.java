@@ -36,6 +36,19 @@ class MonopolyBotAdapterTest {
    assertThat(bot.onFrame("SNAPSHOT",Map.of("phase","Results"),"a",Difficulty.EASY)).isEmpty();
    assertThat(bot.parseAction("{\"index\":0}","a")).isEmpty();
  }
+ @Test void pauseClearsChoicesAndResumeSnapshotRestoresThem() {
+   var bot=new MonopolyBotAdapter();
+   var frame=new HashMap<String,Object>(Map.of("phase","Roll","decisionPlayer","agent","legalActions",List.of(Map.of("action","ROLL","data",Map.of()))));
+   assertThat(bot.onFrame("SNAPSHOT",frame,"agent",Difficulty.MEDIUM)).isPresent();
+   bot.onFrame("EVENT",Map.of("type","GAME_PAUSED"),"agent",Difficulty.MEDIUM);
+   assertThat(bot.fallbackAction("agent")).isEmpty();
+   frame.put("paused",true);
+   assertThat(bot.onFrame("SNAPSHOT",frame,"agent",Difficulty.MEDIUM)).isEmpty();
+   assertThat(bot.fallbackAction("agent")).isEmpty();
+   frame.put("paused",false);
+   assertThat(bot.onFrame("SNAPSHOT",frame,"agent",Difficulty.MEDIUM)).isPresent();
+   assertThat(bot.fallbackAction("agent")).isPresent();
+ }
  @Test void auctionDecisionBelongsToBidderNotTurnOwner() {
    var bot=new MonopolyBotAdapter();
    var choices=List.of(Map.of("action","BID","data",Map.of("amount",10)),Map.of("action","PASS","data",Map.of()));
