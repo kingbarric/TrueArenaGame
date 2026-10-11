@@ -54,7 +54,7 @@ class _HuudRosterState extends State<HuudRoster> {
     } on ApiException catch (e) {
       if (mounted) huudSnack(context, e.message);
     } catch (_) {
-      if (mounted) huudSnack(context, "That didn't work — check your internet and try again.");
+      if (mounted) huudSnack(context, "Error has occurred, try again later.");
     } finally {
       if (mounted) setState(() => _busy = null);
     }
@@ -101,6 +101,7 @@ class _HuudRosterState extends State<HuudRoster> {
   Widget build(BuildContext context) {
     final n = context.neon;
     final h = HuudColors.of(context);
+    final monopoly = widget.huud.currentGame?.gameType == 'monopoly';
     final host = widget.huud.youAreHost;
     final hostId = widget.huud.host?.userId;
     final seatedIds = {for (final s in widget.seated) s.userId: s};
@@ -189,7 +190,7 @@ class _HuudRosterState extends State<HuudRoster> {
         Builder(builder: (context) {
           final seat = seatedIds[p.userId];
           final playing = seat != null;
-          final canToggle = host && p.userId != hostId && (playing || !full);
+          final canToggle = host && (p.userId != hostId || monopoly) && (playing || !full);
           return row(
             key: ValueKey('roster-${p.userId}'),
             face: Avatar(p.name, size: 36, imageUrl: p.avatarUrl),

@@ -60,7 +60,7 @@ class _WhotLobbyScreenState extends State<WhotLobbyScreen> {
       } catch (_) {
         if (mounted)
           setState(
-              () => _error = 'Could not check your waiting Huud. Try again.');
+              () => _error = 'Error has occurred, try again later.');
       }
     });
   }
@@ -101,7 +101,7 @@ class _WhotLobbyScreenState extends State<WhotLobbyScreen> {
       _showCreateError(e.message);
     } catch (_) {
       _showCreateError(
-          'Could not connect. Check your connection and try again.');
+          'Error has occurred, try again later.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -150,7 +150,7 @@ class _WhotLobbyScreenState extends State<WhotLobbyScreen> {
         socket.send('HELLO', {'lastSeq': 0});
       } else if (env['type'] == 'ERROR') {
         setState(() => _error =
-            p['message']?.toString() ?? 'Could not complete that action');
+            p['message']?.toString() ?? 'Error has occurred, try again later.');
       }
     }, onDone: () {
       if (mounted && !_handedOff) {
@@ -219,7 +219,7 @@ class _WhotLobbyScreenState extends State<WhotLobbyScreen> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not add the Cyber Agent')));
+            const SnackBar(content: Text('Error has occurred, try again later.')));
       }
     } finally {
       if (mounted) setState(() => _addingBot = false);
@@ -322,7 +322,7 @@ class _WhotLobbyScreenState extends State<WhotLobbyScreen> {
               if (_error != null)
                 Padding(
                     padding: const EdgeInsets.only(top: 5),
-                    child: Text(_error!,
+                    child: Text(userErrorMessage,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -450,7 +450,7 @@ class _WhotLobbyScreenState extends State<WhotLobbyScreen> {
     final count = room.members.length;
     return ListView(padding: const EdgeInsets.all(16), children: [
       if (_error != null) ...[
-        Text(_error!, style: TextStyle(color: context.neon.danger)),
+        Text(userErrorMessage, style: TextStyle(color: context.neon.danger)),
         const SizedBox(height: 10),
       ],
       NeonCard(

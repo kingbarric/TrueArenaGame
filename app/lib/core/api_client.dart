@@ -2,12 +2,16 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+const userErrorMessage = 'Error has occurred, try again later.';
+
 class ApiException implements Exception {
-  ApiException(this.status, this.message);
+  ApiException(this.status, this.diagnosticMessage);
   final int status;
-  final String message;
+  /// For internal flow decisions only; never render this value.
+  final String diagnosticMessage;
+  String get message => userErrorMessage;
   @override
-  String toString() => 'ApiException($status): $message';
+  String toString() => userErrorMessage;
 }
 
 /// Thin JSON client for the TrueArena backend. Base URL is compiled in via
@@ -59,7 +63,12 @@ class ApiClient {
       body: body == null ? null : jsonEncode(body)));
 
   Future<dynamic> _send(Future<http.Response> Function() call, {bool allowRefresh = true}) async {
-    final res = await call();
+    final http.Response res;
+    try {
+      res = await call();
+    } catch (_) {
+      throw ApiException(0, 'transport failure');
+    }
     if (res.statusCode == 401 && allowRefresh && !_refreshing && refreshHandler != null && bearer != null) {
       _refreshing = true;
       bool refreshed;
@@ -81,7 +90,7 @@ class ApiClient {
     }
     if (!ok) {
       final msg = decoded is Map && decoded['message'] != null
-          ? decoded['message'].toString()
+          ? (decoded['code'] ?? decoded['message']).toString()
           : (res.statusCode == 401 ? 'your session expired — please sign in again' : 'request failed');
       throw ApiException(res.statusCode, msg);
     }

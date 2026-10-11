@@ -125,7 +125,7 @@ class _HuudLinkLandingState extends State<HuudLinkLanding> {
       nav.maybePop();
     } catch (_) {
       if (!mounted) return;
-      huudSnack(context, "We couldn't reach PlayHuud. Check your internet.");
+      huudSnack(context, "Error has occurred, try again later.");
       nav.maybePop();
     }
   }

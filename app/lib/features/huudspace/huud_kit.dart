@@ -63,7 +63,8 @@ class HuudBackdrop extends StatelessWidget {
   }
 }
 
-const huudGameOrder = ['whot', 'draughts', 'chess', 'ludo', 'wordbluff', 'truearena', 'goosi'];
+// Same order as the games grid. SlayHuud starts from its own hub, not a Huud table.
+const huudGameOrder = ['truearena', 'wordbluff', 'monopoly', 'chess', 'draughts', 'ludo', 'whot', 'goosi'];
 
 const huudGameEmoji = {
   'truearena': '🕵️',
@@ -73,6 +74,7 @@ const huudGameEmoji = {
   'goosi': '🥜',
   'whot': '🃏',
   'ludo': '🎲',
+  'monopoly': '🏠',
 };
 
 String huudGameName(String? gameType) => huudGameNames[gameType] ?? 'a game';

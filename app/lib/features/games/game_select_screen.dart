@@ -1,3 +1,4 @@
+import '../huudspace/create_huud_sheet.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/neon_theme.dart';
@@ -33,18 +34,21 @@ class GameCatalogEntry {
   final bool available;
 }
 
+// Two per row on the games grid: Traitors · SlayHuud, Word Bluff · Monopoly,
+// Chess · Draughts, Ludo · Whot, then Macala.
 const List<GameCatalogEntry> gameCatalog = [
-  GameCatalogEntry(
-      id: 'slayhuud',
-      name: 'SlayHuud',
-      emoji: '✨',
-      tagline: 'Style · compete · own the spotlight',
-      available: true),
   GameCatalogEntry(
     id: 'truearena',
     name: 'Traitors',
     emoji: '🎭',
     tagline: 'Social deduction · 5 modes',
+    available: true,
+  ),
+  GameCatalogEntry(
+    id: 'slayhuud',
+    name: 'SlayHuud',
+    emoji: '✨',
+    tagline: 'Style · compete · own the spotlight',
     available: true,
   ),
   GameCatalogEntry(
@@ -55,10 +59,10 @@ const List<GameCatalogEntry> gameCatalog = [
     available: true,
   ),
   GameCatalogEntry(
-    id: 'draughts',
-    name: 'Draughts',
-    emoji: '⚫',
-    tagline: '1v1 · 10x10 · flying kings',
+    id: 'monopoly',
+    name: 'Monopoly',
+    emoji: '🏠',
+    tagline: '2–8 players · buy, build & trade',
     available: true,
   ),
   GameCatalogEntry(
@@ -69,10 +73,10 @@ const List<GameCatalogEntry> gameCatalog = [
     available: true,
   ),
   GameCatalogEntry(
-    id: 'whot',
-    name: 'Whot',
-    emoji: '🔴',
-    tagline: '2–20 players · shapes & numbers · shed your hand',
+    id: 'draughts',
+    name: 'Draughts',
+    emoji: '⚫',
+    tagline: '1v1 · 10x10 · flying kings',
     available: true,
   ),
   GameCatalogEntry(
@@ -80,6 +84,13 @@ const List<GameCatalogEntry> gameCatalog = [
     name: 'Ludo',
     emoji: '🎲',
     tagline: '2–4 players · two dice · Cyber Agents',
+    available: true,
+  ),
+  GameCatalogEntry(
+    id: 'whot',
+    name: 'Whot',
+    emoji: '🔴',
+    tagline: '2–20 players · shapes & numbers · shed your hand',
     available: true,
   ),
   GameCatalogEntry(
@@ -126,7 +137,13 @@ class GameSelectScreen extends StatelessWidget {
                 if (g.id == 'slayhuud') {
                   Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const SlayHubScreen()));
-                } else if (g.id == 'draughts') {
+                  return;
+                }
+                if (g.id == 'monopoly') {
+                  await openHuudForGame(context, 'monopoly');
+                  return;
+                }
+                if (g.id == 'draughts') {
                   Navigator.of(context).push(MaterialPageRoute(
                     builder: (_) => const DraughtsModeScreen(),
                   ));

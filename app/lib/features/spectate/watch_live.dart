@@ -13,7 +13,7 @@ const kAlreadyPlaying = 'already playing';
 /// True when a join failed only because the game is live — in which case the
 /// person should be taken to watch it, not shown an error.
 bool isAlreadyPlaying(Object error) =>
-    error is ApiException && error.status == 409 && error.message.toLowerCase().contains(kAlreadyPlaying);
+    error is ApiException && error.status == 409 && (error.diagnosticMessage == 'ALREADY_PLAYING' || error.diagnosticMessage.toLowerCase().contains(kAlreadyPlaying));
 
 /// Opens the live view of the huud with [code]. Returns whether it opened;
 /// when it can't (the game isn't live, a private match) the reason is shown
@@ -43,7 +43,7 @@ Future<bool> watchHuudByCode(
   } on ApiException catch (e) {
     msg?.showSnackBar(SnackBar(content: Text(e.message)));
   } catch (_) {
-    msg?.showSnackBar(const SnackBar(content: Text('Could not reach the server')));
+    msg?.showSnackBar(const SnackBar(content: Text('Error has occurred, try again later.')));
   }
   return false;
 }

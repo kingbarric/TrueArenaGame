@@ -1,3 +1,4 @@
+import '../monopoly/monopoly_game_screen.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -29,8 +30,9 @@ import '../../widgets/lobby_start_bar.dart';
 /// `POST /rooms/join` response says so) and never posts `GAME_START` itself
 /// since a joiner is essentially never the host.
 class JoinedRoomScreen extends StatefulWidget {
-  const JoinedRoomScreen({super.key, required this.room});
+  const JoinedRoomScreen({super.key, required this.room, this.socket});
   final RoomView room;
+  final GameSocket? socket;
 
   @override
   State<JoinedRoomScreen> createState() => _JoinedRoomScreenState();
@@ -83,7 +85,7 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
       return;
     }
     _app = AppScope.of(context);
-    final socket = GameSocket.connect(_app.api, _room.id);
+    final socket = widget.socket ?? GameSocket.connect(_app.api, _room.id);
     _socket = socket;
     _sub = socket.envelopes.listen((env) {
       if (!mounted) return;
@@ -95,7 +97,8 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
           // HELLO response arrives, so the game screen receives the first
           // snapshot itself instead of briefly rendering an empty board.
           final payload = (env['payload'] as Map?)?.cast<String, dynamic>();
-          if (payload?['connected'] == true && _room.status == 'in_game') {
+          if (payload?['connected'] == true && _room.status == 'in_game' &&
+              _room.gameType != 'monopoly') {
             _handOffToGame();
           }
         case 'SNAPSHOT':
@@ -139,6 +142,7 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
     final self = _selfId();
     if ((p['status'] as String? ?? 'lobby') == 'lobby' &&
         self.isNotEmpty &&
+        !(_room.gameType == 'monopoly' && p['hostId'] == self) &&
         !members.any((m) => m.userId == self)) {
       _handedOff = false;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -204,6 +208,11 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
                   else if (m.isBot)
                     m.userId: '🤖'
               }),
+        'monopoly' => MonopolyGameScreen(
+            socket: _socket!,
+            selfId: selfId,
+            roomCode: _room.code,
+            nicknames: nicknames),
         'ludo' => LudoGameScreen(
               socket: _socket!,
               selfId: selfId,
@@ -248,6 +257,7 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
           'chess' => 'Chess',
           'goosi' => 'Macala',
           'whot' => 'Whot',
+          'monopoly' => 'Monopoly',
           'ludo' => 'Ludo',
           _ => 'Traitors',
         }),
@@ -440,7 +450,8 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
     final isHost = _room.hostId == _selfId();
     // The Tell can only start with pairs of people.
     final tellProblem = _huud?.currentGame?.tell == true
-        ? tellStartProblem(_room.members.where((m) => !m.isBot).length, _room.members.where((m) => m.isBot).length)
+        ? tellStartProblem(_room.members.where((m) => !m.isBot).length,
+            _room.members.where((m) => m.isBot).length)
         : null;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
@@ -450,7 +461,8 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
         // One big Start for the host; nobody has to "ready up".
         LobbyStartBar(
             isHost: isHost,
-            onStart: tellProblem == null ? () => _socket?.send('GAME_START') : null,
+            onStart:
+                tellProblem == null ? () => _socket?.send('GAME_START') : null,
             hint: tellProblem),
       ]),
     );

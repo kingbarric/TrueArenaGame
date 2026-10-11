@@ -1,3 +1,4 @@
+import '../../core/api_client.dart' show userErrorMessage;
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -154,7 +155,7 @@ class _PublishVictoryState extends State<_PublishVictory> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content:
-                Text('Could not post this victory yet. Try again shortly.')));
+                Text('Error has occurred, try again later.')));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -180,7 +181,7 @@ class _PublishVictoryState extends State<_PublishVictory> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not open the share sheet.')));
+            const SnackBar(content: Text('Error has occurred, try again later.')));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -258,7 +259,7 @@ class _StatusScreenState extends State<StatusScreen> {
         _error = null;
       });
     } catch (_) {
-      if (mounted) setState(() => _error = 'Could not load statuses');
+      if (mounted) setState(() => _error = 'Error has occurred, try again later.');
     }
   }
 
@@ -277,7 +278,7 @@ class _StatusScreenState extends State<StatusScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(18, 20, 18, 100),
                 children: [
-                  if (_error != null) Center(child: Text(_error!)),
+                  if (_error != null) Center(child: Text(userErrorMessage)),
                   if (active?.isEmpty == true)
                     const Center(
                         child: Padding(

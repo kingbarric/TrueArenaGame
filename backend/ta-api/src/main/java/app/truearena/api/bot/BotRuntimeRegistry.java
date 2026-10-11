@@ -14,6 +14,10 @@ public class BotRuntimeRegistry {
 
     private final Map<RuntimeKey, BotRuntime> runtimes = new ConcurrentHashMap<>();
 
+    public boolean contains(UUID roomId, UUID botId) {
+        return runtimes.containsKey(new RuntimeKey(roomId, botId));
+    }
+
     public void register(UUID roomId, UUID botId, BotRuntime runtime) {
         BotRuntime previous = runtimes.put(new RuntimeKey(roomId, botId), runtime);
         if (previous != null) {

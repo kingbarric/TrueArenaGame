@@ -21,6 +21,7 @@ public class GameBotAdapterFactory {
             case "wordbluff" -> new WordBluffBotAdapter();
             case "whot" -> new WhotBotAdapter();
             case "ludo" -> new LudoBotAdapter();
+            case "monopoly" -> new MonopolyBotAdapter();
             default -> null;
         };
     }

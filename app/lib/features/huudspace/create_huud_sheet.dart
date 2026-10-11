@@ -98,7 +98,7 @@ class _CreateHuudSheetState extends State<CreateHuudSheet> {
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted) setState(() => _error = "We couldn't reach PlayHuud. Check your internet and try again.");
+      if (mounted) setState(() => _error = "Error has occurred, try again later.");
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -178,7 +178,7 @@ class _CreateHuudSheetState extends State<CreateHuudSheet> {
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 10),
-                child: Text(_error!,
+                child: Text(userErrorMessage,
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: n.danger)),
               ),
@@ -298,7 +298,10 @@ class _CreateHuudSheetState extends State<CreateHuudSheet> {
       height: 92,
       child: ListView(scrollDirection: Axis.horizontal, children: [
         tile(null),
-        for (final g in huudGameOrder) tile(g),
+        // The game the Huud was opened for leads, so it's in view already picked.
+        if (huudGameOrder.contains(widget.gameType)) tile(widget.gameType),
+        for (final g in huudGameOrder)
+          if (g != widget.gameType) tile(g),
       ]),
     );
   }

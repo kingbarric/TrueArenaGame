@@ -1,3 +1,4 @@
+import '../../core/api_client.dart' show userErrorMessage;
 import 'package:flutter/material.dart';
 
 import '../../core/app_state.dart';
@@ -103,7 +104,7 @@ class _AllTimeRankingsScreenState extends State<AllTimeRankingsScreen> {
       });
     } catch (_) {
       if (mounted && ticket == _request)
-        setState(() => _error = "We couldn't load the rankings. Pull down to try again.");
+        setState(() => _error = "Error has occurred, try again later.");
     }
   }
 
@@ -166,7 +167,7 @@ class _AllTimeRankingsScreenState extends State<AllTimeRankingsScreen> {
                     ? ListView(children: [
                         Padding(
                           padding: const EdgeInsets.all(32),
-                          child: Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: n.mid)),
+                          child: Text(userErrorMessage, textAlign: TextAlign.center, style: TextStyle(color: n.mid)),
                         ),
                       ])
                     : top == null

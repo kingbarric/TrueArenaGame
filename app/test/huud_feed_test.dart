@@ -409,12 +409,12 @@ void main() {
       }
       return http.Response('not found', 404);
     });
-    expect(find.text('feed is down'), findsOneWidget);
+    expect(find.text(userErrorMessage), findsOneWidget);
 
     fail = false;
     await tester.tap(find.text('Retry'));
     await tester.pumpAndSettle();
-    expect(find.text('feed is down'), findsNothing);
+    expect(find.text(userErrorMessage), findsNothing);
     expect(find.text('Ranked Draughts, anyone? Winner stays on.'), findsOneWidget);
   });
 

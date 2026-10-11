@@ -78,7 +78,7 @@ public class RoomService {
         } catch (Exception e) { return 2; }
     }
 
-    private static final java.util.Set<String> GAME_TYPES = java.util.Set.of("truearena", "wordbluff", "draughts", "goosi", "whot", "ludo", "chess", "slayhuud");
+    private static final java.util.Set<String> GAME_TYPES = java.util.Set.of("truearena", "wordbluff", "draughts", "goosi", "whot", "ludo", "chess", "monopoly", "slayhuud");
 
     /** A guest can join any room, but hosting (creating) one needs a real
      * account — otherwise there's no way to reach them again if the app is
@@ -221,7 +221,7 @@ public class RoomService {
                                 // which sent people to watch something that wasn't live.
                                 ? Mono.error(ApiExceptions.conflict("this huud has already ended"))
                                 : members.countByRoomId(room.id())
-                                .flatMap(count -> count >= (switch (room.gameType()) { case "draughts", "chess", "goosi" -> 2; case "ludo" -> 4; case "slayhuud" -> slaySeats(room.gameConfig()); default -> MAX_PLAYERS; })
+                                .flatMap(count -> count >= (switch (room.gameType()) { case "draughts", "chess", "goosi" -> 2; case "ludo" -> 4; case "slayhuud" -> slaySeats(room.gameConfig()); case "monopoly" -> app.truearena.game.monopoly.MonopolyConfig.MAX_PLAYERS; default -> MAX_PLAYERS; })
                                         ? Mono.error(ApiExceptions.conflict("huud is full"))
                                         : resolvedNickname(userId, nickname)
                                         .flatMap(resolved -> members.save(RoomMemberRow.of(room.id(), userId, resolved)))
@@ -270,7 +270,8 @@ public class RoomService {
                 .switchIfEmpty(Mono.error(ApiExceptions.notFound("huud not found")))
                 .flatMap(room -> {
                     if (!room.hostId().equals(hostId)) return Mono.error(ApiExceptions.forbidden("only the host can do that"));
-                    if (room.hostId().equals(userId)) return Mono.error(ApiExceptions.badRequest("the host keeps their seat"));
+                    if (room.hostId().equals(userId) && (!"monopoly".equals(room.gameType()) || room.stakeCoins() > 0))
+                        return Mono.error(ApiExceptions.badRequest("the host keeps their seat"));
                     boolean started = runtimes.find(roomId).map(RoomRuntime::started).orElse(false);
                     if (started || !"lobby".equals(room.status())) {
                         return Mono.error(ApiExceptions.conflict("the game has already started"));

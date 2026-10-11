@@ -152,7 +152,7 @@ class _WatchPageState extends State<_WatchPage> {
     } on ApiException catch (e) {
       if (mounted) huudSnack(context, e.message);
     } catch (_) {
-      if (mounted) huudSnack(context, "That didn't work — check your internet and try again.");
+      if (mounted) huudSnack(context, "Error has occurred, try again later.");
     } finally {
       if (mounted) setState(() => _busy = false);
       _load();

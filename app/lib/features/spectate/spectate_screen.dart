@@ -53,7 +53,7 @@ class _SpectateScreenState extends State<SpectateScreen> {
     super.didChangeDependencies();
     if (_started) return;
     _started = true;
-    if (const {'whot', 'ludo', 'draughts', 'chess', 'goosi', 'wordbluff', 'slayhuud'}
+    if (const {'whot', 'ludo', 'draughts', 'chess', 'goosi', 'wordbluff', 'monopoly', 'slayhuud'}
         .contains(widget.gameType)) {
       return;
     }
@@ -196,7 +196,7 @@ class _SpectateScreenState extends State<SpectateScreen> {
     if (widget.gameType == 'ludo') {
       return LudoWatchScreen(roomId: widget.roomId);
     }
-    if (const {'draughts', 'chess', 'goosi', 'wordbluff'}.contains(widget.gameType)) {
+    if (const {'draughts', 'chess', 'goosi', 'wordbluff', 'monopoly'}.contains(widget.gameType)) {
       return BoardGameWatchScreen(roomId: widget.roomId);
     }
     final n = context.neon;

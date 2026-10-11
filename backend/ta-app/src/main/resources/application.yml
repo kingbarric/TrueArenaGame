@@ -23,14 +23,10 @@ spring:
 server:
   port: ${PORT:8080}
   error:
-    # Without this, Spring drops the reason off every ResponseStatusException
-    # and the client gets a bare status with no body message — so a refusal
-    # we wrote a careful explanation for ("not enough coins to stake 100")
-    # surfaced in the app as a generic "something went wrong". The client
-    # reads `message` (see ApiClient._send, Flutter); this is what puts it
-    # there. Safe to expose: every message here is one we authored in
-    # ApiExceptions, never a stack trace or internal detail.
-    include-message: always
+    # Technical details stay in server logs; public errors use PublicErrorAdvice.
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
 
 springdoc:
   swagger-ui:
@@ -133,3 +129,4 @@ spring:
 truearena:
   auth:
     otp-dev-bypass-code: ${TEST_OTP_BYPASS_CODE:}
+    otp-allowed-identifiers: ${TEST_OTP_ALLOWED_IDENTIFIERS:}

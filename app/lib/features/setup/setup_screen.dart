@@ -333,7 +333,7 @@ class _SetupScreenState extends State<SetupScreen> {
       decoration: BoxDecoration(color: n.panel, border: Border(top: BorderSide(color: n.line))),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         if (_errors.isNotEmpty)
-          _panel(n.danger, _errors.first + (_errors.length > 1 ? '  (+${_errors.length - 1} more)' : ''))
+          _panel(n.danger, userErrorMessage)
         else if (_warnings.isNotEmpty)
           _panel(n.jade, _warnings.first),
         Padding(

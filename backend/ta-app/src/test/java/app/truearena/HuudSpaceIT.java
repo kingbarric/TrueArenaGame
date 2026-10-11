@@ -72,6 +72,10 @@ class HuudSpaceIT {
     }
 
 
+    @Autowired app.truearena.api.auth.JwtService jwt;
+    @Autowired GameOrchestrator games;
+    @Autowired app.truearena.room.RoomRuntimeRegistry runtimes;
+    @Autowired com.fasterxml.jackson.databind.ObjectMapper mapper;
     @Autowired HuudSpaceService huuds;
     @Autowired HuudSpaceRequestService requests;
     @Autowired HuudSpaceChatService chat;
@@ -114,6 +118,106 @@ class HuudSpaceIT {
         db.sql("UPDATE huud_space_members SET last_seen_at=now() - interval '" + interval + "' "
                 + "WHERE huud_space_id=:id AND user_id=:user").bind("id", huud).bind("user", user)
                 .fetch().rowsUpdated().block();
+    }
+
+    @Test void monopolyReopensSavedBoardPrivateOffersAndPausedTimerAfterRuntimeLoss() throws Exception {
+        UUID host=person("Recovery host"), player=person("Recovery player"), viewer=person("Recovery watcher");
+        var huud=huuds.create(host,"Recovery table","public").block();
+        var room=huuds.addGame(host,huud.id(),"monopoly").block();
+        huuds.joinByCode(player,huud.code()).block();
+        requests.askToPlay(player,huud.id()).block();requests.answer(host,huud.id(),player,"play",true).block();
+        var rt=games.ensureRuntime(room.id()).block();
+        rt.connectedUserIds.add(host.toString());
+        games.handleFrame(rt,host.toString(),mapper.writeValueAsString(app.truearena.ws.contract.Envelope.of(app.truearena.ws.contract.MessageType.GAME_START,java.util.Map.of())),false).block();
+        games.handleFrame(rt,host.toString(),mapper.writeValueAsString(app.truearena.ws.contract.Envelope.of(app.truearena.ws.contract.MessageType.PLAYER_ACTION,java.util.Map.of("action","OFFER_TRADE","actionId","recovery-offer","data",java.util.Map.of("to",player.toString(),"giveCash",10,"takeCash",0)))),false).block();
+        games.handleFrame(rt,host.toString(),mapper.writeValueAsString(app.truearena.ws.contract.Envelope.of(app.truearena.ws.contract.MessageType.PLAYER_ACTION,java.util.Map.of("action","ROLL","actionId","recovery-roll","data",java.util.Map.of()))),false).block();
+        games.handleFrame(rt,host.toString(),mapper.writeValueAsString(app.truearena.ws.contract.Envelope.of(app.truearena.ws.contract.MessageType.PAUSE_TOGGLE,java.util.Map.of())),false).block();
+        String before=mapper.writeValueAsString(rt.module().visibleStateFor(rt.state(),host.toString()).data());
+        games.handleFrame(rt,host.toString(),mapper.writeValueAsString(app.truearena.ws.contract.Envelope.of(
+                app.truearena.ws.contract.MessageType.PLAYER_ACTION,java.util.Map.of("action","END_TURN","actionId","paused-move","data",java.util.Map.of()))),false).block();
+        assertThat(mapper.writeValueAsString(rt.module().visibleStateFor(rt.state(),host.toString()).data())).isEqualTo(before);
+        UUID session=rt.gameSessionId; long remaining=rt.timerRemainingMs;
+        assertThat(db.sql("SELECT runtime_state IS NOT NULL AS saved FROM game_sessions WHERE id=:id").bind("id",session).map((r,m)->r.get("saved",Boolean.class)).one().block()).isTrue();
+        rt.cancelTimer();runtimes.remove(room.id());
+        var recovered=games.ensureRuntime(room.id()).block();
+        assertThat(recovered).isNotSameAs(rt);assertThat(recovered.gameSessionId).isEqualTo(session);
+        assertThat(recovered.paused).isTrue();assertThat(recovered.timer).isNull();
+        assertThat(recovered.timerRemainingMs).isEqualTo(remaining);
+        assertThat(mapper.writeValueAsString(recovered.module().visibleStateFor(recovered.state(),host.toString()).data())).isEqualTo(before);
+        var publicView=mapper.convertValue(recovered.module().broadcastState(recovered.state()).data(),java.util.Map.class);
+        assertThat(publicView).doesNotContainKeys("seed","chance","chest","tradeOffers","legalActions");
+        assertThat(huuds.view(huud.id(),host).block().currentGame().status()).isEqualTo("playing");
+        games.handleFrame(recovered,player.toString(),mapper.writeValueAsString(app.truearena.ws.contract.Envelope.of(
+                app.truearena.ws.contract.MessageType.PLAYER_ACTION,java.util.Map.of("action","FORFEIT","actionId","recovery-quit","data",java.util.Map.of()))),false).block();
+        assertThat(recovered.state().finished()).isTrue();
+        assertThat(huuds.view(huud.id(),host).block().currentGame().status()).isEqualTo("finished");
+        assertThat(huuds.view(huud.id(),player).block().youAreIn()).isTrue();
+    }
+
+    @Test void interruptedLegacyMonopolyReturnsToSetupWithoutEndingTheHuud() {
+        UUID host=person("Legacy host");
+        var huud=huuds.create(host,"Legacy table","private").block();
+        var room=huuds.addGame(host,huud.id(),"monopoly").block();
+        db.sql("UPDATE rooms SET status='in_game' WHERE id=:id").bind("id",room.id()).fetch().rowsUpdated().block();
+        db.sql("INSERT INTO game_sessions(room_id,game_type,config,catalog_version,rng_seed,phase,round) "
+                + "VALUES(:id,'monopoly','{}'::jsonb,1,9,'Roll',1)").bind("id",room.id()).fetch().rowsUpdated().block();
+        var rt=games.ensureRuntime(room.id()).block();
+        assertThat(rt.started()).isFalse();
+        var view=huuds.view(huud.id(),host).block();
+        assertThat(view.status()).isEqualTo("active");assertThat(view.currentGame().status()).isEqualTo("waiting");
+        assertThat(view.currentGame().playerIds()).contains(host);
+        assertThat(view.youAreIn()).isTrue();
+        assertThat(db.sql("SELECT phase FROM game_sessions WHERE room_id=:id").bind("id",room.id())
+                .map((r,m)->r.get("phase",String.class)).one().block()).isEqualTo("Interrupted");
+    }
+
+    @Test void monopolyUsesSeparateJoinAndPlayRequestsAndKeepsTheHuudAcrossActivities() throws Exception {
+        UUID host=person("Monopoly host"), player=person("Monopoly player"), viewer=person("Monopoly viewer");
+        var huud=huuds.create(host,"Classic table","public").block();
+        var room=huuds.addGame(host,huud.id(),"monopoly").block();
+        assertThat(huuds.view(huud.id(),host).block().currentGame().seats()).isEqualTo(8);
+        huuds.joinByCode(player,huud.code()).block();
+        assertThat(huuds.view(huud.id(),player).block().currentGame().youArePlaying()).isFalse();
+        requests.askToPlay(player,huud.id()).block();requests.answer(host,huud.id(),player,"play",true).block();
+        assertThat(huuds.view(huud.id(),player).block().youCanSpeak()).isTrue();
+        huuds.watch(viewer,huud.id()).block();
+        chat.send(player,huud.id(),"Let's build a street").block();
+        var rt=games.ensureRuntime(room.id()).block();
+        games.handleFrame(rt,player.toString(),mapper.writeValueAsString(app.truearena.ws.contract.Envelope.of(app.truearena.ws.contract.MessageType.GAME_START,java.util.Map.of())),false).block();
+        assertThat(rt.started()).isFalse();
+        games.handleFrame(rt,host.toString(),mapper.writeValueAsString(app.truearena.ws.contract.Envelope.of(app.truearena.ws.contract.MessageType.GAME_START,java.util.Map.of())),false).block();
+        assertThat(rt.module().gameType()).isEqualTo("monopoly");
+        assertThat(rt.module().broadcastState(rt.state()).data().get("players")).isEqualTo(java.util.List.of(host.toString(),player.toString()));
+        assertThatThrownBy(()->requests.askToPlay(viewer,huud.id()).block()).isInstanceOf(ResponseStatusException.class);
+        assertThat(huuds.view(huud.id(),host).block().watching()).isEqualTo(1);
+        assertThat(chat.messages(player,huud.id(),null).collectList().block()).hasSize(1);
+        // A temporary disconnect does not remove a token or end the game.
+        games.onDisconnect(rt,player.toString()).block();
+        assertThat(rt.state().finished()).isFalse();
+        assertThat(huuds.view(huud.id(),host).block().live()).isTrue();
+        // Results stay inside the same social Huud; switching activity keeps chat and audience.
+        rt.cancelTimer();
+        db.sql("UPDATE rooms SET status='ended' WHERE id=:id").bind("id",room.id()).fetch().rowsUpdated().block();
+        huuds.addGame(host,huud.id(),"chess").block();
+        var after=huuds.view(huud.id(),host).block();
+        assertThat(after.id()).isEqualTo(huud.id());assertThat(after.code()).isEqualTo(huud.code());assertThat(after.watching()).isEqualTo(1);
+        assertThat(chat.messages(player,huud.id(),null).collectList().block()).hasSize(1);
+    }
+
+    @Test void monopolyHostCanWatchAndStartWithoutOccupyingAPlayerSeat() throws Exception {
+        UUID owner=person("Watching host"), a=person("Player A"), b=person("Player B");
+        var huud=huuds.create(owner,"Host is watching","public").block();
+        var room=huuds.addGame(owner,huud.id(),"monopoly").block();
+        for(UUID p:java.util.List.of(a,b)) huuds.joinByCode(p,huud.code()).block();
+        requests.pick(owner,huud.id(),java.util.List.of(a,b)).block();requests.unpick(owner,huud.id(),owner).block();
+        var before=huuds.view(huud.id(),owner).block();assertThat(before.currentGame().youArePlaying()).isFalse();assertThat(before.currentGame().playerIds()).containsExactlyInAnyOrder(a,b);
+        assertThat(games.authenticate(room.id().toString(),jwt.issueAccess(owner),false).block().userId()).isEqualTo(owner.toString());
+        var rt=games.ensureRuntime(room.id()).block();
+        games.handleFrame(rt,owner.toString(),mapper.writeValueAsString(app.truearena.ws.contract.Envelope.of(app.truearena.ws.contract.MessageType.GAME_START,java.util.Map.of())),false).block();
+        assertThat(rt.started()).isTrue();
+        assertThat(rt.module().broadcastState(rt.state()).data().get("players")).isEqualTo(java.util.List.of(a.toString(),b.toString()));
+        assertThatThrownBy(()->rt.module().onPlayerAction(rt.state(),app.truearena.engine.PlayerAction.of(owner.toString(),"ROLL",java.util.Map.of()))).isInstanceOf(app.truearena.engine.RuleViolation.class);
+        games.onDisconnect(rt,owner.toString()).block();assertThat(rt.hostUserId).isEqualTo(owner.toString());rt.cancelTimer();
     }
 
     @Test void createDefaultsToFriendsAndANameAndReopensInsteadOfDuplicating() {
@@ -734,6 +838,8 @@ class HuudSpaceIT {
         assertThat(huuds.view(huud.id(), friend).block().background()).isEqualTo("club");
         // Changing the name leaves the backdrop alone; "default" clears it.
         assertThat(huuds.update(host, huud.id(), "Party", null, null).block().background()).isEqualTo("club");
+        for (String backdrop : List.of("blank", "lounge", "poolside", "club"))
+            assertThat(huuds.update(host, huud.id(), null, null, backdrop).block().background()).isEqualTo(backdrop);
         assertThat(huuds.update(host, huud.id(), null, null, "default").block().background()).isNull();
         assertThatThrownBy(() -> huuds.update(friend, huud.id(), null, null, "lounge").block())
                 .isInstanceOf(ResponseStatusException.class);

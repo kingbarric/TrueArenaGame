@@ -1,3 +1,4 @@
+import '../../core/api_client.dart' show userErrorMessage;
 import 'package:flutter/material.dart';
 
 import '../../core/app_state.dart';
@@ -63,7 +64,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       if (mounted) {
         setState(() {
           _loading = false;
-          _error = 'Could not load rankings';
+          _error = 'Error has occurred, try again later.';
         });
       }
     }
@@ -157,7 +158,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     if (_error != null) {
       return Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text(_error!, style: TextStyle(color: n.danger)),
+          Text(userErrorMessage, style: TextStyle(color: n.danger)),
           const SizedBox(height: 12),
           NeonButton('Retry', expand: false, style: NeonStyle.ghost, onPressed: _load),
         ]),

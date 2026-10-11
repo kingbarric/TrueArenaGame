@@ -274,6 +274,10 @@ class HomeScreen extends StatelessWidget {
 
   /// The game's own lobby: play a bot, open a quick table, join by code.
   Future<void> _openQuickLobby(BuildContext context, GameCatalogEntry g) async {
+    if (g.id == 'monopoly') {
+      await openHuudForGame(context, 'monopoly');
+      return;
+    }
     if (g.id == 'draughts') {
       Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => const DraughtsModeScreen(),

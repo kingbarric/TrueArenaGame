@@ -150,7 +150,7 @@ void main() {
       final cards = buildPlayerCards(CompetitiveProfile.fromJson(_profileJson()));
       // Overall, then the ranked game, then every other game — played or not.
       expect(cards.map((c) => c.title),
-          ['OVERALL', 'DRAUGHTS', 'SLAYHUUD', 'TRAITORS', 'WORD BLUFF', 'CHESS', 'WHOT', 'LUDO', 'MACALA']);
+          ['OVERALL', 'DRAUGHTS', 'TRAITORS', 'SLAYHUUD', 'WORD BLUFF', 'MONOPOLY', 'CHESS', 'LUDO', 'WHOT', 'MACALA']);
       final overall = cards.first;
       // 291 wins × 20 + 13 draws × 8 + 124 losses × 3.
       expect(overall.bigValue, '6,296');
@@ -165,7 +165,7 @@ void main() {
 
     test('a player with nothing rated still gets every card, blank', () {
       final cards = buildPlayerCards(CompetitiveProfile.fromJson(_profileJson(rated: false)));
-      expect(cards, hasLength(9));
+      expect(cards, hasLength(10));
       expect(cards.every((c) => c.blank), isTrue);
       expect(cards[1].bigValue, '—');
       expect(cards[1].bigLabel, 'UNRATED');

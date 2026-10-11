@@ -99,6 +99,9 @@ public class BotService {
             if ("ludo".equals(room.gameType()) && seats >= 4) {
                 return Mono.error(ApiExceptions.conflict("Ludo has four seats"));
             }
+            if ("monopoly".equals(room.gameType()) && seats >= app.truearena.game.monopoly.MonopolyConfig.MAX_PLAYERS) {
+                return Mono.error(ApiExceptions.conflict("Monopoly has eight seats"));
+            }
             return users.findSystemAgentForRoom(room.id())
                     .switchIfEmpty(Mono.error(ApiExceptions.conflict("no Cyber Agent seat is available")))
                     .flatMap(agent -> members.save(RoomMemberRow.bot(room.id(), agent.id(), name,
@@ -152,11 +155,23 @@ public class BotService {
             case "wordbluff" -> "Word Bluff";
             case "whot" -> "Whot";
             case "ludo" -> "Ludo";
+            case "monopoly" -> "Monopoly";
             default -> "Traitors";
         };
         BotRuntime runtime = new BotRuntime(mapper, uri, adapter, picker, botId.toString(), difficulty,
                 name, gameName);
         registry.register(room.id(), botId, runtime);
         runtime.start();
+    }
+
+    /** Reconnect existing room-scoped agents after Monopoly runtime recovery. */
+    public Mono<Void> resumeMonopolyRoom(RoomRow room) {
+        if (!"monopoly".equals(room.gameType()) || "ended".equals(room.status())) return Mono.empty();
+        return members.findByRoomId(room.id())
+                .filter(member -> member.botDifficulty() != null && !registry.contains(room.id(), member.userId()))
+                .concatMap(member -> users.findById(member.userId()).filter(UserRow::isBot)
+                        .doOnNext(agent -> startRuntime(room, member.userId(), member.nickname(),
+                                Difficulty.parse(member.botDifficulty()))))
+                .then();
     }
 }

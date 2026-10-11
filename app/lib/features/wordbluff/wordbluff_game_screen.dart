@@ -917,7 +917,7 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
         _leaving = false;
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Server error. Please try again.')),
+            const SnackBar(content: Text('Error has occurred, try again later.')),
           );
         }
         return;

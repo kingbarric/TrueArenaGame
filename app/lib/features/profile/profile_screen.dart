@@ -97,7 +97,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final stats = await app.fetchStats();
       if (mounted) setState(() => _stats = stats);
     } catch (_) {
-      if (mounted) setState(() => _statsError = 'Could not load your stats');
+      if (mounted) setState(() => _statsError = 'Error has occurred, try again later.');
     }
   }
 

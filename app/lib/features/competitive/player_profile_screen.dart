@@ -1,3 +1,4 @@
+import '../../core/api_client.dart' show userErrorMessage;
 import 'package:flutter/material.dart';
 
 import '../../core/app_state.dart';
@@ -106,7 +107,7 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _error = 'Could not load this player');
+      if (mounted) setState(() => _error = 'Error has occurred, try again later.');
     }
   }
 
@@ -131,7 +132,7 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
       ),
       body: SafeArea(
         child: _error != null
-            ? Center(child: Text(_error!, style: TextStyle(color: n.danger)))
+            ? Center(child: Text(userErrorMessage, style: TextStyle(color: n.danger)))
             : p == null
                 ? const Center(child: CircularProgressIndicator())
                 : ListView(padding: const EdgeInsets.symmetric(vertical: 20), children: [
@@ -229,7 +230,7 @@ class CompetitiveRecordSection extends StatelessWidget {
           } catch (_) {
             if (context.mounted) {
               ScaffoldMessenger.of(context)
-                  .showSnackBar(const SnackBar(content: Text('Could not open the share sheet.')));
+                  .showSnackBar(const SnackBar(content: Text('Error has occurred, try again later.')));
             }
           }
         },
@@ -309,7 +310,7 @@ class _ProfileVisibilitySwitchState extends State<ProfileVisibilitySwitch> {
       if (mounted) {
         setState(() => _public = !value);
         ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Could not update your profile visibility')));
+            .showSnackBar(const SnackBar(content: Text('Error has occurred, try again later.')));
       }
     } finally {
       if (mounted) setState(() => _saving = false);

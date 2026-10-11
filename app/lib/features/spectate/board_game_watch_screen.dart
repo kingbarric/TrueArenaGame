@@ -1,3 +1,5 @@
+import '../../core/api_client.dart' show userErrorMessage;
+import '../monopoly/monopoly_game_screen.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/app_state.dart';
@@ -41,7 +43,7 @@ class _BoardGameWatchScreenState extends State<BoardGameWatchScreen> {
         _socket = socket;
       });
     }).catchError((_) {
-      if (mounted) setState(() => _error = 'Could not open this game');
+      if (mounted) setState(() => _error = 'Error has occurred, try again later.');
     });
   }
 
@@ -61,13 +63,21 @@ class _BoardGameWatchScreenState extends State<BoardGameWatchScreen> {
         body: Center(
             child: _error == null
                 ? const CircularProgressIndicator()
-                : Text(_error!)),
+                : Text(userErrorMessage)),
       );
     }
     final names = {
       for (final member in room.members)
         member.userId: member.nickname ?? member.userId,
     };
+    if (room.gameType == 'monopoly') {
+      return MonopolyGameScreen(
+          socket: socket,
+          selfId: _selfId,
+          nicknames: names,
+          roomCode: room.code,
+          spectating: true);
+    }
     if (room.gameType == 'chess') {
       return ChessGameScreen(
         socket: socket,

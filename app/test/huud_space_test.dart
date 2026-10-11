@@ -787,6 +787,20 @@ void main() {
     expect(find.textContaining('is playing'), findsNothing);
   });
 
+  testWidgets('Monopoly organiser can give up their seat and still open the game to start', (tester) async {
+    var playing=true;
+    final calls=await pump(tester, const HuudSpaceScreen(id:'h1'), (r) async {
+      if(r.method=='DELETE' && r.url.path.endsWith('/players/me'))playing=false;
+      return _json(_huud(game:{'roomId':'room1','code':'AB12CD','gameType':'monopoly','status':'waiting','players':playing?3:2,'seats':8,'playerIds':[if(playing)'me','ada','chidi'],'youArePlaying':playing,'table':[if(playing){'userId':'me','displayName':'Eric','bot':false,'ready':false},{'userId':'ada','displayName':'Ada','bot':false,'ready':false},{'userId':'chidi','displayName':'Chidi','bot':false,'ready':false}]}));
+    });
+    await tester.drag(find.byType(CustomScrollView).first,const Offset(0,-400));await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('roster-add-agent')),findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('roster-me')));await tester.pumpAndSettle();
+    expect(calls,contains('DELETE /api/v1/huud-spaces/h1/game/players/me'));
+    expect(find.text('Open the game to start'),findsOneWidget);
+    expect(find.text('2 / 8 playing'),findsOneWidget);
+  });
+
   testWidgets('the game lobby of a Huud game lists the Huud instead of a room code', (tester) async {
     await pump(
         tester,
@@ -900,6 +914,22 @@ void main() {
     expect(find.text('Open the game'), findsOneWidget);
     expect(find.byKey(const ValueKey('huud-add-players')), findsNothing);
     expect(find.byKey(const ValueKey('unseat-ada')), findsNothing);
+  });
+
+  testWidgets('SQL background update errors are never displayed to the user', (tester) async {
+    await pump(tester, const HuudSpaceScreen(id: 'h1'), (r) async {
+      if (r.method == 'PATCH') return http.Response(jsonEncode({'message':'SQL UPDATE huud_spaces violates huud_spaces_background_check'}),500);
+      return _json(_huud());
+    });
+    await tester.tap(find.byKey(const ValueKey('huud-settings')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('bg-blank')));
+    await tester.ensureVisible(find.text('Save'));
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(find.text(userErrorMessage),findsOneWidget);
+    expect(find.textContaining('SQL'),findsNothing);
+    expect(find.textContaining('UPDATE'),findsNothing);
   });
 
   testWidgets('the host picks a background in settings; the Huud shows it faded behind everything', (tester) async {

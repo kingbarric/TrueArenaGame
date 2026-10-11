@@ -23,6 +23,7 @@ class GameBadge extends StatelessWidget {
     'goosi': Color(0xff0e2e1c),
     'whot': Color(0xff52202b),
     'ludo': Color(0xff351639),
+    'monopoly': Color(0xff305644),
   };
 
   static const _ring = {
@@ -34,6 +35,7 @@ class GameBadge extends StatelessWidget {
     'goosi': Color(0xff5eead4),
     'whot': Color(0xffe9b963),
     'ludo': Color(0xffffcf66),
+    'monopoly': Color(0xffe8bb68),
   };
 
   static const _names = {
@@ -45,6 +47,7 @@ class GameBadge extends StatelessWidget {
     'goosi': 'MACALA',
     'whot': 'WHOT',
     'ludo': 'LUDO',
+    'monopoly': 'MONOPOLY',
   };
 
   static const _artwork = {
@@ -56,6 +59,7 @@ class GameBadge extends StatelessWidget {
     'ludo': 'assets/images/game_icons/ludo.png',
     'chess': 'assets/images/game_icons/chess.png',
     'slayhuud': 'assets/images/game_icons/slayhuud.png',
+    'monopoly': 'assets/images/game_icons/monopoly.png',
   };
 
   static String? artworkFor(String gameId) => _artwork[gameId];

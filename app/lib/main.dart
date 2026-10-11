@@ -10,6 +10,9 @@ import 'features/calls/incoming_call_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  ErrorWidget.builder = (_) => const Material(
+    child: Center(child: Text(userErrorMessage, textAlign: TextAlign.center)),
+  );
   final state = AppState(ApiClient());
   final push = await PushNotifications.init(state);
   state.onSignedIn = () => push.requestPermissionAndRegister();

@@ -59,7 +59,6 @@ class InviteContactsScreen extends StatefulWidget {
 
 class _InviteContactsScreenState extends State<InviteContactsScreen> {
   _Status _status = _Status.requesting;
-  String? _error;
   List<_MatchedContact> _matched = const [];
   List<_UnmatchedContact> _unmatched = const [];
   final _sendingTo = <String>{};
@@ -117,7 +116,7 @@ class _InviteContactsScreenState extends State<InviteContactsScreen> {
       if (!mounted) return;
       setState(() { _status = _Status.ready; _matched = matched; _unmatched = unmatched; });
     } catch (_) {
-      if (mounted) { setState(() { _status = _Status.error; _error = 'Could not read your contacts'; }); }
+      if (mounted) { setState(() { _status = _Status.error; }); }
     }
   }
 
@@ -201,7 +200,7 @@ class _InviteContactsScreenState extends State<InviteContactsScreen> {
       case _Status.error:
         return Center(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text(_error ?? 'Something went wrong', style: TextStyle(color: n.danger)),
+            Text(userErrorMessage, style: TextStyle(color: n.danger)),
             const SizedBox(height: 12),
             NeonButton('Retry', style: NeonStyle.ghost, expand: false, onPressed: _load),
           ]),

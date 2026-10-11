@@ -63,7 +63,7 @@ class _GoosiLobbyScreenState extends State<GoosiLobbyScreen> {
     } catch (_) {
       if (mounted)
         setState(
-            () => _error = 'Could not check your waiting Huud. Try again.');
+            () => _error = 'Error has occurred, try again later.');
       return;
     }
     final chosenMode = await _chooseMode();
@@ -266,7 +266,7 @@ class _GoosiLobbyScreenState extends State<GoosiLobbyScreen> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not add the Cyber Agent')));
+            const SnackBar(content: Text('Error has occurred, try again later.')));
       }
     } finally {
       if (mounted) setState(() => _addingBot = false);
@@ -320,7 +320,7 @@ class _GoosiLobbyScreenState extends State<GoosiLobbyScreen> {
             if (_error != null)
               Padding(
                   padding: const EdgeInsets.all(16),
-                  child: Text(_error!, style: TextStyle(color: n.danger))),
+                  child: Text(userErrorMessage, style: TextStyle(color: n.danger))),
             if (room == null && _error == null)
               const Expanded(child: Center(child: CircularProgressIndicator())),
             if (room != null) ...[

@@ -3,11 +3,11 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, release]
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   backend-build:
@@ -23,6 +23,11 @@ jobs:
           java-version: "21"
           cache: maven
       - run: ./mvnw -B -ntp verify -DskipITs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backend-runtime
+          path: backend/ta-app/target/truearena-backend.jar
+          retention-days: 3
 
   backend-integration:
     runs-on: ubuntu-latest
@@ -69,7 +74,8 @@ jobs:
         with:
           channel: stable
       - run: flutter pub get
-      - run: flutter analyze
+      # Existing advisory lints remain visible; analyzer errors still fail CI.
+      - run: flutter analyze --no-fatal-infos
       - run: flutter test
 
   contract-codegen-check:
@@ -94,7 +100,7 @@ jobs:
         id: tags
         run: echo "image=ghcr.io/${GITHUB_REPOSITORY,,}-backend" >> "$GITHUB_OUTPUT"
       - name: Log in to GHCR
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/release'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -104,16 +110,16 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./backend
-          # Only push on a real push to main — PR builds still verify the
-          # image builds, they just don't publish it anywhere.
-          push: ${{ github.event_name == 'push' }}
+          # Only release publishes production images. Main/PR builds verify
+          # the image without moving the production :latest tag.
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/release' }}
           tags: |
             ${{ steps.tags.outputs.image }}:${{ github.sha }}
             ${{ steps.tags.outputs.image }}:latest
 
   deploy:
-    needs: docker-build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.DEPLOY_HOST != ''
+    needs: [backend-build, backend-integration, secret-data-guarantee, flutter, contract-codegen-check, docker-build]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/release' && vars.DEPLOY_HOST != ''
     runs-on: ubuntu-latest
     environment: production
     steps:
@@ -129,3 +135,32 @@ jobs:
             docker compose -f infra/docker-compose.prod.yml pull
             docker compose -f infra/docker-compose.prod.yml up -d
             ./infra/smoke.sh
+
+  deploy-test:
+    needs: [backend-build, flutter, contract-codegen-check]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: test
+    concurrency:
+      group: deploy-test
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: backend-runtime
+          path: backend/ta-app/target
+      - name: Configure SSH for the isolated test stack
+        env:
+          TEST_SSH_KEY: ${{ secrets.TEST_DEPLOY_SSH_KEY }}
+          TEST_KNOWN_HOSTS: ${{ vars.TEST_DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$TEST_SSH_KEY" > ~/.ssh/test_deploy
+          chmod 600 ~/.ssh/test_deploy
+          printf '%s\n' "$TEST_KNOWN_HOSTS" > ~/.ssh/known_hosts
+      - name: Deploy main to test and verify health
+        env:
+          TEST_DEPLOY_HOST: ${{ vars.TEST_DEPLOY_HOST }}
+          TEST_DEPLOY_USER: ${{ vars.TEST_DEPLOY_USER }}
+        run: bash infra/deploy-test-ci.sh

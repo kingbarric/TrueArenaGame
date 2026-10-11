@@ -351,7 +351,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
         _applyEvent((env['payload'] as Map).cast<String, dynamic>());
       case 'ERROR':
         final msg = (env['payload'] as Map)['message']?.toString() ??
-            'something went wrong';
+            'Error has occurred, try again later.';
         _actionLocked = false;
         _selected = null;
         _chain = const [];
@@ -1090,7 +1090,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
           _leaving = false;
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Server error. Please try again.')),
+              const SnackBar(content: Text('Error has occurred, try again later.')),
             );
           }
           return;

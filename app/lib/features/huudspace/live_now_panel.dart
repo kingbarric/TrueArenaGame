@@ -79,7 +79,7 @@ class _LiveNowPanelState extends State<LiveNowPanel> {
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted) setState(() => _error = "We couldn't reach PlayHuud. Pull down to try again.");
+      if (mounted) setState(() => _error = "Error has occurred, try again later.");
     }
   }
 
@@ -100,7 +100,7 @@ class _LiveNowPanelState extends State<LiveNowPanel> {
     } on ApiException catch (e) {
       if (mounted) huudSnack(context, e.message);
     } catch (_) {
-      if (mounted) huudSnack(context, "That didn't work — check your internet and try again.");
+      if (mounted) huudSnack(context, "Error has occurred, try again later.");
     } finally {
       if (mounted) {
         setState(() => _joining = null);
@@ -140,7 +140,7 @@ class _LiveNowPanelState extends State<LiveNowPanel> {
                       child: HuudFriendlyState(
                         emoji: '📡',
                         title: 'Hmm, no connection',
-                        message: _error!,
+                        message: userErrorMessage,
                         action: HuudButton(label: 'Try again', icon: Icons.refresh_rounded, onPressed: _load),
                       ),
                     ),

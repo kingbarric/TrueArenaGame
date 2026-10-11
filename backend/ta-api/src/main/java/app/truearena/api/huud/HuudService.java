@@ -61,12 +61,12 @@ public class HuudService {
     /** Players a request gathers when the author doesn't say — the game's natural table. */
     static final Map<String, Integer> DEFAULT_SEATS = Map.of(
             "draughts", 2, "chess", 2, "goosi", 2,
-            "whot", 4, "ludo", 4, "wordbluff", 4, "truearena", 6, "slayhuud", 2);
+            "whot", 4, "ludo", 4, "wordbluff", 4, "truearena", 6, "monopoly", app.truearena.game.monopoly.MonopolyConfig.MAX_PLAYERS, "slayhuud", 2);
     private static final Set<String> HEAD_TO_HEAD = Set.of("draughts", "chess", "goosi");
 
     static final Map<String, String> GAME_NAMES = Map.of(
             "draughts", "Draughts", "chess", "Chess", "goosi", "Macala", "whot", "Whot",
-            "ludo", "Ludo", "wordbluff", "Word Bluff", "truearena", "Traitors", "slayhuud", "SlayHuud");
+            "ludo", "Ludo", "wordbluff", "Word Bluff", "truearena", "Traitors", "monopoly", "Monopoly", "slayhuud", "SlayHuud");
 
     private final DatabaseClient db;
     private final RoomService rooms;
@@ -578,7 +578,7 @@ public class HuudService {
             for(int size:List.of(2,4,6,8,10,16))if(size>=wanted)return size;
             return 16;
         }
-        int max = "ludo".equals(gameType) ? 4 : 16;
+        int max = "ludo".equals(gameType) ? 4 : "monopoly".equals(gameType) ? app.truearena.game.monopoly.MonopolyConfig.MAX_PLAYERS : 16;
         int seats = requested == null ? DEFAULT_SEATS.get(gameType) : requested;
         return Math.max(2, Math.min(max, seats));
     }

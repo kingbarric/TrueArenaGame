@@ -1,3 +1,4 @@
+import '../../core/api_client.dart' show userErrorMessage;
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -375,7 +376,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                 'This match is no longer running. Start a new HUUD to play.';
           } else {
             _error =
-                payload['message']?.toString() ?? 'Could not make that move';
+                payload['message']?.toString() ?? 'Error has occurred, try again later.';
           }
         });
     }
@@ -490,7 +491,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
       } catch (_) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('Could not leave the game. Try again.')));
+              content: Text('Error has occurred, try again later.')));
         }
       }
     }
@@ -804,7 +805,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
             if (_error != null)
               Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Text(_error!,
+                  child: Text(userErrorMessage,
                       style: const TextStyle(
                           color: Color(0xffff8b72), fontSize: 11))),
             TableChatPanel(

@@ -24,9 +24,16 @@ public class OtpService {
     private final SmsSender sms;
     private final EmailSender email;
     private final String devBypassCode;
+    private final boolean test;
+    private final java.util.Set<String> allowed;
 
     public OtpService(ReactiveStringRedisTemplate redis, SmsSender sms, EmailSender email,
-                      @Value("${truearena.auth.otp-dev-bypass-code:}") String devBypassCode) {
+                      @Value("${truearena.auth.otp-dev-bypass-code:}") String devBypassCode,
+                      @Value("${truearena.auth.otp-allowed-identifiers:}") String allowedIdentifiers,
+                      org.springframework.core.env.Environment environment) {
+        this.test = environment.acceptsProfiles(org.springframework.core.env.Profiles.of("test"));
+        this.allowed = java.util.Arrays.stream(allowedIdentifiers.split(",")).map(OtpService::normalize)
+                .filter(v -> !v.isBlank()).collect(java.util.stream.Collectors.toUnmodifiableSet());
         this.redis = redis;
         this.sms = sms;
         this.email = email;
@@ -42,6 +49,8 @@ public class OtpService {
     }
 
     private Mono<Void> requestVia(String identifier, java.util.function.Function<String, Mono<Void>> deliver) {
+        if (test && !allowed.contains(normalize(identifier)))
+            return Mono.error(app.truearena.api.support.ApiExceptions.forbidden("test OTP is restricted to approved testers"));
         String code = String.format("%06d", RNG.nextInt(1_000_000));
         return redis.opsForValue().set(key(identifier), code, TTL)
                 .then(Mono.defer(() -> deliver.apply(code)));
@@ -49,6 +58,7 @@ public class OtpService {
 
     /** Emits true when the code is valid; the stored code is consumed on success. */
     public Mono<Boolean> verify(String identifier, String code) {
+        if (test && !allowed.contains(normalize(identifier))) return Mono.just(false);
         if (!devBypassCode.isBlank() && devBypassCode.equals(code)) {
             return redis.delete(key(identifier)).thenReturn(true);
         }
@@ -58,7 +68,9 @@ public class OtpService {
                 .flatMap(ok -> ok ? redis.delete(key(identifier)).thenReturn(true) : Mono.just(false));
     }
 
+    private static String normalize(String value) { return value == null ? "" : value.trim().toLowerCase(java.util.Locale.ROOT); }
+
     private static String key(String identifier) {
-        return "otp:" + identifier;
+        return "otp:" + normalize(identifier);
     }
 }
