@@ -5,6 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/app_state.dart';
 import '../../core/api_client.dart';
 import '../../core/game_socket.dart';
+import '../../core/game_music.dart';
+import '../../core/game_sfx.dart';
 import '../../core/hangout_state.dart';
 import '../../widgets/game_voice_control.dart';
 import '../huudspace/leave_game.dart';
@@ -52,6 +54,8 @@ class _MonopolyGameScreenState extends State<MonopolyGameScreen> {
     _connected = widget.socket.isConnected;
     _socketSub = widget.socket.envelopes.listen(_onEnvelope);
     unawaited(_restore());
+    unawaited(GameMusic.start(GameMusic.moodFor('monopoly')));
+    unawaited(GameSfx.warmUp());
     widget.socket.send('HELLO', {'lastSeq': 0});
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted && _connected && _seconds > 0 && _state['paused'] != true) {
@@ -167,6 +171,12 @@ class _MonopolyGameScreenState extends State<MonopolyGameScreen> {
         _pendingTimer?.cancel();
       case 'EVENT':
         final data = monopolyMap(p['data']);
+        if (p['type'] == 'GAME_PAUSED' || p['type'] == 'GAME_RESUMED') {
+          setState(() {
+            _state = Map.of(_state)..['paused'] = p['type'] == 'GAME_PAUSED';
+            _seconds = (data['secondsLeft'] as num?)?.toInt() ?? _seconds;
+          });
+        }
         if (p['type'] == 'SPECTATOR_COUNT') {
           setState(
               () => _watching = (data['count'] as num?)?.toInt() ?? _watching);
@@ -252,8 +262,7 @@ class _MonopolyGameScreenState extends State<MonopolyGameScreen> {
       }
     } catch (_) {
       if (mounted) {
-        setState(
-            () => _error = 'Error has occurred, try again later.');
+        setState(() => _error = 'Error has occurred, try again later.');
       }
     } finally {
       _sendingChat = false;
@@ -263,6 +272,7 @@ class _MonopolyGameScreenState extends State<MonopolyGameScreen> {
   void _action(String action, Map<String, dynamic> data) {
     if (!_connected ||
         !_liveSnapshot ||
+        _state['paused'] == true ||
         _pending ||
         widget.spectating ||
         !monopolyPlayers(_state).contains(widget.selfId)) {
@@ -272,6 +282,7 @@ class _MonopolyGameScreenState extends State<MonopolyGameScreen> {
       _pending = true;
       _error = null;
     });
+    if (action == 'ROLL') GameSfx.diceRoll();
     widget.socket.send('PLAYER_ACTION', {
       'action': action,
       'data': data,
@@ -629,6 +640,7 @@ class _MonopolyGameScreenState extends State<MonopolyGameScreen> {
     _pendingTimer?.cancel();
     _input.dispose();
     widget.socket.close();
+    unawaited(GameMusic.stop());
     super.dispose();
   }
 
@@ -659,6 +671,17 @@ class _MonopolyGameScreenState extends State<MonopolyGameScreen> {
         messages: _messages,
         onAction: _action,
         onProperties: _properties,
+        musicEnabled: GameMusic.enabled,
+        soundsEnabled: GameSfx.enabled,
+        onToggleMusic: () async {
+          await GameMusic.setEnabled(!GameMusic.enabled);
+          if (mounted) setState(() {});
+        },
+        onToggleSounds: () async {
+          await GameSfx.setEnabled(!GameSfx.enabled);
+          if (mounted) setState(() {});
+        },
+        onPause: () => widget.socket.send('PAUSE_TOGGLE', {}),
         onTrade: _trade,
         onSendChat: _sendChat,
         onBack: () => leaveGame(context, widget.socket.roomId),

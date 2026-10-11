@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'monopoly_board.dart';
+import '../../widgets/table_chat.dart';
 
 typedef MonopolyAction = void Function(
     String action, Map<String, dynamic> data);
@@ -21,6 +22,11 @@ class MonopolyTable extends StatefulWidget {
       required this.onBack,
       this.huudName = 'Your Huud',
       this.voice,
+      this.onPause,
+      this.onToggleMusic,
+      this.onToggleSounds,
+      this.musicEnabled = true,
+      this.soundsEnabled = true,
       this.connected = true,
       this.pending = false,
       this.spectating = false,
@@ -37,6 +43,8 @@ class MonopolyTable extends StatefulWidget {
   final TextEditingController chatController;
   final List<({String who, String text})> messages;
   final Widget? voice;
+  final VoidCallback? onPause, onToggleMusic, onToggleSounds;
+  final bool musicEnabled, soundsEnabled;
   final Set<String> speaking;
   final bool connected, pending, spectating, canChat;
   final int seconds, watching;
@@ -51,6 +59,7 @@ class _MonopolyTableState extends State<MonopolyTable> {
   bool get _enabled =>
       widget.connected &&
       !widget.pending &&
+      widget.state['paused'] != true &&
       !widget.spectating &&
       monopolyPlayers(widget.state).contains(widget.selfId);
   bool get _myDecision =>
@@ -91,14 +100,21 @@ class _MonopolyTableState extends State<MonopolyTable> {
     final chipWidth =
         ((MediaQuery.sizeOf(context).width - 20 - 18) / 4).clamp(88.0, 130.0) *
             textScale;
-    final boardSize = (MediaQuery.sizeOf(context).height * .38)
-        .clamp(260.0, MediaQuery.sizeOf(context).width - 20);
+    final boardSize = MediaQuery.sizeOf(context).width - 8;
     final me = monopolyMap(people[widget.selfId]);
     final winner = state['winner']?.toString();
     return Theme(
         data: Theme.of(context).copyWith(
             textTheme:
-                Theme.of(context).textTheme.apply(fontFamily: 'MonopolySans')),
+                Theme.of(context).textTheme.apply(fontFamily: 'MonopolySans'),
+            colorScheme: Theme.of(context)
+                .colorScheme
+                .copyWith(surface: monopolyCream, onSurface: monopolyInk),
+            listTileTheme: const ListTileThemeData(
+                textColor: monopolyInk, iconColor: monopolyInk),
+            popupMenuTheme: const PopupMenuThemeData(
+                textStyle:
+                    TextStyle(color: monopolyInk, fontFamily: 'MonopolySans'))),
         child: DecoratedBox(
           decoration: const BoxDecoration(
               image: DecorationImage(
@@ -108,7 +124,7 @@ class _MonopolyTableState extends State<MonopolyTable> {
           child: Column(children: [
             Container(
                 color: const Color(0xdd211613),
-                padding: const EdgeInsets.fromLTRB(4, 4, 8, 4),
+                padding: const EdgeInsets.fromLTRB(0, 0, 0, 0),
                 child: Row(children: [
                   IconButton(
                       onPressed: widget.onBack,
@@ -125,14 +141,34 @@ class _MonopolyTableState extends State<MonopolyTable> {
                             style: const TextStyle(
                                 color: monopolyCream,
                                 fontWeight: FontWeight.w900,
-                                fontSize: 18)),
-                        Text('MONOPOLY  •  ${widget.watching} watching',
+                                fontSize: 16)),
+                        Text(
+                            widget.connected
+                                ? 'MONOPOLY · ${widget.state['paused'] == true ? 'PAUSED' : '${widget.seconds}s'}'
+                                : 'OFFLINE • saved board',
                             style: const TextStyle(
                                 color: monopolyGold,
                                 fontWeight: FontWeight.w800,
                                 fontSize: 11))
                       ])),
-                  if (widget.voice != null) widget.voice!,
+                  if (widget.voice != null)
+                    Theme(
+                        data: Theme.of(context).copyWith(
+                            iconTheme:
+                                const IconThemeData(color: monopolyCream)),
+                        child: widget.voice!),
+                  if (!widget.spectating && players.contains(widget.selfId) && winner == null && widget.onPause != null)
+                    IconButton(
+                        onPressed: widget.connected ? widget.onPause : null,
+                        tooltip: state['paused'] == true
+                            ? 'Resume game'
+                            : 'Pause game',
+                        icon: Icon(
+                            state['paused'] == true
+                                ? Icons.play_arrow_rounded
+                                : Icons.pause_rounded,
+                            color: monopolyCream)),
+                  _settings(me),
                   if (widget.pending)
                     const SizedBox(
                         width: 18,
@@ -142,10 +178,10 @@ class _MonopolyTableState extends State<MonopolyTable> {
                 ])),
             Expanded(
                 child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                    padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
                     child: Column(children: [
                       SizedBox(
-                          height: 62 * textScale,
+                          height: 64 * textScale,
                           child: ListView.separated(
                               scrollDirection: Axis.horizontal,
                               itemCount: players.length,
@@ -224,31 +260,7 @@ class _MonopolyTableState extends State<MonopolyTable> {
                                                         FontWeight.w800)),
                                         ]));
                               })),
-                      Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 9),
-                          child: Row(children: [
-                            Expanded(
-                                child: Text(
-                                    winner != null
-                                        ? '${name(winner)} wins!'
-                                        : _myDecision
-                                            ? 'YOUR ${_phase == 'Auction' ? 'BID' : 'TURN'}'
-                                            : '${name(state['decisionPlayer']?.toString())}\'s ${_phase == 'Auction' ? 'bid' : 'turn'}',
-                                    style: const TextStyle(
-                                        color: monopolyCream,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w900))),
-                            Text(
-                                widget.connected
-                                    ? '${widget.seconds}s'
-                                    : 'OFFLINE • saved board',
-                                style: TextStyle(
-                                    color: widget.connected
-                                        ? monopolyGold
-                                        : monopolyCream,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w800)),
-                          ])),
+                      const SizedBox(height: 6),
                       if (state['board'] is List)
                         Center(
                             child: SizedBox(
@@ -270,7 +282,7 @@ class _MonopolyTableState extends State<MonopolyTable> {
                                     style: TextStyle(
                                         color: monopolyCream,
                                         fontWeight: FontWeight.w800)))),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 6),
                       if (widget.error != null)
                         Container(
                             width: double.infinity,
@@ -286,33 +298,6 @@ class _MonopolyTableState extends State<MonopolyTable> {
                       _decision(state, me, winner),
                       for (final raw in state['tradeOffers'] as List? ?? [])
                         _offer(monopolyMap(raw)),
-                      const SizedBox(height: 9),
-                      Row(children: [
-                        Expanded(
-                            child: button('Properties', widget.onProperties,
-                                color: monopolyGold,
-                                icon: Icons.domain_rounded)),
-                        const SizedBox(width: 8),
-                        Expanded(
-                            child: button(
-                                'Trade',
-                                _enabled &&
-                                        const {'Roll', 'Manage', 'Debt'}
-                                            .contains(_phase) &&
-                                        me['bankrupt'] != true
-                                    ? widget.onTrade
-                                    : null,
-                                color: const Color(0xff305c4c),
-                                icon: Icons.swap_horiz_rounded)),
-                      ]),
-                      const Padding(
-                          padding: EdgeInsets.only(top: 6),
-                          child: Text(
-                              'Pinch to zoom • tap any space to inspect',
-                              style: TextStyle(
-                                  color: monopolyCream,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600))),
                     ]))),
             _chat(),
           ]),
@@ -427,7 +412,7 @@ class _MonopolyTableState extends State<MonopolyTable> {
         child: Column(children: [
           Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               color: monopolyGroupColor(tile['group']?.toString()),
               child: Text(title.toUpperCase(),
                   textAlign: TextAlign.center,
@@ -436,7 +421,7 @@ class _MonopolyTableState extends State<MonopolyTable> {
                       fontSize: 16,
                       fontWeight: FontWeight.w900))),
           Padding(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(8),
               child: Column(children: [
                 if (state['drawnCard'] != null)
                   Padding(
@@ -676,109 +661,119 @@ class _MonopolyTableState extends State<MonopolyTable> {
     }
   }
 
-  Widget _chat() => Container(
-      padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
-      decoration: const BoxDecoration(
-          color: Color(0xff221815),
-          border: Border(top: BorderSide(color: monopolyGold, width: 1.4))),
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Row(children: [
-          const Icon(Icons.chat_bubble_rounded, size: 15, color: monopolyGold),
-          const SizedBox(width: 6),
-          const Text('HUUD CHAT',
-              style: TextStyle(
-                  color: monopolyGold,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 11)),
-          const Spacer(),
-          TextButton(
-              style: TextButton.styleFrom(
-                  minimumSize: const Size(0, 28),
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-              onPressed: () => showModalBottomSheet<void>(
-                  context: context,
-                  backgroundColor: const Color(0xff221815),
-                  builder: (_) => SafeArea(
-                          child: ListView(
-                              padding: const EdgeInsets.all(16),
-                              children: [
-                            const Text('HUUD CHAT',
-                                style: TextStyle(
-                                    color: monopolyGold,
-                                    fontWeight: FontWeight.w900)),
-                            const SizedBox(height: 12),
-                            for (final line in widget.messages)
-                              Padding(
-                                  padding: const EdgeInsets.only(bottom: 10),
-                                  child: Text('${line.who}: ${line.text}',
-                                      style: const TextStyle(
-                                          color: monopolyCream, fontSize: 15)))
-                          ]))),
-              child: const Text('History',
-                  style: TextStyle(
-                      color: monopolyCream,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700)))
-        ]),
-        if (widget.messages.isNotEmpty)
-          Align(
-              alignment: Alignment.centerLeft,
-              child: Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Text(
-                      '${widget.messages.last.who}: ${widget.messages.last.text}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          color: monopolyCream,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600))))
-        else
-          const Align(
-              alignment: Alignment.centerLeft,
-              child: Padding(
-                  padding: EdgeInsets.only(bottom: 6),
-                  child: Text('Keep the conversation going between turns',
-                      style:
-                          TextStyle(color: Color(0xffc4b3a1), fontSize: 11)))),
-        Row(children: [
-          Expanded(
-              child: TextField(
-                  key: const Key('monopoly-chat-input'),
-                  controller: widget.chatController,
-                  enabled: widget.canChat && widget.connected,
-                  maxLength: 300,
-                  maxLines: 1,
-                  textInputAction: TextInputAction.send,
-                  onSubmitted: (_) => widget.onSendChat(),
-                  style: const TextStyle(color: monopolyCream, fontSize: 14),
-                  decoration: InputDecoration(
-                      counterText: '',
-                      isDense: true,
-                      filled: true,
-                      fillColor: const Color(0xff3b2b24),
-                      hintText: !widget.connected
-                          ? 'Chat reconnects when you are online'
-                          : widget.canChat
-                              ? 'Message the Huud…'
-                              : 'Join the Huud to chat',
-                      hintStyle: const TextStyle(
-                          color: Color(0xffc3af9c), fontSize: 12),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 11),
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide:
-                              const BorderSide(color: Color(0xff826341)))))),
-          const SizedBox(width: 8),
-          IconButton.filled(
-              style: IconButton.styleFrom(
-                  backgroundColor: monopolyGold, foregroundColor: monopolyInk),
-              onPressed:
-                  widget.canChat && widget.connected ? widget.onSendChat : null,
-              icon: const Icon(Icons.send_rounded),
-              tooltip: 'Send to Huud chat')
-        ]),
-      ]));
+  Widget _settings(Map<String, dynamic> me) => PopupMenuButton<String>(
+      tooltip: 'Game settings',
+      color: monopolyCream,
+      icon: const Icon(Icons.settings_rounded, color: monopolyCream),
+      onSelected: (value) {
+        switch (value) {
+          case 'properties':
+            widget.onProperties();
+          case 'trade':
+            widget.onTrade();
+          case 'music':
+            widget.onToggleMusic?.call();
+          case 'sounds':
+            widget.onToggleSounds?.call();
+          case 'help':
+            showDialog<void>(
+                context: context,
+                builder: (dialog) => AlertDialog(
+                        backgroundColor: monopolyCream,
+                        title: const Text('How to play'),
+                        content: const SingleChildScrollView(
+                            child: Text(
+                                'Roll, buy properties and collect rent. Complete a colour set to build houses and hotels. Trade from this menu and manage buildings in Properties. Keep enough cash to pay your debts. The last player remaining wins.\n\nTap any board space for its full name and rules. Pinch the board to zoom. Chat stays with your Huud.')),
+                        actions: [
+                          TextButton(
+                              onPressed: () => Navigator.pop(dialog),
+                              child: const Text('Close'))
+                        ]));
+          case 'credits':
+            showDialog<void>(
+                context: context,
+                builder: (dialog) => AlertDialog(
+                        backgroundColor: monopolyCream,
+                        title: const Text('Music credits'),
+                        content: const SelectableText(
+                            '“Drums of the Deep” Kevin MacLeod (incompetech.com)\nLicensed under Creative Commons: By Attribution 4.0 License\nhttps://creativecommons.org/licenses/by/4.0/\n\nSource: https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1400021\n\nLoudness normalised, faded and converted to AAC for quiet background playback.'),
+                        actions: [
+                          TextButton(
+                              onPressed: () => Navigator.pop(dialog),
+                              child: const Text('Close'))
+                        ]));
+          case 'leave':
+            widget.onBack();
+        }
+      },
+      itemBuilder: (_) => [
+            const PopupMenuItem(
+                value: 'properties',
+                child: ListTile(
+                    leading: Icon(Icons.domain_rounded),
+                    title: Text('Properties'),
+                    contentPadding: EdgeInsets.zero)),
+            PopupMenuItem(
+                value: 'trade',
+                enabled: _enabled &&
+                    const {'Roll', 'Manage', 'Debt'}.contains(_phase) &&
+                    me['bankrupt'] != true,
+                child: const ListTile(
+                    leading: Icon(Icons.swap_horiz_rounded),
+                    title: Text('Trade'),
+                    contentPadding: EdgeInsets.zero)),
+            const PopupMenuItem(
+                value: 'help',
+                child: ListTile(
+                    leading: Icon(Icons.help_outline_rounded),
+                    title: Text('How to play'),
+                    contentPadding: EdgeInsets.zero)),
+            if (widget.onToggleMusic != null)
+              PopupMenuItem(
+                  value: 'music',
+                  child: ListTile(
+                      leading: Icon(widget.musicEnabled
+                          ? Icons.music_off_rounded
+                          : Icons.music_note_rounded),
+                      title: Text(
+                          widget.musicEnabled ? 'Mute music' : 'Play music'),
+                      contentPadding: EdgeInsets.zero)),
+            if (widget.onToggleSounds != null)
+              PopupMenuItem(
+                  value: 'sounds',
+                  child: ListTile(
+                      leading: Icon(widget.soundsEnabled
+                          ? Icons.volume_off_rounded
+                          : Icons.volume_up_rounded),
+                      title: Text(widget.soundsEnabled
+                          ? 'Mute game sounds'
+                          : 'Play game sounds'),
+                      contentPadding: EdgeInsets.zero)),
+            const PopupMenuItem(value: 'credits', child: Text('Music credits')),
+            const PopupMenuDivider(),
+            const PopupMenuItem(
+                value: 'leave',
+                child: ListTile(
+                    leading: Icon(Icons.exit_to_app_rounded),
+                    title: Text('Back to Huud'),
+                    contentPadding: EdgeInsets.zero)),
+          ]);
+
+  Widget _chat() => TableChatPanel(
+      lines: widget.messages.reversed
+          .map((m) => TableChatLine(who: m.who, text: m.text))
+          .toList(),
+      controller: widget.chatController,
+      onSend: widget.onSendChat,
+      spectatorCount: widget.watching,
+      amSpectator: widget.spectating,
+      height: 96,
+      composerKey: const Key('monopoly-chat-input'),
+      sendTooltip: 'Send to Huud chat',
+      composerHint: 'Message the Huud…',
+      emptyHint: 'Keep the conversation going between turns',
+      canSend: widget.canChat && widget.connected,
+      disabledHint: !widget.connected
+          ? 'Chat reconnects when you are online'
+          : 'Join the Huud to chat');
 }

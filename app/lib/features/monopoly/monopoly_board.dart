@@ -36,8 +36,8 @@ List<String> monopolyPlayers(Map<String, dynamic> state) =>
 /// Coordinates include all forty spaces, with larger corner tiles. The same
 /// geometry drives painting, pointer hit testing and zoomed inspection.
 Rect monopolySpaceRect(int id, double size) {
-  final inset = size * .035, edge = size - 2 * inset;
-  final unit = edge / 12.2, corner = unit * 1.6;
+  final inset = size * .018, edge = size - 2 * inset;
+  final unit = edge / 14, corner = unit * 2.5;
   final right = size - inset, bottom = size - inset;
   if (id == 0) {
     return Rect.fromLTWH(right - corner, bottom - corner, corner, corner);
@@ -315,14 +315,43 @@ class _BoardPainter extends CustomPainter {
       {double? font,
       Color color = monopolyInk,
       int lines = 3,
-      FontWeight weight = FontWeight.w900}) {
+      FontWeight weight = FontWeight.w900,
+      bool fitWords = false}) {
+    var fontSize = font ?? area.width * .17;
+    if (fitWords) {
+      // Balance long street names and keep short labels such as Chance intact.
+      value = value.replaceAllMapped(RegExp(r'\S+'), (match) {
+        final word = match.group(0)!;
+        if (word.length <= 7) return word;
+        final count = (word.length / 6).ceil();
+        final length = (word.length / count).ceil();
+        return [
+          for (int i = 0; i < word.length; i += length)
+            word.substring(i, math.min(i + length, word.length))
+        ].join('\n');
+      });
+      final measure = TextPainter(textDirection: TextDirection.ltr);
+      var widest = 0.0;
+      for (final word in value.split(RegExp(r'\s+'))) {
+        measure.text = TextSpan(
+            text: word,
+            style: TextStyle(
+                fontFamily: 'MonopolySans',
+                fontSize: fontSize,
+                fontWeight: weight));
+        measure.layout();
+        widest = math.max(widest, measure.width);
+      }
+      if (widest > area.width) fontSize *= area.width / widest;
+      measure.dispose();
+    }
     final tp = TextPainter(
         text: TextSpan(
             text: value,
             style: TextStyle(
                 color: color,
                 fontFamily: 'MonopolySans',
-                fontSize: font ?? area.width * .17,
+                fontSize: fontSize,
                 fontWeight: weight,
                 height: 1.05)),
         textDirection: TextDirection.ltr,
@@ -337,7 +366,7 @@ class _BoardPainter extends CustomPainter {
   @override
   void paint(Canvas c, Size size) {
     final w = size.width;
-    final edge = Rect.fromLTWH(w * .024, w * .024, w * .952, w * .952);
+    final edge = Rect.fromLTWH(w * .006, w * .006, w * .988, w * .988);
     c.drawRRect(
         RRect.fromRectAndRadius(
             edge.translate(0, w * .01), Radius.circular(w * .025)),
@@ -351,7 +380,11 @@ class _BoardPainter extends CustomPainter {
             Color(0xfff5dba0)
           ], begin: Alignment.topLeft, end: Alignment.bottomRight)
               .createShader(edge));
-    final center = Rect.fromLTRB(w * .164, w * .164, w * .836, w * .836);
+    final center = Rect.fromLTRB(
+        monopolySpaceRect(20, w).right,
+        monopolySpaceRect(20, w).bottom,
+        monopolySpaceRect(0, w).left,
+        monopolySpaceRect(0, w).top);
     c.drawRect(
         center,
         Paint()
@@ -495,18 +528,26 @@ class _BoardPainter extends CustomPainter {
         final name = (s['name'] ?? '')
             .toString()
             .replaceAll(' Avenue', '')
-            .replaceAll(' Railroad', '\nRAIL')
-            .replaceAll('Community Chest', 'CHEST')
-            .replaceAll('Electric Company', 'ELECTRIC')
-            .replaceAll('Water Works', 'WATER');
+            .replaceAll(' Railroad', '\nRail')
+            .replaceAll('Community Chest', 'Community\nChest')
+            .replaceAll('Electric Company', 'Electric')
+            .replaceAll('Water Works', 'Water\nWorks')
+            .replaceAll('Luxury Tax', 'Luxury\nTax')
+            .replaceAll('Income Tax', 'Income\nTax');
         final nameArea = Rect.fromLTWH(
-            local.left + rw * .04, local.top + rh * .28, rw * .92, rh * .48);
-        text(c, name.toUpperCase(), nameArea, font: rw * .165, lines: 3);
+            local.left + rw * .035,
+            local.top + rh * (kind == 'street' ? .24 : .06),
+            rw * .93,
+            rh * (kind == 'street' ? .53 : .68));
+        text(c, name, nameArea,
+            font: rw * (kind == 'chest' ? .265 : .29),
+            lines: 5,
+            fitWords: true);
         final price = (s['price'] as num?)?.toInt() ?? 0;
         if (price > 0) {
           text(c, deed['mortgaged'] == true ? 'MORTGAGED' : '\$$price',
               Rect.fromLTWH(local.left, local.bottom - rh * .21, rw, rh * .19),
-              font: rw * (deed['mortgaged'] == true ? 0.115 : 0.19));
+              font: rw * (deed['mortgaged'] == true ? 0.15 : 0.28));
         }
         if (kind == 'chance') {
           text(c, '?',
@@ -540,7 +581,7 @@ class _BoardPainter extends CustomPainter {
     text(
         c,
         '${state['bankHouses'] ?? 32} HOUSES  ·  ${state['bankHotels'] ?? 12} HOTELS',
-        Rect.fromLTWH(w * .27, w * .78, w * .46, w * .025),
+        Rect.fromLTWH(w * .27, w * .765, w * .46, w * .025),
         font: w * .015,
         color: const Color(0xffd7cbaf));
     final people = monopolyMap(state['playerState']),

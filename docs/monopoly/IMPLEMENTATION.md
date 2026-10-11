@@ -52,3 +52,12 @@ The wood texture is a generated material, with its exact prompt and generation m
 ## Test mirror and background fix
 
 The user requested a complete production PostgreSQL snapshot in isolated test. See [test setup](../../infra/TEST_ENVIRONMENT.md). The new **V49** migration adds the already offered Blank background to the database constraint; V43 previously rejected it during updates. All public HTTP/game errors and app error presentations use **“Error has occurred, try again later.”** Status codes and safe machine outcomes remain available for app navigation; SQL and exception details stay in server logs.
+
+## Phone layout and cinematic music — 11 October 2026
+
+- The board now uses the available phone width with a deeper perimeter and a smaller centre. Tile names and prices are bold; short labels such as Chance and Luxury Tax stay readable without splitting their words, while long property names use balanced lines. All 40 spaces share the same drawing, tap and animation geometry.
+- Removed the separate Your Turn banner. The active player's card carries the gold highlight and the timer/paused state sits in the header. Properties and Trade now live in the settings menu, leaving more room for the board.
+- Reuses `GameVoiceControl` for the existing mic access/request/moderation behavior and the ordinary `PAUSE_TOGGLE` transport for pause/resume. Pausing disables move controls until the server resumes the match.
+- Reuses Chess's `TableChatPanel` at the bottom, initially minimised with the latest message visible. Expand it to read/send Huud chat; collapse it for more space. Huud message persistence and offline cache remain unchanged. Smaller screens, enlarged text and the keyboard retain scrolling as a fallback.
+- Bundles Kevin MacLeod's **Drums of the Deep**, a 174-second cinematic percussion/strings track, normalised to −22 LUFS and played at 14% volume. It loops locally without a network dependency and honours the shared persisted music toggle. Settings includes the existing music/game-sounds toggles and attribution/license/modification notice. See [music credits](../../app/assets/music/CREDITS.md).
+- This update changes the app only; it requires no backend or database deployment.

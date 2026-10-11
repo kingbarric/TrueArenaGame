@@ -2,11 +2,13 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:truearena/theme/neon_theme.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:truearena/features/monopoly/monopoly_board.dart';
 import 'package:truearena/features/monopoly/monopoly_table.dart';
+import 'package:truearena/widgets/table_chat.dart';
 
 Map<String, dynamic> snapshot() =>
     (jsonDecode(File('test/fixtures/monopoly.json').readAsStringSync()) as Map)
@@ -50,7 +52,13 @@ void main() {
     final controller = input ?? TextEditingController();
     if (input == null) addTearDown(controller.dispose);
     await tester.pumpWidget(MaterialApp(
-        theme: ThemeData(fontFamily: 'MonopolySans', useMaterial3: true),
+        theme: ThemeData(
+            fontFamily: 'MonopolySans',
+            useMaterial3: true,
+            extensions: const [
+              NeonColors.dark,
+              NeonDesign(NeonDesignKind.cabinet)
+            ]),
         home: Scaffold(
             body: RepaintBoundary(
                 key: const Key('capture'),
@@ -96,9 +104,13 @@ void main() {
     expect(find.text('ILLINOIS AVENUE'), findsOneWidget);
     await tester.tap(find.text('Buy \$240'));
     expect(actions, ['BUY']);
-    final input = tester.getRect(find.byKey(const Key('monopoly-chat-input')));
-    expect(input.bottom, lessThanOrEqualTo(844));
-    expect(input.top, greaterThan(650));
+    final board = tester.getRect(find.byType(MonopolyBoard));
+    expect(board.width, greaterThanOrEqualTo(380));
+    expect(board.bottom, lessThan(844));
+    expect(find.text('YOUR TURN'), findsNothing);
+    expect(find.byType(TableChatPanel), findsOneWidget);
+    expect(find.byKey(const Key('monopoly-chat-input')), findsNothing);
+    expect(tester.getSize(find.byType(TableChatPanel)).height, lessThan(60));
     expect(tester.takeException(), isNull);
     const path = String.fromEnvironment('MONOPOLY_CAPTURE');
     if (path.isNotEmpty) {
@@ -112,6 +124,18 @@ void main() {
       });
     }
   });
+  testWidgets('chat opens and minimises using the shared panel',
+      (tester) async {
+    await pumpTable(tester);
+    await tester.tap(find.byIcon(Icons.keyboard_arrow_up_rounded));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('monopoly-chat-input')), findsOneWidget);
+    expect(find.byTooltip('Send to Huud chat'), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.keyboard_arrow_down_rounded));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('monopoly-chat-input')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('spectators can watch but cannot buy or trade', (tester) async {
     await pumpTable(tester, spectator: true);
     expect(
@@ -120,11 +144,14 @@ void main() {
                 find.widgetWithText(FilledButton, 'Buy \$240'))
             .onPressed,
         isNull);
+    await tester.tap(find.byTooltip('Game settings'));
+    await tester.pumpAndSettle();
     expect(
         tester
-            .widget<FilledButton>(find.widgetWithText(FilledButton, 'Trade'))
-            .onPressed,
-        isNull);
+            .widget<PopupMenuItem<String>>(
+                find.widgetWithText(PopupMenuItem<String>, 'Trade'))
+            .enabled,
+        isFalse);
     expect(tester.takeException(), isNull);
   });
   testWidgets('saved offline board is visible with game actions disabled',
@@ -145,6 +172,8 @@ void main() {
     tester.platformDispatcher.textScaleFactorTestValue = 1.4;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     await pumpTable(tester, size: const Size(320, 568));
+    await tester.tap(find.byIcon(Icons.keyboard_arrow_up_rounded));
+    await tester.pumpAndSettle();
     expect(find.byKey(const Key('monopoly-chat-input')), findsOneWidget);
     expect(tester.takeException(), isNull);
     final rect = tester.getRect(find.byKey(const Key('monopoly-chat-input')));
@@ -153,6 +182,8 @@ void main() {
   testWidgets('keyboard lifts the chat composer while the board can scroll',
       (tester) async {
     await pumpTable(tester);
+    await tester.tap(find.byIcon(Icons.keyboard_arrow_up_rounded));
+    await tester.pumpAndSettle();
     tester.view.viewInsets = const FakeViewPadding(bottom: 300);
     addTearDown(tester.view.resetViewInsets);
     await tester.pumpAndSettle();

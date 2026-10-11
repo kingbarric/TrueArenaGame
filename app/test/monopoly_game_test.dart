@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:truearena/theme/neon_theme.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
@@ -47,7 +48,10 @@ void main() {
     await tester.pumpWidget(AppScope(
         state: app,
         child: MaterialApp(
-            theme: ThemeData(fontFamily: 'MonopolySans'),
+            theme: ThemeData(fontFamily: 'MonopolySans', extensions: const [
+              NeonColors.dark,
+              NeonDesign(NeonDesignKind.cabinet)
+            ]),
             home: MonopolyGameScreen(
                 socket: socket,
                 selfId: 'ada',
@@ -78,7 +82,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
     expect(find.byType(MonopolyBoard), findsOneWidget);
     expect(find.text('OFFLINE • saved board'), findsOneWidget);
-    expect(find.text('Eric: Saved conversation'), findsOneWidget);
+    expect(find.text('Saved conversation'), findsOneWidget);
     expect(
         tester
             .widget<FilledButton>(
@@ -94,11 +98,10 @@ void main() {
     await open(tester, socket);
     socket.frame('SNAPSHOT', _board());
     await tester.pump();
-    expect(
-        tester
-            .widget<TextField>(find.byKey(const Key('monopoly-chat-input')))
-            .enabled,
-        isFalse);
+    await tester.tap(find.byIcon(Icons.keyboard_arrow_up_rounded));
+    await tester.pump();
+    expect(find.byKey(const Key('monopoly-chat-input')), findsNothing);
+    expect(find.text('Join the Huud to chat'), findsOneWidget);
     expect(socket.sent.where((f) => f['type'] == 'CHAT_SEND'), isEmpty);
   });
 
@@ -140,7 +143,10 @@ void main() {
         'SNAPSHOT',
         _board()
           ..['legalActions'] = [
-            {'action':'ACCEPT_TRADE','data':{'tradeId':'private-offer'}}
+            {
+              'action': 'ACCEPT_TRADE',
+              'data': {'tradeId': 'private-offer'}
+            }
           ]
           ..['tradeOffers'] = [
             {
@@ -155,7 +161,9 @@ void main() {
           ]);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
-    expect(find.text('eric: Keep this chat'), findsOneWidget);
+    expect(find.text('Keep this chat'), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.keyboard_arrow_up_rounded));
+    await tester.pump();
     await tester.enterText(
         find.byKey(const Key('monopoly-chat-input')), 'My next turn');
     await tester.tap(find.byTooltip('Send to Huud chat'));
@@ -170,6 +178,44 @@ void main() {
     expect(stored, isNot(contains('private-offer')));
     expect(stored, isNot(contains('legalActions')));
     expect(tester.takeException(), isNull);
+  });
+  testWidgets('shared pause control freezes moves and accepts resume events',
+      (tester) async {
+    final socket = _Socket();
+    await open(tester, socket);
+    socket.frame('SNAPSHOT', _board());
+    await tester.pump();
+    await tester.pump();
+    await tester.tap(find.byTooltip('Pause game'));
+    expect(socket.sent.last['type'], 'PAUSE_TOGGLE');
+    socket.frame('EVENT', {
+      'type': 'GAME_PAUSED',
+      'data': {'secondsLeft': 99}
+    });
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('MONOPOLY · PAUSED'), findsOneWidget);
+    expect(
+        tester
+            .widget<FilledButton>(
+                find.widgetWithText(FilledButton, 'Buy \$240'))
+            .onPressed,
+        isNull);
+    await tester.tap(find.byTooltip('Resume game'));
+    expect(socket.sent.last['type'], 'PAUSE_TOGGLE');
+    socket.frame('EVENT', {
+      'type': 'GAME_RESUMED',
+      'data': {'secondsLeft': 99}
+    });
+    await tester.pump();
+    await tester.pump();
+    expect(find.byTooltip('Pause game'), findsOneWidget);
+    expect(
+        tester
+            .widget<FilledButton>(
+                find.widgetWithText(FilledButton, 'Buy \$240'))
+            .onPressed,
+        isNotNull);
   });
   testWidgets(
       'a replayed snapshot during an outage stays read-only until a live snapshot arrives',
