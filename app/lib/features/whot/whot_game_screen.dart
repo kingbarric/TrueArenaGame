@@ -1,4 +1,4 @@
-import '../../core/api_client.dart' show userErrorMessage;
+import '../../core/api_client.dart' show userErrorMessage, userRetryMessage;
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -773,7 +773,7 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
           _leaving = false;
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Error has occurred, try again later.')),
+              const SnackBar(content: Text(userRetryMessage)),
             );
           }
           return;

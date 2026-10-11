@@ -238,7 +238,7 @@ class _SetupSheetState extends State<_SetupSheet> {
     } on ApiException catch (e) {
       if (mounted) huudSnack(context, e.message);
     } catch (_) {
-      if (mounted) huudSnack(context, "Error has occurred, try again later.");
+      if (mounted) huudSnack(context, userErrorMessage);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

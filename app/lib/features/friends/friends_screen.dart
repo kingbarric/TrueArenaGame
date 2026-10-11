@@ -166,7 +166,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Error has occurred, try again later.');
+      if (mounted) setState(() => _error = userErrorMessage);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -229,7 +229,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
       }
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error has occurred, try again later.')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(userRetryMessage)));
       }
     } finally {
       if (mounted) setState(() => _requestingUserIds.remove(u.userId));
@@ -291,7 +291,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
       }
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error has occurred, try again later.')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(userRetryMessage)));
       }
     }
   }
@@ -317,7 +317,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } catch (_) {
       if (mounted)
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error has occurred, try again later.')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(userRetryMessage)));
     }
   }
 
@@ -332,7 +332,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
     } on ApiException catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error has occurred, try again later.')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(userRetryMessage)));
     }
   }
 

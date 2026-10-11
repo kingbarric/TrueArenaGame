@@ -104,7 +104,7 @@ class _AllTimeRankingsScreenState extends State<AllTimeRankingsScreen> {
       });
     } catch (_) {
       if (mounted && ticket == _request)
-        setState(() => _error = "Error has occurred, try again later.");
+        setState(() => _error = userErrorMessage);
     }
   }
 

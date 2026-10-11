@@ -1,3 +1,4 @@
+import '../../core/api_client.dart' show userRetryMessage;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -57,7 +58,7 @@ class IncomingCalls {
                 } catch (_) {
                   if (ctx.mounted)
                     ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
-                        content: Text('Error has occurred, try again later.')));
+                        content: Text(userRetryMessage)));
                 }
               }),
         ));
@@ -222,7 +223,7 @@ class _IncomingCallScreenState extends State<IncomingCallScreen>
       if (!mounted) return;
       setState(() {
         _answering = false;
-        _status = 'Error has occurred, try again later.';
+        _status = userRetryMessage;
       });
     }
   }

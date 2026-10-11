@@ -1,5 +1,5 @@
 import '../../core/share_origin.dart';
-import '../../core/api_client.dart' show userErrorMessage;
+import '../../core/api_client.dart' show userErrorMessage, userRetryMessage;
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -156,7 +156,7 @@ class _PublishVictoryState extends State<_PublishVictory> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content:
-                Text('Error has occurred, try again later.')));
+                Text(userRetryMessage)));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -184,7 +184,7 @@ class _PublishVictoryState extends State<_PublishVictory> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Error has occurred, try again later.')));
+            const SnackBar(content: Text(userRetryMessage)));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -262,7 +262,7 @@ class _StatusScreenState extends State<StatusScreen> {
         _error = null;
       });
     } catch (_) {
-      if (mounted) setState(() => _error = 'Error has occurred, try again later.');
+      if (mounted) setState(() => _error = userErrorMessage);
     }
   }
 

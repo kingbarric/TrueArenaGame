@@ -72,7 +72,7 @@ class _CompetitiveSetupScreenState extends State<CompetitiveSetupScreen> {
       if (mounted) {
         setState(() {
           _loading = false;
-          _error = 'Error has occurred, try again later.';
+          _error = userErrorMessage;
         });
       }
     }
@@ -153,7 +153,7 @@ class _CompetitiveSetupScreenState extends State<CompetitiveSetupScreen> {
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Error has occurred, try again later.');
+      if (mounted) setState(() => _error = userErrorMessage);
     } finally {
       if (mounted) setState(() => _saving = false);
     }

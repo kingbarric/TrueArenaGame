@@ -43,7 +43,7 @@ class _BoardGameWatchScreenState extends State<BoardGameWatchScreen> {
         _socket = socket;
       });
     }).catchError((_) {
-      if (mounted) setState(() => _error = 'Error has occurred, try again later.');
+      if (mounted) setState(() => _error = userErrorMessage);
     });
   }
 

@@ -58,7 +58,7 @@ class GuestSaveSessionCard extends StatelessWidget {
               } catch (_) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Error has occurred, try again later.')));
+                    const SnackBar(content: Text(userRetryMessage)));
                 }
               }
             },
@@ -77,7 +77,7 @@ class GuestSaveSessionCard extends StatelessWidget {
                   } on SignInWithAppleAuthorizationException catch (error) {
                     if (error.code != AuthorizationErrorCode.canceled && context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Error has occurred, try again later.')));
+                        const SnackBar(content: Text(userRetryMessage)));
                     }
                   } on ApiException catch (error) {
                     if (context.mounted) {
@@ -86,7 +86,7 @@ class GuestSaveSessionCard extends StatelessWidget {
                   } catch (_) {
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Error has occurred, try again later.')));
+                        const SnackBar(content: Text(userRetryMessage)));
                     }
                   }
                 },

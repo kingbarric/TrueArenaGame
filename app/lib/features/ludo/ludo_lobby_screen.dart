@@ -77,7 +77,7 @@ class _LudoLobbyScreenState extends State<LudoLobbyScreen> {
       } catch (_) {
         if (mounted)
           setState(
-              () => _error = 'Error has occurred, try again later.');
+              () => _error = userErrorMessage);
       }
     });
   }
@@ -113,7 +113,7 @@ class _LudoLobbyScreenState extends State<LudoLobbyScreen> {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
       if (mounted) {
-        setState(() => _error = 'Error has occurred, try again later.');
+        setState(() => _error = userErrorMessage);
       }
     } finally {
       if (mounted) setState(() => _busy = false);

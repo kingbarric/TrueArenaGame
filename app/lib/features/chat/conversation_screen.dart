@@ -239,7 +239,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
       if (mounted && !silent) setState(() => _error = e.message);
     } catch (_) {
       if (mounted && !silent)
-        setState(() => _error = 'Error has occurred, try again later.');
+        setState(() => _error = userErrorMessage);
     } finally {
       if (mounted && !silent) setState(() => _loading = false);
     }
@@ -273,7 +273,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content:
-                Text('Error has occurred, try again later.')));
+                Text(userRetryMessage)));
       }
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -345,7 +345,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
     } catch (_) {
       if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Error has occurred, try again later.')));
+            const SnackBar(content: Text(userRetryMessage)));
     }
   }
 

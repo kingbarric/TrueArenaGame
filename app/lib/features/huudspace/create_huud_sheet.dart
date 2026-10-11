@@ -99,7 +99,7 @@ class _CreateHuudSheetState extends State<CreateHuudSheet> {
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted) setState(() => _error = "Error has occurred, try again later.");
+      if (mounted) setState(() => _error = userErrorMessage);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

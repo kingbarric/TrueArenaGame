@@ -1,4 +1,4 @@
-import '../../core/api_client.dart' show userErrorMessage;
+import '../../core/api_client.dart' show userErrorMessage, userRetryMessage;
 import 'package:flutter/material.dart';
 
 import '../../core/app_state.dart';
@@ -107,7 +107,7 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _error = 'Error has occurred, try again later.');
+      if (mounted) setState(() => _error = userErrorMessage);
     }
   }
 
@@ -230,7 +230,7 @@ class CompetitiveRecordSection extends StatelessWidget {
           } catch (_) {
             if (context.mounted) {
               ScaffoldMessenger.of(context)
-                  .showSnackBar(const SnackBar(content: Text('Error has occurred, try again later.')));
+                  .showSnackBar(const SnackBar(content: Text(userRetryMessage)));
             }
           }
         },
@@ -310,7 +310,7 @@ class _ProfileVisibilitySwitchState extends State<ProfileVisibilitySwitch> {
       if (mounted) {
         setState(() => _public = !value);
         ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Error has occurred, try again later.')));
+            .showSnackBar(const SnackBar(content: Text(userRetryMessage)));
       }
     } finally {
       if (mounted) setState(() => _saving = false);

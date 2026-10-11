@@ -106,8 +106,11 @@ class _SlayStageState extends State<SlayStage> with WidgetsBindingObserver {
   /// The cause, short enough for the retry button.
   static String _reason(Object e) {
     final text = e is TimeoutException
-        ? 'timed out'
-        : e.toString().replaceFirst(RegExp(r'^(Bad state|Exception|StateError): ?'), '');
+        ? 'taking longer than usual'
+        : e
+            .toString()
+            .replaceAll(RegExp(r'\b(Bad state|Exception|\w*Error)\b:?\s*', caseSensitive: false), '')
+            .trim();
     return text.length > 90 ? '${text.substring(0, 90)}…' : text;
   }
 
@@ -195,7 +198,7 @@ class _SlayStageState extends State<SlayStage> with WidgetsBindingObserver {
       if (c != null && !c.isCompleted) {
         if (type == 'error') {
           c.completeError(
-              StateError(payload['message']?.toString() ?? 'Renderer error'));
+              StateError(payload['message']?.toString() ?? 'the studio stopped responding'));
         } else {
           c.complete(payload);
         }
@@ -237,8 +240,9 @@ class _SlayStageState extends State<SlayStage> with WidgetsBindingObserver {
       await widget.controller._web?.reload();
     } else if (type == 'error') {
       if (mounted) {
-        setState(() => _error = payload['message']?.toString() ??
-            '3D is unavailable on this device');
+        setState(() => _error = payload['message'] == null
+            ? '3D is unavailable on this device'
+            : 'The studio could not load (${_reason(payload['message'] as Object)}). Tap to retry.');
       }
     }
   }

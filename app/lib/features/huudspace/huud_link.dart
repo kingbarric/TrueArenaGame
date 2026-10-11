@@ -125,7 +125,7 @@ class _HuudLinkLandingState extends State<HuudLinkLanding> {
       nav.maybePop();
     } catch (_) {
       if (!mounted) return;
-      huudSnack(context, "Error has occurred, try again later.");
+      huudSnack(context, userErrorMessage);
       nav.maybePop();
     }
   }

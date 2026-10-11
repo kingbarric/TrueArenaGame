@@ -351,7 +351,7 @@ class _ResumeGateState extends State<_ResumeGate> {
           if (roomId == null) {
             _checking = false;
           } else {
-            _error = 'Error has occurred, try again later.';
+            _error = userErrorMessage;
           }
         });
       }
@@ -361,7 +361,7 @@ class _ResumeGateState extends State<_ResumeGate> {
           if (roomId == null) {
             _checking = false;
           } else {
-            _error = 'Error has occurred, try again later.';
+            _error = userErrorMessage;
           }
         });
       }

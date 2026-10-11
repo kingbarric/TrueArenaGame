@@ -241,7 +241,7 @@ class _GameVoiceControlState extends State<GameVoiceControl> {
     } on ApiException catch (error) {
       _message(error.message);
     } catch (_) {
-      _message('Error has occurred, try again later.');
+      _message(userErrorMessage);
     } finally {
       if (mounted) setState(() => _joining = false);
     }
@@ -503,7 +503,7 @@ class _GameVoiceControlState extends State<GameVoiceControl> {
       if (before == MicState.locked) {
         final sent = await huud.askForMic(AppScope.of(context).api);
         if (!mounted) return;
-        _message(sent ? 'Mic requested — waiting for approval ✋' : 'Error has occurred, try again later.');
+        _message(sent ? 'Mic requested — waiting for approval ✋' : userErrorMessage);
         setState(() {});
         return;
       }
@@ -511,7 +511,7 @@ class _GameVoiceControlState extends State<GameVoiceControl> {
       if (!mounted) return;
       if (before == MicState.asked) _message('Your mic request is waiting for approval ✋');
       if (result == MicResult.noPermission) _message('Turn on the microphone for PlayHuud in your phone settings.');
-      if (result == MicResult.failed) _message("Error has occurred, try again later.");
+      if (result == MicResult.failed) _message(userErrorMessage);
       setState(() {});
       return;
     }

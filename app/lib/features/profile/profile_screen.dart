@@ -1,3 +1,4 @@
+import '../../core/api_client.dart' show userErrorMessage;
 import 'package:flutter/material.dart';
 
 import '../../core/app_state.dart';
@@ -97,7 +98,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final stats = await app.fetchStats();
       if (mounted) setState(() => _stats = stats);
     } catch (_) {
-      if (mounted) setState(() => _statsError = 'Error has occurred, try again later.');
+      if (mounted) setState(() => _statsError = userErrorMessage);
     }
   }
 

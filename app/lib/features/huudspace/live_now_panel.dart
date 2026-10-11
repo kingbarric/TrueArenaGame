@@ -79,7 +79,7 @@ class _LiveNowPanelState extends State<LiveNowPanel> {
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted) setState(() => _error = "Error has occurred, try again later.");
+      if (mounted) setState(() => _error = userErrorMessage);
     }
   }
 
@@ -100,7 +100,7 @@ class _LiveNowPanelState extends State<LiveNowPanel> {
     } on ApiException catch (e) {
       if (mounted) huudSnack(context, e.message);
     } catch (_) {
-      if (mounted) huudSnack(context, "Error has occurred, try again later.");
+      if (mounted) huudSnack(context, userErrorMessage);
     } finally {
       if (mounted) {
         setState(() => _joining = null);

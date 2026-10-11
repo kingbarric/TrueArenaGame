@@ -1,3 +1,4 @@
+import '../../core/api_client.dart' show userRetryMessage;
 import 'dart:async';
 import 'dart:ui' as ui;
 
@@ -611,7 +612,7 @@ class _ChessGameScreenState extends State<ChessGameScreen>
         _leaving = false;
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Error has occurred, try again later.')));
+              const SnackBar(content: Text(userRetryMessage)));
         }
         return;
       }

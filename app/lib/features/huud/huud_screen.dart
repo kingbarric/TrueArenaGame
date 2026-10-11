@@ -149,7 +149,7 @@ class _HuudScreenState extends State<HuudScreen> {
     } on ApiException catch (e) {
       if (mounted && generation == _loadGeneration) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted && generation == _loadGeneration) setState(() => _error = 'Error has occurred, try again later.');
+      if (mounted && generation == _loadGeneration) setState(() => _error = userErrorMessage);
     }
   }
 
@@ -291,7 +291,7 @@ class _HuudScreenState extends State<HuudScreen> {
       _snack(e.message);
       _load();
     } catch (_) {
-      _snack('Error has occurred, try again later.');
+      _snack(userRetryMessage);
     }
   }
 
@@ -315,7 +315,7 @@ class _HuudScreenState extends State<HuudScreen> {
     } on ApiException catch (e) {
       _snack(e.message);
     } catch (_) {
-      _snack('Error has occurred, try again later.');
+      _snack(userRetryMessage);
     }
   }
 
@@ -328,7 +328,7 @@ class _HuudScreenState extends State<HuudScreen> {
       _snack(e.message);
       _load();
     } catch (_) {
-      _snack('Error has occurred, try again later.');
+      _snack(userRetryMessage);
     }
   }
 
@@ -340,7 +340,7 @@ class _HuudScreenState extends State<HuudScreen> {
       _snack(e.message);
       _load();
     } catch (_) {
-      _snack('Error has occurred, try again later.');
+      _snack(userRetryMessage);
     }
   }
 
@@ -351,7 +351,7 @@ class _HuudScreenState extends State<HuudScreen> {
     } on ApiException catch (e) {
       _snack(e.message);
     } catch (_) {
-      _snack('Error has occurred, try again later.');
+      _snack(userRetryMessage);
     }
   }
 
@@ -711,7 +711,7 @@ class _HuudScreenState extends State<HuudScreen> {
     } on ApiException catch (e) {
       _snack(e.message);
     } catch (_) {
-      _snack('Error has occurred, try again later.');
+      _snack(userRetryMessage);
     }
     return null;
   }
@@ -735,7 +735,7 @@ class _HuudScreenState extends State<HuudScreen> {
     } on ApiException catch (e) {
       _snack(e.message);
     } catch (_) {
-      _snack('Error has occurred, try again later.');
+      _snack(userRetryMessage);
     }
   }
 
@@ -786,7 +786,7 @@ class _HuudScreenState extends State<HuudScreen> {
     } on ApiException catch (e) {
       _snack(e.message);
     } catch (_) {
-      _snack('Error has occurred, try again later.');
+      _snack(userRetryMessage);
     }
   }
 

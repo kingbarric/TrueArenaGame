@@ -46,7 +46,7 @@ class _UsernameSetupScreenState extends State<UsernameSetupScreen> {
       }
       _goHome();
     } catch (e) {
-      setState(() => _error = e.toString().contains('409') ? 'That username is taken' : 'Error has occurred, try again later.');
+      setState(() => _error = e.toString().contains('409') ? 'That username is taken' : userErrorMessage);
     } finally {
       if (mounted) setState(() => _saving = false);
     }

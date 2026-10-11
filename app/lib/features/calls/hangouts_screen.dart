@@ -53,7 +53,7 @@ class _HangoutsScreenState extends State<HangoutsScreen> {
           _error = null;
         });
     } catch (_) {
-      if (mounted) setState(() => _error = 'Error has occurred, try again later.');
+      if (mounted) setState(() => _error = userErrorMessage);
     }
   }
 
@@ -87,7 +87,7 @@ class _HangoutsScreenState extends State<HangoutsScreen> {
         } catch (_) {
           if (mounted)
             ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Error has occurred, try again later.')));
+                const SnackBar(content: Text(userRetryMessage)));
         }
       } else if (mounted) {
         ScaffoldMessenger.of(context)

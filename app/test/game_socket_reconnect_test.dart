@@ -22,7 +22,7 @@ void main() {
     final socket = GameSocket.connect(ApiClient()..bearer='test-token','room',baseUrl:'http://127.0.0.1:${server.port}');
     try {
       final error = await socket.envelopes.firstWhere((f) => f['type']=='ERROR').timeout(const Duration(seconds:5));
-      expect(error['payload'],{'code':'ACTION','message':userErrorMessage});
+      expect(error['payload'],{'code':'ACTION','message':userRetryMessage});
     } finally {
       await socket.close();
       for (final peer in peers) { await peer.close(); }

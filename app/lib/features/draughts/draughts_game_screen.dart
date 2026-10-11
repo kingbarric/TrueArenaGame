@@ -1,3 +1,4 @@
+import '../../core/api_client.dart' show userErrorMessage, userRetryMessage;
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -366,7 +367,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
         _applyEvent((env['payload'] as Map).cast<String, dynamic>());
       case 'ERROR':
         final msg = (env['payload'] as Map)['message']?.toString() ??
-            'Error has occurred, try again later.';
+            userErrorMessage;
         _actionLocked = false;
         _selected = null;
         _chain = const [];
@@ -1167,7 +1168,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
           _leaving = false;
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Error has occurred, try again later.')),
+              const SnackBar(content: Text(userRetryMessage)),
             );
           }
           return;

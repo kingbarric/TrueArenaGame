@@ -13,7 +13,7 @@ import '../../widgets/neon.dart';
 import '../onboarding/guest_gate.dart';
 import 'draughts_game_screen.dart';
 
-const _serverError = 'Server error';
+const _serverError = userErrorMessage;
 
 /// Championship discovery, invitations, roster, live bracket and history.
 class ChampionshipsScreen extends StatefulWidget {

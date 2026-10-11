@@ -20,7 +20,7 @@ Future<HuudSpace?> goLive(BuildContext context, String huudId) async {
   } on ApiException catch (e) {
     if (context.mounted) huudSnack(context, e.message);
   } catch (_) {
-    if (context.mounted) huudSnack(context, "Error has occurred, try again later.");
+    if (context.mounted) huudSnack(context, userErrorMessage);
   }
   return null;
 }

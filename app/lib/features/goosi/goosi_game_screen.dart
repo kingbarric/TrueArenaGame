@@ -1,3 +1,4 @@
+import '../../core/api_client.dart' show userRetryMessage;
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -897,7 +898,7 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
         _leaving = false;
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Error has occurred, try again later.')),
+            const SnackBar(content: Text(userRetryMessage)),
           );
         }
         return;

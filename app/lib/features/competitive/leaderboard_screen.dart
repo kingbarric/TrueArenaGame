@@ -64,7 +64,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       if (mounted) {
         setState(() {
           _loading = false;
-          _error = 'Error has occurred, try again later.';
+          _error = userErrorMessage;
         });
       }
     }

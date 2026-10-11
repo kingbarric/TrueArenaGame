@@ -66,7 +66,7 @@ class _SafetySheetState extends State<_SafetySheet> {
     } on ApiException catch (e) {
       if (mounted) huudSnack(context, e.message);
     } catch (_) {
-      if (mounted) huudSnack(context, "Error has occurred, try again later.");
+      if (mounted) huudSnack(context, userErrorMessage);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -91,7 +91,7 @@ class _SafetySheetState extends State<_SafetySheet> {
     } on ApiException catch (e) {
       if (mounted) huudSnack(context, e.message);
     } catch (_) {
-      if (mounted) huudSnack(context, "Error has occurred, try again later.");
+      if (mounted) huudSnack(context, userErrorMessage);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

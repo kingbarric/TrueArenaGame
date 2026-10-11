@@ -58,7 +58,7 @@ class _InvitePlayersSheetState extends State<_InvitePlayersSheet> {
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Error has occurred, try again later.');
+      if (mounted) setState(() => _error = userErrorMessage);
     }
   }
 
@@ -81,7 +81,7 @@ class _InvitePlayersSheetState extends State<_InvitePlayersSheet> {
         // sent" with no explanation leaves nothing to act on.
         firstFailure ??= e.message;
       } catch (_) {
-        firstFailure ??= 'Error has occurred, try again later.';
+        firstFailure ??= userErrorMessage;
       }
     }
     if (!mounted) return;

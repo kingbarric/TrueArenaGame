@@ -1,3 +1,4 @@
+import '../../core/api_client.dart' show userErrorMessage;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -233,7 +234,7 @@ class _GameScreenState extends State<GameScreen> {
         _applyEvent((env['payload'] as Map).cast<String, dynamic>());
       case 'ERROR':
         final msg = (env['payload'] as Map)['message']?.toString() ??
-            'Error has occurred, try again later.';
+            userErrorMessage;
         _actionLocked = false;
         if (mounted) {
           ScaffoldMessenger.of(context)

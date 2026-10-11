@@ -82,7 +82,7 @@ class _ChessLobbyScreenState extends State<ChessLobbyScreen> {
     } catch (_) {
       if (mounted)
         setState(
-            () => _error = 'Error has occurred, try again later.');
+            () => _error = userErrorMessage);
       return;
     }
     final control = await showChessTimeControlSheet(context);
@@ -122,7 +122,7 @@ class _ChessLobbyScreenState extends State<ChessLobbyScreen> {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
       if (mounted) {
-        setState(() => _error = 'Error has occurred, try again later.');
+        setState(() => _error = userErrorMessage);
       }
     }
   }
@@ -231,7 +231,7 @@ class _ChessLobbyScreenState extends State<ChessLobbyScreen> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Error has occurred, try again later.')));
+            const SnackBar(content: Text(userRetryMessage)));
       }
     } finally {
       if (mounted) setState(() => _addingBot = false);

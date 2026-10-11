@@ -284,7 +284,7 @@ class _MicRequestDialogState extends State<_MicRequestDialog> {
       if (mounted) {
         setState(
           () => _error =
-              'Error has occurred, try again later.',
+              userErrorMessage,
         );
       }
     } finally {

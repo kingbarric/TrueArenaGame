@@ -306,7 +306,7 @@ class _MonopolyGameScreenState extends State<MonopolyGameScreen> {
       }
     } catch (_) {
       if (mounted) {
-        setState(() => _error = 'Error has occurred, try again later.');
+        setState(() => _error = userErrorMessage);
       }
     } finally {
       _sendingChat = false;

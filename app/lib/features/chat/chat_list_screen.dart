@@ -116,7 +116,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
     } on ApiException catch (e) {
       if (mounted && !silent) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted && !silent) setState(() => _error = 'Error has occurred, try again later.');
+      if (mounted && !silent) setState(() => _error = userErrorMessage);
     } finally {
       if (mounted && !silent) setState(() => _loading = false);
     }

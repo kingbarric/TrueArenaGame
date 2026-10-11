@@ -53,7 +53,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Error has occurred, try again later.');
+      if (mounted) setState(() => _error = userErrorMessage);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -66,7 +66,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
       final res = await app.api.get('/friends') as List;
       friends = res.map((e) => FriendUser.fromJson((e as Map).cast<String, dynamic>())).toList();
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error has occurred, try again later.')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(userRetryMessage)));
       return;
     }
     if (!mounted) return;
@@ -89,7 +89,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
     } on ApiException catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error has occurred, try again later.')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(userRetryMessage)));
     } finally {
       if (mounted) setState(() => _creating = false);
     }
@@ -125,7 +125,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
     } on ApiException catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error has occurred, try again later.')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(userRetryMessage)));
     }
   }
 

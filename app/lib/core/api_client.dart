@@ -2,16 +2,25 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-const userErrorMessage = 'Error has occurred, try again later.';
+/// What players see when something can't load or the server can't be
+/// reached. Never the word "error": it reads as broken, not busy.
+const userErrorMessage = "We're trying to connect you to PlayHuud — hold tight.";
+
+/// What players see when a tap or request didn't go through.
+const userRetryMessage = "That didn't go through just now — give it another go.";
 
 class ApiException implements Exception {
   ApiException(this.status, this.diagnosticMessage);
   final int status;
   /// For internal flow decisions only; never render this value.
   final String diagnosticMessage;
-  String get message => userErrorMessage;
+
+  /// A refused request reads as "try again"; no answer, or a server in
+  /// trouble, reads as "we're connecting you".
+  /// 401 is a session being renewed behind the scenes, so it's "connecting" too.
+  String get message => status >= 400 && status < 500 && status != 401 ? userRetryMessage : userErrorMessage;
   @override
-  String toString() => userErrorMessage;
+  String toString() => message;
 }
 
 /// Thin JSON client for the TrueArena backend. Base URL is compiled in via
