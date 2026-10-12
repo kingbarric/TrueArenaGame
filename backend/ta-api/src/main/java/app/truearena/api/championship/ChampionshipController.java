@@ -1,5 +1,6 @@
 package app.truearena.api.championship;
 
+import app.truearena.api.competitive.CompetitiveProfileService;
 import app.truearena.api.support.CurrentUser;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -16,8 +17,12 @@ import java.util.UUID;
 @RequestMapping("/api/v1/championships")
 public class ChampionshipController {
     private final ChampionshipService service;
+    private final CompetitiveProfileService profiles;
 
-    public ChampionshipController(ChampionshipService service) { this.service = service; }
+    public ChampionshipController(ChampionshipService service, CompetitiveProfileService profiles) {
+        this.service = service;
+        this.profiles = profiles;
+    }
 
     public record Create(@NotBlank String name, int size, @NotBlank String visibility,
                          @NotNull Instant scheduledAt, String gameType) {}
@@ -42,6 +47,13 @@ public class ChampionshipController {
     @GetMapping("/badges/mine")
     public Flux<ChampionshipService.Badge> badges() {
         return CurrentUser.id().flatMapMany(service::badges);
+    }
+
+    /** A player's champion badges for their profile — none shown while their profile is private. */
+    @GetMapping("/badges/user/{userId}")
+    public Flux<ChampionshipService.Badge> badgesOf(@PathVariable UUID userId) {
+        return CurrentUser.id().flatMapMany(viewer -> (viewer.equals(userId) ? Mono.just(true) : profiles.isPublic(userId))
+                .flatMapMany(visible -> visible ? service.badges(userId) : Flux.empty()));
     }
 
     @GetMapping("/invite/{code}")

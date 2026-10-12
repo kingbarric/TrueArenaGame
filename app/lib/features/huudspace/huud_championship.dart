@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/api_client.dart';
 import '../../core/app_state.dart';
 import '../../theme/neon_theme.dart';
+import '../../widgets/champion_badge.dart';
 import '../../widgets/neon.dart';
 import 'huud_kit.dart';
 
@@ -289,7 +290,8 @@ class _SetupSheetState extends State<_SetupSheet> {
             ],
           ]),
           label('Players'),
-          choices<int>(const [(4, '4'), (8, '8'), (16, '16')], _size, (v) => _size = v, 'cup-size'),
+          choices<int>(const [(4, '4'), (8, '8'), (16, '16'), (32, '32'), (64, '64')], _size, (v) => _size = v,
+              'cup-size'),
           label('Format'),
           Text('Knockout · one game a match · a draw is replayed until someone wins',
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: n.ink)),
@@ -645,18 +647,31 @@ class ChampionshipPanel extends StatelessWidget {
         highlight: true,
         padding: const EdgeInsets.all(20),
         child: Column(children: [
-          const Text('🏆', style: TextStyle(fontSize: 48)),
-          if (champion == null)
+          if (champion == null) ...[
+            const Text('🏆', style: TextStyle(fontSize: 48)),
             Text('No champion this time',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: n.ink))
-          else ...[
-            Avatar(champion.handle, size: 72, imageUrl: champion.avatarUrl),
-            const SizedBox(height: 8),
-            Text(champion.userId == me ? 'You are the champion!' : '${champion.handle} is the champion!',
-                key: const ValueKey('cup-champion'),
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: n.ink)),
+          ] else ...[
+            ChampionBadge(key: const ValueKey('cup-badge'), gameType: cup.gameType, players: cup.size, width: 160),
+            const SizedBox(height: 4),
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Avatar(champion.handle, size: 40, imageUrl: champion.avatarUrl),
+              const SizedBox(width: 10),
+              Flexible(
+                child: Text(champion.userId == me ? 'You are the champion!' : '${champion.handle} is the champion!',
+                    key: const ValueKey('cup-champion'),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: h.orangeText)),
+              ),
+            ]),
+            const SizedBox(height: 4),
+            Text(
+                champion.userId == me
+                    ? 'The champion\'s badge is yours — it\'s on your profile.'
+                    : '${champion.handle} wins the champion\'s badge.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: h.orangeText)),
+                style: TextStyle(fontSize: 14, color: n.mid)),
           ],
           if (runnerUp != null) ...[
             const SizedBox(height: 6),

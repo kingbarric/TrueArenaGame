@@ -233,6 +233,47 @@ class HuudChampionshipIT {
         assertThat(huuds.addGame(r.host(), r.id(), "draughts").block().gameType()).isEqualTo("draughts");
     }
 
+    @Test void sixtyFourDraughtsPlayersPlayDownToOneChampionWhoKeepsTheBadge() {
+        Room r = huudWith(64);
+        HuudChampionship cup = cups.create(r.host(), r.id(),
+                new ChampionshipRequest("draughts", 64, "simultaneous", true, 3, "Big Huud Cup")).block();
+        for (UUID p : r.members()) cups.register(p, r.id()).block();
+        cup = cups.view(r.id(), r.host()).block();
+        assertThat(cup.status()).isEqualTo("playing");
+        assertThat(cup.rounds()).isEqualTo(6);
+        assertThat(cup.roundName()).isEqualTo("Round of 64");
+        // Every round of the bracket is there from the draw: 32, 16, 8, 4, 2, 1.
+        assertThat(cup.matches()).hasSize(63);
+
+        List<String> played = new ArrayList<>();
+        for (int expected = 32; expected >= 1; expected /= 2) {
+            List<ChampionshipMatch> boards = live(cup);
+            assertThat(boards).hasSize(expected);
+            played.add(boards.get(0).roundName());
+            for (ChampionshipMatch m : boards) win(m, m.playerA());
+            cup = cups.view(r.id(), r.host()).block();
+        }
+        assertThat(played).containsExactly("Round of 64", "Round of 32", "Round of 16",
+                "Quarter Finals", "Semi Finals", "Final");
+        assertThat(cup.status()).isEqualTo("finished");
+        UUID champion = cup.championId();
+        assertThat(champion).isNotNull();
+        assertThat(championships.badges(champion).collectList().block()).singleElement().satisfies(b -> {
+            assertThat(b.name()).isEqualTo("Big Huud Cup");
+            assertThat(b.gameType()).isEqualTo("draughts");
+            assertThat(b.size()).isEqualTo(64);
+        });
+        assertThat(championships.badges(cup.runnerUpId()).collectList().block()).isEmpty();
+    }
+
+    @Test void aHuudChampionshipIsFourToSixtyFourPlayers() {
+        Room r = huudWith(0);
+        for (int size : List.of(2, 6, 128))
+            assertThatThrownBy(() -> cups.create(r.host(), r.id(), chess(size, "simultaneous")).block())
+                    .isInstanceOf(ResponseStatusException.class).hasMessageContaining("64 players");
+        assertThat(cups.create(r.host(), r.id(), chess(32, "simultaneous")).block().size()).isEqualTo(32);
+    }
+
     @Test void sequentialRoundsPlayOneBoardAtATime() {
         Room r = huudWith(4);
         cups.create(r.host(), r.id(), new ChampionshipRequest("draughts", 4, "sequential", false, 1, "Saturday Cup")).block();

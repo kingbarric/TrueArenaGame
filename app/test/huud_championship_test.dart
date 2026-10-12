@@ -178,6 +178,28 @@ void main() {
             '{"gameType":"draughts","size":4,"roundTiming":"sequential","spectatorsAllowed":true,"graceMinutes":5}'));
   });
 
+  testWidgets('a championship can have 32 or 64 players', (tester) async {
+    final calls = await pump(tester, (r) async {
+      if (r.url.path == '/api/v1/huud-spaces/h1') return _json(_huud());
+      if (r.url.path == '/api/v1/huud-spaces/h1/championship' && r.method == 'POST') {
+        return _json(_cup(players: const []));
+      }
+      return http.Response('not found', 404);
+    });
+
+    await tester.tap(find.byKey(const ValueKey('huud-start-championship')));
+    await settle(tester);
+    for (final size in [4, 8, 16, 32, 64]) {
+      expect(find.byKey(ValueKey('cup-size-$size')), findsOneWidget);
+    }
+    await tester.tap(find.byKey(const ValueKey('cup-size-64')));
+    await tester.ensureVisible(find.byKey(const ValueKey('cup-start')));
+    await tester.tap(find.byKey(const ValueKey('cup-start')));
+    await settle(tester);
+
+    expect(calls, contains(matches(RegExp(r'POST /api/v1/huud-spaces/h1/championship .*"size":64'))));
+  });
+
   testWidgets('a member registers for the championship and sees how many places are left', (tester) async {
     var registered = false;
     final calls = await pump(tester, (r) async {
@@ -268,6 +290,8 @@ void main() {
     });
 
     expect(find.text('sarah is the champion!'), findsOneWidget);
+    expect(find.byKey(const ValueKey('cup-badge')), findsOneWidget);
+    expect(find.text("sarah wins the champion's badge."), findsOneWidget);
     expect(find.text('🥈 Runner-up: ada'), findsOneWidget);
     expect(find.byKey(const ValueKey('cup-new')), findsOneWidget);
     expect(find.byKey(const ValueKey('cup-end-live')), findsOneWidget);

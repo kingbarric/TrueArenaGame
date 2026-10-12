@@ -60,6 +60,9 @@ public class ChampionshipService {
     /** Games a bracket can be played in — two players, one winner, draws replay. */
     public static final List<String> GAMES = List.of("draughts", "chess");
 
+    /** How many players a Huud championship can have — a full bracket, no byes in round one. */
+    public static final List<Integer> HUUD_SIZES = List.of(4, 8, 16, 32, 64);
+
     public record Person(UUID id, String name, int slot) {}
     public record Match(UUID id, int round, int position, UUID playerA, UUID playerB,
                         UUID winnerId, String status, UUID roomId, int gameNumber,
@@ -71,13 +74,15 @@ public class ChampionshipService {
                        UUID huudSpaceId, String roundTiming) {}
     public record Invitation(UUID id, String code, String name, String gameType, int size,
                              String visibility, Instant scheduledAt, String status, int joined) {}
-    public record Badge(UUID championshipId, String name, Instant awardedAt) {}
+    /** A champion's badge: the game and the size of the field go on the shield. */
+    public record Badge(UUID championshipId, String name, Instant awardedAt, String gameType, int size) {}
 
     public Flux<Badge> badges(UUID user) {
-        return db.sql("SELECT b.championship_id,c.name,b.awarded_at FROM championship_badges b "
+        return db.sql("SELECT b.championship_id,c.name,b.awarded_at,c.game_type,c.size FROM championship_badges b "
                         + "JOIN championships c ON c.id=b.championship_id WHERE b.user_id=:u ORDER BY b.awarded_at DESC")
                 .bind("u", user).map((r, m) -> new Badge(r.get("championship_id", UUID.class),
-                        r.get("name", String.class), r.get("awarded_at", Instant.class))).all();
+                        r.get("name", String.class), r.get("awarded_at", Instant.class),
+                        r.get("game_type", String.class), r.get("size", Integer.class))).all();
     }
 
     public Mono<Invitation> publicInvitation(String code) {
@@ -124,8 +129,8 @@ public class ChampionshipService {
                                               String roundTiming, boolean spectatorsAllowed, int graceSeconds) {
         if (!GAMES.contains(gameType))
             return Mono.error(ApiExceptions.badRequest("Championships are for Chess or Draughts"));
-        if (!List.of(4, 8, 16).contains(size))
-            return Mono.error(ApiExceptions.badRequest("A championship has 4, 8 or 16 players"));
+        if (!HUUD_SIZES.contains(size))
+            return Mono.error(ApiExceptions.badRequest("A championship has 4, 8, 16, 32 or 64 players"));
         if (!List.of("simultaneous", "sequential").contains(roundTiming))
             return Mono.error(ApiExceptions.badRequest("Rounds are simultaneous or sequential"));
         if (graceSeconds < 60 || graceSeconds > 600)

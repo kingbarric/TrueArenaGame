@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../../core/api_client.dart' show userErrorMessage, userRetryMessage;
 import 'package:flutter/material.dart';
 
@@ -11,6 +13,7 @@ import 'competitive_setup_screen.dart';
 import 'competitive_widgets.dart';
 import 'leaderboard_screen.dart';
 import 'card_share.dart';
+import 'champion_badges.dart';
 import 'player_card.dart';
 import '../status/victory_status.dart';
 
@@ -84,6 +87,7 @@ class PlayerProfileScreen extends StatefulWidget {
 class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
   late final CompetitiveApi _api = CompetitiveApi(AppScope.of(context).api);
   CompetitiveProfile? _profile;
+  List<ChampionBadgeData> _badges = const [];
   List<String> _ratedGames = const ['draughts'];
   String? _error;
 
@@ -106,9 +110,19 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
           _ratedGames = rated;
         });
       }
+      if (!p.restricted) unawaited(_loadBadges(p.userId));
     } catch (_) {
       if (mounted) setState(() => _error = userErrorMessage);
     }
+  }
+
+  /// Their championship wins. Never blocks the profile.
+  Future<void> _loadBadges(String userId) async {
+    try {
+      final badges = ChampionBadgeData.listFrom(
+          await AppScope.of(context).api.get('/championships/badges/user/$userId'));
+      if (mounted) setState(() => _badges = badges);
+    } catch (_) {/* optional section */}
   }
 
   @override
@@ -156,8 +170,18 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
                           ]),
                         ),
                       )
-                    else
+                    else ...[
+                      if (_badges.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                          child: ChampionBadgesShelf(
+                              key: const ValueKey('player-champion-badges'),
+                              badges: _badges,
+                              handle: p.username,
+                              own: false),
+                        ),
                       CompetitiveRecordSection(profile: p, own: false, ratedGames: _ratedGames),
+                    ],
                   ]),
       ),
     );
