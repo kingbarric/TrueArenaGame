@@ -32,3 +32,11 @@ npm --prefix slay-renderer test
 ```
 
 The coverage repair is additive and repeatable. If changing its inference policy, regenerate clean authored body masks before applying it, so superseded inferred faces are not retained. Publish the generated immutable art to Cloudflare R2 before pushing a backend manifest that references it. Main deploys to test; production remains on release.
+
+## Character entry and hoodie correction (catalogue 32)
+
+Non-career studio entry now opens the shared full character picker before styling. Freestyle allows the theme's eligible bodies; competition entry allows avatars of the player's joined body. New careers retain their confirmation and one-character policy; existing careers keep their saved star.
+
+The source Hoodie Dress was ankle-length. Its skirt is clipped at 0.73 m into a mini-dress, preserving interpolated UVs, normals and normalized skin weights. Its indexed leg masks are trimmed using the canonical female topology and copied to the compatible variants. The updated thumbnail reflects the short hem. Run `node slay-renderer/scripts/crop-hoodie-dress.mjs` after conversion/coverage repair and before rebuilding delivery assets.
+
+Verification: 82 renderer tests, 19 character/career/wardrobe tests and clean analysis of the three changed screens. The asset and feed test files passed a focused 21-test rerun after a stale generated test bundle and a countdown failure in the busy full-suite run. The full initial run had 394 passes and two failures; it was not recorded as an all-pass run.

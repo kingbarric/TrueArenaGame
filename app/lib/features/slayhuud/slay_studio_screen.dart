@@ -14,6 +14,7 @@ import 'slay_pose_picker.dart';
 import 'slay_results.dart';
 import 'slay_colour_picker.dart';
 import 'slay_wardrobe.dart';
+import 'slay_character_picker.dart';
 
 class SlayStudioScreen extends StatefulWidget {
   const SlayStudioScreen(
@@ -56,6 +57,7 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
     ...widget.owned,
     ...List<String>.from(widget.careerCharacter?['items'] ?? const []),
   };
+  bool _characterChosen = false;
   bool get _career => widget.careerCharacter != null;
   late final Set<String> _careerItems =
       Set<String>.from(widget.careerCharacter?['items'] ?? const []);
@@ -298,6 +300,30 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
   Widget build(BuildContext context) => Theme(
       data: slayTheme(context),
       child: Builder(builder: (context) {
+        if (!_career && !_characterChosen) {
+          return Scaffold(
+              body: SafeArea(
+                  child: SlayCharacterPicker(
+            catalog: widget.catalog,
+            career: false,
+            allowedBodies: widget.competitionId != null
+                ? {_look.body}
+                : Set<String>.from(widget.theme['bodyEligibility']),
+            onChosen: (body, avatarId) async {
+              final avatar = (widget.catalog['avatars'] as List)
+                  .firstWhere((a) => (a['id'] ?? a['body']) == avatarId);
+              setState(() {
+                _look = SlayLook.initial(body).copy(
+                    avatarId: avatarId,
+                    skinTone: avatar['naturalSkinTone'] as String?,
+                    background: widget.initialBackground);
+                _characterChosen = true;
+                _draft = null;
+              });
+              await _restore();
+            },
+          )));
+        }
         final wardrobe = SlayWardrobe(widget.catalog, _look.body);
         final categories = _categories.entries
             .where((c) => wardrobe.categories.contains(c.key))

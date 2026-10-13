@@ -23,3 +23,8 @@ test('floor-length trains conceal footwear while short dresses leave it visible'
  assert.equal(concealsFootwear((await load('female-s2-little-black-cocktail-dress')).scene),false);
  assert.equal(concealsFootwear((await load('female-date-cutout')).scene),false);
 });
+
+test('hoodie mini-dress preserves exposed legs on every female character',async()=>{
+ const hoodie=await load('female-s0-hoodie-dress');hoodie.scene.traverse(mesh=>{if(!mesh.isMesh)return;const p=mesh.geometry.attributes.position;for(let i=0;i<p.count;i++)assert.ok(p.getY(i)>=.7299,'hoodie hem must leave the legs visible');});
+ for(const id of ['female','avatar-ella','avatar-beverly','avatar-girl02']){const body=await load(id),legs=body.scene.getObjectByName('region_legs'),before=Array.from(legs.geometry.index.array);coverBody(body.scene,['female-s0-hoodie-dress']);assert.deepEqual(Array.from(legs.geometry.index.array),before,id+': legs below hem remain intact');}
+});

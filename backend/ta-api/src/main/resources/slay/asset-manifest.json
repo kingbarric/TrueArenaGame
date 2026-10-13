@@ -8,9 +8,9 @@
    "bundled": false
   },
   "assets/avatar-beverly.glb": {
-   "name": "avatar-beverly.01618e00596bc0eb.glb",
-   "sha256": "01618e00596bc0eb9a959fe51e3027442e23f624d9920c5f3f3608460fec80d4",
-   "bytes": 492264,
+   "name": "avatar-beverly.e7340882bc61bebb.glb",
+   "sha256": "e7340882bc61bebbe5d7e4f22d9afb363fe7b382b255737105d6683bc04f482d",
+   "bytes": 491720,
    "bundled": false
   },
   "assets/avatar-beverly.png": {
@@ -26,9 +26,9 @@
    "bundled": false
   },
   "assets/avatar-ella.glb": {
-   "name": "avatar-ella.9d6200d29a864afa.glb",
-   "sha256": "9d6200d29a864afabc029d9f0ef20bdc27043d0ec6b2535f6457920f27858b32",
-   "bytes": 507004,
+   "name": "avatar-ella.6c7696fe484a8c10.glb",
+   "sha256": "6c7696fe484a8c107718f2d03fffb5d52724686ae429c50b185a5d66716f5990",
+   "bytes": 506464,
    "bundled": false
   },
   "assets/avatar-ella.png": {
@@ -44,9 +44,9 @@
    "bundled": false
   },
   "assets/avatar-girl02.glb": {
-   "name": "avatar-girl02.6bf46586f4404399.glb",
-   "sha256": "6bf46586f440439975db5415d06e60197ef7989bbcbce6c058d64dd452a2c443",
-   "bytes": 505964,
+   "name": "avatar-girl02.ba7f4f589eef32bc.glb",
+   "sha256": "ba7f4f589eef32bc63d79489731185b3a3c6f7ee4549da648c9da9b3b73c90a7",
+   "bytes": 505424,
    "bundled": false
   },
   "assets/avatar-girl02.png": {
@@ -740,15 +740,15 @@
    "bundled": true
   },
   "assets/female-s0-hoodie-dress.glb": {
-   "name": "female-s0-hoodie-dress.f009094c2ea1935f.glb",
-   "sha256": "f009094c2ea1935f65aea521fd81f7da08924a71c2bcc4b4777ddde4ac1914a2",
-   "bytes": 182452,
+   "name": "female-s0-hoodie-dress.a995a047dadfa3e8.glb",
+   "sha256": "a995a047dadfa3e80ebfb26293ab6d88481a54c2bb83d9484fc043f777a13fa1",
+   "bytes": 159076,
    "bundled": false
   },
   "assets/female-s0-hoodie-dress.png": {
-   "name": "female-s0-hoodie-dress.7fe209bb09b8a455.png",
-   "sha256": "7fe209bb09b8a455e06f26fcdb9e23a97cbf79191e03b28adf51934e665b87a2",
-   "bytes": 14121,
+   "name": "female-s0-hoodie-dress.03645aa4ca085fa9.png",
+   "sha256": "03645aa4ca085fa9669872882748f482dcb079a5f2acfe5009eb59f533e3339e",
+   "bytes": 7606,
    "bundled": true
   },
   "assets/female-s0-picnic-midi-dress.glb": {
@@ -2240,9 +2240,9 @@
    "bundled": true
   },
   "assets/female.glb": {
-   "name": "female.1166cb8293ca0479.glb",
-   "sha256": "1166cb8293ca0479f61eced81bbfc021016870b8d294098ca777e93e0cf77cd7",
-   "bytes": 460784,
+   "name": "female.644af0f0700ed176.glb",
+   "sha256": "644af0f0700ed176546291d3dd451c1b5ce998ec999beec6da7123588ad68041",
+   "bytes": 460244,
    "bundled": true
   },
   "assets/male-bowtie-suit.glb": {

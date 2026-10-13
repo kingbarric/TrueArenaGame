@@ -17,6 +17,7 @@ blender -b --python slay-renderer/scripts/convert-model-variants.py -- slay-rend
 node slay-renderer/scripts/apply-character-skins.mjs
 node slay-renderer/scripts/fit-preview-underwear.mjs ella beverly girl02
 node slay-renderer/scripts/repair-wardrobe-coverage.mjs
+node slay-renderer/scripts/crop-hoodie-dress.mjs
 blender -b --python slay-renderer/scripts/render-character-portraits.py
 ```
 
