@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/neon_theme.dart';
-import '../../theme/huud_colors.dart';
 import 'huud_kit.dart';
 import 'whot_mode_sheet.dart';
 

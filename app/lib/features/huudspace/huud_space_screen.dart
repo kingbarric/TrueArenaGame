@@ -611,6 +611,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
       case MicState.live:
         break;
     }
+    if (!mounted) return;
     if (!voice.isIn(_voiceRoom(huud))) {
       if (voice.isConnecting(_voiceRoom(huud))) return;
       _syncVoice(huud);

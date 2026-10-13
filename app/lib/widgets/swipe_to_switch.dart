@@ -36,6 +36,7 @@ class SwipeToSwitch extends StatelessWidget {
 
 /// The tab next to [current] in [tabs], or null at either end.
 T? neighbourTab<T>(List<T> tabs, T current, int step) {
+  if (!tabs.contains(current)) return null;
   final i = tabs.indexOf(current) + step;
-  return i < 0 || i >= tabs.length || tabs.indexOf(current) < 0 ? null : tabs[i];
+  return i < 0 || i >= tabs.length ? null : tabs[i];
 }
