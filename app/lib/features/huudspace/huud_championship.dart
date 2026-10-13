@@ -113,10 +113,18 @@ class HuudCup {
     this.championId,
     this.runnerUpId,
     this.yourMatchId,
+    this.startsAt,
+    this.minPlayers = 4,
   });
 
   final String id, name, gameType;
+
+  /// The most players while registering; then the bracket they were drawn into.
   final int size;
+
+  /// When it starts by itself. The host can start it sooner once [minPlayers] are in.
+  final DateTime? startsAt;
+  final int minPlayers;
 
   /// registering · playing · finished · cancelled
   final String status;
@@ -137,6 +145,7 @@ class HuudCup {
   bool get playing => status == 'playing';
   bool get finished => status == 'finished';
   bool get full => players.length >= size;
+  bool get enoughToStart => players.length >= minPlayers;
 
   List<CupMatch> get liveMatches => matches.where((m) => m.live).toList();
 
@@ -193,7 +202,56 @@ class HuudCup {
         championId: j['championId']?.toString(),
         runnerUpId: j['runnerUpId']?.toString(),
         yourMatchId: j['yourMatchId']?.toString(),
+        startsAt: DateTime.tryParse(j['startsAt']?.toString() ?? '')?.toLocal(),
+        minPlayers: (j['minPlayers'] as num?)?.toInt() ?? 4,
       );
+}
+
+/// "Chess Championship" — what a new championship is called until the host names it.
+String defaultCupName(String gameType) => '${huudGameName(gameType)} Championship';
+
+/// A new championship starts in about 15 minutes: the next five-minute mark after that.
+DateTime defaultCupStart(DateTime now) {
+  final soon = now.add(const Duration(minutes: 15));
+  final extra = (5 - soon.minute % 5) % 5;
+  return DateTime(soon.year, soon.month, soon.day, soon.hour, soon.minute + extra);
+}
+
+const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/// "Today", "Tomorrow", "Sat 18 Oct".
+String cupDay(DateTime when, {DateTime? now}) {
+  final today = DateUtils.dateOnly(now ?? DateTime.now());
+  final days = DateUtils.dateOnly(when).difference(today).inDays;
+  if (days == 0) return 'Today';
+  if (days == 1) return 'Tomorrow';
+  return '${_weekdays[when.weekday - 1]} ${when.day} ${_months[when.month - 1]}';
+}
+
+/// "19:45" or "7:45 PM", as the phone tells the time.
+String cupTime(BuildContext context, DateTime when) =>
+    MaterialLocalizations.of(context).formatTimeOfDay(TimeOfDay.fromDateTime(when),
+        alwaysUse24HourFormat: MediaQuery.maybeOf(context)?.alwaysUse24HourFormat ?? false);
+
+/// "today at 19:45", "tomorrow at 8:00", "on Sat 18 Oct at 20:00".
+String cupWhen(BuildContext context, DateTime when, {DateTime? now}) {
+  final day = cupDay(when, now: now);
+  final time = cupTime(context, when);
+  return switch (day) {
+    'Today' => 'today at $time',
+    'Tomorrow' => 'tomorrow at $time',
+    _ => 'on $day at $time',
+  };
+}
+
+/// The smallest bracket [players] fit: 5 players play in an 8.
+int cupField(int players) {
+  var field = 2;
+  while (field < players) {
+    field *= 2;
+  }
+  return field;
 }
 
 /// How the match card shows it, from your seat.
@@ -223,6 +281,48 @@ class _SetupSheetState extends State<_SetupSheet> {
   bool _watching = true;
   int _grace = 3;
   bool _busy = false;
+  late final _name = TextEditingController(text: defaultCupName(_game));
+
+  /// Once the host types a name, picking the other game leaves it alone.
+  bool _named = false;
+  DateTime _startsAt = defaultCupStart(DateTime.now());
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  void _pickGame(String game) => setState(() {
+        _game = game;
+        if (!_named) _name.text = defaultCupName(game);
+      });
+
+  Future<void> _pickDay() async {
+    final now = DateTime.now();
+    final day = await showDatePicker(
+      context: context,
+      initialDate: _startsAt,
+      firstDate: DateUtils.dateOnly(now),
+      lastDate: now.add(const Duration(days: 30)),
+    );
+    if (day == null || !mounted) return;
+    _setStart(DateTime(day.year, day.month, day.day, _startsAt.hour, _startsAt.minute));
+  }
+
+  Future<void> _pickTime() async {
+    final time = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(_startsAt));
+    if (time == null || !mounted) return;
+    _setStart(DateTime(_startsAt.year, _startsAt.month, _startsAt.day, time.hour, time.minute));
+  }
+
+  void _setStart(DateTime when) {
+    if (when.isBefore(DateTime.now())) {
+      huudSnack(context, "That time's already gone — pick a later one");
+      return;
+    }
+    setState(() => _startsAt = when);
+  }
 
   Future<void> _start() async {
     setState(() => _busy = true);
@@ -233,6 +333,8 @@ class _SetupSheetState extends State<_SetupSheet> {
         'roundTiming': _timing,
         'spectatorsAllowed': _watching,
         'graceMinutes': _grace,
+        'name': _name.text.trim().isEmpty ? defaultCupName(_game) : _name.text.trim(),
+        'startsAt': _startsAt.toUtc().toIso8601String(),
       });
       if (!mounted) return;
       Navigator.of(context).pop(HuudCup.fromJson((raw as Map).cast<String, dynamic>()));
@@ -273,7 +375,7 @@ class _SetupSheetState extends State<_SetupSheet> {
           Text('Start a championship',
               textAlign: TextAlign.center, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: n.ink)),
           const SizedBox(height: 4),
-          Text('Everyone in the Huud can register. When every place is filled, the draw happens by itself.',
+          Text('Everyone in the Huud can register. It starts at the time you set — or sooner, when you say so.',
               textAlign: TextAlign.center, style: TextStyle(fontSize: 14, color: n.mid)),
           label('Game'),
           Row(children: [
@@ -283,15 +385,56 @@ class _SetupSheetState extends State<_SetupSheet> {
                   key: ValueKey('cup-game-$g'),
                   gameType: g,
                   selected: _game == g,
-                  onTap: () => setState(() => _game = g),
+                  onTap: () => _pickGame(g),
                 ),
               ),
               if (g != championshipGames.last) const SizedBox(width: 12),
             ],
           ]),
-          label('Players'),
+          label('Name'),
+          TextField(
+            key: const ValueKey('cup-name-field'),
+            controller: _name,
+            maxLength: 80,
+            textCapitalization: TextCapitalization.words,
+            textInputAction: TextInputAction.done,
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: n.ink),
+            decoration: InputDecoration(
+              counterText: '',
+              hintText: defaultCupName(_game),
+              prefixIcon: Icon(Icons.emoji_events_rounded, color: HuudColors.of(context).orangeText),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(18)),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(18),
+                borderSide: BorderSide(color: HuudColors.of(context).orange, width: 2.4),
+              ),
+            ),
+            onChanged: (_) => _named = true,
+          ),
+          label('Starts'),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            _Pill(
+              key: const ValueKey('cup-start-day'),
+              text: '📅  ${cupDay(_startsAt)}',
+              selected: true,
+              onTap: _pickDay,
+            ),
+            _Pill(
+              key: const ValueKey('cup-start-time'),
+              text: '🕗  ${cupTime(context, _startsAt)}',
+              selected: true,
+              onTap: _pickTime,
+            ),
+          ]),
+          const SizedBox(height: 6),
+          Text('It starts by itself then, with everyone who has registered. You can start it sooner once 4 are in.',
+              style: TextStyle(fontSize: 13, color: n.mute)),
+          label('Up to'),
           choices<int>(const [(4, '4'), (8, '8'), (16, '16'), (32, '32'), (64, '64')], _size, (v) => _size = v,
               'cup-size'),
+          const SizedBox(height: 6),
+          Text('players. Places nobody takes become byes.', style: TextStyle(fontSize: 13, color: n.mute)),
           label('Format'),
           Text('Knockout · one game a match · a draw is replayed until someone wins',
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: n.ink)),
@@ -415,6 +558,7 @@ class ChampionshipPanel extends StatelessWidget {
     required this.onEndLive,
     required this.onRemovePlayer,
     required this.onEndBothAbsent,
+    this.onStartNow,
     this.listeningTo,
     this.busy,
   });
@@ -429,6 +573,9 @@ class ChampionshipPanel extends StatelessWidget {
   final VoidCallback onRegister, onWithdraw, onCallOff, onNew, onHangOut, onEndLive;
   final ValueChanged<CupMatch> onOpenMatch, onEndBothAbsent;
   final ValueChanged<CupEntrant> onRemovePlayer;
+
+  /// Host only: start before the set time.
+  final VoidCallback? onStartNow;
 
   @override
   Widget build(BuildContext context) {
@@ -492,6 +639,14 @@ class ChampionshipPanel extends StatelessWidget {
     final n = context.neon;
     final h = HuudColors.of(context);
     final left = cup.size - cup.players.length;
+    final when = cup.startsAt;
+    // Its time has come, but it's still short of players: it starts as the last one needed registers.
+    final due = when == null || !when.isAfter(DateTime.now());
+    final starts = when == null
+        ? null
+        : due
+            ? (cup.enoughToStart ? 'Starting now' : 'Starts as soon as ${cup.minPlayers} have registered')
+            : 'Starts ${cupWhen(context, when)}';
     return [
       HuudCard(
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -527,13 +682,31 @@ class ChampionshipPanel extends StatelessWidget {
             const SizedBox(height: 8),
             Text('Tap someone to free their place.', style: TextStyle(fontSize: 12, color: n.mute)),
           ],
+          if (starts != null) ...[
+            const SizedBox(height: 12),
+            Row(children: [
+              Icon(Icons.schedule_rounded, size: 20, color: h.orangeText),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(starts,
+                    key: const ValueKey('cup-starts'),
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: n.ink)),
+              ),
+            ]),
+          ],
         ]),
       ),
       const SizedBox(height: 14),
       if (!youAreIn)
         _note(context, 'Join the Huud to take part')
       else if (cup.youAreRegistered) ...[
-        _note(context, left == 0 ? "You're in ✅ — drawing the bracket…" : "You're in ✅ — waiting for $left more"),
+        _note(
+            context,
+            !due
+                ? "You're in ✅"
+                : left == 0 || cup.enoughToStart
+                    ? "You're in ✅ — drawing the bracket…"
+                    : "You're in ✅ — waiting for ${cup.minPlayers - cup.players.length} more"),
         const SizedBox(height: 10),
         HuudButton(
           key: const ValueKey('cup-withdraw'),
@@ -554,6 +727,20 @@ class ChampionshipPanel extends StatelessWidget {
           busy: busy == 'cup-register',
           onPressed: cup.full ? null : onRegister,
         ),
+      if (youAreHost && onStartNow != null && !(due && cup.enoughToStart)) ...[
+        const SizedBox(height: 10),
+        HuudButton(
+          key: const ValueKey('cup-start-now'),
+          label: cup.enoughToStart
+              ? 'Start now with ${cup.players.length} players'
+              : 'Start now · needs ${cup.minPlayers} players',
+          icon: Icons.play_arrow_rounded,
+          kind: cup.youAreRegistered ? HuudButtonKind.orange : HuudButtonKind.soft,
+          expand: true,
+          busy: busy == 'cup-start-now',
+          onPressed: cup.enoughToStart ? onStartNow : null,
+        ),
+      ],
       if (youAreHost) ...[
         const SizedBox(height: 10),
         HuudButton(

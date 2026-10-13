@@ -15,6 +15,8 @@ import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +38,12 @@ import java.util.UUID;
 public class HuudChampionshipService implements ChampionshipEvents {
 
     static final Map<String, String> GAME_NAMES = Map.of("chess", "Chess", "draughts", "Draughts");
+
+    /** With no time given, a championship starts this long after it's set up. */
+    static final Duration DEFAULT_START = Duration.ofMinutes(15);
+
+    /** The furthest ahead a start can be set. */
+    static final Duration LATEST_START = Duration.ofDays(30);
 
     private final HuudSpaceService huuds;
     private final ChampionshipService championships;
@@ -65,6 +73,14 @@ public class HuudChampionshipService implements ChampionshipEvents {
         int grace = (request.graceMinutes() == null ? 3 : request.graceMinutes()) * 60;
         String name = request.name() == null || request.name().isBlank()
                 ? GAME_NAMES.getOrDefault(gameType, "") + " Championship" : request.name();
+        Instant now = Instant.now();
+        Instant startsAt = request.startsAt() == null ? now.plus(DEFAULT_START) : request.startsAt();
+        // A time picked a moment ago has just passed: it means now.
+        if (startsAt.isBefore(now.minus(Duration.ofMinutes(5))))
+            return Mono.error(ApiExceptions.badRequest("Pick a start time that hasn't passed"));
+        if (startsAt.isAfter(now.plus(LATEST_START)))
+            return Mono.error(ApiExceptions.badRequest("Pick a start time within the next 30 days"));
+        Instant start = startsAt.isBefore(now) ? now : startsAt;
         return huuds.requireHost(id, host)
                 .filter(Space::live)
                 .switchIfEmpty(Mono.error(ApiExceptions.conflict("Go Live first, then start a championship")))
@@ -76,7 +92,7 @@ public class HuudChampionshipService implements ChampionshipEvents {
                                 ? Mono.<Space>error(ApiExceptions.conflict("Finish the game that's on first"))
                                 : huuds.cancelWaitingGame(s, host).thenReturn(s))
                         .defaultIfEmpty(s))
-                .flatMap(s -> championships.createInHuud(host, id, name, gameType, size, timing, watching, grace))
+                .flatMap(s -> championships.createInHuud(host, id, name, gameType, size, timing, watching, grace, start))
                 .flatMap(c -> db.sql("UPDATE huud_spaces SET championship_id=:c, current_room_id=NULL WHERE id=:id")
                         .bind("c", c.id()).bind("id", id).fetch().rowsUpdated()
                         .then(db.sql("DELETE FROM huud_space_requests WHERE huud_space_id=:id AND kind='play'")
@@ -142,7 +158,8 @@ public class HuudChampionshipService implements ChampionshipEvents {
                     c.roundTiming(), c.spectatorsAllowed(), c.graceSeconds(), c.currentRound(), rounds,
                     c.currentRound() == 0 ? null : roundName(c.currentRound(), rounds), players,
                     players.stream().anyMatch(p -> p.userId().equals(viewer)), matches, c.championId(), runnerUp,
-                    yours, HuudSpaceAccess.VOICE_PREFIX + c.huudSpaceId(), c.creatorId());
+                    yours, HuudSpaceAccess.VOICE_PREFIX + c.huudSpaceId(), c.creatorId(), c.scheduledAt(),
+                    ChampionshipService.HUUD_MIN_PLAYERS);
         });
     }
 
@@ -165,7 +182,7 @@ public class HuudChampionshipService implements ChampionshipEvents {
         };
     }
 
-    /** A member in the Live hangout takes a place. The last place starts the draw. */
+    /** A member in the Live hangout takes a place. Once the start time has come, the last place starts the draw. */
     public Mono<HuudChampionship> register(UUID user, UUID id) {
         return huuds.requireMember(id, user)
                 .filter(Space::live)
@@ -173,6 +190,14 @@ public class HuudChampionshipService implements ChampionshipEvents {
                 .flatMap(s -> current(s)
                         .flatMap(c -> championships.register(c, user)))
                 .then(view(id, user));
+    }
+
+    /** Host only: start before the set time, with whoever has registered (at least four). */
+    public Mono<HuudChampionship> startNow(UUID host, UUID id) {
+        return huuds.requireHost(id, host)
+                .flatMap(this::current)
+                .flatMap(championships::startHuudNow)
+                .then(view(id, host));
     }
 
     /** Give your place back while registration is open. */

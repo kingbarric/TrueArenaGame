@@ -10,6 +10,7 @@ import 'package:truearena/core/app_state.dart';
 import 'package:truearena/core/hangout_state.dart';
 import 'package:truearena/core/models.dart';
 import 'package:truearena/features/huudspace/huud_championship.dart';
+import 'package:truearena/features/huudspace/huud_kit.dart';
 import 'package:truearena/features/huudspace/huud_space_models.dart';
 import 'package:truearena/features/huudspace/huud_space_screen.dart';
 import 'package:truearena/features/huudspace/huud_voice.dart';
@@ -88,6 +89,7 @@ Map<String, dynamic> _cup({
   String? champion,
   String? runnerUp,
   String? yourMatch,
+  DateTime? startsAt,
 }) =>
     {
       'id': 'c1',
@@ -109,6 +111,8 @@ Map<String, dynamic> _cup({
       'runnerUpId': runnerUp,
       'yourMatchId': yourMatch,
       'lobbyVoiceRoom': 'huud-h1',
+      'startsAt': (startsAt ?? DateTime.now().add(const Duration(hours: 1))).toUtc().toIso8601String(),
+      'minPlayers': 4,
     };
 
 void main() {
@@ -140,6 +144,9 @@ void main() {
     return calls;
   }
 
+  String cupName(WidgetTester tester) =>
+      tester.widget<TextField>(find.byKey(const ValueKey('cup-name-field'))).controller!.text;
+
   Future<void> settle(WidgetTester tester) async {
     for (var i = 0; i < 6; i++) {
       await tester.pump(const Duration(milliseconds: 200));
@@ -162,7 +169,12 @@ void main() {
 
     expect(find.text('Start a championship'), findsWidgets);
     expect(find.textContaining('Knockout · one game a match'), findsOneWidget);
+    // Name and start are filled in already; the name follows the game until the host types one.
+    expect(cupName(tester), 'Chess Championship');
+    expect(find.text('📅  Today'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('cup-game-draughts')));
+    await tester.pump();
+    expect(cupName(tester), 'Draughts Championship');
     await tester.tap(find.byKey(const ValueKey('cup-size-4')));
     await tester.ensureVisible(find.byKey(const ValueKey('cup-timing-sequential')));
     await tester.tap(find.byKey(const ValueKey('cup-timing-sequential')));
@@ -172,10 +184,41 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('cup-start')));
     await settle(tester);
 
-    expect(
-        calls,
-        contains('POST /api/v1/huud-spaces/h1/championship '
-            '{"gameType":"draughts","size":4,"roundTiming":"sequential","spectatorsAllowed":true,"graceMinutes":5}'));
+    final sent = calls.firstWhere((c) => c.startsWith('POST /api/v1/huud-spaces/h1/championship '));
+    final body = jsonDecode(sent.substring(sent.indexOf('{'))) as Map<String, dynamic>;
+    expect(body, containsPair('gameType', 'draughts'));
+    expect(body, containsPair('size', 4));
+    expect(body, containsPair('roundTiming', 'sequential'));
+    expect(body, containsPair('spectatorsAllowed', true));
+    expect(body, containsPair('graceMinutes', 5));
+    expect(body, containsPair('name', 'Draughts Championship'));
+    // About 15 minutes from now, on a five-minute mark.
+    final startsAt = DateTime.parse(body['startsAt'] as String).toLocal();
+    expect(startsAt.minute % 5, 0);
+    expect(startsAt.difference(DateTime.now()).inMinutes, inInclusiveRange(14, 20));
+  });
+
+  testWidgets('the host names the championship', (tester) async {
+    final calls = await pump(tester, (r) async {
+      if (r.url.path == '/api/v1/huud-spaces/h1') return _json(_huud());
+      if (r.url.path == '/api/v1/huud-spaces/h1/championship' && r.method == 'POST') {
+        return _json(_cup(players: const []));
+      }
+      return http.Response('not found', 404);
+    });
+
+    await tester.tap(find.byKey(const ValueKey('huud-start-championship')));
+    await settle(tester);
+    await tester.enterText(find.byKey(const ValueKey('cup-name-field')), 'Friday Night Chess');
+    // A name of your own stays when you switch games.
+    await tester.tap(find.byKey(const ValueKey('cup-game-draughts')));
+    await tester.pump();
+    expect(cupName(tester), 'Friday Night Chess');
+    await tester.ensureVisible(find.byKey(const ValueKey('cup-start')));
+    await tester.tap(find.byKey(const ValueKey('cup-start')));
+    await settle(tester);
+
+    expect(calls, contains(matches(RegExp(r'POST /api/v1/huud-spaces/h1/championship .*"name":"Friday Night Chess"'))));
   });
 
   testWidgets('a championship can have 32 or 64 players', (tester) async {
@@ -224,8 +267,58 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('cup-register')));
     await settle(tester);
     expect(calls, contains('POST /api/v1/huud-spaces/h1/championship/register {}'));
-    expect(find.textContaining("You're in ✅ — waiting for 5 more"), findsOneWidget);
+    expect(find.text("You're in ✅"), findsOneWidget);
+    expect(find.byKey(const ValueKey('cup-starts')), findsOneWidget);
+    expect(find.textContaining('Starts today at'), findsOneWidget);
     expect(find.byKey(const ValueKey('cup-withdraw')), findsOneWidget);
+  });
+
+  testWidgets('the host can start early once four have registered; empty places become byes', (tester) async {
+    var started = false;
+    final five = _eight.take(5).toList();
+    final calls = await pump(tester, (r) async {
+      if (r.url.path == '/api/v1/huud-spaces/h1') return _json(_huud(championshipId: 'c1'));
+      if (r.url.path == '/api/v1/huud-spaces/h1/championship/start') {
+        started = true;
+        return _json(_cup(status: 'playing', players: five, round: 1, roundName: 'Quarter Finals'));
+      }
+      if (r.url.path == '/api/v1/huud-spaces/h1/championship') {
+        return _json(started
+            ? _cup(status: 'playing', players: five, round: 1, roundName: 'Quarter Finals')
+            : _cup(players: five));
+      }
+      return http.Response('not found', 404);
+    });
+
+    await tester.ensureVisible(find.byKey(const ValueKey('cup-start-now')));
+    expect(find.text('Start now with 5 players'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('cup-start-now')));
+    await settle(tester);
+    expect(find.textContaining('3 players get a bye'), findsOneWidget);
+    await tester.tap(find.text('Start now').last);
+    await settle(tester);
+    expect(calls, contains('POST /api/v1/huud-spaces/h1/championship/start {}'));
+  });
+
+  testWidgets('three registered is not enough to start early', (tester) async {
+    await pump(tester, (r) async {
+      if (r.url.path == '/api/v1/huud-spaces/h1') return _json(_huud(championshipId: 'c1'));
+      if (r.url.path == '/api/v1/huud-spaces/h1/championship') return _json(_cup(players: _eight.take(3).toList()));
+      return http.Response('not found', 404);
+    });
+    await tester.ensureVisible(find.byKey(const ValueKey('cup-start-now')));
+    expect(find.text('Start now · needs 4 players'), findsOneWidget);
+    final button = tester.widget<HuudButton>(find.byKey(const ValueKey('cup-start-now')));
+    expect(button.onPressed, isNull);
+  });
+
+  test('a new championship starts about 15 minutes from now, on a five-minute mark', () {
+    expect(defaultCupStart(DateTime(2026, 10, 13, 19, 31)), DateTime(2026, 10, 13, 19, 50));
+    expect(defaultCupStart(DateTime(2026, 10, 13, 19, 30)), DateTime(2026, 10, 13, 19, 45));
+    expect(defaultCupStart(DateTime(2026, 10, 13, 23, 58)), DateTime(2026, 10, 14, 0, 15));
+    expect(cupDay(DateTime(2026, 10, 14, 8), now: DateTime(2026, 10, 13, 22)), 'Tomorrow');
+    expect(cupDay(DateTime(2026, 10, 18, 20), now: DateTime(2026, 10, 13, 22)), 'Sun 18 Oct');
+    expect([4, 5, 8, 9, 33, 64].map(cupField), [4, 8, 8, 16, 64, 64]);
   });
 
   testWidgets('quarter finals show every live match with who is watching, your own on top', (tester) async {

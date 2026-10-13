@@ -52,7 +52,9 @@ class DraughtsGameScreen extends StatefulWidget {
       required this.nicknames,
       this.championshipId,
       this.tournamentSpectator = false,
-      this.spectating = false});
+      this.spectating = false,
+      this.title,
+      this.subtitle});
 
   final GameSocket socket;
   final String selfId;
@@ -60,6 +62,10 @@ class DraughtsGameScreen extends StatefulWidget {
   final String? championshipId;
   final bool tournamentSpectator;
   final bool spectating;
+
+  /// What the top bar says above the game's own round — a championship's
+  /// name, and which round of it this is.
+  final String? title, subtitle;
 
   @override
   State<DraughtsGameScreen> createState() => _DraughtsGameScreenState();
@@ -1217,7 +1223,21 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
       child: Scaffold(
         backgroundColor: const Color(0xff1c130a),
         appBar: AppBar(
-          title: Text(finished ? 'Results' : 'Round $round'),
+          title: widget.title == null
+              ? Text(finished ? 'Results' : 'Round $round')
+              : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(widget.title!,
+                      key: const ValueKey('draughts-title'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                  Text(
+                      [if (widget.subtitle != null) widget.subtitle!, finished ? 'Results' : 'Round $round']
+                          .join(' · '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xffc9ab78))),
+                ]),
           automaticallyImplyLeading:
               finished || widget.tournamentSpectator || widget.spectating,
           backgroundColor: const Color(0xff241708),

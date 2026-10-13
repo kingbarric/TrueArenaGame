@@ -45,6 +45,8 @@ class ChessGameScreen extends StatefulWidget {
     this.agents = const {},
     this.spectating = false,
     this.championship = false,
+    this.title,
+    this.subtitle,
   });
 
   final GameSocket socket;
@@ -60,6 +62,10 @@ class ChessGameScreen extends StatefulWidget {
   /// A championship match: the bracket runs the clock (no pausing), and a
   /// player who drops out has a set time to come back before losing.
   final bool championship;
+
+  /// What the top of the board says instead of "CHESS" — a championship's
+  /// name, with its round underneath.
+  final String? title, subtitle;
 
   @override
   State<ChessGameScreen> createState() => _ChessGameScreenState();
@@ -869,16 +875,25 @@ class _ChessGameScreenState extends State<ChessGameScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('CHESS',
+              Text(widget.title?.toUpperCase() ?? 'CHESS',
+                  key: const ValueKey('chess-title'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: _gold,
-                    fontSize: 22,
+                    fontSize: widget.title == null ? 22 : 18,
                     fontWeight: FontWeight.w700,
-                    letterSpacing: 4,
+                    letterSpacing: widget.title == null ? 4 : 1.6,
                     fontFamily: 'Georgia',
-                    fontFamilyFallback: ['Times New Roman', 'serif'],
+                    fontFamilyFallback: const ['Times New Roman', 'serif'],
                     height: 1.05,
                   )),
+              if (widget.subtitle != null)
+                Text(widget.subtitle!.toUpperCase(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        color: _mute, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.4)),
               if (widget.roomCode.isNotEmpty)
                 CopyableHuudCode(
                   code: widget.roomCode,
