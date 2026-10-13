@@ -16,6 +16,7 @@ Use MakeHuman's official `v1.2.0` base and target data, with `makehuman` as the 
 blender -b --python slay-renderer/scripts/convert-model-variants.py -- slay-renderer/source_assets/makehuman/authoring/makehuman app/assets/slay_renderer/assets ella beverly girl02
 node slay-renderer/scripts/apply-character-skins.mjs
 node slay-renderer/scripts/fit-preview-underwear.mjs ella beverly girl02
+node slay-renderer/scripts/repair-wardrobe-coverage.mjs
 blender -b --python slay-renderer/scripts/render-character-portraits.py
 ```
 
@@ -32,3 +33,5 @@ The preview at `http://127.0.0.1:5173/character-preview.html` lists Ella (curvy)
 The fixture app uses `lib/slayhuud_preview.dart` with `SLAY_ASSET_BASE=http://localhost:8932/`, served locally from `website/slay-assets`. It does not sign in or write to production. Builds verify compressed geometry against each source, including triangle order and masks. Tests cover the complete rig, topology, wardrobe fits and poses; these do not replace visual review of every garment combination or physical-device profiling.
 
 The old patterned dress remains replaced by the Little Black Dress under its existing saved IDs `female-essential` and `female-dress-collection-9`.
+
+Wardrobe coverage, drape and seam repairs are documented in `SLAYHUUD_WARDROBE_FIT_REVIEW.md`.

@@ -1,0 +1,38 @@
+{
+  "avatars": [
+    {
+      "id": "female",
+      "models": 185,
+      "pairs": 7812
+    },
+    {
+      "id": "male",
+      "models": 59,
+      "pairs": 2862
+    },
+    {
+      "id": "girl02",
+      "models": 185,
+      "pairs": 7812
+    },
+    {
+      "id": "indian-male",
+      "models": 59,
+      "pairs": 2862
+    },
+    {
+      "id": "ella",
+      "models": 185,
+      "pairs": 7812
+    },
+    {
+      "id": "beverly",
+      "models": 185,
+      "pairs": 7812
+    }
+  ],
+  "failures": [],
+  "modelFits": 858,
+  "clothingPairs": 36972,
+  "seamFits": 260
+}

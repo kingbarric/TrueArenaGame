@@ -8,9 +8,9 @@
    "bundled": false
   },
   "assets/avatar-beverly.glb": {
-   "name": "avatar-beverly.c723d5ddc2cc635d.glb",
-   "sha256": "c723d5ddc2cc635dac45ba3948336b997f40341fddbc6c796a361df4f4f74848",
-   "bytes": 453720,
+   "name": "avatar-beverly.01618e00596bc0eb.glb",
+   "sha256": "01618e00596bc0eb9a959fe51e3027442e23f624d9920c5f3f3608460fec80d4",
+   "bytes": 492264,
    "bundled": false
   },
   "assets/avatar-beverly.png": {
@@ -26,9 +26,9 @@
    "bundled": false
   },
   "assets/avatar-ella.glb": {
-   "name": "avatar-ella.11607785f66bfb99.glb",
-   "sha256": "11607785f66bfb995c0671246da7049bb1542d2078d80ff9d114e4f2133effea",
-   "bytes": 468464,
+   "name": "avatar-ella.9d6200d29a864afa.glb",
+   "sha256": "9d6200d29a864afabc029d9f0ef20bdc27043d0ec6b2535f6457920f27858b32",
+   "bytes": 507004,
    "bundled": false
   },
   "assets/avatar-ella.png": {
@@ -44,9 +44,9 @@
    "bundled": false
   },
   "assets/avatar-girl02.glb": {
-   "name": "avatar-girl02.53d374cea2fa850c.glb",
-   "sha256": "53d374cea2fa850ca8fb1e6477dd3213e302de1fa33c9ff4da11fc7b7e333df9",
-   "bytes": 467424,
+   "name": "avatar-girl02.6bf46586f4404399.glb",
+   "sha256": "6bf46586f440439975db5415d06e60197ef7989bbcbce6c058d64dd452a2c443",
+   "bytes": 505964,
    "bundled": false
   },
   "assets/avatar-girl02.png": {
@@ -62,9 +62,9 @@
    "bundled": false
   },
   "assets/avatar-indian-male.glb": {
-   "name": "avatar-indian-male.68b1d0feacfc2269.glb",
-   "sha256": "68b1d0feacfc2269200cef445f1af2f17479bee823d56a1a4641a74c8fe9bae0",
-   "bytes": 933280,
+   "name": "avatar-indian-male.87892412a93c9c34.glb",
+   "sha256": "87892412a93c9c3456a0f17f40701fab619c9b00d2eab018d881f701e83b2352",
+   "bytes": 1236284,
    "bundled": false
   },
   "assets/avatar-indian-male.png": {
@@ -2240,9 +2240,9 @@
    "bundled": true
   },
   "assets/female.glb": {
-   "name": "female.3a26ebbca1d6e709.glb",
-   "sha256": "3a26ebbca1d6e7097a07c346e6036b1ea21844dcb64264edf4f29784cb95a81e",
-   "bytes": 422244,
+   "name": "female.1166cb8293ca0479.glb",
+   "sha256": "1166cb8293ca0479f61eced81bbfc021016870b8d294098ca777e93e0cf77cd7",
+   "bytes": 460784,
    "bundled": true
   },
   "assets/male-bowtie-suit.glb": {
@@ -2894,9 +2894,9 @@
    "bundled": true
   },
   "assets/male.glb": {
-   "name": "male.e81c0c8eb1b774d3.glb",
-   "sha256": "e81c0c8eb1b774d361c210bf6600205eaa20da16a5a5ccbd8c1f6d4057bdc98c",
-   "bytes": 932972,
+   "name": "male.17cdbb274b3eeefd.glb",
+   "sha256": "17cdbb274b3eeefd734a721b97105b4895fc0bf053703a2aa04edfcffca6f4cf",
+   "bytes": 1235976,
    "bundled": true
   },
   "assets/shoe-0.glb": {

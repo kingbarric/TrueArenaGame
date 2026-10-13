@@ -12,6 +12,7 @@ import { Showcase } from './showcase';
 import { applyItemColour, applyDye } from './item-colours';
 import { VariantFit, type FitField } from './variant-fit';
 import { fitMaleSeparates } from './male-separates';
+import { drapeBust, stabiliseTrouserSeam, concealsFootwear } from './garment-drape';
 
 const palette:Record<string,string>={gold:'#c39b55',navy:'#283d54',pink:'#c98491',red:'#a53541',purple:'#674269',green:'#397c65',black:'#28262a',white:'#eee5d6',blue:'#48879a',grey:'#8e8c87',orange:'#c5773d',yellow:'#ddba55'};
 function material(colour:string){return new T.MeshStandardMaterial({color:colour,roughness:.72,metalness:.05});}
@@ -97,6 +98,8 @@ export class Wardrobe {
         if(item.assetUrl){
           selectBodyFit(garment,look.body);
           this.fit?.apply(garment);
+          if(look.body==='female' && ['dress','outfit','tops'].includes(item.category)) drapeBust(garment);
+          if(item.category==='trousers') stabiliseTrouserSeam(garment);
           bindGarment(garment,this.bones);
           if(item.attachmentBone){const bone=this.bones.get(item.attachmentBone);if(!bone)throw Error('Missing attachment bone: '+item.attachmentBone);}
         }
@@ -122,10 +125,18 @@ export class Wardrobe {
       ...(!fullOutfit&&!look.items.trousers&&!look.items.skirts?['starter_briefs']:[]),
     ];
     coverBody(body,[...Object.values(look.items).map(id=>catalog.wardrobePresentation?.[id]?.maskOf??id),...underwearMasks,...(look.items.shoes?['slay_footwear']:[])]);
+    const skirt=this.equipped.get('dress')??this.equipped.get('outfit')??this.equipped.get('skirts');
+    const enclosesFeet=!!(look.body==='female'&&skirt&&concealsFootwear(skirt.root));
+    if(enclosesFeet) hidden.add('feet');
     presentBody(body,look.skinTone,hidden);
+    // The base bodies keep partially masked feet visible for open shoes;
+    // a surrounding train overrides that footwear-specific exception.
+    if(enclosesFeet){const feet=body.getObjectByName('region_feet');if(feet)feet.visible=false;}
     // Eye choices replace the baked brown-eye mesh; do not stack two sets.
     presentEyes(body,!!look.items.eyes);
     presentUnderwear(body,new Set(Object.keys(look.items)));
+    const shoes=this.equipped.get('shoes');
+    if(shoes) shoes.root.visible=!enclosesFeet;
     presentFace(this.root,look.facePreset,look.pose);
     this.pose(look.pose);
   }
