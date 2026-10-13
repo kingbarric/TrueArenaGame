@@ -24,6 +24,7 @@ class SlayStageController {
   int _indicatorRevision = 0;
   final Map<String, Completer<Map<String, dynamic>>> _pending = {};
   Completer<void> _ready = Completer<void>();
+
   /// [timeout] covers the renderer's answer. Putting a look on can mean
   /// downloading its art first, so that waits longer than a camera move.
   Future<Map<String, dynamic>> request(
@@ -109,7 +110,10 @@ class _SlayStageState extends State<SlayStage> with WidgetsBindingObserver {
         ? 'taking longer than usual'
         : e
             .toString()
-            .replaceAll(RegExp(r'\b(Bad state|Exception|\w*Error)\b:?\s*', caseSensitive: false), '')
+            .replaceAll(
+                RegExp(r'\b(Bad state|Exception|\w*Error)\b:?\s*',
+                    caseSensitive: false),
+                '')
             .trim();
     return text.length > 90 ? '${text.substring(0, 90)}…' : text;
   }
@@ -137,7 +141,8 @@ class _SlayStageState extends State<SlayStage> with WidgetsBindingObserver {
       if (mounted) setState(() => _loading = false);
     } catch (e) {
       if (mounted) {
-        setState(() => _error = 'Could not open the 3D studio (${_reason(e)}). Tap to retry.');
+        setState(() => _error =
+            'Could not open the 3D studio (${_reason(e)}). Tap to retry.');
       }
     }
   }
@@ -175,7 +180,8 @@ class _SlayStageState extends State<SlayStage> with WidgetsBindingObserver {
     final revision = ++_applyRevision;
     widget.controller.ready.value = false;
     try {
-      await widget.controller.request('applyLook', {'look': widget.look.toJson()},
+      await widget.controller.request(
+          'applyLook', {'look': widget.look.toJson()},
           timeout: _lookTimeout);
       if (mounted && revision == _applyRevision) {
         widget.controller.ready.value = true;
@@ -184,7 +190,8 @@ class _SlayStageState extends State<SlayStage> with WidgetsBindingObserver {
     } catch (e) {
       debugPrint('SlayHuud applyLook failed: $e');
       if (mounted && revision == _applyRevision) {
-        setState(() => _error = 'The look could not be loaded (${_reason(e)}). Tap to retry.');
+        setState(() => _error =
+            'The look could not be loaded (${_reason(e)}). Tap to retry.');
       }
     }
   }
@@ -197,8 +204,8 @@ class _SlayStageState extends State<SlayStage> with WidgetsBindingObserver {
       final c = widget.controller._pending[id];
       if (c != null && !c.isCompleted) {
         if (type == 'error') {
-          c.completeError(
-              StateError(payload['message']?.toString() ?? 'the studio stopped responding'));
+          c.completeError(StateError(payload['message']?.toString() ??
+              'the studio stopped responding'));
         } else {
           c.complete(payload);
         }
@@ -223,13 +230,14 @@ class _SlayStageState extends State<SlayStage> with WidgetsBindingObserver {
         await _apply();
         // Queued behind the look: if that was slow, this must not turn a
         // look still loading into "the studio could not load".
-        await widget.controller
-            .request('pause', {'paused': !_routeActive || !_appActive})
-            .catchError((_) => <String, dynamic>{});
+        await widget.controller.request('pause', {
+          'paused': !_routeActive || !_appActive
+        }).catchError((_) => <String, dynamic>{});
       } catch (e) {
         debugPrint('SlayHuud studio initialisation failed: $e');
         if (mounted) {
-          setState(() => _error = 'The studio could not load (${_reason(e)}). Tap to retry.');
+          setState(() => _error =
+              'The studio could not load (${_reason(e)}). Tap to retry.');
         }
       } finally {
         _booting = false;
@@ -301,8 +309,9 @@ class _SlayStageState extends State<SlayStage> with WidgetsBindingObserver {
             Factory<OneSequenceGestureRecognizer>(
                 () => EagerGestureRecognizer())
           },
-          initialUrlRequest:
-              URLRequest(url: WebUri('http://localhost:8187/index.html')),
+          initialUrlRequest: URLRequest(
+              url: WebUri(
+                  'http://localhost:8187/index.html?renderer=33&catalog=${widget.catalog['version']}')),
           initialSettings: InAppWebViewSettings(
               javaScriptEnabled: true,
               supportZoom: false,

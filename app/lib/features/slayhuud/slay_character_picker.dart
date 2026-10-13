@@ -22,7 +22,7 @@ class _RoundIcon extends StatelessWidget {
       child: Icon(icon, size: 22, color: context.neon.ink));
 }
 
-/// Choose your star once; they stay for the whole career.
+/// Choose the star to style.
 class SlayCharacterPicker extends StatefulWidget {
   const SlayCharacterPicker(
       {super.key,
@@ -67,7 +67,7 @@ class _SlayCharacterPickerState extends State<SlayCharacterPicker> {
             builder: (c) => AlertDialog(
                   title: Text('Start your career with $name?'),
                   content: const Text(
-                      'Your star stays with you for the whole journey, from Starter Studio to Global Star.'),
+                      'Start your journey from Starter Studio to Global Star. You can choose another star before each event.'),
                   actions: [
                     TextButton(
                         onPressed: () => Navigator.pop(c, false),
@@ -113,7 +113,7 @@ class _SlayCharacterPickerState extends State<SlayCharacterPicker> {
       const SizedBox(height: 4),
       Text(
           widget.career
-              ? 'Pick once. They’ll walk every runway with you.'
+              ? 'Choose your first star. Switch before any event.'
               : 'Choose your character for this look.',
           style: TextStyle(color: n.mute)),
       const SizedBox(height: 10),

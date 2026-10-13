@@ -668,6 +668,26 @@ class SlayHuudIT {
     }
 
 
+    @Test void changingCareerStarPreservesProgressAndUsesTheSelectedWardrobe() {
+        UUID user = human();
+        career.start(user, "male", null).block();
+        var look = slay.saveLook(user, careerLook("male")).block();
+        career.score(user, "hello-style", look.id()).block();
+        var before = career.home(user).block();
+        var after = career.character(user, "female", "ella").block();
+        for (String key : List.of("xp", "completed", "totalStars", "level"))
+            assertThat(after.get(key)).isEqualTo(before.get(key));
+        var character = (Map<String, Object>) after.get("character");
+        assertThat(character).containsEntry("body", "female").containsEntry("avatarId", "ella");
+        assertThat((Collection<String>) character.get("items")).contains("female-essential");
+        assertThatThrownBy(() -> career.score(user, "hello-style", look.id()).block())
+                .hasMessageContaining("chosen character");
+        assertThatThrownBy(() -> career.character(user, "female", "missing").block())
+                .hasMessageContaining("available character");
+        assertThat(((Map<?, ?>) career.home(user).block().get("character")).get("avatarId"))
+                .isEqualTo("ella");
+    }
+
     @Test void careerKeepsOneCharacterAndOnlyItsOpenedStageWardrobe() {
         UUID user = human();
         var look = slay.saveLook(user, careerLook("male")).block();

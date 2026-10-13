@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import type { Look,Item,Catalog } from './types';
-import { bindGarment } from './rig';
+import { bindGarment, restoreBindSpace } from './rig';
 import { assetBytes } from './cache';
 import { presentBody, presentFace, presentEyes, presentUnderwear } from './presentation';
 import { applyPose, selectBodyFit } from './poses';
@@ -11,7 +11,7 @@ import { coverBody } from './coverage';
 import { Showcase } from './showcase';
 import { applyItemColour, applyDye } from './item-colours';
 import { VariantFit, type FitField } from './variant-fit';
-import { fitMaleSeparates } from './male-separates';
+import { fitMaleSeparates, fitFemaleSeparates } from './male-separates';
 import { drapeBust, stabiliseTrouserSeam, concealsFootwear } from './garment-drape';
 
 const palette:Record<string,string>={gold:'#c39b55',navy:'#283d54',pink:'#c98491',red:'#a53541',purple:'#674269',green:'#397c65',black:'#28262a',white:'#eee5d6',blue:'#48879a',grey:'#8e8c87',orange:'#c5773d',yellow:'#ddba55'};
@@ -60,7 +60,7 @@ export class Wardrobe {
   private assetVersion=0;private performance?:Showcase;private currentPose='signature';
   onShowcaseState:(playing:boolean,phase:string)=>void=()=>{};
   constructor(renderer:T.WebGLRenderer){this.ktx=new KTX2Loader().setTranscoderPath('basis/').detectSupport(renderer);this.loader=new GLTFLoader().setKTX2Loader(this.ktx).setMeshoptDecoder(MeshoptDecoder);}
-  private async load(url:string){const address=new URL(url,location.href);if(address.protocol!=='https:' && address.origin!==location.origin)throw Error('Asset URL must be HTTPS or bundled');address.searchParams.set('catalogVersion',String(this.assetVersion));const bytes=await assetBytes(address.href);return this.loader.parseAsync(bytes,new URL('.',address).href);}
+  private async load(url:string){const address=new URL(url,location.href);if(address.protocol!=='https:' && address.origin!==location.origin)throw Error('Asset URL must be HTTPS or bundled');address.searchParams.set('catalogVersion',String(this.assetVersion));const bytes=await assetBytes(address.href);const gltf=await this.loader.parseAsync(bytes,new URL('.',address).href);restoreBindSpace(gltf.scene);return gltf;}
   async apply(look:Look,catalog:Catalog){
     this.stopShowcase('Show off cancelled: look changed');
     const version=++this.revision;
@@ -117,6 +117,9 @@ export class Wardrobe {
     const shirt=this.equipped.get('shirts');
     if(look.body==='male' && shirt)
       fitMaleSeparates(shirt.root,this.equipped.get('trousers')?.root,shirt.id!=='male-tee-relaxed');
+    const top=this.equipped.get('tops');
+    if(look.body==='female' && top)
+      fitFemaleSeparates(top.root,this.equipped.get('trousers')?.root??this.equipped.get('skirts')?.root);
     const hidden=new Set(Object.values(look.items).flatMap(id=>catalog.items.find(i=>i.id===id)!.hidesRegions));
     // Colour variants share their base garment's skin mask (wardrobePresentation.maskOf).
     const fullOutfit=!!(look.items.outfit||look.items.dress);

@@ -115,9 +115,11 @@ void main() {
           ? c.home(now)
           : path.endsWith('/career/start')
               ? c.start(body['body'], body['avatarId'])
-              : path.endsWith('/leaderboard')
-                  ? c.leaderboard('daily', now)
-                  : {'owned': []};
+              : path.endsWith('/career/character')
+                  ? c.chooseCharacter(body['body'], body['avatarId'])
+                  : path.endsWith('/leaderboard')
+                      ? c.leaderboard('daily', now)
+                      : {'owned': []};
       return http.Response(jsonEncode(result), 200,
           headers: {'content-type': 'application/json'});
     }));
@@ -170,6 +172,10 @@ void main() {
     await t.tap(find.text('NEXT UP'));
     await t.pump();
     await t.pump(const Duration(seconds: 1));
+    expect(find.text('Who’s your star?'), findsOneWidget);
+    await t.tap(find.text('This is my star'));
+    await t.pump();
+    await t.pump(const Duration(seconds: 1));
     expect(find.text('💌 YOU’RE INVITED'), findsOneWidget);
     expect(find.text('Her'), findsNothing);
     expect(find.text('Him'), findsNothing);
@@ -185,6 +191,10 @@ void main() {
       (t) async {
     await launch(t, scale: 1.5);
     await t.tap(find.text('NEXT UP'));
+    await t.pump();
+    await t.pump(const Duration(seconds: 1));
+    expect(find.text('Who’s your star?'), findsOneWidget);
+    await t.tap(find.text('This is my star'));
     await t.pump();
     await t.pump(const Duration(seconds: 1));
     await t.scrollUntilVisible(find.text('Let’s slay!'), 120,

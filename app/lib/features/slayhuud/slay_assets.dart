@@ -66,6 +66,9 @@ class SlayAssets {
 
   Future<void> _handle(HttpRequest request) async {
     final response = request.response;
+    // This origin survives app upgrades. Never reuse an older renderer page
+    // or a logical asset path whose catalogue manifest has changed.
+    response.headers.set(HttpHeaders.cacheControlHeader, 'no-store');
     try {
       var path = Uri.decodeComponent(request.uri.path).replaceFirst('/', '');
       if (path.isEmpty) path = 'index.html';

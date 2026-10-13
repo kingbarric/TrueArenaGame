@@ -17,7 +17,7 @@ import java.time.*;
 import java.util.*;
 
 /**
- * Solo career: one character for the whole journey, stage-by-stage wardrobes,
+ * Solo career: selectable stars, stage-by-stage wardrobes,
  * personal bests, rewards and leaderboards. PvP ratings stay separate.
  */
 @Service
@@ -262,8 +262,17 @@ public class SlayCareerService {
                         .map(p -> state(p, LocalDate.now(ZoneOffset.UTC))));
     }
 
-    /** Chooses the career character. It stays for the whole career. */
+    /** Starts a career with its first character. */
     public Mono<Map<String, Object>> start(UUID user, String body, String avatarId) {
+        return choose(user, body, avatarId, false);
+    }
+
+    /** Change the active star while retaining XP, scores and earned rewards. */
+    public Mono<Map<String, Object>> character(UUID user, String body, String avatarId) {
+        return choose(user, body, avatarId, true);
+    }
+
+    private Mono<Map<String, Object>> choose(UUID user, String body, String avatarId, boolean replace) {
         String character = avatarId == null || avatarId.isBlank() ? body : avatarId;
         try {
             wardrobe.validateAvatar(
@@ -281,8 +290,8 @@ public class SlayCareerService {
                                         db.sql(
                                                         "UPDATE slay_profiles SET career_body=:b,"
                                                                 + "career_avatar=:a,updated_at=now()"
-                                                                + " WHERE user_id=:u AND"
-                                                                + " career_body IS NULL")
+                                                                + " WHERE user_id=:u"
+                                                                + (replace ? " AND career_body IS NOT NULL" : " AND career_body IS NULL"))
                                                 .bind("b", body)
                                                 .bind("a", character)
                                                 .bind("u", user)

@@ -136,6 +136,8 @@ Future<void> main() async {
       } on StateError catch (error) {
         return http.Response(jsonEncode({'message': error.message}), 409);
       }
+    } else if (path == '/slay/career/character') {
+      result = career.chooseCharacter(body['body'], body['avatarId']);
     } else if (path.endsWith('/leaderboard')) {
       result = career.leaderboard(path.split('/')[3], DateTime.now().toUtc());
     } else if (path.startsWith('/slay/career/')) {

@@ -13,7 +13,7 @@ export 'slay_character_picker.dart' show SlayCharacterPicker;
 import 'slay_theme.dart';
 import 'slay_ui.dart';
 
-/// Solo career: pick your star once, then climb from Starter Studio to Global Star.
+/// Solo career: choose a star for each event and climb to Global Star.
 class SlayCareerScreen extends StatefulWidget {
   const SlayCareerScreen(
       {super.key, required this.catalog, required this.owned});
@@ -64,6 +64,24 @@ class _SlayCareerScreenState extends State<SlayCareerScreen> {
 
   Future<void> _play(Map<String, dynamic> event, {bool daily = false}) async {
     if (event['unlocked'] != true) return;
+    final chosen = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+            builder: (pickerContext) => Theme(
+                data: slayTheme(context),
+                child: Scaffold(
+                    body: SafeArea(
+                        child: SlayCharacterPicker(
+                            catalog: widget.catalog,
+                            career: false,
+                            onChosen: (body, avatarId) async {
+                              final career =
+                                  await _api.careerCharacter(body, avatarId);
+                              if (!mounted || !pickerContext.mounted) return;
+                              setState(() => _career = career);
+                              Navigator.pop(pickerContext, true);
+                            }))))));
+    if (chosen != true || !mounted) return;
     final go = await showSlayInvite(context, event, daily: daily);
     if (go != true || !mounted) return;
     final character = _character!;

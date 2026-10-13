@@ -141,6 +141,10 @@ class SlayApi {
   Future<Map<String, dynamic>> careerLeaderboard(String event) async =>
       Map<String, dynamic>.from(
           await client.get('/slay/career/$event/leaderboard'));
+  Future<Map<String, dynamic>> careerCharacter(
+          String body, String avatarId) async =>
+      Map<String, dynamic>.from(await client.post(
+          '/slay/career/character', {'body': body, 'avatarId': avatarId}));
   Future<Map<String, dynamic>> careerScore(String event, String look,
           {String? period}) async =>
       Map<String, dynamic>.from(await client.post('/slay/career/$event/score',

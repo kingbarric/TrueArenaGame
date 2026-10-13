@@ -52,6 +52,16 @@ class SlayPreviewCareer {
     return home(DateTime.now().toUtc());
   }
 
+  Map<String, dynamic> chooseCharacter(String body, String avatarId) {
+    if (character == null) throw StateError('Start your career first');
+    if (!(catalog['avatars'] as List)
+        .any((a) => a['body'] == body && (a['id'] ?? a['body']) == avatarId)) {
+      throw StateError('Choose an available character');
+    }
+    character = {'body': body, 'avatarId': avatarId};
+    return home(DateTime.now().toUtc());
+  }
+
   int stars(num score) => score >= 90
       ? 5
       : score >= 80

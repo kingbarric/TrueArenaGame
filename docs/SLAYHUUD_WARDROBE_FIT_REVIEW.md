@@ -35,8 +35,18 @@ The coverage repair is additive and repeatable. If changing its inference policy
 
 ## Character entry and hoodie correction (catalogue 32)
 
-Non-career studio entry now opens the shared full character picker before styling. Freestyle allows the theme's eligible bodies; competition entry allows avatars of the player's joined body. New careers retain their confirmation and one-character policy; existing careers keep their saved star.
+Non-career studio entry now opens the shared full character picker before styling. Freestyle allows the theme's eligible bodies; competition entry allows avatars of the player's joined body. The initial patch retained the old one-character policy; catalogue 33 supersedes it with selection before every career event.
 
 The source Hoodie Dress was ankle-length. Its skirt is clipped at 0.73 m into a mini-dress, preserving interpolated UVs, normals and normalized skin weights. Its indexed leg masks are trimmed using the canonical female topology and copied to the compatible variants. The updated thumbnail reflects the short hem. Run `node slay-renderer/scripts/crop-hoodie-dress.mjs` after conversion/coverage repair and before rebuilding delivery assets.
 
 Verification: 82 renderer tests, 19 character/career/wardrobe tests and clean analysis of the three changed screens. The asset and feed test files passed a focused 21-test rerun after a stale generated test bundle and a countdown failure in the busy full-suite run. The full initial run had 394 passes and two failures; it was not recorded as an all-pass run.
+
+## Installed renderer and saved career correction (catalogue 33)
+
+Saved career and Daily Slay events now open the shared character picker. The authenticated `/slay/career/character` endpoint changes the active star without clearing XP, scores, stars, wardrobe or progress. The old start endpoint retains its duplicate-start protection.
+
+Delivery quantization stores its decode transform in inverse bind matrices. Spatial garment fitting previously edited normalized compressed coordinates as metres. The renderer now restores the common bind-space transform into float vertices and corrects inverse binds before fitting, draping and footwear checks. Source-only preview tests could not detect this. New tests compare fitted, rebound compressed garments with their source preview and check exposed legs on every short/casual dress and colour variant across four women.
+
+Loopback responses are marked no-store and the renderer URL has a new revision to avoid retaining an older page across app upgrades. Verification: 85 renderer tests, ten character/career Flutter tests, clean static analysis, nine backend catalogue/scoring unit tests and one career switching integration test on disposable local PostgreSQL/Redis. Simulator visual inspection covered Hoodie, Easy Day and Sunny Day dresses. Midi dresses and gowns retain their designed lengths pending any requested design change.
+
+Female separates now fit the lower top inside the selected trouser/skirt waistband, using the authored metre-space surface after delivery decoding. The reproduced Everyday Tee / Ribbon Shorts back overlap has a regression test on four female characters, five poses and 25 gait samples.

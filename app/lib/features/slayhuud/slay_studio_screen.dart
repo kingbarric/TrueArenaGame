@@ -175,7 +175,9 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                   (a) => a['body'] == look.body && a['id'] == look.avatarId)) &&
           look.items.values.every(available.contains) &&
           mounted) {
-        setState(() => _draft = look);
+        // Restoring clothes must not replace the star just chosen for this event.
+        setState(() => _draft =
+            look.copy(avatarId: _look.avatarId, skinTone: _look.skinTone));
       }
     } catch (_) {}
   }

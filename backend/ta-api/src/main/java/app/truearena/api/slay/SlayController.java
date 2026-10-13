@@ -118,10 +118,15 @@ public class SlayController {
         return CurrentUser.id().flatMap(career::home);
     }
 
-    /** Chooses the one character a career keeps from start to finish. */
+    /** Starts a career with its first character. */
     @PostMapping("/career/start")
     public Mono<Map<String, Object>> careerStart(@RequestBody CareerStart body) {
         return CurrentUser.id().flatMap(u -> career.start(u, body.body(), body.avatarId()));
+    }
+
+    @PostMapping("/career/character")
+    public Mono<Map<String, Object>> careerCharacter(@RequestBody CareerStart body) {
+        return CurrentUser.id().flatMap(u -> career.character(u, body.body(), body.avatarId()));
     }
 
     @GetMapping("/career/{event}/leaderboard")
