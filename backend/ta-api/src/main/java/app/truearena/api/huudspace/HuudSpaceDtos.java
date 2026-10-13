@@ -89,11 +89,13 @@ public final class HuudSpaceDtos {
     /**
      * A Huud you belong to, for the Huud tab: yours first, live ones on top.
      * {@code liveCount}: people in the Live hangout now; {@code memberCount}: everyone.
+     * {@code quiet}: still Live, but nobody in it has had the app open for 15
+     * minutes — it shows amber here and is kept off the Live tab.
      */
     public record MyHuud(UUID id, String name, String privacy, boolean live, boolean youOwn, boolean youAreHost,
                          Person host, int memberCount, int liveCount, List<Person> members, String gameType,
                          String gameStatus, String background, boolean muted, Instant liveSince,
-                         ChampionshipLine championship) {
+                         ChampionshipLine championship, boolean quiet) {
     }
 
     /**
@@ -128,6 +130,7 @@ public final class HuudSpaceDtos {
      * {@code joinRequest} / {@code playRequest} / {@code micRequest} are your own
      * asks ("pending", "accepted", "declined" or null); {@code requests} is what
      * the host has to answer; eligible mic cover sees mic requests only.
+     * {@code quiet}: Live, but nobody in the hangout has had the app open lately.
      */
     public record HuudSpaceView(UUID id, String code, String name, String privacy, String status,
                                 Person host, List<Person> members, CurrentGame currentGame,
@@ -136,7 +139,7 @@ public final class HuudSpaceDtos {
                                 List<PendingRequest> requests, boolean shared, String feedMessage,
                                 int watching, String background, Instant createdAt, Instant endedAt,
                                 boolean live, boolean youOwn, boolean muted, int memberCount, int liveCount,
-                                UUID championshipId, boolean youCanManageMic) {
+                                UUID championshipId, boolean youCanManageMic, boolean quiet) {
     }
 
     /** A card on the Live tab. The code stays out: only people inside see it. */

@@ -225,14 +225,17 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
         memberCount: h.memberCount,
         game: h.gameType == null ? null : huudGameName(h.gameType),
         gameStatus: h.gameStatus,
-        championship: h.championship);
+        championship: h.championship,
+        quiet: h.quiet);
     return HuudBackdrop(
       background: 'blank', // the card on the Huud tab stays plain
       child: HuudHeroCard(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Wrap(spacing: 8, runSpacing: 8, children: [
             h.live
-                ? const HuudChip('Live', emoji: '🔴', onOrange: true)
+                ? (h.quiet
+                    ? const HuudChip('Quiet', emoji: '🟠', onOrange: true)
+                    : const HuudChip('Live', emoji: '🔴', onOrange: true))
                 : const HuudChip('Offline', emoji: '🌙', onOrange: true),
             HuudChip(h.privacy.label, emoji: h.privacy.emoji, onOrange: true),
             const HuudChip('Yours', emoji: '👑', onOrange: true),
@@ -278,10 +281,11 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
         memberCount: h.memberCount,
         game: h.gameType == null ? null : huudGameName(h.gameType),
         gameStatus: h.gameStatus,
-        championship: h.championship);
+        championship: h.championship,
+        quiet: h.quiet);
     return HuudCard(
       key: ValueKey('member-huud-${h.id}'),
-      highlight: h.live,
+      highlight: h.live && !h.quiet,
       onTap: () => _open(h.id),
       padding: const EdgeInsets.all(14),
       child: Row(children: [
@@ -302,11 +306,11 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
             Text(status,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: h.live ? hc.orangeText : n.mute)),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: h.live && !h.quiet ? hc.orangeText : n.mute)),
           ]),
         ),
         const SizedBox(width: 8),
-        h.live ? const HuudLiveChip() : Icon(Icons.chevron_right_rounded, color: n.mute, size: 28),
+        h.live ? HuudLiveChip(quiet: h.quiet) : Icon(Icons.chevron_right_rounded, color: n.mute, size: 28),
       ]),
     );
   }

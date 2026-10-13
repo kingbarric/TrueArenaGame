@@ -294,6 +294,30 @@ class HuudSpaceIT {
         assertThat(huuds.joinByCode(stranger, open.code()).block().youAreIn()).isTrue();
     }
 
+    @Test void aLiveHuudNobodyHasTheAppOpenInGoesQuietAndLeavesTheLiveList() {
+        UUID owner = person("Quiet host"), stranger = person("Passer-by");
+        var huud = huuds.create(owner, null, "public").block();
+        assertThat(huuds.live(stranger).collectList().block()).extracting("id").contains(huud.id());
+        assertThat(huuds.view(huud.id(), owner).block().quiet()).isFalse();
+
+        // Twenty minutes since the app last said it was open — though a voice link
+        // or socket left running in the background still keeps last_seen_at fresh.
+        db.sql("UPDATE huud_space_members SET app_seen_at=now()-interval '20 minutes', last_seen_at=now() "
+                + "WHERE huud_space_id=:id").bind("id", huud.id()).fetch().rowsUpdated().block();
+
+        assertThat(huuds.live(stranger).collectList().block()).extracting("id").doesNotContain(huud.id());
+        var mine = huuds.mine(owner).collectList().block();
+        assertThat(mine).singleElement().satisfies(h -> {
+            assertThat(h.live()).as("still on until its owner ends it").isTrue();
+            assertThat(h.quiet()).isTrue();
+        });
+
+        // The owner opening the app again brings it straight back.
+        huuds.heartbeat(owner).block();
+        assertThat(huuds.live(stranger).collectList().block()).extracting("id").contains(huud.id());
+        assertThat(huuds.mine(owner).collectList().block().get(0).quiet()).isFalse();
+    }
+
     @Test void theOwnerCantLeaveTheirOwnHuudButMembersCanAndThenHearNothingMore() {
         UUID owner = person("Owner"), friend = person("Friend");
         var huud = huuds.create(owner, null, "public").block();
