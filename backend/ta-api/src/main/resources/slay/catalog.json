@@ -1,5 +1,5 @@
 {
-  "version": 27,
+  "version": 30,
   "developmentAssets": true,
   "avatars": [
     {
@@ -7,38 +7,59 @@
       "assetUrl": "assets/female.glb",
       "rigVersion": "slay-female-v2",
       "id": "female",
-      "name": "Amara"
+      "name": "Scarlett"
     },
     {
       "body": "male",
       "assetUrl": "assets/male.glb",
       "rigVersion": "slay-male-v2",
       "id": "male",
-      "name": "Kofi"
+      "name": "Alexander"
     },
     {
       "id": "girl02",
-      "name": "Zuri",
+      "name": "Chloe",
       "body": "female",
       "assetUrl": "assets/avatar-girl02.glb",
       "rigVersion": "slay-female-v2",
       "fitUrl": "assets/avatar-girl02-fit.json",
-      "thumbnailUrl": "assets/avatar-girl02.png"
+      "thumbnailUrl": "assets/avatar-girl02.png",
+      "naturalSkinTone": "#d7ad90"
     },
     {
       "id": "indian-male",
-      "name": "Tayo",
+      "name": "Ethan",
       "body": "male",
       "assetUrl": "assets/avatar-indian-male.glb",
       "rigVersion": "slay-male-v2",
       "fitUrl": "assets/avatar-indian-male-fit.json",
       "thumbnailUrl": "assets/avatar-indian-male.png"
+    },
+    {
+      "id": "ella",
+      "name": "Ella",
+      "body": "female",
+      "assetUrl": "assets/avatar-ella.glb",
+      "rigVersion": "slay-female-v2",
+      "fitUrl": "assets/avatar-ella-fit.json",
+      "thumbnailUrl": "assets/avatar-ella.png",
+      "naturalSkinTone": "#854f3c"
+    },
+    {
+      "id": "beverly",
+      "name": "Elisabeth",
+      "body": "female",
+      "assetUrl": "assets/avatar-beverly.glb",
+      "rigVersion": "slay-female-v2",
+      "fitUrl": "assets/avatar-beverly-fit.json",
+      "thumbnailUrl": "assets/avatar-beverly.png",
+      "naturalSkinTone": "#d9a98b"
     }
   ],
   "items": [
     {
       "id": "female-essential",
-      "name": "Green Flapper Dress",
+      "name": "Little Black Dress",
       "category": "outfit",
       "body": "female",
       "styleTags": [
@@ -46,7 +67,7 @@
         "elegant"
       ],
       "colourTags": [
-        "green"
+        "black"
       ],
       "cultureTags": [],
       "eventTags": [
@@ -54,8 +75,8 @@
         "elegant"
       ],
       "rarity": "common",
-      "assetUrl": "assets/female-essential.glb",
-      "thumbnailUrl": "assets/female-essential.png",
+      "assetUrl": "assets/female-s2-little-black-cocktail-dress.glb",
+      "thumbnailUrl": "assets/female-s2-little-black-cocktail-dress.png",
       "hidesRegions": [],
       "attachmentBone": null,
       "isDefault": true,
@@ -3505,21 +3526,21 @@
     },
     {
       "id": "female-dress-collection-9",
-      "name": "Everyday Flapper",
+      "name": "Little Black Dress",
       "category": "dress",
       "body": "female",
       "styleTags": [
         "casual"
       ],
       "colourTags": [
-        "green"
+        "black"
       ],
       "cultureTags": [],
       "eventTags": [
         "casual"
       ],
       "rarity": "rare",
-      "assetUrl": "assets/female-dress-collection-9.glb",
+      "assetUrl": "assets/female-s2-little-black-cocktail-dress.glb",
       "thumbnailUrl": "assets/female-dress-collection-9.png",
       "hidesRegions": [],
       "attachmentBone": null,
@@ -17684,7 +17705,10 @@
     "#8b573c",
     "#b47a52",
     "#d8a47d",
-    "#f0c9a8"
+    "#f0c9a8",
+    "#854f3c",
+    "#d9a98b",
+    "#d7ad90"
   ],
   "facePresets": [
     "classic",
@@ -17694,13 +17718,13 @@
   "clients": [
     {
       "id": "office-executive",
-      "name": "Tunde",
+      "name": "Oliver",
       "brief": "My first day as an executive. Help me make the right impression.",
       "themeId": "office-executive"
     },
     {
       "id": "red-carpet",
-      "name": "Amara",
+      "name": "Scarlett",
       "brief": "My film premieres tonight. I want a memorable red-carpet entrance.",
       "themeId": "red-carpet"
     }
@@ -17722,7 +17746,8 @@
   "wardrobePresentation": {
     "female-essential": {
       "category": "dress",
-      "styleGroup": "Casual"
+      "styleGroup": "Casual",
+      "maskOf": "female-s2-little-black-cocktail-dress"
     },
     "female-executive": {
       "category": "outfit",
@@ -17879,6 +17904,7 @@
     "female-dress-collection-9": {
       "category": "dress",
       "styleGroup": "Casual",
+      "maskOf": "female-s2-little-black-cocktail-dress",
       "duplicateOf": "female-essential"
     },
     "female-dress-collection-10": {
@@ -18521,7 +18547,9 @@
     },
     "female-s2-little-black-cocktail-dress": {
       "category": "dress",
-      "styleGroup": "Formal"
+      "styleGroup": "Casual",
+      "maskOf": "female-s2-little-black-cocktail-dress",
+      "duplicateOf": "female-essential"
     },
     "female-s2-frilled-party-dress": {
       "category": "dress",

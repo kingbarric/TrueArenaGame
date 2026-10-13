@@ -1,0 +1,40 @@
+# Written by MakeHuman 1.2.0 final
+version v1.2.0
+camera 357.5 343.5 0.2671070997186187 1.0 0.2827517768185227 1.5500000000000003
+modifier head/head-scale-depth-decr|incr 0.016000
+modifier head/head-scale-horiz-decr|incr -0.032000
+modifier mouth/mouth-scale-horiz-decr|incr 0.302000
+modifier mouth/mouth-scale-vert-decr|incr 0.476000
+modifier stomach/stomach-pregnant-decr|incr 0.016000
+modifier buttocks/buttocks-volume-decr|incr 1.000000
+modifier pelvis/bulge-decr|incr 1.000000
+modifier breast/BreastSize 1.000000
+modifier breast/BreastFirmness 0.190000
+modifier breast/breast-trans-down|up 0.380000
+modifier macrodetails/Gender 0.000000
+modifier macrodetails/Age 0.500000
+modifier macrodetails/African 0.333333
+modifier macrodetails/Asian 0.333333
+modifier macrodetails/Caucasian 0.333333
+modifier macrodetails-universal/Muscle 0.230000
+modifier macrodetails-universal/Weight 0.667000
+modifier macrodetails-height/Height 0.500000
+modifier macrodetails-proportions/BodyProportions 0.500000
+tongue tongue01 52ad91a3-caad-4e50-8c38-67634e5e789c
+teeth Teeth_Base 0a5ec82a-0d5f-43ce-a765-8f076f95692d
+proxy adult_female_genitalia_healed c6bf1f69-1a82-42fc-818f-3470e61554da
+hair Braid01 eead6f99-d6c6-4f6b-b6c2-210459d7a62e
+eyelashes eyelashes04 efd75993-8de1-43fb-b410-adc203091d25
+eyebrows eyebrow001 9c81ec3a-faa5-4c94-9cdb-992300ba3084
+eyes HighPolyEyes 2c12f43b-1303-432c-b7ce-d78346baf2e6
+pose standing02.bvh
+clothesHideFaces True
+expression smile02.mhpose
+skinMaterial skins/indian_skin3/indian_skin3.mhmat
+material Braid01 eead6f99-d6c6-4f6b-b6c2-210459d7a62e braid01.mhmat
+material HighPolyEyes 2c12f43b-1303-432c-b7ce-d78346baf2e6 eyes/materials/brown.mhmat
+material eyebrow001 9c81ec3a-faa5-4c94-9cdb-992300ba3084 eyebrow001.mhmat
+material eyelashes04 efd75993-8de1-43fb-b410-adc203091d25 eyelashes04.mhmat
+material Teeth_Base 0a5ec82a-0d5f-43ce-a765-8f076f95692d teeth/materials/teeth.mhmat
+material tongue01 52ad91a3-caad-4e50-8c38-67634e5e789c tongue01.mhmat
+subdivide False

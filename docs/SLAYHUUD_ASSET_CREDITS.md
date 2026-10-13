@@ -84,7 +84,15 @@ http://www.makehumancommunity.org/model/girl02.html
 Indian Male by Ragnar (MakeHuman 1.2.0 character definition):
 http://www.makehumancommunity.org/model/indian_male.html
 
-Both source pages explicitly list CC0. Their MHM definitions are retained in `slay-renderer/scripts/models`. MakeHuman 1.2.0 base/morph data supplies the offline shape conversion; the app ships exported meshes and fitting data, not the MakeHuman application code.
+Indian Mom Model by Slayer227 (MakeHuman 1.2.0 definition), adapted as Ella, the curvy option:
+http://www.makehumancommunity.org/model/indian_mom_model.html
+
+Elisabeth by Fa94 (MakeHuman 1.1.1 definition), adapted as Elisabeth, the slim option (saved ID `beverly`):
+http://www.makehumancommunity.org/model/elisabeth.html
+
+Both additional preset pages list CC0. Elisabeth's CC0 custom targets are credited to Marco_105 (body design), Mindfront (hand, foot and face details), Nadow (breast compression), blindsaypatten (closed lips), and grinsegold (lip shape). Their URLs, source authors and licences are retained in `slay-renderer/scripts/models/elisabeth-dependencies.json`; the corresponding sparse target files are retained alongside it. The Nefertiti head target is deliberately excluded because its description specifies CC-BY-NC-SA despite its CC-BY category. Source: http://www.makehumancommunity.org/target/nefertiti_target.html. Preset clothing and anatomical proxies are not bundled; the game retains its shared wardrobe, body proxy and skin palette. Ella uses the CC0 Indian Female Enhanced skin by CutOff3D, referenced by the Indian Mom preset (http://files.makehumancommunity.org/sites/default/files/skins/7149/230986847/indian_skin3e.png). Elisabeth and Chloe use their referenced CC0 MakeHuman system young Caucasian female skins, converted to 1024px embedded textures. Each material declares its native skin reference for the existing colour picker.
+
+The Girl02 and Indian Male source pages explicitly list CC0. Their MHM definitions are retained in `slay-renderer/scripts/models`. MakeHuman 1.2.0 base/morph data supplies the offline shape conversion; the app ships exported meshes and fitting data, not the MakeHuman application code.
 
 Modifications: character shape deltas adapted onto the existing fashion bodies; stature and large vertical offsets normalised for the shared skeleton; feet retain the game's footwear fit. Existing skin textures, expression morphs, underwear and rig are retained. A continuous fitting field adjusts selected wardrobe meshes to the character, rather than duplicating every garment. These are shared-rig adaptations of the definitions, rather than unchanged full MakeHuman scene exports. Source preset hair, optional clothing, expression and skeleton selections are replaced by the player's SlayHuud choices.
 

@@ -78,6 +78,7 @@ export class Wardrobe {
       }
       const body=gltf?.scene??mannequin(look);if(version!==this.revision){dispose(body);return;}
       presentBody(body,look.skinTone,new Set());
+      coverBody(body,['starter_bra','starter_briefs']);
       this.clear();this.body=body;this.bodyKey=look.body+':'+avatar.assetUrl+':'+catalog.version;this.root.add(body);
       this.fit=fit;
       this.clips=gltf?.animations??[];this.mixer=new T.AnimationMixer(body);this.bones.clear();
@@ -115,7 +116,12 @@ export class Wardrobe {
       fitMaleSeparates(shirt.root,this.equipped.get('trousers')?.root,shirt.id!=='male-tee-relaxed');
     const hidden=new Set(Object.values(look.items).flatMap(id=>catalog.items.find(i=>i.id===id)!.hidesRegions));
     // Colour variants share their base garment's skin mask (wardrobePresentation.maskOf).
-    coverBody(body,Object.values(look.items).map(id=>catalog.wardrobePresentation?.[id]?.maskOf??id));
+    const fullOutfit=!!(look.items.outfit||look.items.dress);
+    const underwearMasks=[
+      ...(!fullOutfit&&!look.items.tops&&!look.items.shirts?['starter_bra']:[]),
+      ...(!fullOutfit&&!look.items.trousers&&!look.items.skirts?['starter_briefs']:[]),
+    ];
+    coverBody(body,[...Object.values(look.items).map(id=>catalog.wardrobePresentation?.[id]?.maskOf??id),...underwearMasks,...(look.items.shoes?['slay_footwear']:[])]);
     presentBody(body,look.skinTone,hidden);
     // Eye choices replace the baked brown-eye mesh; do not stack two sets.
     presentEyes(body,!!look.items.eyes);

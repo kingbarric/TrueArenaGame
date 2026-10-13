@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Group, Mesh, BoxGeometry, MeshStandardMaterial } from 'three';
+import { Group, Mesh, BoxGeometry, MeshStandardMaterial, Texture, Color } from 'three';
 import { presentBody, presentFace, presentEyes } from '../src/presentation.ts';
 
 test('equipped eye colours replace the base eyes and removing them restores the base', () => {
@@ -49,4 +49,22 @@ test('face presets and expressions stay synchronized across avatar and makeup ov
   assert.deepEqual(meshes.map(mesh => mesh.morphTargetInfluences), [[0, 1, 1, .3], [0, 1, 1, .3]]);
   presentFace(root, 'classic', 'signature');
   assert.deepEqual(meshes.map(mesh => mesh.morphTargetInfluences), [[1, 0, 0, .3], [1, 0, 0, .3]]);
+});
+
+test('licensed skin uses its own baked tone and preserves non-skin materials', () => {
+  const root=new Group(),skin=new Mesh(new BoxGeometry(),new MeshStandardMaterial({map:new Texture()}));skin.name='region_head_1';skin.userData.slayRegion='head';
+  skin.material.userData.slaySkinBase='#c79782';
+  const lashes=skin.material.clone();lashes.userData.slaySkinTint=false;skin.material=[skin.material,lashes];root.add(skin);
+  presentBody(root,'#c79782',new Set(['head']));
+  assert.equal(skin.visible,false);assert.equal(skin.material[0].color.getHexString(),'ffffff');
+  presentBody(root,'#623a27',new Set());
+  const chosen=new Color('#623a27'),base=new Color('#c79782');
+  assert.ok(Math.abs(skin.material[0].color.r-chosen.r/base.r)<1e-8);
+  assert.equal(skin.material[1].color.getHexString(),'ffffff');assert.equal(skin.visible,true);
+});
+
+test('separate purchased eye meshes all restore when eye accessories are removed', () => {
+  const root=new Group();for(const name of ['face_eyes','face_eyes_1']){const eye=new Mesh();eye.name=name;eye.userData.slayEye=true;root.add(eye);}
+  presentEyes(root,true);assert.ok(root.children.every(o=>!o.visible));
+  presentEyes(root,false);assert.ok(root.children.every(o=>o.visible));
 });

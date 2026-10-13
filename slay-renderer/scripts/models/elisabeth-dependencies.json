@@ -1,0 +1,83 @@
+{
+  "targets": {
+    "Buttocks_CAST-05": {
+      "url": "http://files.makehumancommunity.org/sites/default/files/targets/942/Buttocks_CAST-05.target",
+      "license": "CC0",
+      "author": "Marco_105",
+      "nid": 453
+    },
+    "Hand_Fingers_correction": {
+      "url": "http://files.makehumancommunity.org/sites/default/files/targets/1422/Hand_Fingers_correction.target",
+      "license": "CC0",
+      "author": "Mindfront",
+      "nid": 1590
+    },
+    "Breast_design-03": {
+      "url": "http://files.makehumancommunity.org/sites/default/files/targets/942/Breast_design-03.target",
+      "license": "CC0",
+      "author": "Marco_105",
+      "nid": 451
+    },
+    "close_lips": {
+      "url": "http://files.makehumancommunity.org/sites/default/files/targets/2095/close_lips.target",
+      "license": "CC0",
+      "author": "blindsaypatten",
+      "nid": 804
+    },
+    "female-breasts-compress": {
+      "url": "http://files.makehumancommunity.org/sites/default/files/targets/26/female-breasts-compress.target",
+      "license": "CC0",
+      "author": "Nadow",
+      "nid": 332
+    },
+    "Foot_Toe_correction_Female": {
+      "url": "http://files.makehumancommunity.org/sites/default/files/targets/1422/Foot_Toe_correction_Female.target",
+      "license": "CC0",
+      "author": "Mindfront",
+      "nid": 2478
+    },
+    "Breasts_Inframammary_fold": {
+      "url": "http://files.makehumancommunity.org/sites/default/files/targets/1422/Breasts_Inframammary_fold.target",
+      "license": "CC0",
+      "author": "Mindfront",
+      "nid": 1586
+    },
+    "Nose_alar_crease": {
+      "url": "http://files.makehumancommunity.org/sites/default/files/targets/1422/Nose_alar_crease.target",
+      "license": "CC0",
+      "author": "Mindfront",
+      "nid": 1594
+    },
+    "Nose_hole_up": {
+      "url": "http://files.makehumancommunity.org/sites/default/files/targets/1422/Nose_hole_up.target",
+      "license": "CC0",
+      "author": "Mindfront",
+      "nid": 1596
+    },
+    "Angelina's_lips": {
+      "url": "http://files.makehumancommunity.org/sites/default/files/targets/1168/Angelina's_lips.target",
+      "license": "CC0",
+      "author": "grinsegold",
+      "nid": 212
+    },
+    "Buttocks_ROT_INT-01": {
+      "url": "http://files.makehumancommunity.org/sites/default/files/targets/942/Buttocks_ROT_INT-01.target",
+      "license": "CC0",
+      "author": "Marco_105",
+      "nid": 456
+    },
+    "Breast_design-01": {
+      "url": "http://files.makehumancommunity.org/sites/default/files/targets/942/Breast_design-01.target",
+      "license": "CC0",
+      "author": "Marco_105",
+      "nid": 476
+    }
+  },
+  "excluded": {
+    "Nefertiti": {
+      "reason": "Source description specifies CC-BY-NC-SA; excluded from commercial game adaptation",
+      "nid": 895,
+      "url": "http://files.makehumancommunity.org/sites/default/files/targets/1168/Nefertiti.target"
+    }
+  }
+}

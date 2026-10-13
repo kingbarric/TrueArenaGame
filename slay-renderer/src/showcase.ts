@@ -32,10 +32,11 @@ export function catwalkClip(body: Object3D): AnimationClip {
     const delta = new Vector3(.008 * wave, -.018 + .005 * (1 - Math.cos(phase * Math.PI * 4)), 0);
     hipValues.push(...hips.position.clone().add(delta).toArray());
     const poses = new Map<string, Quaternion>();
-    poses.set('LeftUpperArm', rotation(.16 * wave, 0, -.40));
-    poses.set('RightUpperArm', rotation(-.16 * wave, 0, .40));
-    poses.set('LeftLowerArm', rotation(-.08, 0, -.04));
-    poses.set('RightLowerArm', rotation(-.08, 0, .04));
+    // Lower the A-pose arms beside the torso, with a restrained opposite swing.
+    poses.set('LeftUpperArm', rotation(.10 * wave, 0, -.55));
+    poses.set('RightUpperArm', rotation(-.10 * wave, 0, .55));
+    poses.set('LeftLowerArm', rotation(-.06, 0, -.04));
+    poses.set('RightLowerArm', rotation(-.06, 0, .04));
     poses.set('Chest', rotation(.012, .025 * wave, .018 * wave));
     poses.set('Head', rotation(0, -.02 * wave));
     for (const [index, leg] of legs.entries()) {

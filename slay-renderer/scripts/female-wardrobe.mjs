@@ -6,7 +6,7 @@ const sources = {
   sundress: ['toigo_camisole_dress_with_full_skirt/dress_camisole_full_skirt.obj', 'toigo_camisole_dress_with_full_skirt/CamisoleDressUV.png'],
   tiers: ['toigo_dress_with_tiered_skirt/dresstierskirt.obj', 'toigo_dress_with_tiered_skirt/DressTierSkirt.png'],
   ruffle: ['toigo_bodice_dress_with_lace_ruffle_skirt/dress_bodice_ruffle_skirt.obj', 'toigo_bodice_dress_with_lace_ruffle_skirt/SkirtLaceRuffle.png'],
-  flapper: ['aethelraed_flapper_dress/flapper_dress_1.obj', 'aethelraed_flapper_dress/flapper_dress_green.png'],
+  cocktail: ['punkduck_black_cocktail_dress/cocktaildress.obj', 'punkduck_black_cocktail_dress/cocktaildress.png'],
   mini: ['frankyaye_mini_skirt_01/mini_skirt_01.obj', 'frankyaye_mini_skirt_01/mini_skirt_01_diffuse.png'],
   wrap: ['frankyaye_mini_skirt_02/mini_skirt_02.obj', 'frankyaye_mini_skirt_02/mini_skirt_01_diffuse.png'],
   leather: ['toigo_tiered_mini_skirt/tier_skirt_mini.obj', 'toigo_tiered_mini_skirt/SkirtMini-blackLeather.png'],
@@ -35,7 +35,7 @@ const sets = {
     ['sundress','Sunset Sundress',['casual','summer','romantic'],['orange'],{tint:warm}],
     ['tiers','Cool Tiered Dress',['casual','party'],['blue'],{tint:cool}],
     ['ruffle','Blush Ruffle Dress',['casual','romantic','party'],['pink'],{tint:warm}],
-    ['flapper','Everyday Flapper',['casual'],['green']],
+    ['cocktail','Little Black Dress',['casual','party'],['black'],{}],
     ['shift','Olive Weekend Dress',['casual','corporate'],['green'],{tint:olive}],
   ],
   skirts: [

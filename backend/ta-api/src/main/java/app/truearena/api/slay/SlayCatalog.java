@@ -15,7 +15,7 @@ public class SlayCatalog {
     public record Client(String id, String name, String brief, String themeId) {}
 
     public record Avatar(String body, String assetUrl, String rigVersion,
-            String id, String name, String fitUrl, String thumbnailUrl) {}
+            String id, String name, String fitUrl, String thumbnailUrl, String naturalSkinTone) {}
 
     /** One delivered art file: its content-hashed name under {@code base}, and whether the app bundles it. */
     public record AssetFile(String name, String sha256, long bytes, boolean bundled) {}
