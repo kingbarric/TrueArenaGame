@@ -232,6 +232,30 @@ void main() {
       expect(find.byKey(const ValueKey('undo-ask')), findsNothing);
     });
 
+    testWidgets('a championship match says the championship and its round at the top', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(320, 568));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final socket = _Socket();
+      await tester.pumpWidget(AppScope(
+        state: AppState(ApiClient(client: MockClient((_) async => http.Response('{}', 200)))),
+        child: MaterialApp(
+          theme: NeonTheme.dark,
+          home: DraughtsGameScreen(
+              socket: socket,
+              selfId: 'me',
+              nicknames: const {'me': 'You', 'opponent': 'Ada'},
+              championshipId: 'c1',
+              title: 'Saturday Draughts Cup',
+              subtitle: 'Semi Finals'),
+        ),
+      ));
+      socket.snapshot(snap('TurnB'));
+      await tester.pump();
+      expect(find.text('Saturday Draughts Cup'), findsOneWidget);
+      expect(find.textContaining('Semi Finals · Round'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('the players and board fit a small phone without overflowing', (tester) async {
       await tester.binding.setSurfaceSize(const Size(320, 568));
       addTearDown(() => tester.binding.setSurfaceSize(null));

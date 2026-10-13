@@ -9,6 +9,7 @@ import '../../core/api_client.dart';
 import '../../core/app_state.dart';
 import '../../core/models.dart';
 import '../../theme/neon_theme.dart';
+import '../../widgets/champion_badge.dart';
 import '../../widgets/compact_list_row.dart';
 import '../../widgets/game_badge.dart';
 import '../../widgets/neon.dart';
@@ -1573,13 +1574,8 @@ class _ChampionCard extends StatelessWidget {
       onTap: onOpen,
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       child: Row(children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(color: n.gold.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(12)),
-          child: Icon(Icons.emoji_events_rounded, color: n.gold),
-        ),
-        const SizedBox(width: 12),
+        ChampionBadge(gameType: item.gameType, width: 56),
+        const SizedBox(width: 10),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('${item.actor.name} is the ${t.name} champion',

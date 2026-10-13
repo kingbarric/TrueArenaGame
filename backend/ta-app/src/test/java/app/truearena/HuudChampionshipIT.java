@@ -26,6 +26,7 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import reactor.core.publisher.Mono;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -149,10 +150,16 @@ class HuudChampionshipIT {
         assertThatThrownBy(() -> huuds.addGame(r.host(), r.id(), "whot").block())
                 .isInstanceOf(ResponseStatusException.class).hasMessageContaining("championship");
 
-        for (int i = 0; i < 7; i++) cups.register(r.members().get(i), r.id()).block();
+        // It starts in 15 minutes unless the host picks a time.
+        assertThat(cup.startsAt()).isBetween(Instant.now().plusSeconds(14 * 60), Instant.now().plusSeconds(16 * 60));
+        assertThat(cup.minPlayers()).isEqualTo(4);
+        for (int i = 0; i < 8; i++) cups.register(r.members().get(i), r.id()).block();
+        // Every place taken, but it's not time yet: the field waits.
         assertThat(cups.view(r.id(), r.host()).block().status()).isEqualTo("registering");
-        // The last place locks registration and the system draws the bracket.
-        HuudChampionship drawn = cups.register(r.members().get(7), r.id()).block();
+        assertThatThrownBy(() -> cups.startNow(r.members().get(0), r.id()).block())
+                .isInstanceOf(ResponseStatusException.class);
+        // The host doesn't have to wait: the system draws the bracket now.
+        HuudChampionship drawn = cups.startNow(r.host(), r.id()).block();
         assertThat(drawn.status()).isEqualTo("playing");
         assertThat(drawn.roundName()).isEqualTo("Quarter Finals");
         // The Huud's cards on the Live and Huud tabs say so.
@@ -233,12 +240,56 @@ class HuudChampionshipIT {
         assertThat(huuds.addGame(r.host(), r.id(), "draughts").block().gameType()).isEqualTo("draughts");
     }
 
+    @Test void sixtyFourDraughtsPlayersPlayDownToOneChampionWhoKeepsTheBadge() {
+        Room r = huudWith(64);
+        HuudChampionship cup = cups.create(r.host(), r.id(),
+                new ChampionshipRequest("draughts", 64, "simultaneous", true, 3, "Big Huud Cup")).block();
+        for (UUID p : r.members()) cups.register(p, r.id()).block();
+        cup = cups.startNow(r.host(), r.id()).block();
+        assertThat(cup.status()).isEqualTo("playing");
+        assertThat(cup.rounds()).isEqualTo(6);
+        assertThat(cup.roundName()).isEqualTo("Round of 64");
+        // Every round of the bracket is there from the draw: 32, 16, 8, 4, 2, 1.
+        assertThat(cup.matches()).hasSize(63);
+
+        List<String> played = new ArrayList<>();
+        for (int expected = 32; expected >= 1; expected /= 2) {
+            List<ChampionshipMatch> boards = live(cup);
+            assertThat(boards).hasSize(expected);
+            played.add(boards.get(0).roundName());
+            for (ChampionshipMatch m : boards) win(m, m.playerA());
+            cup = cups.view(r.id(), r.host()).block();
+        }
+        assertThat(played).containsExactly("Round of 64", "Round of 32", "Round of 16",
+                "Quarter Finals", "Semi Finals", "Final");
+        assertThat(cup.status()).isEqualTo("finished");
+        UUID champion = cup.championId();
+        assertThat(champion).isNotNull();
+        assertThat(championships.badges(champion).collectList().block()).singleElement().satisfies(b -> {
+            assertThat(b.name()).isEqualTo("Big Huud Cup");
+            assertThat(b.gameType()).isEqualTo("draughts");
+            assertThat(b.size()).isEqualTo(64);
+        });
+        assertThat(championships.badges(cup.runnerUpId()).collectList().block()).isEmpty();
+    }
+
+    @Test void aHuudChampionshipIsFourToSixtyFourPlayers() {
+        Room r = huudWith(0);
+        for (int size : List.of(2, 6, 128))
+            assertThatThrownBy(() -> cups.create(r.host(), r.id(), chess(size, "simultaneous")).block())
+                    .isInstanceOf(ResponseStatusException.class).hasMessageContaining("64 players");
+        assertThat(cups.create(r.host(), r.id(), chess(32, "simultaneous")).block().size()).isEqualTo(32);
+    }
+
     @Test void sequentialRoundsPlayOneBoardAtATime() {
         Room r = huudWith(4);
-        cups.create(r.host(), r.id(), new ChampionshipRequest("draughts", 4, "sequential", false, 1, "Saturday Cup")).block();
+        // Its start time has come: the fourth player to register starts it.
+        cups.create(r.host(), r.id(), new ChampionshipRequest("draughts", 4, "sequential", false, 1, "Saturday Cup",
+                Instant.now())).block();
         r.members().forEach(p -> cups.register(p, r.id()).block());
 
         HuudChampionship cup = cups.view(r.id(), r.host()).block();
+        assertThat(cup.status()).isEqualTo("playing");
         assertThat(cup.name()).isEqualTo("Saturday Cup");
         assertThat(cup.graceSeconds()).isEqualTo(60);
         assertThat(live(cup)).hasSize(1);
@@ -294,6 +345,7 @@ class HuudChampionshipIT {
         Room r = huudWith(4);
         cups.create(r.host(), r.id(), chess(4, null)).block();
         r.members().forEach(p -> cups.register(p, r.id()).block());
+        cups.startNow(r.host(), r.id()).block();
         assertThatThrownBy(() -> cups.close(r.host(), r.id()).block())
                 .isInstanceOf(ResponseStatusException.class).hasMessageContaining("still being played");
 
@@ -304,6 +356,71 @@ class HuudChampionshipIT {
         String status = db.sql("SELECT status FROM championships WHERE id=:id").bind("id", open.id())
                 .map((row, m) -> row.get("status", String.class)).one().block();
         assertThat(status).isEqualTo("cancelled");
+    }
+
+    @Test void theHostCanStartShortOfAFullFieldAndTheEmptyPlacesAreByes() {
+        Room r = huudWith(5);
+        cups.create(r.host(), r.id(), new ChampionshipRequest("chess", 16, null, true, 3, "Friday Night Chess",
+                Instant.now().plusSeconds(3600))).block();
+        for (int i = 0; i < 3; i++) cups.register(r.members().get(i), r.id()).block();
+        // Three isn't enough for a championship.
+        assertThatThrownBy(() -> cups.startNow(r.host(), r.id()).block())
+                .isInstanceOf(ResponseStatusException.class).hasMessageContaining("at least 4");
+        cups.register(r.members().get(3), r.id()).block();
+        cups.register(r.members().get(4), r.id()).block();
+
+        // Five players in a field of up to 16: they play in an 8, with three byes.
+        HuudChampionship cup = cups.startNow(r.host(), r.id()).block();
+        assertThat(cup.status()).isEqualTo("playing");
+        assertThat(cup.name()).isEqualTo("Friday Night Chess");
+        assertThat(cup.size()).isEqualTo(8);
+        assertThat(cup.rounds()).isEqualTo(3);
+        assertThat(cup.roundName()).isEqualTo("Quarter Finals");
+        List<ChampionshipMatch> quarters = cup.matches().stream().filter(m -> m.round() == 1).toList();
+        assertThat(quarters.stream().filter(m -> "bye".equals(m.status()))).hasSize(3);
+        assertThat(live(cup)).hasSize(1);
+
+        // The one real quarter final decides the last semi finalist.
+        ChampionshipMatch board = live(cup).get(0);
+        win(board, board.playerA());
+        cup = cups.view(r.id(), r.host()).block();
+        assertThat(cup.roundName()).isEqualTo("Semi Finals");
+        assertThat(live(cup)).hasSize(2);
+        assertThatThrownBy(() -> cups.startNow(r.host(), r.id()).block()).isInstanceOf(ResponseStatusException.class);
+    }
+
+    @Test void atItsTimeAChampionshipStartsWithWhoeverRegistered() {
+        Room r = huudWith(6);
+        HuudChampionship cup = cups.create(r.host(), r.id(), chess(32, null)).block();
+        r.members().forEach(p -> cups.register(p, r.id()).block());
+        assertThat(cups.view(r.id(), r.host()).block().status()).isEqualTo("registering");
+        // The clock reaches the start time; the bracket's five-second tick picks it up.
+        db.sql("UPDATE championships SET scheduled_at=now() - interval '1 second' WHERE id=:id")
+                .bind("id", cup.id()).fetch().rowsUpdated().block();
+        championships.tick();
+        HuudChampionship started = null;
+        for (int i = 0; i < 50 && (started == null || !"playing".equals(started.status())); i++) {
+            sleep(100);
+            started = cups.view(r.id(), r.host()).block();
+        }
+        assertThat(started.status()).isEqualTo("playing");
+        assertThat(started.size()).isEqualTo(8);
+        assertThat(started.players()).hasSize(6);
+    }
+
+    @Test void theStartTimeCantBeInThePastOrMonthsAhead() {
+        Room r = huudWith(0);
+        assertThatThrownBy(() -> cups.create(r.host(), r.id(), new ChampionshipRequest("chess", 8, null, true, 3, null,
+                Instant.now().minusSeconds(3600))).block()).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(() -> cups.create(r.host(), r.id(), new ChampionshipRequest("chess", 8, null, true, 3, null,
+                Instant.now().plusSeconds(60L * 60 * 24 * 60))).block()).isInstanceOf(ResponseStatusException.class);
+        Instant saturday = Instant.now().plusSeconds(3 * 24 * 3600).truncatedTo(java.time.temporal.ChronoUnit.MINUTES);
+        assertThat(cups.create(r.host(), r.id(), new ChampionshipRequest("chess", 8, null, true, 3, null, saturday))
+                .block().startsAt()).isEqualTo(saturday);
+    }
+
+    static void sleep(long ms) {
+        try { Thread.sleep(ms); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
     }
 
     @Test void aGameBeingPlayedHasToFinishBeforeAChampionshipButAWaitingOneIsPutAway() {

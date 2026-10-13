@@ -20,9 +20,12 @@ class _Comment {
 /// Read-only public game state and the spectator comment channel.
 class SpectateScreen extends StatefulWidget {
   const SpectateScreen(
-      {super.key, required this.roomId, required this.title, this.gameType});
+      {super.key, required this.roomId, required this.title, this.gameType, this.heading, this.subheading});
   final String roomId;
   final String title;
+
+  /// A championship's name and round, for the top of the board.
+  final String? heading, subheading;
   final String? gameType;
 
   @override
@@ -197,7 +200,7 @@ class _SpectateScreenState extends State<SpectateScreen> {
       return LudoWatchScreen(roomId: widget.roomId);
     }
     if (const {'draughts', 'chess', 'goosi', 'wordbluff', 'monopoly'}.contains(widget.gameType)) {
-      return BoardGameWatchScreen(roomId: widget.roomId);
+      return BoardGameWatchScreen(roomId: widget.roomId, title: widget.heading, subtitle: widget.subheading);
     }
     final n = context.neon;
     return Scaffold(

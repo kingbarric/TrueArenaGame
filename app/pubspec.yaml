@@ -56,6 +56,7 @@ flutter:
         - asset: assets/fonts/monopoly/Roboto-Black.ttf
           weight: 900
   assets:
+    - assets/images/badges/
     - assets/images/branding/
     - assets/images/game_icons/
     - assets/images/huud_backgrounds/
