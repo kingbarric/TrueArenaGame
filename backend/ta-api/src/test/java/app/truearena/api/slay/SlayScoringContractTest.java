@@ -56,4 +56,25 @@ class SlayScoringContractTest {
         assertThat(presentation.get("female-essential").get("category")).isEqualTo("dress");
         assertThat(catalog.items()).containsKeys("female-dress-collection-9", "female-essential");
     }
+    @Test void nativeFemaleSkinSelectionsSurviveTheApiAndCanBeSaved() throws Exception {
+        var mapper = new ObjectMapper();
+        var catalog = new SlayCatalog(mapper, "");
+        var manifest = catalog.manifest();
+        var serialised = mapper.readTree(mapper.writeValueAsString(manifest));
+        int count = 0;
+        for (var avatar : manifest.avatars()) {
+            if (avatar.naturalSkinTone() == null) continue;
+            count++;
+            assertThat(serialised.get("avatars").toString()).contains(avatar.naturalSkinTone());
+            var look = new SlayRules.Look(avatar.body(), avatar.naturalSkinTone(), "classic",
+                    java.util.Map.of("outfit", "female-essential"), "signature", "studio",
+                    java.util.Map.of(), avatar.id());
+            SlayRules.validate(look, catalog.items(), java.util.Set.of(),
+                    java.util.Set.copyOf(manifest.skinTones()), java.util.Set.copyOf(manifest.facePresets()),
+                    java.util.Set.copyOf(manifest.poses()), java.util.Set.copyOf(manifest.backgrounds()));
+            catalog.validateAvatar(look);
+        }
+        assertThat(count).isEqualTo(3);
+    }
+
 }

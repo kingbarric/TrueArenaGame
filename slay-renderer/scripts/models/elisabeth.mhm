@@ -1,0 +1,84 @@
+# Written by MakeHuman 1.1.1
+version v1.1.1
+tags Elisabeth
+camera 10.5 37.5 -0.455831904022 0.0958155659674 0.423876092222 1.225
+modifier nose/nose-flaring-decr|incr 0.046000
+modifier custom/Buttocks_CAST-05 0.011000
+modifier measure/measure-waist-circ-decr|incr -0.262000
+modifier nose/nose-volume-decr|incr -0.148000
+modifier custom/Hand_Fingers_correction 1.000000
+modifier nose/nose-trans-backward|forward -0.216000
+modifier macrodetails-universal/Muscle 0.500000
+modifier mouth/mouth-scale-horiz-decr|incr -0.102000
+modifier macrodetails/African 0.000000
+modifier macrodetails-proportions/BodyProportions 0.500000
+modifier custom/Breast_design-03 1.000000
+modifier custom/close_lips 1.000000
+modifier breast/nipple-point-decr|incr 0.410000
+modifier macrodetails/Gender 0.000000
+modifier custom/female-breasts-compress 0.153000
+modifier pelvis/bulge-decr|incr 0.296000
+modifier nose/nose-point-width-decr|incr -0.340000
+modifier macrodetails-height/Height 0.670000
+modifier breast/BreastSize 0.653000
+modifier custom/Foot_Toe_correction_Female 1.000000
+modifier nose/nose-septumangle-decr|incr 0.102000
+modifier nose/nose-nostrils-width-decr|incr 0.126000
+modifier macrodetails/Age 0.443000
+modifier mouth/mouth-angles-down|up 0.238000
+modifier breast/BreastFirmness 0.483000
+modifier stomach/stomach-navel-down|up -0.624000
+modifier macrodetails/Asian 0.000000
+modifier eyebrows/eyebrows-angle-down|up 0.284000
+modifier ears/l-ear-wing-decr|incr -0.318000
+modifier breast/breast-point-decr|incr 0.716000
+modifier ears/r-ear-wing-decr|incr -0.318000
+modifier chin/chin-prominent-decr|incr -0.136000
+modifier nose/nose-scale-depth-decr|incr -0.148000
+modifier custom/Breasts_Inframammary_fold 0.477000
+modifier macrodetails/Caucasian 1.000000
+modifier nose/nose-curve-concave|convex -0.466000
+modifier custom/Nose_alar_crease 0.466000
+modifier stomach/stomach-navel-in|out -0.580000
+modifier measure/measure-hips-circ-decr|incr 0.046000
+modifier custom/Nefertiti 0.205000
+modifier breast/nipple-size-decr|incr 1.000000
+modifier chin/chin-prognathism-decr|incr 0.090000
+modifier nose/nose-scale-vert-decr|incr -0.012000
+modifier custom/Nose_hole_up 0.256000
+modifier buttocks/buttocks-volume-decr|incr 0.194000
+modifier nose/nose-nostrils-angle-down|up 0.410000
+modifier custom/Angelina's_lips 0.511000
+modifier measure/measure-bust-circ-decr|incr -0.102000
+modifier breast/breast-dist-decr|incr -0.170000
+modifier eyebrows/eyebrows-trans-backward|forward 0.012000
+modifier eyebrows/eyebrows-trans-down|up 0.772000
+modifier nose/nose-scale-horiz-decr|incr -0.056000
+modifier custom/Buttocks_ROT_INT-01 0.301000
+modifier chin/chin-bones-decr|incr -0.580000
+modifier macrodetails-universal/Weight 0.500000
+modifier breast/breast-volume-vert-down|up 0.022000
+modifier pelvis/pelvis-tone-decr|incr -0.340000
+modifier nose/nose-greek-decr|incr -0.182000
+modifier custom/Breast_design-01 0.165000
+modifier nose/nose-width3-decr|incr -0.262000
+tongue tongue01 52ad91a3-caad-4e50-8c38-67634e5e789c
+teeth Teeth_Base 0a5ec82a-0d5f-43ce-a765-8f076f95692d
+proxy adult_female_genitalia c6bf1f69-1a82-42fc-818f-3470e61554da
+hair ponytail01 44e0340e-c7a6-4d22-814c-0632968d2dde
+eyelashes Mind_Eyelashes_04 bf309358-10d1-405e-89f9-2af73563d840
+eyebrows eyebrow005 9da0aea6-fdf3-4862-baa4-0d122074179a
+eyes HighPolyEyes 2c12f43b-1303-432c-b7ce-d78346baf2e6
+pose standing11.bvh
+clothes HeelSandal 92901317-e57f-4019-9a93-34f146299f83
+clothes Diamond_Ring+Wedding_Band 089a5538-9cac-4b1a-9d51-c3c77d59af9d
+clothes diamond_ring_01 e569a52a-1639-4444-817d-1ad6fb56f1ed
+clothes doublehoops_elv1 969b4c6b-7ae3-46dd-b06f-b54a08c0d51d
+clothes fingernails_elegant 4038a825-5a2d-4b3b-b4af-fab56680abfd
+clothes scallopundies ef0b7cbd-0b6d-406d-b5eb-a29130e4646c
+clothes F_Dress_08 ecf48b5a-8f77-45bb-91f2-f09f5cb0c01f
+clothesHideFaces True
+skinMaterial skins/young_caucasian_female/young_caucasian_female2.mhmat
+material ponytail01 44e0340e-c7a6-4d22-814c-0632968d2dde ponytail01.mhmat
+material HighPolyEyes 2c12f43b-1303-432c-b7ce-d78346baf2e6 eyes/materials/brown.mhmat
+subdivide True

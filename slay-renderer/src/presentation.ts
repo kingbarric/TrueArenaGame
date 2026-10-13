@@ -6,7 +6,8 @@ const isolatedSkin = new WeakSet<Mesh>();
 export function presentBody(body: Object3D, skinTone: string, hiddenRegions: Set<string>) {
   body.traverse(object => {
     if (object.name.startsWith('region_')) {
-      object.visible = !hiddenRegions.has(object.name.slice('region_'.length));
+      const region = object.userData.slayRegion ?? object.name.slice('region_'.length);
+      object.visible = region === 'feet' && object.userData.slayFootwearCoverage ? true : !hiddenRegions.has(region);
     }
     if (!(object instanceof Mesh)) return;
     let region: Object3D | null = object;
@@ -19,12 +20,13 @@ export function presentBody(body: Object3D, skinTone: string, hiddenRegions: Set
     }
     const materials: Material[] = Array.isArray(object.material) ? object.material : [object.material];
     for (const material of materials) {
+      if (material.userData.slaySkinTint === false) continue;
       const colour = (material as Material & {color?: Color}).color;
       // Baked skin already contains its base colour. Multiplying it by a
       // second dark brown makes the face nearly black; tint relative to the
       // source skin's tone instead, while keeping its facial detail.
       if ((material as Material & {map?: unknown}).map) {
-        const chosen = new Color(skinTone), base = new Color('#623a27');
+        const chosen = new Color(skinTone), base = new Color(material.userData.slaySkinBase ?? '#623a27');
         colour?.setRGB(chosen.r / base.r, chosen.g / base.g, chosen.b / base.b);
       } else colour?.set(skinTone);
     }
@@ -45,7 +47,7 @@ export function presentFace(root: Object3D, facePreset: string, pose: string) {
 
 export function presentEyes(body: Object3D, replacement: boolean) {
   body.traverse(object => {
-    if (object.name === 'face_eyes') object.visible = !replacement;
+    if (object.name === 'face_eyes' || object.userData.slayEye === true) object.visible = !replacement;
   });
 }
 
@@ -54,7 +56,9 @@ export function presentUnderwear(body: Object3D, slots: Set<string>) {
   const full = slots.has('outfit') || slots.has('dress');
   const top = full || slots.has('tops') || slots.has('shirts');
   const bottom = full || slots.has('trousers') || slots.has('skirts');
-  const bra = body.getObjectByName('starter_bra'), briefs = body.getObjectByName('starter_briefs');
-  if (bra) bra.visible = !top;
-  if (briefs) briefs.visible = !bottom;
+  body.traverse(object=>{
+    const kind=object.userData.slayUnderwear??(object.name==='starter_bra'?'bra':object.name==='starter_briefs'?'briefs':undefined);
+    if(kind==='bra')object.visible=!top;
+    if(kind==='briefs')object.visible=!bottom;
+  });
 }

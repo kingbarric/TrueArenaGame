@@ -969,6 +969,12 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
       ready ? IdleBounce(child: button) : button;
 
   Future<void> _customise() async {
+    String? naturalSkinTone;
+    for (final avatar in widget.catalog['avatars'] as List) {
+      if ((avatar['id'] ?? avatar['body']) == (_look.avatarId ?? _look.body)) {
+        naturalSkinTone = avatar['naturalSkinTone'] as String?;
+      }
+    }
     await showModalBottomSheet<void>(
         context: context,
         backgroundColor: context.neon.bg,
@@ -1010,6 +1016,13 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                               )
                         ]),
                       ],
+                      if (naturalSkinTone != null)
+                        ActionChip(
+                            label: const Text('Original skin'),
+                            onPressed: () {
+                              _change(_look.copy(skinTone: naturalSkinTone));
+                              Navigator.pop(c);
+                            }),
                       const SizedBox(height: 20),
                       Wrap(spacing: 14, children: [
                         for (final tone in widget.catalog['skinTones'] as List)

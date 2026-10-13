@@ -11,7 +11,7 @@ from mathutils.kdtree import KDTree
 root=Path(__file__).resolve().parents[2]
 assets=root/'app/assets/slay_renderer/assets'
 source=root/'slay-renderer/source_assets/makehuman/starter'
-args=sys.argv[sys.argv.index('--')+1:];mh=Path(args[0]).resolve();out=Path(args[1]).resolve();out.mkdir(parents=True,exist_ok=True)
+args=sys.argv[sys.argv.index('--')+1:];mh=Path(args[0]).resolve();out=Path(args[1]).resolve();selected=set(args[2:]);out.mkdir(parents=True,exist_ok=True)
 os.chdir(mh);sys.path.insert(0,str(mh/'lib'));import targets
 library=targets.getTargets()
 def vertices(p):return np.array([list(map(float,l.split()[1:4])) for l in p.read_text().splitlines() if l.startswith('v ')])
@@ -30,6 +30,12 @@ def shape(mods,body):
  for name,value in mods.items():
   if name.startswith('macrodetails') or name in ['breast/BreastSize','breast/BreastFirmness']:continue
   group,modifier=name.split('/',1)
+  if group=='custom':
+   dependencies=json.loads((Path(__file__).parent/'models/elisabeth-dependencies.json').read_text())
+   if modifier in dependencies['excluded']:
+    print('Excluded custom morph:',modifier,dependencies['excluded'][modifier]['reason']);continue
+   if modifier not in dependencies['targets']:raise ValueError('Unknown custom target: '+modifier)
+   weights[str(Path(__file__).parent/'models/elisabeth-targets'/(modifier+'.target'))]=value;continue
   if '|' in modifier:
    ends=modifier.split('|');stem=ends[0].rsplit('-',1)[0];suffix=ends[0].rsplit('-',1)[1] if value<0 else ends[-1];key=tuple((group+'-'+stem+'-'+suffix).split('-'));amount=abs(value)
   else:key=tuple((group+'-'+modifier).split('-'));amount=max(0,value)
@@ -64,7 +70,8 @@ def encode(doc,binary):
  j=json.dumps(doc,separators=(',',':')).encode();j+=b' '*((-len(j))%4);binary+=b'\0'*((-len(binary))%4)
  return struct.pack('<5I',0x46546c67,2,28+len(j)+len(binary),len(j),0x4e4f534a)+j+struct.pack('<2I',len(binary),0x004e4942)+binary
 
-for body,ident,file in [('female','girl02','girl02.mhm'),('male','indian-male','indian-male.mhm')]:
+for body,ident,file in [('female','girl02','girl02.mhm'),('male','indian-male','indian-male.mhm'),('female','ella','indian-mom.mhm'),('female','beverly','elisabeth.mhm')]:
+ if selected and ident not in selected:continue
  mods={p[1]:float(p[2]) for l in (Path(__file__).parent/'models'/file).read_text().splitlines() if (p:=l.split()) and p[0]=='modifier'}
  original=proxy(shape({},body));custom=proxy(shape(mods,body))
  # Standardise stature to this game's existing rig, preserving shape changes.
@@ -85,6 +92,10 @@ for body,ident,file in [('female','girl02','girl02.mhm'),('male','indian-male','
   if near[0][2]<1e-6:return delta[near[0][1]]
   w=np.array([1/max(n[2],.001)**2 for n in near]);return np.sum(delta[[n[1] for n in near]]*w[:,None],axis=0)/w.sum()
  b=(assets/(body+'.glb')).read_bytes();n=struct.unpack_from('<I',b,12)[0];doc=json.loads(b[20:20+n]);binary=bytearray(b[28+n:])
+ # Smooth shared surface normals across UV seams and body-region boundaries.
+ # Regions duplicate vertices for masks; averaging within each primitive alone
+ # introduced visible rings at the knees and shoulders after shape conversion.
+ normals_by_position={};streams=[]
  for mesh in doc['meshes']:
   for prim in mesh['primitives']:
    a=doc['accessors'][prim['attributes']['POSITION']];v=doc['bufferViews'][a['bufferView']];offset=v.get('byteOffset',0)+a.get('byteOffset',0);positions=np.frombuffer(binary,dtype='<f4',count=a['count']*3,offset=offset).reshape(-1,3)
@@ -92,9 +103,16 @@ for body,ident,file in [('female','girl02','girl02.mhm'),('male','indian-male','
    ai=doc['accessors'][prim['indices']];vi=doc['bufferViews'][ai['bufferView']];indices=np.frombuffer(binary,dtype='<u4',count=ai['count'],offset=vi.get('byteOffset',0)).reshape(-1,3)
    normals=np.zeros_like(positions);tri=positions[indices];face=np.cross(tri[:,1]-tri[:,0],tri[:,2]-tri[:,0])
    for i in range(3):np.add.at(normals,indices[:,i],face)
+   surface_group='body' if mesh.get('name','').startswith('region_') else mesh.get('name',str(len(streams)))
+   keys=[tuple(np.round(point,6)) for point in positions]
+   for key,normal in zip(keys,normals):
+    grouped=(surface_group,key);normals_by_position[grouped]=normals_by_position.get(grouped,np.zeros(3))+normal
+   streams.append((prim,positions,normals,keys,surface_group))
+ for prim,positions,normals,keys,surface_group in streams:
+   normals=np.array([normals_by_position[(surface_group,key)] for key in keys])
    normals/=np.maximum(np.linalg.norm(normals,axis=1)[:,None],1e-8)
    an=doc['accessors'][prim['attributes']['NORMAL']];vn=doc['bufferViews'][an['bufferView']];np.frombuffer(binary,dtype='<f4',count=an['count']*3,offset=vn.get('byteOffset',0)).reshape(-1,3)[:]=normals
- doc['asset']['generator']='SlayHuud shared-rig adaptation of MakeHuman '+ident
+ doc['asset']['generator']='SlayHuud shared-rig adaptation of MakeHuman '+file.removesuffix('.mhm')
  output=out/('avatar-'+ident+'.glb');assert output.name not in ['female.glb','male.glb'];output.write_bytes(encode(doc,bytes(binary)))
  field={'version':1,'avatarId':ident,'body':body,'samples':np.round(samples,6).tolist(),'deltas':np.round(delta,6).tolist()};(out/('avatar-'+ident+'-fit.json')).write_text(json.dumps(field,separators=(',',':'))+'\n')
  print(ident,'samples',len(samples),'largest offset',np.linalg.norm(delta,axis=1).max())

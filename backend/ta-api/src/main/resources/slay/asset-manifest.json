@@ -1,6 +1,42 @@
 {
  "base": "https://playhuud.com/slay-assets/",
  "files": {
+  "assets/avatar-beverly-fit.json": {
+   "name": "avatar-beverly-fit.82459f6d21cfbdab.json",
+   "sha256": "82459f6d21cfbdabcafd28fd7131c8f72dbecb7350b8ac132ab518ba536b89d5",
+   "bytes": 92663,
+   "bundled": false
+  },
+  "assets/avatar-beverly.glb": {
+   "name": "avatar-beverly.c723d5ddc2cc635d.glb",
+   "sha256": "c723d5ddc2cc635dac45ba3948336b997f40341fddbc6c796a361df4f4f74848",
+   "bytes": 453720,
+   "bundled": false
+  },
+  "assets/avatar-beverly.png": {
+   "name": "avatar-beverly.9f78db15b69dc606.png",
+   "sha256": "9f78db15b69dc606016273dedb80444c570e59e0cb43d2593670f87b1d5a05fc",
+   "bytes": 20457,
+   "bundled": true
+  },
+  "assets/avatar-ella-fit.json": {
+   "name": "avatar-ella-fit.43b4eb09c20ba0e5.json",
+   "sha256": "43b4eb09c20ba0e549c1e4e397efca66e774b1298444327711e708143710fd15",
+   "bytes": 88273,
+   "bundled": false
+  },
+  "assets/avatar-ella.glb": {
+   "name": "avatar-ella.11607785f66bfb99.glb",
+   "sha256": "11607785f66bfb995c0671246da7049bb1542d2078d80ff9d114e4f2133effea",
+   "bytes": 468464,
+   "bundled": false
+  },
+  "assets/avatar-ella.png": {
+   "name": "avatar-ella.8bdc22a4b97b3c90.png",
+   "sha256": "8bdc22a4b97b3c9002602b6e848ac6f481b6a14a37a3d890cb3dca4f9f21c708",
+   "bytes": 23786,
+   "bundled": true
+  },
   "assets/avatar-girl02-fit.json": {
    "name": "avatar-girl02-fit.244c8e3113a1ee49.json",
    "sha256": "244c8e3113a1ee49f847b2984e5c89c234a05c53f39169c8e92abaa7fee92534",
@@ -8,15 +44,15 @@
    "bundled": false
   },
   "assets/avatar-girl02.glb": {
-   "name": "avatar-girl02.68388a2d5ad47b5e.glb",
-   "sha256": "68388a2d5ad47b5e15676ecfd0b6fe3cdbee5e0f513cbdf89ed6c4445899bdd6",
-   "bytes": 422384,
+   "name": "avatar-girl02.53d374cea2fa850c.glb",
+   "sha256": "53d374cea2fa850ca8fb1e6477dd3213e302de1fa33c9ff4da11fc7b7e333df9",
+   "bytes": 467424,
    "bundled": false
   },
   "assets/avatar-girl02.png": {
-   "name": "avatar-girl02.f7a2783827fb4fe1.png",
-   "sha256": "f7a2783827fb4fe1a35873a99e64cfdd0a6ef34ce77a747c391aa033d1801496",
-   "bytes": 10100,
+   "name": "avatar-girl02.36ad16ee367db4b2.png",
+   "sha256": "36ad16ee367db4b27cfa97add3f3850009c12944e9e9ab1f2ce21bb8ec25e257",
+   "bytes": 20587,
    "bundled": true
   },
   "assets/avatar-indian-male-fit.json": {
@@ -241,16 +277,10 @@
    "bytes": 14133,
    "bundled": true
   },
-  "assets/female-dress-collection-9.glb": {
-   "name": "female-dress-collection-9.4a154a66775aee27.glb",
-   "sha256": "4a154a66775aee277c0cb02c9880d82a49a8b60db9d5484f98345fbb5184c8c6",
-   "bytes": 224928,
-   "bundled": false
-  },
   "assets/female-dress-collection-9.png": {
-   "name": "female-dress-collection-9.75444420bec9b3d1.png",
-   "sha256": "75444420bec9b3d1ed1f2c2dd245db17081993308ee61f6f0873e21487be3a1c",
-   "bytes": 9954,
+   "name": "female-dress-collection-9.7e758ac1c874ce1b.png",
+   "sha256": "7e758ac1c874ce1b4f0c0fbc9b27850e1098721f97d49283bed96abdfa0a33f1",
+   "bytes": 4643,
    "bundled": true
   },
   "assets/female-earrings-hoops.glb": {
@@ -287,18 +317,6 @@
    "name": "female-earrings-pearls.f79b758ba4198063.png",
    "sha256": "f79b758ba4198063b3f780bdffbb77d623750632ae226c68f55bc6fa70a96765",
    "bytes": 176,
-   "bundled": true
-  },
-  "assets/female-essential.glb": {
-   "name": "female-essential.f09d357ed078060c.glb",
-   "sha256": "f09d357ed078060c2c7fb7bc6680f69680fa31122b2f5d4f27121b9aa65d38f7",
-   "bytes": 306888,
-   "bundled": false
-  },
-  "assets/female-essential.png": {
-   "name": "female-essential.8a73d58882d29466.png",
-   "sha256": "8a73d58882d294663f2b13846f50d26b69c5753f53e6c0dd82ad9e18ab5471f7",
-   "bytes": 12020,
    "bundled": true
   },
   "assets/female-executive.glb": {

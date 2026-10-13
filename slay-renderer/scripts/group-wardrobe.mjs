@@ -33,6 +33,7 @@ export function wardrobePresentation(catalog,sources={...classicClothing,...expa
       : JSON.stringify([item.body,item.assetUrl]);
     const category=item.category==='outfit' && item.body==='female' && /dress|flapper/.test(source?.[1]??'')?'dress':item.category;
     result[item.id]={category,styleGroup:primaryStyle(item),
+      ...(['female-essential','female-dress-collection-9'].includes(item.id)?{maskOf:'female-s2-little-black-cocktail-dress'}:{}),
       ...(variant?{maskOf:variant.base,dye:variant.dye}:{})};
     const family=families.get(key)??[];family.push(item);families.set(key,family);
   }
