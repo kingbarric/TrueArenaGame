@@ -31,11 +31,11 @@ public record ChampionshipRow(@Id UUID id, String code, String name,
                 creatorId, "lobby", 0, null, null, null, null, "simultaneous", true, 180);
     }
 
-    /** A championship inside a Huud: it starts the moment every place is filled. */
+    /** A championship inside a Huud: it starts at {@code startsAt}, or sooner when the host says so. */
     public static ChampionshipRow inHuud(String code, String name, String gameType, int size, UUID huudSpaceId,
                                          UUID creatorId, String roundTiming, boolean spectatorsAllowed,
-                                         int graceSeconds) {
-        return new ChampionshipRow(null, code, name, gameType, size, "private", Instant.now(), creatorId,
+                                         int graceSeconds, Instant startsAt) {
+        return new ChampionshipRow(null, code, name, gameType, size, "private", startsAt, creatorId,
                 "lobby", 0, null, null, null, huudSpaceId, roundTiming, spectatorsAllowed, graceSeconds);
     }
 

@@ -149,11 +149,17 @@ public final class HuudSpaceDtos {
 
     /**
      * Start a championship in the Huud. Everything has a default: Chess or
-     * Draughts (required), 8 players, simultaneous rounds, watching allowed,
-     * 3 minutes to come back after a disconnect.
+     * Draughts (required), up to 8 players, simultaneous rounds, watching
+     * allowed, 3 minutes to come back after a disconnect, named after the
+     * game, starting in 15 minutes.
      */
     public record ChampionshipRequest(@NotBlank String gameType, Integer size, String roundTiming,
-                                      Boolean spectatorsAllowed, Integer graceMinutes, @Size(max = 80) String name) {
+                                      Boolean spectatorsAllowed, Integer graceMinutes, @Size(max = 80) String name,
+                                      Instant startsAt) {
+        public ChampionshipRequest(String gameType, Integer size, String roundTiming, Boolean spectatorsAllowed,
+                                   Integer graceMinutes, String name) {
+            this(gameType, size, roundTiming, spectatorsAllowed, graceMinutes, name, null);
+        }
     }
 
     /** Someone in the bracket. {@code out}: knocked out. */
@@ -173,12 +179,16 @@ public final class HuudSpaceDtos {
     /**
      * A Huud's championship as everyone in the Huud sees it. {@code status}:
      * registering → playing → finished (or cancelled). {@code lobbyVoiceRoom}
-     * is the Huud's own voice room, the championship lobby.
+     * is the Huud's own voice room, the championship lobby. {@code startsAt}:
+     * when it starts by itself; the host can start it sooner once
+     * {@code minPlayers} have registered. {@code size} is the most players
+     * while registering, then the bracket they were drawn into.
      */
     public record HuudChampionship(UUID id, UUID huudSpaceId, String name, String gameType, int size,
                                    String status, String roundTiming, boolean spectatorsAllowed, int graceSeconds,
                                    int currentRound, int rounds, String roundName, List<Entrant> players,
                                    boolean youAreRegistered, List<ChampionshipMatch> matches, UUID championId,
-                                   UUID runnerUpId, UUID yourMatchId, String lobbyVoiceRoom, UUID createdBy) {
+                                   UUID runnerUpId, UUID yourMatchId, String lobbyVoiceRoom, UUID createdBy,
+                                   Instant startsAt, int minPlayers) {
     }
 }

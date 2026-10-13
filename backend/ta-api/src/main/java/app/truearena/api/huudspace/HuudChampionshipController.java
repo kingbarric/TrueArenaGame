@@ -47,8 +47,14 @@ public class HuudChampionshipController {
         return CurrentUser.id().flatMap(user -> championships.close(user, id));
     }
 
+    @PostMapping("/start")
+    @Operation(summary = "Host only: start before the set time with whoever has registered — at least four")
+    public Mono<HuudChampionship> start(@PathVariable UUID id) {
+        return CurrentUser.id().flatMap(user -> championships.startNow(user, id));
+    }
+
     @PostMapping("/register")
-    @Operation(summary = "Take a place; the last place locks registration and starts the draw")
+    @Operation(summary = "Take a place; once the start time has come, the last place locks registration and starts the draw")
     public Mono<HuudChampionship> register(@PathVariable UUID id) {
         return CurrentUser.id().flatMap(user -> championships.register(user, id));
     }

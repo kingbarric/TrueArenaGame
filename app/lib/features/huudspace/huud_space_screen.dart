@@ -470,6 +470,25 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
   Future<void> _withdraw() =>
       _cupCall('cup-withdraw', (api) => api.delete('/huud-spaces/${widget.id}/championship/register'));
 
+  /// Host: start before the set time with whoever has registered.
+  Future<void> _startCupNow() async {
+    final cup = _cup;
+    if (cup == null) return;
+    final count = cup.players.length;
+    final byes = cupField(count) - count;
+    final ok = await confirmHuud(context,
+        emoji: '🏁',
+        title: 'Start now with $count players?',
+        message: byes == 0
+            ? 'Registration closes and the bracket is drawn.'
+            : 'Registration closes and the bracket is drawn. '
+                '${byes == 1 ? 'One player gets' : '$byes players get'} a bye into the next round.',
+        yes: 'Start now');
+    if (!ok || !mounted) return;
+    await _cupCall('cup-start-now', (api) => api.post('/huud-spaces/${widget.id}/championship/start'),
+        say: "It's on! 🏆");
+  }
+
   Future<void> _freePlace(CupEntrant player) async {
     final ok = await confirmHuud(context,
         emoji: '🪑',
@@ -523,7 +542,12 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     _syncVoice(huud);
     final Widget screen;
     if (!playing) {
-      screen = SpectateScreen(roomId: roomId, gameType: cup.gameType, title: cupMatchTitle(cup, match));
+      screen = SpectateScreen(
+          roomId: roomId,
+          gameType: cup.gameType,
+          title: cupMatchTitle(cup, match),
+          heading: cup.name,
+          subheading: match.roundName);
     } else if (cup.gameType == 'chess') {
       screen = ChessGameScreen(
         socket: GameSocket.connect(app.api, roomId),
@@ -534,6 +558,8 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
             if (p.avatarUrl != null) p.userId: p.avatarUrl!
         },
         championship: true,
+        title: cup.name,
+        subtitle: match.roundName,
       );
     } else {
       screen = DraughtsGameScreen(
@@ -541,6 +567,8 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         selfId: me,
         nicknames: cup.nicknames,
         championshipId: cup.id,
+        title: cup.name,
+        subtitle: match.roundName,
       );
     }
     await Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
@@ -1458,6 +1486,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
               onEndLive: () => _end(huud),
               onRemovePlayer: _freePlace,
               onEndBothAbsent: _endBothAbsent,
+              onStartNow: _startCupNow,
             ),
           ),
         ),
