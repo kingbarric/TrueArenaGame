@@ -41,25 +41,41 @@ public final class TrueArenaModule implements GameModule {
         return true;
     }
 
+    /**
+     * The beats between the timed phases — role cards, the morning news, the
+     * ballot, the banishment — run on short clocks of their own. They used to
+     * be untimed, so the whole table waited for the host to tap on, and a host
+     * who looked away left the game frozen on a reveal screen. The host can
+     * still tap on early ({@code ADVANCE_PHASE}), pause the clock, or add time.
+     */
+    static final int REVEAL_SECONDS = 20;
+    /** The morning news, and the time an eliminated player has to leave a last will. */
+    static final int MORNING_SECONDS = 30;
+    static final int MORNING_LAST_WILL_SECONDS = 45;
+    /** Long enough for the host to step through a sequential reveal one ballot at a time. */
+    static final int VOTE_REVIEW_SECONDS = 60;
+
     @Override
     public List<Phase> definePhases(GameSettings settings) {
         GameConfig config = (GameConfig) settings;
         return List.of(
-                Phase.untimed("RoleReveal"),
+                new Phase("RoleReveal", REVEAL_SECONDS),
                 new Phase("Night", config.timers().night()),
-                Phase.untimed("MorningReveal"),
+                new Phase("MorningReveal",
+                        config.twistEnabled("last_will") ? MORNING_LAST_WILL_SECONDS : MORNING_SECONDS),
                 new Phase("RoundTable", config.timers().roundTable()),
                 new Phase("Vote", config.timers().vote()),
                 new Phase("Revote", config.timers().vote()),
                 new Phase("SuddenDeath", config.suddenDeathSeconds()),
                 new Phase("Defense", config.timers().defense()),
-                Phase.untimed("HostDecision"),
-                // Real duration (not untimed) so an unresponsive host can't stall the game —
-                // see closeVoting()/advance()'s "HostAssignVotes" case for the auto-abstain fallback.
+                // Real durations (not untimed) so an unresponsive host can't stall the game —
+                // a tie the host never breaks falls to a seeded random pick (advance()'s
+                // "HostDecision" case), and missing ballots auto-abstain ("HostAssignVotes").
+                new Phase("HostDecision", config.timers().vote()),
                 new Phase("HostAssignVotes", config.timers().vote()),
-                Phase.untimed("VoteReview"),
-                Phase.untimed("Elimination"),
-                Phase.untimed("WinCheck"),
+                new Phase("VoteReview", VOTE_REVIEW_SECONDS),
+                new Phase("Elimination", REVEAL_SECONDS),
+                new Phase("WinCheck", REVEAL_SECONDS),
                 Phase.untimed("Results")
         );
     }
@@ -870,7 +886,7 @@ public final class TrueArenaModule implements GameModule {
      * must act) and Vote/Revote (every living player who hasn't locked a
      * vote yet) and Defense (the accused). The remaining phases
      * (RoleReveal/MorningReveal/RoundTable/SuddenDeath/HostDecision/
-     * HostAssignVotes/VoteReview/Elimination/WinCheck) are host-paced,
+     * HostAssignVotes/VoteReview/Elimination/WinCheck) are short reveal beats,
      * purely informational, or not yet worth a push reminder (free
      * discussion, a sudden-death tiebreak) — left empty rather than guessed
      * at, per the plan's "do this one last, with its own care" note.

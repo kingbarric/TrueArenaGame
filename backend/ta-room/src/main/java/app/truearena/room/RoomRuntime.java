@@ -76,6 +76,14 @@ public final class RoomRuntime {
     public volatile long timerRemainingMs;
 
     /**
+     * Resumes a host-paused Traitors table by itself, so a pause can't freeze
+     * the game for good (see {@code GameOrchestrator.armPauseLimit}).
+     */
+    public volatile Disposable pauseLimit;
+    /** When {@link #pauseLimit} fires (epoch millis), or 0 when none is armed. */
+    public volatile long pauseLimitDeadlineMs;
+
+    /**
      * The last set of player ids a turn-reminder push was sent for, so
      * repeated sub-events while the same player is still on turn (e.g. a
      * capture chain) don't re-notify every time. Reset whenever the set of
@@ -123,6 +131,14 @@ public final class RoomRuntime {
         if (sink != null) {
             sink.tryEmitNext(message);
         }
+    }
+
+    public void cancelPauseLimit() {
+        if (pauseLimit != null) {
+            pauseLimit.dispose();
+        }
+        pauseLimit = null;
+        pauseLimitDeadlineMs = 0;
     }
 
     public void cancelTimer() {
