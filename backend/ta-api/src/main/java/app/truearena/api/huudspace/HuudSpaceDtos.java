@@ -50,7 +50,7 @@ public final class HuudSpaceDtos {
     }
 
     /** Pickable backdrops; none chosen ("default", stored as null) is the disco floor, "blank" is no picture. */
-    public static final List<String> BACKGROUNDS = List.of("blank", "lounge", "poolside", "club");
+    public static final List<String> BACKGROUNDS = List.of("blank", "disco", "lounge", "poolside", "club");
 
     /** What an invite link's web page may show — nothing beyond the name and how busy it is. */
     public record InvitePreview(String code, String name, String owner, boolean live, int members) {
@@ -71,7 +71,12 @@ public final class HuudSpaceDtos {
      * running it right now; {@code owner}: whose Huud it is, for good.
      */
     public record Person(UUID userId, String displayName, String username, String avatarUrl,
-                         boolean host, boolean here, boolean canSpeak, Instant joinedAt, boolean owner) {
+                         boolean host, boolean here, boolean canSpeak, Instant joinedAt, boolean owner, String huudAvatarId, String huudOutfitId) {
+
+        public Person(UUID userId, String displayName, String username, String avatarUrl,
+                      boolean host, boolean here, boolean canSpeak, Instant joinedAt, boolean owner) {
+            this(userId,displayName,username,avatarUrl,host,here,canSpeak,joinedAt,owner,null,null);
+        }
 
         public Person(UUID userId, String displayName, String username, String avatarUrl,
                       boolean host, boolean here, boolean canSpeak, Instant joinedAt) {

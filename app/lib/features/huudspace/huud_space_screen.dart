@@ -2601,7 +2601,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
       TextEditingController(text: widget.huud.feedMessage ?? '');
   late HuudPrivacy _privacy = widget.huud.privacy;
   late bool _shared = widget.huud.shared;
-  late String? _background = widget.huud.background;
+  late String? _background = widget.huud.background ?? 'blank';
   bool _busy = false;
 
   @override

@@ -19,9 +19,8 @@ const huudIcon = 'assets/images/branding/huud_icon.png';
 /// Backdrops a host can give their Huud: (wire, label, picture). The first
 /// is the default — no picture at all.
 const huudBackgrounds = <(String?, String, String?)>[
-  // Not picked yet = the disco floor; "Blank" is no picture at all.
-  (null, 'Disco', 'assets/images/huud_backgrounds/disco.jpg'),
   ('blank', 'Blank', null),
+  ('disco', 'Disco', 'assets/images/huud_backgrounds/disco.jpg'),
   ('lounge', 'Lounge', 'assets/images/huud_backgrounds/lounge.jpg'),
   ('poolside', 'Poolside', 'assets/images/huud_backgrounds/poolside.jpg'),
   ('club', 'Club', 'assets/images/huud_backgrounds/club.jpg'),

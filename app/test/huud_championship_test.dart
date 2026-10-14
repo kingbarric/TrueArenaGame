@@ -274,7 +274,7 @@ void main() {
     expect(calls, contains('POST /api/v1/huud-spaces/h1/championship/register {}'));
     expect(find.text("You're in ✅"), findsOneWidget);
     expect(find.byKey(const ValueKey('cup-starts')), findsOneWidget);
-    expect(find.textContaining('Starts today at'), findsOneWidget);
+    expect(find.textContaining('Starts '), findsOneWidget); // The scheduled time may fall tomorrow near midnight.
     expect(find.byKey(const ValueKey('cup-withdraw')), findsOneWidget);
   });
 

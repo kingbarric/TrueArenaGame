@@ -154,8 +154,8 @@ public class HuudSpaceService {
                     return tx.transactional(lock("huud-space-owner:" + user)
                             .then(ownedId(user))
                             .switchIfEmpty(Mono.defer(() -> freshCode().flatMap(code -> db.sql(
-                                            "INSERT INTO huud_spaces(code,name,privacy,owner_id,created_by,live_since) "
-                                                    + "VALUES(:code,:name,:privacy,:user,:user,now()) RETURNING id")
+                                            "INSERT INTO huud_spaces(code,name,privacy,owner_id,created_by,live_since,background) "
+                                                    + "VALUES(:code,:name,:privacy,:user,:user,now(),'blank') RETURNING id")
                                     .bind("code", code).bind("name", name).bind("privacy", privacy).bind("user", user)
                                     .map((r, m) -> r.get("id", UUID.class)).one()
                                     .flatMap(id -> admitRow(id, user).then(enterLive(id, user)).thenReturn(id))))));
@@ -1180,8 +1180,8 @@ public class HuudSpaceService {
     Flux<Person> members(UUID id) {
         return db.sql("SELECT m.user_id, m.joined_at, (m.live_at IS NOT NULL AND s.live_since IS NOT NULL) AS here, "
                         + "(s.owner_id=m.user_id) AS host, (s.created_by=m.user_id) AS owner, "
-                        + "(s.owner_id=m.user_id OR m.can_speak) AS can_speak, u.display_name, u.username, u.avatar_url "
-                        + "FROM huud_space_members m JOIN users u ON u.id=m.user_id JOIN huud_spaces s ON s.id=m.huud_space_id "
+                        + "(s.owner_id=m.user_id OR m.can_speak) AS can_speak, u.display_name, u.username, u.avatar_url, a.avatar_id, a.outfit_id "
+                        + "FROM huud_space_members m JOIN users u ON u.id=m.user_id JOIN huud_spaces s ON s.id=m.huud_space_id LEFT JOIN user_huud_avatars a ON a.user_id=m.user_id "
                         + "WHERE m.huud_space_id=:id AND NOT m.removed AND m.left_at IS NULL "
                         + "ORDER BY (s.owner_id=m.user_id) DESC, (m.live_at IS NOT NULL) DESC, m.joined_at")
                 .bind("id", id)
@@ -1190,7 +1190,7 @@ public class HuudSpaceService {
                         Boolean.TRUE.equals(r.get("host", Boolean.class)),
                         Boolean.TRUE.equals(r.get("here", Boolean.class)),
                         Boolean.TRUE.equals(r.get("can_speak", Boolean.class)), instant(r.get("joined_at")),
-                        Boolean.TRUE.equals(r.get("owner", Boolean.class))))
+                        Boolean.TRUE.equals(r.get("owner", Boolean.class)), r.get("avatar_id", String.class), r.get("outfit_id", String.class)))
                 .all();
     }
 

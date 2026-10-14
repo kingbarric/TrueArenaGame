@@ -37,6 +37,8 @@ class HuudMember {
     required this.displayName,
     required this.username,
     this.avatarUrl,
+    this.huudAvatarId,
+    this.huudOutfitId,
     this.host = false,
     this.here = false,
     this.canSpeak = false,
@@ -49,7 +51,7 @@ class HuudMember {
   final String userId;
   final String displayName;
   final String username;
-  final String? avatarUrl;
+  final String? avatarUrl, huudAvatarId, huudOutfitId;
   final bool host;
   final bool here;
   final bool canSpeak;
@@ -65,6 +67,8 @@ class HuudMember {
         displayName: j['displayName'] as String? ?? '',
         username: j['username'] as String? ?? '',
         avatarUrl: j['avatarUrl'] as String?,
+        huudAvatarId: j['huudAvatarId'] as String?,
+        huudOutfitId: j['huudOutfitId'] as String?,
         host: j['host'] == true,
         here: j['here'] == true,
         canSpeak: j['canSpeak'] == true,

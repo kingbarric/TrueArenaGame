@@ -6,7 +6,7 @@ import {Wardrobe} from './avatar';
 import {presentBody} from './presentation';
 import type {Catalog,Look} from './types';
 
-type Person={id:string;name:string;host:boolean;here:boolean;speaking:boolean;me:boolean;mode?:string};
+type Person={id:string;name:string;host:boolean;here:boolean;speaking:boolean;me:boolean;mode?:string;look?:Look};
 type Actor={person:Person;root:T.Group;bones:Map<string,T.Bone>;label:HTMLButtonElement;phase:number;body:string;model:T.Group;place:ReturnType<typeof roomPlace>;seated:number;angle:number};
 const send=(type:string,payload:Record<string,unknown>={})=>{if(window.flutter_inappwebview)void window.flutter_inappwebview.callHandler('huud',{type,...payload});};
 const renderer=new T.WebGLRenderer({antialias:true,alpha:false});
@@ -52,24 +52,48 @@ const actorGroup=new T.Group();scene.add(actorGroup);
 const chairGroup=new T.Group();scene.add(chairGroup);
 const prototypes=new Map<string,Promise<Wardrobe>>();let initialized=false,catalog:Catalog,actors:Actor[]=[],epoch=0,generation=0,paused=false,reducedMotion=false,selfMode:'sit'|'stand'|'walk'='sit';
 
-async function prototype(body:'male'|'female'){
- let pending=prototypes.get(body);if(!pending){pending=(async()=>{const w=new Wardrobe(renderer);const look:Look={body,avatarId:body,skinTone:body==='female'?'#c79782':'#996244',facePreset:'classic',pose:'idle',background:'studio',items:body==='female'?{tops:'female-top-tee',trousers:'female-trousers-tailored',hair:'female-hair-long',shoes:'shoe-1'}:{shirts:'male-tee-polo',trousers:'male-trousers-classic',hair:'male-hair-1',shoes:'shoe-1'}};await w.apply(look,catalog);w.root.traverse(o=>{delete o.userData.slayCoverage;});return w;})();prototypes.set(body,pending);pending.catch(()=>prototypes.delete(body));}return pending;
+const appearanceKey=(body:string,look?:Look)=>look?JSON.stringify(look):body;
+const bodyAttributes=new Map<string,Record<string,T.BufferAttribute|T.InterleavedBufferAttribute>>();
+async function prototype(body:'male'|'female',custom?:Look){
+ const key=appearanceKey(body,custom);
+ let pending=prototypes.get(key);
+ if(!pending){pending=(async()=>{
+  const w=new Wardrobe(renderer);
+  const look:Look=custom??{body,avatarId:body,skinTone:body==='female'?'#c79782':'#996244',facePreset:'classic',pose:'idle',background:'studio',items:body==='female'?{tops:'female-top-tee',trousers:'female-trousers-tailored',hair:'female-hair-long',shoes:'shoe-1'}:{shirts:'male-tee-polo',trousers:'male-trousers-classic',hair:'male-hair-1',shoes:'shoe-1'}};
+  await w.apply(look,catalog);
+  w.root.traverse(o=>{
+   delete o.userData.slayCoverage;
+   if(o instanceof T.Mesh&&o.name.startsWith('region_')){
+    const bodyKey=(look.avatarId??body)+':'+o.name,shared=bodyAttributes.get(bodyKey);
+    if(shared)for(const [name,attribute] of Object.entries(shared))o.geometry.setAttribute(name,attribute);
+    else bodyAttributes.set(bodyKey,{...o.geometry.attributes});
+   }
+  });
+  return w;
+ })();prototypes.set(key,pending);pending.catch(()=>{if(prototypes.get(key)===pending)prototypes.delete(key);});}
+ return pending;
 }
+const copyMaterial=(source:T.Material)=>{const m=source.clone();m.onBeforeCompile=source.onBeforeCompile;m.customProgramCacheKey=source.customProgramCacheKey;return m;};
 
 function releaseActors(){for(const a of actors){a.root.traverse(o=>{if(o instanceof T.Mesh){for(const m of Array.isArray(o.material)?o.material:[o.material])m.dispose();if(o instanceof T.SkinnedMesh)o.skeleton.dispose();}});a.label.remove();}actors=[];actorGroup.clear();chairGroup.traverse(o=>{if(o instanceof T.Mesh)o.geometry.dispose();});chairGroup.clear();}
 async function populate(people:Person[]){
- const current=++epoch,ids=people.map(p=>p.id).join('|');
- if(ids===actors.map(a=>a.person.id).join('|')){actors.forEach((a,i)=>{a.person=people[i];decorate(a);});if(!initialized){initialized=true;send('loaded',{generation,canSit:false});}return;}
- const bodies=people.map(p=>seed(p.id)%2?'female':'male');await Promise.all([...new Set(bodies)].map(b=>prototype(b as 'male'|'female')));if(current!==epoch)return;
+ const current=++epoch,ids=people.map(p=>p.id+':'+JSON.stringify(p.look??null)).join('|');
+ if(ids===actors.map(a=>a.person.id+':'+JSON.stringify(a.person.look??null)).join('|')){actors.forEach((a,i)=>{a.person=people[i];decorate(a);});if(!initialized){initialized=true;send('loaded',{generation,canSit:false});}return;}
+ const bodies=people.map(p=>p.look?.body??(seed(p.id)%2?'female':'male'));
+ const needed=new Map(people.map((p,i)=>[appearanceKey(bodies[i],p.look),{body:bodies[i],look:p.look}]));
+ const queue=[...needed.values()];
+ const worker=async()=>{while(queue.length){const entry=queue.shift()!;await prototype(entry.body as 'male'|'female',entry.look);}};
+ await Promise.all([worker(),worker()]);if(current!==epoch)return;
  releaseActors();
- for(let i=0;i<people.length;i++){const p=people[i],body=bodies[i],source=await prototype(body as 'male'|'female');if(current!==epoch)return;
-  const root=clone(source.root) as T.Group;root.traverse(o=>{if(o instanceof T.Mesh){o.material=Array.isArray(o.material)?o.material.map(m=>m.clone()):o.material.clone();o.castShadow=true;}});
+ for(let i=0;i<people.length;i++){const p=people[i],body=bodies[i],source=await prototype(body as 'male'|'female',p.look);if(current!==epoch)return;
+  const root=clone(source.root) as T.Group;root.traverse(o=>{if(o instanceof T.Mesh){o.material=Array.isArray(o.material)?o.material.map(copyMaterial):copyMaterial(o.material);o.castShadow=true;}});
   const actor=new T.Group();actor.add(root);const place=roomPlace(i);actor.position.set(place.x,0,place.z);actor.rotation.y=place.yaw;actorGroup.add(actor);
 
-  const bones=seatPose(root,body),tones=['#c79782','#956443','#d5aa8b','#754e37'];presentBody(root,tones[seed(p.id)%tones.length],new Set());
-  const colors=['#78966c','#6c859a','#b58e73','#9b7d91','#607f78'];root.traverse(o=>{if(o instanceof T.Mesh&&(/tee|polo/.test(o.name))){for(const m of Array.isArray(o.material)?o.material:[o.material])if(m instanceof T.MeshStandardMaterial)m.color.set(colors[seed(p.id)%colors.length]);}});
+  const bones=seatPose(root,body),tones=['#c79782','#956443','#d5aa8b','#754e37'];if(!p.look)presentBody(root,tones[seed(p.id)%tones.length],new Set());
+  const colors=['#78966c','#6c859a','#b58e73','#9b7d91','#607f78'];root.traverse(o=>{if(!p.look&&o instanceof T.Mesh&&(/tee|polo/.test(o.name))){for(const m of Array.isArray(o.material)?o.material:[o.material])if(m instanceof T.MeshStandardMaterial)m.color.set(colors[seed(p.id)%colors.length]);}});
   const label=document.createElement('button');label.type='button';label.className='name';label.onclick=()=>send('person',{id:p.id});labels.append(label);const a:Actor={person:p,root:actor,bones,label,phase:(seed(p.id)%99)/10,body,model:root,place,seated:place.seated?1:0,angle:Math.atan2(place.x,place.z-.4)};actors.push(a);decorate(a);
  }
+ for(const [key,value] of prototypes)if(!needed.has(key)){prototypes.delete(key);void value.then(w=>w.destroy());}
  initialized=true;send('loaded',{generation,canSit:actors.some(a=>a.person.me&&a.place.seated)});
 }
 function decorate(a:Actor){a.label.textContent=(a.person.host?'♛ ':'')+(a.person.me?'You':a.person.name);a.label.classList.toggle('talking',a.person.speaking);a.label.classList.toggle('away',!a.person.here);a.label.setAttribute('aria-label',`${a.person.name}${a.person.speaking?', talking':''}${a.person.host?', host':''}`);a.label.title=a.person.speaking?'Talking now':a.person.here?'Here now':'Away';}

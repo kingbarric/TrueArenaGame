@@ -11,3 +11,15 @@ Avatar posture is sent on the existing Huud LiveKit data channel. It accepts onl
 Avatars currently use stable default body, hair, skin and outfit variations by account identity. They are not reconstructed from profile photographs or linked to a user's SlayHuud look selection.
 
 Validation: 64 passing Huud tests and 90 passing renderer tests; no analyzer diagnostics in the new movement and canvas code. Coverage includes Huud widget regressions, bounded-panel and larger-group tests, movement-state tests, and source-model seating, independent-skeleton, overflow-spacing and walking-path checks. Existing renderer asset tests passed before the sitting-room changes. Final simulator visual review and a live two-phone movement check must be recorded separately; unit tests do not establish those outcomes.
+
+## Profile avatar feature
+
+Couch build 2026101402 was installed on the phone before this work started. Its simulator review exercised Sit, Stand and Walk, the twelve-person couch/standing layout and readable head labels. Profile build 2026101403 adds five choices (Ella, Elisabeth, Chloe, Alexander and Ethan) with ten complete outfits. Existing profile photos remain independent from the 3D Huud choice.
+
+`GET/PATCH /api/v1/me/huud-avatar` reads and saves the authenticated account's selection. Flyway V54 stores it separately from SlayHuud career data. Member responses carry the saved avatar and outfit IDs; an inbox event refreshes active Huuds after a save, with the regular poll as fallback. The room uses the same dressed look as the Profile preview. Active looks share body vertex attributes and reuse prototypes; inactive prototypes are released. Loading is limited to two concurrent prototypes.
+
+New Huuds explicitly start with `background=blank`. V55 also makes this the database default; Disco is an explicit choice. Existing migrations were preserved unchanged.
+
+Validation: all 50 presets resolve to compatible wardrobe items and bind within metre-scale bounds in seated, standing and walking poses; 91 renderer tests pass. Profile selection, explicit saving, failed-save retry and the real Profile entry pass widget tests. Huud regressions pass. A real isolated Postgres/Redis check verifies schema upgrades, the authenticated save endpoint, account isolation, saved choices in member responses, blank defaults and the live avatar-change event.
+
+Delivery preference: install each completed feature build on the user's phone before starting the next feature, using the test API. A locked device may need unlocking to launch the installed app. Final device and simulator checks should be recorded separately from automated checks.

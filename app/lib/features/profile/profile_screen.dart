@@ -15,6 +15,7 @@ import '../competitive/competitive_api.dart';
 import '../competitive/competitive_models.dart';
 import '../competitive/all_time_rankings_screen.dart';
 import '../competitive/player_profile_screen.dart';
+import 'huud_avatar_screen.dart';
 
 /// Reached from Home by tapping the avatar/name row. Appearance is available
 /// here, with the rest of the device preferences in [SettingsScreen].
@@ -130,6 +131,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: ListView(
             padding: const EdgeInsets.all(20),
             children: [
+              NeonCard(key: const ValueKey('profile-huud-avatar'), accent: n.jade,
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const HuudAvatarScreen())),
+                child: Row(children: [Icon(Icons.accessibility_new_rounded, color: n.jade), const SizedBox(width: 12),
+                  const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Huud avatar', style: TextStyle(fontWeight: FontWeight.w800)),
+                    Text('Choose your avatar and outfit')
+                  ])), Icon(Icons.chevron_right, color: n.mute)])),
+              const SizedBox(height: 16),
               // Order: the player cards, then "complete your profile", then the
               // wallet, then everything else. (Photo, username, theme and sign
               // out live in Settings.) Champion badges, when you have any, go first.

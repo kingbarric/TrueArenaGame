@@ -971,15 +971,15 @@ void main() {
       if (r.method == 'PATCH') background = (jsonDecode(r.body) as Map)['background'] as String;
       return _json({..._huud(), 'background': background == 'default' ? null : background});
     });
-    // Nothing picked yet: the disco floor.
-    expect(find.byKey(const ValueKey('backdrop-disco')), findsOneWidget);
+    // Nothing picked yet: a blank page.
+    expect(find.byKey(const ValueKey('backdrop-disco')), findsNothing);
     expect(find.byKey(const ValueKey('backdrop-club')), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('huud-settings')));
     await tester.pumpAndSettle();
     expect(find.text('Background'), findsOneWidget);
     expect(find.text('Disco'), findsOneWidget);
-    for (final b in ['default', 'blank', 'lounge']) {
+    for (final b in ['blank', 'disco', 'lounge']) {
       expect(find.byKey(ValueKey('bg-$b')), findsOneWidget);
     }
     await tester.dragUntilVisible(

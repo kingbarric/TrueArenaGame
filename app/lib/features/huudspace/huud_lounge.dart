@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -9,6 +10,7 @@ import '../slayhuud/slay_assets.dart';
 import '../slayhuud/slay_models.dart';
 import 'huud_space_models.dart';
 import 'huud_avatar_motion.dart';
+import 'huud_avatar_models.dart';
 
 /// One bounded lounge, with a single shared 3D renderer for the current table.
 class HuudLounge extends StatefulWidget {
@@ -242,6 +244,7 @@ class _LoungeSceneState extends State<_LoungeScene>
   String _mode = 'sit';
   bool _canSit = true;
   String? _error;
+  HuudAvatarOptions? _avatarOptions;
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -255,6 +258,8 @@ class _LoungeSceneState extends State<_LoungeScene>
   Future<void> _start() async {
     try {
       final c = await SlayApi(AppScope.of(context).api).catalog();
+      _avatarOptions = HuudAvatarOptions.fromJson(jsonDecode(await rootBundle
+          .loadString('assets/slay_renderer/huud-avatars.json')));
       await SlayAssets.instance.start();
       if (mounted) setState(() => _catalog = c);
     } catch (_) {
@@ -268,6 +273,8 @@ class _LoungeSceneState extends State<_LoungeScene>
         for (final p in widget.members)
           {
             'id': p.userId,
+            'look':
+                _avatarOptions?.look(p.huudAvatarId, p.huudOutfitId)?.toJson(),
             'name': p.handle,
             'host': p.host,
             'here': p.here,
