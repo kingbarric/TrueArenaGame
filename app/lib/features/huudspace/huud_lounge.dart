@@ -8,6 +8,7 @@ import '../../core/app_state.dart';
 import '../slayhuud/slay_assets.dart';
 import '../slayhuud/slay_models.dart';
 import 'huud_space_models.dart';
+import 'huud_avatar_motion.dart';
 
 /// One bounded lounge, with a single shared 3D renderer for the current table.
 class HuudLounge extends StatefulWidget {
@@ -16,9 +17,11 @@ class HuudLounge extends StatefulWidget {
       required this.members,
       required this.onPerson,
       this.me,
+      this.motion,
       this.speaking = const {}});
   final List<HuudMember> members;
   final String? me;
+  final HuudAvatarMotion? motion;
   final Set<String> speaking;
   final ValueChanged<HuudMember> onPerson;
   @visibleForTesting
@@ -42,9 +45,9 @@ class _HuudLoungeState extends State<HuudLounge> {
         final host = (b.host ? 1 : 0) - (a.host ? 1 : 0);
         return host != 0 ? host : (b.here ? 1 : 0) - (a.here ? 1 : 0);
       });
-    final tables = (people.length / 8).ceil().clamp(1, 10000),
+    final tables = (people.length / 12).ceil().clamp(1, 10000),
         table = _table.clamp(0, tables - 1),
-        seated = people.skip(table * 8).take(8).toList();
+        seated = people.skip(table * 12).take(12).toList();
     return Container(
         key: const ValueKey('huud-people-canvas'),
         clipBehavior: Clip.antiAlias,
@@ -62,12 +65,12 @@ class _HuudLoungeState extends State<HuudLounge> {
                     child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                      Text('The lounge',
+                      Text('The Huud',
                           style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w900,
                               color: Color(0xff304b39))),
-                      Text('Pull up a chair',
+                      Text('Make yourself at home',
                           style: TextStyle(
                               fontSize: 12, color: Color(0xff7b8472))),
                     ])),
@@ -84,19 +87,19 @@ class _HuudLoungeState extends State<HuudLounge> {
                     Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                   IconButton(
                       key: const ValueKey('huud-table-previous'),
-                      tooltip: 'Previous table',
+                      tooltip: 'Previous room',
                       onPressed: table > 0
                           ? () => setState(() => _table = table - 1)
                           : null,
                       icon: const Icon(Icons.chevron_left)),
-                  Text('Table ${table + 1} of $tables',
+                  Text('Room ${table + 1} of $tables',
                       style: const TextStyle(
                           color: Color(0xff55785f),
                           fontSize: 12,
                           fontWeight: FontWeight.w800)),
                   IconButton(
                       key: const ValueKey('huud-table-next'),
-                      tooltip: 'Next table',
+                      tooltip: 'Next room',
                       onPressed: table + 1 < tables
                           ? () => setState(() => _table = table + 1)
                           : null,
@@ -123,10 +126,11 @@ class _HuudLoungeState extends State<HuudLounge> {
                                     members: seated,
                                     me: widget.me,
                                     speaking: widget.speaking,
+                                    motion: widget.motion,
                                     onPerson: widget.onPerson)),
                         const Padding(
                             padding: EdgeInsets.fromLTRB(16, 13, 16, 8),
-                            child: Text('AROUND THE TABLE',
+                            child: Text('IN THE HUUD',
                                 style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w900,
@@ -204,7 +208,7 @@ class _HuudLoungeState extends State<HuudLounge> {
               color: const Color(0xffece7d7),
               child: Text(
                   people.isEmpty
-                      ? 'Invite your friends to take a seat.'
+                      ? 'Invite your friends into the Huud.'
                       : 'Drag to look around · pinch to zoom · tap a name',
                   textAlign: TextAlign.center,
                   style:
@@ -218,10 +222,12 @@ class _LoungeScene extends StatefulWidget {
       {required this.members,
       required this.speaking,
       required this.onPerson,
+      this.motion,
       this.me});
   final List<HuudMember> members;
   final Set<String> speaking;
   final String? me;
+  final HuudAvatarMotion? motion;
   final ValueChanged<HuudMember> onPerson;
   @override
   State<_LoungeScene> createState() => _LoungeSceneState();
@@ -233,6 +239,8 @@ class _LoungeSceneState extends State<_LoungeScene>
   InAppWebViewController? _web;
   bool _started = false, _loaded = false, _booting = false;
   int _generation = 0, _restarts = 0;
+  String _mode = 'sit';
+  bool _canSit = true;
   String? _error;
   @override
   void didChangeDependencies() {
@@ -251,7 +259,7 @@ class _LoungeSceneState extends State<_LoungeScene>
       if (mounted) setState(() => _catalog = c);
     } catch (_) {
       if (mounted) {
-        setState(() => _error = 'The lounge could not connect. Tap to retry.');
+        setState(() => _error = 'The Huud could not connect. Tap to retry.');
       }
     }
   }
@@ -264,6 +272,8 @@ class _LoungeSceneState extends State<_LoungeScene>
             'host': p.host,
             'here': p.here,
             'speaking': widget.speaking.contains(p.userId),
+            'mode': widget.motion?.mode(p.userId) ??
+                (p.userId == widget.me ? _mode : 'sit'),
             'me': p.userId == widget.me
           }
       ];
@@ -286,7 +296,7 @@ class _LoungeSceneState extends State<_LoungeScene>
       try {
         await _web?.reload();
       } catch (_) {
-        if (mounted) setState(() => _error = 'Tap to reconnect to the lounge.');
+        if (mounted) setState(() => _error = 'Tap to reconnect to the Huud.');
       }
     }
   }
@@ -308,17 +318,22 @@ class _LoungeSceneState extends State<_LoungeScene>
           });
         } catch (_) {
           if (mounted) {
-            setState(() => _error = 'Tap to reconnect to the lounge.');
+            setState(() => _error = 'Tap to reconnect to the Huud.');
           }
         }
       case 'loaded':
         if (raw['generation'] != _generation) return;
         setState(() {
           _loaded = true;
+          _canSit = raw['canSit'] == true;
           _booting = false;
           _error = null;
         });
         await _send({'type': 'people', 'people': _people});
+        _mode = widget.me == null
+            ? _mode
+            : widget.motion?.mode(widget.me!) ?? _mode;
+        await _send({'type': 'selfAction', 'mode': _mode});
       case 'person':
         final p =
             widget.members.where((p) => p.userId == raw['id']).firstOrNull;
@@ -332,7 +347,7 @@ class _LoungeSceneState extends State<_LoungeScene>
         if (_restarts++ < 2) {
           await _restart();
         } else {
-          setState(() => _error = 'The lounge paused. Tap to reconnect.');
+          setState(() => _error = 'The Huud paused. Tap to reconnect.');
         }
     }
   }
@@ -340,14 +355,21 @@ class _LoungeSceneState extends State<_LoungeScene>
   @override
   void didUpdateWidget(covariant _LoungeScene old) {
     super.didUpdateWidget(old);
-    if (_loaded) unawaited(_send({'type': 'people', 'people': _people}).catchError((_) {}));
+    if (widget.me != null) _mode = widget.motion?.mode(widget.me!) ?? _mode;
+    if (_loaded) {
+      unawaited(
+          _send({'type': 'people', 'people': _people}).catchError((_) {}));
+      unawaited(
+          _send({'type': 'selfAction', 'mode': _mode}).catchError((_) {}));
+    }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (_web != null) {
-      unawaited(_send(
-          {'type': 'pause', 'paused': state != AppLifecycleState.resumed}).catchError((_) {}));
+      unawaited(
+          _send({'type': 'pause', 'paused': state != AppLifecycleState.resumed})
+              .catchError((_) {}));
     }
   }
 
@@ -356,6 +378,12 @@ class _LoungeSceneState extends State<_LoungeScene>
     WidgetsBinding.instance.removeObserver(this);
     unawaited(_send({'type': 'dispose'}).catchError((_) {}));
     super.dispose();
+  }
+
+  void _move(String mode) {
+    setState(() => _mode = mode);
+    if (widget.me != null) widget.motion?.move(widget.me!, mode);
+    unawaited(_send({'type': 'selfAction', 'mode': mode}).catchError((_) {}));
   }
 
   @override
@@ -380,7 +408,11 @@ class _LoungeSceneState extends State<_LoungeScene>
                   handlerName: 'huud',
                   callback: (args) {
                     if (args.isNotEmpty && args.first is Map) {
-                      unawaited(_message(args.first as Map));
+                      unawaited(_message(args.first as Map).catchError((_) {
+                        if (mounted)
+                          setState(
+                              () => _error = 'Tap to reconnect to the Huud.');
+                      }));
                     }
                     return null;
                   });
@@ -388,15 +420,58 @@ class _LoungeSceneState extends State<_LoungeScene>
             onWebContentProcessDidTerminate: (_) {
               if (_restarts++ < 2) {
                 unawaited(_restart());
-              } else if (mounted)
-                setState(() => _error = 'Tap to reconnect to the lounge.');
+              } else if (mounted) {
+                setState(() => _error = 'Tap to reconnect to the Huud.');
+              }
             },
             onReceivedError: (_, request, error) {
               if (request.isForMainFrame == true && mounted) {
-                setState(() => _error = 'Tap to reconnect to the lounge.');
+                setState(() => _error = 'Tap to reconnect to the Huud.');
               }
             },
           ),
+        if (_loaded &&
+            _error == null &&
+            widget.members.any((p) => p.userId == widget.me && p.here))
+          Positioned(
+              left: 8,
+              right: 8,
+              bottom: 8,
+              child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                      color: const Color(0xfff5efdf).withValues(alpha: .94),
+                      borderRadius: BorderRadius.circular(18)),
+                  child: Row(children: [
+                    if (_canSit)
+                      Expanded(
+                          child: TextButton.icon(
+                              key: const ValueKey('huud-sit'),
+                              onPressed: () => _move('sit'),
+                              icon: const Icon(Icons.weekend_rounded, size: 16),
+                              label: const Text('Sit',
+                                  style: TextStyle(fontSize: 11)))),
+                    Expanded(
+                        child: TextButton.icon(
+                            key: const ValueKey('huud-stand'),
+                            onPressed: () => _move('stand'),
+                            icon: const Icon(Icons.accessibility_new_rounded,
+                                size: 16),
+                            label: const Text('Stand',
+                                style: TextStyle(fontSize: 11)))),
+                    Expanded(
+                        child: TextButton.icon(
+                            key: const ValueKey('huud-walk'),
+                            onPressed: () =>
+                                _move(_mode == 'walk' ? 'stand' : 'walk'),
+                            icon: Icon(
+                                _mode == 'walk'
+                                    ? Icons.pause_rounded
+                                    : Icons.directions_walk_rounded,
+                                size: 16),
+                            label: Text(_mode == 'walk' ? 'Stop' : 'Walk',
+                                style: const TextStyle(fontSize: 11)))),
+                  ]))),
         if (!_loaded || _error != null)
           ColoredBox(
               color: const Color(0xffe8e3d5),

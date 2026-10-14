@@ -19,7 +19,20 @@ Future<void> main() async {
       defaultValue:
           'https://pub-add3eaff74154969a3810cabdb63ef40.r2.dev/slay/');
   catalog['assets'] = {...catalog['assets'] as Map, 'base': base};
-  final names = ['Riley', 'Ava', 'Michael', 'Chloe', 'Ethan', 'Ella'];
+  final names = [
+    'Riley',
+    'Ava',
+    'Michael',
+    'Chloe',
+    'Ethan',
+    'Ella',
+    'Oliver',
+    'Grace',
+    'Sophia',
+    'James',
+    'Maya',
+    'Lucas'
+  ];
   final members = [
     for (int i = 0; i < names.length; i++)
       {
@@ -33,7 +46,7 @@ Future<void> main() async {
   ];
   final huud = <String, dynamic>{
     'id': 'preview-huud',
-    'code': 'LOUNGE',
+    'code': 'HUUD12',
     'name': 'The Sunday Club',
     'privacy': 'friends',
     'status': 'active',
@@ -56,7 +69,7 @@ Future<void> main() async {
         'id': i + 1,
         'from': members[(i + 1) % members.length],
         'body': [
-          'The new lounge is lovely ✨',
+          'The new Huud is lovely ✨',
           'Who is joining the next game?',
           'I am in! Pull up a chair.',
           'Let’s try Chess after we catch up.'

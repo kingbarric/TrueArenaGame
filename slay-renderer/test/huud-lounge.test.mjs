@@ -24,3 +24,21 @@ test('identity variations are stable and include both body types',()=>{
  assert.equal(new Set(ids.map(id=>seed(id)%2)).size,2);
  assert.equal(seed('same-user'),seed('same-user'));
 });
+test('couch overflow stands apart and the walking path clears furniture',async()=>{
+ const {roomPlace,walkPosition,animateBody}=await import('../src/huud-avatar.ts');
+ const places=Array.from({length:12},(_,i)=>roomPlace(i));
+ assert.equal(places.filter(p=>p.seated).length,8);
+ assert.equal(new Set(places.map(p=>`${p.x}/${p.z}`)).size,12);
+ for(let i=0;i<100;i++){
+  const p=walkPosition(i*Math.PI*2/100);
+  assert.ok(Math.abs(p.x)<=1.41&&p.z>=-1.01&&p.z<=1.81);
+  assert.ok(Math.abs(p.x)>.75||Math.abs(p.z-.4)>.6,'walk clears coffee table');
+ }
+ for(const body of ['male','female']){
+  const model=await loadGlb(readFileSync(new URL('../../app/assets/slay_renderer/assets/'+body+'.glb',import.meta.url))),root=clone(model.scene),bones=seatPose(root,body);
+  animateBody(root,bones,body,0,false,0);assert.equal(Math.abs(root.position.y),0);
+  assert.equal(Math.abs(bones.get('LeftUpperLeg').rotation.x),0);
+  animateBody(root,bones,body,0,true,.2);
+  assert.ok(bones.get('LeftUpperLeg').rotation.x*bones.get('RightUpperLeg').rotation.x<0,'walking legs alternate');
+ }
+});

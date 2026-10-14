@@ -25,6 +25,7 @@ import '../../widgets/swipe_to_switch.dart';
 import 'huud_space_models.dart';
 import 'huud_roster.dart';
 import 'huud_lounge.dart';
+import 'huud_avatar_motion.dart';
 import 'huud_game_modes.dart';
 import 'safety_sheet.dart';
 import '../../core/keep_awake.dart';
@@ -70,6 +71,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
   late HuudSpace? _huud = widget.initial;
   String? _error;
   _Tab _tab = _Tab.people;
+  final _avatarMotion = HuudAvatarMotion();
   String? _busy;
   Timer? _poll;
   StreamSubscription? _events;
@@ -113,6 +115,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     _events = app.huudSpaceEvents.listen(_onEvent);
     _poll = Timer.periodic(const Duration(seconds: 8), (_) => _load());
     HangoutState.instance.addListener(_onVoice);
+    _avatarMotion.addListener(_onAvatarMotion);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _load();
       _loadFriends();
@@ -174,6 +177,8 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
 
   @override
   void dispose() {
+    _avatarMotion.removeListener(_onAvatarMotion);
+    _avatarMotion.dispose();
     _events?.cancel();
     _poll?.cancel();
     HangoutState.instance.removeListener(_onVoice);
@@ -193,7 +198,13 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     super.dispose();
   }
 
+  void _onAvatarMotion() {
+    if (mounted) setState(() {});
+  }
+
   void _onVoice() {
+    final huud = _huud;
+    _avatarMotion.attach(huud != null && _inThisVoice(huud) ? HangoutState.instance.room : null);
     if (mounted) setState(() {});
   }
 
@@ -2336,6 +2347,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                   members: huud.members,
                   me: _me,
                   speaking: speakers,
+                  motion: _avatarMotion,
                   onPerson: (p) => _personSheet(huud, p))),
           top: 0),
       if (huud.code != null && !huud.live)

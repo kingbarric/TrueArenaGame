@@ -87,7 +87,7 @@ void main() {
   });
 
   Future<List<String>> pump(WidgetTester tester, Widget home, Future<http.Response> Function(http.Request) routes,
-      {bool guest = false, bool settle = true}) async {
+      {bool guest = false, bool settle = true, bool gameFirst = true}) async {
     final calls = <String>[];
     final mock = MockClient((request) async {
       calls.add('${request.method} ${request.url.path}${request.body.isEmpty ? '' : ' ${request.body}'}');
@@ -108,12 +108,23 @@ void main() {
       await tester.pump(const Duration(milliseconds: 500));
     }
     final game = find.byKey(const ValueKey('huud-tab-play'));
-    if (game.evaluate().isNotEmpty) {
+    if (gameFirst && game.evaluate().isNotEmpty) {
       await tester.tap(game);
       await tester.pump(const Duration(milliseconds: 500));
     }
     return calls;
   }
+
+  testWidgets('Huud opens on People with People, Game, Chat in that order', (tester) async {
+    await pump(tester, const HuudSpaceScreen(id: 'h1'), (r) async => _json(_huud()), gameFirst: false);
+    final people = find.byKey(const ValueKey('huud-tab-people'));
+    final game = find.byKey(const ValueKey('huud-tab-play'));
+    final chat = find.byKey(const ValueKey('huud-tab-chat'));
+    expect(tester.getSemantics(people), isSemantics(isSelected: true));
+    expect(tester.getCenter(people).dx, lessThan(tester.getCenter(game).dx));
+    expect(tester.getCenter(game).dx, lessThan(tester.getCenter(chat).dx));
+    expect(find.byKey(const ValueKey('huud-people-canvas')), findsOneWidget);
+  });
 
   testWidgets('making a Huud asks only for a name and who can join — Friends is picked for you', (tester) async {
     final calls = await pump(
