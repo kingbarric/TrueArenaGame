@@ -14,7 +14,7 @@ renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWid
 renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;
 document.body.prepend(renderer.domElement);
 const scene=new T.Scene();scene.background=new T.Color('#e8e3d5');
-const camera=new T.PerspectiveCamera(39,innerWidth/innerHeight,.05,50);camera.position.set(5.5,4.3,6.7);
+const camera=new T.PerspectiveCamera(42,innerWidth/innerHeight,.05,50);camera.position.set(6.3,4.8,7.6);
 const controls=new OrbitControls(camera,renderer.domElement);controls.target.set(0,.65,0);controls.enableDamping=true;controls.minDistance=4;controls.maxDistance=12;controls.minPolarAngle=.55;controls.maxPolarAngle=1.3;controls.enablePan=false;controls.update();
 scene.add(new T.HemisphereLight('#fffaf1','#7d9582',2.7));
 const sun=new T.DirectionalLight('#fff1d8',3.2);sun.position.set(-3,7,5);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);sun.shadow.camera.left=-5;sun.shadow.camera.right=5;sun.shadow.camera.top=5;sun.shadow.camera.bottom=-5;sun.shadow.bias=-.001;scene.add(sun);
@@ -75,6 +75,7 @@ async function populate(people:Person[]){
 function decorate(a:Actor){a.label.textContent=(a.person.host?'♛ ':'')+(a.person.me?'You':a.person.name);a.label.classList.toggle('talking',a.person.speaking);a.label.classList.toggle('away',!a.person.here);a.label.setAttribute('aria-label',`${a.person.name}${a.person.speaking?', talking':''}${a.person.host?', host':''}`);a.label.title=a.person.speaking?'Talking now':a.person.here?'Here now':'Away';}
 const point=new T.Vector3();let time=0,previous=performance.now();
 renderer.setAnimationLoop(()=>{if(paused||document.hidden)return;const now=performance.now(),dt=Math.min((now-previous)/1000,.05);time+=dt;previous=now;controls.update();
+ const plates:{x:number;y:number;w:number}[]=[];
  for(const a of actors){
   const own=a.person.me,mode=own?selfMode:(a.person.mode??'sit'),walking=mode==='walk'&&a.person.here&&!reducedMotion;
   const seated=a.place.seated&&mode==='sit';
@@ -86,11 +87,24 @@ renderer.setAnimationLoop(()=>{if(paused||document.hidden)return;const now=perfo
   const move=reducedMotion||!a.person.here?0:Math.sin(time*.9+a.phase),spine=a.bones.get('Spine'),head=a.bones.get('Head');
   if(spine){spine.rotation.x=move*.018;spine.rotation.z=move*.013;}
   if(head){head.rotation.y=reducedMotion?0:Math.sin(time*.55+a.phase)*.055;head.rotation.x=a.person.speaking&&!reducedMotion?Math.sin(time*3+a.phase)*.025:0;}
-  a.root.updateMatrixWorld(true);head?.getWorldPosition(point);point.y+=.24;point.project(camera);a.label.style.transform=`translate(-50%,-100%) translate(${(point.x*.5+.5)*innerWidth}px,${(-point.y*.5+.5)*innerHeight}px)`;a.label.style.visibility=point.z<1&&point.z>-1?'visible':'hidden';
+  a.root.updateMatrixWorld(true);head?.getWorldPosition(point);point.y+=.24;point.project(camera);
+  const width=a.label.offsetWidth,anchorX=(point.x*.5+.5)*innerWidth,anchor=(-point.y*.5+.5)*innerHeight;
+  let x=T.MathUtils.clamp(anchorX,width/2+5,innerWidth-width/2-5),y=Math.max(30,anchor);
+  placement:for(const dy of [0,19,38,57])for(const dx of [0,-20,20,-40,40]){
+    const nextX=T.MathUtils.clamp(anchorX+dx,width/2+5,innerWidth-width/2-5),nextY=Math.max(30,anchor-dy);
+    if(!plates.some(p=>Math.abs(p.x-nextX)<(p.w+width)/2+3&&Math.abs(p.y-nextY)<19)){x=nextX;y=nextY;break placement;}
+  }
+  plates.push({x,y,w:width});
+  a.label.style.zIndex=a.person.speaking?'100':a.person.host?'50':'1';
+  a.label.style.setProperty('--head',anchorX-x+'px');
+  a.label.style.setProperty('--stem',Math.max(4,anchor-y+4)+'px');
+  a.label.style.transform=`translate(-50%,-100%) translate(${x}px,${y}px)`;a.label.style.visibility=point.z<1&&point.z>-1?'visible':'hidden';
+
  }
  renderer.render(scene,camera);
 });
 window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
 renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();paused=true;send('lost');});
-(window as unknown as {huudReceive:(p:any)=>void}).huudReceive=(p)=>{if(p.type==='init'){catalog=p.catalog;generation=p.generation;reducedMotion=!!p.reducedMotion;void populate(p.people).catch(e=>send('error',{message:String(e),generation}));}else if(p.type==='people'){void populate(p.people).catch(e=>send('error',{message:String(e),generation}));}else if(p.type==='selfAction'){selfMode=p.mode==='walk'?'walk':p.mode==='stand'?'stand':'sit';}else if(p.type==='pause'){paused=!!p.paused;previous=performance.now();}else if(p.type==='resetCamera'){camera.position.set(5.5,4.3,6.7);controls.target.set(0,.65,0);}else if(p.type==='dispose'){paused=true;++epoch;renderer.setAnimationLoop(null);releaseActors();controls.dispose();for(const w of prototypes.values())void w.then(w=>w.destroy());scene.traverse(o=>{if(o instanceof T.Mesh){o.geometry.dispose();for(const m of Array.isArray(o.material)?o.material:[o.material])m.dispose();}});renderer.dispose();}};
+(window as unknown as {huudReceive:(p:any)=>void}).huudReceive=(p)=>{if(p.type==='init'){paused=false;previous=performance.now();catalog=p.catalog;generation=p.generation;reducedMotion=!!p.reducedMotion;void populate(p.people).catch(e=>send('error',{message:String(e),generation}));}else if(p.type==='people'){void populate(p.people).catch(e=>send('error',{message:String(e),generation}));}else if(p.type==='selfAction'){selfMode=p.mode==='walk'?'walk':p.mode==='stand'?'stand':'sit';}else if(p.type==='pause'){paused=!!p.paused;previous=performance.now();}else if(p.type==='resetCamera'){camera.position.set(6.3,4.8,7.6);controls.target.set(0,.65,0);}else if(p.type==='dispose'){paused=true;++epoch;renderer.setAnimationLoop(null);releaseActors();controls.dispose();for(const w of prototypes.values())void w.then(w=>w.destroy());scene.traverse(o=>{if(o instanceof T.Mesh){o.geometry.dispose();for(const m of Array.isArray(o.material)?o.material:[o.material])m.dispose();}});renderer.dispose();}};
+window.addEventListener('error',e=>send('error',{message:e.message,generation}));
 const ready=()=>send('ready');window.addEventListener('flutterInAppWebViewPlatformReady',ready);ready();

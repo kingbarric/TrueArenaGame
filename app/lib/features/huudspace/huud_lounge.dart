@@ -339,6 +339,7 @@ class _LoungeSceneState extends State<_LoungeScene>
             widget.members.where((p) => p.userId == raw['id']).firstOrNull;
         if (p != null && p.userId != widget.me) widget.onPerson(p);
       case 'error':
+        debugPrint('Huud renderer: ${raw['message']}');
         if (raw['generation'] != null && raw['generation'] != _generation) {
           return;
         }
@@ -417,6 +418,10 @@ class _LoungeSceneState extends State<_LoungeScene>
                     return null;
                   });
             },
+            onConsoleMessage: (_, message) {
+              if (message.messageLevel == ConsoleMessageLevel.ERROR)
+                debugPrint('Huud webview: ${message.message}');
+            },
             onWebContentProcessDidTerminate: (_) {
               if (_restarts++ < 2) {
                 unawaited(_restart());
@@ -488,7 +493,7 @@ class _LoungeSceneState extends State<_LoungeScene>
                           CircularProgressIndicator(
                               color: Color(0xff69856a), strokeWidth: 2),
                           SizedBox(height: 12),
-                          Text('Setting the table…',
+                          Text('Opening The Huud…',
                               style: TextStyle(color: Color(0xff69856a)))
                         ]))),
       ]);
