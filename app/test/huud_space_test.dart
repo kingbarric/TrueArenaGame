@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:truearena/features/huudspace/huud_lounge.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -79,6 +80,8 @@ Map<String, dynamic> _huud({
 void main() {
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
+    HuudLounge.debugScenePlaceholder = true;
+    addTearDown(() => HuudLounge.debugScenePlaceholder = false);
     HuudVoice.instance.reset();
     HangoutState.instance.clear();
   });
@@ -102,6 +105,11 @@ void main() {
     } else {
       // The Live dot pulses for ever, so there's no "settled".
       await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 500));
+    }
+    final game = find.byKey(const ValueKey('huud-tab-play'));
+    if (game.evaluate().isNotEmpty) {
+      await tester.tap(game);
       await tester.pump(const Duration(milliseconds: 500));
     }
     return calls;
@@ -426,11 +434,11 @@ void main() {
             ])));
     await tester.tap(find.byKey(const ValueKey('huud-tab-people')));
     await tester.pumpAndSettle();
-    expect(find.text('You'), findsOneWidget);
-    expect(find.text('Host'), findsOneWidget);
-    expect(find.text('Here now'), findsOneWidget);
-    expect(find.text('Away'), findsOneWidget);
-    expect(find.textContaining('tap someone to let them talk'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('♛ You'), 150, scrollable: find.descendant(of: find.byKey(const ValueKey('huud-lounge-scroll')), matching: find.byType(Scrollable)));
+    expect(find.text('♛ You'), findsOneWidget);
+    expect(find.byKey(const ValueKey('huud-people-canvas')), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp('.*Host, Here now.*')), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp('.*chidi, Away.*')), findsOneWidget);
   });
 
   testWidgets('looking in from Live: no code, one big Join button', (tester) async {
@@ -1037,7 +1045,7 @@ void main() {
     });
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.byKey(const ValueKey('huud-unread-chip')), findsOneWidget);
-    expect(find.text('💬 1 new message'), findsOneWidget);
+    expect(find.text('1 new message'), findsOneWidget);
     expect(find.byKey(const ValueKey('huud-tab-chat-unread')), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('huud-unread-chip')));
@@ -1066,6 +1074,9 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('huud-tab-people')));
     await tester.pumpAndSettle();
 
+    await tester.scrollUntilVisible(find.byKey(const ValueKey('huud-person-chidi')), 150, scrollable: find.descendant(of: find.byKey(const ValueKey('huud-lounge-scroll')), matching: find.byType(Scrollable)));
+    await Scrollable.ensureVisible(tester.element(find.byKey(const ValueKey('huud-person-chidi'))), alignment: .5);
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('huud-person-chidi')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('person-profile')), findsOneWidget);

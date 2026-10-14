@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "assets:validate": "node --experimental-strip-types scripts/validate-assets.mjs",
-    "build": "tsc --noEmit && vite build && node scripts/sync-stage-wardrobe.mjs && node scripts/group-wardrobe.mjs && node scripts/bundle.mjs",
+    "build": "tsc --noEmit && vite build && vite build --config vite.lounge.config.ts && node scripts/bundle-lounge.mjs && node scripts/sync-stage-wardrobe.mjs && node scripts/group-wardrobe.mjs && node scripts/bundle.mjs",
     "test": "node --experimental-strip-types --test test/*.test.mjs",
     "fits:audit": "node --experimental-strip-types scripts/audit-wardrobe-fits.mjs",
     "assets:repair-coverage": "node scripts/repair-wardrobe-coverage.mjs"

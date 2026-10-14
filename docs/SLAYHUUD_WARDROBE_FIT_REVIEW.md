@@ -50,3 +50,11 @@ Delivery quantization stores its decode transform in inverse bind matrices. Spat
 Loopback responses are marked no-store and the renderer URL has a new revision to avoid retaining an older page across app upgrades. Verification: 85 renderer tests, ten character/career Flutter tests, clean static analysis, nine backend catalogue/scoring unit tests and one career switching integration test on disposable local PostgreSQL/Redis. Simulator visual inspection covered Hoodie, Easy Day and Sunny Day dresses. Midi dresses and gowns retain their designed lengths pending any requested design change.
 
 Female separates now fit the lower top inside the selected trouser/skirt waistband, using the authored metre-space surface after delivery decoding. The reproduced Everyday Tee / Ribbon Shorts back overlap has a regression test on four female characters, five poses and 25 gait samples.
+
+## Male denim and asset recovery (catalogue 34)
+
+Male Denim Shorts are fitted closer to the male hips and thighs (14 mm nominal radial clearance) while preserving UVs, topology and weights. Skin coverage is recomputed around the actual shorts and retains exposed abdomen and skin below the hems for Alexander and Ethan. After regenerating source garments, run `node slay-renderer/scripts/repair-male-denim-shorts.mjs` before delivery compression. The matching thumbnail is regenerated.
+
+Failed selections restore the last successfully rendered look, so a failed hairstyle is not retried with every later wardrobe change. The WebView asset timeout now exceeds the native 60-second download limit. Bridge dispatch returns void to WKWebView; terminated iOS content processes and lost GL contexts reload with bounded retries and lower render resolution. Old page initialisation responses cannot overwrite a newer restart. Selecting another item can restart a failed page. The diagnostic load probe no longer creates an extra GPU context.
+
+Sculpted Waves was fetched from Cloudflare and its SHA-256 matched the manifest. Both compressed male hair bindings and denim fit are covered by regression tests; a widget test injects a failed Sculpted Waves load, verifies restoration and then successfully selects Braids. This does not establish the exact cause of the reported phone failure; restarting the game cleared that incident.

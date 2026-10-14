@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:truearena/features/huudspace/huud_lounge.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -118,6 +119,8 @@ Map<String, dynamic> _cup({
 void main() {
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
+    HuudLounge.debugScenePlaceholder = true;
+    addTearDown(() => HuudLounge.debugScenePlaceholder = false);
     HuudVoice.instance.reset();
     HangoutState.instance.clear();
   });
@@ -140,6 +143,8 @@ void main() {
         AppScope(state: state, child: MaterialApp(theme: NeonTheme.light, home: const HuudSpaceScreen(id: 'h1'))));
     // The Live dot pulses for ever, so there's no "settled".
     await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.tap(find.byKey(const ValueKey('huud-tab-play')));
     await tester.pump(const Duration(milliseconds: 500));
     return calls;
   }
@@ -478,30 +483,27 @@ void main() {
         'Live now · 3 in Huud · Playing Whot');
   });
 
-  testWidgets('in a Huud, a sideways swipe moves between Play, Chat and People', (tester) async {
+  testWidgets('in a Huud, a sideways swipe moves between People, Game and Chat', (tester) async {
     await pump(tester, (r) async {
       if (r.url.path == '/api/v1/huud-spaces/h1') return _json(_huud());
       return http.Response('not found', 404);
     });
     void on(String tab) =>
         expect(tester.getSemantics(find.byKey(ValueKey('huud-tab-$tab'))), isSemantics(isSelected: true));
+    await tester.tap(find.byKey(const ValueKey('huud-tab-people')));
+    await settle(tester);
+    on('people');
+    await tester.fling(find.byKey(const ValueKey('huud-tab-people')), const Offset(-300, 0), 1500);
+    await settle(tester);
     on('play');
-
     await tester.fling(find.byKey(const ValueKey('huud-tab-play')), const Offset(-300, 0), 1500);
     await settle(tester);
     on('chat');
-
     await tester.fling(find.byKey(const ValueKey('huud-tab-chat')), const Offset(-300, 0), 1500);
     await settle(tester);
-    on('people');
-
-    // People is the last tab: swiping on goes nowhere.
-    await tester.fling(find.byKey(const ValueKey('huud-tab-people')), const Offset(-300, 0), 1500);
-    await settle(tester);
-    on('people');
-
-    await tester.fling(find.byKey(const ValueKey('huud-tab-people')), const Offset(300, 0), 1500);
-    await settle(tester);
     on('chat');
+    await tester.fling(find.byKey(const ValueKey('huud-tab-chat')), const Offset(300, 0), 1500);
+    await settle(tester);
+    on('play');
   });
 }

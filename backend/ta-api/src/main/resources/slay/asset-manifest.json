@@ -62,9 +62,9 @@
    "bundled": false
   },
   "assets/avatar-indian-male.glb": {
-   "name": "avatar-indian-male.87892412a93c9c34.glb",
-   "sha256": "87892412a93c9c3456a0f17f40701fab619c9b00d2eab018d881f701e83b2352",
-   "bytes": 1236284,
+   "name": "avatar-indian-male.e8357210c8bf667b.glb",
+   "sha256": "e8357210c8bf667bffc91a94871825065be52f571c1d8310c23306533b1bab6f",
+   "bytes": 1235668,
    "bundled": false
   },
   "assets/avatar-indian-male.png": {
@@ -2870,15 +2870,15 @@
    "bundled": true
   },
   "assets/male-trousers-denim-shorts.glb": {
-   "name": "male-trousers-denim-shorts.93b31c6b54fa9ac1.glb",
-   "sha256": "93b31c6b54fa9ac17e9384f69a2485d5cd3ffe64987a58dc2182710b2a1df7d7",
-   "bytes": 33516,
+   "name": "male-trousers-denim-shorts.bf5f291056c18125.glb",
+   "sha256": "bf5f291056c181259982ba60d3e2b07e6ad2d0986957b2a1c532f13b5917053f",
+   "bytes": 33408,
    "bundled": false
   },
   "assets/male-trousers-denim-shorts.png": {
-   "name": "male-trousers-denim-shorts.29244f1069d3caae.png",
-   "sha256": "29244f1069d3caaee1736d0ca80b164d995afb8f052553b89029ac391feedd1e",
-   "bytes": 6448,
+   "name": "male-trousers-denim-shorts.fc8ecdfa6183a925.png",
+   "sha256": "fc8ecdfa6183a9257ac8115aff80c60fe574c15bd528391ad0c0bb807961d677",
+   "bytes": 5690,
    "bundled": true
   },
   "assets/male-trousers-harem.glb": {
@@ -2894,9 +2894,9 @@
    "bundled": true
   },
   "assets/male.glb": {
-   "name": "male.17cdbb274b3eeefd.glb",
-   "sha256": "17cdbb274b3eeefd734a721b97105b4895fc0bf053703a2aa04edfcffca6f4cf",
-   "bytes": 1235976,
+   "name": "male.35fd6a128bf4a44c.glb",
+   "sha256": "35fd6a128bf4a44c14010f9d5ff853edd03d64b49aebe36efe810f1b542d949a",
+   "bytes": 1235360,
    "bundled": true
   },
   "assets/shoe-0.glb": {

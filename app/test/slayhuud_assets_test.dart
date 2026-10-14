@@ -74,4 +74,20 @@ void main() {
           ..configure(catalog());
     expect(await assets.bytesFor('assets/unknown.glb'), isNull);
   });
+
+  test('a transient failed download does not poison a later retry',
+      () async {
+    int calls = 0;
+    final assets = SlayAssets.test(MockClient((_) async {
+      calls++;
+      return calls == 1
+          ? http.Response('unavailable', 503)
+          : http.Response.bytes(dress, 200);
+    }), cache)
+      ..configure(catalog());
+    await expectLater(
+        assets.bytesFor('assets/dress.glb'), throwsA(isA<HttpException>()));
+    expect(await assets.bytesFor('assets/dress.glb'), dress);
+    expect(calls, 2);
+  });
 }

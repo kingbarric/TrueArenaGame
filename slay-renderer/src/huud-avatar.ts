@@ -1,0 +1,3 @@
+import * as T from 'three';
+export const seed=(id:string)=>[...id].reduce((n,c)=>Math.imul(n^c.charCodeAt(0),16777619)>>>0,2166136261);
+export function seatPose(root:T.Group,body:string){const bones=new Map<string,T.Bone>();root.traverse(o=>{if(o instanceof T.SkinnedMesh)for(const b of o.skeleton.bones)bones.set(b.name,b);});for(const b of bones.values())b.quaternion.identity();for(const side of ['Left','Right']){bones.get(side+'UpperLeg')!.rotation.x=-1.42;bones.get(side+'LowerLeg')!.rotation.x=1.42;bones.get(side+'UpperArm')!.rotation.z=side==='Left'?-.28:.28;bones.get(side+'LowerArm')!.rotation.x=-.45;}root.position.y=body==='male'?-.38:-.4;return bones;}

@@ -503,7 +503,15 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                                   child: SlayStage(
                                       catalog: widget.catalog,
                                       look: _look,
-                                      controller: _stage)),
+                                      controller: _stage,
+                                      onLoadFailed: (previous, reason) {
+                                        if (!mounted) return;
+                                        _change(previous);
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(SnackBar(
+                                                content: Text(
+                                                    'That item could not load ($reason). Your last look is restored; try another item.')));
+                                      })),
                               Positioned(
                                   top: 10,
                                   left: 10,

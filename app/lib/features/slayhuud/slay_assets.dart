@@ -86,7 +86,12 @@ class SlayAssets {
       debugPrint('SlayHuud asset ${request.uri.path} failed: $e');
       response.statusCode = HttpStatus.badGateway;
     } finally {
-      await response.close();
+      // A timed-out WebView request can disconnect before its download ends.
+      try {
+        await response.close();
+      } catch (e) {
+        debugPrint('SlayHuud asset response closed by client: $e');
+      }
     }
   }
 
@@ -157,7 +162,7 @@ class SlayAssets {
       final name = entry.uri.pathSegments.last;
       if (entry is File &&
           !current.contains(name) &&
-          !_downloads.containsKey(name)) {
+          !_downloads.containsKey(name.replaceFirst(RegExp(r'\.part$'), ''))) {
         await entry.delete();
       }
     }

@@ -21,7 +21,10 @@ void main() {
     SlayStage.debugPlaceholder = true;
     SharedPreferences.setMockInitialValues({});
   });
-  tearDown(() => SlayStage.debugPlaceholder = false);
+  tearDown(() {
+    SlayStage.debugPlaceholder = false;
+    SlayStage.debugApplyLook = null;
+  });
   Future<void> open(WidgetTester t,
       {String? competition,
       String body = 'female',
@@ -82,6 +85,35 @@ void main() {
     await t.tap(find.text('My last look'));
     await t.pump(const Duration(seconds: 1));
     expect(find.byKey(const ValueKey('slay-stage-ella')), findsOneWidget);
+    expect(t.takeException(), isNull);
+  });
+
+  testWidgets(
+      'a failed hair selection restores the previous look and another item still loads',
+      (t) async {
+    final applied = <SlayLook>[];
+    SlayStage.debugApplyLook = (look) async {
+      if (look.items['hair'] == 'male-hair-1')
+        throw const HttpException('hair download failed');
+      applied.add(look);
+    };
+    await open(t,
+        body: 'male', owned: {'male-hair-0', 'male-hair-1', 'male-hair-2'});
+    await t.tap(find.bySemanticsLabel('Next star'));
+    await t.pump();
+    await t.tap(find.text('This is my star'));
+    await t.pump(const Duration(seconds: 1));
+    await t.tap(find.bySemanticsLabel('💇 Hair'));
+    await t.pump();
+    await t.tap(find.bySemanticsLabel('Sculpted Waves, owned'));
+    await t.pump();
+    await t.pump(const Duration(seconds: 1));
+    expect(find.textContaining('Your last look is restored'), findsOneWidget);
+    expect(applied.last.items['hair'], 'male-hair-0');
+    await t.tap(find.bySemanticsLabel('Braids, owned'));
+    await t.pump();
+    await t.pump(const Duration(seconds: 1));
+    expect(applied.last.items['hair'], 'male-hair-2');
     expect(t.takeException(), isNull);
   });
 

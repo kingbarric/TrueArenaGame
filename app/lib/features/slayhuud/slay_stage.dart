@@ -39,7 +39,7 @@ class SlayStageController {
       // before evaluateJavascript itself completes.
       final results = await Future.wait<dynamic>([
         _web!.evaluateJavascript(
-            source: 'window.slayReceive(${jsonEncode({
+            source: 'void window.slayReceive(${jsonEncode({
               'v': 1,
               'id': id,
               'type': type,
@@ -86,14 +86,18 @@ class SlayStage extends StatefulWidget {
       {super.key,
       required this.catalog,
       required this.look,
-      required this.controller});
+      required this.controller,
+      this.onLoadFailed});
   final Map<String, dynamic> catalog;
   final SlayLook look;
   final SlayStageController controller;
+  final void Function(SlayLook previous, String reason)? onLoadFailed;
 
   /// Widget tests have no WebView; they set this to draw a placeholder instead.
   @visibleForTesting
   static bool debugPlaceholder = false;
+  @visibleForTesting
+  static Future<void> Function(SlayLook look)? debugApplyLook;
 
   @override
   State<SlayStage> createState() => _SlayStageState();
@@ -126,10 +130,43 @@ class _SlayStageState extends State<SlayStage> with WidgetsBindingObserver {
   bool _applyQueued = false;
   bool _initialised = false;
   int _applyRevision = 0;
+  int _pageRevision = 0, _automaticRestarts = 0;
+  bool _lowTier = false;
+  SlayLook? _lastReadyLook;
+
+  Future<void> _restart({bool automatic = false}) async {
+    if (!mounted) return;
+    ++_pageRevision;
+    ++_applyRevision;
+    _booting = false;
+    _initialised = false;
+    widget.controller._reset();
+    if (automatic && _automaticRestarts++ >= 2) {
+      setState(() => _error = 'The studio paused. Tap to reconnect.');
+      return;
+    }
+    if (!automatic) _automaticRestarts = 0;
+    setState(() => _error = null);
+    try {
+      await widget.controller._web?.reload();
+    } catch (e) {
+      if (mounted) {
+        setState(() =>
+            _error = 'Studio connection failed (${_reason(e)}). Tap to retry.');
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
-    if (SlayStage.debugPlaceholder) return;
+    if (SlayStage.debugPlaceholder) {
+      if (SlayStage.debugApplyLook != null) {
+        _initialised = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) => _apply());
+      }
+      return;
+    }
     WidgetsBinding.instance.addObserver(this);
     _start();
   }
@@ -171,25 +208,42 @@ class _SlayStageState extends State<SlayStage> with WidgetsBindingObserver {
       _applyQueued = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _applyQueued = false;
-        if (mounted && _initialised) unawaited(_apply());
+        if (!mounted) return;
+        _automaticRestarts = 0;
+        if (_initialised) {
+          unawaited(_apply());
+        } else if (_error != null) {
+          unawaited(_restart());
+        }
       });
     }
   }
 
   Future<void> _apply() async {
     final revision = ++_applyRevision;
+    final look = widget.look;
     widget.controller.ready.value = false;
     try {
-      await widget.controller.request(
-          'applyLook', {'look': widget.look.toJson()},
-          timeout: _lookTimeout);
+      if (SlayStage.debugApplyLook != null) {
+        await SlayStage.debugApplyLook!(look);
+      } else {
+        await widget.controller.request('applyLook', {'look': look.toJson()},
+            timeout: _lookTimeout);
+      }
       if (mounted && revision == _applyRevision) {
+        _lastReadyLook = look;
         widget.controller.ready.value = true;
         setState(() => _error = null);
       }
     } catch (e) {
       debugPrint('SlayHuud applyLook failed: $e');
       if (mounted && revision == _applyRevision) {
+        if (_lastReadyLook != null &&
+            widget.onLoadFailed != null &&
+            jsonEncode(_lastReadyLook!.toJson()) != jsonEncode(look.toJson())) {
+          widget.onLoadFailed!(_lastReadyLook!, _reason(e));
+          return;
+        }
         setState(() => _error =
             'The look could not be loaded (${_reason(e)}). Tap to retry.');
       }
@@ -220,12 +274,14 @@ class _SlayStageState extends State<SlayStage> with WidgetsBindingObserver {
       _initialised = false;
       widget.controller.ready.value = false;
       _booting = true;
+      final page = _pageRevision;
       if (!widget.controller._ready.isCompleted) {
         widget.controller._ready.complete();
       }
       try {
-        await widget.controller
-            .request('init', {'catalog': widget.catalog, 'tier': 'high'});
+        await widget.controller.request('init',
+            {'catalog': widget.catalog, 'tier': _lowTier ? 'low' : 'standard'});
+        if (!mounted || page != _pageRevision) return;
         _initialised = true;
         await _apply();
         // Queued behind the look: if that was slow, this must not turn a
@@ -235,17 +291,16 @@ class _SlayStageState extends State<SlayStage> with WidgetsBindingObserver {
         }).catchError((_) => <String, dynamic>{});
       } catch (e) {
         debugPrint('SlayHuud studio initialisation failed: $e');
-        if (mounted) {
+        if (mounted && page == _pageRevision) {
           setState(() => _error =
               'The studio could not load (${_reason(e)}). Tap to retry.');
         }
       } finally {
-        _booting = false;
+        if (page == _pageRevision) _booting = false;
       }
     } else if (type == 'contextLost') {
-      _initialised = false;
-      widget.controller._reset();
-      await widget.controller._web?.reload();
+      _lowTier = true;
+      await _restart(automatic: true);
     } else if (type == 'error') {
       if (mounted) {
         setState(() => _error = payload['message'] == null
@@ -340,15 +395,25 @@ class _SlayStageState extends State<SlayStage> with WidgetsBindingObserver {
             // "ready"; log what the page managed to set up.
             final probe = await web.evaluateJavascript(
                 source: 'JSON.stringify({bridge: typeof window.slayReceive,'
-                    ' handler: typeof window.flutter_inappwebview,'
-                    ' webgl2: !!document.createElement("canvas").getContext("webgl2")})');
+                    ' handler: typeof window.flutter_inappwebview})');
             debugPrint('SlayHuud studio loaded $url: $probe');
           },
           onReceivedError: (web, request, error) {
             if (request.isForMainFrame == true && mounted) {
+              ++_pageRevision;
+              ++_applyRevision;
+              _booting = false;
+              widget.controller._reset();
               setState(
                   () => _error = 'Studio connection failed. Tap to retry.');
+              _initialised = false;
+              debugPrint(
+                  'SlayHuud page failed ${request.url}: ${error.description}');
             }
+          },
+          onWebContentProcessDidTerminate: (web) {
+            _lowTier = true;
+            unawaited(_restart(automatic: true));
           }),
       ValueListenableBuilder<bool>(
           valueListenable: widget.controller.ready,
@@ -359,12 +424,7 @@ class _SlayStageState extends State<SlayStage> with WidgetsBindingObserver {
                   child: Center(
                       child: _error != null
                           ? TextButton.icon(
-                              onPressed: () {
-                                _initialised = false;
-                                widget.controller._reset();
-                                setState(() => _error = null);
-                                widget.controller._web?.reload();
-                              },
+                              onPressed: () => _restart(),
                               icon: const Icon(Icons.refresh),
                               label: Text(_error!))
                           : Column(mainAxisSize: MainAxisSize.min, children: [

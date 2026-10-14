@@ -17,7 +17,8 @@ export async function assetBytes(url: string): Promise<ArrayBuffer> {
     if(cached) { inspectGlb(cached.bytes); db.close(); return cached.bytes; }
   } catch { /* Private browsing / full storage still permits network rendering. */ }
   try {
-    const response = await fetch(url, {signal: AbortSignal.timeout(20000)});
+    // The phone's loopback server may need up to 60s to fetch and verify art.
+    const response = await fetch(url, {signal: AbortSignal.timeout(75000)});
     if(!response.ok) throw Error('Could not load asset: HTTP '+response.status);
     const bytes = await response.arrayBuffer();
     inspectGlb(bytes);
