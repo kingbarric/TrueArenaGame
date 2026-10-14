@@ -1,3 +1,4 @@
+import {cloneItemMaterial} from './item-colours';
 import {seed,seatPose,roomPlace,animateBody,walkPosition} from './huud-avatar';
 import * as T from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
@@ -73,7 +74,7 @@ async function prototype(body:'male'|'female',custom?:Look){
  })();prototypes.set(key,pending);pending.catch(()=>{if(prototypes.get(key)===pending)prototypes.delete(key);});}
  return pending;
 }
-const copyMaterial=(source:T.Material)=>{const m=source.clone();m.onBeforeCompile=source.onBeforeCompile;m.customProgramCacheKey=source.customProgramCacheKey;return m;};
+const copyMaterial=cloneItemMaterial;
 
 function releaseActors(){for(const a of actors){a.root.traverse(o=>{if(o instanceof T.Mesh){for(const m of Array.isArray(o.material)?o.material:[o.material])m.dispose();if(o instanceof T.SkinnedMesh)o.skeleton.dispose();}});a.label.remove();}actors=[];actorGroup.clear();chairGroup.traverse(o=>{if(o instanceof T.Mesh)o.geometry.dispose();});chairGroup.clear();}
 async function populate(people:Person[]){

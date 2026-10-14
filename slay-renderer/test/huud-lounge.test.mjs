@@ -42,3 +42,16 @@ test('couch overflow stands apart and the walking path clears furniture',async()
   assert.ok(bones.get('LeftUpperLeg').rotation.x*bones.get('RightUpperLeg').rotation.x<0,'walking legs alternate');
  }
 });
+test('each avatar clone keeps its own outfit dye uniforms',async()=>{
+ const {Mesh,BoxGeometry,MeshStandardMaterial}=await import('three');
+ const {applyDye,cloneItemMaterial}=await import('../src/item-colours.ts');
+ const source=new Mesh(new BoxGeometry(),new MeshStandardMaterial());
+ applyDye(source,'#28262a');
+ const material=cloneItemMaterial(source.material);
+ assert.notEqual(material.userData.slayDye,source.material.userData.slayDye);
+ source.material.userData.slayDye.tint.value.set('#48879a');
+ const shader={uniforms:{},fragmentShader:'#include <map_fragment>'};
+ material.onBeforeCompile(shader,{});
+ assert.equal(shader.uniforms.slayDyeTint.value.getHexString(),'28262a');
+ assert.equal(shader.uniforms.slayDyeEnabled.value,1);
+});

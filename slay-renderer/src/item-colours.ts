@@ -1,4 +1,4 @@
-import {Color, Mesh, MeshStandardMaterial, Object3D} from 'three';
+import {BufferGeometry,Material,Color, Mesh, MeshStandardMaterial, Object3D} from 'three';
 
 // Tint only wardrobe materials. Keep texture detail through luminance rather
 // than multiplying a red dye by a blue texture and turning the garment black.
@@ -40,4 +40,25 @@ export function applyDye(root: Object3D, hex: string | undefined) {
       if (colour) uniforms.tint.value.set(colour);
     }
   });
+}
+
+/** Clone wardrobe dye uniforms as well as the material, so each instance keeps
+ * its chosen colour when another look changes its prototype. */
+export function cloneItemMaterial(source: Material): Material {
+  const copy = source.clone();
+  const dye = source.userData.slayDye as {enabled: {value: number}; tint: {value: Color}} | undefined;
+  if (dye && copy instanceof MeshStandardMaterial) {
+    delete copy.userData.slayDye;
+    copy.onBeforeCompile = Material.prototype.onBeforeCompile;
+    copy.customProgramCacheKey = Material.prototype.customProgramCacheKey;
+    if (dye.enabled.value) {
+      const proxy = new Mesh(new BufferGeometry(), copy);
+      applyDye(proxy, '#' + dye.tint.value.getHexString());
+      proxy.geometry.dispose();
+    }
+  } else {
+    copy.onBeforeCompile = source.onBeforeCompile;
+    copy.customProgramCacheKey = source.customProgramCacheKey;
+  }
+  return copy;
 }
