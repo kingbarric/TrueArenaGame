@@ -11,6 +11,7 @@ import 'features/huudspace/huud_space_screen.dart';
 import 'features/huudspace/huud_space_models.dart';
 import 'theme/neon_theme.dart';
 import 'features/profile/profile_screen.dart';
+import 'features/shell/main_shell.dart';
 import 'features/onboarding/avatar_setup_screen.dart';
 
 Future<void> main() async {
@@ -146,6 +147,8 @@ Future<void> main() async {
       } else {
         result = chat;
       }
+    } else if (path == '/huud-spaces/mine') {
+      result = [huud];
     } else if (path == '/friends') {
       result = [];
     } else if (path.startsWith('/calls/')) {
@@ -169,7 +172,9 @@ Future<void> main() async {
           debugShowCheckedModeBanner: false,
           theme: const bool.fromEnvironment('HUUD_DARK_PREVIEW')
               ? NeonTheme.dark : NeonTheme.light,
-          home: Banner(
+          home: const bool.fromEnvironment('HUUD_SHELL_PREVIEW')
+              ? const MainShell(initialIndex: MainShell.youTab)
+              : Banner(
               message: 'UI PREVIEW',
               location: BannerLocation.topEnd,
               color: const Color(0xff486e59),

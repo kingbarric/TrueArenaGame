@@ -81,3 +81,13 @@ through the isolated test voice service reached the receive-only client (148
 non-silent audio frames); server permissions confirmed media/data publishing was
 disabled. The unique temporary room was removed. Physical phone speaker output
 with another person talking still needs an on-device check.
+
+## Main menu visibility
+
+The default dark theme uses a light neutral bottom navigation surface, dark
+labels, full-opacity idle artwork and a peach selected-tab highlight without an
+orange glow. Other visual themes keep their existing navigation treatment.
+The native dark-theme shell was checked on the Huud and Profile tabs; all 12
+existing theme/navigation checks passed and the edited files analyze cleanly.
+For a local shell preview, add `HUUD_SHELL_PREVIEW=true` and
+`HUUD_DARK_PREVIEW=true` to the `huud_preview.dart` run defines.

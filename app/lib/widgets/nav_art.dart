@@ -5,15 +5,22 @@ import 'package:flutter/material.dart';
 /// selected, the grey-and-orange one in light mode — and, where grey would
 /// vanish into a dark menu, the orange one dimmed.
 class NavArt extends StatelessWidget {
-  const NavArt(this.name, {super.key, required this.active, this.size = 24});
+  const NavArt(this.name,
+      {super.key,
+      required this.active,
+      this.size = 24,
+      this.lightSurface = false});
 
   final String name;
   final bool active;
   final double size;
+  /// Use the full-opacity grey artwork on a light menu inside a dark theme.
+  final bool lightSurface;
 
   @override
   Widget build(BuildContext context) {
-    final dark = Theme.of(context).brightness == Brightness.dark;
+    final dark =
+        !lightSurface && Theme.of(context).brightness == Brightness.dark;
     final picture = Image.asset(
       'assets/images/nav/${name}_${active || dark ? 'active' : 'idle'}.png',
       key: ValueKey('nav-art-$name-${active ? 'on' : 'off'}'),
