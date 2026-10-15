@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import '../../core/app_state.dart';
 import '../slayhuud/slay_assets.dart';
@@ -36,13 +37,7 @@ class HuudLounge extends StatefulWidget {
 }
 
 class _HuudLoungeState extends State<HuudLounge> {
-  final _scroll = ScrollController();
   int _table = 0;
-  @override
-  void dispose() {
-    _scroll.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,240 +51,240 @@ class _HuudLoungeState extends State<HuudLounge> {
         table = _table.clamp(0, tables - 1),
         seated = people.skip(table * 12).take(12).toList();
     return Container(
-        key: const ValueKey('huud-people-canvas'),
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-            color: const Color(0xfffff0df),
-            borderRadius: BorderRadius.circular(26),
-            border: Border.all(color: const Color(0xfff5c395), width: 1.5)),
-        child: Column(children: [
-          Padding(
-              padding: const EdgeInsets.fromLTRB(16, 13, 12, 8),
-              child: Row(children: [
-                const Icon(Icons.weekend_rounded, color: Color(0xffb34a00)),
-                const SizedBox(width: 10),
-                const Expanded(
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                      Text('The Huud',
-                          style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xff70300c))),
-                      Text('Drag to look around · pinch to zoom · tap a name',
-                          style: TextStyle(
-                              fontSize: 11, color: Color(0xff70300c))),
-                    ])),
-                Text('${people.where((p) => p.here).length} here',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 12,
-                        color: Color(0xffb34a00))),
-              ])),
-          if (tables > 1)
-            Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                child:
-                    Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  IconButton(
-                      key: const ValueKey('huud-table-previous'),
-                      tooltip: 'Previous room',
-                      onPressed: table > 0
-                          ? () => setState(() => _table = table - 1)
-                          : null,
-                      icon: const Icon(Icons.chevron_left)),
-                  Text('Room ${table + 1} of $tables',
-                      style: const TextStyle(
-                          color: Color(0xffb34a00),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800)),
-                  IconButton(
-                      key: const ValueKey('huud-table-next'),
-                      tooltip: 'Next room',
-                      onPressed: table + 1 < tables
-                          ? () => setState(() => _table = table + 1)
-                          : null,
-                      icon: const Icon(Icons.chevron_right)),
+      key: const ValueKey('huud-people-canvas'),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+          color: const Color(0xfffff0df),
+          borderRadius: BorderRadius.circular(26),
+          border: Border.all(color: const Color(0xfff5c395), width: 1.5)),
+      child: Column(children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 13, 12, 8),
+          child: Row(children: [
+            const Icon(Icons.weekend_rounded, color: Color(0xffb34a00)),
+            const SizedBox(width: 10),
+            const Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  Text('The Huud',
+                      style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xff70300c))),
+                  Text('Drag to look around · pinch to zoom · tap a name',
+                      style: TextStyle(fontSize: 11, color: Color(0xff70300c))),
                 ])),
-          Expanded(
-              child: Scrollbar(
-                  controller: _scroll,
-                  child: ListView(
-                      key: const ValueKey('huud-lounge-scroll'),
-                      controller: _scroll,
-                      padding: EdgeInsets.zero,
-                      children: [
-                        AspectRatio(
-                            aspectRatio: 1.04,
-                            child: HuudLounge.debugScenePlaceholder
-                                ? const ColoredBox(
-                                    color: Color(0xfffff0df),
-                                    child: Center(
-                                        child: Icon(Icons.weekend_rounded,
-                                            size: 70,
-                                            color: Color(0xffff8a1f))))
-                                : _LoungeScene(
-                                    members: seated,
-                                    roomNumber: table,
-                                    onGame: widget.onGame,
-                                    me: widget.me,
-                                    speaking: widget.speaking,
-                                    motion: widget.motion,
-                                    onPerson: widget.onPerson)),
-                        if (people.isEmpty)
-                          const Padding(
-                              padding: EdgeInsets.all(16),
-                              child: Text(
-                                  'Nobody is here right now. Nudge a friend to join you.')),
-                        const Padding(
-                            padding: EdgeInsets.fromLTRB(16, 13, 16, 8),
-                            child: Text('IN THE HUUD',
-                                style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 1.6,
-                                    color: Color(0xffb34a00)))),
-                        Padding(
-                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 14),
-                            child: Wrap(spacing: 7, runSpacing: 8, children: [
-                              for (final p in seated)
-                                Semantics(
-                                  button: p.userId != widget.me,
-                                  label:
-                                      '${p.handle}, ${p.host ? 'Host, ' : ''}${p.here ? 'Here now' : 'Away'}${widget.speaking.contains(p.userId) ? ', Talking now' : ''}',
-                                  selected: false,
-                                  child: GestureDetector(
-                                      key: ValueKey('huud-person-${p.userId}'),
-                                      onTap: p.userId == widget.me
-                                          ? null
-                                          : () => widget.onPerson(p),
-                                      child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 11, vertical: 8),
-                                          decoration: BoxDecoration(
-                                              color: widget.speaking
-                                                      .contains(p.userId)
-                                                  ? const Color(0xffe1f0dc)
-                                                  : const Color(0xfffffaf0),
-                                              borderRadius:
-                                                  BorderRadius.circular(15),
-                                              border: Border.all(
-                                                  color: widget.speaking
-                                                          .contains(p.userId)
-                                                      ? const Color(0xff74a77b)
-                                                      : const Color(
-                                                          0xffded6c1))),
-                                          child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                if (widget.speaking
-                                                    .contains(p.userId))
-                                                  Icon(Icons.graphic_eq_rounded,
-                                                      key: ValueKey(
-                                                          'huud-speaker-${p.userId}'),
-                                                      size: 16,
-                                                      color: const Color(
-                                                          0xff3a8652))
-                                                else
-                                                  Container(
-                                                      width: 6,
-                                                      height: 6,
-                                                      decoration: BoxDecoration(
-                                                          shape:
-                                                              BoxShape.circle,
-                                                          color: p.here
-                                                              ? const Color(
-                                                                  0xff6c9572)
-                                                              : const Color(
-                                                                  0xffb1b5a7))),
-                                                const SizedBox(width: 6),
-                                                Text(
-                                                    '${p.host ? '♛ ' : ''}${p.userId == widget.me ? 'You' : p.handle}',
-                                                    style: const TextStyle(
-                                                        color:
-                                                            Color(0xff70300c),
-                                                        fontSize: 12,
-                                                        fontWeight:
-                                                            FontWeight.w800)),
-                                              ]))),
-                                ),
-                            ])),
-                      ]))),
-          Material(
-            key: const ValueKey('huud-away-members'),
-            color: const Color(0xffffdfbd),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(children: [
-                      const Icon(Icons.people_outline_rounded,
-                          size: 18, color: Color(0xff70300c)),
-                      const SizedBox(width: 7),
-                      const Expanded(
-                          child: Text('Away from The Huud',
-                              style: TextStyle(
-                                  color: Color(0xff49250e),
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w900))),
-                      Text('${away.length}',
-                          style: const TextStyle(
-                              color: Color(0xff49250e),
-                              fontSize: 13,
-                              fontWeight: FontWeight.w900)),
-                    ]),
-                    if (away.isEmpty)
-                      const Padding(
-                          padding: EdgeInsets.only(top: 4),
-                          child: Text('Everyone is here',
-                              style: TextStyle(
-                                  color: Color(0xff70300c), fontSize: 11)))
-                    else ...[
-                      const Padding(
-                          padding: EdgeInsets.only(top: 3),
-                          child: Text('Tap a name to nudge them back',
-                              style: TextStyle(
-                                  color: Color(0xff70300c), fontSize: 11))),
-                      SizedBox(
-                          height: 42,
-                          child: ListView.separated(
-                            key: const ValueKey('huud-away-scroll'),
-                            scrollDirection: Axis.horizontal,
-                            itemCount: away.length,
-                            separatorBuilder: (_, __) =>
-                                const SizedBox(width: 7),
-                            itemBuilder: (_, i) {
-                              final p = away[i];
-                              return Semantics(
-                                  label: '${p.handle}, Offline',
-                                  button: p.userId != widget.me,
-                                  child: ActionChip(
-                                    key: ValueKey('huud-away-${p.userId}'),
-                                    backgroundColor: const Color(0xfffff8ef),
-                                    side: const BorderSide(
-                                        color: Color(0xffc08b62)),
-                                    avatar: const Icon(
-                                        Icons.notifications_active_outlined,
-                                        color: Color(0xff70300c),
-                                        size: 16),
-                                    label: Text(p.handle,
-                                        style: const TextStyle(
-                                            color: Color(0xff49250e),
-                                            fontWeight: FontWeight.w800,
-                                            fontSize: 12)),
-                                    onPressed: p.userId == widget.me
-                                        ? null
-                                        : () => widget.onPerson(p),
-                                  ));
-                            },
-                          )),
-                    ],
-                  ]),
-            ),
+            Text('${people.length} here',
+                style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                    color: Color(0xffb34a00))),
+          ]),
+        ),
+        if (tables > 1)
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            IconButton(
+                key: const ValueKey('huud-table-previous'),
+                tooltip: 'Previous room',
+                onPressed:
+                    table > 0 ? () => setState(() => _table = table - 1) : null,
+                icon: const Icon(Icons.chevron_left)),
+            Text('Room ${table + 1} of $tables',
+                style: const TextStyle(
+                    color: Color(0xffb34a00),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800)),
+            IconButton(
+                key: const ValueKey('huud-table-next'),
+                tooltip: 'Next room',
+                onPressed: table + 1 < tables
+                    ? () => setState(() => _table = table + 1)
+                    : null,
+                icon: const Icon(Icons.chevron_right)),
+          ]),
+        Expanded(
+          child: Semantics(
+            key: const ValueKey('huud-scene-viewport'),
+            label: seated.isEmpty
+                ? 'Nobody is here right now. Nudge a friend to join you.'
+                : 'In The Huud: ${seated.map((p) => '${p.handle}${p.host ? ', Host' : ''}${widget.speaking.contains(p.userId) ? ', Talking now' : ''}').join('; ')}',
+            customSemanticsActions: {
+              for (final p in seated)
+                if (p.userId != widget.me)
+                  CustomSemanticsAction(label: 'Open ${p.handle}'): () =>
+                      widget.onPerson(p),
+            },
+            child: HuudLounge.debugScenePlaceholder
+                ? const ColoredBox(
+                    color: Color(0xfffff0df),
+                    child: Center(
+                        child: Icon(Icons.weekend_rounded,
+                            size: 70, color: Color(0xffff8a1f))))
+                : _LoungeScene(
+                    members: seated,
+                    roomNumber: table,
+                    onGame: widget.onGame,
+                    me: widget.me,
+                    speaking: widget.speaking,
+                    motion: widget.motion,
+                    onPerson: widget.onPerson),
           ),
-        ]));
+        ),
+        _AwayMembers(members: away, me: widget.me, onPerson: widget.onPerson),
+      ]),
+    );
+  }
+}
+
+/// The roster stays compact until opened, and never grows beyond five rows.
+class _AwayMembers extends StatefulWidget {
+  const _AwayMembers({
+    required this.members,
+    required this.me,
+    required this.onPerson,
+  });
+  final List<HuudMember> members;
+  final String? me;
+  final ValueChanged<HuudMember> onPerson;
+
+  @override
+  State<_AwayMembers> createState() => _AwayMembersState();
+}
+
+class _AwayMembersState extends State<_AwayMembers> {
+  final _scroll = ScrollController();
+  final _menu = MenuController();
+  bool _expanded = false;
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final people = widget.members;
+    final listHeight = (people.length * 48.0).clamp(0.0, 240.0);
+    return LayoutBuilder(
+        builder: (context, constraints) => MenuAnchor(
+              controller: _menu,
+              onOpen: () => setState(() => _expanded = true),
+              onClose: () => setState(() => _expanded = false),
+              consumeOutsideTap: true,
+              style: const MenuStyle(
+                padding: WidgetStatePropertyAll(EdgeInsets.zero),
+                backgroundColor: WidgetStatePropertyAll(Color(0xffffdfbd)),
+                surfaceTintColor: WidgetStatePropertyAll(Colors.transparent),
+                shape: WidgetStatePropertyAll(RoundedRectangleBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(16)),
+                    side: BorderSide(color: Color(0xffc08b62)))),
+              ),
+              menuChildren: [
+                SizedBox(
+                  width: constraints.maxWidth,
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Text(
+                          people.isEmpty
+                              ? 'Everyone is here'
+                              : 'Tap a name to nudge them back',
+                          style: const TextStyle(
+                              color: Color(0xff70300c), fontSize: 12)),
+                    ),
+                    SizedBox(
+                        height: listHeight,
+                        child: Scrollbar(
+                          controller: _scroll,
+                          thumbVisibility: people.length * 48 > listHeight,
+                          child: ListView.builder(
+                            key: const ValueKey('huud-away-scroll'),
+                            controller: _scroll,
+                            padding: EdgeInsets.zero,
+                            itemExtent: 48,
+                            itemCount: people.length,
+                            itemBuilder: (_, i) {
+                              final p = people[i];
+                              return Semantics(
+                                label: '${p.handle}, Away from The Huud',
+                                button: p.userId != widget.me,
+                                child: InkWell(
+                                  key: ValueKey('huud-away-${p.userId}'),
+                                  onTap: p.userId == widget.me
+                                      ? null
+                                      : () {
+                                          _menu.close();
+                                          widget.onPerson(p);
+                                        },
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 14),
+                                    child: Row(children: [
+                                      const Icon(Icons.person_outline_rounded,
+                                          color: Color(0xff70300c), size: 20),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                          child: Text(p.handle,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                  color: Color(0xff49250e),
+                                                  fontWeight: FontWeight.w800,
+                                                  fontSize: 13))),
+                                      const Icon(
+                                          Icons.notifications_active_outlined,
+                                          color: Color(0xff70300c),
+                                          size: 18),
+                                    ]),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        )),
+                  ]),
+                ),
+              ],
+              builder: (context, controller, child) => Material(
+                key: const ValueKey('huud-away-members'),
+                color: const Color(0xffffdfbd),
+                child: Semantics(
+                  button: true,
+                  expanded: _expanded,
+                  child: InkWell(
+                    key: const ValueKey('huud-away-toggle'),
+                    onTap: () => controller.isOpen
+                        ? controller.close()
+                        : controller.open(),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 14),
+                      child: Row(children: [
+                        const Icon(Icons.people_outline_rounded,
+                            size: 18, color: Color(0xff70300c)),
+                        const SizedBox(width: 7),
+                        const Expanded(
+                            child: Text('Away from The Huud',
+                                style: TextStyle(
+                                    color: Color(0xff49250e),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w900))),
+                        Text('${people.length}',
+                            style: const TextStyle(
+                                color: Color(0xff49250e),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w900)),
+                        const SizedBox(width: 8),
+                        Icon(_expanded ? Icons.expand_less : Icons.expand_more,
+                            color: const Color(0xff70300c)),
+                      ]),
+                    ),
+                  ),
+                ),
+              ),
+            ));
   }
 }
 

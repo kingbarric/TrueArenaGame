@@ -123,8 +123,32 @@ void main() {
     expect(tester.getSemantics(people), isSemantics(isSelected: true));
     expect(tester.getCenter(people).dx, lessThan(tester.getCenter(game).dx));
     expect(tester.getCenter(game).dx, lessThan(tester.getCenter(chat).dx));
-    expect(find.bySemanticsLabel('S Games'), findsOneWidget);
+    expect(find.bySemanticsLabel('Games'), findsOneWidget);
     expect(find.byKey(const ValueKey('huud-people-canvas')), findsOneWidget);
+  });
+
+  testWidgets('the live People room fits a phone with compact controls inside the orange card', (tester) async {
+    await pump(tester, const HuudSpaceScreen(id: 'h1'), (r) async => _json(_huud()), gameFirst: false);
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    await tester.pumpAndSettle();
+    final hero = find.byKey(const ValueKey('huud-summary'));
+    final code = find.byKey(const ValueKey('huud-code'));
+    final talk = find.byKey(const ValueKey('huud-talk'));
+    final invite = find.byKey(const ValueKey('huud-invite'));
+    expect(find.ancestor(of: talk, matching: hero), findsOneWidget);
+    expect(find.ancestor(of: invite, matching: hero), findsOneWidget);
+    expect(tester.getCenter(talk).dx, greaterThan(tester.getRect(code).right));
+    expect(tester.getCenter(invite).dx, greaterThan(tester.getRect(talk).right));
+    expect(find.textContaining('people ·'), findsNothing);
+    final panel = tester.getRect(find.byKey(const ValueKey('huud-people-canvas')));
+    final scene = tester.getRect(find.byKey(const ValueKey('huud-scene-viewport')));
+    final footer = tester.getRect(find.byKey(const ValueKey('huud-away-members')));
+    expect(panel.top, lessThan(400));
+    expect(panel.bottom, lessThanOrEqualTo(844));
+    expect(scene.bottom, lessThanOrEqualTo(footer.top));
+    final scroll = tester.widget<CustomScrollView>(find.byType(CustomScrollView));
+    expect(scroll.controller!.position.maxScrollExtent, 0);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('making a Huud asks only for a name and who can join — Friends is picked for you', (tester) async {
@@ -446,12 +470,12 @@ void main() {
             ])));
     await tester.tap(find.byKey(const ValueKey('huud-tab-people')));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('♛ You'), 150, scrollable: find.descendant(of: find.byKey(const ValueKey('huud-lounge-scroll')), matching: find.byType(Scrollable)));
-    expect(find.text('♛ You'), findsOneWidget);
     expect(find.byKey(const ValueKey('huud-people-canvas')), findsOneWidget);
-    expect(find.bySemanticsLabel(RegExp('.*Host, Here now.*')), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp('.*eric, Host.*')), findsOneWidget);
     expect(find.byKey(const ValueKey('huud-person-chidi')), findsNothing);
-    await tester.ensureVisible(find.byKey(const ValueKey('huud-away-members')));
+    await tester.ensureVisible(find.byKey(const ValueKey('huud-away-toggle')));
+    await tester.tap(find.byKey(const ValueKey('huud-away-toggle')));
+    await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('huud-away-chidi')), findsOneWidget);
   });
 
@@ -460,7 +484,9 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('huud-tab-people')));
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.byKey(const ValueKey('huud-away-members')));
+    await tester.ensureVisible(find.byKey(const ValueKey('huud-away-toggle')));
+    await tester.tap(find.byKey(const ValueKey('huud-away-toggle')));
+    await tester.pumpAndSettle();
     await Scrollable.ensureVisible(tester.element(find.byKey(const ValueKey('huud-away-ada'))),alignment:.5);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('huud-away-ada')));
@@ -1104,26 +1130,26 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('huud-tab-people')));
     await tester.pumpAndSettle();
 
-    await tester.scrollUntilVisible(find.byKey(const ValueKey('huud-person-chidi')), 150, scrollable: find.descendant(of: find.byKey(const ValueKey('huud-lounge-scroll')), matching: find.byType(Scrollable)));
-    await Scrollable.ensureVisible(tester.element(find.byKey(const ValueKey('huud-person-chidi'))), alignment: .5);
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('huud-person-chidi')));
-    await tester.pumpAndSettle();
+    Future<void> openPerson(String handle) async {
+      final scene = tester.widget<Semantics>(find.byKey(const ValueKey('huud-scene-viewport')));
+      scene.properties.customSemanticsActions!.entries
+          .singleWhere((action) => action.key.label == 'Open $handle').value();
+      await tester.pumpAndSettle();
+    }
+    await openPerson('chidi');
     expect(find.byKey(const ValueKey('person-profile')), findsOneWidget);
     expect(find.byKey(const ValueKey('person-friends')), findsOneWidget, reason: 'already friends');
     expect(find.byKey(const ValueKey('person-gift')), findsOneWidget);
     await tester.tapAt(const Offset(20, 40));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('huud-person-ada')));
-    await tester.pumpAndSettle();
+    await openPerson('ada');
     await tester.tap(find.byKey(const ValueKey('person-gift')));
     await tester.pumpAndSettle();
     expect(calls, contains('POST /api/v1/players/ada/gift {}'));
     expect(find.textContaining('You gave ada 3 coins'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('huud-person-ada')));
-    await tester.pumpAndSettle();
+    await openPerson('ada');
     await tester.tap(find.byKey(const ValueKey('person-add-friend')));
     await tester.pumpAndSettle();
     expect(calls, contains('POST /api/v1/friends/requests/user/ada {}'));

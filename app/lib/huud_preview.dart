@@ -66,6 +66,17 @@ Future<void> main() async {
         'huudOutfitId': (options['outfits'] as List)[i % 10]['id']
       }
   ];
+  // Opt-in large away roster for checking the dropdown without real accounts.
+  for (var i = 0; i < const int.fromEnvironment('PREVIEW_AWAY_COUNT'); i++) {
+    final name = names[i % names.length].toLowerCase();
+    members.add({
+      'userId': 'away-$i',
+      'displayName': names[i % names.length],
+      'username': '$name${i + 1}',
+      'here': false,
+      'canSpeak': false,
+    });
+  }
   final huud = <String, dynamic>{
     'id': 'preview-huud',
     'code': 'HUUD12',
@@ -80,7 +91,7 @@ Future<void> main() async {
     'voiceRoom': 'huud-preview-only',
     'members': members,
     'memberCount': members.length,
-    'liveCount': members.length,
+    'liveCount': members.where((p) => p['here'] == true).length,
     'host': members[0],
     'requests': [],
     'currentGame': null,
@@ -181,7 +192,7 @@ Future<void> main() async {
                                                     HuudSpace.fromJson(huud),
                                                 previewSpeakingIds: const {
                                                   'person-1'
-                                                }), Positioned(top: 55, right: 14, child: TextButton(onPressed: () {
+                                                }), if (const bool.fromEnvironment('PREVIEW_PRESENCE_CONTROLS')) Positioned(top: 55, right: 14, child: TextButton(onPressed: () {
                                                   members[1]['here'] = members[1]['here'] != true;
                                                   huud['liveCount'] = members.where((p) => p['here'] == true).length;
                                                   // ignore: invalid_use_of_visible_for_testing_member

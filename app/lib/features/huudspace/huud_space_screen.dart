@@ -204,7 +204,8 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
 
   void _onVoice() {
     final huud = _huud;
-    _avatarMotion.attach(huud != null && _inThisVoice(huud) ? HangoutState.instance.room : null);
+    _avatarMotion.attach(
+        huud != null && _inThisVoice(huud) ? HangoutState.instance.room : null);
     if (mounted) setState(() {});
   }
 
@@ -881,10 +882,12 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
 
   Future<void> _nudge(HuudMember person) async {
     final result = await _run('nudge-${person.userId}', (api) async {
-      await api.post('/huud-spaces/${widget.id}/members/${person.userId}/nudge');
+      await api
+          .post('/huud-spaces/${widget.id}/members/${person.userId}/nudge');
       return true;
     });
-    if (result == true && mounted) huudSnack(context, 'Invitation sent to ${person.handle}.');
+    if (result == true && mounted)
+      huudSnack(context, 'Invitation sent to ${person.handle}.');
   }
 
   Future<void> _personSheet(HuudSpace huud, HuudMember person) =>
@@ -967,7 +970,10 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                           ),
                         ]),
                     const SizedBox(height: 16),
-                    if (!person.here && huud.live && huud.youAreIn && person.userId != _me) ...[
+                    if (!person.here &&
+                        huud.live &&
+                        huud.youAreIn &&
+                        person.userId != _me) ...[
                       HuudButton(
                         key: const ValueKey('person-nudge'),
                         label: 'Nudge them back',
@@ -1135,7 +1141,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                           if (huud.live) ...[
                             SliverPadding(
                               padding:
-                                  const EdgeInsets.fromLTRB(16, 18, 16, 14),
+                                  const EdgeInsets.fromLTRB(16, 12, 16, 10),
                               sliver: SliverToBoxAdapter(child: _tabs(n, huud)),
                             ),
                             ...(_tab == _Tab.people
@@ -1148,21 +1154,17 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                           if (huud.youAreHost && huud.requests.isNotEmpty)
                             _box(_asking(n, huud), top: 16),
                           SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
+                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
                             sliver: SliverToBoxAdapter(child: _tabs(n, huud)),
                           ),
                           ...(_tab == _Tab.people
                               ? _people(n, huud)
                               : _chatSlivers(n, huud)),
                         ] else ...[
-                          SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(8, 18, 8, 0),
-                            sliver: SliverToBoxAdapter(child: _actions(huud)),
-                          ),
                           if (huud.youAreHost && huud.requests.isNotEmpty)
                             _box(_asking(n, huud), top: 16),
                           SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
+                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
                             sliver: SliverToBoxAdapter(child: _tabs(n, huud)),
                           ),
                           ...switch (_tab) {
@@ -1171,9 +1173,10 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                             _Tab.people => _people(n, huud),
                           },
                         ],
-                        SliverToBoxAdapter(
-                            child:
-                                SizedBox(height: _tab == _Tab.play ? 120 : 16)),
+                        if (_tab != _Tab.people || !huud.live)
+                          SliverToBoxAdapter(
+                              child: SizedBox(
+                                  height: _tab == _Tab.play ? 120 : 16)),
                       ],
                     ],
                   ),
@@ -1335,6 +1338,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
   }
 
   Widget _socialHero(HuudSpace huud) => HuudHeroCard(
+      key: const ValueKey('huud-summary'),
       padding: const EdgeInsets.all(15),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
@@ -1352,47 +1356,24 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
               emoji: huud.live ? '🔴' : '🌙', onOrange: true)
         ]),
         const SizedBox(height: 8),
-        Wrap(
-            spacing: 12,
-            runSpacing: 5,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Text('${huud.members.length} people · ${huud.privacy.label}',
-                  style: const TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                      color: kCabinetInk)),
-              if (huud.code != null)
-                Semantics(
-                    button: true,
-                    label: 'Copy Huud code ${huud.code}',
-                    child: GestureDetector(
-                        key: const ValueKey('huud-code'),
-                        onTap: () => _copyCode(huud.code!),
-                        child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 9, vertical: 5),
-                            decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: .6),
-                                borderRadius: BorderRadius.circular(12)),
-                            child:
-                                Row(mainAxisSize: MainAxisSize.min, children: [
-                              Text(huud.code!,
-                                  style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: 1,
-                                      color: kCabinetInk)),
-                              const SizedBox(width: 5),
-                              const Icon(Icons.copy_rounded,
-                                  size: 13, color: kCabinetInk)
-                            ])))),
+        _heroControls(huud),
+        if (_unread > 0 || _talkingNow(huud) != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Wrap(spacing: 8, runSpacing: 5, children: [
               if (_unread > 0 && huud.youAreIn)
-                GestureDetector(key: const ValueKey('huud-unread-chip'),
-                  onTap: () => _openTab(_Tab.chat),
-                  child: HuudChip(_unread == 1 ? '1 new message' : '$_unread new messages', emoji: '💬', onOrange: true)),
+                GestureDetector(
+                    key: const ValueKey('huud-unread-chip'),
+                    onTap: () => _openTab(_Tab.chat),
+                    child: HuudChip(
+                        _unread == 1
+                            ? '1 new message'
+                            : '$_unread new messages',
+                        emoji: '💬',
+                        onOrange: true)),
               if (_talkingNow(huud) case final talking?) talking,
             ]),
+          ),
       ]));
 
   Widget _hero(HuudSpace huud) {
@@ -1404,6 +1385,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
             ? 'Looking for a host'
             : '${huud.live ? 'Host' : 'Owner'}: ${host.userId == _me ? 'you' : host.handle}');
     return HuudHeroCard(
+      key: const ValueKey('huud-summary'),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Wrap(spacing: 8, runSpacing: 8, children: [
           if (huud.active)
@@ -1472,69 +1454,75 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
             ),
           ),
         ]),
-        if (huud.code != null) ...[
-          const SizedBox(height: 14),
-          _codeBox(huud.code!),
-        ],
+        const SizedBox(height: 14),
+        _heroControls(huud),
       ]),
     );
   }
 
-  Widget _codeBox(String code) => Semantics(
-        button: true,
-        label: 'Huud code ${code.split('').join(' ')}. Tap to copy.',
-        excludeSemantics: true,
-        child: GestureDetector(
-          key: const ValueKey('huud-code'),
-          onTap: () => _copyCode(code),
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.6),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                  color: kCabinetInk.withValues(alpha: 0.4), width: 1.4),
+  Widget _heroControls(HuudSpace huud) => Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          if (huud.code case final code?)
+            Semantics(
+              button: true,
+              label: 'Copy Huud code $code',
+              child: InkWell(
+                key: const ValueKey('huud-code'),
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => _copyCode(code),
+                child: Container(
+                  constraints: const BoxConstraints(minHeight: 48),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: .6),
+                      borderRadius: BorderRadius.circular(12)),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Text(code,
+                        style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1,
+                            color: kCabinetInk)),
+                    const SizedBox(width: 5),
+                    const Icon(Icons.copy_rounded,
+                        size: 14, color: kCabinetInk),
+                  ]),
+                ),
+              ),
             ),
-            child: Row(children: [
-              Expanded(
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('HUUD CODE',
-                          style: TextStyle(
-                              fontSize: 11,
-                              letterSpacing: 1.6,
-                              fontWeight: FontWeight.w900,
-                              color: kCabinetInk)),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Text(code,
-                            style: const TextStyle(
-                                fontSize: 28,
-                                letterSpacing: 6,
-                                fontWeight: FontWeight.w900,
-                                color: kCabinetInk)),
-                      ),
-                    ]),
+          if (huud.active && huud.live && huud.youAreIn) ...[
+            MicStateButton(
+              key: const ValueKey('huud-talk'),
+              state: _micState(huud),
+              size: 40,
+              showLabel: true,
+              labelColor: kCabinetInk,
+              surfaceColor: _micState(huud) == MicState.live
+                  ? null
+                  : Colors.white.withValues(alpha: .75),
+              onTap: () => _talk(huud),
+            ),
+            HuudRoundAction(
+              key: const ValueKey('huud-invite'),
+              icon: Icons.person_add_alt_1_rounded,
+              label: 'Invite',
+              size: 40,
+              onTap: () => _invite(huud),
+            ),
+            if (!huud.youOwn)
+              HuudRoundAction(
+                key: const ValueKey('huud-leave'),
+                icon: Icons.logout_rounded,
+                label: 'Leave',
+                size: 40,
+                danger: true,
+                onTap: () => _leave(huud),
               ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                    color: kCabinetInk,
-                    borderRadius: BorderRadius.circular(14)),
-                child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.copy_rounded, size: 18, color: Colors.white),
-                  SizedBox(width: 6),
-                  Text('Copy',
-                      style: TextStyle(
-                          fontWeight: FontWeight.w900, color: Colors.white)),
-                ]),
-              ),
-            ]),
-          ),
-        ),
+          ],
+        ],
       );
 
   /// Outside the Huud: walk in, ask to come in, or wait for the answer.
@@ -1627,36 +1615,6 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         ),
       ]),
     );
-  }
-
-  Widget _actions(HuudSpace huud) {
-    return Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // One mic for everything: ask, wait, then mute / talk.
-          MicStateButton(
-            key: const ValueKey('huud-talk'),
-            state: _micState(huud),
-            size: _tab == _Tab.play ? 58 : 42,
-            showLabel: true,
-            onTap: () => _talk(huud),
-          ),
-          HuudRoundAction(
-            key: const ValueKey('huud-invite'),
-            icon: Icons.person_add_alt_1_rounded,
-            label: 'Invite',
-            onTap: () => _invite(huud),
-          ),
-          if (!huud.youOwn)
-            HuudRoundAction(
-              key: const ValueKey('huud-leave'),
-              icon: Icons.logout_rounded,
-              label: 'Leave',
-              danger: true,
-              onTap: () => _leave(huud),
-            ),
-        ]);
   }
 
   /// The host's to-do list: who wants in, who wants to play, who wants to talk.
@@ -1805,7 +1763,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
       ),
       child: Row(children: [
         tab(_Tab.people, '👥', 'People ${huud.members.length}'),
-        if (huud.live) tab(_Tab.play, '🎮', 'S Games'),
+        if (huud.live) tab(_Tab.play, '🎮', 'Games'),
         if (huud.youAreIn) tab(_Tab.chat, '💬', 'Chat', badge: _unread),
       ]),
     );
@@ -2358,20 +2316,31 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
             p.identity,
       if (kDebugMode) ...widget.previewSpeakingIds,
     };
-    final height =
-        (MediaQuery.sizeOf(context).height * .55).clamp(380.0, 560.0);
+    final room = HuudLounge(
+        members: huud.members,
+        me: _me,
+        speaking: speakers,
+        motion: _avatarMotion,
+        onGame: huud.live ? () => _openTab(_Tab.play) : null,
+        onPerson: (p) => _personSheet(huud, p));
     return [
-      _box(
-          SizedBox(
-              height: height,
-              child: HuudLounge(
-                  members: huud.members,
-                  me: _me,
-                  speaking: speakers,
-                  motion: _avatarMotion,
-                  onGame: huud.live ? () => _openTab(_Tab.play) : null,
-                  onPerson: (p) => _personSheet(huud, p))),
-          top: 0),
+      if (huud.live)
+        SliverLayoutBuilder(
+            builder: (context, constraints) => SliverToBoxAdapter(
+                child: SizedBox(
+                    height: (constraints.viewportMainAxisExtent -
+                            constraints.precedingScrollExtent)
+                        .clamp(220.0, double.infinity),
+                    child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                        child: room))))
+      else
+        _box(
+            SizedBox(
+                height: (MediaQuery.sizeOf(context).height * .55)
+                    .clamp(380.0, 560.0),
+                child: room),
+            top: 0),
       if (huud.code != null && !huud.live)
         _box(HuudButton(
             label: huud.youAreHost ? 'Invite friends' : 'Share the link',

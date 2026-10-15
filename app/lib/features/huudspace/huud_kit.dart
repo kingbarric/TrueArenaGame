@@ -174,6 +174,7 @@ class HuudRoundAction extends StatelessWidget {
     required this.onTap,
     this.active = false,
     this.danger = false,
+    this.size = 58,
   });
 
   final IconData icon;
@@ -181,6 +182,7 @@ class HuudRoundAction extends StatelessWidget {
   final VoidCallback? onTap;
   final bool active;
   final bool danger;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -194,12 +196,12 @@ class HuudRoundAction extends StatelessWidget {
       child: Bouncy(
         onTap: onTap,
         child: SizedBox(
-          width: 76,
+          width: size + 18,
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              width: 58,
-              height: 58,
+              width: size,
+              height: size,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: active ? h.orange : (danger ? n.danger.withValues(alpha: 0.12) : h.orangeSoft),
@@ -209,7 +211,7 @@ class HuudRoundAction extends StatelessWidget {
                         : (danger ? n.danger.withValues(alpha: 0.5) : h.orangeText.withValues(alpha: 0.3)),
                     width: active ? 2.4 : 1.4),
               ),
-              child: Icon(icon, color: fg, size: 26),
+              child: Icon(icon, color: fg, size: size * 26 / 58),
             ),
             const SizedBox(height: 6),
             Text(label,
