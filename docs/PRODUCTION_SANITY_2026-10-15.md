@@ -22,6 +22,8 @@ available; it retries until connectivity returns.
 | Production configuration | Compose syntax validated with dummy values; production profile guard unit tests passed |
 | Production health/access | HTTPS health returned UP; anonymous /api/v1/me returned 401 |
 | Test notifications | Firebase initialized; only one approved test account is allowed to receive push |
+| iOS device delivery | Build 2026101503 installed and launched on iKingbarric; installed version read back from the device |
+| Native simulator UI | S Games, top room instructions, contrasting pinned away footer and offline member nudge action verified |
 | Secret tracking check | No tracked private key, environment secret, release keystore or source-asset archive was found by the targeted filename/content checks |
 
 Static analysis has advisory style lints but no analyzer errors or warnings.
@@ -44,10 +46,10 @@ No production user records, running games or services were modified.
    on fresh databases and the isolated test server.
 3. **Android release is not verified on this Mac.** Android command-line tools
    are missing and SDK license status is unknown. iOS release compilation passed.
-4. **Finish physical-device checks.** The new signed test-profile iOS build is
-   2026101503. Its installation attempt was blocked because the Mac could not
-   find iKingbarric. Notification receipt, two-device voice behaviour and a long
-   mobile performance/load soak are not certified by the automated checks.
+4. **Finish physical-device checks.** The signed test-profile iOS build
+   2026101503 is installed and launched on iKingbarric. Notification receipt,
+   two-device voice behaviour and a long mobile performance/load soak are not
+   certified by the automated checks.
 
 This review is a release-readiness snapshot, not a production deployment. Main
 continues to deploy to test; production publishing is restricted to release.
