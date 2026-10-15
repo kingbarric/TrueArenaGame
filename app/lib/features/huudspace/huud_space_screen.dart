@@ -1510,6 +1510,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
               icon: Icons.person_add_alt_1_rounded,
               label: 'Invite',
               size: 40,
+              onOrange: true,
               onTap: () => _invite(huud),
             ),
             if (!huud.youOwn)

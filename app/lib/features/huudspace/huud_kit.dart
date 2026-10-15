@@ -175,6 +175,7 @@ class HuudRoundAction extends StatelessWidget {
     this.active = false,
     this.danger = false,
     this.size = 58,
+    this.onOrange = false,
   });
 
   final IconData icon;
@@ -183,12 +184,13 @@ class HuudRoundAction extends StatelessWidget {
   final bool active;
   final bool danger;
   final double size;
+  final bool onOrange;
 
   @override
   Widget build(BuildContext context) {
     final n = context.neon;
     final h = HuudColors.of(context);
-    final fg = danger ? n.danger : (active ? h.onOrange : h.orangeText);
+    final fg = danger ? n.danger : (onOrange ? kCabinetInk : active ? h.onOrange : h.orangeText);
     return Semantics(
       button: true,
       label: label,
@@ -204,20 +206,23 @@ class HuudRoundAction extends StatelessWidget {
               height: size,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: active ? h.orange : (danger ? n.danger.withValues(alpha: 0.12) : h.orangeSoft),
+                color: onOrange ? const Color(0xFFFFF8EF) : active ? h.orange : (danger ? n.danger.withValues(alpha: 0.12) : h.orangeSoft),
                 border: Border.all(
-                    color: active
+                    color: onOrange || active
                         ? kCabinetInk
                         : (danger ? n.danger.withValues(alpha: 0.5) : h.orangeText.withValues(alpha: 0.3)),
-                    width: active ? 2.4 : 1.4),
+                    width: onOrange ? 1.8 : active ? 2.4 : 1.4),
+                boxShadow: onOrange
+                    ? const [BoxShadow(color: Color(0x40000000), offset: Offset(0, 2))]
+                    : null,
               ),
-              child: Icon(icon, color: fg, size: size * 26 / 58),
+              child: Icon(icon, color: fg, size: onOrange ? size * .55 : size * 26 / 58),
             ),
             const SizedBox(height: 6),
             Text(label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: danger ? n.danger : n.ink)),
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: onOrange ? fg : danger ? n.danger : n.ink)),
           ]),
         ),
       ),

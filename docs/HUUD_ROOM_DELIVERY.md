@@ -38,6 +38,8 @@ larger rosters. It does not shrink the room. The microphone and Invite controls
 sit beside the code inside the orange card. The repeated people/privacy line
 and online-name chips below the scene are removed; the live People canvas fills
 the remaining screen height. Names remain above the avatars.
+Invite uses an opaque cream surface, dark icon and label, outlined edge and small
+raised shadow so it remains distinct from the orange card in either theme.
 
 “Away” describes presence in the live Huud, not whether the person's phone has
 internet. The app sends a heartbeat every 45 seconds; the member response requires

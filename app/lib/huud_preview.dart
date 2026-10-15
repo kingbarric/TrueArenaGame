@@ -167,7 +167,8 @@ Future<void> main() async {
       state: state,
       child: MaterialApp(
           debugShowCheckedModeBanner: false,
-          theme: NeonTheme.light,
+          theme: const bool.fromEnvironment('HUUD_DARK_PREVIEW')
+              ? NeonTheme.dark : NeonTheme.light,
           home: Banner(
               message: 'UI PREVIEW',
               location: BannerLocation.topEnd,
