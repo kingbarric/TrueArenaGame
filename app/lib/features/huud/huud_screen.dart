@@ -1699,6 +1699,7 @@ class _SharedHuudCard extends StatelessWidget {
           child: HuudButton(
             key: ValueKey('feed-huud-open-${huud.huudSpaceId}'),
             label: label,
+            kind: HuudButtonKind.lightOrange,
             icon: icon,
             onPressed: onOpen,
           ),

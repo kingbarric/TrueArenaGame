@@ -516,6 +516,7 @@ class _WatchPageState extends State<_WatchPage> {
                   HuudButton(
                     key: ValueKey('swipe-enter-${live.id}'),
                     label: label,
+                    kind: HuudButtonKind.lightOrange,
                     icon: icon,
                     big: true,
                     expand: true,

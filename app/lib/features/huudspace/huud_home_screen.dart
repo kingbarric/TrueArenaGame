@@ -356,6 +356,7 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
           HuudButton(
             key: const ValueKey('huud-code-join'),
             label: 'Join',
+            kind: HuudButtonKind.lightOrange,
             icon: Icons.login_rounded,
             busy: _joining,
             onPressed: _code.text.length == 6 ? _joinWithCode : null,

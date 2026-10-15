@@ -84,10 +84,16 @@ with another person talking still needs an on-device check.
 
 ## Main menu visibility
 
-The default dark theme uses a light neutral bottom navigation surface, dark
-labels, full-opacity idle artwork and a peach selected-tab highlight without an
+The default dark theme uses a light orange bottom navigation surface, dark
+labels, full-opacity idle artwork and a stronger orange selected-tab highlight without an
 orange glow. Other visual themes keep their existing navigation treatment.
 The native dark-theme shell was checked on the Huud and Profile tabs; all 12
 existing theme/navigation checks passed and the edited files analyze cleanly.
 For a local shell preview, add `HUUD_SHELL_PREVIEW=true` and
 `HUUD_DARK_PREVIEW=true` to the `huud_preview.dart` run defines.
+
+Join buttons in the Huud code card, shared feed cards and full-screen live preview
+also use light orange with dark text and an outlined edge, separating the action
+from the stronger orange surrounding it. The final revision passed 81 existing
+navigation and Huud tests; analysis found no errors or warnings (two existing
+advisory notes remain in the feed/swipe screens).

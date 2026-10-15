@@ -31,11 +31,11 @@ class PlaygroundNavPill extends StatelessWidget {
               ],
             )
           : BoxDecoration(
-              color: lightSurface ? const Color(0xFFF2F1EE) : n.panel,
+              color: lightSurface ? const Color(0xFFFFE0B8) : n.panel,
               borderRadius: BorderRadius.circular(999),
               border: Border.all(
                   color: lightSurface
-                      ? const Color(0xFFD8D4D1)
+                      ? const Color(0xFFF0B674)
                       : design == NeonDesignKind.nebula
                           ? n.line
                           : kCabinetInk,
@@ -169,7 +169,7 @@ Widget _labelledItem(BuildContext context, NeonColors n, PlaygroundNavItem item,
               // A picture tab glows softly; a symbol tab keeps the solid pill.
               color: active
                   ? (lightSurface
-                      ? const Color(0xFFFFDFBC)
+                      ? const Color(0xFFFFBF75)
                       : art != null
                           ? h.orangeSoft
                           : fill)

@@ -109,8 +109,10 @@ class HuudButton extends StatelessWidget {
     final n = context.neon;
     final h = HuudColors.of(context);
     final disabled = onPressed == null || busy;
+    final raised = kind == HuudButtonKind.orange || kind == HuudButtonKind.lightOrange;
     final (Color fill, Color fg, Color edge) = switch (kind) {
       HuudButtonKind.orange => (h.orange, h.onOrange, kCabinetInk),
+      HuudButtonKind.lightOrange => (const Color(0xFFFFE0B8), kCabinetInk, kCabinetInk),
       HuudButtonKind.soft => (h.orangeSoft, h.orangeText, h.orangeText.withValues(alpha: 0.35)),
       HuudButtonKind.plain => (n.panel, n.ink, n.line),
       HuudButtonKind.danger => (n.danger.withValues(alpha: 0.12), n.danger, n.danger.withValues(alpha: 0.5)),
@@ -150,8 +152,8 @@ class HuudButton extends StatelessWidget {
             decoration: BoxDecoration(
               color: fill,
               borderRadius: BorderRadius.circular(height / 2),
-              border: Border.all(color: edge, width: kind == HuudButtonKind.orange ? 2.4 : 1.6),
-              boxShadow: kind == HuudButtonKind.orange
+              border: Border.all(color: edge, width: raised ? 2.4 : 1.6),
+              boxShadow: raised
                   ? const [BoxShadow(color: Colors.black26, blurRadius: 0, offset: Offset(2, 3))]
                   : null,
             ),
@@ -163,7 +165,7 @@ class HuudButton extends StatelessWidget {
   }
 }
 
-enum HuudButtonKind { orange, soft, plain, danger }
+enum HuudButtonKind { orange, lightOrange, soft, plain, danger }
 
 /// A round icon button with its word underneath — the quick-action row.
 class HuudRoundAction extends StatelessWidget {
