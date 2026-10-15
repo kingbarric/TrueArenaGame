@@ -49,3 +49,33 @@ The room automatically retries renderer failures with bounded backoff, recreates
 a failed WebView, detects stalled loads, and resumes retries when the app returns
 to the foreground. Retry timers stop when the screen is disposed. API requests
 and token refreshes time out after 30 seconds rather than hanging indefinitely.
+
+
+## Listen before joining
+
+The full-screen, swipeable Live Huud preview automatically plays the visible
+Huud's conversation. The sound control mutes/unmutes listening; it never opens a
+microphone. Swiping, covering/closing the preview, or backgrounding the app stops
+that connection. Returning resumes listening. Existing friend calls are preserved;
+preview audio waits until the call ends. A previous Huud's voice connection is
+released before browsing a different Huud.
+
+`POST /huud-spaces/{id}/listen` applies the same live, privacy, membership,
+approval, removal and block checks as watching. The credential is short-lived and
+cannot publish media or data. A separate identity and unique visit ID prevent
+previewing from taking a live seat or a stale swipe from disconnecting a newer
+visit. `DELETE /huud-spaces/{id}/listen/{previewId}` stops only that visit. Viewer
+counts use the existing 60-second watch heartbeat lease.
+
+Opening a preview now uses `/watch` even for existing members; it does not walk
+them into the live hangout. Joining switches to the normal Huud voice flow.
+Ending Live, changing privacy or blocking/removing someone disconnects applicable
+preview listeners. The expiry sweep also removes stale or no-longer-authorized
+listeners. Transient client failures reconnect with bounded backoff.
+
+Validation: 57 Flutter tests, 40 Huud integration tests, 13 lifecycle integration
+tests and the signed-token permission/expiry tests passed. A generated test tone
+through the isolated test voice service reached the receive-only client (148
+non-silent audio frames); server permissions confirmed media/data publishing was
+disabled. The unique temporary room was removed. Physical phone speaker output
+with another person talking still needs an on-device check.

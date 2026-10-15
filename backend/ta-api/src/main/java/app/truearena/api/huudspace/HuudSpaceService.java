@@ -304,7 +304,8 @@ public class HuudSpaceService {
                                 .bind("id", id).fetch().rowsUpdated())
                         .then(endChampionshipWithLive(id))))
                 .doOnSuccess(n -> people.forEach(p -> notify(p, id, "live-ended", by)))
-                .then(Flux.fromIterable(people).concatMap(p -> dropFromVoice(id, p)).then()));
+                .then(Flux.fromIterable(people).concatMap(p -> dropFromVoice(id, p)).then())
+                .then(dropPreviewListeners(id)));
     }
 
     /**
@@ -384,23 +385,75 @@ public class HuudSpaceService {
                         }));
     }
 
-    /**
-     * Look into a Live Huud without joining: see who's there and watch the
-     * game — no chat, voice or seat. Counts towards "watching" while called.
-     */
+    /** Eligibility for the preview, without entering the hangout or refreshing activity. */
+    private Mono<Boolean> mayWatch(Space s, UUID user) {
+        return blocked(user, s.createdBy()).flatMap(blocked -> blocked ? Mono.just(false)
+                : membership(s.id(), user).map(Optional::of).defaultIfEmpty(Optional.empty())
+                .flatMap(member -> member.isPresent() && member.get().removed() ? Mono.just(false)
+                        : member.isPresent() && member.get().in() ? Mono.just(true)
+                        : canSee(s, user).flatMap(see -> see ? Mono.just(true)
+                        : request(s.id(), user, "join").map("accepted"::equals).defaultIfEmpty(false))));
+    }
+
+    /** Look in and listen without joining, chatting, publishing or taking a seat. */
     public Mono<HuudSpaceView> watch(UUID user, UUID id) {
         return space(id).filter(Space::live)
                 .switchIfEmpty(Mono.error(ApiExceptions.notFound("This Huud isn't live right now")))
-                .flatMap(s -> blocked(user, s.createdBy()).flatMap(b -> b ? Mono.just(false) : canSee(s, user)
-                        .flatMap(see -> see ? Mono.just(true)
-                                : request(id, user, "join").map("accepted"::equals).defaultIfEmpty(false))))
-                .flatMap(ok -> ok ? Mono.just(true)
-                        : membership(id, user).map(Membership::in).defaultIfEmpty(false))
+                .flatMap(s -> mayWatch(s, user))
                 .flatMap(ok -> !ok ? Mono.error(ApiExceptions.forbidden("This Huud isn't open to you"))
                         : tx.transactional(lock("huud-space:" + id).then(db.sql(
                                 "INSERT INTO huud_space_viewers(huud_space_id,user_id) VALUES(:id,:user) "
                                         + "ON CONFLICT(huud_space_id,user_id) DO UPDATE SET last_seen_at=now()")
-                                .bind("id", id).bind("user", user).fetch().rowsUpdated()))).then(view(id, user));
+                                .bind("id", id).bind("user", user).fetch().rowsUpdated()))).then(view(id, user, false));
+    }
+
+    public static String previewIdentity(UUID user, UUID preview) { return "preview-" + user + "-" + preview; }
+
+    /** A stale swipe must never disconnect a newer preview of the same Huud. */
+    public Mono<Void> stopPreview(UUID user, UUID id, UUID preview) {
+        return voice.remove(HuudSpaceAccess.VOICE_PREFIX + id, previewIdentity(user, preview));
+    }
+
+    private Mono<Void> dropUserPreviews(UUID id, UUID user) {
+        String room = HuudSpaceAccess.VOICE_PREFIX + id;
+        return voice.participantIds(room).flatMapMany(Flux::fromIterable)
+                .filter(identity -> identity.startsWith("preview-" + user + "-"))
+                .concatMap(identity -> voice.remove(room, identity)).then().onErrorResume(e -> Mono.empty());
+    }
+
+    private Mono<Void> dropPreviewListeners(UUID id) {
+        String room = HuudSpaceAccess.VOICE_PREFIX + id;
+        return voice.participantIds(room).flatMapMany(Flux::fromIterable)
+                .filter(identity -> identity.startsWith("preview-"))
+                .concatMap(identity -> voice.remove(room, identity)).then().onErrorResume(e -> Mono.empty());
+    }
+
+    /** A live preview needs a fresh viewer lease and must still pass the privacy rules. */
+    private Mono<Void> prunePreviewListeners(UUID id) {
+        String room = HuudSpaceAccess.VOICE_PREFIX + id;
+        return voice.participantIds(room).flatMapMany(Flux::fromIterable)
+                .filter(identity -> identity.startsWith("preview-"))
+                .concatMap(identity -> {
+                    UUID user;
+                    try { user = UUID.fromString(identity.substring("preview-".length(), "preview-".length() + 36)); }
+                    catch (IllegalArgumentException | IndexOutOfBoundsException e) { return voice.remove(room, identity); }
+                    return db.sql("SELECT EXISTS(SELECT 1 FROM huud_space_viewers WHERE huud_space_id=:id "
+                                    + "AND user_id=:user AND last_seen_at > now()-interval '60 seconds') AS ok")
+                            .bind("id", id).bind("user", user)
+                            .map((r, m) -> Boolean.TRUE.equals(r.get("ok", Boolean.class))).one()
+                            .flatMap(fresh -> fresh ? space(id).flatMap(s -> mayWatch(s, user)) : Mono.just(false))
+                            .flatMap(ok -> ok ? Mono.empty() : voice.remove(room, identity));
+                }).then();
+    }
+
+    /** Blocking also stops either person's preview of the other's hosted Huud. */
+    public Mono<Void> stopBlockedPreviews(UUID a, UUID b) {
+        return db.sql("SELECT id,created_by FROM huud_spaces WHERE status='active' AND live_since IS NOT NULL "
+                        + "AND created_by IN (:a,:b)")
+                .bind("a", a).bind("b", b)
+                .map((r, m) -> Map.entry(r.get("id", UUID.class), r.get("created_by", UUID.class))).all()
+                .concatMap(s -> dropUserPreviews(s.getKey(), s.getValue().equals(a) ? b : a).onErrorResume(e -> Mono.empty()))
+                .then();
     }
 
     /** People looking in right now who aren't in the Live hangout. */
@@ -601,7 +654,9 @@ public class HuudSpaceService {
             var sql = db.sql("UPDATE huud_spaces SET name=:name,privacy=:privacy,background=:background WHERE id=:id")
                     .bind("name", nextName).bind("privacy", nextPrivacy).bind("id", id);
             return (nextBackground == null ? sql.bindNull("background", String.class) : sql.bind("background", nextBackground))
-                    .fetch().rowsUpdated();
+                    .fetch().rowsUpdated()
+                    .flatMap(n -> nextPrivacy.equals(s.privacy()) ? Mono.just(n)
+                            : dropPreviewListeners(id).thenReturn(n));
         }).doOnSuccess(n -> notifyMembers(id, "updated", host)).then(view(id, host));
     }
 
@@ -653,7 +708,7 @@ public class HuudSpaceService {
     public Mono<Void> expire() {
         return db.sql("SELECT id FROM huud_spaces WHERE status='active' AND live_since IS NOT NULL")
                 .map((r, m) -> r.get("id", UUID.class)).all()
-                .concatMap(this::refreshConnectedActivity).then()
+                .concatMap(id -> refreshConnectedActivity(id).then(prunePreviewListeners(id))).then()
                 .thenMany(db.sql("UPDATE huud_space_members SET live_at=NULL, can_speak=false WHERE live_at IS NOT NULL "
                         + "AND last_seen_at < now() - make_interval(secs => :secs) RETURNING huud_space_id, user_id")
                 .bind("secs", (double) memberTimeout.toSeconds())
@@ -1012,6 +1067,10 @@ public class HuudSpaceService {
     // ------------------------------------------------------------ reading
 
     public Mono<HuudSpaceView> view(UUID id, UUID viewer) {
+        return view(id, viewer, true);
+    }
+
+    private Mono<HuudSpaceView> view(UUID id, UUID viewer, boolean enter) {
         return space(id)
                 .switchIfEmpty(Mono.error(ApiExceptions.notFound("That Huud isn't here any more")))
                 .flatMap(s -> membership(id, viewer).map(Optional::of).defaultIfEmpty(Optional.empty())
@@ -1028,7 +1087,7 @@ public class HuudSpaceService {
                             return allowed.flatMap(ok -> {
                                 if (!ok) return Mono.error(ApiExceptions.forbidden("This Huud isn't open to you"));
                                 // Opening a Live Huud you belong to is walking into the hangout.
-                                Mono<Void> walkIn = member && s.live() ? enterLive(id, viewer) : Mono.empty();
+                                Mono<Void> walkIn = enter && member && s.live() ? enterLive(id, viewer) : Mono.empty();
                                 return walkIn.then(space(id)).flatMap(now -> membership(id, viewer)
                                         .map(Optional::of).defaultIfEmpty(Optional.empty())
                                         .flatMap(me -> Mono.zip(
@@ -1291,8 +1350,9 @@ public class HuudSpaceService {
      */
     private Mono<Void> dropFromVoice(UUID id, UUID user) {
         return access.voiceRooms(id).concatMap(room -> voice.remove(room, user.toString()).onErrorResume(e -> Mono.empty())
+
                         .then(voiceSessions.removeMembership(user, room).onErrorResume(e -> Mono.empty())))
-                .then();
+                .then(dropUserPreviews(id, user));
     }
 
     Mono<Void> lock(String key) {

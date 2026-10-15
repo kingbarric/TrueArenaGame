@@ -82,6 +82,7 @@ class HuudSpaceIT {
     @Autowired SafetyService safety;
     @Autowired HuudService feed;
     @Autowired HuudSpaceAccess access;
+    @Autowired app.truearena.api.huudspace.HuudPreviewService previews;
     @Autowired FeedPostService posts;
     @Autowired AdminReportsController adminReports;
     @Autowired UserRepository users;
@@ -135,7 +136,7 @@ class HuudSpaceIT {
         String before=mapper.writeValueAsString(rt.module().visibleStateFor(rt.state(),host.toString()).data());
         games.handleFrame(rt,host.toString(),mapper.writeValueAsString(app.truearena.ws.contract.Envelope.of(
                 app.truearena.ws.contract.MessageType.PLAYER_ACTION,java.util.Map.of("action","END_TURN","actionId","paused-move","data",java.util.Map.of()))),false).block();
-        assertThat(mapper.writeValueAsString(rt.module().visibleStateFor(rt.state(),host.toString()).data())).isEqualTo(before);
+        assertThat(mapper.readTree(mapper.writeValueAsString(rt.module().visibleStateFor(rt.state(),host.toString()).data()))).isEqualTo(mapper.readTree(before));
         UUID session=rt.gameSessionId; long remaining=rt.timerRemainingMs;
         assertThat(db.sql("SELECT runtime_state IS NOT NULL AS saved FROM game_sessions WHERE id=:id").bind("id",session).map((r,m)->r.get("saved",Boolean.class)).one().block()).isTrue();
         rt.cancelTimer();runtimes.remove(room.id());
@@ -143,7 +144,7 @@ class HuudSpaceIT {
         assertThat(recovered).isNotSameAs(rt);assertThat(recovered.gameSessionId).isEqualTo(session);
         assertThat(recovered.paused).isTrue();assertThat(recovered.timer).isNull();
         assertThat(recovered.timerRemainingMs).isEqualTo(remaining);
-        assertThat(mapper.writeValueAsString(recovered.module().visibleStateFor(recovered.state(),host.toString()).data())).isEqualTo(before);
+        assertThat(mapper.readTree(mapper.writeValueAsString(recovered.module().visibleStateFor(recovered.state(),host.toString()).data()))).isEqualTo(mapper.readTree(before));
         var publicView=mapper.convertValue(recovered.module().broadcastState(recovered.state()).data(),java.util.Map.class);
         assertThat(publicView).doesNotContainKeys("seed","chance","chest","tradeOffers","legalActions");
         assertThat(huuds.view(huud.id(),host).block().currentGame().status()).isEqualTo("playing");
@@ -692,6 +693,60 @@ class HuudSpaceIT {
 
         var secret = huuds.create(person("Secret host"), null, "private").block();
         assertThatThrownBy(() -> huuds.watch(viewer, secret.id()).block()).isInstanceOf(ResponseStatusException.class);
+    }
+
+    @Test void previewAudioRespectsPrivacyBlocksRemovalAndNeverEntersALiveSeat() {
+        UUID host = person("Audio host"), viewer = person("Audio viewer"), stranger = person("Audio stranger");
+        var huud = huuds.create(host, "Listen here", "friends").block();
+        assertThatThrownBy(() -> previews.listen(stranger, huud.id()).block()).isInstanceOf(ResponseStatusException.class);
+        befriend(host, viewer);
+        var token = previews.listen(viewer, huud.id()).block();
+        assertThat(token.roomName()).isEqualTo("huud-" + huud.id());
+        assertThat(huuds.watch(viewer, huud.id()).block().youAreIn()).isFalse();
+        assertThat(access.canTalk(viewer, token.roomName()).block()).isFalse();
+        assertThat(access.canSpeak(viewer, token.roomName()).block()).isFalse();
+        huuds.join(viewer, huud.id()).block();
+        db.sql("UPDATE huud_space_members SET live_at=NULL WHERE huud_space_id=:id AND user_id=:user")
+                .bind("id", huud.id()).bind("user", viewer).fetch().rowsUpdated().block();
+        previews.listen(viewer, huud.id()).block();
+        assertThat(access.canTalk(viewer, token.roomName()).block()).isFalse();
+        huuds.remove(host, huud.id(), viewer).block();
+        assertThatThrownBy(() -> previews.listen(viewer, huud.id()).block()).isInstanceOf(ResponseStatusException.class);
+        huuds.update(host, huud.id(), null, "public").block();
+        previews.listen(stranger, huud.id()).block();
+        safety.block(host, stranger).block();
+        assertThatThrownBy(() -> previews.listen(stranger, huud.id()).block()).isInstanceOf(ResponseStatusException.class);
+        huuds.endLive(host, huud.id()).block();
+        assertThatThrownBy(() -> previews.listen(host, huud.id()).block()).isInstanceOf(ResponseStatusException.class);
+    }
+
+    @Test void privatePreviewNeedsMembershipOrAnAcceptedRequestAndCleanupIsSessionSpecific() {
+        UUID host = person("Private audio host"), viewer = person("Private audio viewer");
+        var huud = huuds.create(host, "Secret audio", "private").block();
+        assertThatThrownBy(() -> previews.listen(viewer, huud.id()).block()).isInstanceOf(ResponseStatusException.class);
+        huuds.join(viewer, huud.id()).block();
+        assertThatThrownBy(() -> previews.listen(viewer, huud.id()).block()).isInstanceOf(ResponseStatusException.class);
+        requests.answer(host, huud.id(), viewer, "join", true).block();
+        var first = previews.listen(viewer, huud.id()).block();
+        var next = previews.listen(viewer, huud.id()).block();
+        clearInvocations(livekit);
+        huuds.stopPreview(viewer, huud.id(), first.previewId()).block();
+        verify(livekit).remove(first.roomName(), HuudSpaceService.previewIdentity(viewer, first.previewId()));
+        verify(livekit, never()).remove(next.roomName(), HuudSpaceService.previewIdentity(viewer, next.previewId()));
+        verify(livekit, never()).remove(first.roomName(), viewer.toString());
+    }
+
+    @Test void endingLiveAndChangingPrivacyDropAllPreviewConnections() {
+        UUID host = person("Preview lifecycle host"), viewer = person("Preview lifecycle viewer");
+        var huud = huuds.create(host, "Preview lifecycle", "public").block();
+        String room = "huud-" + huud.id();
+        String identity = HuudSpaceService.previewIdentity(viewer, UUID.randomUUID());
+        when(livekit.participantIds(room)).thenReturn(Mono.just(java.util.Set.of(identity)));
+        huuds.update(host, huud.id(), null, "private").block();
+        verify(livekit).remove(room, identity);
+        clearInvocations(livekit);
+        huuds.endLive(host, huud.id()).block();
+        verify(livekit).remove(room, identity);
     }
 
     @Test void rematchSeatsTheSamePlayersAgain() {
