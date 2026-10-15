@@ -55,3 +55,36 @@ test('each avatar clone keeps its own outfit dye uniforms',async()=>{
  assert.equal(shader.uniforms.slayDyeTint.value.getHexString(),'28262a');
  assert.equal(shader.uniforms.slayDyeEnabled.value,1);
 });
+test('seated hips clear cushions and shins sit beyond the sofa front',async()=>{
+ const {roomPlace,CUSHION_TOP}=await import('../src/huud-avatar.ts');
+ for(const body of ['male','female']){
+  const model=await loadGlb(readFileSync(new URL('../../app/assets/slay_renderer/assets/'+body+'.glb',import.meta.url)));
+  const root=clone(model.scene),bones=seatPose(root,body);root.updateMatrixWorld(true);
+  for(const side of ['Left','Right']){
+   const hip=bones.get(side+'UpperLeg').getWorldPosition(new Vector3()),knee=bones.get(side+'LowerLeg').getWorldPosition(new Vector3()),foot=bones.get(side+'Foot').getWorldPosition(new Vector3());
+   assert.ok(hip.y-CUSHION_TOP>=.085,'thigh centre clears cushion by its thickness');
+   assert.ok(Math.abs(foot.y)<.04,'feet stay at floor level');
+   for(let i=0;i<8;i++){
+    const p=roomPlace(i),worldKnee=knee.clone().applyAxisAngle(new Vector3(0,1,0),p.yaw).add(new Vector3(p.x,0,p.z));
+    const front=new Vector3(Math.sin(p.yaw),0,Math.cos(p.yaw));
+    const sofaCentre=i<3?new Vector3(0,0,-1.95):i<6?new Vector3(-2.3,0,.08):new Vector3(2.3,0,0);
+    assert.ok(worldKnee.sub(sofaCentre).dot(front)>.6,'shins are in front of cushion and base');
+   }
+  }
+ }
+});
+test('entrance and exit use the doorway and keep a clear route around the table',async()=>{
+ const {roomPlace,doorRoute,exitRoute,DOOR,WALK_RATE,TRANSIT_SPEED}=await import('../src/huud-avatar.ts');
+ assert.ok(WALK_RATE>.8&&TRANSIT_SPEED>2,'walk and doorway transitions are faster');
+ for(let i=0;i<12;i++){
+  const place=roomPlace(i),path=doorRoute(place);
+  assert.deepEqual(path[0].toArray(),DOOR.toArray());
+  assert.deepEqual(path.at(-1).toArray(),[place.x,0,place.z]);
+  const leaving=exitRoute(path.at(-1),place);
+  assert.deepEqual(leaving.at(-1).toArray(),DOOR.toArray());
+  for(let j=1;j<path.length;j++)for(let t=0;t<=1;t+=.05){
+   const p=path[j-1].clone().lerp(path[j],t);
+   assert.ok(Math.abs(p.x)>.8||Math.abs(p.z-.4)>.6,'route clears tabletop plus body width');
+  }
+ }
+});

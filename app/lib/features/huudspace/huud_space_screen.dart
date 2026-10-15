@@ -879,6 +879,14 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     _load();
   }
 
+  Future<void> _nudge(HuudMember person) async {
+    final result = await _run('nudge-${person.userId}', (api) async {
+      await api.post('/huud-spaces/${widget.id}/members/${person.userId}/nudge');
+      return true;
+    });
+    if (result == true && mounted) huudSnack(context, 'Invitation sent to ${person.handle}.');
+  }
+
   Future<void> _personSheet(HuudSpace huud, HuudMember person) =>
       showHuudSheet<void>(
         context,
@@ -959,6 +967,19 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                           ),
                         ]),
                     const SizedBox(height: 16),
+                    if (!person.here && huud.live && huud.youAreIn && person.userId != _me) ...[
+                      HuudButton(
+                        key: const ValueKey('person-nudge'),
+                        label: 'Nudge them back',
+                        icon: Icons.notifications_active_rounded,
+                        expand: true,
+                        onPressed: () {
+                          Navigator.of(sheet).pop();
+                          _nudge(person);
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                    ],
                     if (huud.youAreHost) ...[
                       HuudButton(
                         key: const ValueKey('person-mic'),
@@ -2348,6 +2369,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                   me: _me,
                   speaking: speakers,
                   motion: _avatarMotion,
+                  onGame: huud.live ? () => _openTab(_Tab.play) : null,
                   onPerson: (p) => _personSheet(huud, p))),
           top: 0),
       if (huud.code != null && !huud.live)

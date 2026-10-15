@@ -19,8 +19,10 @@ class HuudLounge extends StatefulWidget {
       required this.members,
       required this.onPerson,
       this.me,
+      this.onGame,
       this.motion,
       this.speaking = const {}});
+  final VoidCallback? onGame;
   final List<HuudMember> members;
   final String? me;
   final HuudAvatarMotion? motion;
@@ -43,7 +45,9 @@ class _HuudLoungeState extends State<HuudLounge> {
 
   @override
   Widget build(BuildContext context) {
-    final people = [...widget.members]..sort((a, b) {
+    final away = widget.members.where((p) => !p.here).toList();
+    final people = widget.members.where((p) => p.here).toList()
+      ..sort((a, b) {
         final host = (b.host ? 1 : 0) - (a.host ? 1 : 0);
         return host != 0 ? host : (b.here ? 1 : 0) - (a.here ? 1 : 0);
       });
@@ -54,14 +58,14 @@ class _HuudLoungeState extends State<HuudLounge> {
         key: const ValueKey('huud-people-canvas'),
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-            color: const Color(0xfff5efdf),
+            color: const Color(0xfffff0df),
             borderRadius: BorderRadius.circular(26),
-            border: Border.all(color: const Color(0xffd9d2bf), width: 1.5)),
+            border: Border.all(color: const Color(0xfff5c395), width: 1.5)),
         child: Column(children: [
           Padding(
               padding: const EdgeInsets.fromLTRB(16, 13, 12, 8),
               child: Row(children: [
-                const Icon(Icons.weekend_rounded, color: Color(0xff55785f)),
+                const Icon(Icons.weekend_rounded, color: Color(0xffb34a00)),
                 const SizedBox(width: 10),
                 const Expanded(
                     child: Column(
@@ -71,16 +75,16 @@ class _HuudLoungeState extends State<HuudLounge> {
                           style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w900,
-                              color: Color(0xff304b39))),
+                              color: Color(0xff70300c))),
                       Text('Make yourself at home',
                           style: TextStyle(
-                              fontSize: 12, color: Color(0xff7b8472))),
+                              fontSize: 12, color: Color(0xff9a613c))),
                     ])),
                 Text('${people.where((p) => p.here).length} here',
                     style: const TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 12,
-                        color: Color(0xff55785f))),
+                        color: Color(0xffb34a00))),
               ])),
           if (tables > 1)
             Padding(
@@ -96,7 +100,7 @@ class _HuudLoungeState extends State<HuudLounge> {
                       icon: const Icon(Icons.chevron_left)),
                   Text('Room ${table + 1} of $tables',
                       style: const TextStyle(
-                          color: Color(0xff55785f),
+                          color: Color(0xffb34a00),
                           fontSize: 12,
                           fontWeight: FontWeight.w800)),
                   IconButton(
@@ -119,17 +123,24 @@ class _HuudLoungeState extends State<HuudLounge> {
                             aspectRatio: 1.04,
                             child: HuudLounge.debugScenePlaceholder
                                 ? const ColoredBox(
-                                    color: Color(0xffe8e3d5),
+                                    color: Color(0xfffff0df),
                                     child: Center(
                                         child: Icon(Icons.weekend_rounded,
                                             size: 70,
-                                            color: Color(0xff8ca18b))))
+                                            color: Color(0xffff8a1f))))
                                 : _LoungeScene(
                                     members: seated,
+                                    roomNumber: table,
+                                    onGame: widget.onGame,
                                     me: widget.me,
                                     speaking: widget.speaking,
                                     motion: widget.motion,
                                     onPerson: widget.onPerson)),
+                        if (people.isEmpty)
+                          const Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Text(
+                                  'Nobody is here right now. Nudge a friend to join you.')),
                         const Padding(
                             padding: EdgeInsets.fromLTRB(16, 13, 16, 8),
                             child: Text('IN THE HUUD',
@@ -137,7 +148,7 @@ class _HuudLoungeState extends State<HuudLounge> {
                                     fontSize: 10,
                                     fontWeight: FontWeight.w900,
                                     letterSpacing: 1.6,
-                                    color: Color(0xff78836e)))),
+                                    color: Color(0xffb34a00)))),
                         Padding(
                             padding: const EdgeInsets.fromLTRB(12, 0, 12, 14),
                             child: Wrap(spacing: 7, runSpacing: 8, children: [
@@ -196,25 +207,57 @@ class _HuudLoungeState extends State<HuudLounge> {
                                                     '${p.host ? '♛ ' : ''}${p.userId == widget.me ? 'You' : p.handle}',
                                                     style: const TextStyle(
                                                         color:
-                                                            Color(0xff38513f),
+                                                            Color(0xff70300c),
                                                         fontSize: 12,
                                                         fontWeight:
                                                             FontWeight.w800)),
                                               ]))),
                                 ),
                             ])),
+                        if (away.isNotEmpty)
+                          Material(
+                              color: Colors.transparent,
+                              child: ExpansionTile(
+                                key: const ValueKey('huud-away-members'),
+                                title: Text(
+                                    'Away from The Huud · ${away.length}',
+                                    style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w800)),
+                                subtitle: const Text(
+                                    'Tap a name to nudge them back',
+                                    style: TextStyle(fontSize: 11)),
+                                children: [
+                                  for (final p in away)
+                                    ListTile(
+                                      key: ValueKey('huud-away-${p.userId}'),
+                                      dense: true,
+                                      leading: const Icon(
+                                          Icons.person_outline_rounded),
+                                      title: Text(p.handle),
+                                      subtitle: const Text('Offline'),
+                                      trailing: p.userId == widget.me
+                                          ? null
+                                          : const Icon(Icons
+                                              .notifications_active_outlined),
+                                      onTap: p.userId == widget.me
+                                          ? null
+                                          : () => widget.onPerson(p),
+                                    )
+                                ],
+                              )),
                       ]))),
           Container(
               width: double.infinity,
               padding: const EdgeInsets.all(10),
-              color: const Color(0xffece7d7),
+              color: const Color(0xffffe8d2),
               child: Text(
                   people.isEmpty
                       ? 'Invite your friends into the Huud.'
                       : 'Drag to look around · pinch to zoom · tap a name',
                   textAlign: TextAlign.center,
                   style:
-                      const TextStyle(color: Color(0xff76806c), fontSize: 11))),
+                      const TextStyle(color: Color(0xff9a613c), fontSize: 11))),
         ]));
   }
 }
@@ -224,10 +267,14 @@ class _LoungeScene extends StatefulWidget {
       {required this.members,
       required this.speaking,
       required this.onPerson,
+      required this.roomNumber,
+      this.onGame,
       this.motion,
       this.me});
   final List<HuudMember> members;
   final Set<String> speaking;
+  final int roomNumber;
+  final VoidCallback? onGame;
   final String? me;
   final HuudAvatarMotion? motion;
   final ValueChanged<HuudMember> onPerson;
@@ -318,6 +365,8 @@ class _LoungeSceneState extends State<_LoungeScene>
         try {
           await _send({
             'type': 'init',
+            'roomKey': widget.roomNumber,
+            'canPlay': widget.onGame != null,
             'catalog': _catalog,
             'people': _people,
             'generation': generation,
@@ -341,6 +390,8 @@ class _LoungeSceneState extends State<_LoungeScene>
             ? _mode
             : widget.motion?.mode(widget.me!) ?? _mode;
         await _send({'type': 'selfAction', 'mode': _mode});
+      case 'game':
+        widget.onGame?.call();
       case 'person':
         final p =
             widget.members.where((p) => p.userId == raw['id']).firstOrNull;
@@ -365,8 +416,18 @@ class _LoungeSceneState extends State<_LoungeScene>
     super.didUpdateWidget(old);
     if (widget.me != null) _mode = widget.motion?.mode(widget.me!) ?? _mode;
     if (_loaded) {
-      unawaited(
-          _send({'type': 'people', 'people': _people}).catchError((_) {}));
+      unawaited(_send(old.roomNumber == widget.roomNumber
+              ? {'type': 'people', 'people': _people}
+              : {
+                  'type': 'init',
+                  'catalog': _catalog,
+                  'people': _people,
+                  'generation': _generation,
+                  'roomKey': widget.roomNumber,
+                  'canPlay': widget.onGame != null,
+                  'reducedMotion': MediaQuery.disableAnimationsOf(context)
+                })
+          .catchError((_) {}));
       unawaited(
           _send({'type': 'selfAction', 'mode': _mode}).catchError((_) {}));
     }
@@ -404,7 +465,7 @@ class _LoungeSceneState extends State<_LoungeScene>
             },
             initialUrlRequest: URLRequest(
                 url: WebUri(
-                    'http://localhost:8187/huud-lounge.html?scene=1&catalog=${_catalog!['version']}')),
+                    'http://localhost:8187/huud-lounge.html?scene=2&catalog=${_catalog!['version']}')),
             initialSettings: InAppWebViewSettings(
                 javaScriptEnabled: true,
                 supportZoom: false,
@@ -452,7 +513,7 @@ class _LoungeSceneState extends State<_LoungeScene>
               child: Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                      color: const Color(0xfff5efdf).withValues(alpha: .94),
+                      color: const Color(0xfffff0df).withValues(alpha: .94),
                       borderRadius: BorderRadius.circular(18)),
                   child: Row(children: [
                     if (_canSit)
@@ -486,7 +547,7 @@ class _LoungeSceneState extends State<_LoungeScene>
                   ]))),
         if (!_loaded || _error != null)
           ColoredBox(
-              color: const Color(0xffe8e3d5),
+              color: const Color(0xfffff0df),
               child: Center(
                   child: _error != null
                       ? TextButton.icon(

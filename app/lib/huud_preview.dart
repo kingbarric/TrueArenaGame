@@ -11,6 +11,7 @@ import 'features/huudspace/huud_space_screen.dart';
 import 'features/huudspace/huud_space_models.dart';
 import 'theme/neon_theme.dart';
 import 'features/profile/profile_screen.dart';
+import 'features/onboarding/avatar_setup_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -163,6 +164,7 @@ Future<void> main() async {
               child: Builder(
                   builder: (context) => Stack(children: [
                         const ProfileScreen(),
+                        Positioned(bottom: 90, right:16, child: TextButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AvatarSetupScreen())),child: const Text('Preview registration'))),
                         Positioned(
                             bottom: 20,
                             right: 16,
@@ -173,12 +175,17 @@ Future<void> main() async {
                                 onPressed: () => Navigator.of(context).push(
                                     MaterialPageRoute(
                                         builder: (_) =>
-                                            HuudSpaceScreen(
+                                            Stack(children: [HuudSpaceScreen(
                                                 id: 'preview-huud',
                                                 initial:
                                                     HuudSpace.fromJson(huud),
                                                 previewSpeakingIds: const {
                                                   'person-1'
-                                                })))))
+                                                }), Positioned(top: 55, right: 14, child: TextButton(onPressed: () {
+                                                  members[1]['here'] = members[1]['here'] != true;
+                                                  huud['liveCount'] = members.where((p) => p['here'] == true).length;
+                                                  // ignore: invalid_use_of_visible_for_testing_member
+                                                  state.debugHuudSpaceEvent({'type':'HUUD_SPACE','data':{'huudSpaceId':'preview-huud','event':'presence','by':'person-1'}});
+                                                }, child: const Text('Ava leave / return')))])))))
                       ]))))));
 }

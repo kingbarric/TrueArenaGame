@@ -449,7 +449,29 @@ void main() {
     expect(find.text('♛ You'), findsOneWidget);
     expect(find.byKey(const ValueKey('huud-people-canvas')), findsOneWidget);
     expect(find.bySemanticsLabel(RegExp('.*Host, Here now.*')), findsOneWidget);
-    expect(find.bySemanticsLabel(RegExp('.*chidi, Away.*')), findsOneWidget);
+    expect(find.byKey(const ValueKey('huud-person-chidi')), findsNothing);
+    await tester.ensureVisible(find.byKey(const ValueKey('huud-away-members')));
+    await tester.tap(find.byKey(const ValueKey('huud-away-members')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('huud-away-chidi')), findsOneWidget);
+  });
+
+  testWidgets('an offline member can be nudged back to this Huud', (tester) async {
+    final calls=await pump(tester,const HuudSpaceScreen(id:'h1'),(r) async => _json(_huud(members:[_member('me','Eric',host:true),_member('ada','Ada',here:false)])),gameFirst:false);
+    await tester.tap(find.byKey(const ValueKey('huud-tab-people')));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.byKey(const ValueKey('huud-away-members')),150,scrollable:find.descendant(of:find.byKey(const ValueKey('huud-lounge-scroll')),matching:find.byType(Scrollable)));
+    await tester.ensureVisible(find.byKey(const ValueKey('huud-away-members')));
+    await tester.tap(find.byKey(const ValueKey('huud-away-members')));
+    await tester.pumpAndSettle();
+    await Scrollable.ensureVisible(tester.element(find.byKey(const ValueKey('huud-away-ada'))),alignment:.5);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('huud-away-ada')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('person-nudge')));
+    await tester.pumpAndSettle();
+    expect(calls.where((c)=>c.startsWith('POST /api/v1/huud-spaces/h1/members/ada/nudge')),hasLength(1));
+    expect(find.text('Invitation sent to ada.'),findsOneWidget);
   });
 
   testWidgets('looking in from Live: no code, one big Join button', (tester) async {

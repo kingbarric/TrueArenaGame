@@ -68,6 +68,10 @@ public class InboxRegistry {
      * exclusively by {@code PushNotificationService} to decide whether an
      * in-app live frame is enough on its own or an OS push is also needed.
      */
+    public boolean isBackgrounded(UUID userId) {
+        return backgrounded.contains(userId);
+    }
+
     public boolean isOnline(UUID userId) {
         return sockets.containsKey(userId) && !backgrounded.contains(userId);
     }

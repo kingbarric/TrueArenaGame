@@ -47,6 +47,9 @@ class HuudLifecycleIT {
     @Autowired HuudSpaceService huuds;
     @Autowired app.truearena.api.huudspace.HuudAvatarService avatarProfiles;
     @Autowired app.truearena.api.huudspace.HuudAvatarController avatarController;
+    @Autowired app.truearena.api.huudspace.HuudNudgeService nudges;
+    @Autowired app.truearena.api.huudspace.HuudNudgeController nudgeController;
+    @MockBean app.truearena.api.push.PushNotificationService pushes;
     @Autowired HuudSpaceChatService chat;
     @Autowired UserRepository users;
     @Autowired DatabaseClient db;
@@ -115,6 +118,35 @@ class HuudLifecycleIT {
         assertThatThrownBy(() -> avatarProfiles.save(owner,"unknown","evening").block()).isInstanceOf(ResponseStatusException.class);
         assertThatThrownBy(() -> avatarProfiles.save(owner,"ella","unknown").block()).isInstanceOf(ResponseStatusException.class);
         assertThat(avatarProfiles.get(owner).block().outfitId()).isEqualTo("evening");
+    }
+
+    @Test void offlineMembersLeaveTheSceneAndNudgesRespectMembershipMuteBlocksAndCooldown() {
+        UUID owner=person(), target=person(), other=person(), stranger=person(), id=make(owner);
+        huuds.join(target,id).block(); huuds.join(other,id).block();
+        clearInvocations(pushes);
+        assertThatThrownBy(()->nudges.nudge(owner,id,target).block()).isInstanceOf(ResponseStatusException.class);
+        Sinks.Many<Object> socket=Sinks.many().multicast().onBackpressureBuffer();
+        inbox.connect(target,socket); sockets.put(target,socket); inbox.setForeground(target,false);
+        assertThat(huuds.view(id,owner).block().members().stream().filter(p->p.userId().equals(target)).findFirst().orElseThrow().here()).isFalse();
+        assertThatThrownBy(()->nudges.nudge(stranger,id,target).block()).isInstanceOf(ResponseStatusException.class);
+        var auth=new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(owner.toString(),"",List.of());
+        nudgeController.nudge(id,target).contextWrite(org.springframework.security.core.context.ReactiveSecurityContextHolder.withAuthentication(auth)).block();
+        verify(pushes).sendToUsers(eq(Set.of(target)),eq("Come back to The Huud"),contains("Tap to join"),eq(Map.of("type","HUUD_SPACE","huudSpaceId",id.toString(),"event","nudged")));
+        assertThatThrownBy(()->nudges.nudge(owner,id,target).block()).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(()->nudges.nudge(other,id,target).block()).isInstanceOf(ResponseStatusException.class);
+        verifyNoMoreInteractions(pushes);
+        db.sql("UPDATE huud_member_nudges SET sent_at=now()-interval '6 minutes' WHERE huud_space_id=:id").bind("id",id).fetch().rowsUpdated().block();
+        db.sql("UPDATE huud_space_members SET muted=true WHERE huud_space_id=:id AND user_id=:target").bind("id",id).bind("target",target).fetch().rowsUpdated().block();
+        assertThatThrownBy(()->nudges.nudge(owner,id,target).block()).isInstanceOf(ResponseStatusException.class);
+        db.sql("UPDATE huud_space_members SET muted=false WHERE huud_space_id=:id AND user_id=:target").bind("id",id).bind("target",target).fetch().rowsUpdated().block();
+        db.sql("INSERT INTO player_blocks(blocker_id,blocked_id) VALUES(:target,:owner)").bind("target",target).bind("owner",owner).fetch().rowsUpdated().block();
+        assertThatThrownBy(()->nudges.nudge(owner,id,target).block()).isInstanceOf(ResponseStatusException.class);
+        nudges.nudge(other,id,target).block();
+        verify(pushes,times(2)).sendToUsers(eq(Set.of(target)),anyString(),anyString(),anyMap());
+        inbox.setForeground(target,true);
+        assertThat(huuds.view(id,owner).block().members().stream().filter(p->p.userId().equals(target)).findFirst().orElseThrow().here()).isTrue();
+        db.sql("UPDATE huud_space_members SET last_seen_at=now()-interval '2 minutes' WHERE huud_space_id=:id AND user_id=:target").bind("id",id).bind("target",target).fetch().rowsUpdated().block();
+        assertThat(huuds.view(id,owner).block().members().stream().filter(p->p.userId().equals(target)).findFirst().orElseThrow().here()).isFalse();
     }
 
     @Test void aTemporaryHostCanOrganiseButCannotEndOrDeleteSomeoneElsesHuud() {

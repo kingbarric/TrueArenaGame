@@ -58,4 +58,39 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('huud-person-15')), findsOneWidget);
   });
+  testWidgets(
+      'offline members stay out of room pages and can be opened from the away list',
+      (tester) async {
+    String? tapped;
+    final roster = [
+      ...members.take(12),
+      const HuudMember(
+          userId: 'away',
+          displayName: 'Away Person',
+          username: 'away_person',
+          here: false)
+    ];
+    await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+            body: SizedBox(
+                width: 320,
+                height: 600,
+                child: HuudLounge(
+                    members: roster, onPerson: (p) => tapped = p.userId)))));
+    expect(find.text('Room 1 of 2'), findsNothing);
+    expect(find.text('12 here'), findsOneWidget);
+    await tester.drag(find.byKey(const ValueKey('huud-lounge-scroll')),
+        const Offset(0, -600));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const ValueKey('huud-away-members')));
+    await tester.tap(find.byKey(const ValueKey('huud-away-members')));
+    await tester.pumpAndSettle();
+    await Scrollable.ensureVisible(
+        tester.element(find.byKey(const ValueKey('huud-away-away'))),
+        alignment: .5);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('huud-away-away')));
+    expect(tapped, 'away');
+    expect(find.byKey(const ValueKey('huud-person-away')), findsNothing);
+  });
 }
