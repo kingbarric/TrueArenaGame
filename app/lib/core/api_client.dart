@@ -24,13 +24,15 @@ class ApiException implements Exception {
 }
 
 /// Thin JSON client for the TrueArena backend. Base URL is compiled in via
-/// `--dart-define=API_BASE=...` (defaults to the local dev server).
+/// `--dart-define=API_BASE=...` (defaults to the production API).
 class ApiClient {
-  ApiClient({http.Client? client}) : _http = client ?? http.Client();
+  ApiClient({http.Client? client, this.requestTimeout = const Duration(seconds: 30)})
+      : _http = client ?? http.Client();
 
   static const base = String.fromEnvironment('API_BASE', defaultValue: 'https://vps-8030ec94.vps.ovh.net');
 
   final http.Client _http;
+  final Duration requestTimeout;
 
   String? bearer;
   String? deviceId;
@@ -74,7 +76,7 @@ class ApiClient {
   Future<dynamic> _send(Future<http.Response> Function() call, {bool allowRefresh = true}) async {
     final http.Response res;
     try {
-      res = await call();
+      res = await call().timeout(requestTimeout);
     } catch (_) {
       throw ApiException(0, 'transport failure');
     }
@@ -82,7 +84,9 @@ class ApiClient {
       _refreshing = true;
       bool refreshed;
       try {
-        refreshed = await refreshHandler!();
+        refreshed = await refreshHandler!().timeout(requestTimeout);
+      } catch (_) {
+        refreshed = false;
       } finally {
         _refreshing = false;
       }

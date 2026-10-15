@@ -11,6 +11,7 @@ import '../slayhuud/slay_models.dart';
 import 'huud_space_models.dart';
 import 'huud_avatar_motion.dart';
 import 'huud_avatar_models.dart';
+import 'huud_reconnect.dart';
 
 /// One bounded lounge, with a single shared 3D renderer for the current table.
 class HuudLounge extends StatefulWidget {
@@ -76,9 +77,9 @@ class _HuudLoungeState extends State<HuudLounge> {
                               fontSize: 18,
                               fontWeight: FontWeight.w900,
                               color: Color(0xff70300c))),
-                      Text('Make yourself at home',
+                      Text('Drag to look around · pinch to zoom · tap a name',
                           style: TextStyle(
-                              fontSize: 12, color: Color(0xff9a613c))),
+                              fontSize: 11, color: Color(0xff70300c))),
                     ])),
                 Text('${people.where((p) => p.here).length} here',
                     style: const TextStyle(
@@ -214,50 +215,80 @@ class _HuudLoungeState extends State<HuudLounge> {
                                               ]))),
                                 ),
                             ])),
-                        if (away.isNotEmpty)
-                          Material(
-                              color: Colors.transparent,
-                              child: ExpansionTile(
-                                key: const ValueKey('huud-away-members'),
-                                title: Text(
-                                    'Away from The Huud · ${away.length}',
-                                    style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w800)),
-                                subtitle: const Text(
-                                    'Tap a name to nudge them back',
-                                    style: TextStyle(fontSize: 11)),
-                                children: [
-                                  for (final p in away)
-                                    ListTile(
-                                      key: ValueKey('huud-away-${p.userId}'),
-                                      dense: true,
-                                      leading: const Icon(
-                                          Icons.person_outline_rounded),
-                                      title: Text(p.handle),
-                                      subtitle: const Text('Offline'),
-                                      trailing: p.userId == widget.me
-                                          ? null
-                                          : const Icon(Icons
-                                              .notifications_active_outlined),
-                                      onTap: p.userId == widget.me
-                                          ? null
-                                          : () => widget.onPerson(p),
-                                    )
-                                ],
-                              )),
                       ]))),
-          Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(10),
-              color: const Color(0xffffe8d2),
-              child: Text(
-                  people.isEmpty
-                      ? 'Invite your friends into the Huud.'
-                      : 'Drag to look around · pinch to zoom · tap a name',
-                  textAlign: TextAlign.center,
-                  style:
-                      const TextStyle(color: Color(0xff9a613c), fontSize: 11))),
+          Material(
+            key: const ValueKey('huud-away-members'),
+            color: const Color(0xffffdfbd),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(children: [
+                      const Icon(Icons.people_outline_rounded,
+                          size: 18, color: Color(0xff70300c)),
+                      const SizedBox(width: 7),
+                      const Expanded(
+                          child: Text('Away from The Huud',
+                              style: TextStyle(
+                                  color: Color(0xff49250e),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w900))),
+                      Text('${away.length}',
+                          style: const TextStyle(
+                              color: Color(0xff49250e),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w900)),
+                    ]),
+                    if (away.isEmpty)
+                      const Padding(
+                          padding: EdgeInsets.only(top: 4),
+                          child: Text('Everyone is here',
+                              style: TextStyle(
+                                  color: Color(0xff70300c), fontSize: 11)))
+                    else ...[
+                      const Padding(
+                          padding: EdgeInsets.only(top: 3),
+                          child: Text('Tap a name to nudge them back',
+                              style: TextStyle(
+                                  color: Color(0xff70300c), fontSize: 11))),
+                      SizedBox(
+                          height: 42,
+                          child: ListView.separated(
+                            key: const ValueKey('huud-away-scroll'),
+                            scrollDirection: Axis.horizontal,
+                            itemCount: away.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(width: 7),
+                            itemBuilder: (_, i) {
+                              final p = away[i];
+                              return Semantics(
+                                  label: '${p.handle}, Offline',
+                                  button: p.userId != widget.me,
+                                  child: ActionChip(
+                                    key: ValueKey('huud-away-${p.userId}'),
+                                    backgroundColor: const Color(0xfffff8ef),
+                                    side: const BorderSide(
+                                        color: Color(0xffc08b62)),
+                                    avatar: const Icon(
+                                        Icons.notifications_active_outlined,
+                                        color: Color(0xff70300c),
+                                        size: 16),
+                                    label: Text(p.handle,
+                                        style: const TextStyle(
+                                            color: Color(0xff49250e),
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 12)),
+                                    onPressed: p.userId == widget.me
+                                        ? null
+                                        : () => widget.onPerson(p),
+                                  ));
+                            },
+                          )),
+                    ],
+                  ]),
+            ),
+          ),
         ]));
   }
 }
@@ -287,7 +318,8 @@ class _LoungeSceneState extends State<_LoungeScene>
   Map<String, dynamic>? _catalog;
   InAppWebViewController? _web;
   bool _started = false, _loaded = false, _booting = false;
-  int _generation = 0, _restarts = 0;
+  int _generation = 0, _viewGeneration = 0;
+  late final HuudReconnect _recovery;
   String _mode = 'sit';
   bool _canSit = true;
   String? _error;
@@ -298,21 +330,33 @@ class _LoungeSceneState extends State<_LoungeScene>
     if (!_started) {
       _started = true;
       WidgetsBinding.instance.addObserver(this);
+      _recovery = HuudReconnect(
+          reconnect: _restart,
+          onWaiting: () {
+            if (mounted)
+              setState(() {
+                _loaded = false;
+                _booting = false;
+                _error = 'Reconnecting to The Huud…';
+              });
+          });
+      _recovery.waiting();
       unawaited(_start());
     }
   }
 
   Future<void> _start() async {
     try {
-      final c = await SlayApi(AppScope.of(context).api).catalog();
+      final c = await SlayApi(AppScope.of(context).api)
+          .catalog()
+          .timeout(const Duration(seconds: 20));
+      if (!mounted) return;
       _avatarOptions = HuudAvatarOptions.fromJson(jsonDecode(await rootBundle
           .loadString('assets/slay_renderer/huud-avatars.json')));
-      await SlayAssets.instance.start();
+      await SlayAssets.instance.start().timeout(const Duration(seconds: 10));
       if (mounted) setState(() => _catalog = c);
     } catch (_) {
-      if (mounted) {
-        setState(() => _error = 'The Huud could not connect. Tap to retry.');
-      }
+      if (mounted) _recovery.failed();
     }
   }
 
@@ -332,7 +376,9 @@ class _LoungeSceneState extends State<_LoungeScene>
           }
       ];
   Future<void> _send(Map<String, dynamic> payload) async {
-    await _web?.evaluateJavascript(
+    final web = _web;
+    if (web == null) throw StateError('Huud renderer is not ready');
+    await web.evaluateJavascript(
         source: 'void window.huudReceive(${jsonEncode(payload)});');
   }
 
@@ -340,18 +386,20 @@ class _LoungeSceneState extends State<_LoungeScene>
     if (!mounted) return;
     ++_generation;
     _booting = false;
+    // A new WebView also recovers a dead iOS content process or lost GPU context.
+    unawaited(_send({'type': 'dispose'})
+        .timeout(const Duration(seconds: 2))
+        .catchError((_) {}));
+    _web = null;
     setState(() {
       _loaded = false;
       _error = null;
+      ++_viewGeneration;
     });
     if (_catalog == null) {
       await _start();
     } else {
-      try {
-        await _web?.reload();
-      } catch (_) {
-        if (mounted) setState(() => _error = 'Tap to reconnect to the Huud.');
-      }
+      await SlayAssets.instance.start().timeout(const Duration(seconds: 10));
     }
   }
 
@@ -373,12 +421,11 @@ class _LoungeSceneState extends State<_LoungeScene>
             'reducedMotion': MediaQuery.disableAnimationsOf(context)
           });
         } catch (_) {
-          if (mounted) {
-            setState(() => _error = 'Tap to reconnect to the Huud.');
-          }
+          if (mounted) _recovery.failed();
         }
       case 'loaded':
         if (raw['generation'] != _generation) return;
+        _recovery.connected();
         setState(() {
           _loaded = true;
           _canSit = raw['canSit'] == true;
@@ -401,13 +448,9 @@ class _LoungeSceneState extends State<_LoungeScene>
         if (raw['generation'] != null && raw['generation'] != _generation) {
           return;
         }
-        setState(() => _error = 'A character could not load. Tap to retry.');
+        _recovery.failed();
       case 'lost':
-        if (_restarts++ < 2) {
-          await _restart();
-        } else {
-          setState(() => _error = 'The Huud paused. Tap to reconnect.');
-        }
+        _recovery.failed();
     }
   }
 
@@ -427,23 +470,34 @@ class _LoungeSceneState extends State<_LoungeScene>
                   'canPlay': widget.onGame != null,
                   'reducedMotion': MediaQuery.disableAnimationsOf(context)
                 })
-          .catchError((_) {}));
-      unawaited(
-          _send({'type': 'selfAction', 'mode': _mode}).catchError((_) {}));
+          .catchError((_) {
+        if (mounted) _recovery.failed();
+      }));
+      unawaited(_send({'type': 'selfAction', 'mode': _mode}).catchError((_) {
+        if (mounted) _recovery.failed();
+      }));
     }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _recovery.resume();
+    } else {
+      _recovery.pause();
+    }
     if (_web != null) {
       unawaited(
           _send({'type': 'pause', 'paused': state != AppLifecycleState.resumed})
-              .catchError((_) {}));
+              .catchError((_) {
+        if (mounted) _recovery.failed();
+      }));
     }
   }
 
   @override
   void dispose() {
+    _recovery.dispose();
     WidgetsBinding.instance.removeObserver(this);
     unawaited(_send({'type': 'dispose'}).catchError((_) {}));
     super.dispose();
@@ -452,117 +506,125 @@ class _LoungeSceneState extends State<_LoungeScene>
   void _move(String mode) {
     setState(() => _mode = mode);
     if (widget.me != null) widget.motion?.move(widget.me!, mode);
-    unawaited(_send({'type': 'selfAction', 'mode': mode}).catchError((_) {}));
+    unawaited(_send({'type': 'selfAction', 'mode': mode}).catchError((_) {
+      if (mounted) _recovery.failed();
+    }));
   }
 
   @override
-  Widget build(BuildContext context) => Stack(fit: StackFit.expand, children: [
-        if (_catalog != null)
-          InAppWebView(
-            gestureRecognizers: {
-              Factory<OneSequenceGestureRecognizer>(
-                  () => EagerGestureRecognizer())
-            },
-            initialUrlRequest: URLRequest(
-                url: WebUri(
-                    'http://localhost:8187/huud-lounge.html?scene=2&catalog=${_catalog!['version']}')),
-            initialSettings: InAppWebViewSettings(
-                javaScriptEnabled: true,
-                supportZoom: false,
-                disableContextMenu: true,
-                isInspectable: kDebugMode),
-            onWebViewCreated: (web) {
-              _web = web;
-              web.addJavaScriptHandler(
-                  handlerName: 'huud',
-                  callback: (args) {
-                    if (args.isNotEmpty && args.first is Map) {
-                      unawaited(_message(args.first as Map).catchError((_) {
-                        if (mounted)
-                          setState(
-                              () => _error = 'Tap to reconnect to the Huud.');
-                      }));
-                    }
+  Widget build(BuildContext context) {
+    final viewGeneration = _viewGeneration;
+    return Stack(fit: StackFit.expand, children: [
+      if (_catalog != null)
+        InAppWebView(
+          key: ValueKey('huud-web-$_viewGeneration'),
+          gestureRecognizers: {
+            Factory<OneSequenceGestureRecognizer>(
+                () => EagerGestureRecognizer())
+          },
+          initialUrlRequest: URLRequest(
+              url: WebUri(
+                  'http://localhost:8187/huud-lounge.html?scene=3&catalog=${_catalog!['version']}')),
+          initialSettings: InAppWebViewSettings(
+              javaScriptEnabled: true,
+              supportZoom: false,
+              disableContextMenu: true,
+              isInspectable: kDebugMode),
+          onWebViewCreated: (web) {
+            if (!mounted || viewGeneration != _viewGeneration) return;
+            _web = web;
+            web.addJavaScriptHandler(
+                handlerName: 'huud',
+                callback: (args) {
+                  if (!mounted || viewGeneration != _viewGeneration)
                     return null;
-                  });
-            },
-            onConsoleMessage: (_, message) {
-              if (message.messageLevel == ConsoleMessageLevel.ERROR)
-                debugPrint('Huud webview: ${message.message}');
-            },
-            onWebContentProcessDidTerminate: (_) {
-              if (_restarts++ < 2) {
-                unawaited(_restart());
-              } else if (mounted) {
-                setState(() => _error = 'Tap to reconnect to the Huud.');
-              }
-            },
-            onReceivedError: (_, request, error) {
-              if (request.isForMainFrame == true && mounted) {
-                setState(() => _error = 'Tap to reconnect to the Huud.');
-              }
-            },
-          ),
-        if (_loaded &&
-            _error == null &&
-            widget.members.any((p) => p.userId == widget.me && p.here))
-          Positioned(
-              left: 8,
-              right: 8,
-              bottom: 8,
-              child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                      color: const Color(0xfffff0df).withValues(alpha: .94),
-                      borderRadius: BorderRadius.circular(18)),
-                  child: Row(children: [
-                    if (_canSit)
-                      Expanded(
-                          child: TextButton.icon(
-                              key: const ValueKey('huud-sit'),
-                              onPressed: () => _move('sit'),
-                              icon: const Icon(Icons.weekend_rounded, size: 16),
-                              label: const Text('Sit',
-                                  style: TextStyle(fontSize: 11)))),
+                  if (args.isNotEmpty && args.first is Map) {
+                    unawaited(_message(args.first as Map).catchError((_) {
+                      if (mounted) _recovery.failed();
+                    }));
+                  }
+                  return null;
+                });
+          },
+          onConsoleMessage: (_, message) {
+            if (message.messageLevel == ConsoleMessageLevel.ERROR)
+              debugPrint('Huud webview: ${message.message}');
+          },
+          onWebContentProcessDidTerminate: (_) {
+            if (mounted && viewGeneration == _viewGeneration)
+              _recovery.failed();
+          },
+          onReceivedError: (_, request, error) {
+            if (request.isForMainFrame == true &&
+                mounted &&
+                viewGeneration == _viewGeneration) _recovery.failed();
+          },
+          onReceivedHttpError: (_, request, error) {
+            if (request.isForMainFrame == true &&
+                mounted &&
+                viewGeneration == _viewGeneration) _recovery.failed();
+          },
+        ),
+      if (_loaded &&
+          _error == null &&
+          widget.members.any((p) => p.userId == widget.me && p.here))
+        Positioned(
+            left: 8,
+            right: 8,
+            bottom: 8,
+            child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                    color: const Color(0xfffff0df).withValues(alpha: .94),
+                    borderRadius: BorderRadius.circular(18)),
+                child: Row(children: [
+                  if (_canSit)
                     Expanded(
                         child: TextButton.icon(
-                            key: const ValueKey('huud-stand'),
-                            onPressed: () => _move('stand'),
-                            icon: const Icon(Icons.accessibility_new_rounded,
-                                size: 16),
-                            label: const Text('Stand',
+                            key: const ValueKey('huud-sit'),
+                            onPressed: () => _move('sit'),
+                            icon: const Icon(Icons.weekend_rounded, size: 16),
+                            label: const Text('Sit',
                                 style: TextStyle(fontSize: 11)))),
-                    Expanded(
-                        child: TextButton.icon(
-                            key: const ValueKey('huud-walk'),
-                            onPressed: () =>
-                                _move(_mode == 'walk' ? 'stand' : 'walk'),
-                            icon: Icon(
-                                _mode == 'walk'
-                                    ? Icons.pause_rounded
-                                    : Icons.directions_walk_rounded,
-                                size: 16),
-                            label: Text(_mode == 'walk' ? 'Stop' : 'Walk',
-                                style: const TextStyle(fontSize: 11)))),
-                  ]))),
-        if (!_loaded || _error != null)
-          ColoredBox(
-              color: const Color(0xfffff0df),
-              child: Center(
-                  child: _error != null
-                      ? TextButton.icon(
-                          onPressed: () {
-                            _restarts = 0;
-                            _restart();
-                          },
-                          icon: const Icon(Icons.refresh),
-                          label: Text(_error!))
-                      : const Column(mainAxisSize: MainAxisSize.min, children: [
-                          CircularProgressIndicator(
-                              color: Color(0xff69856a), strokeWidth: 2),
-                          SizedBox(height: 12),
-                          Text('Opening The Huud…',
-                              style: TextStyle(color: Color(0xff69856a)))
-                        ]))),
-      ]);
+                  Expanded(
+                      child: TextButton.icon(
+                          key: const ValueKey('huud-stand'),
+                          onPressed: () => _move('stand'),
+                          icon: const Icon(Icons.accessibility_new_rounded,
+                              size: 16),
+                          label: const Text('Stand',
+                              style: TextStyle(fontSize: 11)))),
+                  Expanded(
+                      child: TextButton.icon(
+                          key: const ValueKey('huud-walk'),
+                          onPressed: () =>
+                              _move(_mode == 'walk' ? 'stand' : 'walk'),
+                          icon: Icon(
+                              _mode == 'walk'
+                                  ? Icons.pause_rounded
+                                  : Icons.directions_walk_rounded,
+                              size: 16),
+                          label: Text(_mode == 'walk' ? 'Stop' : 'Walk',
+                              style: const TextStyle(fontSize: 11)))),
+                ]))),
+      if (!_loaded || _error != null)
+        ColoredBox(
+            color: const Color(0xfffff0df),
+            child: Center(
+                child: Semantics(
+                    liveRegion: true,
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      const CircularProgressIndicator(
+                          color: Color(0xffb34a00), strokeWidth: 2),
+                      const SizedBox(height: 12),
+                      Text(_error ?? 'Opening The Huud…',
+                          style: const TextStyle(color: Color(0xff70300c))),
+                      if (_error != null)
+                        TextButton.icon(
+                            onPressed: _recovery.retryNow,
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Retry now')),
+                    ])))),
+    ]);
+  }
 }

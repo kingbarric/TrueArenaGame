@@ -20,10 +20,11 @@ class ObjectStorageLiveTest {
 
     @Test
     void writesAndReadsBackAnObject() {
-        String key = "selftest/" + UUID.randomUUID() + ".txt";
+        String prefix = System.getProperty("test.r2.prefix", "selftest/");
+        String key = prefix + UUID.randomUUID() + ".txt";
         byte[] body = ("hello from PlayHuud " + key).getBytes(StandardCharsets.UTF_8);
         storage.put(key, body, "text/plain").block();
         assertThat(storage.get(key).block()).isEqualTo(body);
-        assertThat(storage.get("selftest/missing-" + UUID.randomUUID()).blockOptional()).isEmpty();
+        assertThat(storage.get(prefix + "missing-" + UUID.randomUUID()).blockOptional()).isEmpty();
     }
 }

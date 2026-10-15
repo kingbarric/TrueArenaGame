@@ -79,18 +79,21 @@ void main() {
                     members: roster, onPerson: (p) => tapped = p.userId)))));
     expect(find.text('Room 1 of 2'), findsNothing);
     expect(find.text('12 here'), findsOneWidget);
+    final footer = tester.getRect(find.byKey(const ValueKey('huud-away-members')));
+    expect(find.text('Make yourself at home'), findsNothing);
+    expect(find.text('Drag to look around · pinch to zoom · tap a name'), findsOneWidget);
     await tester.drag(find.byKey(const ValueKey('huud-lounge-scroll')),
         const Offset(0, -600));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.byKey(const ValueKey('huud-away-members')));
-    await tester.tap(find.byKey(const ValueKey('huud-away-members')));
-    await tester.pumpAndSettle();
     await Scrollable.ensureVisible(
         tester.element(find.byKey(const ValueKey('huud-away-away'))),
         alignment: .5);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('huud-away-away')));
     expect(tapped, 'away');
+    expect(tester.getRect(find.byKey(const ValueKey('huud-away-members'))), footer);
+    expect(find.text('Away from The Huud'), findsOneWidget);
     expect(find.byKey(const ValueKey('huud-person-away')), findsNothing);
   });
 }

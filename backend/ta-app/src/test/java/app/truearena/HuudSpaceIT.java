@@ -833,7 +833,7 @@ class HuudSpaceIT {
         UUID host = person("Host"), friend = person("Friend");
         var huud = huuds.create(host, null, "public").block();
         huuds.joinByCode(friend, huud.code()).block();
-        assertThat(huud.background()).isNull();
+        assertThat(huud.background()).isEqualTo("blank");
         assertThat(huuds.update(host, huud.id(), null, null, "club").block().background()).isEqualTo("club");
         assertThat(huuds.view(huud.id(), friend).block().background()).isEqualTo("club");
         // Changing the name leaves the backdrop alone; "default" clears it.

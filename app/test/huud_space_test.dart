@@ -123,6 +123,7 @@ void main() {
     expect(tester.getSemantics(people), isSemantics(isSelected: true));
     expect(tester.getCenter(people).dx, lessThan(tester.getCenter(game).dx));
     expect(tester.getCenter(game).dx, lessThan(tester.getCenter(chat).dx));
+    expect(find.bySemanticsLabel('S Games'), findsOneWidget);
     expect(find.byKey(const ValueKey('huud-people-canvas')), findsOneWidget);
   });
 
@@ -451,8 +452,6 @@ void main() {
     expect(find.bySemanticsLabel(RegExp('.*Host, Here now.*')), findsOneWidget);
     expect(find.byKey(const ValueKey('huud-person-chidi')), findsNothing);
     await tester.ensureVisible(find.byKey(const ValueKey('huud-away-members')));
-    await tester.tap(find.byKey(const ValueKey('huud-away-members')));
-    await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('huud-away-chidi')), findsOneWidget);
   });
 
@@ -460,10 +459,8 @@ void main() {
     final calls=await pump(tester,const HuudSpaceScreen(id:'h1'),(r) async => _json(_huud(members:[_member('me','Eric',host:true),_member('ada','Ada',here:false)])),gameFirst:false);
     await tester.tap(find.byKey(const ValueKey('huud-tab-people')));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.byKey(const ValueKey('huud-away-members')),150,scrollable:find.descendant(of:find.byKey(const ValueKey('huud-lounge-scroll')),matching:find.byType(Scrollable)));
+
     await tester.ensureVisible(find.byKey(const ValueKey('huud-away-members')));
-    await tester.tap(find.byKey(const ValueKey('huud-away-members')));
-    await tester.pumpAndSettle();
     await Scrollable.ensureVisible(tester.element(find.byKey(const ValueKey('huud-away-ada'))),alignment:.5);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('huud-away-ada')));

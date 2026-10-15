@@ -1805,7 +1805,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
       ),
       child: Row(children: [
         tab(_Tab.people, '👥', 'People ${huud.members.length}'),
-        if (huud.live) tab(_Tab.play, '🎮', 'Game'),
+        if (huud.live) tab(_Tab.play, '🎮', 'S Games'),
         if (huud.youAreIn) tab(_Tab.chat, '💬', 'Chat', badge: _unread),
       ]),
     );
