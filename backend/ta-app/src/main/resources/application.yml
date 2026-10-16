@@ -50,6 +50,10 @@ truearena:
     brevo-api-key: ${BREVO_API_KEY:}
     sender-address: verify@playhuud.com
   auth:
+    # Dedicated store-review account only. All fields required; disabled by default.
+    reviewer-email: ${REVIEWER_EMAIL:}
+    reviewer-code-sha256: ${REVIEWER_CODE_SHA256:}
+    reviewer-expires-at: ${REVIEWER_EXPIRES_AT:}
     jwt-secret: ${JWT_SECRET:dev-only-change-me-0000000000000000000000000000}
     access-ttl: 15m
     refresh-ttl: 30d

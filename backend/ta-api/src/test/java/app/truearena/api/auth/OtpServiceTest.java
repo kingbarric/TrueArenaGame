@@ -23,4 +23,12 @@ class OtpServiceTest {
    when(redis.delete("otp:other@example.com")).thenReturn(Mono.just(1L));
    StepVerifier.create(service("local").verify("other@example.com","123456")).expectNext(true).verifyComplete();
  }
+ @Test void reservedReviewerDoesNotSendMailOrFallThroughToDevelopmentBypass() {
+   var env = new MockEnvironment().withProperty("spring.profiles.active", "prod")
+       .withProperty("truearena.auth.reviewer-email", "review@example.com");
+   var otp = new OtpService(redis, sms, email, "123456", "", env);
+   StepVerifier.create(otp.requestEmail("review@example.com")).verifyComplete();
+   StepVerifier.create(otp.verify("review@example.com", "123456")).expectNext(false).verifyComplete();
+   verifyNoInteractions(redis, sms, email);
+ }
 }
