@@ -46,7 +46,8 @@ asset hostname remains an operational improvement.
 - Renderer: 94 passed.
 - Contract examples: full JSON-schema validation passed.
 - Release archive: real bundle pack/unpack, malicious-path tests, Bash syntax and production Compose validation passed.
-- Full database and six-player WebSocket contract checks: recorded after completion below.
+- Full database and six-player WebSocket contract checks: 129 passed with zero failures/errors.
+- Deployment packaging preserves app-user read access even under private server staging permissions.
 
 ## Bootstrap and rollback
 

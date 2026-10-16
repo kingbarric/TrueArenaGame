@@ -1,5 +1,7 @@
 import importlib.util
 import io
+import os
+import stat
 import pathlib
 import tarfile
 import tempfile
@@ -33,7 +35,12 @@ class ReleaseBundleTest(unittest.TestCase):
     def test_valid_release_and_well_known_files(self):
         with tempfile.TemporaryDirectory() as d:
             target = pathlib.Path(d) / 'stage'
-            bundle.unpack(self.archive(d), target, SHA)
+            old_mask = os.umask(0o077)
+            try:
+                bundle.unpack(self.archive(d), target, SHA)
+            finally:
+                os.umask(old_mask)
+            self.assertEqual(stat.S_IMODE((target / 'backend.jar').stat().st_mode), 0o644)
             self.assertTrue((target / 'backend.jar').is_file())
             self.assertEqual((target / 'revision.txt').read_text(), SHA)
 

@@ -59,6 +59,7 @@ def unpack(archive_path, destination, revision):
             with archive.extractfile(m) as source, path.open('wb') as target:
                 import shutil
                 shutil.copyfileobj(source, target)
+            path.chmod(0o644)
         if (destination / 'revision.txt').read_text().strip() != revision:
             raise ValueError('Release revision mismatch')
         with zipfile.ZipFile(destination / 'backend.jar') as jar:

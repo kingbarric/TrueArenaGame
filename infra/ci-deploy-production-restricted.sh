@@ -19,6 +19,8 @@ python3 infra/release_bundle.py unpack "$context/bundle.tar.gz" "$context/releas
 release="$context/release"
 mkdir -p "$context/image/ta-app/target"
 cp "$release/backend.jar" "$context/image/ta-app/target/truearena-backend.jar"
+# The private staging umask must not make the jar unreadable to the image appuser.
+chmod 644 "$context/image/ta-app/target/truearena-backend.jar"
 cp "$release/Dockerfile.runtime" "$context/image/Dockerfile"
 image="truearena-backend:release-$revision"
 docker build -q --label "org.opencontainers.image.revision=$revision" -t "$image" "$context/image"
