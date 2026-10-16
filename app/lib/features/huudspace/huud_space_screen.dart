@@ -35,6 +35,15 @@ Future<void> openHuudSpace(BuildContext context, String id,
         {HuudSpace? initial}) =>
     Navigator.of(context).push(huudRoute(id, initial: initial));
 
+Future<void> requestPublicHuudSeat(BuildContext context, String id) async {
+  final raw = await AppScope.of(context)
+      .api
+      .post('/huud-spaces/$id/public-invite/play') as Map<String, dynamic>;
+  if (!context.mounted) return;
+  final huud = HuudSpace.fromJson(raw);
+  await openHuudSpace(context, id, initial: huud);
+}
+
 /// Named so a finished game can find its way back to the Huud (`leaveGame`).
 String huudRouteName(String id) => 'huud/$id';
 
@@ -510,9 +519,11 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     }
   }
 
-  Future<void> _askToPlay() =>
-      _update('play', (api) => api.post('/huud-spaces/${widget.id}/play'),
-          say: _huud?.youAreHost == true ? null : 'Asked to play ✋');
+  Future<void> _askToPlay() => _update(
+      'play',
+      (api) => api.post(
+          '/huud-spaces/${widget.id}/${_huud?.findingPlayers == true ? 'public-invite/play' : 'play'}'),
+      say: _huud?.youAreHost == true ? null : 'Asked to play ✋');
 
   Future<void> _askForMic() =>
       _update('mic', (api) => api.post('/huud-spaces/${widget.id}/mic'),
@@ -1528,6 +1539,21 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
 
   /// Outside the Huud: walk in, ask to come in, or wait for the answer.
   Widget _door(NeonColors n, HuudSpace huud) {
+    if (huud.playRequest == 'pending') {
+      return const HuudFriendlyState(
+          emoji: '⏳',
+          title: 'Waiting for the host',
+          message:
+              'You asked to play. The host will approve your place in the Huud and game.');
+    }
+    if (huud.findingPlayers) {
+      return HuudButton(
+          key: const ValueKey('huud-join-to-play'),
+          label: 'Join to play',
+          icon: Icons.sports_esports_rounded,
+          busy: _busy == 'play',
+          onPressed: _askToPlay);
+    }
     if (huud.joinRequest == 'pending') {
       return HuudFriendlyState(
         key: const ValueKey('huud-waiting'),
@@ -1961,7 +1987,15 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                 busy: _busy == 'open',
                 onPressed: () => _openGame(game),
               )
-            : note('Join the Huud to ask to play'),
+            : huud.playRequest == 'pending'
+                ? note('Waiting for the host to approve your seat')
+                : huud.findingPlayers
+                    ? HuudButton(
+                        label: 'Join to play',
+                        icon: Icons.sports_esports_rounded,
+                        busy: _busy == 'play',
+                        onPressed: _askToPlay)
+                    : note('Join the Huud to ask to play'),
       ];
     }
     final main = game.youArePlaying ||

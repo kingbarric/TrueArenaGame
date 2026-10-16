@@ -46,6 +46,7 @@ Map<String, dynamic> _huud({
   bool live = true,
   bool? owns,
   bool muted = false,
+  bool findingPlayers = false,
 }) {
   final people = members ??
       [
@@ -54,6 +55,7 @@ Map<String, dynamic> _huud({
         _member('chidi', 'Chidi'),
       ];
   return {
+    'findingPlayers': findingPlayers,
     'id': 'h1',
     'code': inIt ? 'KTB7QX' : null,
     'name': "Eric's Huud",
@@ -541,6 +543,25 @@ void main() {
     expect(find.text("Tobi's Chess"), findsOneWidget);
   });
 
+  testWidgets('Live Now shows Join to play beside an open game invitation', (tester) async {
+    final calls = await pump(tester, const Scaffold(body: LiveNowPanel()), (r) async {
+      if (r.url.path == '/api/v1/huud-spaces/live') return _json([{
+        'id': 'h2', 'name': "Ada's table", 'privacy': 'private',
+        'host': _member('ada', 'Ada', host: true), 'memberCount': 1,
+        'members': [_member('ada', 'Ada', host: true)], 'gameType': 'chess',
+        'gameStatus': 'waiting', 'findingPlayers': true, 'youAreIn': false,
+      }]);
+      if (r.url.path == '/api/v1/rooms/discoverable') return _json([]);
+      return http.Response('{}', 409);
+    }, settle: false);
+    expect(find.text('Chess · Join to play'), findsOneWidget);
+    expect(find.text('Join to play'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('live-enter-h2')));
+    await tester.pump();
+    expect(calls, contains('POST /api/v1/huud-spaces/h2/public-invite/play {}'));
+    expect(calls.where((c) => c.startsWith('POST /api/v1/huud-spaces/h2/join')), isEmpty);
+  });
+
   testWidgets('Live now with nobody on offers to make a Huud', (tester) async {
     await pump(tester, const Scaffold(body: LiveNowPanel()), (r) async => _json([]));
     expect(find.text("Nobody's live right now"), findsOneWidget);
@@ -863,6 +884,47 @@ void main() {
     await tester.pumpAndSettle();
     expect(calls.where((c) => c.contains('/bots {"name":"Cyber 1","difficulty":"medium"}')), hasLength(1));
     expect(find.textContaining('is playing'), findsNothing);
+  });
+
+  testWidgets('present players precede away players even when away players are seated', (tester) async {
+    await pump(tester, const HuudSpaceScreen(id: 'h1'),
+      (r) async => _json(_huud(members: [
+        _member('me', 'Eric', host: true),
+        _member('ada', 'Ada', here: false),
+        _member('chidi', 'Chidi'),
+      ], game: {
+        'roomId': 'room1', 'code': 'AB12CD', 'gameType': 'whot',
+        'status': 'waiting', 'players': 2, 'seats': 4,
+        'playerIds': ['me', 'ada'], 'table': [
+          {'userId': 'me', 'displayName': 'Eric'},
+          {'userId': 'ada', 'displayName': 'Ada'},
+        ],
+      })));
+    await tester.drag(find.byType(CustomScrollView).first, const Offset(0, -400));
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.byKey(const ValueKey('roster-chidi'))).dy,
+      lessThan(tester.getTopLeft(find.byKey(const ValueKey('roster-ada'))).dy));
+  });
+
+  testWidgets('Find players publishes an invitation for the selected game', (tester) async {
+    var finding = false;
+    final calls = await pump(tester, const HuudSpaceScreen(id: 'h1'), (r) async {
+      if (r.url.path.endsWith('/public-invite')) finding = r.method == 'POST';
+      return _json(_huud(privacy: 'public', findingPlayers: finding, game: {
+        'roomId': 'room1', 'code': 'AB12CD', 'gameType': 'chess',
+        'status': 'waiting', 'players': 1, 'seats': 2,
+        'table': [{'userId': 'me', 'displayName': 'Eric'}],
+      }));
+    });
+    await tester.ensureVisible(find.byKey(const ValueKey('roster-find-players')));
+    await tester.tap(find.byKey(const ValueKey('roster-find-players')));
+    await tester.pumpAndSettle();
+    expect(calls, contains('POST /api/v1/huud-spaces/h1/public-invite {}'));
+    expect(find.text('Stop invitation'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('roster-find-players')));
+    await tester.pumpAndSettle();
+    expect(calls, contains('DELETE /api/v1/huud-spaces/h1/public-invite'));
+    expect(find.text('Find players'), findsOneWidget);
   });
 
   testWidgets('Monopoly organiser can give up their seat and still open the game to start', (tester) async {

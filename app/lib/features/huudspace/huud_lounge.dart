@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import '../../core/app_state.dart';
+import '../../widgets/neon.dart';
 import '../slayhuud/slay_assets.dart';
 import '../slayhuud/slay_models.dart';
 import 'huud_space_models.dart';
@@ -38,6 +39,7 @@ class HuudLounge extends StatefulWidget {
 
 class _HuudLoungeState extends State<HuudLounge> {
   int _table = 0;
+  bool _grid = false;
 
   @override
   Widget build(BuildContext context) {
@@ -63,17 +65,21 @@ class _HuudLoungeState extends State<HuudLounge> {
           child: Row(children: [
             const Icon(Icons.weekend_rounded, color: Color(0xffb34a00)),
             const SizedBox(width: 10),
-            const Expanded(
+            Expanded(
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                  Text('The Huud',
+                  const Text('The Huud',
                       style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w900,
                           color: Color(0xff70300c))),
-                  Text('Drag to look around · pinch to zoom · tap a name',
-                      style: TextStyle(fontSize: 11, color: Color(0xff70300c))),
+                  Text(
+                      _grid
+                          ? 'Tap a profile to connect'
+                          : 'Drag to look around · pinch to zoom · tap a name',
+                      style: const TextStyle(
+                          fontSize: 11, color: Color(0xff70300c))),
                 ])),
             Text('${people.length} here',
                 style: const TextStyle(
@@ -82,7 +88,24 @@ class _HuudLoungeState extends State<HuudLounge> {
                     color: Color(0xffb34a00))),
           ]),
         ),
-        if (tables > 1)
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          child: SegmentedButton<bool>(
+            segments: const [
+              ButtonSegment(
+                  value: false,
+                  label: Text('3D'),
+                  icon: Icon(Icons.view_in_ar_rounded)),
+              ButtonSegment(
+                  value: true,
+                  label: Text('Grid'),
+                  icon: Icon(Icons.grid_view_rounded)),
+            ],
+            selected: {_grid},
+            onSelectionChanged: (value) => setState(() => _grid = value.single),
+          ),
+        ),
+        if (!_grid && tables > 1)
           Row(mainAxisAlignment: MainAxisAlignment.center, children: [
             IconButton(
                 key: const ValueKey('huud-table-previous'),
@@ -104,35 +127,124 @@ class _HuudLoungeState extends State<HuudLounge> {
                 icon: const Icon(Icons.chevron_right)),
           ]),
         Expanded(
-          child: Semantics(
-            key: const ValueKey('huud-scene-viewport'),
-            label: seated.isEmpty
-                ? 'Nobody is here right now. Nudge a friend to join you.'
-                : 'In The Huud: ${seated.map((p) => '${p.handle}${p.host ? ', Host' : ''}${widget.speaking.contains(p.userId) ? ', Talking now' : ''}').join('; ')}',
-            customSemanticsActions: {
-              for (final p in seated)
-                if (p.userId != widget.me)
-                  CustomSemanticsAction(label: 'Open ${p.handle}'): () =>
-                      widget.onPerson(p),
-            },
-            child: HuudLounge.debugScenePlaceholder
-                ? const ColoredBox(
-                    color: Color(0xfffff0df),
-                    child: Center(
-                        child: Icon(Icons.weekend_rounded,
-                            size: 70, color: Color(0xffff8a1f))))
-                : _LoungeScene(
-                    members: seated,
-                    roomNumber: table,
-                    onGame: widget.onGame,
-                    me: widget.me,
-                    speaking: widget.speaking,
-                    motion: widget.motion,
-                    onPerson: widget.onPerson),
-          ),
+          child: _grid
+              ? _PeopleGrid(
+                  members: people,
+                  me: widget.me,
+                  speaking: widget.speaking,
+                  onPerson: widget.onPerson)
+              : Semantics(
+                  key: const ValueKey('huud-scene-viewport'),
+                  label: seated.isEmpty
+                      ? 'Nobody is here right now. Nudge a friend to join you.'
+                      : 'In The Huud: ${seated.map((p) => '${p.handle}${p.host ? ', Host' : ''}${widget.speaking.contains(p.userId) ? ', Talking now' : ''}').join('; ')}',
+                  customSemanticsActions: {
+                    for (final p in seated)
+                      if (p.userId != widget.me)
+                        CustomSemanticsAction(label: 'Open ${p.handle}'): () =>
+                            widget.onPerson(p),
+                  },
+                  child: HuudLounge.debugScenePlaceholder
+                      ? const ColoredBox(
+                          color: Color(0xfffff0df),
+                          child: Center(
+                              child: Icon(Icons.weekend_rounded,
+                                  size: 70, color: Color(0xffff8a1f))))
+                      : _LoungeScene(
+                          members: seated,
+                          roomNumber: table,
+                          onGame: widget.onGame,
+                          me: widget.me,
+                          speaking: widget.speaking,
+                          motion: widget.motion,
+                          onPerson: widget.onPerson),
+                ),
         ),
         _AwayMembers(members: away, me: widget.me, onPerson: widget.onPerson),
       ]),
+    );
+  }
+}
+
+class _PeopleGrid extends StatelessWidget {
+  const _PeopleGrid(
+      {required this.members,
+      required this.me,
+      required this.speaking,
+      required this.onPerson});
+  final List<HuudMember> members;
+  final String? me;
+  final Set<String> speaking;
+  final ValueChanged<HuudMember> onPerson;
+
+  @override
+  Widget build(BuildContext context) {
+    if (members.isEmpty) {
+      return const Center(
+          child: Text('Nobody is here right now. Nudge a friend to join you.',
+              textAlign: TextAlign.center));
+    }
+    return GridView.builder(
+      key: const ValueKey('huud-people-grid'),
+      padding: const EdgeInsets.all(12),
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 160,
+          mainAxisExtent: 146,
+          crossAxisSpacing: 8,
+          mainAxisSpacing: 8),
+      itemCount: members.length,
+      itemBuilder: (context, index) {
+        final person = members[index];
+        final talking = speaking.contains(person.userId);
+        final status = talking
+            ? 'Talking now'
+            : person.host
+                ? 'Host · Here'
+                : 'Here';
+        return Semantics(
+          label: '${person.handle}, $status',
+          button: person.userId != me,
+          excludeSemantics: true,
+          child: Material(
+            color: Colors.white.withValues(alpha: .8),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(
+                    color: talking ? Colors.green : const Color(0xfff5c395),
+                    width: talking ? 2 : 1)),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              key: ValueKey('huud-grid-${person.userId}'),
+              onTap: person.userId == me ? null : () => onPerson(person),
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Avatar(person.name, size: 56, imageUrl: person.avatarUrl),
+                      const SizedBox(height: 8),
+                      Text(
+                          person.userId == me
+                              ? '${person.handle} (You)'
+                              : person.handle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xff70300c))),
+                      const SizedBox(height: 4),
+                      Text(status,
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: talking
+                                  ? Colors.green.shade800
+                                  : const Color(0xff70300c))),
+                    ]),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

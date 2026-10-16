@@ -141,6 +141,21 @@ public class HuudSpaceController {
         return CurrentUser.id().flatMap(user -> requests.unpick(user, id, userId));
     }
 
+    @PostMapping("/{id}/public-invite")
+    public Mono<HuudSpaceView> findPlayers(@PathVariable UUID id) {
+        return CurrentUser.id().flatMap(user -> huuds.findPlayers(user, id));
+    }
+
+    @DeleteMapping("/{id}/public-invite")
+    public Mono<HuudSpaceView> stopFindingPlayers(@PathVariable UUID id) {
+        return CurrentUser.id().flatMap(user -> huuds.stopFindingPlayers(user, id));
+    }
+
+    @PostMapping("/{id}/public-invite/play")
+    public Mono<HuudSpaceView> joinToPlay(@PathVariable UUID id) {
+        return CurrentUser.id().flatMap(user -> requests.askFromPublicInvite(user, id));
+    }
+
     @PostMapping("/{id}/play")
     @Operation(summary = "Ask the host for a seat in the game being set up")
     public Mono<HuudSpaceView> askToPlay(@PathVariable UUID id) {

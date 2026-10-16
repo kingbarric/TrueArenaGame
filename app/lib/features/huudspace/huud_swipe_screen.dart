@@ -295,6 +295,20 @@ class _WatchPageState extends State<_WatchPage> {
 
   Future<void> _enterRoom() async {
     final huud = _huud;
+    if (huud?.findingPlayers ?? widget.live.findingPlayers) {
+      if (_busy) return;
+      setState(() => _busy = true);
+      try {
+        await requestPublicHuudSeat(context, widget.live.id);
+      } on ApiException catch (e) {
+        if (mounted) huudSnack(context, e.message);
+      } catch (_) {
+        if (mounted) huudSnack(context, userErrorMessage);
+      } finally {
+        if (mounted) setState(() => _busy = false);
+      }
+      return;
+    }
     if (huud != null && (huud.youAreIn || huud.joinRequest == 'pending')) {
       await openHuudSpace(context, huud.id, initial: huud);
       return;
@@ -348,20 +362,25 @@ class _WatchPageState extends State<_WatchPage> {
     final status = game?.status ?? live.gameStatus;
     final inIt = huud?.youAreIn ?? live.youAreIn;
     final asked = huud?.joinRequest == 'pending';
-    final (label, icon) = inIt
-        ? ('Go in', Icons.arrow_forward_rounded)
-        : asked
-            ? ('Waiting for the host', Icons.hourglass_top_rounded)
-            : live.privacy == HuudPrivacy.private
-                ? ('Ask to join', Icons.front_hand_rounded)
-                : ('Join Huud', Icons.login_rounded);
+    final findingPlayers = huud?.findingPlayers ?? live.findingPlayers;
+    final (label, icon) = findingPlayers
+        ? ('Join to play', Icons.sports_esports_rounded)
+        : inIt
+            ? ('Go in', Icons.arrow_forward_rounded)
+            : asked
+                ? ('Waiting for the host', Icons.hourglass_top_rounded)
+                : live.privacy == HuudPrivacy.private
+                    ? ('Ask to join', Icons.front_hand_rounded)
+                    : ('Join Huud', Icons.login_rounded);
     final doing = cup != null
         ? cup.text
         : gameType == null
             ? 'Hanging out 💬'
             : switch (status) {
                 'playing' => 'Playing ${huudGameName(gameType)}',
-                'waiting' => 'Getting ready for ${huudGameName(gameType)}',
+                'waiting' => findingPlayers
+                    ? '${huudGameName(gameType)} · Join to play'
+                    : 'Getting ready for ${huudGameName(gameType)}',
                 _ => 'Just played ${huudGameName(gameType)}',
               };
 

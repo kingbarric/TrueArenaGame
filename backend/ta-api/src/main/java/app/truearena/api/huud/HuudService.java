@@ -135,21 +135,25 @@ public class HuudService {
      * For you: public ones. Never from someone either of you blocked.
      */
     private Flux<FeedItem> sharedHuuds(UUID viewer, Tab tab) {
+        String invitation = app.truearena.api.huudspace.HuudSpaceService.publicInviteSql("s");
+        String actor = "CASE WHEN " + invitation + " THEN s.owner_id ELSE s.created_by END";
+        String posted = "CASE WHEN " + invitation + " THEN s.public_invite_at ELSE s.shared_at END";
         String scope = tab == Tab.FRIENDS
                 ? "(s.created_by = :uid OR " + friendOf("s.created_by") + " OR me.user_id IS NOT NULL)"
-                : "s.privacy = 'public'";
-        return db.sql("SELECT s.id, s.name, s.privacy, s.feed_message, s.shared_at, s.created_by AS owner_id, "
+                : "(s.privacy = 'public' OR " + app.truearena.api.huudspace.HuudSpaceService.publicInviteSql("s") + ")";
+        return db.sql("SELECT s.id, s.name, s.privacy, s.feed_message, " + posted + " AS shared_at, " + actor + " AS owner_id, s.public_invite_seats, "
+                        + app.truearena.api.huudspace.HuudSpaceService.publicInviteSql("s") + " AS finding_players, "
                         + "u.display_name, u.username, u.avatar_url, r.game_type, r.status AS room_status, "
                         + "(SELECT count(*) FROM room_members rm WHERE rm.room_id = r.id) AS players, "
                         + "(SELECT count(*) FROM huud_space_members c WHERE c.huud_space_id = s.id AND c.live_at IS NOT NULL) AS people, "
                         + "(me.user_id IS NOT NULL) AS mine, " + friendOf("s.created_by") + " AS friend "
-                        + "FROM huud_spaces s JOIN users u ON u.id = s.created_by "
+                        + "FROM huud_spaces s JOIN users u ON u.id = " + actor + " "
                         + "LEFT JOIN rooms r ON r.id = s.current_room_id "
                         + "LEFT JOIN huud_space_members me ON me.huud_space_id = s.id AND me.user_id = :uid AND me.left_at IS NULL "
-                        + "WHERE s.status = 'active' AND s.live_since IS NOT NULL AND s.shared_at IS NOT NULL AND " + scope + " "
+                        + "WHERE s.status = 'active' AND s.live_since IS NOT NULL AND (s.shared_at IS NOT NULL OR " + app.truearena.api.huudspace.HuudSpaceService.publicInviteSql("s") + ") AND " + scope + " "
                         + "AND NOT EXISTS (SELECT 1 FROM huud_space_members x WHERE x.huud_space_id = s.id AND x.user_id = :uid AND x.removed) "
                         + "AND NOT " + app.truearena.api.huudspace.HuudSpaceService.blockedSql("s.created_by", ":uid") + " "
-                        + "ORDER BY s.shared_at DESC LIMIT " + PAGE)
+                        + "ORDER BY " + posted + " DESC LIMIT " + PAGE)
                 .bind("uid", viewer)
                 .map((row, meta) -> {
                     UUID owner = row.get("owner_id", UUID.class);
@@ -164,7 +168,7 @@ public class HuudService {
                     var huud = new HuudDtos.SharedHuud(row.get("id", UUID.class), row.get("name", String.class), privacy,
                             ((Number) row.get("people")).intValue(),
                             roomStatus == null ? null : app.truearena.api.huudspace.HuudSpaceService.gameStatus(roomStatus),
-                            ((Number) row.get("players")).intValue(), seatsFor(gameType), access);
+                            ((Number) row.get("players")).intValue(), Boolean.TRUE.equals(row.get("finding_players", Boolean.class)) ? ((Number) row.get("public_invite_seats")).intValue() : seatsFor(gameType), access, Boolean.TRUE.equals(row.get("finding_players", Boolean.class)));
                     var host = new PersonView(owner, row.get("display_name", String.class), row.get("username", String.class),
                             row.get("avatar_url", String.class), friend);
                     return new FeedItem("huud", "huud:" + huud.huudSpaceId(), instant(row.get("shared_at")), host,

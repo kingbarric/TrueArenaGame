@@ -105,7 +105,7 @@ public class HuudSpaceService {
     /** {@code ownerId}: running it now; {@code createdBy}: the owner. */
     record Space(UUID id, String code, String name, String privacy, UUID ownerId, UUID createdBy,
                  String status, UUID currentRoomId, String feedMessage, Instant sharedAt, String background,
-                 Instant liveSince, Instant createdAt, Instant endedAt, UUID championshipId) {
+                 Instant liveSince, Instant createdAt, Instant endedAt, UUID championshipId, boolean findingPlayers) {
         boolean active() {
             return "active".equals(status);
         }
@@ -553,7 +553,7 @@ public class HuudSpaceService {
     }
 
     Mono<Boolean> canSee(Space s, UUID user) {
-        if (s.createdBy().equals(user) || "public".equals(s.privacy())) return Mono.just(true);
+        if (s.createdBy().equals(user) || "public".equals(s.privacy()) || s.findingPlayers()) return Mono.just(true);
         if (!"friends".equals(s.privacy())) return Mono.just(false);
         return friends(user, s.createdBy());
     }
@@ -1026,6 +1026,37 @@ public class HuudSpaceService {
                 .bind("id", id).fetch().rowsUpdated().then();
     }
 
+    /** Availability is evaluated on every read, including stale invitation links. */
+    public static String publicInviteSql(String s) {
+        return "(" + s + ".status='active' AND " + s + ".live_since IS NOT NULL AND "
+                + s + ".public_invite_host_id=" + s + ".owner_id AND EXISTS(SELECT 1 FROM rooms pi WHERE pi.id="
+                + s + ".public_invite_room_id AND pi.id=" + s + ".current_room_id AND pi.status='lobby' "
+                + "AND (SELECT count(*) FROM room_members pim WHERE pim.room_id=pi.id)<" + s + ".public_invite_seats))";
+    }
+
+    public Mono<HuudSpaceView> findPlayers(UUID host, UUID id) {
+        return requireHost(id, host).filter(Space::live)
+                .switchIfEmpty(Mono.error(ApiExceptions.conflict("Go live before inviting players")))
+                .flatMap(s -> currentGame(s.currentRoomId())
+                        .filter(g -> "waiting".equals(g.status()) && g.players() < g.seats())
+                        .switchIfEmpty(Mono.error(ApiExceptions.conflict("Choose a game with a free seat first")))
+                        .flatMap(g -> db.sql("UPDATE huud_spaces SET public_invite_room_id=:room, "
+                                        + "public_invite_host_id=:host, public_invite_seats=:seats, "
+                                        + "public_invite_at=CASE WHEN public_invite_room_id=:room THEN public_invite_at ELSE now() END WHERE id=:id")
+                                .bind("room", g.roomId()).bind("host", host).bind("seats", g.seats()).bind("id", id)
+                                .fetch().rowsUpdated()))
+                .doOnSuccess(v -> notifyMembers(id, "game", host))
+                .then(view(id, host));
+    }
+
+    public Mono<HuudSpaceView> stopFindingPlayers(UUID host, UUID id) {
+        return requireHost(id, host)
+                .then(db.sql("UPDATE huud_spaces SET public_invite_room_id=NULL, public_invite_at=NULL WHERE id=:id")
+                        .bind("id", id).fetch().rowsUpdated())
+                .doOnSuccess(v -> notifyMembers(id, "game", host))
+                .then(view(id, host));
+    }
+
     // ------------------------------------------------------------ the feed
 
     /** Host only: put the Huud on the feed, with an optional line like "Who wants to play Whot?". */
@@ -1083,7 +1114,7 @@ public class HuudSpaceService {
                                     : !s.active() ? Mono.just(false)
                                     : blocked(viewer, s.createdBy()).flatMap(b -> b ? Mono.just(false)
                                             : canSee(s, viewer).flatMap(see -> see ? Mono.just(true)
-                                            : request(id, viewer, "join").map(r -> true).defaultIfEmpty(false)));
+                                            : request(id, viewer, "join").map(r -> true).switchIfEmpty(request(id, viewer, "play").map(r -> true)).defaultIfEmpty(false)));
                             return allowed.flatMap(ok -> {
                                 if (!ok) return Mono.error(ApiExceptions.forbidden("This Huud isn't open to you"));
                                 // Opening a Live Huud you belong to is walking into the hangout.
@@ -1118,7 +1149,7 @@ public class HuudSpaceService {
                                                     t.getT4().stream().filter(request -> host || (t.getT6() && "mic".equals(request.kind()))).toList(), now.sharedAt() != null, now.feedMessage(), t.getT5(),
                                                     now.background(), now.createdAt(), now.endedAt(),
                                                     now.live(), owner, me.map(Membership::muted).orElse(false),
-                                                    people.size(), liveCount, now.championshipId(), t.getT6());
+                                                    people.size(), liveCount, now.championshipId(), t.getT6(), now.findingPlayers());
                                         })));
                             });
                         }));
@@ -1137,13 +1168,13 @@ public class HuudSpaceService {
                         + CUP_COLUMNS + ", "
                         + "EXISTS(SELECT 1 FROM huud_space_members me WHERE me.huud_space_id=s.id AND me.user_id=:user AND me.left_at IS NULL) AS mine, "
                         + "(SELECT count(*) FROM huud_space_members c WHERE c.huud_space_id=s.id AND c.live_at IS NOT NULL) AS present, "
-                        + watchingSql("s.id") + " AS watching "
+                        + watchingSql("s.id") + " AS watching, " + publicInviteSql("s") + " AS finding_players "
                         + "FROM huud_spaces s LEFT JOIN rooms r ON r.id=s.current_room_id " + CUP_JOIN
                         + "WHERE s.status='active' AND s.live_since IS NOT NULL "
                         + "AND NOT EXISTS(SELECT 1 FROM huud_space_members x WHERE x.huud_space_id=s.id AND x.user_id=:user AND x.removed) "
                         + "AND NOT " + blockedSql("s.created_by", ":user") + " "
                         + "AND EXISTS(SELECT 1 FROM huud_space_members p WHERE p.huud_space_id=s.id AND p.live_at IS NOT NULL) "
-                        + "AND (s.privacy='public' "
+                        + "AND (s.privacy='public' OR " + publicInviteSql("s") + " "
                         + "  OR EXISTS(SELECT 1 FROM huud_space_members me WHERE me.huud_space_id=s.id AND me.user_id=:user AND me.left_at IS NULL) "
                         + "  OR EXISTS(SELECT 1 FROM huud_space_requests q WHERE q.huud_space_id=s.id AND q.user_id=:user AND q.kind='join' AND q.status='accepted') "
                         + "  OR (s.privacy='friends' AND EXISTS(SELECT 1 FROM friends f WHERE f.status='accepted' "
@@ -1156,14 +1187,14 @@ public class HuudSpaceService {
                         ((Number) r.get("present")).intValue(), ((Number) r.get("watching")).intValue(),
                         championshipLine(r.get("cup_name", String.class), r.get("cup_game", String.class),
                                 r.get("cup_status", String.class), r.get("cup_size", Integer.class),
-                                r.get("cup_round", Integer.class))})
+                                r.get("cup_round", Integer.class)), Boolean.TRUE.equals(r.get("finding_players", Boolean.class))})
                 .all()
                 .concatMap(row -> members((UUID) row[0]).collectList().map(people -> new LiveHuud(
                         (UUID) row[0], (String) row[1], (String) row[2],
                         people.stream().filter(Person::host).findFirst().orElse(null),
                         (int) row[7], people.stream().filter(Person::here).limit(6).toList(), (String) row[4],
                         row[5] == null ? null : gameStatus((String) row[5]), (boolean) row[6], (int) row[8],
-                        (Instant) row[3], (HuudSpaceDtos.ChampionshipLine) row[9])));
+                        (Instant) row[3], (HuudSpaceDtos.ChampionshipLine) row[9], (boolean) row[10])));
     }
 
     /**
@@ -1305,7 +1336,7 @@ public class HuudSpaceService {
     }
 
     Mono<Space> space(UUID id) {
-        return db.sql("SELECT * FROM huud_spaces WHERE id=:id").bind("id", id).fetch().one().map(HuudSpaceService::toSpace);
+        return db.sql("SELECT s.*, " + publicInviteSql("s") + " AS finding_players FROM huud_spaces s WHERE s.id=:id").bind("id", id).fetch().one().map(HuudSpaceService::toSpace);
     }
 
     Mono<Membership> membership(UUID id, UUID user) {
@@ -1333,7 +1364,7 @@ public class HuudSpaceService {
                 (String) row.get("status"), (UUID) row.get("current_room_id"),
                 (String) row.get("feed_message"), instant(row.get("shared_at")), (String) row.get("background"),
                 instant(row.get("live_since")), instant(row.get("created_at")), instant(row.get("ended_at")),
-                (UUID) row.get("championship_id"));
+                (UUID) row.get("championship_id"), Boolean.TRUE.equals(row.get("finding_players")));
     }
 
     static Instant instant(Object value) {

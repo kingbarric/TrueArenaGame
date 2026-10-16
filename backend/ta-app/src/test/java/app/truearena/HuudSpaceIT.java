@@ -643,6 +643,55 @@ class HuudSpaceIT {
         assertThat(huuds.joinByCode(friend, other.code()).block().youAreIn()).isTrue();
     }
 
+    @Test void publicInviteMakesPrivateGameDiscoverableWithoutAdmittingStrangers() {
+        UUID host = person("Invite host"), stranger = person("New player"), other = person("Other");
+        var huud = huuds.create(host, "Private chess", "private", "chess", null, false).block();
+        assertThatThrownBy(() -> huuds.findPlayers(stranger, huud.id()).block()).isInstanceOf(ResponseStatusException.class);
+        var invited = huuds.findPlayers(host, huud.id()).block();
+        assertThat(invited.findingPlayers()).isTrue();
+        assertThat(invited.privacy()).isEqualTo("private");
+        assertThat(huuds.live(stranger).collectList().block()).filteredOn(h -> h.id().equals(huud.id()))
+                .allMatch(h -> h.findingPlayers()).hasSize(1);
+        assertThat(feed.feed(stranger, HuudDtos.Tab.FOR_YOU, HuudDtos.Filter.ALL).collectList().block())
+                .filteredOn(i -> i.huud() != null && i.huud().huudSpaceId().equals(huud.id()))
+                .allMatch(i -> i.huud().findingPlayers()).hasSize(1);
+        var preview = huuds.view(huud.id(), stranger).block();
+        assertThat(preview.youAreIn()).isFalse();
+        assertThat(preview.code()).isNull();
+        var asked = requests.askFromPublicInvite(stranger, huud.id()).block();
+        assertThat(asked.youAreIn()).isFalse();
+        assertThat(asked.playRequest()).isEqualTo("pending");
+        assertThat(asked.currentGame().players()).isEqualTo(1);
+        assertThat(access.canTalk(stranger, huud.voiceRoom()).block()).isFalse();
+        requests.answer(host, huud.id(), stranger, "play", true).block();
+        var accepted = huuds.view(huud.id(), stranger).block();
+        assertThat(accepted.youAreIn()).isTrue();
+        assertThat(accepted.currentGame().youArePlaying()).isTrue();
+        assertThat(accepted.findingPlayers()).isFalse();
+        assertThatThrownBy(() -> requests.askFromPublicInvite(other, huud.id()).block()).isInstanceOf(ResponseStatusException.class);
+        assertThat(feed.feed(other, HuudDtos.Tab.FOR_YOU, HuudDtos.Filter.ALL).collectList().block())
+                .noneMatch(i -> i.huud() != null && i.huud().huudSpaceId().equals(huud.id()));
+    }
+
+    @Test void publicInviteClosesOnCancelStartAndGameChangeAndHonoursBlocks() {
+        UUID host = person("Host"), stranger = person("Stranger");
+        var huud = huuds.create(host, "Draughts", "private", "draughts", null, false).block();
+        huuds.findPlayers(host, huud.id()).block();
+        safety.block(host, stranger).block();
+        assertThatThrownBy(() -> requests.askFromPublicInvite(stranger, huud.id()).block()).isInstanceOf(ResponseStatusException.class);
+        assertThat(huuds.live(stranger).collectList().block()).noneMatch(h -> h.id().equals(huud.id()));
+        huuds.stopFindingPlayers(host, huud.id()).block();
+        assertThat(huuds.view(huud.id(), host).block().findingPlayers()).isFalse();
+        huuds.findPlayers(host, huud.id()).block();
+        huuds.clearGame(host, huud.id()).block();
+        huuds.addGame(host, huud.id(), "chess").block();
+        assertThat(huuds.view(huud.id(), host).block().findingPlayers()).isFalse();
+        huuds.findPlayers(host, huud.id()).block();
+        var room = huuds.view(huud.id(), host).block().currentGame().roomId();
+        db.sql("UPDATE rooms SET status='in_game' WHERE id=:id").bind("id", room).fetch().rowsUpdated().block();
+        assertThat(huuds.view(huud.id(), host).block().findingPlayers()).isFalse();
+    }
+
     @Test void aSharedHuudShowsOnTheFeedWithItsLineAndSeats() {
         UUID host = person("Eric"), friend = person("Friend"), stranger = person("Stranger");
         befriend(host, friend);

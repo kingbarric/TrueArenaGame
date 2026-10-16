@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:truearena/theme/neon_theme.dart';
 import 'package:truearena/features/huudspace/huud_lounge.dart';
 import 'package:truearena/features/huudspace/huud_space_models.dart';
 
 void main() {
-  setUp(() => HuudLounge.debugScenePlaceholder = true);
+  setUp(() {
+    HuudLounge.debugScenePlaceholder = true;
+    GoogleFonts.config.allowRuntimeFetching = false;
+  });
   tearDown(() => HuudLounge.debugScenePlaceholder = false);
   final members = List.generate(
       16,
@@ -19,6 +24,7 @@ void main() {
           {ValueChanged<HuudMember>? onPerson,
           Set<String> speaking = const {}}) =>
       tester.pumpWidget(MaterialApp(
+          theme: NeonTheme.light,
           home: Scaffold(
               body: Center(
                   child: SizedBox(
@@ -130,6 +136,34 @@ void main() {
     expect(tester.getRect(find.byKey(const ValueKey('huud-scene-viewport'))),
         scene);
     expect(list, findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('grid reaches everyone and switches back to the same 3D room',
+      (tester) async {
+    String? tapped;
+    await pumpRoom(tester, members,
+        onPerson: (p) => tapped = p.userId, speaking: {'1'});
+    await tester.tap(find.byKey(const ValueKey('huud-table-next')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Grid'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('huud-scene-viewport')), findsNothing);
+    expect(find.text('Talking now'), findsOneWidget);
+    final grid = find.byKey(const ValueKey('huud-people-grid'));
+    await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('huud-grid-15')), 200,
+        scrollable:
+            find.descendant(of: grid, matching: find.byType(Scrollable)));
+    await tester.ensureVisible(find.byKey(const ValueKey('huud-grid-15')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('huud-grid-15')));
+    await tester.pumpAndSettle();
+    expect(tapped, '15');
+    await tester.tap(find.text('3D'));
+    await tester.pumpAndSettle();
+    expect(find.text('Room 2 of 2'), findsOneWidget);
+    expect(find.byKey(const ValueKey('huud-scene-viewport')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

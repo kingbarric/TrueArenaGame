@@ -302,9 +302,9 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
                     ],
                     seats: _huud!.currentGame?.seats ?? _room.members.length,
                     tell: _huud!.currentGame?.tell ?? false,
-                    onChanged: () {
+                    onChanged: () async {
                       _socket?.send('HELLO', {'lastSeq': 0});
-                      _loadHuud();
+                      await _loadHuud();
                     },
                   ),
                 ),

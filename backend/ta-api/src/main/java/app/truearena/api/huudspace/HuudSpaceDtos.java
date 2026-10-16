@@ -141,13 +141,13 @@ public final class HuudSpaceDtos {
                                 List<PendingRequest> requests, boolean shared, String feedMessage,
                                 int watching, String background, Instant createdAt, Instant endedAt,
                                 boolean live, boolean youOwn, boolean muted, int memberCount, int liveCount,
-                                UUID championshipId, boolean youCanManageMic) {
+                                UUID championshipId, boolean youCanManageMic, boolean findingPlayers) {
     }
 
     /** A card on the Live tab. The code stays out: only people inside see it. */
     public record LiveHuud(UUID id, String name, String privacy, Person host, int memberCount,
                            List<Person> members, String gameType, String gameStatus,
-                           boolean youAreIn, int watching, Instant createdAt, ChampionshipLine championship) {
+                           boolean youAreIn, int watching, Instant createdAt, ChampionshipLine championship, boolean findingPlayers) {
     }
 
     // ------------------------------------------------------------ championships

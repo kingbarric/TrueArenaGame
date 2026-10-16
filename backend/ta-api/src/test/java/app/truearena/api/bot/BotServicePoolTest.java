@@ -109,6 +109,31 @@ class BotServicePoolTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void headToHeadGamesRejectAnotherBotWhenBothSeatsAreTaken() {
+        for (String game : java.util.List.of("chess", "draughts", "goosi")) {
+            UUID host = UUID.randomUUID(), roomId = UUID.randomUUID();
+            RoomRepository rooms = mock(RoomRepository.class);
+            RoomMemberRepository members = mock(RoomMemberRepository.class);
+            UserRepository users = mock(UserRepository.class);
+            RoomLock lock = mock(RoomLock.class);
+            GameBotAdapterFactory adapters = mock(GameBotAdapterFactory.class);
+            when(rooms.findById(roomId)).thenReturn(Mono.just(new RoomRow(roomId, "ABCDEF", null,
+                    host, "lobby", game, 0, null, false, Instant.now())));
+            when(members.countByRoomId(roomId)).thenReturn(Mono.just(2L));
+            when(adapters.create(game)).thenReturn(mock(GameBotAdapter.class));
+            when(lock.withLock(eq(roomId), any(), any())).thenAnswer(call ->
+                    ((Supplier<Mono<?>>) call.getArgument(2)).get());
+            StepVerifier.create(service(rooms, members, users, adapters, lock).addBot(roomId, host, "Cyber", "medium"))
+                    .expectErrorMatches(error -> error instanceof ResponseStatusException response
+                            && response.getStatusCode().value() == 409)
+                    .verify();
+            org.mockito.Mockito.verifyNoInteractions(users);
+            verify(members, org.mockito.Mockito.never()).save(any());
+        }
+    }
+
+    @Test
     void savedAgentInventoryIsEmpty() {
         BotService service = service(mock(RoomRepository.class), mock(RoomMemberRepository.class),
                 mock(UserRepository.class), mock(GameBotAdapterFactory.class), mock(RoomLock.class));

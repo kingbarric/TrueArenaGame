@@ -60,6 +60,9 @@ services:
       - ./livekit.prod.yaml:/etc/livekit.yaml:ro
 
   backend:
+    env_file:
+      - path: reviewer.env
+        required: false
     image: ${BACKEND_IMAGE:?set BACKEND_IMAGE, e.g. ghcr.io/<owner>/<repo>-backend:latest}
     restart: unless-stopped
     depends_on:
@@ -67,6 +70,8 @@ services:
       redis: { condition: service_healthy }
     environment:
       APP_ENV: production
+      SPRING_PROFILES_ACTIVE: production
+      LOGGING_LEVEL_APP_TRUEARENA: ${LOGGING_LEVEL_APP_TRUEARENA:-INFO}
       PORT: 8080
       R2DBC_URL: r2dbc:postgresql://postgres:5432/truearena
       JDBC_URL: jdbc:postgresql://postgres:5432/truearena
@@ -75,6 +80,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       LIVEKIT_URL: ${LIVEKIT_URL:?set LIVEKIT_URL, e.g. wss://your-domain}
+      LIVEKIT_API_URL: http://livekit:7880
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:?set LIVEKIT_API_KEY}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:?set LIVEKIT_API_SECRET}
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}

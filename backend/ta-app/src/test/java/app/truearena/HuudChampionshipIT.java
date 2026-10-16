@@ -98,6 +98,7 @@ class HuudChampionshipIT {
     @MockBean LiveKitRoomAdmin livekit;
 
     @BeforeEach void media() {
+        when(livekit.participantIds(anyString())).thenReturn(Mono.just(java.util.Set.of()));
         when(livekit.remove(anyString(), anyString())).thenReturn(Mono.empty());
         when(livekit.setCanPublish(anyString(), anyString(), anyBoolean())).thenReturn(Mono.empty());
     }

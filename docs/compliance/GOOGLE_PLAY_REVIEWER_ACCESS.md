@@ -1,6 +1,14 @@
 # Dedicated Google Play reviewer access
 
-Status: implementation prepared; not deployed or verified against production.
+Status: deployed 16 October 2026 as a focused patch to the running production artifact.
+API checks passed: code request, valid reusable login, wrong-code rejection, ordinary
+non-guest account, and backend health. In-app installation and full feature checks
+are pending Google Play first-use Terms acceptance in the emulator.
+
+The deployed reviewer credentials remain private on the operator machine and server.
+They have not been submitted to Google Play yet. Current configured expiry: 14 January
+2027. Google's sign-in form asks for reusable credentials that do not expire, so resolve
+that lifecycle requirement before submitting; do not claim non-expiring access.
 
 Store contact: kingbarric@yahoo.com. Intended audience: adults aged 18+.
 Guest access is restricted, so do not declare that every feature is available without login.
