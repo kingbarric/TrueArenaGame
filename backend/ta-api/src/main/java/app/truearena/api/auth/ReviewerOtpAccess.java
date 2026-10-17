@@ -12,7 +12,7 @@ import java.time.Instant;
 import java.util.HexFormat;
 import java.util.Locale;
 
-/** Optional, expiring access to one dedicated store-review account. Never a global OTP bypass. */
+/** Optional, explicitly configured access to one dedicated store-review account. Never a global OTP bypass. */
 final class ReviewerOtpAccess {
     private final ReactiveStringRedisTemplate redis;
     private final String email;
@@ -24,8 +24,10 @@ final class ReviewerOtpAccess {
         email = normalize(environment.getProperty("truearena.auth.reviewer-email", ""));
         hash = environment.getProperty("truearena.auth.reviewer-code-sha256", "");
         Instant expiry;
+        String configuredExpiry = environment.getProperty("truearena.auth.reviewer-expires-at", "").trim();
         try {
-            expiry = Instant.parse(environment.getProperty("truearena.auth.reviewer-expires-at", ""));
+            // Permanent access must be explicit; missing or malformed settings still fail closed.
+            expiry = configuredExpiry.equals("never") ? Instant.MAX : Instant.parse(configuredExpiry);
         } catch (java.time.format.DateTimeParseException e) {
             expiry = Instant.EPOCH;
         }
