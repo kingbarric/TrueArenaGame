@@ -4,7 +4,9 @@ import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Background piano for a game in progress.
+/// Background music for a game in progress.
+/// Monopoly uses a separately licensed cinematic track at a quieter volume;
+/// the existing piano playlists and volume for other games remain unchanged.
 ///
 /// The bank is 22 public-domain solo piano recordings in `assets/music/`
 /// (see `assets/music/CREDITS.md` for every source and licence). Each
@@ -47,6 +49,8 @@ class GameMusic {
     'grieg-butterfly-1906',
   ];
 
+  static const _cinematic = <String>['drums-of-the-deep'];
+
   static const _lively = <String>[
     'harlem-rag',
     'pine-apple-rag',
@@ -69,6 +73,7 @@ class GameMusic {
 
   static List<String> _playlist = const [];
   static int _position = 0;
+  static double _sessionVolume = _volume;
   static StreamSubscription<PlayerState>? _stateSub;
   static int _sessionToken = 0;
 
@@ -98,9 +103,13 @@ class GameMusic {
   /// Starts a session's music. [seed] makes the shuffle reproducible in
   /// tests; in the app it comes from the clock, which is what makes each
   /// session's running order different.
-  static Future<void> start(MusicMood mood, {int? seed}) async {
+  static Future<void> start(MusicMood mood,
+      {int? seed, bool autoplay = false}) async {
     await stop();
-    _playlist = _shuffleFor(mood, seed ?? DateTime.now().microsecondsSinceEpoch);
+    if (autoplay) _enabled = true;
+    _sessionVolume = mood == MusicMood.cinematic ? 0.14 : _volume;
+    _playlist =
+        _shuffleFor(mood, seed ?? DateTime.now().microsecondsSinceEpoch);
     _position = 0;
     if (!_enabled) return;
 
@@ -132,6 +141,7 @@ class GameMusic {
   /// then a couple from the other mood so a long game gets a change of
   /// scene without wandering off tone.
   static List<String> _shuffleFor(MusicMood mood, int seed) {
+    if (mood == MusicMood.cinematic) return List.of(_cinematic);
     // A plain LCG — the order only has to look arbitrary, and this keeps it
     // reproducible from [seed] without pulling in dart:math's generator.
     var state = seed & 0x7FFFFFFF;
@@ -167,7 +177,7 @@ class GameMusic {
     try {
       await _player.setAsset('assets/music/${_playlist[_position]}.m4a');
       if (token != _sessionToken) return;
-      await _player.setVolume(_volume);
+      await _player.setVolume(_sessionVolume);
       await _player.play();
     } catch (_) {
       // Couldn't load or play this one — the session goes quiet rather than
@@ -194,19 +204,26 @@ class GameMusic {
   }
 
   /// Exposed for tests and for the settings screen's description.
-  static int get trackCount => _calm.length + _lively.length;
+  static int get trackCount =>
+      _calm.length + _lively.length + _cinematic.length;
 
   /// The running order [start] would use, without touching the audio device
   /// — the part of this worth testing.
   @visibleForTesting
-  static List<String> debugPlaylist(MusicMood mood, {required int seed}) => _shuffleFor(mood, seed);
+  static List<String> debugPlaylist(MusicMood mood, {required int seed}) =>
+      _shuffleFor(mood, seed);
 
   @visibleForTesting
-  static MusicMood debugMoodOf(String slug) => _calm.contains(slug) ? MusicMood.calm : MusicMood.lively;
+  static MusicMood debugMoodOf(String slug) => _cinematic.contains(slug)
+      ? MusicMood.cinematic
+      : _calm.contains(slug)
+          ? MusicMood.calm
+          : MusicMood.lively;
 
   /// The mood a game should ask for. Kept here rather than on each screen so
   /// adding a game is one line in one place.
   static MusicMood moodFor(String gameType) => switch (gameType) {
+        'monopoly' => MusicMood.cinematic,
         'draughts' || 'chess' || 'goosi' || 'ludo' => MusicMood.calm,
         _ => MusicMood.lively,
       };
@@ -219,4 +236,7 @@ enum MusicMood {
 
   /// Ragtime and 1900s piano rolls — for the loud, chatty party games.
   lively,
+
+  /// Quiet cinematic percussion for Monopoly.
+  cinematic,
 }

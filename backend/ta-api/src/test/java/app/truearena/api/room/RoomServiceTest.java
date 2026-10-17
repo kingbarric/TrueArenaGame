@@ -766,6 +766,7 @@ class RoomServiceTest {
 
     @Test
     void discoverable_onlyListsStartedRoomsHostedByAnAcceptedFriend() {
+        when(rooms.findLiveSlayRooms()).thenReturn(Flux.empty());
         UUID self = UUID.randomUUID();
         UUID friend = UUID.randomUUID();
         UUID stranger = UUID.randomUUID();
@@ -824,6 +825,7 @@ class RoomServiceTest {
         RoomRuntime endedInDatabase = started(friend, false, true);
         RoomRuntime onNow = started(friend, false, true);
         when(runtimes.all()).thenReturn(List.of(over, everyoneLeft, endedInDatabase, onNow));
+        when(rooms.findLiveSlayRooms()).thenReturn(Flux.empty());
         when(rooms.findById(endedInDatabase.roomId)).thenReturn(Mono.just(
                 new RoomRow(endedInDatabase.roomId, "ABCDEF", null, friend, "ended", "ludo", 0, null, false, Instant.now())));
         when(rooms.findById(onNow.roomId)).thenReturn(Mono.just(playing(onNow.roomId, friend)));

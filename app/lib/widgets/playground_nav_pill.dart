@@ -4,14 +4,10 @@ import '../theme/huud_colors.dart';
 import '../theme/neon_theme.dart';
 import 'nav_art.dart';
 
-/// A floating rounded pill nav — the toy-box alternative to a traditional
-/// full-width bottom bar (see the "Playground Home" design pass). Lives
-/// only on `HomeScreen` for now: the rest of the app is still pushed via
-/// `Navigator`, not a persistent tab shell, so this is a decorative/
-/// shortcut rail rather than a real tab bar — a bigger, separate change if
-/// the whole app ever moves to one.
+/// The floating navigation shared by the app's main destinations.
 class PlaygroundNavPill extends StatelessWidget {
-  const PlaygroundNavPill({super.key, required this.items, required this.activeIndex});
+  const PlaygroundNavPill(
+      {super.key, required this.items, required this.activeIndex});
 
   final List<PlaygroundNavItem> items;
   final int activeIndex;
@@ -20,6 +16,7 @@ class PlaygroundNavPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final n = context.neon;
     final design = context.neonDesign.kind;
+    final lightSurface = _usesLightSurface(context);
     return Container(
       padding: const EdgeInsets.all(6),
       decoration: design == NeonDesignKind.supercar
@@ -29,27 +26,46 @@ class PlaygroundNavPill extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
                 side: BorderSide(color: n.gold, width: 1.5),
               ),
-              shadows: [BoxShadow(color: n.gold.withValues(alpha: 0.18), blurRadius: 18)],
+              shadows: [
+                BoxShadow(color: n.gold.withValues(alpha: 0.18), blurRadius: 18)
+              ],
             )
           : BoxDecoration(
-              color: n.panel,
+              color: lightSurface ? const Color(0xFFFFE0B8) : n.panel,
               borderRadius: BorderRadius.circular(999),
               border: Border.all(
-                  color: design == NeonDesignKind.nebula ? n.line : kCabinetInk,
+                  color: lightSurface
+                      ? const Color(0xFFF0B674)
+                      : design == NeonDesignKind.nebula
+                          ? n.line
+                          : kCabinetInk,
                   width: design == NeonDesignKind.nebula ? 1.2 : 2.5),
               boxShadow: design == NeonDesignKind.nebula
-                  ? [BoxShadow(color: n.brand.withValues(alpha: 0.25), blurRadius: 20)]
-                  : const [BoxShadow(color: Colors.black38, blurRadius: 0, offset: Offset(3, 4))],
+                  ? [
+                      BoxShadow(
+                          color: n.brand.withValues(alpha: 0.25),
+                          blurRadius: 20)
+                    ]
+                  : const [
+                      BoxShadow(
+                          color: Colors.black38,
+                          blurRadius: 0,
+                          offset: Offset(3, 4))
+                    ],
             ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        for (var i = 0; i < items.length; i++) _pillItem(context, n, items[i], i == activeIndex),
+        for (var i = 0; i < items.length; i++)
+          _pillItem(context, n, items[i], i == activeIndex),
       ]),
     );
   }
 
-  Widget _pillItem(BuildContext context, NeonColors n, PlaygroundNavItem item, bool active) {
+  Widget _pillItem(
+      BuildContext context, NeonColors n, PlaygroundNavItem item, bool active) {
     final design = context.neonDesign.kind;
-    if (item.label != null) return _labelledItem(context, n, item, active, design);
+    if (item.label != null) {
+      return _labelledItem(context, n, item, active, design);
+    }
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 3),
       child: InkWell(
@@ -61,41 +77,72 @@ class PlaygroundNavPill extends StatelessWidget {
           curve: Curves.easeOutBack,
           width: active ? 50 : 44,
           height: active ? 50 : 44,
-          transform: active ? Matrix4.translationValues(0.0, -4.0, 0.0) : Matrix4.identity(),
+          transform: active
+              ? Matrix4.translationValues(0.0, -4.0, 0.0)
+              : Matrix4.identity(),
           transformAlignment: Alignment.center,
           decoration: design == NeonDesignKind.supercar
               ? ShapeDecoration(
                   color: active ? n.gold : Colors.transparent,
                   shape: BeveledRectangleBorder(
                     borderRadius: BorderRadius.circular(13),
-                    side: BorderSide(color: active ? n.gold : n.line, width: active ? 1.4 : 0.8),
+                    side: BorderSide(
+                        color: active ? n.gold : n.line,
+                        width: active ? 1.4 : 0.8),
                   ),
                 )
               : BoxDecoration(
-                  shape: design == NeonDesignKind.nebula ? BoxShape.rectangle : BoxShape.circle,
-                  borderRadius: design == NeonDesignKind.nebula ? BorderRadius.circular(16) : null,
+                  shape: design == NeonDesignKind.nebula
+                      ? BoxShape.rectangle
+                      : BoxShape.circle,
+                  borderRadius: design == NeonDesignKind.nebula
+                      ? BorderRadius.circular(16)
+                      : null,
                   color: active ? n.gold : Colors.transparent,
                   border: active
                       ? Border.all(
-                          color: design == NeonDesignKind.nebula ? n.brand : kCabinetInk,
+                          color: design == NeonDesignKind.nebula
+                              ? n.brand
+                              : kCabinetInk,
                           width: design == NeonDesignKind.nebula ? 1.2 : 2.4)
                       : null,
                   boxShadow: active
                       ? (design == NeonDesignKind.nebula
-                          ? [BoxShadow(color: n.brand.withValues(alpha: 0.38), blurRadius: 14)]
-                          : const [BoxShadow(color: Colors.black38, blurRadius: 0, offset: Offset(1, 2))])
+                          ? [
+                              BoxShadow(
+                                  color: n.brand.withValues(alpha: 0.38),
+                                  blurRadius: 14)
+                            ]
+                          : const [
+                              BoxShadow(
+                                  color: Colors.black38,
+                                  blurRadius: 0,
+                                  offset: Offset(1, 2))
+                            ])
                       : null,
                 ),
           alignment: Alignment.center,
-          child: Icon(item.icon, size: active ? 21 : 19, color: active ? kCabinetInk : n.mute),
+          child: Icon(item.icon,
+              size: active ? 21 : 19,
+              color: active
+                  ? kCabinetInk
+                  : _usesLightSurface(context)
+                      ? const Color(0xFF51494B)
+                      : n.mute),
         ),
       ),
     );
   }
 }
 
-Widget _labelledItem(BuildContext context, NeonColors n, PlaygroundNavItem item, bool active, NeonDesignKind design) {
+bool _usesLightSurface(BuildContext context) =>
+    context.neonDesign.kind == NeonDesignKind.cabinet &&
+    Theme.of(context).brightness == Brightness.dark;
+
+Widget _labelledItem(BuildContext context, NeonColors n, PlaygroundNavItem item,
+    bool active, NeonDesignKind design) {
   final h = HuudColors.of(context);
+  final lightSurface = _usesLightSurface(context);
   final fill = design == NeonDesignKind.cabinet ? h.orange : n.gold;
   final art = item.art;
   return Semantics(
@@ -120,23 +167,44 @@ Widget _labelledItem(BuildContext context, NeonColors n, PlaygroundNavItem item,
             height: 32,
             decoration: BoxDecoration(
               // A picture tab glows softly; a symbol tab keeps the solid pill.
-              color: active ? (art != null ? h.orangeSoft : fill) : Colors.transparent,
+              color: active
+                  ? (lightSurface
+                      ? const Color(0xFFFFBF75)
+                      : art != null
+                          ? h.orangeSoft
+                          : fill)
+                  : Colors.transparent,
               borderRadius: BorderRadius.circular(16),
               border: active && art == null && design != NeonDesignKind.nebula
                   ? Border.all(color: kCabinetInk, width: 2)
                   : null,
-              boxShadow:
-                  active && art != null ? [BoxShadow(color: h.orange.withValues(alpha: 0.35), blurRadius: 12)] : null,
+              boxShadow: active && art != null && !lightSurface
+                  ? [
+                      BoxShadow(
+                          color: h.orange.withValues(alpha: 0.35),
+                          blurRadius: 12)
+                    ]
+                  : null,
             ),
             alignment: Alignment.center,
             child: art != null
-                ? NavArt(art, active: active, size: active ? 28 : 25)
+                ? NavArt(art,
+                    active: active,
+                    lightSurface: lightSurface,
+                    size: active ? 28 : 25)
                 : item.image != null
                     ? Opacity(
                         opacity: active ? 1 : 0.75,
-                        child: Image.asset(item.image!, width: active ? 26 : 24, height: active ? 26 : 24),
+                        child: Image.asset(item.image!,
+                            width: active ? 26 : 24, height: active ? 26 : 24),
                       )
-                    : Icon(item.icon, size: active ? 21 : 20, color: active ? kCabinetInk : n.mute),
+                    : Icon(item.icon,
+                        size: active ? 21 : 20,
+                        color: active
+                            ? kCabinetInk
+                            : lightSurface
+                                ? const Color(0xFF51494B)
+                                : n.mute),
           ),
           const SizedBox(height: 2),
           Text(item.label!,
@@ -146,14 +214,21 @@ Widget _labelledItem(BuildContext context, NeonColors n, PlaygroundNavItem item,
                   fontSize: 11,
                   height: 1.1,
                   fontWeight: active ? FontWeight.w900 : FontWeight.w700,
-                  color: active ? (art != null ? h.orangeText : n.ink) : n.mute)),
+                  color: lightSurface
+                      ? (active
+                          ? const Color(0xFF943A00)
+                          : const Color(0xFF51494B))
+                      : active
+                          ? (art != null ? h.orangeText : n.ink)
+                          : n.mute)),
           const SizedBox(height: 2),
           // The little underline under the tab you're on.
           AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             width: active && art != null ? 16 : 0,
             height: 3,
-            decoration: BoxDecoration(color: h.orange, borderRadius: BorderRadius.circular(2)),
+            decoration: BoxDecoration(
+                color: h.orange, borderRadius: BorderRadius.circular(2)),
           ),
         ]),
       ),
@@ -162,7 +237,12 @@ Widget _labelledItem(BuildContext context, NeonColors n, PlaygroundNavItem item,
 }
 
 class PlaygroundNavItem {
-  const PlaygroundNavItem({required this.icon, required this.onTap, this.label, this.image, this.art});
+  const PlaygroundNavItem(
+      {required this.icon,
+      required this.onTap,
+      this.label,
+      this.image,
+      this.art});
   final IconData icon;
 
   /// A picture to use instead of [icon].

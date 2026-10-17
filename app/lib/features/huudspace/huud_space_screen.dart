@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/api_client.dart';
@@ -23,43 +24,63 @@ import '../../widgets/mic_button.dart';
 import '../../widgets/swipe_to_switch.dart';
 import 'huud_space_models.dart';
 import 'huud_roster.dart';
-import 'whot_mode_sheet.dart';
+import 'huud_lounge.dart';
+import 'huud_avatar_motion.dart';
+import 'huud_game_modes.dart';
 import 'safety_sheet.dart';
 import '../../core/keep_awake.dart';
 import '../competitive/player_profile_screen.dart';
 
-Future<void> openHuudSpace(BuildContext context, String id, {HuudSpace? initial}) =>
+Future<void> openHuudSpace(BuildContext context, String id,
+        {HuudSpace? initial}) =>
     Navigator.of(context).push(huudRoute(id, initial: initial));
+
+Future<void> requestPublicHuudSeat(BuildContext context, String id) async {
+  final raw = await AppScope.of(context)
+      .api
+      .post('/huud-spaces/$id/public-invite/play') as Map<String, dynamic>;
+  if (!context.mounted) return;
+  final huud = HuudSpace.fromJson(raw);
+  await openHuudSpace(context, id, initial: huud);
+}
 
 /// Named so a finished game can find its way back to the Huud (`leaveGame`).
 String huudRouteName(String id) => 'huud/$id';
 
 Route<void> huudRoute(String id, {HuudSpace? initial}) => MaterialPageRoute(
-    settings: RouteSettings(name: huudRouteName(id)), builder: (_) => HuudSpaceScreen(id: id, initial: initial));
+    settings: RouteSettings(name: huudRouteName(id)),
+    builder: (_) => HuudSpaceScreen(id: id, initial: initial));
 
 /// Inside a Huud: who's here, what's being played, and the chat.
 ///
 /// Being in the Huud is listening, chatting and watching. A seat in the game
 /// and the mic are the host's to hand out — people ask, and the host says yes
-/// or no from the orange "asking" box at the top. Three tabs — **Play**,
-/// **Chat**, **People** — sit under the Huud's card; Back and End stay pinned.
+/// or no from the orange "asking" box at the top. Three tabs — **People**,
+/// **Game**, **Chat** — sit under the Huud's card; Back and End stay pinned.
 /// Everything refreshes by itself (server events, plus a gentle poll).
 class HuudSpaceScreen extends StatefulWidget {
-  const HuudSpaceScreen({super.key, required this.id, this.initial});
+  const HuudSpaceScreen(
+      {super.key,
+      required this.id,
+      this.initial,
+      this.previewSpeakingIds = const {}});
 
   final String id;
   final HuudSpace? initial;
+  @visibleForTesting
+  final Set<String> previewSpeakingIds;
 
   @override
   State<HuudSpaceScreen> createState() => _HuudSpaceScreenState();
 }
 
-enum _Tab { play, chat, people }
+enum _Tab { people, play, chat }
 
 class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
   late HuudSpace? _huud = widget.initial;
   String? _error;
-  _Tab _tab = _Tab.play;
+  _Tab _tab = _Tab.people;
+  final _avatarMotion = HuudAvatarMotion();
   String? _busy;
   Timer? _poll;
   StreamSubscription? _events;
@@ -103,6 +124,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     _events = app.huudSpaceEvents.listen(_onEvent);
     _poll = Timer.periodic(const Duration(seconds: 8), (_) => _load());
     HangoutState.instance.addListener(_onVoice);
+    _avatarMotion.addListener(_onAvatarMotion);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _load();
       _loadFriends();
@@ -113,7 +135,9 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     try {
       final rows = await AppScope.of(context).api.get('/friends') as List;
       if (mounted) {
-        setState(() => _friendIds = {for (final f in rows) (f as Map)['userId'].toString()});
+        setState(() => _friendIds = {
+              for (final f in rows) (f as Map)['userId'].toString()
+            });
       }
     } catch (_) {
       // Unknown — the card just offers "Add friend" and the server says if you already are.
@@ -122,41 +146,56 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
 
   Future<void> _addFriend(HuudMember person) async {
     try {
-      await AppScope.of(context).api.post('/friends/requests/user/${person.userId}');
+      await AppScope.of(context)
+          .api
+          .post('/friends/requests/user/${person.userId}');
       if (!mounted) return;
       setState(() => _friendAsked.add(person.userId));
       huudSnack(context, 'Friend request sent to ${person.handle} 🤝');
     } on ApiException catch (e) {
       if (!mounted) return;
-      if (e.message.contains('already friends')) setState(() => _friendIds = {..._friendIds, person.userId});
-      huudSnack(context, e.message.contains('already friends') ? "You're already friends 💛" : e.message);
+      if ((e.diagnosticMessage == 'ALREADY_FRIENDS' ||
+          e.diagnosticMessage.contains('already friends')))
+        setState(() => _friendIds = {..._friendIds, person.userId});
+      huudSnack(
+          context,
+          (e.diagnosticMessage == 'ALREADY_FRIENDS' ||
+                  e.diagnosticMessage.contains('already friends'))
+              ? "You're already friends 💛"
+              : e.message);
     } catch (_) {
-      if (mounted) huudSnack(context, "That didn't work — check your internet and try again.");
+      if (mounted) huudSnack(context, userErrorMessage);
     }
   }
 
   /// Three of your coins to them; they see a little splash wherever they are.
   Future<void> _giftCoins(HuudMember person) async {
     try {
-      final raw = await AppScope.of(context).api.post('/players/${person.userId}/gift') as Map;
+      final raw = await AppScope.of(context)
+          .api
+          .post('/players/${person.userId}/gift') as Map;
       if (!mounted) return;
-      huudSnack(context, '🎁 You gave ${person.handle} ${raw['coins'] ?? 3} coins! You have ${raw['balance']} left.');
+      huudSnack(context,
+          '🎁 You gave ${person.handle} ${raw['coins'] ?? 3} coins! You have ${raw['balance']} left.');
     } on ApiException catch (e) {
       if (mounted) huudSnack(context, e.message);
     } catch (_) {
-      if (mounted) huudSnack(context, "That didn't work — check your internet and try again.");
+      if (mounted) huudSnack(context, userErrorMessage);
     }
   }
 
   @override
   void dispose() {
+    _avatarMotion.removeListener(_onAvatarMotion);
+    _avatarMotion.dispose();
     _events?.cancel();
     _poll?.cancel();
     HangoutState.instance.removeListener(_onVoice);
     KeepAwake.release(this);
     final huud = _huud;
     if (huud != null) {
-      if (HangoutState.instance.foreground?.startsWith(huud.voiceRoom) ?? false) {
+      if (HangoutState.instance.foreground?.startsWith(huud.voiceRoom) ??
+          false) {
         HangoutState.instance.foreground = null;
       }
       // Back out of the Huud: its voice goes quiet too. (Games on top keep it.)
@@ -168,7 +207,14 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     super.dispose();
   }
 
+  void _onAvatarMotion() {
+    if (mounted) setState(() {});
+  }
+
   void _onVoice() {
+    final huud = _huud;
+    _avatarMotion.attach(
+        huud != null && _inThisVoice(huud) ? HangoutState.instance.room : null);
     if (mounted) setState(() {});
   }
 
@@ -185,7 +231,8 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         final message = HuudChatMessage.fromJson(raw);
         final reading = _tab == _Tab.chat && _chatAtBottom;
         setState(() {
-          if (_chat != null && !_chat!.any((m) => m.id == message.id)) _chat = [..._chat!, message];
+          if (_chat != null && !_chat!.any((m) => m.id == message.id))
+            _chat = [..._chat!, message];
           if (!reading && message.from.userId != _me) _unread++;
         });
         if (reading || message.from.userId == _me) _toBottom();
@@ -199,10 +246,13 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         Navigator.of(context).maybePop();
         return;
       case 'live':
-        if (data['by'] != _me) huudSnack(context, '${_huud?.name ?? 'The Huud'} is Live! 🔴');
+        if (data['by'] != _me)
+          huudSnack(context, '${_huud?.name ?? 'The Huud'} is Live! 🔴');
       case 'live-ended':
-        if (data['by'] != _me) huudSnack(context, 'Live has ended — the Huud is still here.');
-        if (_huud != null && _inThisVoice(_huud!)) HangoutState.instance.leave?.call();
+        if (data['by'] != _me)
+          huudSnack(context, 'Live has ended — the Huud is still here.');
+        if (_huud != null && _inThisVoice(_huud!))
+          HangoutState.instance.leave?.call();
       case 'championship-match':
         huudSnack(context, 'Your championship match is ready — tap Play 🏆');
       case 'accepted-join':
@@ -212,7 +262,8 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
       case 'accepted-play':
         huudSnack(context, "You're in the game! 🎮");
       case 'declined-play':
-        huudSnack(context, 'Not this time — you can watch and ask again next game.');
+        huudSnack(
+            context, 'Not this time — you can watch and ask again next game.');
       case 'accepted-mic':
         huudSnack(context, 'You can talk now! Tap the mic 🎙️');
       case 'mic-off':
@@ -220,12 +271,16 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
       case 'picked':
         huudSnack(context, "You're playing! Open the game 🎮");
       case 'unpicked':
-        huudSnack(context, 'The host changed the players — you can watch this one.');
+        huudSnack(
+            context, 'The host changed the players — you can watch this one.');
       case 'request':
-        if (_huud?.youAreHost == true) huudSnack(context, 'Someone is asking you something ✋');
+        if (_huud?.youAreHost == true)
+          huudSnack(context, 'Someone is asking you something ✋');
       case 'host':
         if (data['by'] != _me) {
-          _load(thenSay: (huud) => huud.youAreHost ? "You're the host now! 👑" : null);
+          _load(
+              thenSay: (huud) =>
+                  huud.youAreHost ? "You're the host now! 👑" : null);
           return;
         }
     }
@@ -236,8 +291,11 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     try {
       final api = AppScope.of(context).api;
       // Looking in without joining counts as watching while the screen is open.
-      final watching =
-          _huud != null && _huud!.active && _huud!.live && !_huud!.youAreIn && _huud!.joinRequest != 'pending';
+      final watching = _huud != null &&
+          _huud!.active &&
+          _huud!.live &&
+          !_huud!.youAreIn &&
+          _huud!.joinRequest != 'pending';
       final raw = (watching
           ? await api.post('/huud-spaces/${widget.id}/watch')
           : await api.get('/huud-spaces/${widget.id}')) as Map<String, dynamic>;
@@ -252,33 +310,45 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
       if (!mounted) return;
       _syncVoice(huud);
       // Asked for the mic earlier? Remember it, so a yes switches the mic on.
-      if (!huud.youCanSpeak) HuudVoice.instance.asked = huud.micRequest == 'pending';
+      if (!huud.youCanSpeak)
+        HuudVoice.instance.asked = huud.micRequest == 'pending';
       if (huud.youAreIn && _chat == null) _loadChat();
-      if (!watching && huud.active && huud.live && !huud.youAreIn && huud.joinRequest != 'pending') {
-        api.post('/huud-spaces/${widget.id}/watch').catchError((Object _) => null);
+      if (!watching &&
+          huud.active &&
+          huud.live &&
+          !huud.youAreIn &&
+          huud.joinRequest != 'pending') {
+        api
+            .post('/huud-spaces/${widget.id}/watch')
+            .catchError((Object _) => null);
       }
-      if (!huud.youAreIn && _tab == _Tab.chat) setState(() => _tab = _Tab.play);
+      if (!huud.youAreIn && _tab == _Tab.chat)
+        setState(() => _tab = _Tab.people);
       // No Play tab while offline.
-      if (!huud.live && _tab == _Tab.play) setState(() => _tab = huud.youAreIn ? _Tab.chat : _Tab.people);
+      if (!huud.live && _tab == _Tab.play)
+        setState(() => _tab = huud.youAreIn ? _Tab.chat : _Tab.people);
       final say = thenSay?.call(huud);
       if (say != null) huudSnack(context, say);
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted && _huud == null) setState(() => _error = "We couldn't reach PlayHuud. Pull down to try again.");
+      if (mounted && _huud == null) setState(() => _error = userErrorMessage);
     }
   }
 
   Future<void> _loadCup(HuudSpace huud) async {
     try {
-      final raw = await AppScope.of(context).api.get('/huud-spaces/${huud.id}/championship') as Map;
+      final raw = await AppScope.of(context)
+          .api
+          .get('/huud-spaces/${huud.id}/championship') as Map;
       if (!mounted) return;
       final cup = HuudCup.fromJson(raw.cast<String, dynamic>());
       final heard = _matchVoice;
       setState(() {
         _cup = cup;
         // The match you were listening to is over: back to the championship lobby.
-        if (heard != null && cup.liveMatchWithVoice(heard) == null) _matchVoice = null;
+        if (heard != null && cup.liveMatchWithVoice(heard) == null)
+          _matchVoice = null;
       });
       if (heard != null && _matchVoice == null && _inThisVoice(huud)) {
         huudSnack(context, 'Match over — back to the Championship Lobby 🎙️');
@@ -292,9 +362,14 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
 
   Future<void> _loadChat() async {
     try {
-      final raw = await AppScope.of(context).api.get('/huud-spaces/${widget.id}/messages') as List;
+      final raw = await AppScope.of(context)
+          .api
+          .get('/huud-spaces/${widget.id}/messages') as List;
       if (!mounted) return;
-      setState(() => _chat = [for (final m in raw) HuudChatMessage.fromJson((m as Map).cast<String, dynamic>())]);
+      setState(() => _chat = [
+            for (final m in raw)
+              HuudChatMessage.fromJson((m as Map).cast<String, dynamic>())
+          ]);
     } catch (_) {
       if (mounted && _chat == null) setState(() => _chat = const []);
     }
@@ -302,13 +377,15 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
 
   /// Looking at the newest messages (or the box isn't up yet). The box's list
   /// runs newest-first from the bottom, so "at the bottom" is offset 0.
-  bool get _chatAtBottom => !_chatScroll.hasClients || _chatScroll.position.pixels < 48;
+  bool get _chatAtBottom =>
+      !_chatScroll.hasClients || _chatScroll.position.pixels < 48;
 
   void _toBottom() {
     if (_tab != _Tab.chat && !(_huud != null && !_huud!.live)) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_chatScroll.hasClients) {
-        _chatScroll.animateTo(0, duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+        _chatScroll.animateTo(0,
+            duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
       }
     });
   }
@@ -331,7 +408,8 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
 
   // ---------------------------------------------------------------- actions
 
-  Future<T?> _run<T>(String what, Future<T> Function(ApiClient api) call) async {
+  Future<T?> _run<T>(
+      String what, Future<T> Function(ApiClient api) call) async {
     if (_busy != null) return null;
     setState(() => _busy = what);
     try {
@@ -339,7 +417,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     } on ApiException catch (e) {
       if (mounted) huudSnack(context, e.message);
     } catch (_) {
-      if (mounted) huudSnack(context, "That didn't work — check your internet and try again.");
+      if (mounted) huudSnack(context, userErrorMessage);
     } finally {
       if (mounted) setState(() => _busy = null);
     }
@@ -347,7 +425,9 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
   }
 
   /// Run something that answers with the Huud, and show the answer.
-  Future<void> _update(String what, Future<dynamic> Function(ApiClient api) call, {String? say}) async {
+  Future<void> _update(
+      String what, Future<dynamic> Function(ApiClient api) call,
+      {String? say}) async {
     final raw = await _run(what, call);
     if (raw is Map && mounted) {
       setState(() => _huud = HuudSpace.fromJson(raw.cast<String, dynamic>()));
@@ -356,12 +436,16 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
   }
 
   Future<void> _join() async {
-    final raw = await _run('join', (api) => api.post('/huud-spaces/${widget.id}/join'));
+    final raw =
+        await _run('join', (api) => api.post('/huud-spaces/${widget.id}/join'));
     if (raw is Map && mounted) {
       final huud = HuudSpace.fromJson(raw.cast<String, dynamic>());
       setState(() => _huud = huud);
       huudSnack(
-          context, huud.youAreIn ? 'You joined! Say hi 👋' : "Asked the host — you'll get in when they say yes ⏳");
+          context,
+          huud.youAreIn
+              ? 'You joined! Say hi 👋'
+              : "Asked the host — you'll get in when they say yes ⏳");
       if (huud.youAreIn) _loadChat();
     }
   }
@@ -370,16 +454,20 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     final app = AppScope.of(context);
     await app.rememberActiveRoom(room.id);
     if (!mounted) return;
-    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => JoinedRoomScreen(room: room)));
+    await Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => JoinedRoomScreen(room: room)));
     if (mounted) _load();
   }
 
   Future<void> _pickGame(String gameType) async {
-    // Whot is two games: ask which before anyone is seated.
-    final mode = gameType == 'whot' ? await askWhotMode(context) : null;
-    if (gameType == 'whot' && (mode == null || !mounted)) return;
-    final raw = await _run('game-$gameType',
-        (api) => api.post('/huud-spaces/${widget.id}/game', {'gameType': gameType, if (mode != null) 'mode': mode}));
+    // Whot and SlayHuud are two games each: ask which before anyone is seated.
+    final asks = huudGameHasModes(gameType);
+    final mode = asks ? await askHuudGameMode(context, gameType) : null;
+    if (asks && (mode == null || !mounted)) return;
+    final raw = await _run(
+        'game-$gameType',
+        (api) => api.post('/huud-spaces/${widget.id}/game',
+            {'gameType': gameType, if (mode != null) 'mode': mode}));
     if (raw is Map && mounted) {
       await _enterRoom(RoomView.fromJson(raw.cast<String, dynamic>()));
     }
@@ -388,7 +476,9 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
   /// The same game, the same players back in their seats.
   Future<void> _rematch(String gameType) async {
     final raw = await _run(
-        'rematch', (api) => api.post('/huud-spaces/${widget.id}/game', {'gameType': gameType, 'rematch': true}));
+        'rematch',
+        (api) => api.post('/huud-spaces/${widget.id}/game',
+            {'gameType': gameType, 'rematch': true}));
     if (raw is Map && mounted) {
       await _enterRoom(RoomView.fromJson(raw.cast<String, dynamic>()));
     }
@@ -400,11 +490,16 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     setState(() => _busy = 'open');
     final app = AppScope.of(context);
     try {
-      if (!game.youArePlaying) {
+      if (!game.youArePlaying &&
+          !(game.gameType == 'monopoly' &&
+              game.waiting &&
+              _huud?.youAreHost == true)) {
         setState(() => _busy = null);
         await Navigator.of(context).push(MaterialPageRoute(
             builder: (_) => SpectateScreen(
-                roomId: game.roomId, gameType: game.gameType, title: 'Watching ${huudGameName(game.gameType)}')));
+                roomId: game.roomId,
+                gameType: game.gameType,
+                title: 'Watching ${huudGameName(game.gameType)}')));
         return;
       }
       final raw = await app.api.get('/rooms/${game.roomId}');
@@ -419,30 +514,45 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     } catch (_) {
       if (mounted) {
         setState(() => _busy = null);
-        huudSnack(context, "That didn't work — check your internet and try again.");
+        huudSnack(context, userErrorMessage);
       }
     }
   }
 
-  Future<void> _askToPlay() => _update('play', (api) => api.post('/huud-spaces/${widget.id}/play'),
+  Future<void> _askToPlay() => _update(
+      'play',
+      (api) => api.post(
+          '/huud-spaces/${widget.id}/${_huud?.findingPlayers == true ? 'public-invite/play' : 'play'}'),
       say: _huud?.youAreHost == true ? null : 'Asked to play ✋');
 
   Future<void> _askForMic() =>
-      _update('mic', (api) => api.post('/huud-spaces/${widget.id}/mic'), say: 'Asked the host for the mic ✋');
+      _update('mic', (api) => api.post('/huud-spaces/${widget.id}/mic'),
+          say: 'Asked the host for the mic ✋');
 
-  Future<void> _answer(HuudRequest request, bool yes) => _update('answer-${request.from.userId}-${request.kind}',
-      (api) => api.post('/huud-spaces/${widget.id}/requests/${request.from.userId}/${request.kind}', {'accept': yes}));
+  Future<void> _answer(HuudRequest request, bool yes) => _update(
+      'answer-${request.from.userId}-${request.kind}',
+      (api) => api.post(
+          '/huud-spaces/${widget.id}/requests/${request.from.userId}/${request.kind}',
+          {'accept': yes}));
 
-  Future<void> _setMic(HuudMember person, bool allowed) => _update('mic-${person.userId}',
-      (api) => api.post('/huud-spaces/${widget.id}/members/${person.userId}/mic', {'allowed': allowed}),
-      say: allowed ? '${person.handle} can talk now 🎙️' : "${person.handle}'s mic is off");
+  Future<void> _setMic(HuudMember person, bool allowed) => _update(
+      'mic-${person.userId}',
+      (api) => api.post(
+          '/huud-spaces/${widget.id}/members/${person.userId}/mic',
+          {'allowed': allowed}),
+      say: allowed
+          ? '${person.handle} can talk now 🎙️'
+          : "${person.handle}'s mic is off");
 
-  Future<void> _putGameAway() => _update('clear', (api) => api.delete('/huud-spaces/${widget.id}/game'));
+  Future<void> _putGameAway() =>
+      _update('clear', (api) => api.delete('/huud-spaces/${widget.id}/game'));
 
   // ---------------------------------------------------------------- championship
 
   /// Run a championship call that answers with the championship, and show it.
-  Future<void> _cupCall(String what, Future<dynamic> Function(ApiClient api) call, {String? say}) async {
+  Future<void> _cupCall(
+      String what, Future<dynamic> Function(ApiClient api) call,
+      {String? say}) async {
     final raw = await _run(what, call);
     if (raw is Map && mounted) {
       setState(() => _cup = HuudCup.fromJson(raw.cast<String, dynamic>()));
@@ -462,22 +572,45 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     _load();
   }
 
-  Future<void> _register() =>
-      _cupCall('cup-register', (api) => api.post('/huud-spaces/${widget.id}/championship/register'),
-          say: "You're registered! 🏆");
+  Future<void> _register() => _cupCall('cup-register',
+      (api) => api.post('/huud-spaces/${widget.id}/championship/register'),
+      say: "You're registered! 🏆");
 
-  Future<void> _withdraw() =>
-      _cupCall('cup-withdraw', (api) => api.delete('/huud-spaces/${widget.id}/championship/register'));
+  Future<void> _withdraw() => _cupCall('cup-withdraw',
+      (api) => api.delete('/huud-spaces/${widget.id}/championship/register'));
+
+  /// Host: start before the set time with whoever has registered.
+  Future<void> _startCupNow() async {
+    final cup = _cup;
+    if (cup == null) return;
+    final count = cup.players.length;
+    final byes = cupField(count) - count;
+    final ok = await confirmHuud(context,
+        emoji: '🏁',
+        title: 'Start now with $count players?',
+        message: byes == 0
+            ? 'Registration closes and the bracket is drawn.'
+            : 'Registration closes and the bracket is drawn. '
+                '${byes == 1 ? 'One player gets' : '$byes players get'} a bye into the next round.',
+        yes: 'Start now');
+    if (!ok || !mounted) return;
+    await _cupCall('cup-start-now',
+        (api) => api.post('/huud-spaces/${widget.id}/championship/start'),
+        say: "It's on! 🏆");
+  }
 
   Future<void> _freePlace(CupEntrant player) async {
     final ok = await confirmHuud(context,
         emoji: '🪑',
         title: "Free ${player.handle}'s place?",
-        message: '${player.handle} will be taken off the championship. They can register again.',
+        message:
+            '${player.handle} will be taken off the championship. They can register again.',
         yes: 'Free the place');
     if (!ok || !mounted) return;
     await _cupCall(
-        'cup-remove', (api) => api.delete('/huud-spaces/${widget.id}/championship/players/${player.userId}'));
+        'cup-remove',
+        (api) => api.delete(
+            '/huud-spaces/${widget.id}/championship/players/${player.userId}'));
   }
 
   /// Back to hanging out — calling off registration, or putting a finished bracket away.
@@ -491,7 +624,8 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
           danger: true);
       if (!ok || !mounted) return;
     }
-    await _update('cup-close', (api) => api.delete('/huud-spaces/${widget.id}/championship'),
+    await _update('cup-close',
+        (api) => api.delete('/huud-spaces/${widget.id}/championship'),
         say: callOff ? 'Championship called off' : 'Back to hanging out 🛋️');
     if (mounted) setState(() => _cup = null);
   }
@@ -504,8 +638,10 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         yes: 'End the match',
         danger: true);
     if (!ok || !mounted) return;
-    await _cupCall('match-${match.id}',
-        (api) => api.post('/huud-spaces/${widget.id}/championship/matches/${match.id}/end-both-absent'));
+    await _cupCall(
+        'match-${match.id}',
+        (api) => api.post(
+            '/huud-spaces/${widget.id}/championship/matches/${match.id}/end-both-absent'));
   }
 
   /// Open a match: play it if it's yours, watch it otherwise. Its voice comes
@@ -522,7 +658,12 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     _syncVoice(huud);
     final Widget screen;
     if (!playing) {
-      screen = SpectateScreen(roomId: roomId, gameType: cup.gameType, title: cupMatchTitle(cup, match));
+      screen = SpectateScreen(
+          roomId: roomId,
+          gameType: cup.gameType,
+          title: cupMatchTitle(cup, match),
+          heading: cup.name,
+          subheading: match.roundName);
     } else if (cup.gameType == 'chess') {
       screen = ChessGameScreen(
         socket: GameSocket.connect(app.api, roomId),
@@ -533,6 +674,8 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
             if (p.avatarUrl != null) p.userId: p.avatarUrl!
         },
         championship: true,
+        title: cup.name,
+        subtitle: match.roundName,
       );
     } else {
       screen = DraughtsGameScreen(
@@ -540,6 +683,8 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         selfId: me,
         nicknames: cup.nicknames,
         championshipId: cup.id,
+        title: cup.name,
+        subtitle: match.roundName,
       );
     }
     await Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
@@ -559,19 +704,22 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
   }
 
   /// In one of this Huud's voice rooms right now.
-  bool _inThisVoice(HuudSpace huud) => HangoutState.instance.roomName?.startsWith(huud.voiceRoom) ?? false;
+  bool _inThisVoice(HuudSpace huud) =>
+      HangoutState.instance.roomName?.startsWith(huud.voiceRoom) ?? false;
 
   /// In a Live Huud you're always connected — muted until you tap the mic.
   void _syncVoice(HuudSpace huud) {
     final voice = HuudVoice.instance;
     final room = _voiceRoom(huud);
-    if (ModalRoute.of(context)?.isCurrent ?? true) HangoutState.instance.foreground = room;
+    if (ModalRoute.of(context)?.isCurrent ?? true)
+      HangoutState.instance.foreground = room;
     final belong = huud.active && huud.live && huud.youAreIn;
     if (belong && !voice.isIn(room) && !voice.isConnecting(room)) {
       final api = AppScope.of(context).api;
       void open() => _backToHuud(huud.id);
       if (voice.isInHuud(huud.id)) {
-        voice.switchTo(api: api, roomName: room, title: huud.name, openHuud: open);
+        voice.switchTo(
+            api: api, roomName: room, title: huud.name, openHuud: open);
       } else {
         voice.join(api: api, roomName: room, title: huud.name, openHuud: open);
       }
@@ -581,7 +729,8 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
   }
 
   void _backToHuud(String id) {
-    final nav = HangoutState.instance.navigationKey.currentState ?? Navigator.maybeOf(context);
+    final nav = HangoutState.instance.navigationKey.currentState ??
+        Navigator.maybeOf(context);
     nav?.popUntil((r) => r.settings.name == huudRouteName(id) || r.isFirst);
   }
 
@@ -590,7 +739,10 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
   MicState _micState(HuudSpace huud) {
     final voice = HuudVoice.instance;
     final canSpeak = huud.youCanSpeak || voice.canSpeak;
-    if (!canSpeak) return huud.micRequest == 'pending' || voice.asked ? MicState.asked : MicState.locked;
+    if (!canSpeak)
+      return huud.micRequest == 'pending' || voice.asked
+          ? MicState.asked
+          : MicState.locked;
     if (!voice.isIn(_voiceRoom(huud))) return MicState.muted;
     return HangoutState.instance.muted ? MicState.muted : MicState.live;
   }
@@ -604,7 +756,8 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         await _askForMic();
         return;
       case MicState.asked:
-        huudSnack(context, 'You asked for the mic — wait for ${huud.host?.handle ?? 'the host'} ✋');
+        huudSnack(context,
+            'You asked for the mic — wait for ${huud.host?.handle ?? 'the host'} ✋');
         return;
       case MicState.muted:
       case MicState.live:
@@ -630,12 +783,13 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
       case MicResult.ok:
         break;
       case MicResult.noPermission:
-        huudSnack(context, 'Turn on the microphone for PlayHuud in your phone settings.');
+        huudSnack(context,
+            'Turn on the microphone for PlayHuud in your phone settings.');
       case MicResult.noMic:
         huudSnack(context, "The host hasn't handed you the mic yet ✋");
       case MicResult.notConnected:
       case MicResult.failed:
-        huudSnack(context, "Your mic didn't switch on — try again in a moment.");
+        huudSnack(context, userErrorMessage);
         _syncVoice(huud);
     }
     setState(() {});
@@ -643,12 +797,14 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
 
   Future<void> _invite(HuudSpace huud) async {
     if (huud.youAreHost) {
-      await showHuudSheet<void>(context, builder: (_) => _InviteSheet(huud: huud));
+      await showHuudSheet<void>(context,
+          builder: (_) => _InviteSheet(huud: huud));
       if (mounted) _load();
       return;
     }
     // Members: share the link (the host also invites friends and posts it).
-    await showHuudSheet<void>(context, builder: (_) => _ShareLinkSheet(huud: huud));
+    await showHuudSheet<void>(context,
+        builder: (_) => _ShareLinkSheet(huud: huud));
   }
 
   Future<void> _copyCode(String code) async {
@@ -662,7 +818,8 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
       context,
       emoji: '👋',
       title: 'Leave ${huud.name}?',
-      message: "You won't be a member any more and you'll stop getting notifications from it. "
+      message:
+          "You won't be a member any more and you'll stop getting notifications from it. "
           'You can join again with the code.',
       yes: 'Yes, leave the Huud',
       danger: true,
@@ -685,7 +842,8 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
       context,
       emoji: '🌙',
       title: 'End Live?',
-      message: 'The Huud stays — its members, chat and code are kept. The game and voice stop for now.',
+      message:
+          'The Huud stays — its members, chat and code are kept. The game and voice stop for now.',
       yes: 'End Live',
       danger: true,
     );
@@ -707,126 +865,182 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     }
   }
 
-  Future<void> _toggleMute(HuudSpace huud) =>
-      _update('mute', (api) => api.post('/huud-spaces/${widget.id}/mute', {'muted': !huud.muted}),
-          say: huud.muted ? "You'll hear when it goes Live 🔔" : 'Muted — no notifications from this Huud 🔕');
+  Future<void> _toggleMute(HuudSpace huud) => _update(
+      'mute',
+      (api) =>
+          api.post('/huud-spaces/${widget.id}/mute', {'muted': !huud.muted}),
+      say: huud.muted
+          ? "You'll hear when it goes Live 🔔"
+          : 'Muted — no notifications from this Huud 🔕');
 
   Future<void> _removePerson(HuudMember person) async {
     final ok = await confirmHuud(
       context,
       emoji: '🚪',
       title: 'Take ${person.handle} out?',
-      message: "${person.handle} will leave this Huud and won't be able to come back in.",
+      message:
+          "${person.handle} will leave this Huud and won't be able to come back in.",
       yes: 'Take them out',
       danger: true,
     );
     if (!ok || !mounted) return;
-    await _run('remove', (api) => api.post('/huud-spaces/${widget.id}/members/${person.userId}/remove'));
+    await _run(
+        'remove',
+        (api) => api
+            .post('/huud-spaces/${widget.id}/members/${person.userId}/remove'));
     _load();
   }
 
-  Future<void> _personSheet(HuudSpace huud, HuudMember person) => showHuudSheet<void>(
+  Future<void> _nudge(HuudMember person) async {
+    final result = await _run('nudge-${person.userId}', (api) async {
+      await api
+          .post('/huud-spaces/${widget.id}/members/${person.userId}/nudge');
+      return true;
+    });
+    if (result == true && mounted)
+      huudSnack(context, 'Invitation sent to ${person.handle}.');
+  }
+
+  Future<void> _personSheet(HuudSpace huud, HuudMember person) =>
+      showHuudSheet<void>(
         context,
         builder: (sheet) {
           final n = sheet.neon;
           return SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                Center(child: Avatar(person.name, size: 64, imageUrl: person.avatarUrl)),
-                const SizedBox(height: 8),
-                // Their card: the one place the full name shows.
-                Text(person.name,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: n.ink)),
-                if (person.username.isNotEmpty && person.username != person.name)
-                  Text('@${person.username}',
-                      textAlign: TextAlign.center, style: TextStyle(fontSize: 15, color: n.mute)),
-                const SizedBox(height: 16),
-                Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-                  HuudRoundAction(
-                    key: const ValueKey('person-profile'),
-                    icon: Icons.person_rounded,
-                    label: 'Profile',
-                    onTap: person.username.isEmpty
-                        ? null
-                        : () {
-                            Navigator.of(sheet).pop();
-                            Navigator.of(context).push(
-                                MaterialPageRoute(builder: (_) => PlayerProfileScreen(username: person.username)));
-                          },
-                  ),
-                  if (_friendIds.contains(person.userId))
-                    const HuudRoundAction(
-                        key: ValueKey('person-friends'),
-                        icon: Icons.favorite_rounded,
-                        label: 'Friends',
-                        active: true,
-                        onTap: null)
-                  else if (_friendAsked.contains(person.userId))
-                    const HuudRoundAction(
-                        key: ValueKey('person-friend-asked'),
-                        icon: Icons.hourglass_top_rounded,
-                        label: 'Asked',
-                        onTap: null)
-                  else
-                    HuudRoundAction(
-                      key: const ValueKey('person-add-friend'),
-                      icon: Icons.person_add_alt_1_rounded,
-                      label: 'Add friend',
-                      onTap: () {
+              child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                        child: Avatar(person.name,
+                            size: 64, imageUrl: person.avatarUrl)),
+                    const SizedBox(height: 8),
+                    // Their card: the one place the full name shows.
+                    Text(person.name,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                            color: n.ink)),
+                    if (person.username.isNotEmpty &&
+                        person.username != person.name)
+                      Text('@${person.username}',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 15, color: n.mute)),
+                    const SizedBox(height: 16),
+                    Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          HuudRoundAction(
+                            key: const ValueKey('person-profile'),
+                            icon: Icons.person_rounded,
+                            label: 'Profile',
+                            onTap: person.username.isEmpty
+                                ? null
+                                : () {
+                                    Navigator.of(sheet).pop();
+                                    Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                            builder: (_) => PlayerProfileScreen(
+                                                username: person.username)));
+                                  },
+                          ),
+                          if (_friendIds.contains(person.userId))
+                            const HuudRoundAction(
+                                key: ValueKey('person-friends'),
+                                icon: Icons.favorite_rounded,
+                                label: 'Friends',
+                                active: true,
+                                onTap: null)
+                          else if (_friendAsked.contains(person.userId))
+                            const HuudRoundAction(
+                                key: ValueKey('person-friend-asked'),
+                                icon: Icons.hourglass_top_rounded,
+                                label: 'Asked',
+                                onTap: null)
+                          else
+                            HuudRoundAction(
+                              key: const ValueKey('person-add-friend'),
+                              icon: Icons.person_add_alt_1_rounded,
+                              label: 'Add friend',
+                              onTap: () {
+                                Navigator.of(sheet).pop();
+                                _addFriend(person);
+                              },
+                            ),
+                          HuudRoundAction(
+                            key: const ValueKey('person-gift'),
+                            icon: Icons.card_giftcard_rounded,
+                            label: 'Gift 3 coins',
+                            onTap: () {
+                              Navigator.of(sheet).pop();
+                              _giftCoins(person);
+                            },
+                          ),
+                        ]),
+                    const SizedBox(height: 16),
+                    if (!person.here &&
+                        huud.live &&
+                        huud.youAreIn &&
+                        person.userId != _me) ...[
+                      HuudButton(
+                        key: const ValueKey('person-nudge'),
+                        label: 'Nudge them back',
+                        icon: Icons.notifications_active_rounded,
+                        expand: true,
+                        onPressed: () {
+                          Navigator.of(sheet).pop();
+                          _nudge(person);
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                    ],
+                    if (huud.youAreHost) ...[
+                      HuudButton(
+                        key: const ValueKey('person-mic'),
+                        label: person.canSpeak
+                            ? 'Turn their mic off'
+                            : 'Let them talk',
+                        icon: person.canSpeak
+                            ? Icons.mic_off_rounded
+                            : Icons.mic_rounded,
+                        expand: true,
+                        onPressed: () {
+                          Navigator.of(sheet).pop();
+                          _setMic(person, !person.canSpeak);
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      HuudButton(
+                        key: const ValueKey('person-remove'),
+                        label: 'Take out of the Huud',
+                        icon: Icons.logout_rounded,
+                        kind: HuudButtonKind.plain,
+                        expand: true,
+                        onPressed: () {
+                          Navigator.of(sheet).pop();
+                          _removePerson(person);
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                    ],
+                    HuudButton(
+                      key: const ValueKey('person-safety'),
+                      label: 'Report or block',
+                      icon: Icons.flag_rounded,
+                      kind: HuudButtonKind.danger,
+                      expand: true,
+                      onPressed: () {
                         Navigator.of(sheet).pop();
-                        _addFriend(person);
+                        showSafetySheet(context,
+                            userId: person.userId,
+                            name: person.name,
+                            huudSpaceId: widget.id);
                       },
                     ),
-                  HuudRoundAction(
-                    key: const ValueKey('person-gift'),
-                    icon: Icons.card_giftcard_rounded,
-                    label: 'Gift 3 coins',
-                    onTap: () {
-                      Navigator.of(sheet).pop();
-                      _giftCoins(person);
-                    },
-                  ),
-                ]),
-                const SizedBox(height: 16),
-                if (huud.youAreHost) ...[
-                  HuudButton(
-                    key: const ValueKey('person-mic'),
-                    label: person.canSpeak ? 'Turn their mic off' : 'Let them talk',
-                    icon: person.canSpeak ? Icons.mic_off_rounded : Icons.mic_rounded,
-                    expand: true,
-                    onPressed: () {
-                      Navigator.of(sheet).pop();
-                      _setMic(person, !person.canSpeak);
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                  HuudButton(
-                    key: const ValueKey('person-remove'),
-                    label: 'Take out of the Huud',
-                    icon: Icons.logout_rounded,
-                    kind: HuudButtonKind.plain,
-                    expand: true,
-                    onPressed: () {
-                      Navigator.of(sheet).pop();
-                      _removePerson(person);
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                ],
-                HuudButton(
-                  key: const ValueKey('person-safety'),
-                  label: 'Report or block',
-                  icon: Icons.flag_rounded,
-                  kind: HuudButtonKind.danger,
-                  expand: true,
-                  onPressed: () {
-                    Navigator.of(sheet).pop();
-                    showSafetySheet(context, userId: person.userId, name: person.name, huudSpaceId: widget.id);
-                  },
-                ),
-              ]),
+                  ]),
             ),
           );
         },
@@ -834,7 +1048,8 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
 
   Future<void> _settings(HuudSpace huud) async {
     if (!huud.active || !huud.youOwn) return;
-    final changed = await showHuudSheet<Object>(context, builder: (_) => _SettingsSheet(huud: huud));
+    final changed = await showHuudSheet<Object>(context,
+        builder: (_) => _SettingsSheet(huud: huud));
     if (!mounted) return;
     if (changed is HuudSpace) setState(() => _huud = changed);
     if (changed == _SettingsSheet.deleted) {
@@ -850,18 +1065,22 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     if (text.isEmpty || _busy == 'send') return;
     setState(() => _busy = 'send');
     try {
-      final raw = await AppScope.of(context).api.post('/huud-spaces/${widget.id}/messages', {'body': text});
+      final raw = await AppScope.of(context)
+          .api
+          .post('/huud-spaces/${widget.id}/messages', {'body': text});
       if (!mounted) return;
-      final message = HuudChatMessage.fromJson((raw as Map).cast<String, dynamic>());
+      final message =
+          HuudChatMessage.fromJson((raw as Map).cast<String, dynamic>());
       _say.clear();
       setState(() {
-        if (!(_chat ?? const []).any((m) => m.id == message.id)) _chat = [...?_chat, message];
+        if (!(_chat ?? const []).any((m) => m.id == message.id))
+          _chat = [...?_chat, message];
       });
       _toBottom();
     } on ApiException catch (e) {
       if (mounted) huudSnack(context, e.message);
     } catch (_) {
-      if (mounted) huudSnack(context, "That didn't send — try again.");
+      if (mounted) huudSnack(context, userErrorMessage);
     } finally {
       if (mounted) setState(() => _busy = null);
     }
@@ -896,13 +1115,17 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                           sliver: SliverToBoxAdapter(
                             child: _error == null
                                 ? const Padding(
-                                    padding: EdgeInsets.all(48), child: Center(child: CircularProgressIndicator()))
+                                    padding: EdgeInsets.all(48),
+                                    child: Center(
+                                        child: CircularProgressIndicator()))
                                 : HuudFriendlyState(
                                     emoji: '🙈',
                                     title: "We can't open this Huud",
-                                    message: _error!,
+                                    message: userErrorMessage,
                                     action: HuudButton(
-                                        label: 'Try again', icon: Icons.refresh_rounded, onPressed: () => _load()),
+                                        label: 'Try again',
+                                        icon: Icons.refresh_rounded,
+                                        onPressed: () => _load()),
                                   ),
                           ),
                         )
@@ -915,39 +1138,44 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                           _box(HuudFriendlyState(
                             emoji: '👋',
                             title: 'This Huud was deleted',
-                            message: 'Its owner deleted it. Thanks for hanging out!',
+                            message:
+                                'Its owner deleted it. Thanks for hanging out!',
                             action: HuudButton(
                                 label: 'Back',
                                 icon: Icons.arrow_back_rounded,
-                                onPressed: () => Navigator.of(context).maybePop()),
+                                onPressed: () =>
+                                    Navigator.of(context).maybePop()),
                           ))
                         else if (!huud.youAreIn) ...[
                           _box(_door(n, huud)),
                           // Watching: see the game and who's here; chat and voice are for people inside.
                           if (huud.live) ...[
                             SliverPadding(
-                              padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
+                              padding:
+                                  const EdgeInsets.fromLTRB(16, 12, 16, 10),
                               sliver: SliverToBoxAdapter(child: _tabs(n, huud)),
                             ),
-                            ...(_tab == _Tab.people ? _people(n, huud) : _play(n, huud)),
+                            ...(_tab == _Tab.people
+                                ? _people(n, huud)
+                                : _play(n, huud)),
                           ],
                         ] else if (!huud.live) ...[
                           // Offline: the Huud is still home — chat and people, and Go Live for the owner.
                           _box(_offline(n, huud)),
-                          if (huud.youAreHost && huud.requests.isNotEmpty) _box(_asking(n, huud), top: 16),
+                          if (huud.youAreHost && huud.requests.isNotEmpty)
+                            _box(_asking(n, huud), top: 16),
                           SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
+                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
                             sliver: SliverToBoxAdapter(child: _tabs(n, huud)),
                           ),
-                          ...(_tab == _Tab.people ? _people(n, huud) : _chatSlivers(n, huud)),
+                          ...(_tab == _Tab.people
+                              ? _people(n, huud)
+                              : _chatSlivers(n, huud)),
                         ] else ...[
+                          if (huud.youAreHost && huud.requests.isNotEmpty)
+                            _box(_asking(n, huud), top: 16),
                           SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(8, 18, 8, 0),
-                            sliver: SliverToBoxAdapter(child: _actions(huud)),
-                          ),
-                          if (huud.youAreHost && huud.requests.isNotEmpty) _box(_asking(n, huud), top: 16),
-                          SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
+                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
                             sliver: SliverToBoxAdapter(child: _tabs(n, huud)),
                           ),
                           ...switch (_tab) {
@@ -956,18 +1184,16 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                             _Tab.people => _people(n, huud),
                           },
                         ],
-                        const SliverToBoxAdapter(child: SizedBox(height: 120)),
+                        if (_tab != _Tab.people || !huud.live)
+                          SliverToBoxAdapter(
+                              child: SizedBox(
+                                  height: _tab == _Tab.play ? 120 : 16)),
                       ],
                     ],
                   ),
                 ),
               ),
             ),
-            if (huud != null &&
-                huud.youAreIn &&
-                huud.active &&
-                (_tab == _Tab.chat || (!huud.live && _tab != _Tab.people)))
-              _chatInput(n),
           ]),
         ),
       ),
@@ -977,7 +1203,11 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
   /// The tabs on show, left to right — the same ones [_tabs] draws.
   List<_Tab> _shownTabs(HuudSpace huud) {
     if (!huud.active || (!huud.youAreIn && !huud.live)) return const [];
-    return [if (huud.live) _Tab.play, if (huud.youAreIn) _Tab.chat, _Tab.people];
+    return [
+      _Tab.people,
+      if (huud.live) _Tab.play,
+      if (huud.youAreIn) _Tab.chat
+    ];
   }
 
   /// A sideways swipe: the next tab ([step] 1) or the one before (-1), if there is one.
@@ -993,7 +1223,9 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
       );
 
   Widget _topBar(NeonColors n, HuudSpace? huud) {
-    Widget circle(IconData icon, String label, VoidCallback onTap, {Key? key}) => Semantics(
+    Widget circle(IconData icon, String label, VoidCallback onTap,
+            {Key? key}) =>
+        Semantics(
           button: true,
           label: label,
           excludeSemantics: true,
@@ -1003,8 +1235,10 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
             child: Container(
               width: 48,
               height: 48,
-              decoration:
-                  BoxDecoration(color: n.panel, shape: BoxShape.circle, border: Border.all(color: n.line, width: 1.4)),
+              decoration: BoxDecoration(
+                  color: n.panel,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: n.line, width: 1.4)),
               child: Icon(icon, color: n.ink),
             ),
           ),
@@ -1014,24 +1248,33 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
       child: Row(children: [
-        circle(Icons.arrow_back_rounded, 'Back', () => Navigator.of(context).maybePop(),
+        circle(Icons.arrow_back_rounded, 'Back',
+            () => Navigator.of(context).maybePop(),
             key: const ValueKey('huud-back')),
         const SizedBox(width: 12),
         Image.asset(huudIcon, width: 30, height: 30),
         const SizedBox(width: 8),
-        Expanded(child: Text('Huud', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: n.ink))),
+        Expanded(
+            child: Text('Huud',
+                style: TextStyle(
+                    fontSize: 20, fontWeight: FontWeight.w900, color: n.ink))),
         if (owning)
           Padding(
             padding: const EdgeInsets.only(left: 8),
-            child: circle(Icons.tune_rounded, 'Huud settings', () => _settings(huud),
+            child: circle(
+                Icons.tune_rounded, 'Huud settings', () => _settings(huud),
                 key: const ValueKey('huud-settings')),
           ),
         // Members: the bell — mute or unmute "it's Live" notifications.
         if (huud != null && huud.active && huud.youAreIn && !huud.youOwn)
           Padding(
             padding: const EdgeInsets.only(left: 8),
-            child: circle(huud.muted ? Icons.notifications_off_rounded : Icons.notifications_active_rounded,
-                huud.muted ? 'Unmute notifications' : 'Mute notifications', () => _toggleMute(huud),
+            child: circle(
+                huud.muted
+                    ? Icons.notifications_off_rounded
+                    : Icons.notifications_active_rounded,
+                huud.muted ? 'Unmute notifications' : 'Mute notifications',
+                () => _toggleMute(huud),
                 key: const ValueKey('huud-mute')),
           ),
         if (owning && live)
@@ -1050,12 +1293,17 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                   decoration: BoxDecoration(
                     color: n.danger.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: n.danger.withValues(alpha: 0.5), width: 1.4),
+                    border: Border.all(
+                        color: n.danger.withValues(alpha: 0.5), width: 1.4),
                   ),
                   child: Row(children: [
                     Icon(Icons.stop_circle_rounded, color: n.danger, size: 20),
                     const SizedBox(width: 6),
-                    Text('End Live', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: n.danger)),
+                    Text('End Live',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 15,
+                            color: n.danger)),
                   ]),
                 ),
               ),
@@ -1072,7 +1320,8 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     final me = call.room?.localParticipant;
     final names = [
       for (final p in call.participants)
-        if (p.isSpeaking) p == me ? 'You' : (p.name.isEmpty ? 'Someone' : p.name),
+        if (p.isSpeaking)
+          p == me ? 'You' : (p.name.isEmpty ? 'Someone' : p.name),
     ];
     if (names.isEmpty) return null;
     final text = switch (names) {
@@ -1084,16 +1333,62 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     return Container(
       key: const ValueKey('huud-talking'),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(color: kCabinetInk, borderRadius: BorderRadius.circular(999)),
+      decoration: BoxDecoration(
+          color: kCabinetInk, borderRadius: BorderRadius.circular(999)),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(Icons.graphic_eq_rounded, size: 16, color: HuudColors.of(context).orange),
+        Icon(Icons.graphic_eq_rounded,
+            size: 16, color: HuudColors.of(context).orange),
         const SizedBox(width: 6),
-        Text(text, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Colors.white)),
+        Text(text,
+            style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+                color: Colors.white)),
       ]),
     );
   }
 
+  Widget _socialHero(HuudSpace huud) => HuudHeroCard(
+      key: const ValueKey('huud-summary'),
+      padding: const EdgeInsets.all(15),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(
+              child: Text(huud.name,
+                  key: const ValueKey('huud-title'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      color: kCabinetInk))),
+          const SizedBox(width: 8),
+          HuudChip(huud.live ? 'Live' : 'Offline',
+              emoji: huud.live ? '🔴' : '🌙', onOrange: true)
+        ]),
+        const SizedBox(height: 8),
+        _heroControls(huud),
+        if (_unread > 0 || _talkingNow(huud) != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Wrap(spacing: 8, runSpacing: 5, children: [
+              if (_unread > 0 && huud.youAreIn)
+                GestureDetector(
+                    key: const ValueKey('huud-unread-chip'),
+                    onTap: () => _openTab(_Tab.chat),
+                    child: HuudChip(
+                        _unread == 1
+                            ? '1 new message'
+                            : '$_unread new messages',
+                        emoji: '💬',
+                        onOrange: true)),
+              if (_talkingNow(huud) case final talking?) talking,
+            ]),
+          ),
+      ]));
+
   Widget _hero(HuudSpace huud) {
+    if (_tab != _Tab.play) return _socialHero(huud);
     final host = huud.host;
     final hostLine = huud.youAreHost
         ? (huud.youOwn && !huud.live ? "It's your Huud" : "You're the host")
@@ -1101,6 +1396,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
             ? 'Looking for a host'
             : '${huud.live ? 'Host' : 'Owner'}: ${host.userId == _me ? 'you' : host.handle}');
     return HuudHeroCard(
+      key: const ValueKey('huud-summary'),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Wrap(spacing: 8, runSpacing: 8, children: [
           if (huud.active)
@@ -1109,9 +1405,12 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                 : const HuudChip('Offline', emoji: '🌙', onOrange: true)
           else
             const HuudChip('Ended', emoji: '🌙', onOrange: true),
-          HuudChip(huud.privacy.label, emoji: huud.privacy.emoji, onOrange: true),
-          if (huud.shared && huud.active) const HuudChip('On the feed', emoji: '📣', onOrange: true),
-          if (huud.watching > 0 && huud.active) HuudChip('${huud.watching} watching', emoji: '👀', onOrange: true),
+          HuudChip(huud.privacy.label,
+              emoji: huud.privacy.emoji, onOrange: true),
+          if (huud.shared && huud.active)
+            const HuudChip('On the feed', emoji: '📣', onOrange: true),
+          if (huud.watching > 0 && huud.active)
+            HuudChip('${huud.watching} watching', emoji: '👀', onOrange: true),
           if (_talkingNow(huud) case final talking?) talking,
           if (_unread > 0 && huud.youAreIn)
             HuudGlow(
@@ -1119,10 +1418,19 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                 key: const ValueKey('huud-unread-chip'),
                 onTap: () => _openTab(_Tab.chat),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(color: kCabinetInk, borderRadius: BorderRadius.circular(999)),
-                  child: Text(_unread == 1 ? '💬 1 new message' : '💬 $_unread new messages',
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Colors.white)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                      color: kCabinetInk,
+                      borderRadius: BorderRadius.circular(999)),
+                  child: Text(
+                      _unread == 1
+                          ? '💬 1 new message'
+                          : '💬 $_unread new messages',
+                      style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white)),
                 ),
               ),
             ),
@@ -1130,9 +1438,15 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         const SizedBox(height: 12),
         Text(huud.name,
             key: const ValueKey('huud-title'),
-            style: const TextStyle(fontSize: 28, height: 1.1, fontWeight: FontWeight.w900, color: kCabinetInk)),
+            style: const TextStyle(
+                fontSize: 28,
+                height: 1.1,
+                fontWeight: FontWeight.w900,
+                color: kCabinetInk)),
         const SizedBox(height: 6),
-        Text('👑 $hostLine', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: kCabinetInk)),
+        Text('👑 $hostLine',
+            style: const TextStyle(
+                fontSize: 16, fontWeight: FontWeight.w800, color: kCabinetInk)),
         const SizedBox(height: 14),
         Row(children: [
           HuudAvatarStack(people: huud.members, size: 34),
@@ -1141,84 +1455,135 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
             child: Text(
               huud.live
                   ? '${huud.liveCount} in Huud · ${huud.memberCount} ${huud.memberCount == 1 ? 'member' : 'members'}'
-                  : (huud.memberCount == 1 ? '1 member' : '${huud.memberCount} members'),
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: kCabinetInk),
+                  : (huud.memberCount == 1
+                      ? '1 member'
+                      : '${huud.memberCount} members'),
+              style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: kCabinetInk),
             ),
           ),
         ]),
-        if (huud.code != null) ...[
-          const SizedBox(height: 14),
-          _codeBox(huud.code!),
-        ],
+        const SizedBox(height: 14),
+        _heroControls(huud),
       ]),
     );
   }
 
-  Widget _codeBox(String code) => Semantics(
-        button: true,
-        label: 'Huud code ${code.split('').join(' ')}. Tap to copy.',
-        excludeSemantics: true,
-        child: GestureDetector(
-          key: const ValueKey('huud-code'),
-          onTap: () => _copyCode(code),
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.6),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: kCabinetInk.withValues(alpha: 0.4), width: 1.4),
-            ),
-            child: Row(children: [
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('HUUD CODE',
-                      style:
-                          TextStyle(fontSize: 11, letterSpacing: 1.6, fontWeight: FontWeight.w900, color: kCabinetInk)),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(code,
+  Widget _heroControls(HuudSpace huud) => Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          if (huud.code case final code?)
+            Semantics(
+              button: true,
+              label: 'Copy Huud code $code',
+              child: InkWell(
+                key: const ValueKey('huud-code'),
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => _copyCode(code),
+                child: Container(
+                  constraints: const BoxConstraints(minHeight: 48),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: .6),
+                      borderRadius: BorderRadius.circular(12)),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Text(code,
                         style: const TextStyle(
-                            fontSize: 28, letterSpacing: 6, fontWeight: FontWeight.w900, color: kCabinetInk)),
-                  ),
-                ]),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1,
+                            color: kCabinetInk)),
+                    const SizedBox(width: 5),
+                    const Icon(Icons.copy_rounded,
+                        size: 14, color: kCabinetInk),
+                  ]),
+                ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(color: kCabinetInk, borderRadius: BorderRadius.circular(14)),
-                child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.copy_rounded, size: 18, color: Colors.white),
-                  SizedBox(width: 6),
-                  Text('Copy', style: TextStyle(fontWeight: FontWeight.w900, color: Colors.white)),
-                ]),
+            ),
+          if (huud.active && huud.live && huud.youAreIn) ...[
+            MicStateButton(
+              key: const ValueKey('huud-talk'),
+              state: _micState(huud),
+              size: 40,
+              showLabel: true,
+              labelColor: kCabinetInk,
+              surfaceColor: _micState(huud) == MicState.live
+                  ? null
+                  : Colors.white.withValues(alpha: .75),
+              onTap: () => _talk(huud),
+            ),
+            HuudRoundAction(
+              key: const ValueKey('huud-invite'),
+              icon: Icons.person_add_alt_1_rounded,
+              label: 'Invite',
+              size: 40,
+              onOrange: true,
+              onTap: () => _invite(huud),
+            ),
+            if (!huud.youOwn)
+              HuudRoundAction(
+                key: const ValueKey('huud-leave'),
+                icon: Icons.logout_rounded,
+                label: 'Leave',
+                size: 40,
+                danger: true,
+                onTap: () => _leave(huud),
               ),
-            ]),
-          ),
-        ),
+          ],
+        ],
       );
 
   /// Outside the Huud: walk in, ask to come in, or wait for the answer.
   Widget _door(NeonColors n, HuudSpace huud) {
+    if (huud.playRequest == 'pending') {
+      return const HuudFriendlyState(
+          emoji: '⏳',
+          title: 'Waiting for the host',
+          message:
+              'You asked to play. The host will approve your place in the Huud and game.');
+    }
+    if (huud.findingPlayers) {
+      return HuudButton(
+          key: const ValueKey('huud-join-to-play'),
+          label: 'Join to play',
+          icon: Icons.sports_esports_rounded,
+          busy: _busy == 'play',
+          onPressed: _askToPlay);
+    }
     if (huud.joinRequest == 'pending') {
       return HuudFriendlyState(
         key: const ValueKey('huud-waiting'),
         emoji: '⏳',
         title: 'Waiting for the host',
-        message: "You asked to come in. You'll get in as soon as ${huud.host?.handle ?? 'the host'} says yes.",
+        message:
+            "You asked to come in. You'll get in as soon as ${huud.host?.handle ?? 'the host'} says yes.",
       );
     }
     if (huud.joinRequest == 'declined') {
       return HuudFriendlyState(
         emoji: '🙅',
         title: 'Not right now',
-        message: "The host didn't let you in this time. You can ask again in a few minutes.",
-        action: HuudButton(label: 'Ask again', icon: Icons.front_hand_rounded, busy: _busy == 'join', onPressed: _join),
+        message:
+            "The host didn't let you in this time. You can ask again in a few minutes.",
+        action: HuudButton(
+            label: 'Ask again',
+            icon: Icons.front_hand_rounded,
+            busy: _busy == 'join',
+            onPressed: _join),
       );
     }
     return HuudButton(
       key: const ValueKey('huud-join'),
-      label: huud.privacy == HuudPrivacy.private ? 'Ask to join' : 'Join this Huud',
-      icon: huud.privacy == HuudPrivacy.private ? Icons.front_hand_rounded : Icons.login_rounded,
+      label: huud.privacy == HuudPrivacy.private
+          ? 'Ask to join'
+          : 'Join this Huud',
+      icon: huud.privacy == HuudPrivacy.private
+          ? Icons.front_hand_rounded
+          : Icons.login_rounded,
       big: true,
       expand: true,
       busy: _busy == 'join',
@@ -1233,10 +1598,14 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
       return HuudCard(
         key: const ValueKey('huud-offline-owner'),
         highlight: true,
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text('🌙 Your Huud is offline', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: n.ink)),
+        child:
+            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text('🌙 Your Huud is offline',
+              style: TextStyle(
+                  fontSize: 19, fontWeight: FontWeight.w900, color: n.ink)),
           const SizedBox(height: 4),
-          Text('Go Live to hang out, talk and play. Your members, chat and code are all still here.',
+          Text(
+              'Go Live to hang out, talk and play. Your members, chat and code are all still here.',
               style: TextStyle(fontSize: 15, height: 1.35, color: n.mid)),
           const SizedBox(height: 14),
           HuudButton(
@@ -1255,48 +1624,24 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         const Text('🌙', style: TextStyle(fontSize: 30)),
         const SizedBox(width: 12),
         Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Not Live right now', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: n.ink)),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Not Live right now',
+                style: TextStyle(
+                    fontSize: 17, fontWeight: FontWeight.w900, color: n.ink)),
             const SizedBox(height: 2),
             Text(
                 huud.muted
                     ? "You've muted it — tap the bell to hear when it goes Live."
                     : "You'll get a notification when ${huud.host?.handle ?? 'the owner'} goes Live.",
-                style: TextStyle(fontSize: 14, height: 1.3, color: huud.muted ? n.mute : h.orangeText)),
+                style: TextStyle(
+                    fontSize: 14,
+                    height: 1.3,
+                    color: huud.muted ? n.mute : h.orangeText)),
           ]),
         ),
       ]),
     );
-  }
-
-  Widget _actions(HuudSpace huud) {
-    return Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // One mic for everything: ask, wait, then mute / talk.
-          MicStateButton(
-            key: const ValueKey('huud-talk'),
-            state: _micState(huud),
-            size: 58,
-            showLabel: true,
-            onTap: () => _talk(huud),
-          ),
-          HuudRoundAction(
-            key: const ValueKey('huud-invite'),
-            icon: Icons.person_add_alt_1_rounded,
-            label: 'Invite',
-            onTap: () => _invite(huud),
-          ),
-          if (!huud.youOwn)
-            HuudRoundAction(
-              key: const ValueKey('huud-leave'),
-              icon: Icons.logout_rounded,
-              label: 'Leave',
-              danger: true,
-              onTap: () => _leave(huud),
-            ),
-        ]);
   }
 
   /// The host's to-do list: who wants in, who wants to play, who wants to talk.
@@ -1311,8 +1656,12 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         border: Border.all(color: h.orange, width: 2.4),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text(huud.requests.length == 1 ? '✋ 1 person is asking' : '✋ ${huud.requests.length} people are asking',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: n.ink)),
+        Text(
+            huud.requests.length == 1
+                ? '✋ 1 person is asking'
+                : '✋ ${huud.requests.length} people are asking',
+            style: TextStyle(
+                fontSize: 18, fontWeight: FontWeight.w900, color: n.ink)),
         const SizedBox(height: 8),
         for (final r in huud.requests)
           Padding(
@@ -1321,13 +1670,19 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
               Avatar(r.from.name, size: 42, imageUrl: r.from.avatarUrl),
               const SizedBox(width: 10),
               Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(r.from.handle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: n.ink)),
-                  Text('${r.emoji} ${r.ask}', style: TextStyle(fontSize: 14, color: n.mid)),
-                ]),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(r.from.handle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w900,
+                              color: n.ink)),
+                      Text('${r.emoji} ${r.ask}',
+                          style: TextStyle(fontSize: 14, color: n.mid)),
+                    ]),
               ),
               _answerButton(r, false),
               const SizedBox(width: 8),
@@ -1347,7 +1702,8 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
       label: '${yes ? 'Yes' : 'No'} to ${r.from.handle}',
       excludeSemantics: true,
       child: Bouncy(
-        key: ValueKey('answer-${r.kind}-${r.from.userId}-${yes ? 'yes' : 'no'}'),
+        key:
+            ValueKey('answer-${r.kind}-${r.from.userId}-${yes ? 'yes' : 'no'}'),
         onTap: busy ? null : () => _answer(r, yes),
         child: Container(
           width: 52,
@@ -1355,9 +1711,11 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: yes ? h.orange : n.panel,
-            border: Border.all(color: yes ? kCabinetInk : n.line, width: yes ? 2.2 : 1.4),
+            border: Border.all(
+                color: yes ? kCabinetInk : n.line, width: yes ? 2.2 : 1.4),
           ),
-          child: Icon(yes ? Icons.check_rounded : Icons.close_rounded, size: 28, color: yes ? h.onOrange : n.mid),
+          child: Icon(yes ? Icons.check_rounded : Icons.close_rounded,
+              size: 28, color: yes ? h.onOrange : n.mid),
         ),
       ),
     );
@@ -1383,15 +1741,19 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
               decoration: BoxDecoration(
                 color: active ? h.orange : Colors.transparent,
                 borderRadius: BorderRadius.circular(25),
-                border: active ? Border.all(color: kCabinetInk, width: 2.2) : null,
+                border:
+                    active ? Border.all(color: kCabinetInk, width: 2.2) : null,
               ),
-              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              child:
+                  Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 Flexible(
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     child: Text('$emoji $label',
-                        style:
-                            TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: active ? h.onOrange : n.mid)),
+                        style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: active ? h.onOrange : n.mid)),
                   ),
                 ),
                 if (badge > 0) ...[
@@ -1399,10 +1761,16 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                   HuudGlow(
                     child: Container(
                       key: ValueKey('huud-tab-${tab.name}-unread'),
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                      decoration: BoxDecoration(color: h.orange, borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 1),
+                      decoration: BoxDecoration(
+                          color: h.orange,
+                          borderRadius: BorderRadius.circular(10)),
                       child: Text('$badge',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: h.onOrange)),
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                              color: h.onOrange)),
                     ),
                   ),
                 ],
@@ -1421,9 +1789,9 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         border: Border.all(color: n.line, width: 1.4),
       ),
       child: Row(children: [
-        if (huud.live) tab(_Tab.play, '🎮', 'Play'),
-        if (huud.youAreIn) tab(_Tab.chat, '💬', 'Chat', badge: _unread),
         tab(_Tab.people, '👥', 'People ${huud.members.length}'),
+        if (huud.live) tab(_Tab.play, '🎮', 'Games'),
+        if (huud.youAreIn) tab(_Tab.chat, '💬', 'Chat', badge: _unread),
       ]),
     );
   }
@@ -1435,7 +1803,8 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     const pad = EdgeInsets.symmetric(horizontal: 16);
     final cup = _cup;
     if (huud.championshipId != null && cup != null) {
-      final heard = _matchVoice == null ? null : cup.liveMatchWithVoice(_matchVoice);
+      final heard =
+          _matchVoice == null ? null : cup.liveMatchWithVoice(_matchVoice);
       return [
         SliverPadding(
           padding: pad,
@@ -1457,6 +1826,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
               onEndLive: () => _end(huud),
               onRemovePlayer: _freePlace,
               onEndBothAbsent: _endBothAbsent,
+              onStartNow: _startCupNow,
             ),
           ),
         ),
@@ -1465,7 +1835,9 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     if (huud.championshipId != null) {
       return [
         const SliverToBoxAdapter(
-            child: Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator()))),
+            child: Padding(
+                padding: EdgeInsets.all(32),
+                child: Center(child: CircularProgressIndicator()))),
       ];
     }
     if (game == null) {
@@ -1477,7 +1849,8 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
               child: HuudFriendlyState(
                 emoji: '🎲',
                 title: 'No game yet',
-                message: '${huud.host?.handle ?? 'The host'} will pick a game soon. Chat while you wait!',
+                message:
+                    '${huud.host?.handle ?? 'The host'} will pick a game soon. Chat while you wait!',
               ),
             ),
           ),
@@ -1486,14 +1859,15 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
       return _picker(n, huud, title: 'Pick a game to play');
     }
 
-    final name = game.gameType == 'whot' ? whotModeName(game.mode) : huudGameName(game.gameType);
+    final name = huudGameTitle(game.gameType, game.mode);
     final h = HuudColors.of(context);
     final (String emoji, String title) = game.playing
         ? ('🔥', '$name is on!')
         : game.waiting
             ? ('⏳', 'Get ready for $name')
             : ('🏆', '$name is over!');
-    final players = huud.members.where((m) => game.playerIds.contains(m.userId)).toList();
+    final players =
+        huud.members.where((m) => game.playerIds.contains(m.userId)).toList();
     final card = HuudCard(
       highlight: !game.finished,
       padding: const EdgeInsets.all(18),
@@ -1502,17 +1876,24 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
           HuudGameArt(game.gameType, size: 72),
           const SizedBox(width: 14),
           Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               if (game.playing)
                 const HuudLiveChip(label: 'Playing')
               else
                 Text(emoji, style: const TextStyle(fontSize: 22)),
               const SizedBox(height: 6),
-              Text(title, style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900, color: n.ink)),
+              Text(title,
+                  style: TextStyle(
+                      fontSize: 21, fontWeight: FontWeight.w900, color: n.ink)),
               const SizedBox(height: 2),
-              Text(game.finished ? 'Good game, everyone' : '${game.players} / ${game.seats} seats taken',
+              Text(
+                  game.finished
+                      ? 'Good game, everyone'
+                      : '${game.players} / ${game.seats} seats taken',
                   key: const ValueKey('huud-seats'),
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: n.mid)),
+                  style: TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.w700, color: n.mid)),
             ]),
           ),
         ]),
@@ -1531,10 +1912,14 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
             HuudAvatarStack(people: players, size: 30, max: 6),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(players.map((p) => p.userId == _me ? 'You' : p.handle).join(', '),
+              child: Text(
+                  players
+                      .map((p) => p.userId == _me ? 'You' : p.handle)
+                      .join(', '),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: n.mid)),
+                  style: TextStyle(
+                      fontSize: 14, fontWeight: FontWeight.w700, color: n.mid)),
             ),
           ]),
         ],
@@ -1542,14 +1927,22 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         ..._gameButtons(n, h, huud, game, name),
       ]),
     );
-    return [SliverPadding(padding: pad, sliver: SliverToBoxAdapter(child: card))];
+    return [
+      SliverPadding(padding: pad, sliver: SliverToBoxAdapter(child: card))
+    ];
   }
 
-  List<Widget> _gameButtons(NeonColors n, HuudColors h, HuudSpace huud, HuudGame game, String name) {
+  List<Widget> _gameButtons(
+      NeonColors n, HuudColors h, HuudSpace huud, HuudGame game, String name) {
     Widget note(String text) => Text(text,
-        textAlign: TextAlign.center, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: h.orangeText));
+        textAlign: TextAlign.center,
+        style: TextStyle(
+            fontSize: 15, fontWeight: FontWeight.w800, color: h.orangeText));
     if (game.finished) {
-      if (!huud.youAreHost) return [note('${huud.host?.handle ?? 'The host'} is picking the next game…')];
+      if (!huud.youAreHost)
+        return [
+          note('${huud.host?.handle ?? 'The host'} is picking the next game…')
+        ];
       return [
         HuudButton(
           key: const ValueKey('huud-rematch'),
@@ -1594,10 +1987,19 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                 busy: _busy == 'open',
                 onPressed: () => _openGame(game),
               )
-            : note('Join the Huud to ask to play'),
+            : huud.playRequest == 'pending'
+                ? note('Waiting for the host to approve your seat')
+                : huud.findingPlayers
+                    ? HuudButton(
+                        label: 'Join to play',
+                        icon: Icons.sports_esports_rounded,
+                        busy: _busy == 'play',
+                        onPressed: _askToPlay)
+                    : note('Join the Huud to ask to play'),
       ];
     }
-    final main = game.youArePlaying
+    final main = game.youArePlaying ||
+            (huud.youAreHost && game.waiting && game.gameType == 'monopoly')
         ? HuudButton(
             key: const ValueKey('huud-open-game'),
             label: game.playing
@@ -1622,12 +2024,16 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                 onPressed: () => _openGame(game),
               )
             : huud.playRequest == 'pending'
-                ? note("✋ You asked to play — waiting for ${huud.host?.handle ?? 'the host'}")
+                ? note(
+                    "✋ You asked to play — waiting for ${huud.host?.handle ?? 'the host'}")
                 : game.full
-                    ? note('All the seats are taken — you can watch when it starts')
+                    ? note(
+                        'All the seats are taken — you can watch when it starts')
                     : HuudButton(
                         key: const ValueKey('huud-ask-play'),
-                        label: huud.playRequest == 'declined' ? 'Ask to play again' : 'Ask to play',
+                        label: huud.playRequest == 'declined'
+                            ? 'Ask to play again'
+                            : 'Ask to play',
                         icon: Icons.front_hand_rounded,
                         big: true,
                         expand: true,
@@ -1636,7 +2042,8 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                       );
     return [
       if (game.youArePlaying && game.waiting && !huud.youAreHost) ...[
-        note('You\'re playing 🎮 — waiting for ${huud.host?.handle ?? 'the host'} to start'),
+        note(
+            'You\'re playing 🎮 — waiting for ${huud.host?.handle ?? 'the host'} to start'),
         const SizedBox(height: 10),
       ],
       main,
@@ -1655,7 +2062,8 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     ];
   }
 
-  List<Widget> _picker(NeonColors n, HuudSpace huud, {required String title}) => [
+  List<Widget> _picker(NeonColors n, HuudSpace huud, {required String title}) =>
+      [
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
           sliver: SliverToBoxAdapter(
@@ -1666,12 +2074,18 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                 const Text('🏆', style: TextStyle(fontSize: 34)),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('Start a championship',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: n.ink)),
-                    Text('Chess or Draughts knockout — everyone in the Huud can register',
-                        style: TextStyle(fontSize: 13, color: n.mid)),
-                  ]),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Start a championship',
+                            style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                                color: n.ink)),
+                        Text(
+                            'Chess or Draughts knockout — everyone in the Huud can register',
+                            style: TextStyle(fontSize: 13, color: n.mid)),
+                      ]),
                 ),
                 Icon(Icons.chevron_right_rounded, color: n.mid),
               ]),
@@ -1680,7 +2094,8 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         ),
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          sliver: SliverToBoxAdapter(child: HuudSectionTitle(title, emoji: '🎮')),
+          sliver:
+              SliverToBoxAdapter(child: HuudSectionTitle(title, emoji: '🎮')),
         ),
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1708,144 +2123,167 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
 
   List<Widget> _chatSlivers(NeonColors n, HuudSpace huud) {
     final chat = _chat;
-    if (chat == null) {
-      return [
-        const SliverToBoxAdapter(
-            child: Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator())))
-      ];
-    }
-    if (chat.isEmpty) {
-      return [
-        _box(
-            const HuudFriendlyState(
-                emoji: '💬', title: 'Say hi!', message: 'Chat stays here the whole time, game after game.'),
-            top: 0),
-      ];
-    }
-    // A box of its own: a fixed height (about four to six messages), scrolling
-    // inside the page, newest at the bottom.
-    final height = (MediaQuery.sizeOf(context).height * 0.4).clamp(240.0, 380.0);
+    final height = ((MediaQuery.sizeOf(context).height -
+                MediaQuery.viewInsetsOf(context).bottom) *
+            .56)
+        .clamp(280.0, 580.0);
     final h = HuudColors.of(context);
     return [
-      SliverPadding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        sliver: SliverToBoxAdapter(
-          child: Container(
-            key: const ValueKey('huud-chat-box'),
-            height: height,
-            decoration: BoxDecoration(
-              color: n.panel,
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: n.line, width: 1.4),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Stack(children: [
-              NotificationListener<ScrollNotification>(
-                onNotification: (_) {
-                  if (_unread > 0 && _chatAtBottom) setState(() => _unread = 0);
-                  return false;
-                },
-                // Newest at the bottom and always in view: the list is laid out
-                // from the bottom up, so it opens on the last message and a new
-                // one lands right there — no dragging to find it.
-                child: ListView.builder(
-                  controller: _chatScroll,
-                  reverse: true,
-                  padding: EdgeInsets.fromLTRB(14, 14, 14, _unread > 0 ? 54 : 14),
-                  itemCount: chat.length,
-                  itemBuilder: (context, j) {
-                    final i = chat.length - 1 - j;
-                    // A new header when someone else speaks, or after a 5-minute pause.
-                    return _bubble(n, chat[i],
-                        showName: i == 0 ||
-                            chat[i - 1].from.userId != chat[i].from.userId ||
-                            chat[i].at.difference(chat[i - 1].at).inMinutes >= 5);
-                  },
-                ),
-              ),
-              if (_unread > 0)
-                Positioned(
-                  bottom: 10,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: HuudGlow(
-                      child: Material(
-                        color: h.orange,
-                        shape: const StadiumBorder(),
-                        child: InkWell(
-                          key: const ValueKey('huud-chat-newest'),
-                          customBorder: const StadiumBorder(),
-                          onTap: _readNewest,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                            child: Text('New messages ↓',
-                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: h.onOrange)),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-            ]),
-          ),
-        ),
-      ),
-      const SliverToBoxAdapter(child: SizedBox(height: 16)),
+      _box(
+          Container(
+              key: const ValueKey('huud-chat-box'),
+              height: height,
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                  color: n.panel,
+                  borderRadius: BorderRadius.circular(26),
+                  border: Border.all(color: n.line, width: 1.5)),
+              child: Column(children: [
+                Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+                    child: Row(children: [
+                      Icon(Icons.chat_bubble_outline_rounded,
+                          color: h.orangeText, size: 21),
+                      const SizedBox(width: 10),
+                      Expanded(
+                          child: Text('Room chat',
+                              style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w900,
+                                  color: n.ink))),
+                      Text('Together, game after game',
+                          style: TextStyle(fontSize: 10.5, color: n.mute)),
+                    ])),
+                Divider(height: 1, color: n.line),
+                Expanded(
+                    child: Stack(children: [
+                  if (chat == null)
+                    const Center(
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                  else if (chat.isEmpty)
+                    const Center(
+                        child: HuudFriendlyState(
+                            emoji: '💬',
+                            title: 'Say hi!',
+                            message: 'Your conversations stay here.'))
+                  else
+                    NotificationListener<ScrollNotification>(
+                        onNotification: (_) {
+                          if (_unread > 0 && _chatAtBottom)
+                            setState(() => _unread = 0);
+                          return false;
+                        },
+                        child: ListView.builder(
+                            controller: _chatScroll,
+                            reverse: true,
+                            padding: EdgeInsets.fromLTRB(
+                                14, 14, 14, _unread > 0 ? 54 : 14),
+                            itemCount: chat.length,
+                            itemBuilder: (context, j) {
+                              final i = chat.length - 1 - j;
+                              return _bubble(n, chat[i],
+                                  showName: i == 0 ||
+                                      chat[i - 1].from.userId !=
+                                          chat[i].from.userId ||
+                                      chat[i]
+                                              .at
+                                              .difference(chat[i - 1].at)
+                                              .inMinutes >=
+                                          5);
+                            })),
+                  if (_unread > 0)
+                    Positioned(
+                        bottom: 10,
+                        left: 0,
+                        right: 0,
+                        child: Center(
+                            child: Material(
+                                color: h.orange,
+                                shape: const StadiumBorder(),
+                                child: InkWell(
+                                    key: const ValueKey('huud-chat-newest'),
+                                    onTap: _readNewest,
+                                    customBorder: const StadiumBorder(),
+                                    child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 14, vertical: 7),
+                                        child: Text('New messages ↓',
+                                            style: TextStyle(
+                                                fontWeight: FontWeight.w900,
+                                                fontSize: 13,
+                                                color: h.onOrange))))))),
+                ])),
+                _chatInput(n),
+              ])),
+          top: 0)
     ];
   }
 
-  /// One chat message, kept small so plenty fit on screen. Each run of
-  /// messages from the same person starts with their face, username and when.
   Widget _bubble(NeonColors n, HuudChatMessage m, {required bool showName}) {
     final h = HuudColors.of(context);
     final mine = m.from.userId == _me;
     final bubble = Container(
-      constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.78),
+      constraints:
+          BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.78),
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
       decoration: BoxDecoration(
         color: mine ? h.orange : n.panel,
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: mine ? kCabinetInk : n.line, width: mine ? 1.4 : 1),
+        border: Border.all(
+            color: mine ? kCabinetInk : n.line, width: mine ? 1.4 : 1),
       ),
-      child: Text(m.body, style: TextStyle(fontSize: 14.5, height: 1.25, color: mine ? h.onOrange : n.ink)),
+      child: Text(m.body,
+          style: TextStyle(
+              fontSize: 14.5, height: 1.25, color: mine ? h.onOrange : n.ink)),
     );
     return Padding(
       key: ValueKey('chat-${m.id}'),
       padding: EdgeInsets.only(top: showName ? 9 : 3),
-      child: Column(crossAxisAlignment: mine ? CrossAxisAlignment.end : CrossAxisAlignment.start, children: [
-        if (showName)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 3),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Avatar(m.from.name, size: 20, imageUrl: m.from.avatarUrl),
-              const SizedBox(width: 6),
-              Text(mine ? 'You' : m.from.handle,
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: mine ? h.orangeText : n.ink)),
-              const SizedBox(width: 6),
-              Text(huudChatTime(m.at),
-                  key: ValueKey('chat-time-${m.id}'), style: TextStyle(fontSize: 12, color: n.mute)),
-            ]),
-          ),
-        Padding(
-          padding: EdgeInsets.only(left: mine ? 0 : 26),
-          child: mine
-              ? bubble
-              : GestureDetector(
-                  onLongPress: () => showSafetySheet(context,
-                      userId: m.from.userId, name: m.from.handle, huudSpaceId: widget.id, messageId: m.id),
-                  child: bubble,
-                ),
-        ),
-      ]),
+      child: Column(
+          crossAxisAlignment:
+              mine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          children: [
+            if (showName)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 3),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Avatar(m.from.name, size: 20, imageUrl: m.from.avatarUrl),
+                  const SizedBox(width: 6),
+                  Text(mine ? 'You' : m.from.handle,
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                          color: mine ? h.orangeText : n.ink)),
+                  const SizedBox(width: 6),
+                  Text(huudChatTime(m.at),
+                      key: ValueKey('chat-time-${m.id}'),
+                      style: TextStyle(fontSize: 12, color: n.mute)),
+                ]),
+              ),
+            Padding(
+              padding: EdgeInsets.only(left: mine ? 0 : 26),
+              child: mine
+                  ? bubble
+                  : GestureDetector(
+                      onLongPress: () => showSafetySheet(context,
+                          userId: m.from.userId,
+                          name: m.from.handle,
+                          huudSpaceId: widget.id,
+                          messageId: m.id),
+                      child: bubble,
+                    ),
+            ),
+          ]),
     );
   }
 
   Widget _chatInput(NeonColors n) {
     final h = HuudColors.of(context);
     return Container(
-      padding: EdgeInsets.fromLTRB(12, 8, 12, 8 + MediaQuery.viewInsetsOf(context).bottom * 0),
-      decoration: BoxDecoration(color: n.bg, border: Border(top: BorderSide(color: n.line))),
+      padding: EdgeInsets.fromLTRB(
+          12, 8, 12, 8 + MediaQuery.viewInsetsOf(context).bottom * 0),
+      decoration: BoxDecoration(
+          color: n.bg, border: Border(top: BorderSide(color: n.line))),
       child: Row(children: [
         Expanded(
           child: TextField(
@@ -1863,11 +2301,14 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
               hintText: 'Say something nice…',
               filled: true,
               fillColor: n.panel,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-              border:
-                  OutlineInputBorder(borderRadius: BorderRadius.circular(26), borderSide: BorderSide(color: n.line)),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(26),
+                  borderSide: BorderSide(color: n.line)),
               focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(26), borderSide: BorderSide(color: h.orange, width: 2)),
+                  borderRadius: BorderRadius.circular(26),
+                  borderSide: BorderSide(color: h.orange, width: 2)),
             ),
           ),
         ),
@@ -1883,11 +2324,14 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
               width: 52,
               height: 52,
               decoration: BoxDecoration(
-                  color: h.orange, shape: BoxShape.circle, border: Border.all(color: kCabinetInk, width: 2.2)),
+                  color: h.orange,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: kCabinetInk, width: 2.2)),
               child: _busy == 'send'
                   ? Padding(
                       padding: const EdgeInsets.all(14),
-                      child: CircularProgressIndicator(strokeWidth: 2.5, color: h.onOrange))
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2.5, color: h.onOrange))
                   : Icon(Icons.send_rounded, color: h.onOrange),
             ),
           ),
@@ -1899,83 +2343,46 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
   // ---------------------------------------------------------------- people tab
 
   List<Widget> _people(NeonColors n, HuudSpace huud) {
-    final h = HuudColors.of(context);
+    final call = HangoutState.instance;
+    final speakers = <String>{
+      if (_inThisVoice(huud))
+        for (final p in call.participants)
+          if (p.isSpeaking && !(p == call.room?.localParticipant && call.muted))
+            p.identity,
+      if (kDebugMode) ...widget.previewSpeakingIds,
+    };
+    final room = HuudLounge(
+        members: huud.members,
+        me: _me,
+        speaking: speakers,
+        motion: _avatarMotion,
+        onGame: huud.live ? () => _openTab(_Tab.play) : null,
+        onPerson: (p) => _personSheet(huud, p));
     return [
-      SliverPadding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        sliver: SliverGrid(
-          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: 130,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            mainAxisExtent: 160,
-          ),
-          delegate: SliverChildListDelegate([
-            for (final p in huud.members)
-              HuudCard(
-                key: ValueKey('huud-person-${p.userId}'),
-                padding: const EdgeInsets.fromLTRB(8, 14, 8, 10),
-                highlight: p.host,
-                onTap: p.userId == _me ? null : () => _personSheet(huud, p),
-                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Stack(clipBehavior: Clip.none, children: [
-                    Avatar(p.name, size: 58, imageUrl: p.avatarUrl),
-                    if (p.here)
-                      Positioned(
-                        right: 0,
-                        bottom: 0,
-                        child: Container(
-                          width: 16,
-                          height: 16,
-                          decoration: BoxDecoration(
-                              color: h.live, shape: BoxShape.circle, border: Border.all(color: n.panel, width: 3)),
-                        ),
-                      ),
-                    if (p.host)
-                      const Positioned(top: -12, right: -6, child: Text('👑', style: TextStyle(fontSize: 22))),
-                    if (p.canSpeak && !p.host)
-                      const Positioned(top: -10, left: -6, child: Text('🎙️', style: TextStyle(fontSize: 18))),
-                  ]),
-                  const SizedBox(height: 8),
-                  Text(p.userId == _me ? 'You' : p.handle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: n.ink)),
-                  const SizedBox(height: 2),
-                  Text(p.host ? 'Host' : (p.here ? 'Here now' : 'Away'),
-                      style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w800,
-                          color: p.host ? h.orangeText : (p.here ? h.live : n.mute))),
-                ]),
-              ),
-          ]),
-        ),
-      ),
-      SliverPadding(
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-        sliver: SliverToBoxAdapter(
-          child: Text(
-              huud.youAreHost
-                  ? 'Tip: tap someone to let them talk, or take them out.'
-                  : 'Tip: tap someone if they are being unkind.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: n.mute)),
-        ),
-      ),
-      if (huud.code != null)
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-          sliver: SliverToBoxAdapter(
-            child: HuudButton(
-              label: huud.youAreHost ? 'Invite friends' : 'Share the link',
-              icon: Icons.person_add_alt_1_rounded,
-              kind: HuudButtonKind.soft,
-              expand: true,
-              onPressed: () => _invite(huud),
-            ),
-          ),
-        ),
+      if (huud.live)
+        SliverLayoutBuilder(
+            builder: (context, constraints) => SliverToBoxAdapter(
+                child: SizedBox(
+                    height: (constraints.viewportMainAxisExtent -
+                            constraints.precedingScrollExtent)
+                        .clamp(220.0, double.infinity),
+                    child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                        child: room))))
+      else
+        _box(
+            SizedBox(
+                height: (MediaQuery.sizeOf(context).height * .55)
+                    .clamp(380.0, 560.0),
+                child: room),
+            top: 0),
+      if (huud.code != null && !huud.live)
+        _box(HuudButton(
+            label: huud.youAreHost ? 'Invite friends' : 'Share the link',
+            icon: Icons.person_add_alt_1_rounded,
+            kind: HuudButtonKind.soft,
+            expand: true,
+            onPressed: () => _invite(huud))),
     ];
   }
 }
@@ -2004,7 +2411,8 @@ class _InviteSheetState extends State<_InviteSheet> {
       final inside = widget.huud.members.map((m) => m.userId).toSet();
       setState(() => _friends = [
             for (final f in (raw as List).cast<Map>())
-              if (f['agentGameType'] == null && !inside.contains(f['userId'].toString()))
+              if (f['agentGameType'] == null &&
+                  !inside.contains(f['userId'].toString()))
                 HuudMember.fromJson(f.cast<String, dynamic>()),
           ]);
     }).catchError((Object _) {});
@@ -2014,12 +2422,14 @@ class _InviteSheetState extends State<_InviteSheet> {
   Future<void> _postOnFeed() async {
     setState(() => _busy = 'feed');
     try {
-      await AppScope.of(context).api.post('/huud-spaces/${widget.huud.id}/share', {'message': 'Come join my Huud! 🎉'});
+      await AppScope.of(context).api.post(
+          '/huud-spaces/${widget.huud.id}/share',
+          {'message': 'Come join my Huud! 🎉'});
       if (mounted) huudSnack(context, 'Posted on the feed 📣');
     } on ApiException catch (e) {
       if (mounted) huudSnack(context, e.message);
     } catch (_) {
-      if (mounted) huudSnack(context, "That didn't work — check your internet and try again.");
+      if (mounted) huudSnack(context, userErrorMessage);
     } finally {
       if (mounted) setState(() => _busy = null);
     }
@@ -2028,12 +2438,13 @@ class _InviteSheetState extends State<_InviteSheet> {
   Future<void> _invite(HuudMember friend) async {
     setState(() => _busy = friend.userId);
     try {
-      await AppScope.of(context).api.post('/huud-spaces/${widget.huud.id}/invite', {'userId': friend.userId});
+      await AppScope.of(context).api.post(
+          '/huud-spaces/${widget.huud.id}/invite', {'userId': friend.userId});
       if (mounted) setState(() => _invited.add(friend.userId));
     } on ApiException catch (e) {
       if (mounted) huudSnack(context, e.message);
     } catch (_) {
-      if (mounted) huudSnack(context, "That didn't work — try again.");
+      if (mounted) huudSnack(context, userErrorMessage);
     } finally {
       if (mounted) setState(() => _busy = null);
     }
@@ -2045,22 +2456,28 @@ class _InviteSheetState extends State<_InviteSheet> {
     final friends = _friends ?? const [];
     return SafeArea(
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.75),
+        constraints:
+            BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.75),
         child: ListView(
           shrinkWrap: true,
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
           children: [
             Text('Invite friends',
-                textAlign: TextAlign.center, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: n.ink)),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontSize: 22, fontWeight: FontWeight.w900, color: n.ink)),
             const SizedBox(height: 4),
             Text('They can come straight in.',
-                textAlign: TextAlign.center, style: TextStyle(fontSize: 15, color: n.mid)),
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 15, color: n.mid)),
             const SizedBox(height: 14),
             if (friends.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Text('No friends to invite yet — share the code instead.',
-                    textAlign: TextAlign.center, style: TextStyle(fontSize: 15, color: n.mute)),
+                child: Text(
+                    'No friends to invite yet — share the code instead.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 15, color: n.mute)),
               ),
             for (final f in friends)
               Padding(
@@ -2072,7 +2489,10 @@ class _InviteSheetState extends State<_InviteSheet> {
                     child: Text(f.handle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: n.ink)),
+                        style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: n.ink)),
                   ),
                   _invited.contains(f.userId)
                       ? const HuudChip('Invited', emoji: '✅')
@@ -2131,12 +2551,15 @@ class _LinkActions extends StatelessWidget {
                 key: const ValueKey('huud-link'),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: n.ink)),
+                style: TextStyle(
+                    fontSize: 15, fontWeight: FontWeight.w800, color: n.ink)),
           ),
           TextButton(
             key: const ValueKey('huud-link-copy'),
             onPressed: () => copyHuudLink(context, huud),
-            child: Text('Copy', style: TextStyle(fontWeight: FontWeight.w900, color: h.orangeText)),
+            child: Text('Copy',
+                style: TextStyle(
+                    fontWeight: FontWeight.w900, color: h.orangeText)),
           ),
         ]),
       ),
@@ -2165,15 +2588,22 @@ class _ShareLinkSheet extends StatelessWidget {
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text('Invite to ${huud.name}',
-              textAlign: TextAlign.center, style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900, color: n.ink)),
-          const SizedBox(height: 4),
-          Text('Anyone with the link can open the Huud in PlayHuud — or get the app first.',
-              textAlign: TextAlign.center, style: TextStyle(fontSize: 14, color: n.mid)),
-          const SizedBox(height: 16),
-          if (huud.code != null) _LinkActions(huud: huud),
-        ]),
+        child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Invite to ${huud.name}',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 21, fontWeight: FontWeight.w900, color: n.ink)),
+              const SizedBox(height: 4),
+              Text(
+                  'Anyone with the link can open the Huud in PlayHuud — or get the app first.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14, color: n.mid)),
+              const SizedBox(height: 16),
+              if (huud.code != null) _LinkActions(huud: huud),
+            ]),
       ),
     );
   }
@@ -2193,10 +2623,11 @@ class _SettingsSheet extends StatefulWidget {
 
 class _SettingsSheetState extends State<_SettingsSheet> {
   late final _name = TextEditingController(text: widget.huud.name);
-  late final _message = TextEditingController(text: widget.huud.feedMessage ?? '');
+  late final _message =
+      TextEditingController(text: widget.huud.feedMessage ?? '');
   late HuudPrivacy _privacy = widget.huud.privacy;
   late bool _shared = widget.huud.shared;
-  late String? _background = widget.huud.background;
+  late String? _background = widget.huud.background ?? 'blank';
   bool _busy = false;
 
   @override
@@ -2211,7 +2642,8 @@ class _SettingsSheetState extends State<_SettingsSheet> {
       context,
       emoji: '🗑️',
       title: 'Delete ${widget.huud.name}?',
-      message: 'This removes the Huud for everyone — its members, chat and code. You can\'t undo this.',
+      message:
+          'This removes the Huud for everyone — its members, chat and code. You can\'t undo this.',
       yes: 'Delete forever',
       danger: true,
     );
@@ -2223,7 +2655,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
     } on ApiException catch (e) {
       if (mounted) huudSnack(context, e.message);
     } catch (_) {
-      if (mounted) huudSnack(context, "That didn't work — try again.");
+      if (mounted) huudSnack(context, userErrorMessage);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -2243,13 +2675,14 @@ class _SettingsSheetState extends State<_SettingsSheet> {
           if (_message.text.trim().isNotEmpty) 'message': _message.text.trim(),
         }) as Map<String, dynamic>;
       } else if (widget.huud.shared) {
-        raw = await api.delete('/huud-spaces/${widget.huud.id}/share') as Map<String, dynamic>;
+        raw = await api.delete('/huud-spaces/${widget.huud.id}/share')
+            as Map<String, dynamic>;
       }
       if (mounted) Navigator.of(context).pop(HuudSpace.fromJson(raw));
     } on ApiException catch (e) {
       if (mounted) huudSnack(context, e.message);
     } catch (_) {
-      if (mounted) huudSnack(context, "That didn't work — try again.");
+      if (mounted) huudSnack(context, userErrorMessage);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -2261,129 +2694,173 @@ class _SettingsSheetState extends State<_SettingsSheet> {
     final h = HuudColors.of(context);
     return SafeArea(
       child: Padding(
-        padding: EdgeInsets.fromLTRB(20, 0, 20, 16 + MediaQuery.viewInsetsOf(context).bottom),
+        padding: EdgeInsets.fromLTRB(
+            20, 0, 20, 16 + MediaQuery.viewInsetsOf(context).bottom),
         child: SingleChildScrollView(
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text('Huud settings',
-                textAlign: TextAlign.center, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: n.ink)),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _name,
-              maxLength: 40,
-              textCapitalization: TextCapitalization.words,
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: n.ink),
-              decoration: InputDecoration(
-                counterText: '',
-                labelText: 'Name',
-                prefixIcon: Icon(Icons.edit_rounded, color: h.orangeText),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(18)),
-                focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(18), borderSide: BorderSide(color: h.orange, width: 2.4)),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Text('Who can join?', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: n.ink)),
-            const SizedBox(height: 8),
-            Wrap(spacing: 8, runSpacing: 8, children: [
-              for (final p in HuudPrivacy.values)
-                ChoiceChip(
-                  label: Text('${p.emoji}  ${p.label}',
-                      style: TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.w800, color: _privacy == p ? h.onOrange : n.ink)),
-                  selected: _privacy == p,
-                  selectedColor: h.orange,
-                  showCheckmark: false,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                  onSelected: (_) => setState(() => _privacy = p),
+          child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('Huud settings',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        color: n.ink)),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _name,
+                  maxLength: 40,
+                  textCapitalization: TextCapitalization.words,
+                  style: TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.w800, color: n.ink),
+                  decoration: InputDecoration(
+                    counterText: '',
+                    labelText: 'Name',
+                    prefixIcon: Icon(Icons.edit_rounded, color: h.orangeText),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(18)),
+                    focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(18),
+                        borderSide: BorderSide(color: h.orange, width: 2.4)),
+                  ),
                 ),
-            ]),
-            const SizedBox(height: 6),
-            Text(_privacy.explain, style: TextStyle(fontSize: 14, color: n.mid)),
-            const SizedBox(height: 16),
-            Text('Background', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: n.ink)),
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 128,
-              child: ListView(scrollDirection: Axis.horizontal, children: [
-                for (final (wire, label, asset) in huudBackgrounds)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 10),
-                    child: Semantics(
-                      button: true,
-                      selected: _background == wire,
-                      label: '$label background',
-                      excludeSemantics: true,
-                      child: GestureDetector(
-                        key: ValueKey('bg-${wire ?? 'default'}'),
-                        onTap: () => setState(() => _background = wire),
-                        child: Column(children: [
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 150),
-                            width: 70,
-                            height: 96,
-                            decoration: BoxDecoration(
-                              color: n.plate,
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                  color: _background == wire ? h.orange : n.line, width: _background == wire ? 3 : 1.4),
-                              image:
-                                  asset == null ? null : DecorationImage(image: AssetImage(asset), fit: BoxFit.cover),
-                            ),
-                            alignment: Alignment.center,
-                            child: asset == null ? Icon(Icons.block_rounded, color: n.mute) : null,
+                const SizedBox(height: 14),
+                Text('Who can join?',
+                    style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                        color: n.ink)),
+                const SizedBox(height: 8),
+                Wrap(spacing: 8, runSpacing: 8, children: [
+                  for (final p in HuudPrivacy.values)
+                    ChoiceChip(
+                      label: Text('${p.emoji}  ${p.label}',
+                          style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: _privacy == p ? h.onOrange : n.ink)),
+                      selected: _privacy == p,
+                      selectedColor: h.orange,
+                      showCheckmark: false,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 10),
+                      onSelected: (_) => setState(() => _privacy = p),
+                    ),
+                ]),
+                const SizedBox(height: 6),
+                Text(_privacy.explain,
+                    style: TextStyle(fontSize: 14, color: n.mid)),
+                const SizedBox(height: 16),
+                Text('Background',
+                    style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                        color: n.ink)),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 128,
+                  child: ListView(scrollDirection: Axis.horizontal, children: [
+                    for (final (wire, label, asset) in huudBackgrounds)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 10),
+                        child: Semantics(
+                          button: true,
+                          selected: _background == wire,
+                          label: '$label background',
+                          excludeSemantics: true,
+                          child: GestureDetector(
+                            key: ValueKey('bg-${wire ?? 'default'}'),
+                            onTap: () => setState(() => _background = wire),
+                            child: Column(children: [
+                              AnimatedContainer(
+                                duration: const Duration(milliseconds: 150),
+                                width: 70,
+                                height: 96,
+                                decoration: BoxDecoration(
+                                  color: n.plate,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                      color: _background == wire
+                                          ? h.orange
+                                          : n.line,
+                                      width: _background == wire ? 3 : 1.4),
+                                  image: asset == null
+                                      ? null
+                                      : DecorationImage(
+                                          image: AssetImage(asset),
+                                          fit: BoxFit.cover),
+                                ),
+                                alignment: Alignment.center,
+                                child: asset == null
+                                    ? Icon(Icons.block_rounded, color: n.mute)
+                                    : null,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(label,
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: _background == wire
+                                          ? FontWeight.w900
+                                          : FontWeight.w700,
+                                      color: _background == wire
+                                          ? h.orangeText
+                                          : n.mid)),
+                            ]),
                           ),
-                          const SizedBox(height: 4),
-                          Text(label,
-                              style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: _background == wire ? FontWeight.w900 : FontWeight.w700,
-                                  color: _background == wire ? h.orangeText : n.mid)),
-                        ]),
+                        ),
                       ),
+                  ]),
+                ),
+                const SizedBox(height: 10),
+                SwitchListTile(
+                  key: const ValueKey('settings-share'),
+                  contentPadding: EdgeInsets.zero,
+                  value: _shared,
+                  activeThumbColor: h.onOrange,
+                  activeTrackColor: h.orange,
+                  title: Text('📣 Show it on the feed',
+                      style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: n.ink)),
+                  onChanged: (v) => setState(() => _shared = v),
+                ),
+                if (_shared)
+                  TextField(
+                    controller: _message,
+                    maxLength: 140,
+                    textCapitalization: TextCapitalization.sentences,
+                    style: TextStyle(fontSize: 16, color: n.ink),
+                    decoration: InputDecoration(
+                      counterText: '',
+                      hintText: 'Who wants to play?',
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16)),
                     ),
                   ),
+                const SizedBox(height: 20),
+                HuudButton(
+                    label: 'Save',
+                    icon: Icons.check_rounded,
+                    expand: true,
+                    big: true,
+                    busy: _busy,
+                    onPressed: _save),
+                if (widget.huud.youOwn) ...[
+                  const SizedBox(height: 22),
+                  Divider(color: n.line),
+                  const SizedBox(height: 10),
+                  HuudButton(
+                    key: const ValueKey('settings-delete'),
+                    label: 'Delete Huud',
+                    icon: Icons.delete_forever_rounded,
+                    kind: HuudButtonKind.danger,
+                    expand: true,
+                    onPressed: _busy ? null : _delete,
+                  ),
+                ],
               ]),
-            ),
-            const SizedBox(height: 10),
-            SwitchListTile(
-              key: const ValueKey('settings-share'),
-              contentPadding: EdgeInsets.zero,
-              value: _shared,
-              activeThumbColor: h.onOrange,
-              activeTrackColor: h.orange,
-              title: Text('📣 Show it on the feed',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: n.ink)),
-              onChanged: (v) => setState(() => _shared = v),
-            ),
-            if (_shared)
-              TextField(
-                controller: _message,
-                maxLength: 140,
-                textCapitalization: TextCapitalization.sentences,
-                style: TextStyle(fontSize: 16, color: n.ink),
-                decoration: InputDecoration(
-                  counterText: '',
-                  hintText: 'Who wants to play?',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
-                ),
-              ),
-            const SizedBox(height: 20),
-            HuudButton(
-                label: 'Save', icon: Icons.check_rounded, expand: true, big: true, busy: _busy, onPressed: _save),
-            if (widget.huud.youOwn) ...[
-              const SizedBox(height: 22),
-              Divider(color: n.line),
-              const SizedBox(height: 10),
-              HuudButton(
-                key: const ValueKey('settings-delete'),
-                label: 'Delete Huud',
-                icon: Icons.delete_forever_rounded,
-                kind: HuudButtonKind.danger,
-                expand: true,
-                onPressed: _busy ? null : _delete,
-              ),
-            ],
-          ]),
         ),
       ),
     );

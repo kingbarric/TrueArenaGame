@@ -1,0 +1,216 @@
+{
+  "avatars": [
+    {
+      "id": "ella",
+      "name": "Ella",
+      "body": "female",
+      "skinTone": "#854f3c",
+      "hair": "female-hair-long",
+      "thumbnailUrl": "assets/avatar-ella.png"
+    },
+    {
+      "id": "beverly",
+      "name": "Elisabeth",
+      "body": "female",
+      "skinTone": "#d9a98b",
+      "hair": "female-hair-bob",
+      "thumbnailUrl": "assets/avatar-beverly.png"
+    },
+    {
+      "id": "girl02",
+      "name": "Chloe",
+      "body": "female",
+      "skinTone": "#d7ad90",
+      "hair": "female-hair-ponytail",
+      "thumbnailUrl": "assets/avatar-girl02.png"
+    },
+    {
+      "id": "male",
+      "name": "Alexander",
+      "body": "male",
+      "skinTone": "#996244",
+      "hair": "male-hair-1",
+      "thumbnailUrl": null
+    },
+    {
+      "id": "indian-male",
+      "name": "Ethan",
+      "body": "male",
+      "skinTone": "#956443",
+      "hair": "male-hair-textured",
+      "thumbnailUrl": "assets/avatar-indian-male.png"
+    }
+  ],
+  "outfits": [
+    {
+      "id": "everyday",
+      "name": "Everyday",
+      "female": {
+        "tops": "female-top-tee",
+        "trousers": "female-trousers-tailored"
+      },
+      "male": {
+        "shirts": "male-tee-polo",
+        "trousers": "male-trousers-classic"
+      },
+      "colours": {
+        "tops": "green",
+        "shirts": "green"
+      },
+      "swatch": "#397c65"
+    },
+    {
+      "id": "weekend",
+      "name": "Weekend",
+      "female": {
+        "tops": "female-top-camisole",
+        "trousers": "female-trousers-cargo"
+      },
+      "male": {
+        "shirts": "male-tee-relaxed",
+        "trousers": "male-trousers-cargo"
+      },
+      "colours": {
+        "tops": "blue",
+        "shirts": "blue"
+      },
+      "swatch": "#48879a"
+    },
+    {
+      "id": "city",
+      "name": "City Casual",
+      "female": {
+        "tops": "female-top-keyhole",
+        "trousers": "female-trousers-tailored"
+      },
+      "male": {
+        "shirts": "male-tee-tucked",
+        "trousers": "male-trousers-classic"
+      },
+      "colours": {
+        "tops": "black",
+        "shirts": "black"
+      },
+      "swatch": "#28262a"
+    },
+    {
+      "id": "relaxed",
+      "name": "Relaxed",
+      "female": {
+        "tops": "female-tops-collection-1",
+        "trousers": "female-trousers-tailored"
+      },
+      "male": {
+        "shirts": "male-tee-relaxed",
+        "trousers": "male-trousers-classic"
+      },
+      "colours": {
+        "tops": "white",
+        "shirts": "white"
+      },
+      "swatch": "#eee5d6"
+    },
+    {
+      "id": "sport",
+      "name": "Sport",
+      "female": {
+        "tops": "female-tops-collection-3",
+        "trousers": "female-trousers-cargo"
+      },
+      "male": {
+        "shirts": "male-s0-athletic-tank",
+        "trousers": "male-trousers-cargo"
+      },
+      "colours": {
+        "tops": "grey",
+        "shirts": "grey"
+      },
+      "swatch": "#8e8c87"
+    },
+    {
+      "id": "sunshine",
+      "name": "Sunshine",
+      "female": {
+        "tops": "female-tops-collection-4",
+        "trousers": "female-trousers-collection-3"
+      },
+      "male": {
+        "shirts": "male-s0-logo-tee",
+        "trousers": "male-trousers-denim-shorts"
+      },
+      "colours": {
+        "tops": "yellow",
+        "shirts": "yellow"
+      },
+      "swatch": "#ddba55"
+    },
+    {
+      "id": "evening",
+      "name": "Evening",
+      "female": {
+        "tops": "female-tops-collection-8",
+        "trousers": "female-trousers-collection-8"
+      },
+      "male": {
+        "shirts": "male-tee-polo",
+        "trousers": "male-trousers-cargo"
+      },
+      "colours": {
+        "tops": "navy",
+        "shirts": "navy"
+      },
+      "swatch": "#283d54"
+    },
+    {
+      "id": "street",
+      "name": "Street Style",
+      "female": {
+        "tops": "female-tops-collection-7",
+        "trousers": "female-trousers-collection-5"
+      },
+      "male": {
+        "shirts": "male-s0-tank-shirt",
+        "trousers": "male-trousers-cargo"
+      },
+      "colours": {
+        "tops": "purple",
+        "shirts": "purple"
+      },
+      "swatch": "#674269"
+    },
+    {
+      "id": "warm",
+      "name": "Warm Tones",
+      "female": {
+        "tops": "female-tops-collection-10",
+        "trousers": "female-trousers-tailored"
+      },
+      "male": {
+        "shirts": "male-tee-tucked",
+        "trousers": "male-trousers-cargo"
+      },
+      "colours": {
+        "tops": "red",
+        "shirts": "red"
+      },
+      "swatch": "#a53541"
+    },
+    {
+      "id": "fresh",
+      "name": "Fresh Look",
+      "female": {
+        "tops": "female-tops-collection-2",
+        "trousers": "female-trousers-collection-10"
+      },
+      "male": {
+        "shirts": "male-s0-athletic-tank",
+        "trousers": "male-trousers-classic"
+      },
+      "colours": {
+        "tops": "pink",
+        "shirts": "pink"
+      },
+      "swatch": "#c98491"
+    }
+  ]
+}

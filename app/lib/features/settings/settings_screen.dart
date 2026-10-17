@@ -1,3 +1,4 @@
+import '../../core/api_client.dart' show userRetryMessage;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -60,7 +61,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(e.toString().contains('409') ? 'That username is taken' : 'Could not update username')));
+            content: Text(userRetryMessage)));
       }
     }
   }
@@ -81,7 +82,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not open your photo library')));
+            const SnackBar(content: Text(userRetryMessage)));
       }
     } finally {
       if (mounted) setState(() => _picking = false);

@@ -1,0 +1,123 @@
+# Test server: a full copy of the production stack (postgres, redis, livekit,
+# backend) on the same VPS, with its own database, cache, voice server and
+# secrets. Deploy it with infra/deploy-test.sh; see infra/TEST_ENVIRONMENT.md.
+#
+# Nothing here touches production's containers, volumes or network. Production's
+# Caddy reaches the test backend and LiveKit over the shared `truearena-edge`
+# network and serves them under /test:
+#   API      https://vps-8030ec94.vps.ovh.net/test
+#   LiveKit  wss://vps-8030ec94.vps.ovh.net:8443/test
+#
+# Service names all start with `test-` on purpose: Caddy sits on both prod's
+# network and truearena-edge, so a test service called `backend` would make
+# Caddy's `backend` lookup ambiguous and could send live traffic here.
+#
+# Required in .env next to this file on the box (local copy:
+# infra/keys/test.env.local): DB_PASSWORD, JWT_SECRET, LIVEKIT_API_KEY,
+# LIVEKIT_API_SECRET, ADMIN_API_KEY, TEST_OTP_BYPASS_CODE. Every secret must
+# differ from production's, so a prod token never works here and vice versa.
+
+name: truearena-test
+
+services:
+  test-postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: truearena
+      POSTGRES_USER: truearena
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U truearena -d truearena"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  test-redis:
+    image: redis:7
+    restart: unless-stopped
+    command: ["redis-server", "--notify-keyspace-events", "Ex", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    mem_limit: 256m
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  test-livekit:
+    image: livekit/livekit-server:v1.7.2
+    restart: unless-stopped
+    command: ["--config", "/etc/livekit.yaml"]
+    environment:
+      LIVEKIT_KEYS: "${LIVEKIT_API_KEY:?set LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET:?set LIVEKIT_API_SECRET}"
+    # Signaling goes through Caddy; only media needs its own ports, which must
+    # not overlap production's 7881/tcp and 50000-50020/udp.
+    ports:
+      - "7891:7891"
+      - "50100-50120:50100-50120/udp"
+    volumes:
+      - ./livekit.test.yaml:/etc/livekit.yaml:ro
+    mem_limit: 512m
+    networks:
+      default: {}
+      edge:
+        aliases: [truearena-test-livekit]
+
+  test-backend:
+    image: truearena-backend:test
+    restart: unless-stopped
+    depends_on:
+      test-postgres: { condition: service_healthy }
+      test-redis: { condition: service_healthy }
+    environment:
+      APP_ENV: test
+      SPRING_PROFILES_ACTIVE: test
+      PORT: 8080
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=75
+      R2DBC_URL: r2dbc:postgresql://test-postgres:5432/truearena
+      JDBC_URL: jdbc:postgresql://test-postgres:5432/truearena
+      DB_USERNAME: truearena
+      DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+      REDIS_HOST: test-redis
+      REDIS_PORT: 6379
+      LIVEKIT_URL: ${LIVEKIT_URL:-wss://vps-8030ec94.vps.ovh.net:8443/test}
+      LIVEKIT_API_URL: http://test-livekit:7880
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:?set LIVEKIT_API_KEY}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:?set LIVEKIT_API_SECRET}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      BREVO_API_KEY: ""
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      # Optional test push: separate explicit credential binding and recipient allowlist.
+      FIREBASE_CREDENTIALS_BASE64: ${TEST_FIREBASE_CREDENTIALS_BASE64:-}
+      TEST_PUSH_ALLOWED_USER_IDS: ${TEST_PUSH_ALLOWED_USER_IDS:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-26187322342-o2squi475tmt3ubs8k9rh2d2b7pfivgf.apps.googleusercontent.com}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:?set ADMIN_API_KEY}
+      TEST_OTP_BYPASS_CODE: ${TEST_OTP_BYPASS_CODE:-}
+      TEST_OTP_ALLOWED_IDENTIFIERS: ${TEST_OTP_ALLOWED_IDENTIFIERS:-}
+      # SlayHuud art: Cloudflare R2 bucket playhuud-assets, slay/ (infra/publish-slay-assets-r2.sh).
+      SLAY_ASSET_BASE: ${SLAY_ASSET_BASE:-https://pub-add3eaff74154969a3810cabdb63ef40.r2.dev/slay/}
+      # Files PlayHuud writes (SlayHuud look snapshots) go to R2 when these are set in .env.
+      R2_ENDPOINT: ${R2_ENDPOINT:-}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
+    mem_limit: 1g
+    networks:
+      default: {}
+      edge:
+        aliases: [truearena-test-backend]
+
+networks:
+  # Created once by deploy-test.sh; production's caddy is attached to it too.
+  edge:
+    name: truearena-edge
+    external: true
+
+volumes:
+  pgdata:
+  redisdata:

@@ -86,9 +86,9 @@ public class BotService {
 
     public Mono<BotAddedView> addBot(UUID roomId, UUID requesterId, String name, String difficultyRaw) {
         Difficulty difficulty = Difficulty.parse(difficultyRaw);
-        return hostedLobby(roomId, requesterId)
-                .flatMap(room -> agentLock.withLock(roomId, Duration.ofSeconds(30),
-                        () -> addPoolAgent(room, name.trim(), difficulty)));
+        return agentLock.withLock(roomId, Duration.ofSeconds(30),
+                () -> hostedLobby(roomId, requesterId)
+                        .flatMap(room -> addPoolAgent(room, name.trim(), difficulty)));
     }
 
     private Mono<BotAddedView> addPoolAgent(RoomRow room, String name, Difficulty difficulty) {
@@ -96,8 +96,14 @@ public class BotService {
             return Mono.error(ApiExceptions.badRequest("Cyber Agents don't support " + room.gameType() + " yet"));
         }
         return members.countByRoomId(room.id()).flatMap(seats -> {
+            if (java.util.Set.of("chess", "draughts", "goosi").contains(room.gameType()) && seats >= 2) {
+                return Mono.error(ApiExceptions.conflict("This game has two seats"));
+            }
             if ("ludo".equals(room.gameType()) && seats >= 4) {
                 return Mono.error(ApiExceptions.conflict("Ludo has four seats"));
+            }
+            if ("monopoly".equals(room.gameType()) && seats >= app.truearena.game.monopoly.MonopolyConfig.MAX_PLAYERS) {
+                return Mono.error(ApiExceptions.conflict("Monopoly has eight seats"));
             }
             return users.findSystemAgentForRoom(room.id())
                     .switchIfEmpty(Mono.error(ApiExceptions.conflict("no Cyber Agent seat is available")))
@@ -152,11 +158,23 @@ public class BotService {
             case "wordbluff" -> "Word Bluff";
             case "whot" -> "Whot";
             case "ludo" -> "Ludo";
+            case "monopoly" -> "Monopoly";
             default -> "Traitors";
         };
         BotRuntime runtime = new BotRuntime(mapper, uri, adapter, picker, botId.toString(), difficulty,
                 name, gameName);
         registry.register(room.id(), botId, runtime);
         runtime.start();
+    }
+
+    /** Reconnect existing room-scoped agents after Monopoly runtime recovery. */
+    public Mono<Void> resumeMonopolyRoom(RoomRow room) {
+        if (!"monopoly".equals(room.gameType()) || "ended".equals(room.status())) return Mono.empty();
+        return members.findByRoomId(room.id())
+                .filter(member -> member.botDifficulty() != null && !registry.contains(room.id(), member.userId()))
+                .concatMap(member -> users.findById(member.userId()).filter(UserRow::isBot)
+                        .doOnNext(agent -> startRuntime(room, member.userId(), member.nickname(),
+                                Difficulty.parse(member.botDifficulty()))))
+                .then();
     }
 }

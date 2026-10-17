@@ -1,3 +1,5 @@
+import '../../core/share_origin.dart';
+import '../../core/api_client.dart' show userErrorMessage, userRetryMessage;
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -154,7 +156,7 @@ class _PublishVictoryState extends State<_PublishVictory> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content:
-                Text('Could not post this victory yet. Try again shortly.')));
+                Text(userRetryMessage)));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -162,6 +164,7 @@ class _PublishVictoryState extends State<_PublishVictory> {
   }
 
   Future<void> _share() async {
+    final origin = shareOrigin(context);
     setState(() => _busy = true);
     try {
       final boundary =
@@ -174,13 +177,14 @@ class _PublishVictoryState extends State<_PublishVictory> {
       final file = File(
           '${(await getTemporaryDirectory()).path}/playhuud-victory-${DateTime.now().millisecondsSinceEpoch}.png');
       await file.writeAsBytes(bytes.buffer.asUint8List());
-      await Share.shareXFiles([XFile(file.path)],
+      await Share.shareXFiles([XFile(file.path, mimeType: 'image/png')],
+          sharePositionOrigin: origin,
           text:
               'I won ${gameStatusNames[widget.gameType] ?? widget.gameType} on PlayHuud!');
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not open the share sheet.')));
+            const SnackBar(content: Text(userRetryMessage)));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -258,7 +262,7 @@ class _StatusScreenState extends State<StatusScreen> {
         _error = null;
       });
     } catch (_) {
-      if (mounted) setState(() => _error = 'Could not load statuses');
+      if (mounted) setState(() => _error = userErrorMessage);
     }
   }
 
@@ -277,7 +281,7 @@ class _StatusScreenState extends State<StatusScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(18, 20, 18, 100),
                 children: [
-                  if (_error != null) Center(child: Text(_error!)),
+                  if (_error != null) Center(child: Text(userErrorMessage)),
                   if (active?.isEmpty == true)
                     const Center(
                         child: Padding(

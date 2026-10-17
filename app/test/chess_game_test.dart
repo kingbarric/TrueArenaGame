@@ -116,7 +116,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  Future<_Socket> open(WidgetTester tester, {bool spectating = false}) async {
+  Future<_Socket> open(WidgetTester tester, {bool spectating = false, String? title, String? subtitle}) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     final socket = _Socket();
     await tester.pumpWidget(AppScope(
@@ -129,6 +129,8 @@ void main() {
           spectating: spectating,
           roomCode: '7K3M',
           nicknames: const {'me': 'Eric', 'opponent': 'Ama'},
+          title: title,
+          subtitle: subtitle,
         ),
       ),
     ));
@@ -169,6 +171,17 @@ void main() {
     expect(find.byKey(const ValueKey('chess-square-h8')), findsOneWidget);
     expect(find.byKey(const ValueKey('chess-clock-white')), findsOneWidget);
     expect(find.text('10:00'), findsWidgets);
+    expect(tester.takeException(), isNull);
+    await close(tester);
+  });
+
+  testWidgets('a championship match says the championship and its round at the top', (tester) async {
+    final socket = await open(tester, title: 'Friday Night Chess', subtitle: 'Quarter Finals');
+    socket.snapshot();
+    await tester.pump();
+    expect(find.text('FRIDAY NIGHT CHESS'), findsOneWidget);
+    expect(find.text('QUARTER FINALS'), findsOneWidget);
+    expect(find.text('CHESS'), findsNothing);
     expect(tester.takeException(), isNull);
     await close(tester);
   });

@@ -1,3 +1,4 @@
+import '../../core/api_client.dart' show userErrorMessage;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -54,7 +55,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 child: Padding(
                   padding: const EdgeInsets.all(24),
                   child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    Text('Could not load your wallet', style: TextStyle(color: n.mid)),
+                    Text(userErrorMessage, style: TextStyle(color: n.mid)),
                     const SizedBox(height: 12),
                     NeonButton('Retry', style: NeonStyle.ghost, expand: false, onPressed: _load),
                   ]),

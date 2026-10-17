@@ -150,6 +150,10 @@ class GameSocket {
       if (_closed || generation != _generation) return;
       try {
         final frame = jsonDecode(raw as String) as Map<String, dynamic>;
+        if (frame['type'] == 'ERROR') {
+          // A refused move or action: friendly, and never the word "error".
+          frame['payload'] = {...?(frame['payload'] as Map?)?.cast<String, dynamic>(), 'message': userRetryMessage};
+        }
         _updatePresence(frame);
         if (frame['type'] == 'PONG') _lastPong = DateTime.now();
         if (frame['type'] == 'EVENT') {

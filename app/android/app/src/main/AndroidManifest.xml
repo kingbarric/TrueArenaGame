@@ -6,7 +6,7 @@
     <uses-permission android:name="android.permission.READ_CONTACTS"/>
     <!-- Push notifications (API 33+) — opt-in, requested at the point of use; see push_notifications.dart. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-    <application
+    <application android:networkSecurityConfig="@xml/slay_network_security"
         android:label="PlayHuud"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">

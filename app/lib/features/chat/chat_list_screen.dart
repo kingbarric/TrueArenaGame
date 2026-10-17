@@ -116,7 +116,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
     } on ApiException catch (e) {
       if (mounted && !silent) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted && !silent) setState(() => _error = 'Could not reach the server');
+      if (mounted && !silent) setState(() => _error = userErrorMessage);
     } finally {
       if (mounted && !silent) setState(() => _loading = false);
     }
@@ -155,7 +155,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
                           child: NeonCard(
                             accent: n.danger,
                             child: Row(children: [
-                              Expanded(child: Text(_error!, style: TextStyle(color: n.mid))),
+                              Expanded(child: Text(userErrorMessage, style: TextStyle(color: n.mid))),
                               TextButton(onPressed: _load, child: const Text('Retry')),
                             ]),
                           ),

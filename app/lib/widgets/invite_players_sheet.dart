@@ -58,7 +58,7 @@ class _InvitePlayersSheetState extends State<_InvitePlayersSheet> {
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Could not load your friends');
+      if (mounted) setState(() => _error = userErrorMessage);
     }
   }
 
@@ -81,7 +81,7 @@ class _InvitePlayersSheetState extends State<_InvitePlayersSheet> {
         // sent" with no explanation leaves nothing to act on.
         firstFailure ??= e.message;
       } catch (_) {
-        firstFailure ??= 'Could not reach the server';
+        firstFailure ??= userErrorMessage;
       }
     }
     if (!mounted) return;
@@ -98,88 +98,112 @@ class _InvitePlayersSheetState extends State<_InvitePlayersSheet> {
   @override
   Widget build(BuildContext context) {
     final n = context.neon;
-    final friends = _friends;
-    return NeonGlass(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-            20, 18, 20, MediaQuery.viewInsetsOf(context).bottom + 26),
-        child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                        color: n.line, borderRadius: BorderRadius.circular(2))),
-              ),
-              const SizedBox(height: 18),
-              Text('ADD A PLAYER',
-                  style: Theme.of(context)
-                      .textTheme
-                      .labelSmall
-                      ?.copyWith(color: n.mute, letterSpacing: 2)),
-              const SizedBox(height: 4),
-              Text('They get an invite in their chat with a Join button.',
-                  style: Theme.of(context)
-                      .textTheme
-                      .labelSmall
-                      ?.copyWith(color: n.mute)),
-              const SizedBox(height: 16),
-              if (_error != null)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  child: Text(_error!, style: TextStyle(color: n.danger)),
-                )
-              else if (friends == null)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 28),
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              else if (friends.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 20),
-                  child: Text(
-                      'No friends yet — add some from the Friends tab, or share the huud code instead.',
-                      style: TextStyle(color: n.mute)),
-                )
-              else
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 300),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: friends.length,
-                    itemBuilder: (context, i) {
-                      final f = friends[i];
-                      final on = _picked.contains(f.userId);
-                      return CheckboxListTile(
-                        value: on,
-                        onChanged: _sending
-                            ? null
-                            : (_) => setState(() => on
-                                ? _picked.remove(f.userId)
-                                : _picked.add(f.userId)),
-                        title: Text(f.displayName),
-                        subtitle: Text('@${f.username}',
-                            style: TextStyle(color: n.mute)),
-                        controlAffinity: ListTileControlAffinity.leading,
-                        contentPadding: EdgeInsets.zero,
-                      );
-                    },
+    return ValueListenableBuilder<Set<String>>(
+      valueListenable: AppScope.of(context).onlineFriends,
+      builder: (context, online, _) {
+        final friends = _friends == null
+            ? null
+            : ([..._friends!]..sort((a, b) {
+                final presence = (online.contains(b.userId) ? 1 : 0) -
+                    (online.contains(a.userId) ? 1 : 0);
+                return presence != 0
+                    ? presence
+                    : a.displayName
+                        .toLowerCase()
+                        .compareTo(b.displayName.toLowerCase());
+              }));
+        return NeonGlass(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+                20, 18, 20, MediaQuery.viewInsetsOf(context).bottom + 26),
+            child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                            color: n.line,
+                            borderRadius: BorderRadius.circular(2))),
                   ),
-                ),
-              const SizedBox(height: 14),
-              NeonButton(
-                _sending
-                    ? 'Inviting…'
-                    : _picked.isEmpty
-                        ? 'Pick someone to invite'
-                        : 'Invite ${_picked.length} ${_picked.length == 1 ? 'friend' : 'friends'}',
-                onPressed: (_sending || _picked.isEmpty) ? null : _invite,
-              ),
-            ]),
-      ),
+                  const SizedBox(height: 18),
+                  Text('ADD A PLAYER',
+                      style: Theme.of(context)
+                          .textTheme
+                          .labelSmall
+                          ?.copyWith(color: n.mute, letterSpacing: 2)),
+                  const SizedBox(height: 4),
+                  Text('They get an invite in their chat with a Join button.',
+                      style: Theme.of(context)
+                          .textTheme
+                          .labelSmall
+                          ?.copyWith(color: n.mute)),
+                  const SizedBox(height: 16),
+                  if (_error != null)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      child: Text(userErrorMessage,
+                          style: TextStyle(color: n.danger)),
+                    )
+                  else if (friends == null)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 28),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (friends.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      child: Text(
+                          'No friends yet — add some from the Friends tab, or share the huud code instead.',
+                          style: TextStyle(color: n.mute)),
+                    )
+                  else
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 300),
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: friends.length,
+                        itemBuilder: (context, i) {
+                          final f = friends[i];
+                          final on = _picked.contains(f.userId);
+                          return Material(
+                              color: Colors.transparent,
+                              child: CheckboxListTile(
+                                dense: true,
+                                visualDensity:
+                                    const VisualDensity(vertical: -2),
+                                value: on,
+                                onChanged: _sending
+                                    ? null
+                                    : (_) => setState(() => on
+                                        ? _picked.remove(f.userId)
+                                        : _picked.add(f.userId)),
+                                title: Text(f.displayName),
+                                subtitle: Text(
+                                    '@${f.username} · ${online.contains(f.userId) ? 'Online' : 'Offline'}',
+                                    style: TextStyle(color: n.mute)),
+                                controlAffinity:
+                                    ListTileControlAffinity.leading,
+                                contentPadding: EdgeInsets.zero,
+                              ));
+                        },
+                      ),
+                    ),
+                  const SizedBox(height: 14),
+                  NeonButton(
+                    _sending
+                        ? 'Inviting…'
+                        : _picked.isEmpty
+                            ? 'Pick someone to invite'
+                            : 'Invite ${_picked.length} ${_picked.length == 1 ? 'friend' : 'friends'}',
+                    onPressed: (_sending || _picked.isEmpty) ? null : _invite,
+                  ),
+                ]),
+          ),
+        );
+      },
     );
   }
 }

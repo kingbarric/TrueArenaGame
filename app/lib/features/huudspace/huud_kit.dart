@@ -19,9 +19,8 @@ const huudIcon = 'assets/images/branding/huud_icon.png';
 /// Backdrops a host can give their Huud: (wire, label, picture). The first
 /// is the default — no picture at all.
 const huudBackgrounds = <(String?, String, String?)>[
-  // Not picked yet = the disco floor; "Blank" is no picture at all.
-  (null, 'Disco', 'assets/images/huud_backgrounds/disco.jpg'),
   ('blank', 'Blank', null),
+  ('disco', 'Disco', 'assets/images/huud_backgrounds/disco.jpg'),
   ('lounge', 'Lounge', 'assets/images/huud_backgrounds/lounge.jpg'),
   ('poolside', 'Poolside', 'assets/images/huud_backgrounds/poolside.jpg'),
   ('club', 'Club', 'assets/images/huud_backgrounds/club.jpg'),
@@ -63,16 +62,19 @@ class HuudBackdrop extends StatelessWidget {
   }
 }
 
-const huudGameOrder = ['whot', 'draughts', 'chess', 'ludo', 'wordbluff', 'truearena', 'goosi'];
+// Same order as the games grid.
+const huudGameOrder = ['truearena', 'slayhuud', 'wordbluff', 'monopoly', 'chess', 'draughts', 'ludo', 'whot', 'goosi'];
 
 const huudGameEmoji = {
   'truearena': '🕵️',
+  'slayhuud': '✨',
   'wordbluff': '🤫',
   'draughts': '⚫',
   'chess': '♟️',
   'goosi': '🥜',
   'whot': '🃏',
   'ludo': '🎲',
+  'monopoly': '🏠',
 };
 
 String huudGameName(String? gameType) => huudGameNames[gameType] ?? 'a game';
@@ -107,8 +109,10 @@ class HuudButton extends StatelessWidget {
     final n = context.neon;
     final h = HuudColors.of(context);
     final disabled = onPressed == null || busy;
+    final raised = kind == HuudButtonKind.orange || kind == HuudButtonKind.lightOrange;
     final (Color fill, Color fg, Color edge) = switch (kind) {
       HuudButtonKind.orange => (h.orange, h.onOrange, kCabinetInk),
+      HuudButtonKind.lightOrange => (const Color(0xFFFFE0B8), kCabinetInk, kCabinetInk),
       HuudButtonKind.soft => (h.orangeSoft, h.orangeText, h.orangeText.withValues(alpha: 0.35)),
       HuudButtonKind.plain => (n.panel, n.ink, n.line),
       HuudButtonKind.danger => (n.danger.withValues(alpha: 0.12), n.danger, n.danger.withValues(alpha: 0.5)),
@@ -148,8 +152,8 @@ class HuudButton extends StatelessWidget {
             decoration: BoxDecoration(
               color: fill,
               borderRadius: BorderRadius.circular(height / 2),
-              border: Border.all(color: edge, width: kind == HuudButtonKind.orange ? 2.4 : 1.6),
-              boxShadow: kind == HuudButtonKind.orange
+              border: Border.all(color: edge, width: raised ? 2.4 : 1.6),
+              boxShadow: raised
                   ? const [BoxShadow(color: Colors.black26, blurRadius: 0, offset: Offset(2, 3))]
                   : null,
             ),
@@ -161,7 +165,7 @@ class HuudButton extends StatelessWidget {
   }
 }
 
-enum HuudButtonKind { orange, soft, plain, danger }
+enum HuudButtonKind { orange, lightOrange, soft, plain, danger }
 
 /// A round icon button with its word underneath — the quick-action row.
 class HuudRoundAction extends StatelessWidget {
@@ -172,6 +176,8 @@ class HuudRoundAction extends StatelessWidget {
     required this.onTap,
     this.active = false,
     this.danger = false,
+    this.size = 58,
+    this.onOrange = false,
   });
 
   final IconData icon;
@@ -179,12 +185,14 @@ class HuudRoundAction extends StatelessWidget {
   final VoidCallback? onTap;
   final bool active;
   final bool danger;
+  final double size;
+  final bool onOrange;
 
   @override
   Widget build(BuildContext context) {
     final n = context.neon;
     final h = HuudColors.of(context);
-    final fg = danger ? n.danger : (active ? h.onOrange : h.orangeText);
+    final fg = danger ? n.danger : (onOrange ? kCabinetInk : active ? h.onOrange : h.orangeText);
     return Semantics(
       button: true,
       label: label,
@@ -192,28 +200,31 @@ class HuudRoundAction extends StatelessWidget {
       child: Bouncy(
         onTap: onTap,
         child: SizedBox(
-          width: 76,
+          width: size + 18,
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              width: 58,
-              height: 58,
+              width: size,
+              height: size,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: active ? h.orange : (danger ? n.danger.withValues(alpha: 0.12) : h.orangeSoft),
+                color: onOrange ? const Color(0xFFFFF8EF) : active ? h.orange : (danger ? n.danger.withValues(alpha: 0.12) : h.orangeSoft),
                 border: Border.all(
-                    color: active
+                    color: onOrange || active
                         ? kCabinetInk
                         : (danger ? n.danger.withValues(alpha: 0.5) : h.orangeText.withValues(alpha: 0.3)),
-                    width: active ? 2.4 : 1.4),
+                    width: onOrange ? 1.8 : active ? 2.4 : 1.4),
+                boxShadow: onOrange
+                    ? const [BoxShadow(color: Color(0x40000000), offset: Offset(0, 2))]
+                    : null,
               ),
-              child: Icon(icon, color: fg, size: 26),
+              child: Icon(icon, color: fg, size: onOrange ? size * .55 : size * 26 / 58),
             ),
             const SizedBox(height: 6),
             Text(label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: danger ? n.danger : n.ink)),
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: onOrange ? fg : danger ? n.danger : n.ink)),
           ]),
         ),
       ),

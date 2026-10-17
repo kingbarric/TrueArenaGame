@@ -174,8 +174,7 @@ class _GameInviteOverlayState extends State<_GameInviteOverlay> {
             navigator: TrueArenaApp.navigatorKey.currentState, messenger: messenger);
         if (opened) announceWatching(messenger);
       } else {
-        messenger.showSnackBar(SnackBar(content: Text(e.message == 'room is full' || e.message == 'huud is full'
-            ? 'Player seats are full. Stay in voice; you can watch when the game starts.' : e.message)));
+        messenger.showSnackBar(SnackBar(content: Text(e.message)));
       }
     } finally {
       if (mounted) setState(() => _joining = false);
@@ -352,7 +351,7 @@ class _ResumeGateState extends State<_ResumeGate> {
           if (roomId == null) {
             _checking = false;
           } else {
-            _error = 'Could not check your game. Try again.';
+            _error = userErrorMessage;
           }
         });
       }
@@ -362,7 +361,7 @@ class _ResumeGateState extends State<_ResumeGate> {
           if (roomId == null) {
             _checking = false;
           } else {
-            _error = 'Could not connect to your game. Try again.';
+            _error = userErrorMessage;
           }
         });
       }
@@ -375,7 +374,7 @@ class _ResumeGateState extends State<_ResumeGate> {
     return Scaffold(body: Center(child: _error == null
         ? const CircularProgressIndicator()
         : Column(mainAxisSize: MainAxisSize.min, children: [
-            Text(_error!),
+            Text(userErrorMessage),
             TextButton(onPressed: () {
               setState(() => _error = null);
               _restore();

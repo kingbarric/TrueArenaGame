@@ -42,6 +42,14 @@ class HuudServiceTest {
     }
 
     @Test
+    void monopolyCapacityComesFromTheEngine() {
+        assertThat(HuudService.seatsFor("monopoly", null)).isEqualTo(app.truearena.game.monopoly.MonopolyConfig.MAX_PLAYERS);
+        assertThat(HuudService.seatsFor("monopoly", 20)).isEqualTo(8);
+        assertThat(HuudService.seatsFor("monopoly", 1)).isEqualTo(2);
+        assertThat(HuudService.gameTypeOf("Monopoly")).isEqualTo("monopoly");
+    }
+
+    @Test
     void wordBluffAcceptsTheAppsShortName() {
         assertThat(HuudService.gameTypeOf("bluff")).isEqualTo("wordbluff");
         assertThat(HuudService.gameTypeOf(" Draughts ")).isEqualTo("draughts");

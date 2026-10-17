@@ -53,7 +53,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Could not reach the server');
+      if (mounted) setState(() => _error = userErrorMessage);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -66,7 +66,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
       final res = await app.api.get('/friends') as List;
       friends = res.map((e) => FriendUser.fromJson((e as Map).cast<String, dynamic>())).toList();
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not load your friends')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(userRetryMessage)));
       return;
     }
     if (!mounted) return;
@@ -89,7 +89,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
     } on ApiException catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not create the group')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(userRetryMessage)));
     } finally {
       if (mounted) setState(() => _creating = false);
     }
@@ -125,7 +125,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
     } on ApiException catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not start the call')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(userRetryMessage)));
     }
   }
 
@@ -150,7 +150,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                           child: NeonCard(
                             accent: n.danger,
                             child: Row(children: [
-                              Expanded(child: Text(_error!, style: TextStyle(color: n.mid))),
+                              Expanded(child: Text(userErrorMessage, style: TextStyle(color: n.mid))),
                               TextButton(onPressed: _load, child: const Text('Retry')),
                             ]),
                           ),

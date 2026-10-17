@@ -3,7 +3,8 @@ package app.truearena.game.ludo;
 import app.truearena.engine.GameSettings;
 
 public record LudoConfig(int turnSeconds, int twoPlayerPieces) implements GameSettings {
-    public LudoConfig(int turnSeconds) { this(turnSeconds, 4); }
+    /** Two players get eight pieces each unless they choose four. */
+    public LudoConfig(int turnSeconds) { this(turnSeconds, 8); }
 
     public LudoConfig {
         if (turnSeconds < 15 || turnSeconds > 180) {

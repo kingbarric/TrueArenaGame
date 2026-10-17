@@ -68,7 +68,7 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted) setState(() => _error = "We couldn't reach PlayHuud. Pull down to try again.");
+      if (mounted) setState(() => _error = userErrorMessage);
     } finally {
       _loading = false;
     }
@@ -159,7 +159,7 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
                     HuudFriendlyState(
                       emoji: '📡',
                       title: 'Hmm, no connection',
-                      message: _error!,
+                      message: userErrorMessage,
                       action: HuudButton(label: 'Try again', icon: Icons.refresh_rounded, onPressed: _load),
                     )
                   else if (mine == null)
@@ -356,6 +356,7 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
           HuudButton(
             key: const ValueKey('huud-code-join'),
             label: 'Join',
+            kind: HuudButtonKind.lightOrange,
             icon: Icons.login_rounded,
             busy: _joining,
             onPressed: _code.text.length == 6 ? _joinWithCode : null,

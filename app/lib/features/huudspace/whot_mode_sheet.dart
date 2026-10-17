@@ -34,7 +34,7 @@ Future<String?> askWhotMode(BuildContext context) => showHuudSheet<String>(
               Text('Pick one, then choose who plays.',
                   textAlign: TextAlign.center, style: TextStyle(fontSize: 15, color: n.mid)),
               const SizedBox(height: 16),
-              const _ModeCard(
+              const HuudModeCard(
                 mode: 'classic',
                 emoji: '🃏',
                 title: 'Classic',
@@ -47,7 +47,7 @@ Future<String?> askWhotMode(BuildContext context) => showHuudSheet<String>(
                 ],
               ),
               const SizedBox(height: 12),
-              const _ModeCard(
+              const HuudModeCard(
                 mode: 'tell',
                 emoji: '🤫',
                 title: 'The Tell',
@@ -66,13 +66,17 @@ Future<String?> askWhotMode(BuildContext context) => showHuudSheet<String>(
       },
     );
 
-class _ModeCard extends StatelessWidget {
-  const _ModeCard({
+/// One way to play a game, briefed, with a button to pick it. Shared by the
+/// Whot and SlayHuud sheets.
+class HuudModeCard extends StatelessWidget {
+  const HuudModeCard({
+    super.key,
     required this.mode,
     required this.emoji,
     required this.title,
     required this.tagline,
     required this.points,
+    this.keyPrefix = 'whot-mode',
   });
 
   final String mode;
@@ -80,6 +84,7 @@ class _ModeCard extends StatelessWidget {
   final String title;
   final String tagline;
   final List<String> points;
+  final String keyPrefix;
 
   @override
   Widget build(BuildContext context) {
@@ -109,7 +114,7 @@ class _ModeCard extends StatelessWidget {
           ),
         const SizedBox(height: 8),
         HuudButton(
-          key: ValueKey('whot-mode-$mode'),
+          key: ValueKey('$keyPrefix-$mode'),
           label: 'Play $title',
           icon: Icons.play_arrow_rounded,
           expand: true,

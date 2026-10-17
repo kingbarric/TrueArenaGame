@@ -2,14 +2,27 @@
 # Caddy requests/renews the cert on its own — no manual certbot steps, no cron job.
 # Both site blocks share one certificate (Caddy caches per-hostname, not per-port).
 
+# /test/* goes to the test server (infra/docker-compose.test.yml), reached over the
+# shared truearena-edge network; the prefix is stripped before proxying. If the test
+# stack is down only /test answers 502 — production routes don't depend on it.
 {$DOMAIN} {
-	reverse_proxy backend:8080
+	handle_path /test/* {
+		reverse_proxy truearena-test-backend:8080
+	}
+	handle {
+		reverse_proxy backend:8080
+	}
 }
 
 # LiveKit signaling over wss:// on a dedicated port (voice media itself is UDP/SRTP,
 # already encrypted at the media layer — this just secures the WebSocket handshake).
 {$DOMAIN}:8443 {
-	reverse_proxy livekit:7880
+	handle_path /test/* {
+		reverse_proxy truearena-test-livekit:7880
+	}
+	handle {
+		reverse_proxy livekit:7880
+	}
 }
 
 # Marketing site (website/index.html in the repo) — static, except the admin
@@ -24,6 +37,10 @@ playhuud.com {
 	reverse_proxy @championship_preview backend:8080
 	@championship_invite path /championships/*
 	rewrite @championship_invite /championships/index.html
+	# SlayHuud art (website/slay-assets, rsynced like downloads/): names carry a
+	# content hash, so a file never changes and may be cached forever.
+	@slay_assets path /slay-assets/*
+	header @slay_assets Cache-Control "public, max-age=31536000, immutable"
 
 	# Huud invite links: playhuud.com/huud/CODE — the page, its preview, and the
 	# files that let iOS / Android open these links straight in the app.

@@ -20,7 +20,7 @@ Future<HuudSpace?> goLive(BuildContext context, String huudId) async {
   } on ApiException catch (e) {
     if (context.mounted) huudSnack(context, e.message);
   } catch (_) {
-    if (context.mounted) huudSnack(context, "That didn't work — check your internet and try again.");
+    if (context.mounted) huudSnack(context, userErrorMessage);
   }
   return null;
 }

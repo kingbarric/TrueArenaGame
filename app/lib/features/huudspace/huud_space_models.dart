@@ -27,8 +27,8 @@ extension HuudPrivacyInfo on HuudPrivacy {
         HuudPrivacy.public => 'Anyone on PlayHuud can come in',
       };
 
-  static HuudPrivacy parse(String? wire) =>
-      HuudPrivacy.values.firstWhere((p) => p.name == wire, orElse: () => HuudPrivacy.friends);
+  static HuudPrivacy parse(String? wire) => HuudPrivacy.values
+      .firstWhere((p) => p.name == wire, orElse: () => HuudPrivacy.friends);
 }
 
 class HuudMember {
@@ -37,6 +37,8 @@ class HuudMember {
     required this.displayName,
     required this.username,
     this.avatarUrl,
+    this.huudAvatarId,
+    this.huudOutfitId,
     this.host = false,
     this.here = false,
     this.canSpeak = false,
@@ -49,7 +51,7 @@ class HuudMember {
   final String userId;
   final String displayName;
   final String username;
-  final String? avatarUrl;
+  final String? avatarUrl, huudAvatarId, huudOutfitId;
   final bool host;
   final bool here;
   final bool canSpeak;
@@ -65,6 +67,8 @@ class HuudMember {
         displayName: j['displayName'] as String? ?? '',
         username: j['username'] as String? ?? '',
         avatarUrl: j['avatarUrl'] as String?,
+        huudAvatarId: j['huudAvatarId'] as String?,
+        huudOutfitId: j['huudOutfitId'] as String?,
         host: j['host'] == true,
         here: j['here'] == true,
         canSpeak: j['canSpeak'] == true,
@@ -125,11 +129,16 @@ class HuudGame {
         status: j['status'] as String? ?? 'waiting',
         players: (j['players'] as num?)?.toInt() ?? 0,
         seats: (j['seats'] as num?)?.toInt() ?? 2,
-        playerIds: [for (final id in (j['playerIds'] as List? ?? const [])) id.toString()],
+        playerIds: [
+          for (final id in (j['playerIds'] as List? ?? const [])) id.toString()
+        ],
         youArePlaying: j['youArePlaying'] == true,
-        readyIds: [for (final id in (j['readyIds'] as List? ?? const [])) id.toString()],
+        readyIds: [
+          for (final id in (j['readyIds'] as List? ?? const [])) id.toString()
+        ],
         table: [
-          for (final t in (j['table'] as List? ?? const [])) HuudSeat.fromJson((t as Map).cast<String, dynamic>()),
+          for (final t in (j['table'] as List? ?? const []))
+            HuudSeat.fromJson((t as Map).cast<String, dynamic>()),
         ],
         mode: j['mode'] as String?,
       );
@@ -154,6 +163,7 @@ class HuudSpace {
     this.playRequest,
     this.micRequest,
     this.requests = const [],
+    this.findingPlayers = false,
     this.shared = false,
     this.feedMessage,
     this.watching = 0,
@@ -196,6 +206,7 @@ class HuudSpace {
 
   /// What the host has to answer (empty for everyone else).
   final List<HuudRequest> requests;
+  final bool findingPlayers;
   final bool shared;
   final String? feedMessage;
 
@@ -223,12 +234,17 @@ class HuudSpace {
         name: j['name'] as String? ?? 'Huud',
         privacy: HuudPrivacyInfo.parse(j['privacy'] as String?),
         status: j['status'] as String? ?? 'active',
-        host: j['host'] == null ? null : HuudMember.fromJson((j['host'] as Map).cast<String, dynamic>()),
+        host: j['host'] == null
+            ? null
+            : HuudMember.fromJson((j['host'] as Map).cast<String, dynamic>()),
         members: [
-          for (final m in (j['members'] as List? ?? const [])) HuudMember.fromJson((m as Map).cast<String, dynamic>()),
+          for (final m in (j['members'] as List? ?? const []))
+            HuudMember.fromJson((m as Map).cast<String, dynamic>()),
         ],
-        currentGame:
-            j['currentGame'] == null ? null : HuudGame.fromJson((j['currentGame'] as Map).cast<String, dynamic>()),
+        currentGame: j['currentGame'] == null
+            ? null
+            : HuudGame.fromJson(
+                (j['currentGame'] as Map).cast<String, dynamic>()),
         youAreIn: j['youAreIn'] == true,
         youAreHost: j['youAreHost'] == true,
         youCanManageMic: j['youCanManageMic'] == true ||
@@ -242,6 +258,7 @@ class HuudSpace {
           for (final r in (j['requests'] as List? ?? const []))
             HuudRequest.fromJson((r as Map).cast<String, dynamic>()),
         ],
+        findingPlayers: j['findingPlayers'] == true,
         shared: j['shared'] == true,
         feedMessage: j['feedMessage'] as String?,
         watching: (j['watching'] as num?)?.toInt() ?? 0,
@@ -280,7 +297,11 @@ class HuudRequest {
 }
 
 class HuudChatMessage {
-  const HuudChatMessage({required this.id, required this.from, required this.body, required this.at});
+  const HuudChatMessage(
+      {required this.id,
+      required this.from,
+      required this.body,
+      required this.at});
   final int id;
   final HuudMember from;
   final String body;
@@ -290,13 +311,18 @@ class HuudChatMessage {
         id: (j['id'] as num).toInt(),
         from: HuudMember.fromJson((j['from'] as Map).cast<String, dynamic>()),
         body: j['body'] as String? ?? '',
-        at: DateTime.tryParse(j['at']?.toString() ?? '')?.toLocal() ?? DateTime.now(),
+        at: DateTime.tryParse(j['at']?.toString() ?? '')?.toLocal() ??
+            DateTime.now(),
       );
 }
 
 /// What a Huud card says while a championship is on in it.
 class HuudCupLine {
-  const HuudCupLine({required this.name, required this.gameType, required this.status, this.roundName});
+  const HuudCupLine(
+      {required this.name,
+      required this.gameType,
+      required this.status,
+      this.roundName});
 
   final String name;
   final String gameType;
@@ -310,7 +336,9 @@ class HuudCupLine {
   /// "🏆 Chess Championship · Quarter Finals"
   String get text => switch (status) {
         'registering' => '🏆 $name · sign up now',
-        'playing' => roundName == null ? '🏆 $name' : '🏆 $name · ${roundName == 'Final' ? 'the Final' : roundName}',
+        'playing' => roundName == null
+            ? '🏆 $name'
+            : '🏆 $name · ${roundName == 'Final' ? 'the Final' : roundName}',
         'finished' => '🏆 $name · finished',
         _ => '🏆 $name',
       };
@@ -336,6 +364,7 @@ class LiveHuud {
     required this.memberCount,
     required this.members,
     required this.youAreIn,
+    this.findingPlayers = false,
     this.host,
     this.gameType,
     this.gameStatus,
@@ -343,6 +372,7 @@ class LiveHuud {
     this.championship,
   });
 
+  final bool findingPlayers;
   final int watching;
 
   /// A championship on in it — the card says that instead of the game.
@@ -359,13 +389,17 @@ class LiveHuud {
   final bool youAreIn;
 
   factory LiveHuud.fromJson(Map<String, dynamic> j) => LiveHuud(
+        findingPlayers: j['findingPlayers'] == true,
         id: j['id'].toString(),
         name: j['name'] as String? ?? 'Huud',
         privacy: HuudPrivacyInfo.parse(j['privacy'] as String?),
-        host: j['host'] == null ? null : HuudMember.fromJson((j['host'] as Map).cast<String, dynamic>()),
+        host: j['host'] == null
+            ? null
+            : HuudMember.fromJson((j['host'] as Map).cast<String, dynamic>()),
         memberCount: (j['memberCount'] as num?)?.toInt() ?? 0,
         members: [
-          for (final m in (j['members'] as List? ?? const [])) HuudMember.fromJson((m as Map).cast<String, dynamic>()),
+          for (final m in (j['members'] as List? ?? const []))
+            HuudMember.fromJson((m as Map).cast<String, dynamic>()),
         ],
         gameType: j['gameType'] as String?,
         gameStatus: j['gameStatus'] as String?,
@@ -417,11 +451,14 @@ class MyHuud {
         privacy: HuudPrivacyInfo.parse(j['privacy'] as String?),
         live: j['live'] == true,
         youOwn: j['youOwn'] == true,
-        host: j['host'] == null ? null : HuudMember.fromJson((j['host'] as Map).cast<String, dynamic>()),
+        host: j['host'] == null
+            ? null
+            : HuudMember.fromJson((j['host'] as Map).cast<String, dynamic>()),
         memberCount: (j['memberCount'] as num?)?.toInt() ?? 0,
         liveCount: (j['liveCount'] as num?)?.toInt() ?? 0,
         members: [
-          for (final m in (j['members'] as List? ?? const [])) HuudMember.fromJson((m as Map).cast<String, dynamic>()),
+          for (final m in (j['members'] as List? ?? const []))
+            HuudMember.fromJson((m as Map).cast<String, dynamic>()),
         ],
         gameType: j['gameType'] as String?,
         gameStatus: j['gameStatus'] as String?,
@@ -440,7 +477,10 @@ String huudStatusLine(
     String? game,
     String? gameStatus,
     HuudCupLine? championship}) {
-  if (!live) return memberCount == 1 ? 'Offline · 1 member' : 'Offline · $memberCount members';
+  if (!live)
+    return memberCount == 1
+        ? 'Offline · 1 member'
+        : 'Offline · $memberCount members';
   final doing = championship != null
       ? championship.text
       : game == null
@@ -450,7 +490,8 @@ String huudStatusLine(
               'waiting' => '$game starting soon',
               _ => null,
             };
-  return ['Live now', '$liveCount in Huud', if (doing != null) doing].join(' · ');
+  return ['Live now', '$liveCount in Huud', if (doing != null) doing]
+      .join(' · ');
 }
 
 /// "Today", "Yesterday", "3 days ago", "12 Mar" — friendly, not a timestamp.
@@ -461,7 +502,20 @@ String huudWhen(DateTime when, {DateTime? now}) {
   if (days <= 0) return 'Today';
   if (days == 1) return 'Yesterday';
   if (days < 7) return '$days days ago';
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec'
+  ];
   return '${when.day} ${months[when.month - 1]}';
 }
 
@@ -475,17 +529,36 @@ String huudChatTime(DateTime at, {DateTime? now}) {
   if (gap.inMinutes < 1) return 'just now';
   if (gap.inMinutes < 60) return '${gap.inMinutes} min ago';
   final hour = at.hour % 12 == 0 ? 12 : at.hour % 12;
-  final clock = '$hour:${at.minute.toString().padLeft(2, '0')} ${at.hour < 12 ? 'am' : 'pm'}';
+  final clock =
+      '$hour:${at.minute.toString().padLeft(2, '0')} ${at.hour < 12 ? 'am' : 'pm'}';
   final days = _dateOnly(current).difference(_dateOnly(at)).inDays;
   if (days <= 0) return clock;
   if (days == 1) return 'Yesterday $clock';
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec'
+  ];
   return '${at.day} ${months[at.month - 1]} $clock';
 }
 
 /// Someone at the game's table and whether they're ready.
 class HuudSeat {
-  const HuudSeat({required this.userId, required this.name, this.avatarUrl, this.bot = false, this.ready = false});
+  const HuudSeat(
+      {required this.userId,
+      required this.name,
+      this.avatarUrl,
+      this.bot = false,
+      this.ready = false});
   final String userId;
   final String name;
   final String? avatarUrl;

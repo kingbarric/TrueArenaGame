@@ -56,6 +56,21 @@ public class HuudSpaceRequestService {
                 .then(huuds.view(id, user));
     }
 
+    /** A stranger asks for a seat; approval is also their private-Huud admission. */
+    public Mono<HuudSpaceView> askFromPublicInvite(UUID user, UUID id) {
+        return huuds.space(id).filter(HuudSpaceService.Space::findingPlayers)
+                .switchIfEmpty(Mono.error(ApiExceptions.conflict("This invitation is no longer open")))
+                .flatMap(s -> huuds.blocked(user, s.createdBy()).flatMap(blocked -> blocked
+                        ? Mono.error(ApiExceptions.forbidden("You can't join this Huud"))
+                        : huuds.membership(id, user).map(HuudSpaceService.Membership::removed).defaultIfEmpty(false))
+                        .flatMap(removed -> removed ? Mono.error(ApiExceptions.forbidden("You can't join this Huud"))
+                                : huuds.currentGame(s.currentRoomId(), user))
+                        .flatMap(g -> g.youArePlaying() ? Mono.<Void>empty()
+                                : huuds.upsertRequest(id, user, "play", g.roomId())
+                                        .doOnSuccess(v -> huuds.notify(s.ownerId(), id, "request", user))))
+                .then(huuds.view(id, user));
+    }
+
     /** "Can I talk?" */
     public Mono<HuudSpaceView> askForMic(UUID user, UUID id) {
         return huuds.requireMember(id, user).filter(HuudSpaceService.Space::live)
@@ -86,7 +101,11 @@ public class HuudSpaceRequestService {
                                             .switchIfEmpty(Mono.error(ApiExceptions.conflict("That game isn't waiting for players any more")))
                                             .flatMap(game -> game.players() >= game.seats()
                                                     ? Mono.error(ApiExceptions.conflict("The game is full — no seats left"))
-                                                    : seat(id, target, game.code()))
+                                                    : huuds.membership(id, target).filter(HuudSpaceService.Membership::in)
+                                                            .map(m -> true).defaultIfEmpty(false)
+                                                            .flatMap(member -> !member && !s.findingPlayers()
+                                                                    ? Mono.error(ApiExceptions.conflict("This invitation is no longer open"))
+                                                                    : huuds.admitRow(id, target).then(seat(id, target, game.code()))))
                                             .then(huuds.answerRow(id, target, kind, true));
                                     default -> speaker(id, target, true).then(huuds.answerRow(id, target, kind, true));
                                 }))

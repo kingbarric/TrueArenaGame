@@ -1,3 +1,5 @@
+import '../../core/share_origin.dart';
+import '../../core/api_client.dart' show userErrorMessage;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -11,7 +13,7 @@ import '../../widgets/neon.dart';
 import '../onboarding/guest_gate.dart';
 import 'draughts_game_screen.dart';
 
-const _serverError = 'Server error';
+const _serverError = userErrorMessage;
 
 /// Championship discovery, invitations, roster, live bracket and history.
 class ChampionshipsScreen extends StatefulWidget {
@@ -141,7 +143,7 @@ class _ChampionshipsScreenState extends State<ChampionshipsScreen> {
         NeonButton('Enter invitation code', style: NeonStyle.ghost, onPressed: _enterCode),
         if (_loading) const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator())),
         if (_error != null)
-          Padding(padding: const EdgeInsets.all(12), child: Text(_error!, style: TextStyle(color: n.danger)))
+          Padding(padding: const EdgeInsets.all(12), child: Text(userErrorMessage, style: TextStyle(color: n.danger)))
         else ...[
           const SizedBox(height: 24),
           Text('YOUR CHAMPIONSHIPS', style: TextStyle(color: n.gold, fontWeight: FontWeight.bold)),
@@ -265,7 +267,7 @@ class _ChampionshipDetailScreenState extends State<ChampionshipDetailScreen> {
   Widget build(BuildContext context) {
     final n = context.neon;
     final c = _data;
-    if (c == null) return Scaffold(appBar: AppBar(title: const Text('Championship')), body: Center(child: _error == null ? const CircularProgressIndicator() : Text(_error!)));
+    if (c == null) return Scaffold(appBar: AppBar(title: const Text('Championship')), body: Center(child: _error == null ? const CircularProgressIndicator() : Text(userErrorMessage)));
     final people = ((c['participants'] as List?) ?? const []).whereType<Map>().toList();
     final names = {for (final p in people) p['id'].toString(): p['name'].toString()};
     final self = AppScope.of(context).user?.id;
@@ -304,9 +306,10 @@ class _ChampionshipDetailScreenState extends State<ChampionshipDetailScreen> {
         if (!joined && c['status'] == 'lobby') NeonButton(_joining ? 'Joining…' : 'Join Championship', onPressed: _joining ? null : _join),
         if (isCreator && full && c['status'] == 'lobby') NeonButton(
           _starting ? 'Starting…' : 'Start now', onPressed: _starting ? null : _startNow),
-        if (_error != null) Padding(padding: const EdgeInsets.all(8), child: Text(_error!, style: TextStyle(color: n.danger))),
+        if (_error != null) Padding(padding: const EdgeInsets.all(8), child: Text(userErrorMessage, style: TextStyle(color: n.danger))),
         if (joined) ...[
-          NeonButton('Invite Friends', onPressed: () => Share.share('${c['name']} · Draughts knockout championship\n${c['inviteLink']}\nCode: ${c['code']}')),
+          NeonButton('Invite Friends', onPressed: () => Share.share('${c['name']} · Draughts knockout championship\n${c['inviteLink']}\nCode: ${c['code']}',
+              sharePositionOrigin: shareOrigin(context))),
           TextButton.icon(onPressed: () { Clipboard.setData(ClipboardData(text: c['code'].toString()));
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Code copied'))); },
             icon: const Icon(Icons.copy), label: Text('Code ${c['code']}')),

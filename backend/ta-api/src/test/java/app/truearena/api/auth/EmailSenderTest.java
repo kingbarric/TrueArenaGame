@@ -76,4 +76,13 @@ class EmailSenderTest {
         return new EmailSender(WebClient.builder(), new MockEnvironment(), key,
                 "verify@playhuud.com", url);
     }
+
+    @Test
+    void testServerDoesNotContactEmailProviderEvenWhenAKeyIsConfigured() {
+        MockEnvironment environment = new MockEnvironment();
+        environment.setActiveProfiles("test");
+        EmailSender sender = new EmailSender(WebClient.builder(), environment, "configured-key",
+                "verify@playhuud.com", "http://127.0.0.1:1/v3/smtp/email");
+        StepVerifier.create(sender.send("tester@example.test", "123456")).verifyComplete();
+    }
 }

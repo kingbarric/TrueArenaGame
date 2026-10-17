@@ -278,7 +278,7 @@ class _CallScreenState extends State<CallScreen> {
         setState(() {
           _connecting = false;
           _error =
-              'Could not connect — check your mic permission and connection.';
+              userErrorMessage;
         });
       }
     }
@@ -556,7 +556,7 @@ class _CallScreenState extends State<CallScreen> {
       _leaving = false;
       _note(error is ApiException
           ? error.message
-          : 'Could not leave. Check your connection and try again.');
+          : userRetryMessage);
     } finally {
       _leavingPrompt = false;
     }
@@ -570,7 +570,7 @@ class _CallScreenState extends State<CallScreen> {
       HangoutState.instance.clear();
     } catch (error) {
       _leaving = false;
-      _note(error is ApiException ? error.message : 'Could not end the call');
+      _note(error is ApiException ? error.message : userRetryMessage);
     }
   }
 
@@ -624,7 +624,7 @@ class _CallScreenState extends State<CallScreen> {
                             await _refreshSession();
                             if (ctx.mounted) Navigator.of(ctx).pop();
                           } catch (_) {
-                            _note('Could not save hangout settings');
+                            _note(userRetryMessage);
                           }
                         },
                         child: const Text('Save')),
@@ -676,7 +676,7 @@ class _CallScreenState extends State<CallScreen> {
           '/calls/sessions/requests/$userId/answer', {'approved': approved});
       await _refreshSession();
     } catch (_) {
-      _note('Could not answer the join request');
+      _note(userRetryMessage);
     }
   }
 
@@ -696,7 +696,7 @@ class _CallScreenState extends State<CallScreen> {
     } on ApiException catch (e) {
       _note(e.message);
     } catch (_) {
-      _note('Could not reach the server');
+      _note(userRetryMessage);
     }
   }
 
@@ -781,7 +781,7 @@ class _CallScreenState extends State<CallScreen> {
           (f as Map).cast<String, dynamic>()
       ];
     } catch (_) {
-      _note('Could not load your friends');
+      _note(userRetryMessage);
       return;
     }
     final here = {
@@ -856,7 +856,7 @@ class _CallScreenState extends State<CallScreen> {
     } on ApiException catch (e) {
       _note(e.message);
     } catch (_) {
-      _note('Could not reach the server');
+      _note(userRetryMessage);
     }
   }
 

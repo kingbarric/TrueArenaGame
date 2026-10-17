@@ -45,7 +45,7 @@ class _ModeSelectScreenState extends State<ModeSelectScreen> {
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Could not reach the server');
+      if (mounted) setState(() => _error = userErrorMessage);
     }
   }
 
@@ -79,7 +79,7 @@ class _ModeSelectScreenState extends State<ModeSelectScreen> {
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: n.danger)),
+            Text(userErrorMessage, textAlign: TextAlign.center, style: TextStyle(color: n.danger)),
             const SizedBox(height: 12),
             NeonButton('Retry', style: NeonStyle.ghost, expand: false, onPressed: () {
               setState(() => _error = null);

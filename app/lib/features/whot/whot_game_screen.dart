@@ -1,3 +1,4 @@
+import '../../core/api_client.dart' show userErrorMessage, userRetryMessage;
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -772,7 +773,7 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
           _leaving = false;
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Server error. Please try again.')),
+              const SnackBar(content: Text(userRetryMessage)),
             );
           }
           return;
@@ -1598,7 +1599,7 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
                       color: const Color(0xff6f2030),
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 3),
-                      child: Text(_error!,
+                      child: Text(userErrorMessage,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.center,
@@ -2040,7 +2041,7 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
                         if (_error != null)
                           Padding(
                               padding: const EdgeInsets.symmetric(vertical: 8),
-                              child: Text(_error!,
+                              child: Text(userErrorMessage,
                                   style: const TextStyle(
                                       color: Color(0xffff927c)))),
                         SingleChildScrollView(

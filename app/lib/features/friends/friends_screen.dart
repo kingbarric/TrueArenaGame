@@ -166,7 +166,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Could not reach the server');
+      if (mounted) setState(() => _error = userErrorMessage);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -229,7 +229,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
       }
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not send the request')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(userRetryMessage)));
       }
     } finally {
       if (mounted) setState(() => _requestingUserIds.remove(u.userId));
@@ -291,7 +291,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
       }
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not send the nudge')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(userRetryMessage)));
       }
     }
   }
@@ -317,7 +317,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } catch (_) {
       if (mounted)
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not start the call')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(userRetryMessage)));
     }
   }
 
@@ -332,7 +332,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
     } on ApiException catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open the chat')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(userRetryMessage)));
     }
   }
 
@@ -468,7 +468,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
   Widget _errorCard(NeonColors n) => NeonCard(
         accent: n.danger,
         child: Row(children: [
-          Expanded(child: Text(_error!, style: TextStyle(color: n.mid))),
+          Expanded(child: Text(userErrorMessage, style: TextStyle(color: n.mid))),
           TextButton(onPressed: _load, child: const Text('Retry')),
         ]),
       );

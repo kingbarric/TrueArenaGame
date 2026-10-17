@@ -66,7 +66,7 @@ class _SafetySheetState extends State<_SafetySheet> {
     } on ApiException catch (e) {
       if (mounted) huudSnack(context, e.message);
     } catch (_) {
-      if (mounted) huudSnack(context, "That didn't send — try again.");
+      if (mounted) huudSnack(context, userErrorMessage);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -91,7 +91,7 @@ class _SafetySheetState extends State<_SafetySheet> {
     } on ApiException catch (e) {
       if (mounted) huudSnack(context, e.message);
     } catch (_) {
-      if (mounted) huudSnack(context, "That didn't work — try again.");
+      if (mounted) huudSnack(context, userErrorMessage);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

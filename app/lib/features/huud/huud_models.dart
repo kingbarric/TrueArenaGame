@@ -29,14 +29,17 @@ const huudGameNames = {
   'truearena': 'Traitors',
   'wordbluff': 'Word Bluff',
   'draughts': 'Draughts',
+  'slayhuud': 'SlayHuud',
   'chess': 'Chess',
   'goosi': 'Macala',
   'whot': 'Whot',
   'ludo': 'Ludo',
+  'monopoly': 'Monopoly',
 };
 
 /// The game art lookup (`GameBadge.artworkFor`) keys Word Bluff as "bluff".
-String huudArtworkId(String gameType) => gameType == 'wordbluff' ? 'bluff' : gameType;
+String huudArtworkId(String gameType) =>
+    gameType == 'wordbluff' ? 'bluff' : gameType;
 
 class HuudPerson {
   const HuudPerson({
@@ -121,7 +124,8 @@ class HuudOpenGame {
             : HuudPerson.fromJson((j['target'] as Map).cast<String, dynamic>()),
         lastOutcome: j['lastOutcome'] as String?,
         filled: j['filled'] == true ||
-            ((j['seatsTaken'] as num?)?.toInt() ?? 0) >= ((j['seats'] as num?)?.toInt() ?? 2),
+            ((j['seatsTaken'] as num?)?.toInt() ?? 0) >=
+                ((j['seats'] as num?)?.toInt() ?? 2),
       );
 }
 
@@ -150,10 +154,14 @@ class HuudWin {
         matchId: j['matchId'].toString(),
         ranked: j['ranked'] == true,
         streak: (j['streak'] as num?)?.toInt() ?? 0,
-        recent: ((j['recent'] as List?) ?? const []).map((e) => e.toString()).toList(),
+        recent: ((j['recent'] as List?) ?? const [])
+            .map((e) => e.toString())
+            .toList(),
         rating: (j['rating'] as num?)?.toDouble(),
         weekDelta: (j['weekDelta'] as num?)?.toDouble(),
-        beaten: ((j['beaten'] as List?) ?? const []).map((e) => e.toString()).toList(),
+        beaten: ((j['beaten'] as List?) ?? const [])
+            .map((e) => e.toString())
+            .toList(),
       );
 }
 
@@ -185,7 +193,8 @@ class HuudTournament {
         status: j['status'] as String? ?? '',
         champion: j['champion'] == null
             ? null
-            : HuudPerson.fromJson((j['champion'] as Map).cast<String, dynamic>()),
+            : HuudPerson.fromJson(
+                (j['champion'] as Map).cast<String, dynamic>()),
         viewerJoined: j['viewerJoined'] == true,
       );
 }
@@ -230,13 +239,20 @@ class HuudItem {
         game: j['game'] == null
             ? null
             : HuudOpenGame.fromJson((j['game'] as Map).cast<String, dynamic>()),
-        win: j['win'] == null ? null : HuudWin.fromJson((j['win'] as Map).cast<String, dynamic>()),
+        win: j['win'] == null
+            ? null
+            : HuudWin.fromJson((j['win'] as Map).cast<String, dynamic>()),
         tournament: j['tournament'] == null
             ? null
-            : HuudTournament.fromJson((j['tournament'] as Map).cast<String, dynamic>()),
-        huud: j['huud'] == null ? null : HuudShared.fromJson((j['huud'] as Map).cast<String, dynamic>()),
-        reactions:
-            j['reactions'] == null ? null : HuudReactions.fromJson((j['reactions'] as Map).cast<String, dynamic>()),
+            : HuudTournament.fromJson(
+                (j['tournament'] as Map).cast<String, dynamic>()),
+        huud: j['huud'] == null
+            ? null
+            : HuudShared.fromJson((j['huud'] as Map).cast<String, dynamic>()),
+        reactions: j['reactions'] == null
+            ? null
+            : HuudReactions.fromJson(
+                (j['reactions'] as Map).cast<String, dynamic>()),
       );
 }
 
@@ -253,7 +269,8 @@ class HuudReactions {
   factory HuudReactions.fromJson(Map<String, dynamic> j) => HuudReactions(
         total: (j['total'] as num?)?.toInt() ?? 0,
         counts: {
-          for (final e in ((j['counts'] as Map?) ?? const {}).entries) e.key.toString(): (e.value as num).toInt(),
+          for (final e in ((j['counts'] as Map?) ?? const {}).entries)
+            e.key.toString(): (e.value as num).toInt(),
         },
         mine: j['mine'] as String?,
       );
@@ -270,9 +287,11 @@ class HuudShared {
     required this.players,
     required this.seats,
     required this.access,
+    this.findingPlayers = false,
     this.gameStatus,
   });
 
+  final bool findingPlayers;
   final String huudSpaceId;
   final String name;
   final String privacy;
@@ -283,6 +302,7 @@ class HuudShared {
   final String? gameStatus;
 
   factory HuudShared.fromJson(Map<String, dynamic> j) => HuudShared(
+        findingPlayers: j['findingPlayers'] == true,
         huudSpaceId: j['huudSpaceId'].toString(),
         name: j['name'] as String? ?? 'Huud',
         privacy: j['privacy'] as String? ?? 'friends',

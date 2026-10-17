@@ -79,11 +79,25 @@ class _LiveNowPanelState extends State<LiveNowPanel> {
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted) setState(() => _error = "We couldn't reach PlayHuud. Pull down to try again.");
+      if (mounted) setState(() => _error = userErrorMessage);
     }
   }
 
   Future<void> _enter(LiveHuud huud) async {
+    if (_joining != null) return;
+    if (huud.findingPlayers) {
+      setState(() => _joining = huud.id);
+      try {
+        await requestPublicHuudSeat(context, huud.id);
+      } on ApiException catch (e) {
+        if (mounted) huudSnack(context, e.message);
+      } catch (_) {
+        if (mounted) huudSnack(context, userErrorMessage);
+      } finally {
+        if (mounted) { setState(() => _joining = null); _load(); }
+      }
+      return;
+    }
     if (huud.youAreIn) {
       await openHuudSpace(context, huud.id);
       if (mounted) _load();
@@ -100,7 +114,7 @@ class _LiveNowPanelState extends State<LiveNowPanel> {
     } on ApiException catch (e) {
       if (mounted) huudSnack(context, e.message);
     } catch (_) {
-      if (mounted) huudSnack(context, "That didn't work — check your internet and try again.");
+      if (mounted) huudSnack(context, userErrorMessage);
     } finally {
       if (mounted) {
         setState(() => _joining = null);
@@ -140,7 +154,7 @@ class _LiveNowPanelState extends State<LiveNowPanel> {
                       child: HuudFriendlyState(
                         emoji: '📡',
                         title: 'Hmm, no connection',
-                        message: _error!,
+                        message: userErrorMessage,
                         action: HuudButton(label: 'Try again', icon: Icons.refresh_rounded, onPressed: _load),
                       ),
                     ),
@@ -255,7 +269,7 @@ class _LiveHuudCard extends StatelessWidget {
             ? 'Hanging out 💬'
             : switch (huud.gameStatus) {
                 'playing' => 'Playing ${huudGameName(game)}',
-                'waiting' => 'Getting ready for ${huudGameName(game)}',
+                'waiting' => huud.findingPlayers ? '${huudGameName(game)} · Join to play' : 'Getting ready for ${huudGameName(game)}',
                 _ => 'Just played ${huudGameName(game)}',
               };
     return HuudCard(
@@ -303,7 +317,7 @@ class _LiveHuudCard extends StatelessWidget {
           ),
           HuudButton(
             key: ValueKey('live-enter-${huud.id}'),
-            label: huud.youAreIn ? 'Go in' : 'Join',
+            label: huud.findingPlayers ? 'Join to play' : huud.youAreIn ? 'Go in' : 'Join',
             icon: huud.youAreIn ? Icons.arrow_forward_rounded : Icons.login_rounded,
             busy: busy,
             onPressed: onEnter,

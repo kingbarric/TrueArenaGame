@@ -9,6 +9,7 @@ import '../../core/api_client.dart';
 import '../../core/app_state.dart';
 import '../../core/models.dart';
 import '../../theme/neon_theme.dart';
+import '../../widgets/champion_badge.dart';
 import '../../widgets/compact_list_row.dart';
 import '../../widgets/game_badge.dart';
 import '../../widgets/neon.dart';
@@ -48,12 +49,13 @@ class HuudScreen extends StatefulWidget {
 
 /// The games a request or challenge can be for, in the order the composer
 /// offers them.
-const _postableGames = ['draughts', 'chess', 'whot', 'ludo', 'goosi', 'wordbluff', 'truearena'];
+const _postableGames = ['slayhuud', 'draughts', 'chess', 'whot', 'ludo', 'goosi', 'wordbluff', 'truearena'];
 
 const _requestTtl = Duration(minutes: 15);
 const _challengeTtl = Duration(minutes: 10);
 
 class _HuudScreenState extends State<HuudScreen> {
+  String? _publicJoining;
   /// The Live now page sits in front of the two feed tabs.
   late bool _liveNow = widget.startOnLiveNow;
   HuudTab _tab = HuudTab.friends;
@@ -149,7 +151,7 @@ class _HuudScreenState extends State<HuudScreen> {
     } on ApiException catch (e) {
       if (mounted && generation == _loadGeneration) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted && generation == _loadGeneration) setState(() => _error = 'Could not reach the server');
+      if (mounted && generation == _loadGeneration) setState(() => _error = userErrorMessage);
     }
   }
 
@@ -291,7 +293,7 @@ class _HuudScreenState extends State<HuudScreen> {
       _snack(e.message);
       _load();
     } catch (_) {
-      _snack('Could not reach the server');
+      _snack(userRetryMessage);
     }
   }
 
@@ -315,7 +317,7 @@ class _HuudScreenState extends State<HuudScreen> {
     } on ApiException catch (e) {
       _snack(e.message);
     } catch (_) {
-      _snack('Could not send the challenge');
+      _snack(userRetryMessage);
     }
   }
 
@@ -328,7 +330,7 @@ class _HuudScreenState extends State<HuudScreen> {
       _snack(e.message);
       _load();
     } catch (_) {
-      _snack('Could not reach the server');
+      _snack(userRetryMessage);
     }
   }
 
@@ -340,7 +342,7 @@ class _HuudScreenState extends State<HuudScreen> {
       _snack(e.message);
       _load();
     } catch (_) {
-      _snack('Could not reach the server');
+      _snack(userRetryMessage);
     }
   }
 
@@ -351,7 +353,7 @@ class _HuudScreenState extends State<HuudScreen> {
     } on ApiException catch (e) {
       _snack(e.message);
     } catch (_) {
-      _snack('Could not reach the server');
+      _snack(userRetryMessage);
     }
   }
 
@@ -711,7 +713,7 @@ class _HuudScreenState extends State<HuudScreen> {
     } on ApiException catch (e) {
       _snack(e.message);
     } catch (_) {
-      _snack('Could not reach the server');
+      _snack(userRetryMessage);
     }
     return null;
   }
@@ -735,7 +737,7 @@ class _HuudScreenState extends State<HuudScreen> {
     } on ApiException catch (e) {
       _snack(e.message);
     } catch (_) {
-      _snack('Could not reach the server');
+      _snack(userRetryMessage);
     }
   }
 
@@ -771,6 +773,23 @@ class _HuudScreenState extends State<HuudScreen> {
   }
 
   Future<void> _enterSharedHuud(HuudShared huud) async {
+    if (huud.findingPlayers) {
+      if (_publicJoining != null) return;
+      setState(() => _publicJoining = huud.huudSpaceId);
+      try {
+        await requestPublicHuudSeat(context, huud.huudSpaceId);
+      } on ApiException catch (e) {
+        if (mounted) _snack(e.message);
+      } catch (_) {
+        if (mounted) _snack(userRetryMessage);
+      } finally {
+        if (mounted) {
+          setState(() => _publicJoining = null);
+          _load();
+        }
+      }
+      return;
+    }
     if (huud.access == 'in') {
       await openHuudSpace(context, huud.huudSpaceId);
       if (mounted) _load();
@@ -786,7 +805,7 @@ class _HuudScreenState extends State<HuudScreen> {
     } on ApiException catch (e) {
       _snack(e.message);
     } catch (_) {
-      _snack('Could not reach the server');
+      _snack(userRetryMessage);
     }
   }
 
@@ -894,7 +913,7 @@ class _HuudScreenState extends State<HuudScreen> {
         child: NeonCard(
           accent: n.danger,
           child: Row(children: [
-            Expanded(child: Text(_error!, style: TextStyle(color: n.mid))),
+            Expanded(child: Text(userErrorMessage, style: TextStyle(color: n.mid))),
             TextButton(onPressed: _load, child: const Text('Retry')),
           ]),
         ),
@@ -950,7 +969,7 @@ class _HuudScreenState extends State<HuudScreen> {
       'tournament' =>
         _TournamentCard(item: item, onOpen: () => _openTournament(item.tournament!), onShare: () => _share(item)),
       'champion' => _ChampionCard(item: item, onOpen: () => _openTournament(item.tournament!)),
-      'huud' => _SharedHuudCard(item: item, onOpen: () => _enterSharedHuud(item.huud!), onProfile: _profile),
+      'huud' => _SharedHuudCard(busy: _publicJoining == item.huud?.huudSpaceId, item: item, onOpen: () => _enterSharedHuud(item.huud!), onProfile: _profile),
       'post' => _TextPostCard(
           item: item, onMenu: () => _postMenu(item), onProfile: _profile, onReact: (emoji) => _react(item, emoji)),
       _ => const SizedBox.shrink(),
@@ -1573,13 +1592,8 @@ class _ChampionCard extends StatelessWidget {
       onTap: onOpen,
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       child: Row(children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(color: n.gold.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(12)),
-          child: Icon(Icons.emoji_events_rounded, color: n.gold),
-        ),
-        const SizedBox(width: 12),
+        ChampionBadge(gameType: item.gameType, width: 56),
+        const SizedBox(width: 10),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('${item.actor.name} is the ${t.name} champion',
@@ -1631,7 +1645,8 @@ class _GamePickerSheet extends StatelessWidget {
 
 /// "Who wants to play Whot?" — Eric's Huud · Whot · 2/4 playing · Join Huud.
 class _SharedHuudCard extends StatelessWidget {
-  const _SharedHuudCard({required this.item, required this.onOpen, required this.onProfile});
+  const _SharedHuudCard({required this.item, required this.onOpen, required this.onProfile, this.busy = false});
+  final bool busy;
   final HuudItem item;
   final VoidCallback onOpen;
   final void Function(HuudPerson) onProfile;
@@ -1668,7 +1683,7 @@ class _SharedHuudCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: n.ink)),
-              Text('shared a Huud · ${huudAgo(item.at)}', style: TextStyle(fontSize: 13, color: n.mute)),
+              Text('${huud.findingPlayers ? 'is looking for players' : 'shared a Huud'} · ${huudAgo(item.at)}', style: TextStyle(fontSize: 13, color: n.mute)),
             ]),
           ),
           const HuudLiveChip(),
@@ -1691,7 +1706,7 @@ class _SharedHuudCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: n.ink)),
-                Text(doing, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: h.orangeText)),
+                Text(huud.findingPlayers ? '${item.gameName} · Play with host' : doing, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: h.orangeText)),
               ]),
             ),
             HuudChip(privacy.label, emoji: privacy.emoji),
@@ -1702,7 +1717,9 @@ class _SharedHuudCard extends StatelessWidget {
           alignment: Alignment.centerRight,
           child: HuudButton(
             key: ValueKey('feed-huud-open-${huud.huudSpaceId}'),
-            label: label,
+            busy: busy,
+            label: huud.findingPlayers ? 'Join to play' : label,
+            kind: HuudButtonKind.lightOrange,
             icon: icon,
             onPressed: onOpen,
           ),

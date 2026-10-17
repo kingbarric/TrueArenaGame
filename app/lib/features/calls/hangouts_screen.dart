@@ -53,7 +53,7 @@ class _HangoutsScreenState extends State<HangoutsScreen> {
           _error = null;
         });
     } catch (_) {
-      if (mounted) setState(() => _error = 'Could not load hangouts');
+      if (mounted) setState(() => _error = userErrorMessage);
     }
   }
 
@@ -87,7 +87,7 @@ class _HangoutsScreenState extends State<HangoutsScreen> {
         } catch (_) {
           if (mounted)
             ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Could not request to join')));
+                const SnackBar(content: Text(userRetryMessage)));
         }
       } else if (mounted) {
         ScaffoldMessenger.of(context)
@@ -102,7 +102,7 @@ class _HangoutsScreenState extends State<HangoutsScreen> {
         body: RefreshIndicator(
             onRefresh: _load,
             child: ListView(children: [
-              if (_error != null) ListTile(title: Text(_error!), onTap: _load),
+              if (_error != null) ListTile(title: Text(userErrorMessage), onTap: _load),
               if (_sessions == null && _error == null)
                 const Padding(
                     padding: EdgeInsets.all(32),

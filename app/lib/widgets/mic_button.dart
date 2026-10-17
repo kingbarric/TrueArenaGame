@@ -41,6 +41,8 @@ class MicStateButton extends StatelessWidget {
     this.size = 40,
     this.showLabel = false,
     this.badge = false,
+    this.surfaceColor,
+    this.labelColor,
   });
 
   final MicState state;
@@ -55,6 +57,7 @@ class MicStateButton extends StatelessWidget {
 
   /// A red dot: someone's waiting for you to answer (players see requests).
   final bool badge;
+  final Color? surfaceColor, labelColor;
 
   static const amber = Color(0xfff59e0b);
   static const red = Color(0xffe5484d);
@@ -74,7 +77,7 @@ class MicStateButton extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: fill,
+        color: surfaceColor ?? fill,
         border: Border.all(color: ring, width: state == MicState.live ? size * 0.045 : size * 0.05),
         boxShadow: state == MicState.live
             ? [BoxShadow(color: amber.withValues(alpha: 0.6), blurRadius: size * 0.35, spreadRadius: 1)]
@@ -146,7 +149,7 @@ class MicStateButton extends StatelessWidget {
                         style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w900,
-                            color: switch (state) {
+                            color: labelColor ?? switch (state) {
                               MicState.live => amber,
                               MicState.muted => red,
                               _ => grey,

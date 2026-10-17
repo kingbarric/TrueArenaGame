@@ -77,11 +77,11 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
       }
       setState(() => _error = e.status == 404
           ? 'No huud with that code'
-          : e.message.toLowerCase() == 'room is full'
+          : e.diagnosticMessage.toLowerCase() == 'room is full'
               ? 'This huud is full'
               : e.message);
     } catch (_) {
-      setState(() => _error = 'Could not reach the server');
+      setState(() => _error = userErrorMessage);
     } finally {
       if (mounted) setState(() => _joining = false);
     }
@@ -137,7 +137,7 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
               ),
               if (_error != null) ...[
                 const SizedBox(height: 14),
-                Text(_error!, style: TextStyle(color: n.danger)),
+                Text(userErrorMessage, style: TextStyle(color: n.danger)),
               ],
               const SizedBox(height: 22),
               NeonButton(_joining ? 'Joining…' : 'Join a huud', onPressed: _joining ? null : _join),

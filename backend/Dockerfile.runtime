@@ -1,0 +1,11 @@
+# The Java jar is built and tested on the developer machine, avoiding a Maven
+# compile on the VPS that shares CPU with production. Used by deploy-test.sh.
+FROM eclipse-temurin:21-jre
+RUN useradd -r -u 10001 appuser
+WORKDIR /app
+COPY ta-app/target/truearena-backend.jar app.jar
+USER appuser
+EXPOSE 8080
+HEALTHCHECK --interval=10s --timeout=3s --retries=12 \
+  CMD ["bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /actuator/health HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q UP <&3"]
+ENTRYPOINT ["java", "-jar", "app.jar"]

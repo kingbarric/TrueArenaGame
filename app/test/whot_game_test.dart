@@ -546,7 +546,7 @@ void main() {
     expect(request?['gameConfig'], containsPair('includeWhot', false));
     expect(request?['gameConfig'], containsPair('startingHand', 5));
     expect(request?['gameConfig'], containsPair('turnSeconds', 60));
-    expect(find.text('Local server unavailable'), findsWidgets);
+    expect(find.text(userErrorMessage), findsWidgets);
     expect(find.text('Open a huud'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
     state.dispose();

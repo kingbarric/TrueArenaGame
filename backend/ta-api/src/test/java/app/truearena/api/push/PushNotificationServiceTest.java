@@ -98,4 +98,23 @@ class PushNotificationServiceTest {
         service.sendToUsers(Set.of(), "title", "body", Map.of());
         verify(tokens, never()).findByUserIdIn(any());
     }
+    @Test void testProfileBlocksAllPushAndCallsUnlessRecipientIsExplicitlyAllowed() {
+        var env=new org.springframework.mock.env.MockEnvironment();env.setActiveProfiles("test");
+        UUID allowed=UUID.randomUUID(), blocked=UUID.randomUUID();
+        var disabled=new PushNotificationService(tokens,history,inbox,new ObjectMapper(),env);
+        disabled.sendToUsers(Set.of(allowed),"title","body",Map.of());
+        disabled.sendCallAlert(allowed,"title","body",Map.of());
+        verify(tokens,never()).findByUserIdIn(any());
+        env.setProperty("TEST_PUSH_ALLOWED_USER_IDS",allowed.toString());
+        var restricted=new PushNotificationService(tokens,history,inbox,new ObjectMapper(),env);
+        when(tokens.findByUserIdIn(java.util.List.of(allowed))).thenReturn(reactor.core.publisher.Flux.empty());
+        restricted.sendToUsers(Set.of(allowed,blocked),"title","body",Map.of());
+        restricted.sendCallAlert(blocked,"title","body",Map.of());
+        verify(tokens,timeout(1000)).findByUserIdIn(java.util.List.of(allowed));
+        verify(tokens,never()).findByUserIdIn(Set.of(blocked));
+        when(tokens.findAll()).thenReturn(reactor.core.publisher.Flux.just(DeviceTokenRow.of(blocked,DeviceTokenRow.IOS,"blocked-token")));
+        StepVerifier.create(restricted.sendToAll("title","body")).expectNext(true).verifyComplete();
+        verify(history,never()).save(any());
+    }
+
 }

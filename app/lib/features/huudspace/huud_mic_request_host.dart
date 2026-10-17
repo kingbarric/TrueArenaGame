@@ -284,7 +284,7 @@ class _MicRequestDialogState extends State<_MicRequestDialog> {
       if (mounted) {
         setState(
           () => _error =
-              'Could not send your answer. Check your connection and try again.',
+              userErrorMessage,
         );
       }
     } finally {

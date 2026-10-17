@@ -7,6 +7,30 @@ import 'package:truearena/core/api_client.dart';
 import 'package:truearena/core/game_socket.dart';
 
 void main() {
+  test('game ERROR frames retain codes but strip internal messages', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final peers = <WebSocket>[];
+    final listener = server.listen((request) async {
+      final peer = await WebSocketTransformer.upgrade(request);
+      peers.add(peer);
+      peer.listen((raw) {
+        if ((jsonDecode(raw as String) as Map)['type'] == 'HELLO') {
+          peer.add(jsonEncode({'type':'ERROR','payload':{'code':'ACTION','message':'SQL update private_table failed'}}));
+        }
+      });
+    });
+    final socket = GameSocket.connect(ApiClient()..bearer='test-token','room',baseUrl:'http://127.0.0.1:${server.port}');
+    try {
+      final error = await socket.envelopes.firstWhere((f) => f['type']=='ERROR').timeout(const Duration(seconds:5));
+      expect(error['payload'],{'code':'ACTION','message':userRetryMessage});
+    } finally {
+      await socket.close();
+      for (final peer in peers) { await peer.close(); }
+      await listener.cancel();
+      await server.close(force:true);
+    }
+  });
+
   test('reconnects and requests a fresh snapshot after a dropped socket',
       () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);

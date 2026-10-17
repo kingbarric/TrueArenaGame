@@ -42,6 +42,11 @@ public class RoomEventLog {
         return redis.opsForList().size(key(roomId));
     }
 
+    /** A pre-checkpoint interrupted session must not contaminate a fresh setup's log. */
+    public Mono<Void> clear(UUID roomId) {
+        return redis.delete(key(roomId)).then();
+    }
+
     private static String key(UUID roomId) {
         return "room:" + roomId + ":events";
     }

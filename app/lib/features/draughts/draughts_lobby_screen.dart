@@ -64,7 +64,7 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
     } catch (_) {
       if (mounted)
         setState(
-            () => _error = 'Could not check your waiting Huud. Try again.');
+            () => _error = userErrorMessage);
       return;
     }
     if (app.identity == Identity.anonymous) {
@@ -102,7 +102,7 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
         'gameType': 'draughts',
         if (stake > 0) 'stake': stake,
         if (setup.ranked) 'ranked': true,
-        'gameConfig': {'mandatoryCapture': setup.mandatoryCapture},
+        'gameConfig': {'mandatoryCapture': setup.mandatoryCapture, 'seizure': setup.seizure},
       }) as Map<String, dynamic>;
       if (!mounted) return;
       final room = RoomView.fromJson(res);
@@ -225,7 +225,7 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
     } catch (_) {
       if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not add the Cyber Agent')));
+            const SnackBar(content: Text(userRetryMessage)));
     } finally {
       if (mounted) setState(() => _addingBot = false);
     }
@@ -302,7 +302,7 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
             if (_error != null)
               Padding(
                   padding: const EdgeInsets.all(16),
-                  child: Text(_error!, style: TextStyle(color: n.danger))),
+                  child: Text(userErrorMessage, style: TextStyle(color: n.danger))),
             if (room == null && _error == null)
               const Expanded(child: Center(child: CircularProgressIndicator())),
             if (room != null) ...[
@@ -549,10 +549,13 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
 /// What the host chose before opening the room.
 class DraughtsMatchSetup {
   const DraughtsMatchSetup(
-      {this.ranked = false, this.mandatoryCapture = false});
+      {this.ranked = false, this.mandatoryCapture = false, this.seizure = false});
 
   final bool ranked;
   final bool mandatoryCapture;
+
+  /// A missed capture can cost the piece — only with captures optional.
+  final bool seizure;
 }
 
 /// `canRank` is false for guests — a rated game needs a verified account on
@@ -579,6 +582,7 @@ class _DraughtsRulesSheet extends StatefulWidget {
 class _DraughtsRulesSheetState extends State<_DraughtsRulesSheet> {
   bool _ranked = false;
   bool _mandatoryCapture = false;
+  bool _seizure = false;
 
   /// Every rated game is played under the same, official rules — a rating
   /// earned with optional captures wouldn't mean the same thing.
@@ -664,12 +668,34 @@ class _DraughtsRulesSheetState extends State<_DraughtsRulesSheet> {
                         : (v) => setState(() => _mandatoryCapture = v),
                   ),
                 ]),
+                if (!_capturesCompulsory) ...[
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text('Seizure', style: t.bodyMedium),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Miss an obvious capture and your opponent can seize the piece that should have taken.',
+                          style: t.labelSmall?.copyWith(color: n.mute, height: 1.3),
+                        ),
+                      ]),
+                    ),
+                    Switch(
+                      key: const ValueKey('draughts-seizure-switch'),
+                      value: _seizure,
+                      onChanged: (v) => setState(() => _seizure = v),
+                    ),
+                  ]),
+                ],
               ]),
             ),
             const SizedBox(height: 18),
             NeonButton(_ranked ? 'Start ranked huud' : 'Start the huud',
                 onPressed: () => Navigator.of(context).pop(DraughtsMatchSetup(
-                    ranked: _ranked, mandatoryCapture: _capturesCompulsory))),
+                    ranked: _ranked,
+                    mandatoryCapture: _capturesCompulsory,
+                    seizure: _seizure && !_capturesCompulsory))),
           ],
         ),
       ),

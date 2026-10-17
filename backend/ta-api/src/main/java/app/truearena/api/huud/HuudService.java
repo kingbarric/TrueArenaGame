@@ -61,12 +61,12 @@ public class HuudService {
     /** Players a request gathers when the author doesn't say — the game's natural table. */
     static final Map<String, Integer> DEFAULT_SEATS = Map.of(
             "draughts", 2, "chess", 2, "goosi", 2,
-            "whot", 4, "ludo", 4, "wordbluff", 4, "truearena", 6);
+            "whot", 4, "ludo", 4, "wordbluff", 4, "truearena", 6, "monopoly", app.truearena.game.monopoly.MonopolyConfig.MAX_PLAYERS, "slayhuud", 2);
     private static final Set<String> HEAD_TO_HEAD = Set.of("draughts", "chess", "goosi");
 
     static final Map<String, String> GAME_NAMES = Map.of(
             "draughts", "Draughts", "chess", "Chess", "goosi", "Macala", "whot", "Whot",
-            "ludo", "Ludo", "wordbluff", "Word Bluff", "truearena", "Traitors");
+            "ludo", "Ludo", "wordbluff", "Word Bluff", "truearena", "Traitors", "monopoly", "Monopoly", "slayhuud", "SlayHuud");
 
     private final DatabaseClient db;
     private final RoomService rooms;
@@ -135,21 +135,25 @@ public class HuudService {
      * For you: public ones. Never from someone either of you blocked.
      */
     private Flux<FeedItem> sharedHuuds(UUID viewer, Tab tab) {
+        String invitation = app.truearena.api.huudspace.HuudSpaceService.publicInviteSql("s");
+        String actor = "CASE WHEN " + invitation + " THEN s.owner_id ELSE s.created_by END";
+        String posted = "CASE WHEN " + invitation + " THEN s.public_invite_at ELSE s.shared_at END";
         String scope = tab == Tab.FRIENDS
                 ? "(s.created_by = :uid OR " + friendOf("s.created_by") + " OR me.user_id IS NOT NULL)"
-                : "s.privacy = 'public'";
-        return db.sql("SELECT s.id, s.name, s.privacy, s.feed_message, s.shared_at, s.created_by AS owner_id, "
+                : "(s.privacy = 'public' OR " + app.truearena.api.huudspace.HuudSpaceService.publicInviteSql("s") + ")";
+        return db.sql("SELECT s.id, s.name, s.privacy, s.feed_message, " + posted + " AS shared_at, " + actor + " AS owner_id, s.public_invite_seats, "
+                        + app.truearena.api.huudspace.HuudSpaceService.publicInviteSql("s") + " AS finding_players, "
                         + "u.display_name, u.username, u.avatar_url, r.game_type, r.status AS room_status, "
                         + "(SELECT count(*) FROM room_members rm WHERE rm.room_id = r.id) AS players, "
                         + "(SELECT count(*) FROM huud_space_members c WHERE c.huud_space_id = s.id AND c.live_at IS NOT NULL) AS people, "
                         + "(me.user_id IS NOT NULL) AS mine, " + friendOf("s.created_by") + " AS friend "
-                        + "FROM huud_spaces s JOIN users u ON u.id = s.created_by "
+                        + "FROM huud_spaces s JOIN users u ON u.id = " + actor + " "
                         + "LEFT JOIN rooms r ON r.id = s.current_room_id "
                         + "LEFT JOIN huud_space_members me ON me.huud_space_id = s.id AND me.user_id = :uid AND me.left_at IS NULL "
-                        + "WHERE s.status = 'active' AND s.live_since IS NOT NULL AND s.shared_at IS NOT NULL AND " + scope + " "
+                        + "WHERE s.status = 'active' AND s.live_since IS NOT NULL AND (s.shared_at IS NOT NULL OR " + app.truearena.api.huudspace.HuudSpaceService.publicInviteSql("s") + ") AND " + scope + " "
                         + "AND NOT EXISTS (SELECT 1 FROM huud_space_members x WHERE x.huud_space_id = s.id AND x.user_id = :uid AND x.removed) "
                         + "AND NOT " + app.truearena.api.huudspace.HuudSpaceService.blockedSql("s.created_by", ":uid") + " "
-                        + "ORDER BY s.shared_at DESC LIMIT " + PAGE)
+                        + "ORDER BY " + posted + " DESC LIMIT " + PAGE)
                 .bind("uid", viewer)
                 .map((row, meta) -> {
                     UUID owner = row.get("owner_id", UUID.class);
@@ -164,7 +168,7 @@ public class HuudService {
                     var huud = new HuudDtos.SharedHuud(row.get("id", UUID.class), row.get("name", String.class), privacy,
                             ((Number) row.get("people")).intValue(),
                             roomStatus == null ? null : app.truearena.api.huudspace.HuudSpaceService.gameStatus(roomStatus),
-                            ((Number) row.get("players")).intValue(), seatsFor(gameType), access);
+                            ((Number) row.get("players")).intValue(), Boolean.TRUE.equals(row.get("finding_players", Boolean.class)) ? ((Number) row.get("public_invite_seats")).intValue() : seatsFor(gameType), access, Boolean.TRUE.equals(row.get("finding_players", Boolean.class)));
                     var host = new PersonView(owner, row.get("display_name", String.class), row.get("username", String.class),
                             row.get("avatar_url", String.class), friend);
                     return new FeedItem("huud", "huud:" + huud.huudSpaceId(), instant(row.get("shared_at")), host,
@@ -408,15 +412,20 @@ public class HuudService {
         String type = gameTypeOf(request.gameType());
         int seats = seatsFor(type, request.seats());
         boolean ranked = Boolean.TRUE.equals(request.ranked());
-        return rooms.create(author, null, type, null, null, ranked)
-                // One open request per player — a new one replaces the last.
-                .flatMap(room -> db.sql("""
-                                UPDATE huud_posts SET status = 'closed'
-                                WHERE author_id = :uid AND kind = 'game_request' AND status = 'open'
-                                """).bind("uid", author).fetch().rowsUpdated()
-                        .then(insert(author, "game_request", room, type, request.message(), ranked, seats, null,
-                                REQUEST_TTL))
-                        .map(id -> new CreatedPost(id, room)));
+        return rooms.create(author, null, type, null, "slayhuud".equals(type) ? Map.of("mode", seats == 2 ? "battle" : "group", "seats", seats, "themeId", "first-date") : null, ranked)
+            .flatMap(room -> advertisedSeats(room,type,seats).flatMap(actualSeats ->
+                db.sql("UPDATE huud_posts SET status='closed' WHERE author_id=:uid AND kind='game_request' AND status='open'")
+                    .bind("uid",author).fetch().rowsUpdated()
+                    .then(insert(author,"game_request",room,type,request.message(),ranked,actualSeats,null,REQUEST_TTL))
+                    .map(id->new CreatedPost(id,room))));
+    }
+
+    // A resumed Slay room retains its original mode and includes judge seats in its capacity.
+    private Mono<Integer> advertisedSeats(RoomView room,String gameType,int requested) {
+        if(!"slayhuud".equals(gameType))return Mono.just(requested);
+        return db.sql("SELECT game_config FROM rooms WHERE id=:id").bind("id",room.id())
+            .map(r->{try{Object value=new com.fasterxml.jackson.databind.ObjectMapper().readValue(r.get("game_config",String.class),Map.class).get("seats");return value instanceof Number n?n.intValue():requested;}catch(Exception e){return requested;}})
+            .one().defaultIfEmpty(requested);
     }
 
     /** Challenge one player: makes a two-seat lobby room and asks them into it. */
@@ -568,7 +577,12 @@ public class HuudService {
         if (HEAD_TO_HEAD.contains(gameType)) {
             return 2;
         }
-        int max = "ludo".equals(gameType) ? 4 : 16;
+        if("slayhuud".equals(gameType)) {
+            int wanted=requested==null?2:requested;
+            for(int size:List.of(2,4,6,8,10,16))if(size>=wanted)return size;
+            return 16;
+        }
+        int max = "ludo".equals(gameType) ? 4 : "monopoly".equals(gameType) ? app.truearena.game.monopoly.MonopolyConfig.MAX_PLAYERS : 16;
         int seats = requested == null ? DEFAULT_SEATS.get(gameType) : requested;
         return Math.max(2, Math.min(max, seats));
     }

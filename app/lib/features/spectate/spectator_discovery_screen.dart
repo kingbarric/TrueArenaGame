@@ -14,7 +14,8 @@ const _gameNames = {
   'chess': 'Chess',
   'goosi': 'Macala',
   'whot': 'Whot',
-  'ludo': 'Ludo'
+  'ludo': 'Ludo',
+  'slayhuud': 'SlayHuud'
 };
 
 class DiscoverableRoom {
@@ -78,7 +79,7 @@ class _SpectatorDiscoveryScreenState extends State<SpectatorDiscoveryScreen> {
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Could not reach the server');
+      if (mounted) setState(() => _error = userErrorMessage);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -102,7 +103,7 @@ class _SpectatorDiscoveryScreenState extends State<SpectatorDiscoveryScreen> {
                             accent: n.danger,
                             child: Row(children: [
                               Expanded(
-                                  child: Text(_error!,
+                                  child: Text(userErrorMessage,
                                       style: TextStyle(color: n.mid))),
                               TextButton(
                                   onPressed: _load, child: const Text('Retry')),

@@ -239,7 +239,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
       if (mounted && !silent) setState(() => _error = e.message);
     } catch (_) {
       if (mounted && !silent)
-        setState(() => _error = 'Could not reach the server');
+        setState(() => _error = userErrorMessage);
     } finally {
       if (mounted && !silent) setState(() => _loading = false);
     }
@@ -273,7 +273,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content:
-                Text('Message not sent. Check your connection and retry.')));
+                Text(userRetryMessage)));
       }
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -345,7 +345,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
     } catch (_) {
       if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not start the game')));
+            const SnackBar(content: Text(userRetryMessage)));
     }
   }
 
@@ -404,7 +404,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
           if (_error != null)
             Padding(
                 padding: const EdgeInsets.all(12),
-                child: Text(_error!, style: TextStyle(color: n.danger))),
+                child: Text(userErrorMessage, style: TextStyle(color: n.danger))),
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())

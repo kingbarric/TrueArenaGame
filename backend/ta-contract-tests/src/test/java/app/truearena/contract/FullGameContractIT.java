@@ -52,7 +52,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * checked on every frame every client actually received — the same invariant
  * {@code SecretDataGuaranteeTest} checks in-process, now proven at the transport layer.
  * Also exercises the two live-room behaviors nothing else covers end-to-end: reconnect
- * replay (a real {@code lastSeq} skips the full snapshot) and host migration (disconnect
+ * replay (a real {@code lastSeq} follows the initial view with missed events) and host migration (disconnect
  * the host, a connected human takes over within the 10s grace).
  */
 @SpringBootTest(classes = FullGameContractIT.TestApplication.class,
@@ -66,6 +66,7 @@ class FullGameContractIT {
     @EnableAutoConfiguration
     @EnableScheduling
     @ComponentScan("app.truearena")
+    @org.springframework.data.r2dbc.repository.config.EnableR2dbcRepositories("app.truearena.persistence")
     static class TestApplication {
     }
 
@@ -320,7 +321,7 @@ class FullGameContractIT {
     }
 
     @Test
-    void sixPlayerGame_noSecretDataLeak_reconnectReplaysInsteadOfResnapshotting_hostMigratesOnDisconnect() throws Exception {
+    void sixPlayerGame_noSecretDataLeak_reconnectReplaysAfterInitialSnapshot_hostMigratesOnDisconnect() throws Exception {
         int n = 6;
         List<TestClient> clients = new ArrayList<>();
         for (int i = 1; i <= n; i++) {
@@ -342,7 +343,7 @@ class FullGameContractIT {
 
         sendFrame(host, "GAME_START", Map.of());
 
-        // ---- reconnect: a real lastSeq skips the full snapshot ----
+        // ---- reconnect: transport sends the current view, then HELLO replays missed events ----
         TestClient reconnecting = clients.get(1);
         long deadlineForFirstEvent = System.currentTimeMillis() + 5000;
         while (lastSeqSeen(reconnecting) == 0 && System.currentTimeMillis() < deadlineForFirstEvent) {
@@ -386,12 +387,20 @@ class FullGameContractIT {
             }
         };
         reconnecting.ws = http.newWebSocketBuilder().buildAsync(uri, listener).get(10, TimeUnit.SECONDS);
+        // onConnect now sends an authoritative per-player view before HELLO.
+        // Isolate that transport baseline from the incremental HELLO response.
+        long baselineWait = System.currentTimeMillis() + 5000;
+        while (reconnecting.frames.stream().noneMatch(f -> "SNAPSHOT".equals(f.get("type")))
+                && System.currentTimeMillis() < baselineWait) Thread.sleep(25);
+        assertThat(reconnecting.frames).as("transport reconnect restores this player's current view")
+                .anyMatch(f -> "SNAPSHOT".equals(f.get("type")));
+        reconnecting.frames.clear();
         sendFrame(reconnecting, "HELLO", Map.of("lastSeq", seenSeq));
         long reconnectWait = System.currentTimeMillis() + 3000;
-        while (reconnecting.frames.isEmpty() && System.currentTimeMillis() < reconnectWait) {
+        while (reconnecting.frames.stream().noneMatch(f -> "PHASE".equals(f.get("type"))) && System.currentTimeMillis() < reconnectWait) {
             Thread.sleep(50);
         }
-        assertThat(reconnecting.frames).as("real lastSeq means no full snapshot on reconnect")
+        assertThat(reconnecting.frames).as("incremental HELLO does not send a second full snapshot")
                 .noneMatch(f -> "SNAPSHOT".equals(f.get("type")));
         assertThat(reconnecting.frames).as("reconnect should still get the current PHASE")
                 .anyMatch(f -> "PHASE".equals(f.get("type")));

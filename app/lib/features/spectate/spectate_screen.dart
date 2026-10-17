@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/app_state.dart';
 import '../../core/game_socket.dart';
+import '../slayhuud/slay_competition_screen.dart';
 import '../../theme/neon_theme.dart';
 import '../whot/whot_watch_screen.dart';
 import '../ludo/ludo_watch_screen.dart';
@@ -19,9 +20,12 @@ class _Comment {
 /// Read-only public game state and the spectator comment channel.
 class SpectateScreen extends StatefulWidget {
   const SpectateScreen(
-      {super.key, required this.roomId, required this.title, this.gameType});
+      {super.key, required this.roomId, required this.title, this.gameType, this.heading, this.subheading});
   final String roomId;
   final String title;
+
+  /// A championship's name and round, for the top of the board.
+  final String? heading, subheading;
   final String? gameType;
 
   @override
@@ -52,7 +56,7 @@ class _SpectateScreenState extends State<SpectateScreen> {
     super.didChangeDependencies();
     if (_started) return;
     _started = true;
-    if (const {'whot', 'ludo', 'draughts', 'chess', 'goosi', 'wordbluff'}
+    if (const {'whot', 'ludo', 'draughts', 'chess', 'goosi', 'wordbluff', 'monopoly', 'slayhuud'}
         .contains(widget.gameType)) {
       return;
     }
@@ -188,14 +192,15 @@ class _SpectateScreenState extends State<SpectateScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if(widget.gameType == 'slayhuud') return SlayCompetitionScreen(roomId: widget.roomId);
     if (widget.gameType == 'whot') {
       return WhotWatchScreen(roomId: widget.roomId);
     }
     if (widget.gameType == 'ludo') {
       return LudoWatchScreen(roomId: widget.roomId);
     }
-    if (const {'draughts', 'chess', 'goosi', 'wordbluff'}.contains(widget.gameType)) {
-      return BoardGameWatchScreen(roomId: widget.roomId);
+    if (const {'draughts', 'chess', 'goosi', 'wordbluff', 'monopoly'}.contains(widget.gameType)) {
+      return BoardGameWatchScreen(roomId: widget.roomId, title: widget.heading, subtitle: widget.subheading);
     }
     final n = context.neon;
     return Scaffold(

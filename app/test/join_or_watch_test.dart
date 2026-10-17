@@ -68,7 +68,7 @@ void main() {
     expect(find.text('Watching Traitors'), findsOneWidget);
   });
 
-  testWidgets('a finished game shows the reason and does not try to watch', (tester) async {
+  testWidgets('a finished game shows the generic error and does not try to watch', (tester) async {
     final calls = await open(tester, (req) async {
       if (req.url.path.endsWith('/rooms/join')) return _json(409, {'message': 'this huud has already ended'});
       return _json(200, []);
@@ -79,11 +79,11 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
 
     expect(calls, ['POST /rooms/join']);
-    expect(find.text('this huud has already ended'), findsOneWidget);
+    expect(find.text(userErrorMessage), findsOneWidget);
     expect(find.byType(SpectateScreen), findsNothing);
   });
 
-  testWidgets('if watching is refused too, the person is told why instead of nothing happening', (tester) async {
+  testWidgets('if watching is refused too, the generic error is shown', (tester) async {
     await open(tester, (req) async {
       if (req.url.path.endsWith('/rooms/join')) return _json(409, _alreadyPlaying);
       if (req.url.path.endsWith('/rooms/watch')) return _json(403, {'message': 'private championship match'});
@@ -94,7 +94,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
 
-    expect(find.text('private championship match'), findsOneWidget);
+    expect(find.text(userRetryMessage), findsOneWidget);
     expect(find.byType(SpectateScreen), findsNothing);
   });
 }

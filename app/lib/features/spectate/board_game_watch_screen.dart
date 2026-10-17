@@ -1,3 +1,5 @@
+import '../../core/api_client.dart' show userErrorMessage;
+import '../monopoly/monopoly_game_screen.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/app_state.dart';
@@ -10,9 +12,12 @@ import '../wordbluff/wordbluff_game_screen.dart';
 
 /// Opens the game board on a spectator-only socket.
 class BoardGameWatchScreen extends StatefulWidget {
-  const BoardGameWatchScreen({super.key, required this.roomId});
+  const BoardGameWatchScreen({super.key, required this.roomId, this.title, this.subtitle});
 
   final String roomId;
+
+  /// A championship's name and round, for the top of a Chess or Draughts board.
+  final String? title, subtitle;
 
   @override
   State<BoardGameWatchScreen> createState() => _BoardGameWatchScreenState();
@@ -41,7 +46,7 @@ class _BoardGameWatchScreenState extends State<BoardGameWatchScreen> {
         _socket = socket;
       });
     }).catchError((_) {
-      if (mounted) setState(() => _error = 'Could not open this game');
+      if (mounted) setState(() => _error = userErrorMessage);
     });
   }
 
@@ -61,13 +66,21 @@ class _BoardGameWatchScreenState extends State<BoardGameWatchScreen> {
         body: Center(
             child: _error == null
                 ? const CircularProgressIndicator()
-                : Text(_error!)),
+                : Text(userErrorMessage)),
       );
     }
     final names = {
       for (final member in room.members)
         member.userId: member.nickname ?? member.userId,
     };
+    if (room.gameType == 'monopoly') {
+      return MonopolyGameScreen(
+          socket: socket,
+          selfId: _selfId,
+          nicknames: names,
+          roomCode: room.code,
+          spectating: true);
+    }
     if (room.gameType == 'chess') {
       return ChessGameScreen(
         socket: socket,
@@ -79,6 +92,8 @@ class _BoardGameWatchScreenState extends State<BoardGameWatchScreen> {
             if (member.isBot) member.userId
         },
         spectating: true,
+        title: widget.title,
+        subtitle: widget.subtitle,
       );
     }
     if (room.gameType == 'draughts') {
@@ -87,6 +102,8 @@ class _BoardGameWatchScreenState extends State<BoardGameWatchScreen> {
         selfId: _selfId,
         nicknames: names,
         spectating: true,
+        title: widget.title,
+        subtitle: widget.subtitle,
       );
     }
     if (room.gameType == 'wordbluff') {

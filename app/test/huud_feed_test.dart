@@ -19,7 +19,7 @@ http.Response _json(Object body, [int status = 200]) =>
 Map<String, dynamic> _person(String id, String name, {bool friend = true}) =>
     {'userId': id, 'displayName': name, 'username': name.toLowerCase(), 'friend': friend};
 
-final _now = DateTime.now().toUtc();
+DateTime get _now => DateTime.now().toUtc();
 
 Map<String, dynamic> _challengeToMe() => {
       'kind': 'challenge',
@@ -264,6 +264,47 @@ void main() {
           if (filled != null) 'filled': filled,
         },
       };
+  testWidgets('a public game invitation says Join to play and requests a seat', (tester) async {
+    final calls = await pumpFeed(tester, (request) async {
+      if (request.url.path == '/api/v1/huud/feed') {
+        return _json([
+          {
+            'kind': 'huud',
+            'id': 'huud:h1',
+            'at': _now.subtract(const Duration(minutes: 1)).toIso8601String(),
+            'actor': _person('eric', 'Eric'),
+            'gameType': 'whot',
+            'message': 'Who wants to play Whot?',
+            'huud': {
+              'huudSpaceId': 'h1',
+              'name': "Eric's Huud",
+              'privacy': 'friends',
+              'people': 3,
+              'players': 2,
+              'seats': 4,
+              'access': 'join',
+              'gameStatus': 'waiting',
+              'findingPlayers': true,
+            },
+          },
+        ]);
+      }
+      if (request.url.path == '/api/v1/huud-spaces/h1/public-invite/play') return http.Response('{}', 500);
+      return http.Response('not found', 404);
+    }, settle: false);
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('“Who wants to play Whot?”'), findsOneWidget);
+    expect(find.text("Eric's Huud"), findsOneWidget);
+    expect(find.text('Whot · Play with host'), findsOneWidget);
+    expect(find.byKey(const ValueKey('feed-huud-open-h1')), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const ValueKey('feed-huud-open-h1')), matching: find.text('Join to play')),
+        findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('feed-huud-open-h1')));
+    await tester.pump();
+    expect(calls, contains('POST /api/v1/huud-spaces/h1/public-invite/play'));
+  });
 
   testWidgets('a full page builds only the cards on screen, and scrolls to the last one', (tester) async {
     await pumpFeed(tester, (request) async {
@@ -409,12 +450,12 @@ void main() {
       }
       return http.Response('not found', 404);
     });
-    expect(find.text('feed is down'), findsOneWidget);
+    expect(find.text(userErrorMessage), findsOneWidget);
 
     fail = false;
     await tester.tap(find.text('Retry'));
     await tester.pumpAndSettle();
-    expect(find.text('feed is down'), findsNothing);
+    expect(find.text(userErrorMessage), findsNothing);
     expect(find.text('Ranked Draughts, anyone? Winner stays on.'), findsOneWidget);
   });
 

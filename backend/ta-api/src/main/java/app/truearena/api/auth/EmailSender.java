@@ -29,6 +29,7 @@ public class EmailSender {
     private final String senderAddress;
     private final String apiUrl;
     private final boolean local;
+    private final boolean test;
 
     public EmailSender(WebClient.Builder webClient, Environment environment,
                        @Value("${truearena.email.brevo-api-key:}") String apiKey,
@@ -39,9 +40,13 @@ public class EmailSender {
         this.senderAddress = senderAddress;
         this.apiUrl = apiUrl;
         this.local = environment.acceptsProfiles(Profiles.of("local"));
+        this.test = environment.acceptsProfiles(Profiles.of("test"));
     }
 
     public Mono<Void> send(String email, String code) {
+        if (test) {
+            return Mono.fromRunnable(() -> log.info("[EMAIL-TEST] Verification requested; use the test sign-in code"));
+        }
         if (apiKey.isBlank()) {
             if (local) {
                 return Mono.fromRunnable(() -> log.info("[EMAIL-STUB] OTP for {} = {}", email, code));

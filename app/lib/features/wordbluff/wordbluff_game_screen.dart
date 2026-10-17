@@ -1,3 +1,4 @@
+import '../../core/api_client.dart' show userRetryMessage;
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -917,7 +918,7 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
         _leaving = false;
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Server error. Please try again.')),
+            const SnackBar(content: Text(userRetryMessage)),
           );
         }
         return;

@@ -39,6 +39,8 @@ class _Socket implements GameSocket {
   @override
   Future<void> close() => frames.close();
   void snapshot(Map<String, dynamic> payload) => frames.add({'type': 'SNAPSHOT', 'payload': payload});
+  void event(String type, Map<String, dynamic> data) =>
+      frames.add({'type': 'EVENT', 'payload': {'type': type, 'data': data}});
 }
 
 double _contrast(Color a, Color b) {
@@ -172,11 +174,86 @@ void main() {
       expect(socket.sent, contains('PLAYER_ACTION ACCEPT_UNDO'));
     });
 
+    testWidgets('right after your move you can ask to undo it, until they move', (tester) async {
+      final socket = await open(tester, 'me');
+      socket.snapshot(snap('TurnA'));
+      await tester.pump();
+      socket.event('PIECE_MOVED', {'from': 45, 'to': 40, 'side': 'A'});
+      socket.event('TURN_STARTED', {'side': 'B', 'mustCapture': false});
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('game-control-undo')));
+      await tester.pump();
+      expect(socket.sent, contains('PLAYER_ACTION REQUEST_UNDO'));
+
+      // Once they've moved, it's too late — the app says so without asking.
+      socket.sent.clear();
+      socket.event('PIECE_MOVED', {'from': 30, 'to': 35, 'side': 'B'});
+      socket.event('TURN_STARTED', {'side': 'A', 'mustCapture': false});
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('game-control-undo')));
+      await tester.pump();
+      expect(socket.sent, isNot(contains('PLAYER_ACTION REQUEST_UNDO')));
+    });
+
+    testWidgets('seizure is written boldly, and a piece that missed a kill can be seized', (tester) async {
+      final socket = await open(tester, 'me');
+      socket.snapshot({...snap('TurnA'), 'seizure': true});
+      await tester.pump();
+      expect(find.text('SEIZURE ON · MISS A CAPTURE, LOSE THE PIECE'), findsOneWidget);
+
+      // Ada's man on 30 could have jumped and didn't: it's yours to seize.
+      socket.event('TURN_STARTED', {'side': 'A', 'mustCapture': false, 'seizable': [30]});
+      await tester.pump();
+      expect(find.text('SEIZE! TAP A GLOWING PIECE — IT MISSED A KILL'), findsOneWidget);
+      await tester.tapAt(tester.getCenter(find.byKey(const ValueKey('seizable-30'))));
+      await tester.pump(const Duration(milliseconds: 400)); // squares also take double taps
+      expect(socket.sent, contains('PLAYER_ACTION SEIZE'));
+
+      socket.event('PIECE_SEIZED', {'square': 30, 'side': 'B', 'by': 'me', 'reason': 'missed_capture'});
+      await tester.pump();
+      expect(find.text('SEIZURE!'), findsOneWidget);
+      expect(find.text('Missed an obvious kill'), findsOneWidget);
+      expect(find.byKey(const ValueKey('seizable-30')), findsNothing);
+      await tester.pump(const Duration(seconds: 2));
+      expect(find.text('SEIZURE!'), findsNothing);
+    });
+
+    testWidgets('without seizure there is no badge', (tester) async {
+      final socket = await open(tester, 'me');
+      socket.snapshot(snap('TurnA'));
+      await tester.pump();
+      expect(find.byKey(const ValueKey('draughts-seizure-badge')), findsNothing);
+    });
+
     testWidgets('your own undo request does not ask you', (tester) async {
       final socket = await open(tester, 'me');
       socket.snapshot({...snap('TurnB'), 'pendingUndo': 'me'});
       await tester.pump();
       expect(find.byKey(const ValueKey('undo-ask')), findsNothing);
+    });
+
+    testWidgets('a championship match says the championship and its round at the top', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(320, 568));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final socket = _Socket();
+      await tester.pumpWidget(AppScope(
+        state: AppState(ApiClient(client: MockClient((_) async => http.Response('{}', 200)))),
+        child: MaterialApp(
+          theme: NeonTheme.dark,
+          home: DraughtsGameScreen(
+              socket: socket,
+              selfId: 'me',
+              nicknames: const {'me': 'You', 'opponent': 'Ada'},
+              championshipId: 'c1',
+              title: 'Saturday Draughts Cup',
+              subtitle: 'Semi Finals'),
+        ),
+      ));
+      socket.snapshot(snap('TurnB'));
+      await tester.pump();
+      expect(find.text('Saturday Draughts Cup'), findsOneWidget);
+      expect(find.textContaining('Semi Finals · Round'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('the players and board fit a small phone without overflowing', (tester) async {

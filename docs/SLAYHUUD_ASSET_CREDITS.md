@@ -1,0 +1,134 @@
+# SlayHuud asset credits
+
+## MakeHuman system assets — CC0
+
+MakeHuman Community: female1605 and male_generic bodies, African skin textures, high-poly eyes and brown-light/green/deep-blue eye textures, eyebrows, afro01/short01/short02/short03/short04/braid01/bob01/ponytail01/long01 hair, system suits and shoes.
+
+Source: https://static.makehumancommunity.org/assets/assetpacks/makehuman_system_assets.html
+License: https://creativecommons.org/publicdomain/zero/1.0/
+
+## Community clothing and earrings — CC0
+
+MargaretToigo: cut-out dress, keyhole dress, strapless ruffle-top dress, dinner jacket suit, jacket-and-bowtie suit, male suit 3, basic tucked T-shirt, wool pants and pearl earrings. Existing collection also includes MargaretToigo's halter dresses and double-breasted/tie suits.
+
+Wardrobe expansion: MargaretToigo's shift, camisole, tiered and ruffle dresses; camisole, keyhole tank, turtleneck halter and bodice tops; tiered mini/midi, lace ruffle and long full skirts; and harem pants. Frankyaye: Mini Skirt 01 and 02. Cortu: cargo pants and jeans shorts. Joel Palmius: crude female T-shirt. Skalldyrssuppe: tube top. These items are from the CC0 clothing packs below; named colour/crop variants are SlayHuud adaptations of the same silhouettes.
+
+Elvaerwyn: crude male T-shirt.
+namuhekam: male polo shirt.
+EWS: hoop earrings.
+culturalibre: heroine lightning earrings.
+Aethelraed: flapper dress.
+Mindfront: kimono.
+
+Sources:
+https://static.makehumancommunity.org/assets/assetpacks/dress01.html
+https://static.makehumancommunity.org/assets/assetpacks/suits01.html
+https://static.makehumancommunity.org/assets/assetpacks/shirts01.html
+https://static.makehumancommunity.org/assets/assetpacks/pants01.html
+https://static.makehumancommunity.org/assets/assetpacks/skirts01.html
+https://static.makehumancommunity.org/assets/assetpacks/jewelry01.html
+License: https://creativecommons.org/publicdomain/zero/1.0/
+
+## Bags — attribution required
+
+Handbag01 and Shopping Bag01 by punkduck, licensed CC BY 4.0 in their source .mhclo files.
+License: https://creativecommons.org/licenses/by/4.0/
+
+Sling Purse1 by Elvaerwyn, licensed CC-BY in its source .mhclo file and the community pack listing. The file does not specify a license version; preserve this notice with the asset.
+License information: https://static.makehumancommunity.org/about/license.html
+
+Source for all three bags:
+https://static.makehumancommunity.org/assets/assetpacks/equipment03.html
+
+Changes to community assets: converted OBJ and textures to embedded GLB, reduced texture resolution, added a shared game rig and skin weights, adjusted fit/orientation for the starter bodies and rendered new thumbnails. Original source archives and metadata are preserved locally outside Git. These are adaptations, not unmodified originals.
+
+## SlayHuud additions
+
+Gold Chronograph, Steel & Leather, Night Smartwatch and Gold Nose Hoop are original lightweight meshes authored for SlayHuud. Ruby Red, Soft Rose, Deep Plum, Peach Nude, Cocoa Gloss, Coral Kiss, Berry Wine and Hot Pink lipstick are original colour materials on overlays derived from the CC0 female body, carrying matching face and expression morphs. The nose hoop follows the shared head rig and face morphs. Starter pose clips, garment coverage and fitting code are authored for SlayHuud.
+
+These starter models still need final art review and real-device performance testing before release.
+
+## Expanded hairstyles
+
+Cortu: Short Messy Hair; culturalibre: Hair 05. These are listed as CC0 in the MakeHuman Hair 01 pack.
+MargaretToigo: Blunt Bob with Bangs, CC0 in the pack and source metadata.
+Source: https://static.makehumancommunity.org/assets/assetpacks/hair01.html
+License: https://creativecommons.org/publicdomain/zero/1.0/
+
+Elvaerwyn: Reverse French Braid Bun, Inverted Curly Bob, Braided Rows (cornrows), 50s Updo, Maxwell Hair and Grump Hair. Preserve CC-BY attribution from the source metadata. The Reverse French Braid Bun appears in the CC0 Hair 01 pack but its .mhclo says CC_by; this adaptation retains the stricter attribution notice. Source metadata for these assets does not specify a CC-BY version.
+Sources: https://static.makehumancommunity.org/assets/assetpacks/hair01.html and https://static.makehumancommunity.org/assets/assetpacks/hair02.html
+License information: https://static.makehumancommunity.org/about/license.html
+
+Hair modifications: embedded mobile-sized textures, conversion to GLB, fit to the female/male starter head origins, shared head rig binding, and rendered wardrobe thumbnails. Catalogue names describe the game styles; source authors and original asset names are retained here. Models load only when selected.
+
+Starter sports bra and boxer briefs are fitted overlays derived from the CC0 body geometry, clipped at clean garment boundaries and bound to the same animation rig.
+
+## Women’s footwear expansion
+
+MargaretToigo (MRT): Ballet Flats and Stiletto Booties, CC0 in their source metadata.
+Source: https://static.makehumancommunity.org/assets/assetpacks/shoes01.html
+License: https://creativecommons.org/publicdomain/zero/1.0/
+
+DressUpDoc: Mary Jane 1, listed as CC-BY by the MakeHuman Community asset pack. Its older .mhclo header contains an AGPL3/Unknown template notice; preserve this discrepancy and the current pack attribution with this adapted asset.
+Elvaerwyn: Caesar Sandals 1 and Male Flip Flop Sandals 1, listed as CC-BY in the source and pack, adapted for the female avatar; the Caesar sandals are cropped to ankle height.
+Source: https://static.makehumancommunity.org/assets/assetpacks/shoes02.html
+License information (no CC-BY version specified in these pack listings): https://static.makehumancommunity.org/about/license.html
+
+Footwear changes: mobile texture sizing, transparent strap/cutout materials, fit to the female starter body, game rig bindings and boot-shaft weights, rendered thumbnails. Colour selection is a runtime shader effect; original textures remain available through “Original colour”.
+
+## Additional avatar characters — CC0
+
+Girl02 by dariush086 (MakeHuman 1.1.1 character definition):
+http://www.makehumancommunity.org/model/girl02.html
+
+Indian Male by Ragnar (MakeHuman 1.2.0 character definition):
+http://www.makehumancommunity.org/model/indian_male.html
+
+Indian Mom Model by Slayer227 (MakeHuman 1.2.0 definition), adapted as Ella, the curvy option:
+http://www.makehumancommunity.org/model/indian_mom_model.html
+
+Elisabeth by Fa94 (MakeHuman 1.1.1 definition), adapted as Elisabeth, the slim option (saved ID `beverly`):
+http://www.makehumancommunity.org/model/elisabeth.html
+
+Both additional preset pages list CC0. Elisabeth's CC0 custom targets are credited to Marco_105 (body design), Mindfront (hand, foot and face details), Nadow (breast compression), blindsaypatten (closed lips), and grinsegold (lip shape). Their URLs, source authors and licences are retained in `slay-renderer/scripts/models/elisabeth-dependencies.json`; the corresponding sparse target files are retained alongside it. The Nefertiti head target is deliberately excluded because its description specifies CC-BY-NC-SA despite its CC-BY category. Source: http://www.makehumancommunity.org/target/nefertiti_target.html. Preset clothing and anatomical proxies are not bundled; the game retains its shared wardrobe, body proxy and skin palette. Ella uses the CC0 Indian Female Enhanced skin by CutOff3D, referenced by the Indian Mom preset (http://files.makehumancommunity.org/sites/default/files/skins/7149/230986847/indian_skin3e.png). Elisabeth and Chloe use their referenced CC0 MakeHuman system young Caucasian female skins, converted to 1024px embedded textures. Each material declares its native skin reference for the existing colour picker.
+
+The Girl02 and Indian Male source pages explicitly list CC0. Their MHM definitions are retained in `slay-renderer/scripts/models`. MakeHuman 1.2.0 base/morph data supplies the offline shape conversion; the app ships exported meshes and fitting data, not the MakeHuman application code.
+
+Modifications: character shape deltas adapted onto the existing fashion bodies; stature and large vertical offsets normalised for the shared skeleton; feet retain the game's footwear fit. Existing skin textures, expression morphs, underwear and rig are retained. A continuous fitting field adjusts selected wardrobe meshes to the character, rather than duplicating every garment. These are shared-rig adaptations of the definitions, rather than unchanged full MakeHuman scene exports. Source preset hair, optional clothing, expression and skeleton selections are replaced by the player's SlayHuud choices.
+
+The distant studio furniture, lights and flowers are original procedural SlayHuud meshes.
+
+## Career stage wardrobe (added 10 October 2026)
+
+Garments from the MakeHuman Community asset packs, used for the five career stages. Colour variants ("Neon Pink …", "Emerald …") are SlayHuud recolours of these garments, applied at runtime.
+
+**CC BY**
+
+- DredNicolson: Camo Tee (shirts03), Asymmetric Tunic (shirts03).
+- Elvaerwyn: Easy Day Dress (dress02), Hoodie Dress (suits03), Sporty Tank (shirts03), Ribbon Shorts (pants03), Hi-top Sneakers (shoes02), Sixties Shift (dress02), Halter Day Dress (dress02), Ruffle Blouse (shirts03), Pencil Skirt (skirts02), Office Midi Skirt (skirts02), Pointed Flats (shoes02), Frilled Party Dress (dress02), Halter Mini Dress (dress02), Fringe Dress (dress02), Baby-doll Dress (dress02), Disco Halter Top (shirts03), Butterfly Disco Top (shirts03), Disco Skinny Pants (pants02), Ruffle Flares (pants02), Double Ruffle Flares (pants02), Disco Mini Skirt (skirts02), Plaid Pleated Mini (skirts02), Knee-high Heel Boots (shoes03), Tall Wedge Boots (shoes03), Couture Qipao (dress02), Halter Gown (dress02), Handkerchief Gown (dress02), Silk Camisole (shirts03), Palazzo Pants (pants02), Asymmetric Skirt (skirts02), Jewelled Flats (shoes02), Bow Flats (shoes02), Buckle Flats (shoes02), Goddess Gown (dress02), Draped Goddess Gown (dress02), Grecian Gown (dress02), Fringe Couture Dress (dress02), Tiered Couture Dress (dress02), Halter Jumpsuit (suits03), Athletic Tank (shirts03), Tank Shirt (shirts03), Straight Jeans (pants02), Chino Shorts (pants03), Shirt and Tie (shirts02), Button-down Shirt (shirts02), Tailored Trousers (pants02), Bootcut Jeans (pants02), Boho Party Shirt (shirts02), Muscle Tee (shirts03), Chain Trousers (pants02), Party Shorts (pants03).
+- MTKnife: Low-rise Mini (skirts02).
+- culturalibre: Street Sneakers (shoes02).
+- janexx: Cosy Jumper (shirts02).
+- madmanny: Leather Boots (shoes03).
+
+**CC BY 3.0**
+
+- punkduck: Skinny Jeans (pants02), Denim Skirt (skirts02), Comfy Sneakers (shoes02), Runners (shoes02), Sleeveless Shirt (shirts03), Off-shoulder Top (shirts02), Polka Dot Skirt (skirts02), Little Black Cocktail Dress (dress03), Tube Party Dress (dress03), Party Tube Top (shirts03), Party Crop Top (shirts03), Black Mini Skirt (skirts02), Evening Gown (dress03), Silk Qipao (dress03), Silk V-neck (shirts03), Satin Retro Top (shirts03), Designer Slip Top (shirts03), Court Shoes (shoes02).
+- sonicteam998: Satin Skirt (skirts02).
+
+**CC BY 4.0**
+
+- Elvaerwyn: Logo Tee (shirts03).
+- MTKnife: Pleated Mini (skirts02).
+- Mindfront: Weekend Wrap Dress (dress03), Picnic Midi Dress (dress03), Everyday Tank (shirts03), Office Sheath (dress03), Lunch Date Dress (dress03), Straight Trousers (pants02), Brogues (shoes02), Monk Straps (shoes02), Gala Dress (dress03), Ball Gown (dress03), Runway Gown (dress03), Couture Column Gown (dress03), Designer Ruffle Gown (dress03), Statement Gown (dress03), Finale Gown (dress03), Runway Biker Boots (shoes03), Smart Trousers (pants02), Oxford Shoes (shoes02), Night Jeans (pants02), Biker Boots (shoes03), Evening Suit (suits03).
+- punkduck: Denim Cut-offs (pants03), Lace-up Blouse (shirts02), Half Boots (shoes03), High-neck Crop (shirts03), Knee Boots (shoes03), Riding Boots (shoes03), Classic Jeans (pants02).
+
+**CC0**
+
+- Cortu: T-bar Shoes (shoes01), Over-knee Boots (shoes01).
+- Margaret Toigo: Skirt Suit (suits01), Trouser Suit (suits01), Ankle Boots (shoes01), Flower Flats (shoes01), Couture Ballet Flats (shoes01), Chelsea Boots (shoes01).
+- culturalibre: Stage Boots (shoes01).
+
+Sources: https://static.makehumancommunity.org/assets/assetpacks.html (dress01/02/03, suits01/03, shirts02/03, pants02/03, skirts02, shoes01/02/03). CC BY licences: https://creativecommons.org/licenses/by/3.0/ and https://creativecommons.org/licenses/by/4.0/. CC0: https://creativecommons.org/publicdomain/zero/1.0/.
+
+Changes: converted to embedded GLB with mobile textures, a shared game rig and skin weights, body masks, shoe fitting and thumbnails. Garments whose files declare AGPL3 were excluded.

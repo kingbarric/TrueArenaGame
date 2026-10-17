@@ -1,9 +1,12 @@
+import '../../core/app_state.dart';
+import '../huudspace/create_huud_sheet.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/neon_theme.dart';
 import '../../widgets/game_badge.dart';
 import '../../widgets/neon.dart';
 import '../chess/chess_lobby_screen.dart';
+import '../slayhuud/slay_hub_screen.dart';
 import '../draughts/draughts_mode_screen.dart';
 import '../goosi/goosi_lobby_screen.dart';
 import '../whot/whot_lobby_screen.dart';
@@ -32,12 +35,21 @@ class GameCatalogEntry {
   final bool available;
 }
 
+// Two per row on the games grid: Traitors · SlayHuud, Word Bluff · Monopoly,
+// Chess · Draughts, Ludo · Whot, then Macala.
 const List<GameCatalogEntry> gameCatalog = [
   GameCatalogEntry(
     id: 'truearena',
     name: 'Traitors',
     emoji: '🎭',
     tagline: 'Social deduction · 5 modes',
+    available: true,
+  ),
+  GameCatalogEntry(
+    id: 'slayhuud',
+    name: 'SlayHuud',
+    emoji: '✨',
+    tagline: 'Style · compete · own the spotlight',
     available: true,
   ),
   GameCatalogEntry(
@@ -48,10 +60,10 @@ const List<GameCatalogEntry> gameCatalog = [
     available: true,
   ),
   GameCatalogEntry(
-    id: 'draughts',
-    name: 'Draughts',
-    emoji: '⚫',
-    tagline: '1v1 · 10x10 · flying kings',
+    id: 'monopoly',
+    name: 'Monopoly',
+    emoji: '🏠',
+    tagline: '2–8 players · buy, build & trade',
     available: true,
   ),
   GameCatalogEntry(
@@ -62,10 +74,10 @@ const List<GameCatalogEntry> gameCatalog = [
     available: true,
   ),
   GameCatalogEntry(
-    id: 'whot',
-    name: 'Whot',
-    emoji: '🔴',
-    tagline: '2–20 players · shapes & numbers · shed your hand',
+    id: 'draughts',
+    name: 'Draughts',
+    emoji: '⚫',
+    tagline: '1v1 · 10x10 · flying kings',
     available: true,
   ),
   GameCatalogEntry(
@@ -73,6 +85,13 @@ const List<GameCatalogEntry> gameCatalog = [
     name: 'Ludo',
     emoji: '🎲',
     tagline: '2–4 players · two dice · Cyber Agents',
+    available: true,
+  ),
+  GameCatalogEntry(
+    id: 'whot',
+    name: 'Whot',
+    emoji: '🔴',
+    tagline: '2–20 players · shapes & numbers · shed your hand',
     available: true,
   ),
   GameCatalogEntry(
@@ -116,6 +135,22 @@ class GameSelectScreen extends StatelessWidget {
                       SnackBar(content: Text('${g.name} is coming soon')));
                   return;
                 }
+                if (g.id == 'slayhuud') {
+                  void solo() => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const SlayHubScreen()));
+                  // Accounts play it in a Huud ("quick game" is SlayHuud
+                  // solo); guests get the hub, as on Home.
+                  if (AppScope.of(context).identity == Identity.account) {
+                    await openHuudForGame(context, 'slayhuud', quickPlay: solo);
+                  } else {
+                    solo();
+                  }
+                  return;
+                }
+                if (g.id == 'monopoly') {
+                  await openHuudForGame(context, 'monopoly');
+                  return;
+                }
                 if (g.id == 'draughts') {
                   Navigator.of(context).push(MaterialPageRoute(
                     builder: (_) => const DraughtsModeScreen(),
@@ -152,12 +187,16 @@ class GameSelectScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(g.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: Theme.of(context)
                               .textTheme
                               .titleMedium
                               ?.copyWith(color: g.available ? n.ink : n.mute)),
                       const SizedBox(height: 4),
                       Text(g.tagline,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                           style: Theme.of(context)
                               .textTheme
                               .labelSmall

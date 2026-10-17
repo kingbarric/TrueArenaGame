@@ -72,7 +72,7 @@ class _CompetitiveSetupScreenState extends State<CompetitiveSetupScreen> {
       if (mounted) {
         setState(() {
           _loading = false;
-          _error = 'Could not load countries — check your connection';
+          _error = userErrorMessage;
         });
       }
     }
@@ -153,7 +153,7 @@ class _CompetitiveSetupScreenState extends State<CompetitiveSetupScreen> {
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Could not save — try again');
+      if (mounted) setState(() => _error = userErrorMessage);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -254,7 +254,7 @@ class _CompetitiveSetupScreenState extends State<CompetitiveSetupScreen> {
                 ),
                 if (_error != null) ...[
                   const SizedBox(height: 12),
-                  Text(_error!, style: TextStyle(color: n.danger, fontSize: 12)),
+                  Text(userErrorMessage, style: TextStyle(color: n.danger, fontSize: 12)),
                 ],
                 const SizedBox(height: 20),
                 NeonButton(_saving ? 'Saving…' : (widget.onboarding ? 'Save & continue' : 'Save'),

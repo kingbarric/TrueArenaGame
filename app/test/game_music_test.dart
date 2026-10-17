@@ -6,19 +6,26 @@ import 'package:truearena/core/game_music.dart';
 /// running order is a sensible, varied, on-tone one.
 void main() {
   test('a game gets the mood its pace calls for', () {
+    expect(GameMusic.moodFor('monopoly'), MusicMood.cinematic);
     expect(GameMusic.moodFor('draughts'), MusicMood.calm);
     expect(GameMusic.moodFor('goosi'), MusicMood.calm);
     expect(GameMusic.moodFor('wordbluff'), MusicMood.lively);
     expect(GameMusic.moodFor('truearena'), MusicMood.lively);
   });
 
-  test('the bank is the 22 tracks that ship in assets/music', () {
-    expect(GameMusic.trackCount, 22);
+  test('the bank is the 23 tracks that ship in assets/music', () {
+    expect(GameMusic.trackCount, 23);
+  });
+
+  test('Monopoly keeps a cinematic soundtrack without switching to piano', () {
+    final playlist = GameMusic.debugPlaylist(MusicMood.cinematic, seed: 1);
+    expect(playlist, ['drums-of-the-deep']);
+    expect(GameMusic.debugMoodOf(playlist.single), MusicMood.cinematic);
   });
 
   group('session playlists', () {
     test('lead with the requested mood and never repeat a track', () {
-      for (final mood in MusicMood.values) {
+      for (final mood in [MusicMood.calm, MusicMood.lively]) {
         final list = GameMusic.debugPlaylist(mood, seed: 4242);
         expect(list, hasLength(12));
         expect(list.toSet(), hasLength(12), reason: 'no track appears twice');
@@ -31,7 +38,8 @@ void main() {
 
     test('carry a couple from the other half as a change of scene', () {
       final list = GameMusic.debugPlaylist(MusicMood.calm, seed: 7);
-      final other = list.where((t) => GameMusic.debugMoodOf(t) == MusicMood.lively);
+      final other =
+          list.where((t) => GameMusic.debugMoodOf(t) == MusicMood.lively);
       expect(other, hasLength(2));
     });
 

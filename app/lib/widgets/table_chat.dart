@@ -52,6 +52,8 @@ class TableChatPanel extends StatefulWidget {
     this.initiallyExpanded = false,
     this.composerHint,
     this.emptyHint,
+    this.composerKey,
+    this.sendTooltip = 'Send message',
   });
 
   final List<TableChatLine> lines;
@@ -74,6 +76,8 @@ class TableChatPanel extends StatefulWidget {
   final bool initiallyExpanded;
   final String? composerHint;
   final String? emptyHint;
+  final Key? composerKey;
+  final String sendTooltip;
 
   @override
   State<TableChatPanel> createState() => _TableChatPanelState();
@@ -94,8 +98,9 @@ class _TableChatPanelState extends State<TableChatPanel> {
   @override
   void didUpdateWidget(covariant TableChatPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.initiallyExpanded && !oldWidget.initiallyExpanded)
+    if (widget.initiallyExpanded && !oldWidget.initiallyExpanded) {
       _expanded = true;
+    }
     // Word Bluff agents put their clues in chat. Bring a new clue into view
     // even when the player previously collapsed the panel for more board space.
     if (widget.lines.length > _lastLineCount &&
@@ -330,6 +335,7 @@ class _TableChatPanelState extends State<TableChatPanel> {
       child: Row(children: [
         Expanded(
           child: TextField(
+            key: widget.composerKey,
             controller: widget.controller,
             textInputAction: TextInputAction.send,
             onSubmitted: (_) => widget.onSend(),
@@ -359,16 +365,19 @@ class _TableChatPanelState extends State<TableChatPanel> {
                     fontWeight: FontWeight.w800)),
           ]),
         ),
-        GestureDetector(
-          onTap: widget.onSend,
-          child: Container(
-            width: 34,
-            height: 34,
-            margin: const EdgeInsets.symmetric(vertical: 5),
-            decoration: const BoxDecoration(
-                color: Color(0xffc02b52), shape: BoxShape.circle),
-            child: const Icon(Icons.arrow_upward_rounded,
-                size: 18, color: Colors.white),
+        Tooltip(
+          message: widget.sendTooltip,
+          child: GestureDetector(
+            onTap: widget.onSend,
+            child: Container(
+              width: 34,
+              height: 34,
+              margin: const EdgeInsets.symmetric(vertical: 5),
+              decoration: const BoxDecoration(
+                  color: Color(0xffc02b52), shape: BoxShape.circle),
+              child: const Icon(Icons.arrow_upward_rounded,
+                  size: 18, color: Colors.white),
+            ),
           ),
         ),
       ]),

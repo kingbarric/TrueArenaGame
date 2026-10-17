@@ -1,13 +1,26 @@
 # Music credits
 
-Every track in `assets/music/` is in the **public domain** — either a
-pre-1925 recording (public domain in the US since the Music Modernization
-Act) or a performance its performer released into the public domain.
-Nothing here is CC BY or share-alike, so the app carries no attribution or
-licensing obligation; this file exists because crediting the source of
-someone's work is the right thing to do regardless.
+The original 22 piano tracks are public-domain recordings. Monopoly adds a
+Creative Commons BY 4.0 cinematic recording, credited in its game settings.
 
-All files were sourced from Wikimedia Commons and prepared for the app the
+## Cinematic — Monopoly
+
+**“Drums of the Deep” Kevin MacLeod (incompetech.com)**
+
+Licensed under Creative Commons: By Attribution 4.0 License
+
+https://creativecommons.org/licenses/by/4.0/
+
+- Asset: `drums-of-the-deep.m4a` (full 174-second recording).
+- Official source: https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1400021
+- Download: https://incompetech.com/music/royalty-free/mp3-royaltyfree/Drums%20of%20the%20Deep.mp3
+- Prepared with loudness normalisation to −22 LUFS, short fades and 96 kbps AAC encoding.
+- Playback volume: 14%, below the existing piano bank's 22%; bundled for offline playback.
+- Attribution and the modification notice are also visible under Monopoly → Settings → Music credits.
+
+## Original piano bank
+
+The piano files were sourced from Wikimedia Commons and prepared for the app the
 same way: trimmed to a 90-second excerpt, high/low-passed to tame shellac
 hiss on the older transfers, loudness-matched to -22 LUFS so no track jumps
 out over the others, faded in and out, and encoded as 48 kbps mono AAC
