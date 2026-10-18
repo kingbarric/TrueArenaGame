@@ -47,28 +47,16 @@ class PushNotificationServiceTest {
     }
 
     @Test
-    void registerToken_savesANewRowWhenTheTokenIsUnseen() {
-        UUID userId = UUID.randomUUID();
-        when(tokens.findByToken("tok")).thenReturn(Mono.empty());
-        when(tokens.save(any(DeviceTokenRow.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
-
-        StepVerifier.create(service.registerToken(userId, DeviceTokenRow.ANDROID, "tok")).verifyComplete();
-
-        verify(tokens).save(org.mockito.ArgumentMatchers.argThat(
-                row -> row.userId().equals(userId) && row.platform().equals(DeviceTokenRow.ANDROID)));
-    }
-
-    @Test
-    void registerToken_reassignsAnExistingTokenToTheNewUser() {
-        UUID oldOwner = UUID.randomUUID();
-        UUID newOwner = UUID.randomUUID();
-        DeviceTokenRow existing = DeviceTokenRow.of(oldOwner, DeviceTokenRow.IOS, "tok");
-        when(tokens.findByToken("tok")).thenReturn(Mono.just(existing));
-        when(tokens.save(any(DeviceTokenRow.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
-
-        StepVerifier.create(service.registerToken(newOwner, DeviceTokenRow.IOS, "tok")).verifyComplete();
-
-        verify(tokens).save(org.mockito.ArgumentMatchers.argThat(row -> row.userId().equals(newOwner)));
+    void registrationAndAccountSwitchUseOneAtomicOperation() {
+        UUID first=UUID.randomUUID(), second=UUID.randomUUID();
+        when(tokens.register(any(), org.mockito.ArgumentMatchers.eq(DeviceTokenRow.ANDROID),
+                org.mockito.ArgumentMatchers.eq("tok"))).thenReturn(Mono.just(1));
+        StepVerifier.create(service.registerToken(first, DeviceTokenRow.ANDROID, "tok")).verifyComplete();
+        StepVerifier.create(service.registerToken(second, DeviceTokenRow.ANDROID, "tok")).verifyComplete();
+        verify(tokens).register(first, DeviceTokenRow.ANDROID, "tok");
+        verify(tokens).register(second, DeviceTokenRow.ANDROID, "tok");
+        verify(tokens, never()).findByToken(any());
+        verify(tokens, never()).save(any());
     }
 
     @Test

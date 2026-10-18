@@ -28,6 +28,13 @@ public class AccountSessionGuard {
                 : Mono.error(new SecurityException("account unavailable")));
     }
 
+    /** Only after room JWT and membership authentication: Cyber Agents are
+     * valid game participants, while normal HTTP/inbox access still rejects bots. */
+    public Mono<Void> requireRoomParticipant(UUID user) {
+        return users.findById(user).hasElement().flatMap(found -> found ? Mono.empty()
+                : Mono.error(new SecurityException("account unavailable")));
+    }
+
     public void register(UUID user, WebSocketSession socket) {
         sockets.computeIfAbsent(user, ignored -> ConcurrentHashMap.newKeySet()).add(socket);
     }

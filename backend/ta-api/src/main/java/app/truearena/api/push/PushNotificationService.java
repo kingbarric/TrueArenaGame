@@ -79,10 +79,7 @@ public class PushNotificationService {
         if (!DeviceTokenRow.IOS.equals(platform) && !DeviceTokenRow.ANDROID.equals(platform)) {
             return Mono.error(ApiExceptions.badRequest("platform must be 'ios' or 'android'"));
         }
-        return tokens.findByToken(token)
-                .flatMap(existing -> tokens.save(existing.reassignedTo(userId)))
-                .switchIfEmpty(Mono.defer(() -> tokens.save(DeviceTokenRow.of(userId, platform, token))))
-                .then();
+        return tokens.register(userId, platform, token).then();
     }
 
     public Mono<Void> unregisterToken(UUID userId, String token) {
