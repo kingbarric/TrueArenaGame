@@ -55,6 +55,49 @@ class ReviewerOtpAccessTest {
         StepVerifier.create(policy.verify("482915")).expectNext(false).verifyComplete();
     }
 
+    @Test void explicitlyNonExpiringAccessStillRequiresCorrectCodeAndRateLimit() throws Exception {
+        when(redis.opsForValue()).thenReturn(values);
+        when(values.increment(key)).thenReturn(Mono.just(2L), Mono.just(3L), Mono.just(11L));
+        var policy = new ReviewerOtpAccess(redis, configured()
+                .withProperty("truearena.auth.reviewer-expires-at", "never"));
+        StepVerifier.create(policy.verify("482915")).expectNext(true).verifyComplete();
+        StepVerifier.create(policy.verify("000000")).expectNext(false).verifyComplete();
+        StepVerifier.create(policy.verify("482915")).expectNext(false).verifyComplete();
+        assertThat(policy.owns("another@example.com")).isFalse();
+    }
+
+    @Test void privateSpringEnvironmentNamesSupportPermanentAccess() throws Exception {
+        var environment = new MockEnvironment();
+        var configured = configured();
+        environment.getPropertySources().addFirst(new org.springframework.core.env.SystemEnvironmentPropertySource(
+                "reviewer-file", java.util.Map.of(
+                    "TRUEARENA_AUTH_REVIEWER_EMAIL", "review@example.com",
+                    "TRUEARENA_AUTH_REVIEWER_CODE_SHA256", configured.getProperty("truearena.auth.reviewer-code-sha256"),
+                    "TRUEARENA_AUTH_REVIEWER_EXPIRES_AT", "never")));
+        when(redis.opsForValue()).thenReturn(values);
+        when(values.increment(key)).thenReturn(Mono.just(2L));
+        var policy = new ReviewerOtpAccess(redis, environment);
+        assertThat(policy.owns("review@example.com")).isTrue();
+        StepVerifier.create(policy.verify("482915")).expectNext(true).verifyComplete();
+    }
+
+    @Test void limiterFailureNeverAuthenticatesPermanentAccess() throws Exception {
+        when(redis.opsForValue()).thenReturn(values);
+        when(values.increment(key)).thenReturn(Mono.error(new IllegalStateException("Redis unavailable")));
+        var policy = new ReviewerOtpAccess(redis, configured()
+                .withProperty("truearena.auth.reviewer-expires-at", "never"));
+        StepVerifier.create(policy.verify("482915")).expectError(IllegalStateException.class).verify();
+    }
+
+    @Test void expiredAndMissingExpiryStillFailClosed() throws Exception {
+        for (String expiry : new String[]{"", Instant.EPOCH.toString(), "Never", "invalid"}) {
+            var environment = configured().withProperty("truearena.auth.reviewer-expires-at", expiry);
+            StepVerifier.create(new ReviewerOtpAccess(redis, environment).verify("482915"))
+                    .expectNext(false).verifyComplete();
+        }
+        verifyNoInteractions(redis);
+    }
+
     @Test void expiredOrMalformedConfigurationFailsClosed() throws Exception {
         var environment = configured().withProperty("truearena.auth.reviewer-expires-at", "invalid");
         StepVerifier.create(new ReviewerOtpAccess(redis, environment).verify("482915"))

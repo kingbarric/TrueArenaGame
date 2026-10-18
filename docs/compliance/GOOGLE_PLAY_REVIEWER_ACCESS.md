@@ -1,14 +1,14 @@
 # Dedicated Google Play reviewer access
 
-Status: deployed 16 October 2026 as a focused patch to the running production artifact.
+Status: non-expiring reviewer access deployed 17 October 2026 as a focused backend update.
 API checks passed: code request, valid reusable login, wrong-code rejection, ordinary
 non-guest account, and backend health. In-app installation and full feature checks
 are pending Google Play first-use Terms acceptance in the emulator.
 
 The deployed reviewer credentials remain private on the operator machine and server.
-They have not been submitted to Google Play yet. Current configured expiry: 14 January
-2027. Google's sign-in form asks for reusable credentials that do not expire, so resolve
-that lifecycle requirement before submitting; do not claim non-expiring access.
+They have not been submitted to Google Play yet. The dedicated store-review account now uses explicit non-expiring access
+(`TRUEARENA_AUTH_REVIEWER_EXPIRES_AT=never`) in production. Its existing identifier
+and code hash were preserved. Other accounts still use ordinary one-time verification.
 
 Store contact: kingbarric@yahoo.com. Intended audience: adults aged 18+.
 Guest access is restricted, so do not declare that every feature is available without login.
@@ -22,16 +22,22 @@ not grant administrative permissions or bypass paid features, moderation or game
 - `REVIEWER_EMAIL`: a new dedicated review identifier under a domain controlled by PlayHuud;
   never an existing user's address or the public support address.
 - `REVIEWER_CODE_SHA256`: SHA-256 of the six-digit code, encoded as hexadecimal.
-- `REVIEWER_EXPIRES_AT`: a future UTC instant in ISO-8601 form.
+- `REVIEWER_EXPIRES_AT`: `never` for permanent store-review access, or a future UTC instant in ISO-8601 form for temporary access. Blank or malformed values disable verification.
+
+The current private `reviewer.env` uses the equivalent Spring environment names
+`TRUEARENA_AUTH_REVIEWER_EMAIL`, `TRUEARENA_AUTH_REVIEWER_CODE_SHA256` and
+`TRUEARENA_AUTH_REVIEWER_EXPIRES_AT`; these take precedence over application YAML defaults.
 
 Generate the code securely at deployment. Store the clear code only in a private credential
 store and Play Console's restricted reviewer instructions; never commit it or put it in
-release notes. Set an expiry long enough to cover review, and renew for later reviews.
+release notes. Use the explicit `never` setting for store reviewers so future reviews are not blocked by an expiry.
 The email is reserved while configured, even after expiry. Removing the configuration
 returns it to normal email verification, so never use a third-party mailbox as this identity.
 
 Every reviewer-code verification counts against a shared limit of ten attempts per
-15 minutes. Missing/invalid configuration, expiry and limiter failures cannot authenticate.
+15 minutes. Missing/invalid configuration, expired temporary access and limiter failures cannot authenticate.
+The permanent setting changes only the dedicated account's access lifetime; the code hash,
+account scope, ordinary-user verification and shared attempt limit remain enforced.
 Ordinary users continue using the existing OTP flow. Test-profile allowlists still apply.
 
 ## Before submitting to Google
@@ -50,3 +56,16 @@ Ordinary users continue using the existing OTP flow. Test-profile allowlists sti
 Closed testing remains blocked until all required store assets and declarations are complete
 and Google approves the release. The adult target-audience form currently requires Ads
 and Sign in details first. Adult targeting is not itself an in-app age check or IARC rating.
+
+## Permanent access verification — 17 October 2026
+
+Twelve targeted OTP/reviewer tests passed, covering the explicit permanent setting,
+Spring environment-variable names used by the private reviewer file, wrong codes,
+account scope, expired/blank/malformed settings, attempt exhaustion and Redis failure.
+The backend was built from an isolated checkout based on the running production
+revision, so unfinished app and game changes were excluded. The existing runtime
+and private configuration were backed up; only the backend image and reviewer
+expiry were changed. Production health returned UP. Live invalid-code checks returned
+401 for the reviewer and an ordinary identifier. No codes were requested or messages
+sent. No mobile rebuild is needed. The reusable code remains private; it was not
+regenerated or published. A successful real-code login was not repeated in this run.

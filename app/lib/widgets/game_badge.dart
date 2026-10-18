@@ -47,7 +47,7 @@ class GameBadge extends StatelessWidget {
     'goosi': 'MACALA',
     'whot': 'WHOT',
     'ludo': 'LUDO',
-    'monopoly': 'MONOPOLY',
+    'monopoly': 'HUUDPOLY',
   };
 
   static const _artwork = {
@@ -59,7 +59,7 @@ class GameBadge extends StatelessWidget {
     'ludo': 'assets/images/game_icons/ludo.png',
     'chess': 'assets/images/game_icons/chess.png',
     'slayhuud': 'assets/images/game_icons/slayhuud.png',
-    'monopoly': 'assets/images/game_icons/monopoly.png',
+    'monopoly': 'assets/images/game_icons/huudpoly.png',
   };
 
   static String? artworkFor(String gameId) => _artwork[gameId];

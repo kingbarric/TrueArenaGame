@@ -296,7 +296,7 @@ void main() {
     });
     await tester.pump();
     await tester.pump();
-    expect(find.text('MONOPOLY · PAUSED'), findsOneWidget);
+    expect(find.text('HUUDPOLY · PAUSED'), findsOneWidget);
     expect(
         tester
             .widget<FilledButton>(

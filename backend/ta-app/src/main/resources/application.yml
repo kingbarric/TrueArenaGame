@@ -62,6 +62,9 @@ truearena:
     google-client-id: ${GOOGLE_CLIENT_ID:26187322342-o2squi475tmt3ubs8k9rh2d2b7pfivgf.apps.googleusercontent.com}
     # Native iOS Sign in with Apple ID-token audience (the app's bundle ID).
     apple-client-id: ${APPLE_CLIENT_ID:app.truearena.truearena}
+    apple-team-id: ${APPLE_SIGN_IN_TEAM_ID:}
+    apple-key-id: ${APPLE_SIGN_IN_KEY_ID:}
+    apple-private-key-base64: ${APPLE_SIGN_IN_PRIVATE_KEY_BASE64:}
   livekit:
     url: ${LIVEKIT_URL:ws://localhost:7880}
     api-key: ${LIVEKIT_API_KEY:devkey}

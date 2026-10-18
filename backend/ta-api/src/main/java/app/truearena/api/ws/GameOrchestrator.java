@@ -169,7 +169,7 @@ public class GameOrchestrator {
         }
         return parsed.flatMap(a -> members.findByRoomIdAndUserId(a.roomId(), UUID.fromString(a.userId()))
                 .map(m -> a)
-                // Monopoly's organiser may deliberately give their seat to another player.
+                // Huudpoly's organiser may deliberately give their seat to another player.
                 // Only that room's host can keep the control socket without a game seat.
                 .switchIfEmpty(Mono.defer(() -> rooms.findById(a.roomId())
                         .filter(room -> "monopoly".equals(room.gameType())
@@ -214,7 +214,7 @@ public class GameOrchestrator {
                 })
                 .switchIfEmpty(Mono.defer(() -> monopolyStore.returnInterruptedToSetup(room.id())
                         .then(eventLog.clear(room.id()))
-                        .doOnSuccess(ignored -> log.info("Monopoly room {} returned to setup: pre-checkpoint runtime was interrupted", room.id()))
+                        .doOnSuccess(ignored -> log.info("Huudpoly room {} returned to setup: pre-checkpoint runtime was interrupted", room.id()))
                         .thenReturn(rt)))
                 .flatMap(recovered -> members.findByRoomId(room.id())
                         .filter(member -> member.botDifficulty() != null)
@@ -335,6 +335,7 @@ public class GameOrchestrator {
     }
 
     public Mono<Void> handleFrame(RoomRuntime rt, String userId, String text, boolean spectator) {
+        if (rt.retired) return Mono.empty();
         Envelope in;
         try {
             in = mapper.readValue(text, Envelope.class);
@@ -404,7 +405,7 @@ public class GameOrchestrator {
                     .doOnNext(status -> rt.tellUser(userId, Envelope.of(MessageType.EVENT,
                             Map.of("type", "RECONNECT_WAIT", "data", status)))).then();
         }
-        // Monopoly clients render authoritative snapshots, rather than reducing
+        // Huudpoly clients render authoritative snapshots, rather than reducing
         // economic events. Reopen/reconnect must refresh the complete board.
         if ("monopoly".equals(rt.module().gameType())) {
             sendSnapshot(rt, userId);
@@ -1363,6 +1364,7 @@ public class GameOrchestrator {
     }
 
     private Mono<Void> handlePlayerAction(RoomRuntime rt, String userId, Envelope in) {
+        if (rt.retired) return Mono.empty();
         if (!rt.started()) {
             return tellError(rt, userId, "NOT_STARTED", "this huud hasn't started a game yet");
         }
@@ -1391,6 +1393,7 @@ public class GameOrchestrator {
         }
 
         return lock.withLock(rt.roomId, LOCK_TTL, () -> {
+            if (rt.retired) return Mono.empty();
             if (rt.paused && rt.state() instanceof MonopolyState && !"FORFEIT".equals(action))
                 return tellError(rt, userId, "GAME_PAUSED", "the game is paused — resume it to move");
             GameRunner runner = new GameRunner(rt.module());
@@ -1486,6 +1489,7 @@ public class GameOrchestrator {
     // ---------------------------------------------------------------- shared post-mutation pipeline
 
     private Mono<Void> afterMutation(RoomRuntime rt, List<GameEvent> newEvents) {
+        if (rt.retired) return Mono.empty();
         recomputeRoles(rt);
         Mono<Void> appendAndBroadcast = Flux.fromIterable(newEvents)
                 .concatMap(ge -> eventLog.append(rt.roomId, writeJson(ge)).doOnSuccess(v -> rt.bus.tryEmitNext(ge)))

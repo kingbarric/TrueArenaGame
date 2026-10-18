@@ -50,6 +50,13 @@ public class ObjectStorage {
         return endpoint != null && !accessKey.isBlank() && !secretKey.isBlank();
     }
 
+    public Mono<Void> delete(String key) {
+        return Mono.defer(() -> Mono.fromFuture(() -> http.sendAsync(
+                signed("DELETE", key, EMPTY_SHA256).DELETE().build(), HttpResponse.BodyHandlers.discarding()))
+                .flatMap(response -> response.statusCode()/100 == 2 || response.statusCode()==404
+                        ? Mono.empty() : Mono.error(new IllegalStateException("Object erasure failed"))));
+    }
+
     /** Stores {@code body} at {@code key}, cached by browsers and phones for a year (keys never change meaning). */
     public Mono<Void> put(String key, byte[] body, String contentType) {
         return Mono.defer(() -> {

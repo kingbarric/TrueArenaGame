@@ -23,8 +23,17 @@ class DeviceId {
     final b = List<int>.generate(16, (_) => r.nextInt(256));
     b[6] = (b[6] & 0x0f) | 0x40; // version 4
     b[8] = (b[8] & 0x3f) | 0x80; // variant 10
-    String hex(int start, int end) =>
-        b.sublist(start, end).map((x) => x.toRadixString(16).padLeft(2, '0')).join();
+    String hex(int start, int end) => b
+        .sublist(start, end)
+        .map((x) => x.toRadixString(16).padLeft(2, '0'))
+        .join();
     return '${hex(0, 4)}-${hex(4, 6)}-${hex(6, 8)}-${hex(8, 10)}-${hex(10, 16)}';
+  }
+
+  static Future<String> rotate() async {
+    final id = _uuidV4();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_key, id);
+    return id;
   }
 }

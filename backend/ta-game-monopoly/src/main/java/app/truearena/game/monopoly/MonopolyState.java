@@ -176,7 +176,7 @@ public final class MonopolyState implements GameState {
         || saved.players().size() < 2 || saved.players().size() > MonopolyConfig.MAX_PLAYERS
         || saved.turnIndex() < 0 || saved.turnIndex() >= saved.players().size()
         || saved.people() == null || !saved.people().keySet().equals(new HashSet<>(saved.players()))) {
-      throw new IllegalArgumentException("Invalid Monopoly checkpoint");
+      throw new IllegalArgumentException("Invalid Huudpoly checkpoint");
     }
     Data d = new Data();
     d.config = saved.config();

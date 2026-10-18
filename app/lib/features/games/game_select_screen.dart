@@ -35,7 +35,7 @@ class GameCatalogEntry {
   final bool available;
 }
 
-// Two per row on the games grid: Traitors · SlayHuud, Word Bluff · Monopoly,
+// Two per row on the games grid: Traitors · SlayHuud, Word Bluff · Huudpoly,
 // Chess · Draughts, Ludo · Whot, then Macala.
 const List<GameCatalogEntry> gameCatalog = [
   GameCatalogEntry(
@@ -61,7 +61,7 @@ const List<GameCatalogEntry> gameCatalog = [
   ),
   GameCatalogEntry(
     id: 'monopoly',
-    name: 'Monopoly',
+    name: 'Huudpoly',
     emoji: '🏠',
     tagline: '2–8 players · buy, build & trade',
     available: true,

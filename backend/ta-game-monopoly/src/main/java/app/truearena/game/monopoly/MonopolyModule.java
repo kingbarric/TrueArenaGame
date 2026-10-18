@@ -40,7 +40,7 @@ public final class MonopolyModule implements GameModule {
             && new HashSet<>(ids).size() == ids.size()
             && ids.stream().allMatch(id -> id != null && !id.isBlank()),
         "ROSTER",
-        "Monopoly needs 2–8 different players");
+        "Huudpoly needs 2–8 different players");
     Data d = new Data();
     d.config = (MonopolyConfig) config;
     d.seed = rng.seed();
@@ -177,7 +177,7 @@ public final class MonopolyModule implements GameModule {
         privateEvent(d, "TRADE_CLOSED", Map.of("id", t.id()), t.from(), t.to());
       }
 
-      default -> throw new RuleViolation("ACTION", "Unknown Monopoly action");
+      default -> throw new RuleViolation("ACTION", "Unknown Huudpoly action");
     }
     d.actionIds.add(a.actionId());
     // Other players' trades/property management must not indefinitely reset the decision clock.
@@ -877,40 +877,40 @@ public final class MonopolyModule implements GameModule {
     boolean jailCard = card == (deck.equals("chance") ? 9 : 4);
     if (!jailCard) cards.add(card);
     String[] chance = {
-      "Advance to GO",
-      "Advance to Illinois Avenue",
-      "Advance to St. Charles Place",
-      "Advance to Boardwalk",
-      "Take a trip to Reading Railroad",
-      "Advance to the nearest railroad; pay double rent",
-      "Advance to the nearest railroad; pay double rent",
-      "Advance to the nearest utility; pay ten times a fresh dice roll",
-      "Bank dividend: collect $50",
-      "Keep this card to leave jail",
-      "Go back three spaces",
-      "Go directly to jail",
-      "Repairs: $25 per house and $100 per hotel",
-      "Speeding fine: pay $15",
-      "Pay each other player $50",
-      "Building loan: collect $150"
+      "The neighbourhood festival begins at the Hub. Travel there now.",
+      "Your new shop is ready at Saffron Square. Move there.",
+      "A tenant awaits at Orchid Square. Head over to meet them.",
+      "Your waterfront project opens at Aurora Promenade. Travel there.",
+      "A city pass takes you to Harbour Transit.",
+      "An express connection takes you to the next transit station. Pay twice its usual rent.",
+      "A night service takes you to the next transit station. Pay twice its usual rent.",
+      "Visit the next cooperative. Its service charge is ten times a new dice total.",
+      "Your rooftop solar project earns $50.",
+      "Keep this clearance pass to leave jail.",
+      "A street closure sends you back three spaces.",
+      "A civic review requires you to enter jail.",
+      "Renovation inspection costs $25 per house and $100 per hotel.",
+      "A misplaced parking permit costs $15.",
+      "You sponsor the neighbours. Pay every other player $50.",
+      "Your neighbourhood project receives a $150 grant."
     };
     String[] chest = {
-      "Advance to GO",
-      "Bank error: collect $200",
-      "Doctor's fee: pay $50",
-      "Stock sale: collect $50",
-      "Keep this card to leave jail",
-      "Go directly to jail",
-      "Holiday fund: collect $100",
-      "Tax refund: collect $20",
-      "Birthday: collect $10 from each player",
-      "Life insurance: collect $100",
-      "Hospital fee: pay $100",
-      "School fee: pay $50",
-      "Consultancy: collect $25",
-      "Street repairs: $40 per house and $115 per hotel",
-      "Beauty prize: collect $10",
-      "Inheritance: collect $100"
+      "The community meeting is at the Hub. Travel there now.",
+      "Your shared-garden project receives $200.",
+      "Replace a broken courtyard bench. Pay $50.",
+      "Sell surplus building materials. Receive $50.",
+      "Keep this clearance pass to leave jail.",
+      "A civic review requires you to enter jail.",
+      "Your community workshop earns $100.",
+      "The recycling scheme returns $20.",
+      "Neighbours join your fundraiser. Collect $10 from every other player.",
+      "Your repair cooperative distributes $100.",
+      "Repair a storm-damaged roof. Pay $100.",
+      "Restock the neighbourhood tool library. Pay $50.",
+      "Your planning advice earns $25.",
+      "Street improvements cost $40 per house and $115 per hotel.",
+      "Your courtyard wins a community award. Receive $10.",
+      "A local enterprise grant pays you $100."
     };
     String text = (deck.equals("chance") ? chance : chest)[card];
     d.message = text;
@@ -989,7 +989,7 @@ public final class MonopolyModule implements GameModule {
           return;
         }
         case 15 -> cash(d, d.turn(), 150);
-        default -> throw new IllegalStateException("Chance card");
+        default -> throw new IllegalStateException("Opportunity card");
       }
     else
       switch (card) {

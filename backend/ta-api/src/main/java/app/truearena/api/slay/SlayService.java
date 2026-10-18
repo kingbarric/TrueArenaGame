@@ -565,6 +565,11 @@ public class SlayService {
         return storage.get(key).doOnNext(bytes -> recentImages.put(key, bytes));
     }
 
+    @org.springframework.context.event.EventListener
+    public void erasedImage(app.truearena.api.storage.AccountMediaErasure.Erased event) {
+        recentImages.remove(event.key());
+    }
+
     public Mono<Score> solo(UUID user, String theme, UUID id) {
         return tx.transactional(
                 look(user, id)
