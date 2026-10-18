@@ -1,6 +1,7 @@
 package app.truearena.api.inbox;
 
 import app.truearena.api.auth.JwtService;
+import app.truearena.api.auth.AccountSessionGuard;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,11 +50,13 @@ public class InboxWebSocketHandler implements WebSocketHandler {
     private final InboxRegistry registry;
     private final JwtService jwt;
     private final ObjectMapper mapper;
+    private final AccountSessionGuard accounts;
 
-    public InboxWebSocketHandler(InboxRegistry registry, JwtService jwt, ObjectMapper mapper) {
+    public InboxWebSocketHandler(InboxRegistry registry, JwtService jwt, ObjectMapper mapper, AccountSessionGuard accounts) {
         this.registry = registry;
         this.jwt = jwt;
         this.mapper = mapper;
+        this.accounts = accounts;
     }
 
     @Override
@@ -62,7 +65,7 @@ public class InboxWebSocketHandler implements WebSocketHandler {
                 .build().getQueryParams().getFirst("token");
         return Mono.fromCallable(() -> jwt.parseAccess(token == null ? "" : token))
                 .onErrorMap(e -> new SecurityException("bad token"))
-                .flatMap(userId -> runSession(session, userId))
+                .flatMap(userId -> accounts.require(userId).then(Mono.defer(() -> runSession(session, userId))))
                 .onErrorResume(e -> {
                     log.debug("inbox WS handshake rejected: {}", e.toString());
                     return session.close(UNAUTHORIZED);
@@ -71,6 +74,7 @@ public class InboxWebSocketHandler implements WebSocketHandler {
 
     @SuppressWarnings("unchecked")
     private Mono<Void> runSession(WebSocketSession session, UUID userId) {
+        accounts.register(userId, session);
         Sinks.Many<Object> outbound = Sinks.many().unicast().onBackpressureBuffer();
         registry.connect(userId, outbound);
 
@@ -78,7 +82,8 @@ public class InboxWebSocketHandler implements WebSocketHandler {
 
         Mono<Void> inbound = session.receive()
                 .map(WebSocketMessage::getPayloadAsText)
-                .concatMap(text -> Mono.fromCallable(() -> (Map<String, Object>) mapper.readValue(text, Map.class))
+                .concatMap(text -> accounts.require(userId)
+                        .then(Mono.fromCallable(() -> (Map<String, Object>) mapper.readValue(text, Map.class)))
                         .doOnNext(env -> handleFrame(userId, env))
                         .onErrorResume(e -> {
                             log.debug("inbox frame from {} ignored: {}", userId, e.toString());
@@ -87,7 +92,7 @@ public class InboxWebSocketHandler implements WebSocketHandler {
                 .then();
 
         return session.send(out).and(inbound)
-                .doFinally(sig -> registry.disconnect(userId, outbound));
+                .doFinally(sig -> { registry.disconnect(userId, outbound); accounts.remove(userId, session); });
     }
 
     @SuppressWarnings("unchecked")

@@ -34,7 +34,7 @@ const huudGameNames = {
   'goosi': 'Macala',
   'whot': 'Whot',
   'ludo': 'Ludo',
-  'monopoly': 'Monopoly',
+  'monopoly': 'Huudpoly',
 };
 
 /// The game art lookup (`GameBadge.artworkFor`) keys Word Bluff as "bluff".

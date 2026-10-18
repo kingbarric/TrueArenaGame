@@ -43,6 +43,7 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
   GameSocket? _socket;
   StreamSubscription? _sub;
   bool _handedOff = false;
+  bool _gameUnavailable = false;
   String _gameMode = 'relay';
   late AppState _app;
 
@@ -91,16 +92,6 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
       if (!mounted) return;
       if (handleCancelledHuud(context, env, _room.id)) return;
       switch (env['type']) {
-        case 'CONNECTION':
-          // A resume already knows from GET /rooms/{id} that the match is in
-          // progress. Hand the live socket to the game immediately, before its
-          // HELLO response arrives, so the game screen receives the first
-          // snapshot itself instead of briefly rendering an empty board.
-          final payload = (env['payload'] as Map?)?.cast<String, dynamic>();
-          if (payload?['connected'] == true && _room.status == 'in_game' &&
-              _room.gameType != 'monopoly') {
-            _handOffToGame();
-          }
         case 'SNAPSHOT':
           final p = (env['payload'] as Map).cast<String, dynamic>();
           if (p['lobby'] == true) _applyLobbySnapshot(p);
@@ -110,7 +101,9 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
         case 'EVENT':
           socket.send('HELLO', {'lastSeq': 0});
         case 'PHASE':
-          _handOffToGame();
+          // A phase or REST status cannot supply a board. Wait for the
+          // authoritative snapshot, cached by GameSocket for the new screen.
+          socket.send('HELLO', {'lastSeq': 0});
         case 'ERROR':
           final msg = (env['payload'] as Map)['message']?.toString();
           if (msg != null && mounted) {
@@ -152,6 +145,9 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
       return;
     }
     setState(() {
+      // A server restart can leave a legacy room marked in_game after its
+      // in-memory match was lost. Keep the exit/retry controls available.
+      _gameUnavailable = p['status'] == 'in_game';
       _gameMode = p['mode'] as String? ?? _gameMode;
       _room = RoomView(
         id: p['roomId'] as String,
@@ -257,7 +253,7 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
           'chess' => 'Chess',
           'goosi' => 'Macala',
           'whot' => 'Whot',
-          'monopoly' => 'Monopoly',
+          'monopoly' => 'Huudpoly',
           'ludo' => 'Ludo',
           _ => 'Traitors',
         }),
@@ -275,7 +271,7 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
         ],
       ),
       body: SafeArea(
-        child: Column(
+        child: _gameUnavailable ? _unavailableGame() : Column(
           children: [
             MarqueeBar(_room.gameType == 'goosi'
                 ? _gameMode == 'oware'
@@ -372,6 +368,33 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
       ),
     );
   }
+
+  Widget _unavailableGame() => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.cloud_off_outlined, size: 40),
+              const SizedBox(height: 16),
+              Text('This game is unavailable',
+                  style: Theme.of(context).textTheme.titleLarge,
+                  textAlign: TextAlign.center),
+              const SizedBox(height: 12),
+              const Text(
+                  'The server could not restore this match. Try again, or return to your Huud to start a new game.',
+                  textAlign: TextAlign.center),
+              const SizedBox(height: 20),
+              FilledButton(
+                  onPressed: () => _socket?.send('HELLO', {'lastSeq': 0}),
+                  child: const Text('Try again')),
+              TextButton(
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  child: const Text('Back to Huud')),
+            ],
+          ),
+        ),
+      );
 
   Widget _memberTile(RoomMember m, String hostId) {
     final n = context.neon;

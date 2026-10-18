@@ -32,7 +32,7 @@ public class MonopolyRuntimeStore {
                         .bind("state", json).bind("phase", state.phase()).bind("round", state.round())
                         .bind("id", rt.gameSessionId).fetch().rowsUpdated())
                 .flatMap(count -> count == 1 ? Mono.<Void>empty()
-                        : Mono.error(new IllegalStateException("Monopoly session checkpoint was not saved")));
+                        : Mono.error(new IllegalStateException("Huudpoly session checkpoint was not saved")));
     }
 
     public Mono<Recovery> load(UUID room) {

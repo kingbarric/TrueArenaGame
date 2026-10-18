@@ -18,14 +18,14 @@ const monopolySeatColors = <Color>[
 ];
 Color monopolyGroupColor(String? group) =>
     const {
-      'brown': Color(0xff895137),
-      'lightBlue': Color(0xff84c5d9),
-      'pink': Color(0xffd74d95),
-      'orange': Color(0xffed8d22),
-      'red': Color(0xffd43d37),
-      'yellow': Color(0xffefd22e),
-      'green': Color(0xff248b65),
-      'darkBlue': Color(0xff215994),
+      'brown': Color(0xff8b6aa8),
+      'lightBlue': Color(0xff70b9b1),
+      'pink': Color(0xffca8b9e),
+      'orange': Color(0xffd99b66),
+      'red': Color(0xffba6b78),
+      'yellow': Color(0xffd9bf79),
+      'green': Color(0xff769779),
+      'darkBlue': Color(0xff6d83b3),
     }[group] ??
     monopolyGold;
 
@@ -610,7 +610,7 @@ class _BoardPainter extends CustomPainter {
         center,
         Paint()
           ..shader = const RadialGradient(
-                  colors: [Color(0xff3b785d), Color(0xff174b39)], radius: .9)
+                  colors: [Color(0xff274b63), Color(0xff142b42)], radius: .9)
               .createShader(center));
     // Fine felt flecks have a fixed seed: visual texture never changes a roll.
     final rng = math.Random(7);
@@ -698,9 +698,9 @@ class _BoardPainter extends CustomPainter {
       final local = Rect.fromCenter(center: Offset.zero, width: rw, height: rh);
       if (id % 10 == 0) {
         final label = switch (id) {
-          0 => 'GO',
+          0 => 'HUB',
           10 => 'JAIL\nVISITING',
-          20 => 'FREE\nPARKING',
+          20 => 'REST\nSTOP',
           _ => 'GO TO\nJAIL'
         };
         text(c, label, local.deflate(w * .005),
@@ -750,8 +750,8 @@ class _BoardPainter extends CustomPainter {
             .toString()
             .replaceAll(' Avenue', '')
             .replaceAll(' Railroad', '\nRail')
-            .replaceAll('Community Chest', 'Community\nChest')
-            .replaceAll('Electric Company', 'Electric')
+            .replaceAll('Neighbourhood', 'Neighbour\nhood')
+            .replaceAll('Cooperative', 'Co-op')
             .replaceAll('Water Works', 'Water\nWorks')
             .replaceAll('Luxury Tax', 'Luxury\nTax')
             .replaceAll('Income Tax', 'Income\nTax');
@@ -780,17 +780,17 @@ class _BoardPainter extends CustomPainter {
     }
     // Embossed centre title and physical card decks.
     final titleArea = Rect.fromLTWH(w * .21, w * .41, w * .58, w * .13);
-    text(c, 'MONOPOLY', titleArea.translate(0, w * .004),
+    text(c, 'HUUDPOLY', titleArea.translate(0, w * .004),
         font: w * .066, color: const Color(0xff0e342a));
-    text(c, 'MONOPOLY', titleArea,
+    text(c, 'HUUDPOLY', titleArea,
         font: w * .066, color: const Color(0xffefe1b4));
-    text(c, 'PLAYHUUD • CLASSIC',
+    text(c, 'PLAYHUUD • BUILD YOUR NEIGHBOURHOOD',
         Rect.fromLTWH(w * .25, w * .52, w * .5, w * .035),
-        font: w * .018, color: const Color(0xffd0c3a0));
-    _deck(c, Rect.fromLTWH(w * .24, w * .23, w * .2, w * .115), 'CHANCE',
+        font: w * .014, color: const Color(0xffd0c3a0));
+    _deck(c, Rect.fromLTWH(w * .24, w * .23, w * .2, w * .115), 'OPPORTUNITY',
         const Color(0xffc88747), -.13);
     _deck(c, Rect.fromLTWH(w * .57, w * .63, w * .2, w * .115),
-        'COMMUNITY\nCHEST', const Color(0xffa8c9c0), -.13);
+        'NEIGHBOUR\nHOOD', const Color(0xffa8c9c0), -.13);
     for (int i = 0; i < 2; i++) {
       final p = rolling ? rollProgress : 1.0;
       final bounce =

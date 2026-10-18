@@ -36,6 +36,11 @@ class E2eCrypto {
 
   static SimpleKeyPair? _cachedKeyPair;
 
+  static Future<void> forgetKeyPair() async {
+    _cachedKeyPair = null;
+    await _storage.delete(key: _privateKeyStorageKey);
+  }
+
   /// Loads the device's keypair, generating and persisting a fresh one on
   /// first call. Returns the public key as base64 — upload this once via
   /// `POST /me/public-key` (see `AppState._ensurePublicKey`).
@@ -65,12 +70,15 @@ class E2eCrypto {
   /// the LiveKit frame-encryption key for calls. Returns null if the peer
   /// has no public key yet (chat/calls fall back to unencrypted for that
   /// pair — see callers).
-  static Future<SecretKey?> sharedSecretWith(String? peerPublicKeyBase64) async {
+  static Future<SecretKey?> sharedSecretWith(
+      String? peerPublicKeyBase64) async {
     if (peerPublicKeyBase64 == null || peerPublicKeyBase64.isEmpty) return null;
     try {
       final pair = await _loadOrCreateKeyPair();
-      final peerKey = SimplePublicKey(base64Decode(peerPublicKeyBase64), type: KeyPairType.x25519);
-      return await _algorithm.sharedSecretKey(keyPair: pair, remotePublicKey: peerKey);
+      final peerKey = SimplePublicKey(base64Decode(peerPublicKeyBase64),
+          type: KeyPairType.x25519);
+      return await _algorithm.sharedSecretKey(
+          keyPair: pair, remotePublicKey: peerKey);
     } catch (_) {
       return null; // malformed peer key — treat exactly like "no key yet"
     }
@@ -83,14 +91,17 @@ class E2eCrypto {
     return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
   }
 
-  static const _prefix = 'e2e1:'; // marks a message as this scheme's ciphertext, never plaintext by coincidence
+  static const _prefix =
+      'e2e1:'; // marks a message as this scheme's ciphertext, never plaintext by coincidence
   static final _aes = AesGcm.with256bits();
 
   /// Encrypts [plaintext] with [secret], returning `"e2e1:<base64(nonce|ciphertext|mac)>"`.
   static Future<String> encrypt(SecretKey secret, String plaintext) async {
     final nonce = _aes.newNonce();
-    final box = await _aes.encrypt(utf8.encode(plaintext), secretKey: secret, nonce: nonce);
-    final combined = Uint8List.fromList([...nonce, ...box.cipherText, ...box.mac.bytes]);
+    final box = await _aes.encrypt(utf8.encode(plaintext),
+        secretKey: secret, nonce: nonce);
+    final combined =
+        Uint8List.fromList([...nonce, ...box.cipherText, ...box.mac.bytes]);
     return '$_prefix${base64Encode(combined)}';
   }
 
@@ -104,12 +115,14 @@ class E2eCrypto {
     if (!isEncrypted(envelope)) return null;
     try {
       final combined = base64Decode(envelope.substring(_prefix.length));
-      const nonceLength = 12; // AES-GCM's standard nonce size, what newNonce() produces
+      const nonceLength =
+          12; // AES-GCM's standard nonce size, what newNonce() produces
       const macLength = 16;
       if (combined.length < nonceLength + macLength) return null;
       final nonce = combined.sublist(0, nonceLength);
       final mac = combined.sublist(combined.length - macLength);
-      final cipherText = combined.sublist(nonceLength, combined.length - macLength);
+      final cipherText =
+          combined.sublist(nonceLength, combined.length - macLength);
       final box = SecretBox(cipherText, nonce: nonce, mac: Mac(mac));
       final clear = await _aes.decrypt(box, secretKey: secret);
       return utf8.decode(clear);

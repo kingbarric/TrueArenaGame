@@ -66,7 +66,7 @@ public class HuudService {
 
     static final Map<String, String> GAME_NAMES = Map.of(
             "draughts", "Draughts", "chess", "Chess", "goosi", "Macala", "whot", "Whot",
-            "ludo", "Ludo", "wordbluff", "Word Bluff", "truearena", "Traitors", "monopoly", "Monopoly", "slayhuud", "SlayHuud");
+            "ludo", "Ludo", "wordbluff", "Word Bluff", "truearena", "Traitors", "monopoly", "Huudpoly", "slayhuud", "SlayHuud");
 
     private final DatabaseClient db;
     private final RoomService rooms;

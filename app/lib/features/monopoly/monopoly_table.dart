@@ -151,7 +151,7 @@ class _MonopolyTableState extends State<MonopolyTable> {
                                 fontSize: 16)),
                         Text(
                             widget.connected
-                                ? 'MONOPOLY · ${widget.state['paused'] == true ? 'PAUSED' : '${widget.seconds}s'}'
+                                ? 'HUUDPOLY · ${widget.state['paused'] == true ? 'PAUSED' : '${widget.seconds}s'}'
                                 : 'OFFLINE • saved board',
                             style: const TextStyle(
                                 color: monopolyGold,
@@ -334,11 +334,11 @@ class _MonopolyTableState extends State<MonopolyTable> {
       'jail' =>
         'Just visiting unless you were sent to jail. Leave by paying \$50, using a jail card or rolling doubles.',
       'parking' => 'A resting space. No reward or fee.',
-      'goToJail' => 'Go directly to jail. Do not collect a GO salary.',
+      'goToJail' => 'Go directly to jail. Do not collect a Hub salary.',
       'tax' => 'Pay the bank \$${id == 4 ? 200 : 100}.',
-      'chance' => 'Draw the next Chance card. Only the drawn card is revealed.',
+      'chance' => 'Draw the next Opportunity card. Only the drawn card is revealed.',
       'chest' =>
-        'Draw the next Community Chest card. Only the drawn card is revealed.',
+        'Draw the next Neighbourhood card. Only the drawn card is revealed.',
       'railroad' => 'Rent: 1 railroad \$25 • 2 \$50 • 3 \$100 • 4 \$200.',
       'utility' => 'Rent: one utility 4× dice; both utilities 10× dice.',
       _ => rents.length == 6
@@ -416,7 +416,7 @@ class _MonopolyTableState extends State<MonopolyTable> {
             ? 'PAYMENT DUE'
             : _phase == 'Auction'
                 ? '${tile['name'] ?? 'Property'} — AUCTION'
-                : tile['name']?.toString() ?? 'MONOPOLY';
+                : tile['name']?.toString() ?? 'HUUDPOLY';
     return Container(
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(

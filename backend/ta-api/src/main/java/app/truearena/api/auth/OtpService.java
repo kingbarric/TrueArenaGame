@@ -77,4 +77,9 @@ public class OtpService {
     private static String key(String identifier) {
         return "otp:" + normalize(identifier);
     }
+
+    public Mono<Void> forget(String email, String phone) {
+        return reactor.core.publisher.Flux.just(email == null ? "" : email, phone == null ? "" : phone)
+                .filter(value -> !value.isBlank()).concatMap(value -> redis.delete(key(value))).then();
+    }
 }

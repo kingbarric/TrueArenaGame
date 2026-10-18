@@ -13,6 +13,7 @@ import '../competitive/competitive_setup_screen.dart';
 import '../competitive/player_profile_screen.dart' show ProfileVisibilitySwitch, locationLine;
 import '../notifications/notifications_screen.dart';
 import '../onboarding/sign_out.dart';
+import 'delete_account_screen.dart';
 
 /// Everything about you and your device: edit profile (photo, username,
 /// where you compete, who can see your cards), appearance, sound,
@@ -366,6 +367,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               'Sign out',
               style: NeonStyle.ghost,
               onPressed: () => confirmSignOut(context, app),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const DeleteAccountScreen())),
+              child: Text('Delete account', style: TextStyle(color: n.danger)),
             ),
           ],
         ),

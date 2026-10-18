@@ -1,6 +1,8 @@
 package app.truearena.api.ws;
 
 import app.truearena.room.RoomRuntime;
+import app.truearena.api.auth.AccountSessionGuard;
+import java.util.UUID;
 import app.truearena.ws.contract.Envelope;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -27,10 +29,12 @@ public class RoomWebSocketHandler implements WebSocketHandler {
 
     private final GameOrchestrator orchestrator;
     private final ObjectMapper mapper;
+    private final AccountSessionGuard accounts;
 
-    public RoomWebSocketHandler(GameOrchestrator orchestrator, ObjectMapper mapper) {
+    public RoomWebSocketHandler(GameOrchestrator orchestrator, ObjectMapper mapper, AccountSessionGuard accounts) {
         this.orchestrator = orchestrator;
         this.mapper = mapper;
+        this.accounts = accounts;
     }
 
     @Override
@@ -43,7 +47,8 @@ public class RoomWebSocketHandler implements WebSocketHandler {
         boolean spectate = "true".equals(query.getFirst("spectate"));
 
         return orchestrator.authenticate(roomIdRaw, token == null ? "" : token, spectate)
-                .flatMap(auth -> runSession(session, auth))
+                .flatMap(auth -> accounts.require(UUID.fromString(auth.userId()))
+                        .then(Mono.defer(() -> runSession(session, auth))))
                 .onErrorResume(e -> {
                     log.debug("WS handshake rejected for {}: {}", path, e.toString());
                     return session.close(UNAUTHORIZED);
@@ -51,6 +56,8 @@ public class RoomWebSocketHandler implements WebSocketHandler {
     }
 
     private Mono<Void> runSession(WebSocketSession session, GameOrchestrator.Authed auth) {
+        UUID user = UUID.fromString(auth.userId());
+        accounts.register(user, session);
         return orchestrator.ensureRuntime(auth.roomId()).flatMap(rt -> {
             Sinks.Many<Object> personal = Sinks.many().unicast().onBackpressureBuffer();
             synchronized (rt) {
@@ -64,7 +71,8 @@ public class RoomWebSocketHandler implements WebSocketHandler {
 
             Mono<Void> inbound = session.receive()
                     .map(WebSocketMessage::getPayloadAsText)
-                    .concatMap(text -> orchestrator.handleFrame(rt, auth.userId(), text, auth.spectator())
+                    .concatMap(text -> accounts.require(user)
+                            .then(Mono.defer(() -> orchestrator.handleFrame(rt, auth.userId(), text, auth.spectator())))
                             .onErrorResume(e -> {
                                 log.warn("unhandled error processing frame for room {} user {}: {}",
                                         auth.roomId(), auth.userId(), e.toString());
@@ -76,6 +84,7 @@ public class RoomWebSocketHandler implements WebSocketHandler {
             Runnable disconnect = () -> {
                 Mono<Void> cleanup;
                 synchronized (rt) {
+                    if (rt.retired) return;
                     // A new socket may already have replaced this one. The old
                     // socket must not disconnect the player or migrate the host.
                     if (rt.unicast.get(auth.userId()) != personal) return;
@@ -89,7 +98,7 @@ public class RoomWebSocketHandler implements WebSocketHandler {
             return connect
                     .then(session.send(outbound).and(inbound))
                     .doFinally(sig -> disconnect.run());
-        });
+        }).doFinally(signal -> accounts.remove(user, session));
     }
 
     private String writeJson(Envelope env) {

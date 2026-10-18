@@ -150,7 +150,7 @@ void main() {
       final cards = buildPlayerCards(CompetitiveProfile.fromJson(_profileJson()));
       // Overall, then the ranked game, then every other game — played or not.
       expect(cards.map((c) => c.title),
-          ['OVERALL', 'DRAUGHTS', 'TRAITORS', 'SLAYHUUD', 'WORD BLUFF', 'MONOPOLY', 'CHESS', 'LUDO', 'WHOT', 'MACALA']);
+          ['OVERALL', 'DRAUGHTS', 'TRAITORS', 'SLAYHUUD', 'WORD BLUFF', 'HUUDPOLY', 'CHESS', 'LUDO', 'WHOT', 'MACALA']);
       final overall = cards.first;
       // 291 wins × 20 + 13 draws × 8 + 124 losses × 3.
       expect(overall.bigValue, '6,296');

@@ -95,6 +95,13 @@ public class InboxRegistry {
         }
     }
 
+    public void erase(UUID userId) {
+        leaveCall(userId);
+        backgrounded.remove(userId);
+        var sink=sockets.remove(userId);
+        if (sink != null) sink.tryEmitComplete();
+    }
+
     /** Everyone currently on the same call as {@code userId}, excluding themself — empty if they're not on one. */
     public Set<UUID> callCompanionsOf(UUID userId) {
         String room = userCallRoom.get(userId);
