@@ -2,8 +2,7 @@
 
 Status: non-expiring reviewer access deployed 17 October 2026 as a focused backend update.
 API checks passed: code request, valid reusable login, wrong-code rejection, ordinary
-non-guest account, and backend health. In-app installation and full feature checks
-are pending Google Play first-use Terms acceptance in the emulator.
+non-guest account, and backend health. Fresh email-code login through Android build 1.0.1 (6) passed on 18 October 2026. Profile, friends and deletion-requirements API access passed too. The original code and permanent lifetime were preserved. The reviewer account was not deleted.
 
 The deployed reviewer credentials remain private on the operator machine and server.
 They were added to Google Play Console Sign in details with explicit user approval on 18 October 2026; the declaration is saved pending app review. The dedicated store-review account now uses explicit non-expiring access

@@ -42,9 +42,19 @@ Build 5 was removed only from this release and remains recoverable from the arti
 
 The App content overview now says “You’re all caught up.” The dashboard shows only closed-test rollout/production-access tasks, with zero opted-in testers. Proof: `output/google-play/app-content-complete.jpg`, `iarc-ratings-saved.jpg`, and `setup-complete-dashboard.jpg` in the primary workspace.
 
+## Final checks and backend blockers
+
+Fresh reviewer login passed against production and through the signed Android build. The existing code was recovered privately from the original server configuration without rotation; the temporary local credential file was removed. Profile, friends and account-deletion requirements returned 200. A new disposable production guest required explicit deletion confirmation, returned 204 on confirmed deletion, then rejected both access and refresh tokens with 401. The reviewer account was retained.
+
+The new-game check found that AccountSessionGuard rejected bot identities in game-room WebSockets. The fix adds a room-only existence check after JWT and membership authentication; ordinary HTTP/inbox checks still reject bots and deleted users. It also replaces push-token read-then-save with a single PostgreSQL token upsert after a real concurrent registration error was observed.
+
+Backend fix revision: `0fa90024f7aa04c1f2f506b7eee648015ecc2c87`. Full backend suite: 777 tests, zero failures/errors, one optional check skipped. The isolated test backend is healthy on this revision. Live test checks passed: 24 concurrent push-token registrations, account switching, deletion confirmation/token invalidation, and an authenticated Chess bot playing two moves before the private zero-stakes match finished.
+
+Reusable checks: `backend/dev-tools/release-account-smoke.py` and `backend/dev-tools/release-bot-smoke.mjs`. They do not print credentials/tokens or send notifications. Production rollout of the backend fix awaits the user's restart decision because recent player activity is linked to two existing game records. No Android rebuild is needed for these backend-only changes.
+
+Google's quick checks passed and Publishing overview contains the Alpha build 6 release and saved store/content declarations (15 changes). Closed-test submission will follow the backend fix and final live check. No production-store rollout is authorized by this step.
+
 ## Remaining
 
-- Obtain release authorization before sending the prepared Alpha release and saved declarations for Google review.
-- Perform the final end-to-end reviewer/account deletion smoke check against the deployed backend before submission; do not delete the reusable reviewer account.
-- Recheck the final Android artifact and run live game/connection smoke checks.
+- Apply the tested backend fixes after the production restart decision, verify the live bot flow and submit the Alpha package for closed-testing review.
 - Closed testing must have at least 12 opted-in testers for 14 days before applying for production access. The live Console showed zero opted in during this check.
