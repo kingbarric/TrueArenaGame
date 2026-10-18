@@ -6,11 +6,11 @@ non-guest account, and backend health. In-app installation and full feature chec
 are pending Google Play first-use Terms acceptance in the emulator.
 
 The deployed reviewer credentials remain private on the operator machine and server.
-They have not been submitted to Google Play yet. The dedicated store-review account now uses explicit non-expiring access
+They were added to Google Play Console Sign in details with explicit user approval on 18 October 2026; the declaration is saved pending app review. The dedicated store-review account now uses explicit non-expiring access
 (`TRUEARENA_AUTH_REVIEWER_EXPIRES_AT=never`) in production. Its existing identifier
 and code hash were preserved. Other accounts still use ordinary one-time verification.
 
-Store contact: kingbarric@yahoo.com. Intended audience: adults aged 18+.
+Store contact: kingbarric@yahoo.com. Google Play audience: ages 13–15, 16–17 and 18+, selected by the user on 18 October 2026.
 Guest access is restricted, so do not declare that every feature is available without login.
 
 The existing email-code screen can sign in a dedicated, ordinary account using a reusable
@@ -54,8 +54,7 @@ Ordinary users continue using the existing OTP flow. Test-profile allowlists sti
    and friends features.
 
 Closed testing remains blocked until all required store assets and declarations are complete
-and Google approves the release. The adult target-audience form currently requires Ads
-and Sign in details first. Adult targeting is not itself an in-app age check or IARC rating.
+and Google approves the release. The target-audience form requires Ads and Sign in details first; both prerequisites and the user-selected 13+ audience are now saved. Audience targeting is not itself an in-app age check or an IARC rating.
 
 ## Permanent access verification — 17 October 2026
 
