@@ -4,8 +4,9 @@ import '../core/app_state.dart';
 
 /// Reads a persistent server receipt, including after reconnecting to results.
 class MatchCoinReward extends StatefulWidget {
-  const MatchCoinReward({super.key, required this.roomId});
+  const MatchCoinReward({super.key, required this.roomId, this.foregroundColor});
   final String roomId;
+  final Color? foregroundColor;
   @override
   State<MatchCoinReward> createState() => _MatchCoinRewardState();
 }
@@ -52,7 +53,11 @@ class _MatchCoinRewardState extends State<MatchCoinReward> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => DefaultTextStyle.merge(
+      style: TextStyle(color: widget.foregroundColor),
+      child: Builder(builder: _buildReward));
+
+  Widget _buildReward(BuildContext context) {
     if (AppScope.of(context).identity == Identity.anonymous)
       return const SizedBox.shrink();
     final reward = _reward;
@@ -61,6 +66,7 @@ class _MatchCoinRewardState extends State<MatchCoinReward> {
         return const Text('Checking earned coins…',
             textAlign: TextAlign.center);
       return TextButton(
+          style: TextButton.styleFrom(foregroundColor: widget.foregroundColor),
           onPressed: () {
             _attempts = 0;
             setState(() => _failed = false);

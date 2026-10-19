@@ -1889,7 +1889,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
             const SizedBox(height: 16),
             _resultStats(won),
             const SizedBox(height: 24),
-            if (!widget.spectating) MatchCoinReward(roomId: widget.socket.roomId),
+            if (!widget.spectating) MatchCoinReward(roomId: widget.socket.roomId, foregroundColor: const Color(0xffe8d2ac)),
             if (won)
               VictoryShareButton(
                   roomId: widget.socket.roomId, gameType: 'draughts'),

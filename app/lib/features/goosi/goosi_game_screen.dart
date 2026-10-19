@@ -1494,7 +1494,7 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
             const SizedBox(height: 16),
             _resultStats(),
             const SizedBox(height: 24),
-            if (!widget.spectating) MatchCoinReward(roomId: widget.socket.roomId),
+            if (!widget.spectating) MatchCoinReward(roomId: widget.socket.roomId, foregroundColor: _cream),
             if (won && !tie)
               VictoryShareButton(
                   roomId: widget.socket.roomId,
