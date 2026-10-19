@@ -89,6 +89,7 @@ class AgeSafetyIT {
             client().get().uri("/api/v1/huud/feed").header("Authorization",bearer(u)).exchange().expectStatus().isForbidden();
             client().get().uri("/api/v1/me/account/deletion-requirements").header("Authorization",bearer(u)).exchange().expectStatus().isOk();
             client().delete().uri("/api/v1/me/account").header("Authorization",bearer(u))
+                .header("Content-Type","application/json")
                 .exchange().expectStatus().isBadRequest(); // no confirmation body; the age guard must not return 403
         }
     }

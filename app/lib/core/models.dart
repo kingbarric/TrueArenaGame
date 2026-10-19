@@ -168,7 +168,6 @@ class RoomView {
     required this.members,
     this.wsUrl,
     this.gameType = 'truearena',
-    this.stakeCoins = 0,
     this.ranked = false,
   });
 
@@ -188,11 +187,6 @@ class RoomView {
   /// server; a room this device created already knows its own game type.
   final String gameType;
 
-  /// 0 for an ordinary unstaked room — staking is opt-in per room, never
-  /// required (see `RoomService.create`, ta-api). Coins only, never real
-  /// money either direction.
-  final int stakeCoins;
-
   factory RoomView.fromJson(Map<String, dynamic> j) => RoomView(
         id: j['id'] as String,
         code: j['code'] as String,
@@ -200,7 +194,6 @@ class RoomView {
         status: j['status'] as String? ?? 'lobby',
         wsUrl: j['wsUrl'] as String?,
         gameType: j['gameType'] as String? ?? 'truearena',
-        stakeCoins: (j['stakeCoins'] as num?)?.toInt() ?? 0,
         ranked: j['ranked'] as bool? ?? false,
         members: ((j['members'] as List?) ?? const [])
             .map((e) => RoomMember.fromJson((e as Map).cast<String, dynamic>()))

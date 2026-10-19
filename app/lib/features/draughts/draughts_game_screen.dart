@@ -1,3 +1,4 @@
+import '../../widgets/match_coin_reward.dart';
 import '../../core/api_client.dart' show userErrorMessage, userRetryMessage;
 import 'dart:async';
 import 'dart:math' as math;
@@ -111,7 +112,6 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
   /// arrive with the final events and are shown on the results screen.
   int? _piecesA;
   int? _piecesB;
-  int? _coinsAwarded;
   int turnSeconds = 60;
   int? _secondsLeft;
   final List<TableChatLine> feed = [];
@@ -676,8 +676,6 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
           _graceSeconds = data['seconds'] as int? ?? 0;
           _selected = null;
           _chain = const [];
-        case 'COINS_AWARDED':
-          _coinsAwarded = data['amount'] as int?;
         case 'GAME_OVER':
           _var.complete();
           winningSide = data['winningSide'] as String?;
@@ -1821,10 +1819,6 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
         chips.add(_statChip(Icons.trending_up_rounded, 'by $margin'));
       }
     }
-    if (_coinsAwarded != null) {
-      chips.add(_statChip(Icons.monetization_on_rounded,
-          '+$_coinsAwarded ${_coinsAwarded == 1 ? 'coin' : 'coins'}'));
-    }
     if (chips.isEmpty) return const SizedBox.shrink();
 
     return Wrap(
@@ -1895,6 +1889,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
             const SizedBox(height: 16),
             _resultStats(won),
             const SizedBox(height: 24),
+            if (!widget.spectating) MatchCoinReward(roomId: widget.socket.roomId),
             if (won)
               VictoryShareButton(
                   roomId: widget.socket.roomId, gameType: 'draughts'),

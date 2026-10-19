@@ -12,7 +12,6 @@ import '../../widgets/copyable_huud_code.dart';
 import '../../widgets/cyber_agent_sheet.dart';
 import '../../widgets/invite_players_sheet.dart';
 import '../../widgets/neon.dart';
-import '../../widgets/stake_picker_sheet.dart';
 import '../../widgets/watching_eye.dart';
 import 'chess_game_screen.dart';
 import '../../widgets/lobby_start_bar.dart';
@@ -92,25 +91,9 @@ class _ChessLobbyScreenState extends State<ChessLobbyScreen> {
       return;
     }
     _control = control;
-    int stake = 0;
-    try {
-      final wallet = await app.fetchWallet();
-      if (!mounted) return;
-      final picked =
-          await showStakePicker(context, currentBalance: wallet.balance);
-      if (!mounted) return;
-      if (picked == null) {
-        Navigator.of(context).pop();
-        return;
-      }
-      stake = picked;
-    } catch (_) {
-      // No balance to stake against — host an unstaked room.
-    }
     try {
       final res = await app.api.post('/rooms', {
         'gameType': 'chess',
-        if (stake > 0) 'stake': stake,
         'gameConfig': control.toConfig(),
       }) as Map<String, dynamic>;
       if (!mounted) return;
@@ -174,7 +157,6 @@ class _ChessLobbyScreenState extends State<ChessLobbyScreen> {
         status: p['status'] as String? ?? 'lobby',
         gameType: 'chess',
         members: members,
-        stakeCoins: _room?.stakeCoins ?? 0,
       );
       _spectatorCount = p['spectatorCount'] as int? ?? _spectatorCount;
     });
@@ -300,9 +282,6 @@ class _ChessLobbyScreenState extends State<ChessLobbyScreen> {
                         WatchingEye(count: _spectatorCount),
                         _chip(n, '1v1'),
                         _chip(n, '${_control.name} ${_control.label}'),
-                        if (room.stakeCoins > 0)
-                          _chip(n,
-                              '🪙 ${room.stakeCoins} stake · ${room.stakeCoins * 2} pot'),
                       ]),
                     ]),
               ),

@@ -1,3 +1,4 @@
+import '../../widgets/match_coin_reward.dart';
 import '../../core/api_client.dart' show userRetryMessage;
 import 'dart:async';
 import 'dart:math' as math;
@@ -1728,6 +1729,7 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
             active: winningTeam == 'B', accent: n.brand),
       ]),
       const SizedBox(height: 28),
+      if (!widget.spectating) MatchCoinReward(roomId: widget.socket.roomId),
       if (won)
         VictoryShareButton(
             roomId: widget.socket.roomId,

@@ -50,13 +50,6 @@ class GameOrchestratorPayoutTest {
     }
 
     @SuppressWarnings("unchecked")
-    private void invokePayoutStake(RoomRow room, Map<String, String> outcome) throws Exception {
-        Method m = GameOrchestrator.class.getDeclaredMethod("payoutStake", RoomRow.class, Map.class);
-        m.setAccessible(true);
-        ((Mono<Void>) m.invoke(server, room, outcome)).block();
-    }
-
-    @SuppressWarnings("unchecked")
     private void invokeAwardCoins(RoomRuntime rt, Map<String, String> outcome) throws Exception {
         Method m = GameOrchestrator.class.getDeclaredMethod("awardCoins", RoomRuntime.class, Map.class);
         m.setAccessible(true);
@@ -95,106 +88,14 @@ class GameOrchestratorPayoutTest {
         verify(members, never()).deleteByRoomIdAndUserId(roomId, humanId);
     }
 
-    // ---------------------------------------------------------------- payoutStake
-
     @Test
-    void payoutStake_splitsThePotEvenlyWithTheRemainderToTheFirstWinner() throws Exception {
-        UUID w1 = UUID.randomUUID();
-        UUID w2 = UUID.randomUUID();
-        UUID loser = UUID.randomUUID();
-        RoomRow room = stakedRoom(w1, 5L); // pot = 5 * 3 players = 15; 2 winners -> share 7, remainder 1
-        Map<String, String> outcome = new LinkedHashMap<>();
-        outcome.put(w1.toString(), "won");
-        outcome.put(w2.toString(), "won");
-        outcome.put(loser.toString(), "lost");
-        when(coins.credit(any(), anyLong(), any(), any())).thenReturn(Mono.just(0L));
-
-        invokePayoutStake(room, outcome);
-
-        verify(coins).credit(w1, 8L, CoinService.REASON_MATCH_STAKE_PAYOUT, room.id());
-        verify(coins).credit(w2, 7L, CoinService.REASON_MATCH_STAKE_PAYOUT, room.id());
-        verify(coins, never()).credit(eq(loser), anyLong(), any(), any());
-    }
-
-    @Test
-    void payoutStake_noOpForAnUnstakedRoom() throws Exception {
-        RoomRow room = stakedRoom(UUID.randomUUID(), 0L);
-        invokePayoutStake(room, Map.of(UUID.randomUUID().toString(), "won"));
+    void rewardsUsePersistentSettlementAndNeverDebitPlayers() throws Exception {
+        var rewards=mock(app.truearena.api.coins.MatchRewardService.class);
+        ReflectionTestUtils.setField(server,"matchRewards",rewards);
+        RoomRuntime rt=mock(RoomRuntime.class);
+        when(rewards.award(rt.gameSessionId)).thenReturn(Flux.empty());
+        invokeAwardCoins(rt, Map.of());
+        verify(rewards).award(rt.gameSessionId);
         verifyNoInteractions(coins);
-    }
-
-    @Test
-    void payoutStake_noOpWhenNobodyWonOrTied() throws Exception {
-        RoomRow room = stakedRoom(UUID.randomUUID(), 10L);
-        invokePayoutStake(room, Map.of(UUID.randomUUID().toString(), "lost"));
-        verifyNoInteractions(coins);
-    }
-
-    @Test
-    void payoutStake_oneWinnersCreditFailureNeverBlocksTheOthers() throws Exception {
-        UUID w1 = UUID.randomUUID();
-        UUID w2 = UUID.randomUUID();
-        RoomRow room = stakedRoom(w1, 10L);
-        Map<String, String> outcome = new LinkedHashMap<>();
-        outcome.put(w1.toString(), "won");
-        outcome.put(w2.toString(), "won");
-        when(coins.credit(eq(w1), anyLong(), any(), any())).thenReturn(Mono.error(new RuntimeException("boom")));
-        when(coins.credit(eq(w2), anyLong(), any(), any())).thenReturn(Mono.just(0L));
-
-        invokePayoutStake(room, outcome); // must complete without throwing
-
-        verify(coins).credit(eq(w2), anyLong(), any(), any());
-    }
-
-    // ---------------------------------------------------------------- awardCoins
-
-    @Test
-    void awardCoins_paysNothingAgainstAnAgentRegardlessOfDifficultyOrOutcome() throws Exception {
-        // Cyber Agents are a free, always-available shared pool now — a payout
-        // here, win or lose, would make grinding the nearest free agent a
-        // zero-cost way to mint coins. See CoinService's class doc.
-        UUID player = UUID.randomUUID();
-        UUID easyBot = UUID.randomUUID();
-        UUID hardBot = UUID.randomUUID();
-        RoomRuntime rt = new RoomRuntime(UUID.randomUUID(), player.toString());
-        when(users.findById(player)).thenReturn(Mono.just(human(player)));
-        when(users.findById(easyBot)).thenReturn(Mono.just(bot(easyBot, "easy")));
-        when(users.findById(hardBot)).thenReturn(Mono.just(bot(hardBot, "hard")));
-
-        Map<String, String> outcome = Map.of(player.toString(), "won", easyBot.toString(), "lost", hardBot.toString(), "lost");
-        invokeAwardCoins(rt, outcome);
-
-        verifyNoInteractions(coins);
-    }
-
-    @Test
-    void awardCoins_fallsBackToPersonRatesWhenNoAgentIsPresent() throws Exception {
-        UUID winner = UUID.randomUUID();
-        UUID loser = UUID.randomUUID();
-        RoomRuntime rt = new RoomRuntime(UUID.randomUUID(), winner.toString());
-        when(members.findByRoomId(rt.roomId)).thenReturn(Flux.empty());
-        when(users.findById(winner)).thenReturn(Mono.just(human(winner)));
-        when(users.findById(loser)).thenReturn(Mono.just(human(loser)));
-        when(coins.credit(any(), anyLong(), any(), any())).thenReturn(Mono.just(0L));
-
-        invokeAwardCoins(rt, Map.of(winner.toString(), "won", loser.toString(), "lost"));
-
-        verify(coins).credit(winner, CoinService.WIN_VS_PERSON, CoinService.REASON_MATCH_WIN, null);
-        verify(coins).credit(loser, CoinService.LOSS_VS_PERSON, CoinService.REASON_MATCH_LOSS, null);
-    }
-
-    @Test
-    void awardCoins_neverPaysABot() throws Exception {
-        UUID player = UUID.randomUUID();
-        UUID botId = UUID.randomUUID();
-        RoomRuntime rt = new RoomRuntime(UUID.randomUUID(), player.toString());
-        when(members.findByRoomId(rt.roomId)).thenReturn(Flux.empty());
-        when(users.findById(player)).thenReturn(Mono.just(human(player)));
-        when(users.findById(botId)).thenReturn(Mono.just(bot(botId, "medium")));
-        when(coins.credit(any(), anyLong(), any(), any())).thenReturn(Mono.just(0L));
-
-        invokeAwardCoins(rt, Map.of(player.toString(), "won", botId.toString(), "lost"));
-
-        verify(coins, never()).credit(eq(botId), anyLong(), any(), any());
     }
 }
