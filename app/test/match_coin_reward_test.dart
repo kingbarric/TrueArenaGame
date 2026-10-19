@@ -14,9 +14,11 @@ void main() {
       return http.Response(jsonEncode({'amount':80,'baseAmount':50,'timeBonus':30,'vsAgent':false}),200);
     })))..identity=Identity.guest
       ..user=const UserView(id:'me',displayName:'Me',isGuest:true);
-    await tester.pumpWidget(AppScope(state:state,child:const MaterialApp(home:Scaffold(body:MatchCoinReward(roomId:'room-1')))));
+    await tester.pumpWidget(AppScope(state:state,child:const MaterialApp(home:Scaffold(body:MatchCoinReward(roomId:'room-1',foregroundColor:Colors.white)))));
     await tester.pumpAndSettle();
     expect(find.text('+80 coins earned'), findsOneWidget);
+    final rewardContext=tester.element(find.text('+80 coins earned'));
+    expect(DefaultTextStyle.of(rewardContext).style.color, Colors.white);
     expect(find.text('Result 50 · Time bonus 30'), findsOneWidget);
     await tester.pumpWidget(const SizedBox()); state.dispose();
   });
@@ -26,7 +28,7 @@ void main() {
       ? http.Response('{}',404)
       : http.Response(jsonEncode({'amount':50,'baseAmount':50,'timeBonus':0,'vsAgent':false}),200))))
       ..identity=Identity.guest..user=const UserView(id:'me',displayName:'Me',isGuest:true);
-    await tester.pumpWidget(AppScope(state:state,child:const MaterialApp(home:Scaffold(body:MatchCoinReward(roomId:'room-1')))));
+    await tester.pumpWidget(AppScope(state:state,child:const MaterialApp(home:Scaffold(body:MatchCoinReward(roomId:'room-1',foregroundColor:Colors.white)))));
     await tester.pumpAndSettle();
     expect(find.text('+0 coins earned'), findsNothing);
     await tester.pump(const Duration(seconds:1)); await tester.pumpAndSettle();

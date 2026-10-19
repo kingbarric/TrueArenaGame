@@ -1583,7 +1583,7 @@ class _ChessGameScreenState extends State<ChessGameScreen>
                       fontWeight: FontWeight.w900,
                       fontFeatures: [ui.FontFeature.tabularFigures()])),
               const SizedBox(height: 14),
-              if (!widget.spectating) MatchCoinReward(roomId: widget.socket.roomId),
+              if (!widget.spectating) MatchCoinReward(roomId: widget.socket.roomId, foregroundColor: _cream),
               if (won)
                 VictoryShareButton(
                     roomId: widget.socket.roomId, gameType: 'chess'),
