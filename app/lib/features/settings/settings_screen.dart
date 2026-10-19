@@ -14,6 +14,7 @@ import '../competitive/player_profile_screen.dart' show ProfileVisibilitySwitch,
 import '../notifications/notifications_screen.dart';
 import '../onboarding/sign_out.dart';
 import 'delete_account_screen.dart';
+import 'age_safety_screen.dart';
 
 /// Everything about you and your device: edit profile (photo, username,
 /// where you compete, who can see your cards), appearance, sound,
@@ -178,6 +179,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
               const SizedBox(height: 28),
             ],
+            ListTile(leading: const Icon(Icons.shield_outlined), title: const Text('Age and privacy'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AgeSafetyScreen()))),
+            const SizedBox(height: 16),
             Text('NOTIFICATIONS',
                 style: Theme.of(context)
                     .textTheme
