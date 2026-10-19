@@ -38,7 +38,8 @@ void main() {
     return state;
   }
 
-  test('recent game survives cold start and temporary network outage', () async {
+  test('recent game survives cold start and temporary network outage',
+      () async {
     final state = await reopen(daysAgo: 6);
     expect(state.identity, Identity.account);
     expect(state.activeRoomId, 'room-1');
@@ -56,17 +57,23 @@ void main() {
   testWidgets('reopens the saved live room screen', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final state = AppState(ApiClient(client: MockClient((request) async {
+      if (request.url.path.endsWith('/me/age-safety')) {
+        return http.Response(
+            jsonEncode({'enforced': false, 'canAccess': true}), 200);
+      }
       if (request.url.path.endsWith('/rooms/room-1')) {
-        return http.Response(jsonEncode({
-          'id': 'room-1',
-          'code': 'ABCDEF',
-          'hostId': 'player-1',
-          'status': 'lobby',
-          'gameType': 'whot',
-          'members': [
-            {'userId': 'player-1', 'nickname': 'Player', 'ready': false}
-          ],
-        }), 200);
+        return http.Response(
+            jsonEncode({
+              'id': 'room-1',
+              'code': 'ABCDEF',
+              'hostId': 'player-1',
+              'status': 'lobby',
+              'gameType': 'whot',
+              'members': [
+                {'userId': 'player-1', 'nickname': 'Player', 'ready': false}
+              ],
+            }),
+            200);
       }
       return http.Response('[]', 200);
     })));
@@ -80,15 +87,22 @@ void main() {
     await tester.pump();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
     expect(find.byType(JoinedRoomScreen), findsOneWidget);
     expect(state.activeRoomId, 'room-1');
   });
 
-  testWidgets('a lobby you backed out of does not open by itself next time', (tester) async {
+  testWidgets('a lobby you backed out of does not open by itself next time',
+      (tester) async {
     SharedPreferences.setMockInitialValues({});
     final asked = <String>[];
     final state = AppState(ApiClient(client: MockClient((request) async {
       asked.add(request.url.path);
+      if (request.url.path.endsWith('/me/age-safety')) {
+        return http.Response(
+            jsonEncode({'enforced': false, 'canAccess': true}), 200);
+      }
       return http.Response('[]', 200);
     })));
     state.user = const UserView(id: 'player-1', displayName: 'Player');
@@ -100,6 +114,9 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
     expect(find.byType(JoinedRoomScreen), findsNothing);
-    expect(asked.where((p) => p.endsWith('/rooms/room-1') || p.endsWith('/rooms/active')), isEmpty);
+    expect(
+        asked.where(
+            (p) => p.endsWith('/rooms/room-1') || p.endsWith('/rooms/active')),
+        isEmpty);
   });
 }

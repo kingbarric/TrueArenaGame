@@ -1,3 +1,4 @@
+import '../../widgets/match_coin_reward.dart';
 import '../../core/api_client.dart' show userRetryMessage;
 import 'dart:async';
 import 'dart:math' as math;
@@ -71,7 +72,6 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
   Map<String, int> scores = {};
   int pitsPerPlayer = 6;
   String? winningSide;
-  int? _coinsAwarded;
   List<String> winners = [];
   int turnSeconds = 45;
   String mode = 'relay';
@@ -366,8 +366,6 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
             0,
             TableChatLine.system(
                 '${label(data['player']?.toString() ?? '')} ran out of chances and lost the turn.'));
-      case 'COINS_AWARDED':
-        setState(() => _coinsAwarded = data['amount'] as int?);
       case 'SPECTATOR_COUNT':
         setState(
             () => _spectatorCount = data['count'] as int? ?? _spectatorCount);
@@ -1421,9 +1419,6 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
           _statChip(
               Icons.circle_outlined, '$mine ${mine == 1 ? 'seed' : 'seeds'}'),
           if (margin > 0) _statChip(Icons.trending_up_rounded, 'by $margin'),
-          if (_coinsAwarded != null)
-            _statChip(Icons.monetization_on_rounded,
-                '+$_coinsAwarded ${_coinsAwarded == 1 ? 'coin' : 'coins'}'),
         ]);
   }
 
@@ -1499,6 +1494,7 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
             const SizedBox(height: 16),
             _resultStats(),
             const SizedBox(height: 24),
+            if (!widget.spectating) MatchCoinReward(roomId: widget.socket.roomId),
             if (won && !tie)
               VictoryShareButton(
                   roomId: widget.socket.roomId,

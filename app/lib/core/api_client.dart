@@ -60,6 +60,9 @@ class ApiClient {
   Future<dynamic> post(String path, [Map<String, dynamic>? body]) =>
       _send(() => _http.post(_uri(path), headers: _headers(), body: jsonEncode(body ?? const {})));
 
+  Future<dynamic> put(String path, Map<String, dynamic> body) =>
+      _send(() => _http.put(_uri(path), headers: _headers(), body: jsonEncode(body)));
+
   /// Raw bytes (e.g. an image) instead of JSON, for routes that read the body directly.
   Future<dynamic> postBytes(String path, List<int> bytes, String contentType) =>
       _send(() => _http.post(_uri(path),

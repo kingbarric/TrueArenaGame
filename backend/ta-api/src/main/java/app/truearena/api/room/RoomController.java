@@ -36,7 +36,7 @@ public class RoomController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "Create a room (in a group, or ad-hoc if groupId is omitted). stake is optional — omit for an unstaked room.")
+    @Operation(summary = "Create a room (in a group, or ad-hoc if groupId is omitted). All games are free to enter.")
     public Mono<RoomView> create(@Valid @RequestBody CreateRoomRequest body) {
         return CurrentUser.id().flatMap(uid -> rooms.create(uid, body.groupId(), body.gameType(), body.stake(), body.gameConfig(),
                 Boolean.TRUE.equals(body.ranked())));
@@ -48,7 +48,7 @@ public class RoomController {
     }
 
     @DeleteMapping("/{id}")
-    @Operation(summary = "Abandon a lobby before the game starts — host only, refunds any staked coins")
+    @Operation(summary = "Abandon a lobby before the game starts — host only")
     public Mono<Void> abandon(@PathVariable UUID id) {
         return CurrentUser.id().flatMap(uid -> rooms.abandon(id, uid));
     }

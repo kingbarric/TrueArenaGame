@@ -47,7 +47,7 @@ public class RoomWebSocketHandler implements WebSocketHandler {
         boolean spectate = "true".equals(query.getFirst("spectate"));
 
         return orchestrator.authenticate(roomIdRaw, token == null ? "" : token, spectate)
-                .flatMap(auth -> accounts.require(UUID.fromString(auth.userId()))
+                .flatMap(auth -> accounts.requireRoomParticipant(UUID.fromString(auth.userId()))
                         .then(Mono.defer(() -> runSession(session, auth))))
                 .onErrorResume(e -> {
                     log.debug("WS handshake rejected for {}: {}", path, e.toString());
@@ -71,7 +71,7 @@ public class RoomWebSocketHandler implements WebSocketHandler {
 
             Mono<Void> inbound = session.receive()
                     .map(WebSocketMessage::getPayloadAsText)
-                    .concatMap(text -> accounts.require(user)
+                    .concatMap(text -> accounts.requireRoomParticipant(user)
                             .then(Mono.defer(() -> orchestrator.handleFrame(rt, auth.userId(), text, auth.spectator())))
                             .onErrorResume(e -> {
                                 log.warn("unhandled error processing frame for room {} user {}: {}",

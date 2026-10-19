@@ -1,3 +1,4 @@
+import '../../widgets/match_coin_reward.dart';
 import '../../core/api_client.dart' show userErrorMessage, userRetryMessage;
 import 'dart:async';
 import 'dart:math' as math;
@@ -751,6 +752,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 22),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
+              if (!widget.spectating) MatchCoinReward(roomId: widget.socket.roomId),
               if (_won)
                 VictoryShareButton(
                     roomId: widget.socket.roomId, gameType: 'ludo', detail: '${_name(winner)} won Ludo'),

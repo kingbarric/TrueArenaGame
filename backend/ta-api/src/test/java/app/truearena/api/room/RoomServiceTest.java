@@ -261,26 +261,13 @@ class RoomServiceTest {
     }
 
     @Test
-    void create_rollsBackMembershipAndRoomWhenTheStakeDebitFails() {
-        UUID hostId = UUID.randomUUID();
-        UUID roomId = UUID.randomUUID();
-        when(users.findById(hostId)).thenReturn(Mono.just(realUser(hostId)));
-        when(rooms.findByCode(anyString())).thenReturn(Mono.empty());
-        stubRoomSave(roomId);
-        when(members.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
-        when(coins.debit(eq(hostId), eq(100L), any(), eq(roomId)))
-                .thenReturn(Mono.error(new RuntimeException("insufficient")));
-        when(members.deleteByRoomIdAndUserId(roomId, hostId)).thenReturn(Mono.empty());
-        when(members.countByRoomId(roomId)).thenReturn(Mono.just(0L));
-        when(rooms.deleteById(roomId)).thenReturn(Mono.empty());
-
-        StepVerifier.create(service.create(hostId, null, "truearena", 100L, null))
-                .expectErrorMatches(e -> e instanceof ResponseStatusException rse && rse.getStatusCode().value() == 409
-                        && rse.getReason() != null && rse.getReason().contains("not enough coins"))
-                .verify();
-
-        verify(members).deleteByRoomIdAndUserId(roomId, hostId);
-        verify(rooms).deleteById(roomId);
+    void oldClientsCannotCreateStakedGamesOrDeductCoins() {
+        for (String type : java.util.List.of("chess", "draughts", "goosi", "truearena", "monopoly", "whot", "ludo", "wordbluff")) {
+            StepVerifier.create(service.create(UUID.randomUUID(), null, type, 100L, null))
+                    .expectErrorMatches(e -> e instanceof ResponseStatusException rse
+                            && rse.getStatusCode().value() == 400).verify();
+        }
+        verifyNoInteractions(coins, users, rooms, members);
     }
 
     @Test

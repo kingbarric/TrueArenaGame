@@ -1,6 +1,7 @@
 package app.truearena.api.auth;
 
 import app.truearena.persistence.UserRepository;
+import app.truearena.api.safety.AgeSafetyService;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.socket.CloseStatus;
 import org.springframework.web.reactive.socket.WebSocketSession;
@@ -15,9 +16,10 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class AccountSessionGuard {
     private final UserRepository users;
+    private final AgeSafetyService ages;
     private final ConcurrentHashMap<UUID, Set<WebSocketSession>> sockets = new ConcurrentHashMap<>();
 
-    public AccountSessionGuard(UserRepository users) { this.users = users; }
+    public AccountSessionGuard(UserRepository users, AgeSafetyService ages) { this.users = users; this.ages=ages; }
 
     public Mono<Boolean> exists(UUID user) {
         return users.findById(user).map(row -> !row.isBot()).defaultIfEmpty(false);
@@ -25,7 +27,14 @@ public class AccountSessionGuard {
 
     public Mono<Void> require(UUID user) {
         return exists(user).flatMap(found -> found ? Mono.empty()
-                : Mono.error(new SecurityException("account unavailable")));
+                : Mono.error(new SecurityException("account unavailable"))).then(ages.requireAccess(user));
+    }
+
+    /** Only after room JWT and membership authentication: Cyber Agents are
+     * valid game participants, while normal HTTP/inbox access still rejects bots. */
+    public Mono<Void> requireRoomParticipant(UUID user) {
+        return users.findById(user).switchIfEmpty(Mono.error(new SecurityException("account unavailable")))
+                .flatMap(row -> row.isBot()?Mono.empty():ages.requireAccess(user));
     }
 
     public void register(UUID user, WebSocketSession socket) {

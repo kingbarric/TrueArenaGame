@@ -46,6 +46,8 @@ management:
         enabled: true
 
 truearena:
+  safety:
+    age-enforcement-enabled: ${AGE_ENFORCEMENT_ENABLED:false}
   email:
     brevo-api-key: ${BREVO_API_KEY:}
     sender-address: verify@playhuud.com
