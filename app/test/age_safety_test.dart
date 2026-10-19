@@ -35,8 +35,20 @@ AppState stateFor(Future<http.Response> Function(http.Request) handle) =>
 Widget gate(AppState state) => AppScope(
     state: state,
     child: MaterialApp(
-        home: AgeSafetyGate(state: state, child: const Text('Private game'))));
+        home: AgeSafetyGate(state: state, enabled: true, child: const Text('Private game'))));
 void main() {
+  testWidgets('adult release never waits for an optional age-settings request', (tester) async {
+    var calls=0;
+    final state=stateFor((_) async { calls++; return http.Response('{}',503); });
+    await tester.pumpWidget(AppScope(state:state,child:MaterialApp(home:AgeSafetyGate(
+      state:state,child:const Text('Private game')))));
+    await tester.pumpAndSettle();
+    expect(find.text('Private game'), findsOneWidget);
+    expect(find.text('We could not check your age settings.'), findsNothing);
+    expect(calls,0);
+    await tester.pumpWidget(const SizedBox()); state.dispose();
+  });
+
   testWidgets('age gate stays closed until the server responds',
       (tester) async {
     final response = Completer<http.Response>();

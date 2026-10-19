@@ -6,9 +6,11 @@ import 'delete_account_screen.dart';
 
 /// The server owns rollout and access decisions. No age is cached on the device.
 class AgeSafetyGate extends StatefulWidget {
-  const AgeSafetyGate({super.key, required this.state, required this.child});
+  const AgeSafetyGate({super.key, required this.state, required this.child,
+    this.enabled = const bool.fromEnvironment('AGE_SAFETY_GATE_ENABLED')});
   final AppState state;
   final Widget child;
+  final bool enabled;
   @override
   State<AgeSafetyGate> createState() => _AgeSafetyGateState();
 }
@@ -27,7 +29,7 @@ class _AgeSafetyGateState extends State<AgeSafetyGate> {
   @override
   void didUpdateWidget(AgeSafetyGate oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (_subject != widget.state.user?.id) _refresh();
+    if (_subject != widget.state.user?.id || oldWidget.enabled != widget.enabled) _refresh();
   }
 
   Future<void> _refresh() async {
@@ -35,7 +37,7 @@ class _AgeSafetyGateState extends State<AgeSafetyGate> {
     _subject = widget.state.user?.id;
     _status = null;
     _failed = false;
-    if (widget.state.identity == Identity.anonymous) return;
+    if (!widget.enabled || widget.state.identity == Identity.anonymous) return;
     try {
       final result = await widget.state.api.get('/me/age-safety');
       if (!mounted || generation != _generation) return;
@@ -47,7 +49,7 @@ class _AgeSafetyGateState extends State<AgeSafetyGate> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.state.identity == Identity.anonymous) return widget.child;
+    if (!widget.enabled || widget.state.identity == Identity.anonymous) return widget.child;
     if (_status == null) {
       return Scaffold(
           body: SafeArea(

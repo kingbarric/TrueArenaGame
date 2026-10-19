@@ -1,6 +1,6 @@
 # Teen rollout acceptance checks
 
-Status: blocked from activation; `AGE_ENFORCEMENT_ENABLED=false`.
+Status: blocked from activation; `AGE_ENFORCEMENT_ENABLED=false` and the app build flag `AGE_SAFETY_GATE_ENABLED=false`. The adult release makes no startup age-settings request. Private age settings remain optional in Settings. A future rollout must test and enable both flags together.
 
 ## Communication and privacy
 
