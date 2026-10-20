@@ -1,6 +1,6 @@
 # Apple resubmission: free matches and earned coins
 
-The release keeps the App Store minimum age at 18+. It includes the private age-declaration foundation; teen access remains disabled. The broader teen privacy/communication rollout remains gated as documented in safety/TEEN_ROLLOUT_CHECKLIST.md.
+The release keeps the App Store minimum age at 18+. The startup age gate is off by default (`AGE_SAFETY_GATE_ENABLED=false`), so optional age-settings requests cannot block play. It includes the private age-declaration foundation; teen access remains disabled. The broader teen privacy/communication rollout remains gated as documented in safety/TEEN_ROLLOUT_CHECKLIST.md.
 
 All match entry is free. Old clients sending a nonzero stake receive HTTP 400; a database constraint prevents positive room stakes. No escrow, winner-takes-pot payout or entry refund runs in game services. Existing balances and historical ledger entries are preserved, as requested.
 
