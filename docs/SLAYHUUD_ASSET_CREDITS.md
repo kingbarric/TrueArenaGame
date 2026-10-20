@@ -132,3 +132,7 @@ Garments from the MakeHuman Community asset packs, used for the five career stag
 Sources: https://static.makehumancommunity.org/assets/assetpacks.html (dress01/02/03, suits01/03, shirts02/03, pants02/03, skirts02, shoes01/02/03). CC BY licences: https://creativecommons.org/licenses/by/3.0/ and https://creativecommons.org/licenses/by/4.0/. CC0: https://creativecommons.org/publicdomain/zero/1.0/.
 
 Changes: converted to embedded GLB with mobile textures, a shared game rig and skin weights, body masks, shoe fitting and thumbnails. Garments whose files declare AGPL3 were excluded.
+
+## SlayHuud game artwork — 20 October 2026
+
+`app/assets/images/game_icons/slayhuud.png` is AI-generated promotional artwork made with the built-in image-generation tool for PlayHuud: two adult Black runway models, an opaque orange midi dress and navy suit, both faces and full outfits visible. A second image-generation edit removed the studio background and preserved true PNG transparency. It replaces the previous cropped red-dress artwork; the shared game-artwork path remains unchanged. The source, edit prompts and alpha validation are retained under `output/imagegen/` in the primary workspace. This artwork is separate from the playable 3D character meshes and their licences above.
