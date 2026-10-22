@@ -29,11 +29,12 @@ import '../huudspace/safety_sheet.dart';
 import '../../widgets/nav_art.dart';
 import '../huudspace/live_now_panel.dart';
 import 'huud_models.dart';
+import 'feed_post_composer.dart';
 import '../../widgets/huud_art.dart';
 
 /// Live — what's happening now and PlayHuud's lobby feed, one tab in the shell.
 ///
-/// Three tabs: **Live now** (Huuds going on and games to watch), **Friends**
+/// Three tabs: **Live now** (Huuds going on and games to watch), **Feeds**
 /// (you and your friends: their open games, their wins, challenges sent to
 /// you), then **For you** (the whole public lobby). Both read `GET /huud/feed`; every open game on it is a
 /// real lobby room, so Join is the ordinary `POST /rooms/join` and lands in
@@ -41,7 +42,7 @@ import '../../widgets/huud_art.dart';
 class HuudScreen extends StatefulWidget {
   const HuudScreen({super.key, this.startOnLiveNow = true});
 
-  /// False opens straight on the Friends feed.
+  /// False opens straight on Feeds.
   final bool startOnLiveNow;
 
   @override
@@ -70,7 +71,7 @@ class _HuudScreenState extends State<HuudScreen> {
 
   List<HuudPerson> _friends = const [];
 
-  /// Live now · Friends · For you, side by side: swipe or tap between them.
+  /// Live now · Feeds · For you, side by side: swipe or tap between them.
   late final PageController _pages = PageController(initialPage: _liveNow ? 0 : 1);
 
   /// The page a tab tap is heading for, so the pages it slides past on the
@@ -81,8 +82,7 @@ class _HuudScreenState extends State<HuudScreen> {
   final _scrolls = {HuudTab.friends: ScrollController(), HuudTab.forYou: ScrollController()};
 
   final _search = TextEditingController();
-  final _say = TextEditingController();
-  bool _saying = false;
+  bool _showSearch = false;
   Timer? _searchDebounce;
   bool _searching = false;
   List<HuudPerson> _searchResults = const [];
@@ -133,7 +133,6 @@ class _HuudScreenState extends State<HuudScreen> {
       scroll.dispose();
     }
     _search.dispose();
-    _say.dispose();
     super.dispose();
   }
 
@@ -390,7 +389,21 @@ class _HuudScreenState extends State<HuudScreen> {
   Widget build(BuildContext context) {
     final n = context.neon;
     final app = AppScope.of(context);
+    final h = HuudColors.of(context);
     return Scaffold(
+      floatingActionButton: _liveNow ? null : Padding(
+        padding: const EdgeInsets.only(bottom: 100),
+        child: FloatingActionButton(
+          key: const ValueKey('feed-create'),
+          tooltip: 'Create a post',
+          backgroundColor: h.buttonFill,
+          foregroundColor: h.onOrange,
+          elevation: 3,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          onPressed: _create,
+          child: const Icon(Icons.add_rounded, size: 28),
+        ),
+      ),
       body: SafeArea(
         child: Column(children: [
           _header(context, n, app),
@@ -412,70 +425,83 @@ class _HuudScreenState extends State<HuudScreen> {
     );
   }
 
-  /// One feed — Friends or For you — as its own page.
+  /// Both feeds use the same timeline, with their existing audiences and filters.
   Widget _feedPage(BuildContext context, NeonColors n, AppState app, HuudTab tab) {
     final isGuest = app.identity == Identity.guest;
-    final searchingNow = _search.text.trim().isNotEmpty;
+    final searchingNow = _showSearch && _search.text.trim().isNotEmpty;
     final current = !_liveNow && _tab == tab;
     final cached = _cache['${tab.wire}-${_filter.wire}'];
-    final items =
-        (cached ?? const <HuudItem>[]).where((i) => i.game == null || i.game!.expiresAt.isAfter(clock.now())).toList();
+    final items = (cached ?? const <HuudItem>[])
+        .where((i) => i.game == null || i.game!.expiresAt.isAfter(clock.now())).toList();
     final error = current ? _error : null;
     return RefreshIndicator(
-      onRefresh: () async {
-        await Future.wait([_load(), _loadFriends()]);
-      },
-      // Slivers so only the cards on screen are built — a full page
-      // is 40 cards with game art, and building them all up front is
-      // what made a long feed hitch on open and on tab switch.
+      onRefresh: () async => Future.wait([_load(), _loadFriends()]),
       child: CustomScrollView(
         key: PageStorageKey('huud-feed-${tab.wire}'),
         controller: _scrolls[tab],
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            sliver: SliverList.list(children: [
-              _searchField(n),
-              const SizedBox(height: 10),
-              if (searchingNow)
-                ..._searchSection(context, n)
-              else ...[
-                _filterChips(n),
-                const SizedBox(height: 12),
-                if (tab == HuudTab.friends && !isGuest) ...[
-                  _postBox(context, n, app),
-                  const SizedBox(height: 12),
-                ],
-                _shareHuudCard(context, n),
-                if (tab == HuudTab.friends) ...[
-                  const SizedBox(height: 16),
-                  if (isGuest) _guestCard(context, n) else _friendsOnline(context, n, app),
-                ],
-                const SizedBox(height: 16),
-                if (error != null) _errorCard(n),
-                // Not loaded yet (or sliding in before it has been): a spinner, not "nothing here".
-                if (cached == null && error == null)
-                  const Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator()))
-                else if (items.isEmpty && error == null)
-                  _emptyState(context, n, tab),
-              ],
+          SliverToBoxAdapter(child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 12, 6),
+            child: Row(children: [
+              Expanded(child: Text('YOUR PEOPLE',
+                  style: TextStyle(fontSize: 11, letterSpacing: 1.4, fontWeight: FontWeight.w800, color: n.mute))),
+              IconButton(
+                key: const ValueKey('feed-search-toggle'),
+                tooltip: _showSearch ? 'Close search' : 'Search players',
+                visualDensity: VisualDensity.compact,
+                icon: Icon(_showSearch ? Icons.close_rounded : Icons.search_rounded, size: 21),
+                onPressed: () => setState(() {
+                  _showSearch = !_showSearch;
+                  if (!_showSearch) { _search.clear(); _onSearchChanged(''); }
+                }),
+              ),
+              PopupMenuButton<HuudFilter>(
+                key: const ValueKey('feed-filters'),
+                tooltip: 'Filter feed',
+                initialValue: _filter,
+                icon: Icon(Icons.tune_rounded, size: 20,
+                    color: _filter == HuudFilter.all ? n.mute : n.gold),
+                onSelected: _switchFilter,
+                itemBuilder: (_) => [for (final f in HuudFilter.values)
+                  CheckedPopupMenuItem(value: f, checked: f == _filter,
+                      key: ValueKey('huud-filter-${f.wire}'), child: Text(f.label))],
+              ),
             ]),
-          ),
-          if (!searchingNow)
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              sliver: SliverList.builder(
-                itemCount: items.length,
-                itemBuilder: (context, i) => Padding(
-                  key: ValueKey(items[i].id),
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _card(context, n, items[i]),
-                ),
+          )),
+          if (_showSearch) SliverToBoxAdapter(child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8), child: _searchField(n))),
+          if (searchingNow)
+            SliverPadding(padding: const EdgeInsets.symmetric(horizontal: 16),
+                sliver: SliverList.list(children: _searchSection(context, n)))
+          else ...[
+            SliverToBoxAdapter(child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: isGuest ? _guestCard(context, n) : _friendsOnline(context, n, app),
+            )),
+            SliverToBoxAdapter(child: Divider(height: 1, color: n.line)),
+            if (_filter != HuudFilter.all) SliverToBoxAdapter(child: Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: InputChip(label: Text(_filter.label), onDeleted: () => _switchFilter(HuudFilter.all))),
+            )),
+            if (error != null) SliverToBoxAdapter(child: Padding(
+                padding: const EdgeInsets.all(16), child: _errorCard(n))),
+            if (cached == null && error == null)
+              const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.all(32),
+                  child: Center(child: CircularProgressIndicator())))
+            else if (items.isEmpty && error == null)
+              SliverToBoxAdapter(child: _emptyState(context, n, tab)),
+            SliverList.builder(
+              itemCount: items.length,
+              itemBuilder: (context, i) => Container(
+                key: ValueKey(items[i].id),
+                decoration: BoxDecoration(border: Border(bottom: BorderSide(color: n.line))),
+                child: _card(context, n, items[i]),
               ),
             ),
-          // Room to scroll the last card clear of the nav pill and the Post button.
-          const SliverToBoxAdapter(child: SizedBox(height: 128)),
+          ],
+          const SliverToBoxAdapter(child: SizedBox(height: 180)),
         ],
       ),
     );
@@ -514,7 +540,7 @@ class _HuudScreenState extends State<HuudScreen> {
     );
   }
 
-  /// Big pill tabs — Live now · Friends · For you — orange marks where you are.
+  /// Big pill tabs — Live now · Feeds · For you — orange marks where you are.
   Widget _tabs(BuildContext context, NeonColors n) {
     final h = HuudColors.of(context);
     Widget tab(String key, String emoji, String label, bool active, VoidCallback onTap) => Expanded(
@@ -564,7 +590,7 @@ class _HuudScreenState extends State<HuudScreen> {
         ),
         child: Row(children: [
           tab('live', 'live', 'Live now', _liveNow, () => _goTo(0)),
-          tab(HuudTab.friends.wire, 'friends', 'Friends', !_liveNow && _tab == HuudTab.friends, () => _goTo(1)),
+          tab(HuudTab.friends.wire, 'friends', 'Feeds', !_liveNow && _tab == HuudTab.friends, () => _goTo(1)),
           tab(HuudTab.forYou.wire, 'foryou', 'For you', !_liveNow && _tab == HuudTab.forYou, () => _goTo(2)),
         ]),
       ),
@@ -620,88 +646,36 @@ class _HuudScreenState extends State<HuudScreen> {
     ];
   }
 
-  Widget _filterChips(NeonColors n) => SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(children: [
-          for (final f in HuudFilter.values)
-            Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: _FeedPill(f.label,
-                  key: ValueKey('huud-filter-${f.wire}'),
-                  outlined: _filter != f,
-                  quiet: _filter != f,
-                  onTap: () => _switchFilter(f)),
-            ),
-        ]),
-      );
-
-  /// A short text for your friends — they're the only ones who see it.
-  Widget _postBox(BuildContext context, NeonColors n, AppState app) {
-    final h = HuudColors.of(context);
-    final me = app.user?.username ?? app.user?.displayName ?? 'Player';
-    return HuudCard(
-      padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Avatar(me, size: 38, emoji: app.avatarEmoji, imagePath: app.avatarImagePath, imageUrl: app.user?.avatarUrl),
-          const SizedBox(width: 10),
-          Expanded(
-            child: TextField(
-              key: const ValueKey('feed-say'),
-              controller: _say,
-              maxLength: 280,
-              minLines: 1,
-              maxLines: 4,
-              textCapitalization: TextCapitalization.sentences,
-              onChanged: (_) => setState(() {}),
-              style: TextStyle(fontSize: 16, color: n.ink),
-              decoration: const InputDecoration(
-                hintText: 'Say something to your friends…',
-                counterText: '',
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                filled: false,
-                isDense: true,
-                contentPadding: EdgeInsets.symmetric(vertical: 10),
-              ),
-            ),
-          ),
-        ]),
-        Row(children: [
-          const SizedBox(width: 48),
-          Expanded(
-            child: HuudText('👫 Only your friends see it',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: h.orangeText)),
-          ),
-          HuudButton(
-            key: const ValueKey('feed-say-post'),
-            label: 'Post',
-            icon: Icons.send_rounded,
-            busy: _saying,
-            onPressed: _say.text.trim().isEmpty ? null : _postText,
-          ),
-        ]),
-      ]),
-    );
-  }
-
-  Future<void> _postText() async {
-    final text = _say.text.trim();
-    if (text.isEmpty || _saying) return;
-    setState(() => _saying = true);
-    try {
-      await AppScope.of(context).api.post('/huud/text-posts', {'body': text});
-      _say.clear();
-      FocusManager.instance.primaryFocus?.unfocus();
+  Future<void> _create() async {
+    if (!await canUseFriendsOrPromptToVerify(context) || !mounted) return;
+    final action = await showHuudSheet<String>(context, builder: (sheet) => SafeArea(
+      child: Padding(padding: const EdgeInsets.fromLTRB(12, 0, 12, 20), child: Column(
+        mainAxisSize: MainAxisSize.min, children: [
+          ListTile(leading: const Icon(Icons.edit_note_rounded), title: const Text('Post something'),
+              subtitle: const Text('Share a thought with your friends'),
+              onTap: () => Navigator.pop(sheet, 'post')),
+          ListTile(key: const ValueKey('feed-make-huud'),
+              leading: const NavArt('huud', active: true, size: 28),
+              title: const Text('Make a Huud'), subtitle: const Text('Bring your people together'),
+              onTap: () => Navigator.pop(sheet, 'huud')),
+        ],
+      )),
+    ));
+    if (!mounted) return;
+    if (action == 'huud') {
+      await startHuud(context, share: true);
+      if (mounted) _load();
+    } else if (action == 'post') {
+      final posted = await showHuudSheet<bool>(context, builder: (_) => const FeedPostComposer());
+      if (!mounted || posted != true) return;
       _cache.clear();
-      await _load();
-    } on ApiException catch (e) {
-      _snack(e.message);
-    } catch (_) {
-      _snack("That didn't post — try again.");
-    } finally {
-      if (mounted) setState(() => _saying = false);
+      if (_tab == HuudTab.friends && !_liveNow) {
+        _load();
+      } else {
+        _goTo(1);
+      }
+      final scroll = _scrolls[HuudTab.friends]!;
+      if (scroll.hasClients) scroll.jumpTo(0);
     }
   }
 
@@ -740,37 +714,6 @@ class _HuudScreenState extends State<HuudScreen> {
     } catch (_) {
       _snack(userRetryMessage);
     }
-  }
-
-  /// Where the "what do you want to play?" box used to be: games start in a
-  /// Huud now, and a Huud can be shared here.
-  Widget _shareHuudCard(BuildContext context, NeonColors n) {
-    final h = HuudColors.of(context);
-    return HuudCard(
-      key: const ValueKey('feed-make-huud'),
-      onTap: () async {
-        await startHuud(context, share: true);
-        if (mounted) _load();
-      },
-      child: Row(children: [
-        Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-              color: h.orange, shape: BoxShape.circle, border: Border.all(color: kCabinetInk, width: 2.2)),
-          child: Icon(Icons.campaign_rounded, color: h.onOrange, size: 26),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Want people to play with?',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: n.ink)),
-            Text('Make a Huud and share it here', style: TextStyle(fontSize: 14, color: n.mid)),
-          ]),
-        ),
-        Icon(Icons.chevron_right_rounded, color: h.orangeText, size: 28),
-      ]),
-    );
   }
 
   Future<void> _enterSharedHuud(HuudShared huud) async {
@@ -829,24 +772,14 @@ class _HuudScreenState extends State<HuudScreen> {
       builder: (context, online, _) {
         final here = _friends.where((f) => online.contains(f.userId)).toList();
         return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Row(children: [
-            Expanded(
-              child: Text('FRIENDS ONLINE',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute, letterSpacing: 2)),
-            ),
-            if (_friends.isNotEmpty)
-              Text('${here.length} of ${_friends.length}',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.jade, fontWeight: FontWeight.w800)),
-          ]),
-          const SizedBox(height: 10),
           SizedBox(
-            height: 82,
+            height: 72,
             child: ListView(scrollDirection: Axis.horizontal, children: [
               for (final f in here)
                 _StripPerson(
                   label: f.handle,
                   onTap: () => _friendSheet(f),
-                  child: OnlineAvatar(f.name, online: true, size: 52, imageUrl: f.avatarUrl),
+                  child: OnlineAvatar(f.name, online: true, size: 44, imageUrl: f.avatarUrl),
                 ),
               if (here.isEmpty)
                 Padding(
@@ -862,8 +795,8 @@ class _HuudScreenState extends State<HuudScreen> {
                 onTap: () =>
                     Navigator.of(context).push(MaterialPageRoute(builder: (_) => const InviteContactsScreen())),
                 child: Container(
-                  width: 52,
-                  height: 52,
+                  width: 44,
+                  height: 44,
                   decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: n.gold, width: 2)),
                   child: Icon(Icons.add_rounded, color: n.gold),
                 ),
@@ -927,8 +860,8 @@ class _HuudScreenState extends State<HuudScreen> {
       HuudFilter.wins => friends ? 'No wins from your huud in the last two days.' : 'No big wins in the last two days.',
       HuudFilter.tournaments => 'No tournaments open for registration.',
       HuudFilter.all => friends
-          ? 'Nothing from your huud yet. Post a game request or challenge a friend.'
-          : 'The lobby is quiet. Post a game request to get one going.',
+          ? 'Nothing from your huud yet. Tap + to share a thought or invite your friends.'
+          : 'Nothing new here yet. Your next conversation could start in a Huud.',
     };
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 12),
@@ -972,7 +905,9 @@ class _HuudScreenState extends State<HuudScreen> {
       'champion' => _ChampionCard(item: item, onOpen: () => _openTournament(item.tournament!)),
       'huud' => _SharedHuudCard(busy: _publicJoining == item.huud?.huudSpaceId, item: item, onOpen: () => _enterSharedHuud(item.huud!), onProfile: _profile),
       'post' => _TextPostCard(
-          item: item, onMenu: () => _postMenu(item), onProfile: _profile, onReact: (emoji) => _react(item, emoji)),
+          item: item, onMenu: () => _postMenu(item), onProfile: _profile,
+          onShare: () => Share.share('${item.actor.handle} on PlayHuud\n\n${item.message ?? ''}'),
+          onReact: (emoji) => _react(item, emoji)),
       _ => const SizedBox.shrink(),
     };
   }
@@ -1254,9 +1189,8 @@ class _GameRequestCard extends StatelessWidget {
     final n = context.neon;
     final g = item.game!;
     final timeLeft = huudTimeLeft(g.expiresAt);
-    return NeonCard(
-      glass: false,
-      padding: const EdgeInsets.all(14),
+    return Padding(
+      padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         _Byline(person: item.actor, at: item.at, online: online.contains(item.actor.userId), onProfile: onProfile),
         if (item.message != null) ...[
@@ -1347,11 +1281,8 @@ class _ChallengeCard extends StatelessWidget {
       _ => null,
     };
     final timeLeft = huudTimeLeft(g.expiresAt);
-    return NeonCard(
-      glass: false,
-      accent: forMe ? n.gold : null,
-      selected: forMe,
-      padding: const EdgeInsets.all(14),
+    return Padding(
+      padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         _Byline(person: item.actor, at: item.at, online: online.contains(item.actor.userId), onProfile: onProfile),
         const SizedBox(height: 10),
@@ -1431,9 +1362,8 @@ class _WinCard extends StatelessWidget {
             const TextSpan(text: '.'),
           ]);
     final shown = w.recent.reversed.toList(); // oldest → newest, left to right
-    return NeonCard(
-      glass: false,
-      padding: const EdgeInsets.all(14),
+    return Padding(
+      padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         _Byline(person: item.actor, at: item.at, online: online.contains(item.actor.userId), onProfile: onProfile),
         const SizedBox(height: 10),
@@ -1520,10 +1450,8 @@ class _TournamentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final n = context.neon;
     final t = item.tournament!;
-    return NeonCard(
-      glass: false,
-      accent: n.gold,
-      padding: const EdgeInsets.all(14),
+    return Padding(
+      padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
           Container(
@@ -1588,10 +1516,10 @@ class _ChampionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final n = context.neon;
     final t = item.tournament!;
-    return NeonCard(
-      glass: false,
+    return InkWell(
       onTap: onOpen,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      child: Padding(
+      padding: const EdgeInsets.all(16),
       child: Row(children: [
         ChampionBadge(gameType: item.gameType, width: 56),
         const SizedBox(width: 10),
@@ -1605,7 +1533,7 @@ class _ChampionCard extends StatelessWidget {
           ]),
         ),
       ]),
-    );
+    ));
   }
 }
 
@@ -1666,16 +1594,14 @@ class _SharedHuudCard extends StatelessWidget {
       'ask' => ('Ask to join', Icons.front_hand_rounded),
       _ => ('Join Huud', Icons.login_rounded),
     };
-    return HuudCard(
+    return Padding(
       key: ValueKey('feed-huud-${huud.huudSpaceId}'),
-      onTap: onOpen,
-      highlight: true,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
           GestureDetector(
             onTap: () => onProfile(item.actor),
-            child: Avatar(item.actor.name, size: 40, imageUrl: item.actor.avatarUrl),
+            child: Avatar(item.actor.name, size: 38, imageUrl: item.actor.avatarUrl),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -1683,8 +1609,8 @@ class _SharedHuudCard extends StatelessWidget {
               Text(item.actor.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: n.ink)),
-              Text('${huud.findingPlayers ? 'is looking for players' : 'shared a Huud'} · ${huudAgo(item.at)}', style: TextStyle(fontSize: 13, color: n.mute)),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: n.ink)),
+              Text('${huud.findingPlayers ? 'is looking for players' : 'shared a Huud'} · ${huudAgo(item.at)}', style: TextStyle(fontSize: 12, color: n.mute)),
             ]),
           ),
           const HuudLiveChip(),
@@ -1692,12 +1618,12 @@ class _SharedHuudCard extends StatelessWidget {
         if (item.message != null && item.message!.isNotEmpty) ...[
           const SizedBox(height: 12),
           Text('“${item.message}”',
-              style: TextStyle(fontSize: 19, height: 1.25, fontWeight: FontWeight.w900, color: n.ink)),
+              style: TextStyle(fontSize: 15, height: 1.45, fontWeight: FontWeight.w400, color: n.ink)),
         ],
         const SizedBox(height: 12),
         Container(
           padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(color: h.orangeSoft, borderRadius: BorderRadius.circular(18)),
+          decoration: BoxDecoration(color: n.panel, borderRadius: BorderRadius.circular(16), border: Border.all(color: n.line)),
           child: Row(children: [
             if (game != null) HuudGameArt(game, size: 44) else const HuudText('💬', style: TextStyle(fontSize: 30)),
             const SizedBox(width: 10),
@@ -1732,9 +1658,9 @@ class _SharedHuudCard extends StatelessWidget {
 
 /// A friend's short text on the feed, with reactions under it.
 class _TextPostCard extends StatefulWidget {
-  const _TextPostCard({required this.item, required this.onMenu, required this.onProfile, required this.onReact});
+  const _TextPostCard({required this.item, required this.onMenu, required this.onProfile, required this.onReact, required this.onShare});
   final HuudItem item;
-  final VoidCallback onMenu;
+  final VoidCallback onMenu, onShare;
   final void Function(HuudPerson) onProfile;
   final Future<HuudReactions?> Function(String emoji) onReact;
 
@@ -1815,84 +1741,52 @@ class _TextPostCardState extends State<_TextPostCard> {
       for (final e in huudReactionEmoji)
         if ((_reactions.counts[e] ?? 0) > 0) e
     ];
-    return HuudCard(
+    return Padding(
       key: ValueKey('feed-post-${item.id}'),
-      padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+      padding: const EdgeInsets.fromLTRB(16, 14, 12, 10),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          GestureDetector(
-            onTap: () => widget.onProfile(item.actor),
-            child: Avatar(item.actor.name, size: 40, imageUrl: item.actor.avatarUrl),
-          ),
+        Row(children: [
+          InkWell(onTap: () => widget.onProfile(item.actor),
+              borderRadius: BorderRadius.circular(20),
+              child: Avatar(item.actor.name, size: 38, imageUrl: item.actor.avatarUrl)),
           const SizedBox(width: 10),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Flexible(
-                  child: Text(item.actor.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: n.ink)),
-                ),
-                Text(' · ${huudAgo(item.at)}', style: TextStyle(fontSize: 13, color: n.mute)),
-              ]),
-              const SizedBox(height: 4),
-              Text(item.message ?? '', style: TextStyle(fontSize: 17, height: 1.35, color: n.ink)),
-            ]),
-          ),
-          IconButton(
-            key: ValueKey('feed-post-menu-${item.id}'),
-            tooltip: 'More',
-            icon: Icon(Icons.more_horiz_rounded, color: n.mute),
-            onPressed: widget.onMenu,
-          ),
+          Expanded(child: InkWell(onTap: () => widget.onProfile(item.actor), child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(item.actor.name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: n.ink)),
+              Text('@${item.actor.handle} · ${huudAgo(item.at)}', maxLines: 1,
+                  overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: n.mute)),
+            ],
+          ))),
+          IconButton(key: ValueKey('feed-post-menu-${item.id}'), tooltip: 'More',
+              icon: Icon(Icons.more_horiz_rounded, color: n.mute, size: 21), onPressed: widget.onMenu),
         ]),
-        const SizedBox(height: 10),
-        Padding(
-          padding: const EdgeInsets.only(left: 50, right: 8),
-          child: Row(children: [
-            Expanded(
-              child: Wrap(spacing: 6, runSpacing: 6, children: [
-                for (final e in shown)
-                  GestureDetector(
-                    key: ValueKey('reaction-${item.id}-$e'),
-                    onTap: () => _tap(e),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: _reactions.mine == e ? h.orangeSoft : n.plate,
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(color: _reactions.mine == e ? h.orange : n.line, width: 1.6),
-                      ),
-                      child: HuudText('$e ${_reactions.counts[e]}',
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: n.ink)),
-                    ),
-                  ),
-                GestureDetector(
-                  key: ValueKey('react-${item.id}'),
-                  onTap: _pick,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(color: n.line, width: 1.6),
-                    ),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.add_reaction_outlined, size: 18, color: h.orangeText),
-                      const SizedBox(width: 4),
-                      Text(_reactions.mine == null ? 'React' : 'Change',
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: h.orangeText)),
-                    ]),
-                  ),
-                ),
-              ]),
-            ),
-            if (_reactions.total > 0)
-              Text(_reactions.total == 1 ? '1 reaction' : '${_reactions.total} reactions',
-                  key: ValueKey('reactions-total-${item.id}'),
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: n.mute)),
+        const SizedBox(height: 9),
+        Text(item.message ?? '', style: TextStyle(fontSize: 15, height: 1.45, color: n.ink)),
+        if (shown.isNotEmpty) Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Wrap(spacing: 6, runSpacing: 4, children: [for (final e in shown)
+            Semantics(button: true, selected: _reactions.mine == e, label: 'React $e',
+              child: InkWell(key: ValueKey('reaction-${item.id}-$e'),
+                onTap: _busy ? null : () => _tap(e), borderRadius: BorderRadius.circular(14),
+                child: Padding(padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 8),
+                  child: HuudText('$e ${_reactions.counts[e]}',
+                    style: TextStyle(fontSize: 13, color: _reactions.mine == e ? h.orangeText : n.mid))),
+              )),
           ]),
         ),
+        Row(children: [
+          TextButton.icon(key: ValueKey('react-${item.id}'), onPressed: _busy ? null : _pick,
+              style: TextButton.styleFrom(foregroundColor: n.mute, padding: const EdgeInsets.symmetric(horizontal: 6)),
+              icon: Icon(_reactions.mine == null ? Icons.favorite_border_rounded : Icons.favorite_rounded, size: 18),
+              label: Text(_reactions.mine == null ? 'React' : 'Change', style: const TextStyle(fontSize: 12))),
+          if (_reactions.total > 0) Expanded(child: Text(
+              _reactions.total == 1 ? '1 reaction' : '${_reactions.total} reactions',
+              key: ValueKey('reactions-total-${item.id}'), textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: n.mute))) else const Spacer(),
+          IconButton(tooltip: 'Share post', onPressed: widget.onShare,
+              icon: Icon(Icons.ios_share_rounded, size: 18, color: n.mute)),
+        ]),
       ]),
     );
   }
