@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../core/game_socket.dart';
+import 'huud_art.dart';
 
 /// One spectator comment — the always-open `spectate` chat channel (see
 /// `ChatMessage.SPECTATE`, ta-room) that's open in the lobby and mid-game,
@@ -196,7 +197,7 @@ class _SpectatorChatSheetState extends State<_SpectatorChatSheet> {
           const Divider(height: 1, color: Colors.white12),
           Expanded(
             child: _comments.isEmpty
-                ? const Center(child: Text('No comments yet — say hi 👋', style: TextStyle(color: Colors.white38, fontSize: 13)))
+                ? const Center(child: HuudText('No comments yet — say hi 👋', style: TextStyle(color: Colors.white38, fontSize: 13)))
                 : ListView.builder(
                     controller: _scroll,
                     padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),

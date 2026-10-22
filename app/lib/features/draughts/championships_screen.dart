@@ -12,6 +12,7 @@ import '../../theme/neon_theme.dart';
 import '../../widgets/neon.dart';
 import '../onboarding/guest_gate.dart';
 import 'draughts_game_screen.dart';
+import '../../widgets/huud_art.dart';
 
 const _serverError = userErrorMessage;
 
@@ -300,7 +301,7 @@ class _ChampionshipDetailScreenState extends State<ChampionshipDetailScreen> {
                   : 'Starts when full in ${left.inHours}h ${left.inMinutes.remainder(60)}m ${left.inSeconds.remainder(60)}s'),
         ],
         if (c['status'] == 'completed') Padding(padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Text(c['championId'] == null ? 'Finished without a champion' : '🏆 ${names[c['championId']] ?? 'Champion'} · permanent badge',
+          child: HuudText(c['championId'] == null ? 'Finished without a champion' : '🏆 ${names[c['championId']] ?? 'Champion'} · permanent badge',
             style: Theme.of(context).textTheme.titleLarge)),
         const SizedBox(height: 16),
         if (!joined && c['status'] == 'lobby') NeonButton(_joining ? 'Joining…' : 'Join Championship', onPressed: _joining ? null : _join),

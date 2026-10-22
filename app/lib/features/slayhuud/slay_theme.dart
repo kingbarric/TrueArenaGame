@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/neon_theme.dart';
 import 'slay_assets.dart';
+import '../../widgets/huud_art.dart';
 
 // Keep PlayHuud's chosen palette and fonts, with arcade pills for SlayHuud.
 ThemeData slayTheme(BuildContext context) => Theme.of(context).copyWith(
@@ -167,7 +168,7 @@ class SlayPill extends StatelessWidget {
                 Icon(icon, size: 16),
                 const SizedBox(width: 5)
               ],
-              Text(label),
+              HuudText(label),
             ])),
       );
 }
@@ -179,8 +180,10 @@ class SlayTab extends StatelessWidget {
       required this.label,
       required this.selected,
       required this.onPressed,
-      this.pill = false});
+      this.pill = false,
+      this.semanticsLabel});
   final String label;
+  final String? semanticsLabel;
   final bool selected, pill;
   final VoidCallback? onPressed;
 
@@ -220,7 +223,7 @@ class SlayTab extends StatelessWidget {
                 fontSize: pill ? 12 : 13,
                 fontWeight: selected ? FontWeight.w800 : FontWeight.w600),
           ),
-          child: Text(label),
+          child: HuudText(label, semanticsLabel: semanticsLabel),
         ),
       ),
     );
@@ -232,7 +235,7 @@ class SlayLabel extends StatelessWidget {
   final String text;
   final Color? colour;
   @override
-  Widget build(BuildContext context) => Text(text,
+  Widget build(BuildContext context) => HuudText(text,
       style: TextStyle(
         fontSize: 11,
         fontWeight: FontWeight.w800,

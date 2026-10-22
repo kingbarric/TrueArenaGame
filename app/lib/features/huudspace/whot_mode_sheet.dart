@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/neon_theme.dart';
 import 'huud_kit.dart';
+import '../../widgets/huud_art.dart';
 
 /// Whot's two ways to play, as the wire names them.
 const whotModes = ['classic', 'tell'];
@@ -94,7 +95,7 @@ class HuudModeCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
-          Text(emoji, style: const TextStyle(fontSize: 30)),
+          HuudText(emoji, style: const TextStyle(fontSize: 30)),
           const SizedBox(width: 10),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

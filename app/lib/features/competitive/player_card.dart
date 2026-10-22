@@ -8,6 +8,7 @@ import '../../widgets/neon.dart' show Avatar;
 import '../games/game_select_screen.dart' show gameCatalog;
 import 'competitive_models.dart';
 import 'competitive_widgets.dart';
+import '../../widgets/huud_art.dart';
 
 /// Each game's card livery. Overall is black and gold; every game gets its
 /// own pair so a player's cards read as a set, not as one card recoloured.
@@ -316,7 +317,7 @@ class PlayerCard extends StatelessWidget {
                             color: t.accent, fontWeight: FontWeight.w800, fontSize: w * 0.058, letterSpacing: 0.5)),
                   ),
                   SizedBox(height: h * 0.012),
-                  Text(t.icon, style: TextStyle(fontSize: w * 0.07)),
+                  HuudText(t.icon, style: TextStyle(fontSize: w * 0.07)),
                   if (data.founding != null) ...[
                     SizedBox(height: h * 0.01),
                     _FoundingMark(label: data.founding!.label, theme: t, width: w * 0.28,

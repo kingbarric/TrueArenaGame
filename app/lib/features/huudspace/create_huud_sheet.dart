@@ -9,6 +9,7 @@ import 'huud_kit.dart';
 import 'huud_space_models.dart';
 import 'huud_space_screen.dart';
 import 'huud_game_modes.dart';
+import '../../widgets/huud_art.dart';
 
 /// Opens the "Make a Huud" sheet and, once made, walks straight into it.
 /// Hosting a Huud already? The server hands that one back instead of making
@@ -164,7 +165,7 @@ class _CreateHuudSheetState extends State<CreateHuudSheet> {
             if (_privacy == HuudPrivacy.public)
               Padding(
                 padding: const EdgeInsets.only(bottom: 10),
-                child: Text('🛡️ Anyone can come in. Be kind, and never share your address or phone number.',
+                child: HuudText('🛡️ Anyone can come in. Be kind, and never share your address or phone number.',
                     style: TextStyle(fontSize: 14, height: 1.35, color: n.mid)),
               ),
             const SizedBox(height: 8),
@@ -279,7 +280,7 @@ class _CreateHuudSheetState extends State<CreateHuudSheet> {
               child: Column(children: [
                 game == null
                     ? const SizedBox(
-                        width: 44, height: 44, child: Center(child: Text('💬', style: TextStyle(fontSize: 26))))
+                        width: 44, height: 44, child: Center(child: HuudText('💬', style: TextStyle(fontSize: 26))))
                     : HuudGameArt(game, size: 44),
                 const SizedBox(height: 4),
                 Text(
@@ -324,7 +325,7 @@ class _CreateHuudSheetState extends State<CreateHuudSheet> {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
-          const Text('📣', style: TextStyle(fontSize: 22)),
+          const HuudText('📣', style: TextStyle(fontSize: 22)),
           const SizedBox(width: 10),
           Expanded(
             child: Text(_share ? 'People will see it on the feed' : 'Keep it off the feed',
@@ -389,7 +390,7 @@ class _PrivacyChoice extends StatelessWidget {
             border: Border.all(color: selected ? h.orange : n.line, width: selected ? 2.6 : 1.4),
           ),
           child: Row(children: [
-            Text(privacy.emoji, style: const TextStyle(fontSize: 28)),
+            HuudText(privacy.emoji, style: const TextStyle(fontSize: 28)),
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

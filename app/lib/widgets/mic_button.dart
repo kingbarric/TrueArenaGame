@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'huud_art.dart';
 
 /// Where your mic is, the same everywhere — in a Huud and in every game:
 enum MicState {
@@ -90,7 +91,7 @@ class MicStateButton extends StatelessWidget {
           Positioned(
             right: -size * 0.08,
             bottom: -size * 0.06,
-            child: Text('✋', style: TextStyle(fontSize: size * 0.32)),
+            child: HuudText('✋', style: TextStyle(fontSize: size * 0.32)),
           ),
         // Asked: the mic with an hourglass stuck on it, so it reads as "mic asked".
         if (state == MicState.asked)

@@ -16,6 +16,7 @@ import '../games/game_select_screen.dart';
 import '../lobby/joined_room_screen.dart';
 import '../onboarding/guest_gate.dart';
 import '../status/victory_status.dart';
+import '../../widgets/huud_art.dart';
 
 class ChatMessage {
   const ChatMessage({
@@ -145,7 +146,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
           _plaintext.containsKey(m.id) ||
           !E2eCrypto.isEncrypted(body)) continue;
       final clear = await E2eCrypto.decrypt(secret, body);
-      _plaintext[m.id] = clear ?? '🔒 Couldn\'t decrypt this message';
+      _plaintext[m.id] = clear ?? 'Couldn\'t decrypt this message';
       changed = true;
     }
     if (changed && mounted) setState(() {});
@@ -410,7 +411,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
                 ? const Center(child: CircularProgressIndicator())
                 : _messages.isEmpty
                     ? Center(
-                        child: Text('No messages yet — say hi 👋',
+                        child: HuudText('No messages yet — say hi 👋',
                             style: TextStyle(color: n.mute)))
                     : ListView.builder(
                         controller: _scroll,

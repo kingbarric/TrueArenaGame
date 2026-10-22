@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
 
 import 'neon.dart';
+import 'huud_art.dart';
 
 /// One line in a game's table talk: something a person (or an agent) said,
 /// or a note about the game itself. System lines carry no speaker, which is
@@ -168,7 +169,7 @@ class _TableChatPanelState extends State<TableChatPanel> {
                     if (!_expanded && widget.lines.isNotEmpty) ...[
                       const SizedBox(width: 8),
                       Expanded(
-                          child: Text(widget.lines.first.text,
+                          child: HuudText(widget.lines.first.text, artwork: widget.lines.first.isSystem,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -243,7 +244,7 @@ class _TableChatPanelState extends State<TableChatPanel> {
         opacity: fade,
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 3),
-          child: Text(
+          child: HuudText(
             line.text,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,

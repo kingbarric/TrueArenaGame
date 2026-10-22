@@ -13,6 +13,7 @@ import 'huud_preview_voice.dart';
 import 'huud_voice.dart';
 import 'huud_space_models.dart';
 import 'huud_space_screen.dart';
+import '../../widgets/huud_art.dart';
 
 /// Live Huuds one screen at a time: swipe up for the next, down for the
 /// last. Each page looks in without joining (it counts as watching while it's
@@ -416,7 +417,7 @@ class _WatchPageState extends State<_WatchPage> {
                           fontWeight: FontWeight.w900,
                           color: n.ink)),
                   const SizedBox(height: 6),
-                  Text(host == null ? '' : '👑 Host: ${host.handle}',
+                  HuudText(host == null ? '' : '👑 Host: ${host.handle}',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                           fontSize: 16,
@@ -487,7 +488,7 @@ class _WatchPageState extends State<_WatchPage> {
                                     width: 72,
                                     height: 72,
                                     child: Center(
-                                        child: Text('💬',
+                                        child: HuudText('💬',
                                             style: TextStyle(fontSize: 40))))
                                 : HuudGameArt(gameType, size: 72),
                             const SizedBox(width: 14),
@@ -498,7 +499,7 @@ class _WatchPageState extends State<_WatchPage> {
                                     if (status == 'playing')
                                       const HuudLiveChip(label: 'Playing'),
                                     const SizedBox(height: 4),
-                                    Text(doing,
+                                    HuudText(doing,
                                         style: TextStyle(
                                             fontSize: 19,
                                             fontWeight: FontWeight.w900,

@@ -16,6 +16,7 @@ import 'card_share.dart';
 import 'champion_badges.dart';
 import 'player_card.dart';
 import '../status/victory_status.dart';
+import '../../widgets/huud_art.dart';
 
 /// `NG -> 🇳🇬`, from the two regional-indicator code points.
 String flagEmoji(String? countryCode) {
@@ -536,7 +537,7 @@ class _GameCompetitiveScreenState extends State<GameCompetitiveScreen> {
           ),
           if (s.top100Wins > 0 || s.casualGames > 0) ...[
             const SizedBox(height: 8),
-            Text(
+            HuudText(
               [
                 if (s.top100Wins > 0) '⚔ ${s.top100Wins} wins over Top-100 players',
                 if (s.casualGames > 0) '${s.casualGames} casual games',

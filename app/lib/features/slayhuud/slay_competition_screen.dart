@@ -9,6 +9,7 @@ import '../../theme/neon_theme.dart';
 import 'slay_studio_screen.dart';
 import 'slay_game_menu.dart';
 import 'slay_runway.dart';
+import '../../widgets/huud_art.dart';
 
 class SlayCompetitionScreen extends StatefulWidget {
   const SlayCompetitionScreen({super.key, this.competitionId, this.roomId})
@@ -357,7 +358,7 @@ class _SlayCompetitionScreenState extends State<SlayCompetitionScreen>
                                           fontWeight: FontWeight.w600)))
                           ]),
                           const SizedBox(height: 12),
-                          Text(_state!['theme']['title'],
+                          HuudText(_state!['theme']['title'],
                               style: Theme.of(context).textTheme.displaySmall),
                           const SizedBox(height: 8),
                           Text(_state!['theme']['description'],

@@ -120,6 +120,8 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
     await tester.scrollUntilVisible(find.text('Done'), 200,
         scrollable: find.byType(Scrollable).first);
+    // ensureVisible can change the offset after the last drag; lay out that frame.
+    await tester.pump();
     expect(find.text('Done').hitTestable(), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

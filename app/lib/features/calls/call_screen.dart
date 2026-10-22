@@ -1,3 +1,4 @@
+import '../../widgets/huud_art.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -684,7 +685,7 @@ class _CallScreenState extends State<CallScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(text)));
+      ..showSnackBar(SnackBar(content: HuudText(text)));
   }
 
   Future<void> _manage(lk.RemoteParticipant p, String action) async {

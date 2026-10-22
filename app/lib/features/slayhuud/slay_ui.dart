@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/neon.dart';
 import 'slay_assets.dart';
+import '../../widgets/huud_art.dart';
 
 /// SlayHuud's game kit: PlayHuud's cabinet look (ink outline, hard shadow,
 /// springy presses) dressed in a little glam — sparkles, stage colours and
@@ -183,7 +184,7 @@ class SlayStatChip extends StatelessWidget {
         Icon(icon, size: 16, color: tint),
         const SizedBox(width: 4),
         Flexible(
-          child: Text(label,
+          child: HuudText(label,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                   fontSize: 12.5, fontWeight: FontWeight.w900, color: n.ink)),
@@ -262,7 +263,7 @@ class _SlayCountdownState extends State<SlayCountdown> {
         : left.inHours > 0
             ? '${left.inHours}h ${left.inMinutes % 60}m left'
             : '${left.inMinutes}m left';
-    return Text(text, style: widget.style);
+    return HuudText(text, style: widget.style);
   }
 }
 
@@ -353,7 +354,7 @@ class SlayHeadline extends StatelessWidget {
   final double size;
   final Color? colour;
   @override
-  Widget build(BuildContext context) => Text(text,
+  Widget build(BuildContext context) => HuudText(text,
       style: Theme.of(context).textTheme.displaySmall?.copyWith(
           fontSize: size,
           height: 1.05,

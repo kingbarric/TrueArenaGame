@@ -1,3 +1,4 @@
+import hostBadgeUrl from '../../app/assets/images/huud_ui/crown.png?inline';
 import {cloneItemMaterial} from './item-colours';
 import {seed,seatPose,roomPlace,animateBody,walkPosition,doorRoute,exitRoute,WALK_RATE,TRANSIT_SPEED} from './huud-avatar';
 import * as T from 'three';
@@ -113,7 +114,7 @@ async function populate(raw:Person[],animate=true){
  const needed=new Set(actors.map(a=>appearanceKey(a.body,a.person.look)));
  for(const [key,value] of prototypes)if(!needed.has(key)){prototypes.delete(key);void value.then(w=>w.destroy());}
 }
-function decorate(a:Actor){a.label.textContent=(a.person.host?'♛ ':'')+(a.person.me?'You':a.person.name);a.label.classList.toggle('talking',a.person.speaking);a.label.classList.toggle('away',!a.person.here);a.label.setAttribute('aria-label',`${a.person.name}${a.person.speaking?', talking':''}${a.person.host?', host':''}`);a.label.title=a.person.speaking?'Talking now':a.person.here?'Here now':'Away';}
+function decorate(a:Actor){a.label.replaceChildren();if(a.person.host){const badge=document.createElement('img');badge.src=hostBadgeUrl;badge.className='host-badge';badge.alt='';badge.setAttribute('aria-hidden','true');a.label.append(badge);}a.label.append(document.createTextNode(a.person.me?'You':a.person.name));a.label.classList.toggle('talking',a.person.speaking);a.label.classList.toggle('away',!a.person.here);a.label.setAttribute('aria-label',`${a.person.name}${a.person.speaking?', talking':''}${a.person.host?', host':''}`);a.label.title=a.person.speaking?'Talking now':a.person.here?'Here now':'Away';}
 const point=new T.Vector3();let time=0,previous=performance.now();
 renderer.setAnimationLoop(()=>{if(paused||document.hidden)return;const now=performance.now(),dt=Math.min((now-previous)/1000,.05);time+=dt;previous=now;controls.update();
  const plates:{x:number;y:number;w:number}[]=[];

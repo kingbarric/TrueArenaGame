@@ -25,6 +25,7 @@ import 'draughts_rules.dart';
 import 'draughts_theme.dart';
 import 'draughts_var.dart';
 import '../huudspace/leave_game.dart';
+import '../../widgets/huud_art.dart';
 
 /// International (10x10, 20-piece) Draughts — driven by the same
 /// SNAPSHOT/PHASE/EVENT-in, PLAYER_ACTION-out contract as the other two
@@ -1872,7 +1873,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
               curve: Curves.elasticOut,
               builder: (_, t, child) =>
                   Transform.scale(scale: 0.5 + 0.5 * t, child: child),
-              child: const Text('🏆', style: TextStyle(fontSize: 64)),
+              child: const HuudText('🏆', style: TextStyle(fontSize: 64)),
             ),
             const SizedBox(height: 10),
             Text(
@@ -1884,7 +1885,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
                     .displayLarge
                     ?.copyWith(fontSize: 26, color: accent)),
             const SizedBox(height: 6),
-            Text(
+            HuudText(
                 winningSide == 'draw'
                     ? 'This pairing will replay.'
                     : (won ? 'You won! 🎉' : 'Better luck next game.'),

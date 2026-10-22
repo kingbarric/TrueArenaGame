@@ -8,6 +8,7 @@ import '../../widgets/neon.dart';
 import '../calls/call_screen.dart';
 import '../chat/conversation_screen.dart';
 import '../friends/friends_screen.dart';
+import '../../widgets/huud_art.dart';
 
 class GroupSummary {
   const GroupSummary({required this.id, required this.name, this.avatarEmoji});
@@ -339,7 +340,7 @@ class _EmojiTile extends StatelessWidget {
           border: Border.all(color: selected ? n.jade : n.line, width: selected ? 2 : 1),
         ),
         alignment: Alignment.center,
-        child: Text(emoji, style: const TextStyle(fontSize: 20)),
+        child: HuudText(emoji, style: const TextStyle(fontSize: 20)),
       ),
     );
   }
