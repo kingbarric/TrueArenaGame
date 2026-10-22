@@ -427,7 +427,8 @@ class HuudAvatarStack extends StatelessWidget {
     final shown = people.take(max).toList();
     final extra = (total ?? people.length) - shown.length;
     final step = size * 0.68;
-    final width = shown.isEmpty ? 0.0 : size + step * (shown.length - 1) + (extra > 0 ? step : 0);
+    final slots = shown.length + (extra > 0 ? 1 : 0);
+    final width = slots == 0 ? 0.0 : size + step * (slots - 1);
     return SizedBox(
       width: width,
       height: size,

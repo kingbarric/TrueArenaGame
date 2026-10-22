@@ -26,7 +26,15 @@ Map<String, dynamic> liveRoom(int i) => {
         'username': 'beverly',
         'host': true
       },
-      'members': [],
+      'members': [
+        for (var j = 0; j < 4; j++)
+          {
+            'userId': 'person-$j',
+            'displayName': 'Person $j',
+            'username': 'person$j',
+            'here': true
+          }
+      ],
       'youAreIn': false,
       'gameType': null,
     };
@@ -59,7 +67,8 @@ Future<void> open(
 
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
-  testWidgets('five live Huuds fit above the floating shell menu on a phone',
+  testWidgets(
+      'live Huuds stay compact with room for people above the shell menu',
       (t) async {
     await open(
         t,
@@ -67,16 +76,20 @@ void main() {
             ? json(List.generate(8, liveRoom))
             : json([]));
     final cards = [
-      for (var i = 0; i < 5; i++) find.byKey(ValueKey('live-huud-live-$i'))
+      for (var i = 0; i < 4; i++) find.byKey(ValueKey('live-huud-live-$i'))
     ];
     for (final card in cards) {
       expect(card, findsOneWidget);
+      expect(t.getRect(card).height, inInclusiveRange(105.9, 128.1));
       expect(t.getRect(card).bottom, lessThanOrEqualTo(844 - 34 - 130));
     }
-    for (var i = 0; i < 5; i++) {
+    for (var i = 0; i < 4; i++) {
       expect(find.byKey(ValueKey('live-enter-live-$i')).hitTestable(),
           findsOneWidget);
     }
+    final people = find.byKey(const ValueKey('live-members-live-0'));
+    expect(
+        find.descendant(of: people, matching: find.text('+1')), findsOneWidget);
     expect(t.takeException(), isNull);
   });
   testWidgets('compact live rooms remain readable and scroll at enlarged text',

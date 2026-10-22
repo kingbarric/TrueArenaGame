@@ -135,11 +135,11 @@ class _LiveNowPanelState extends State<LiveNowPanel> {
     final n = context.neon;
     final huuds = _huuds;
     return LayoutBuilder(builder: (context, viewport) {
-      // Five standard-size rows fit above the shell navigation on a phone.
+      // Keep the list compact, with room for people and readable metadata.
       // Larger accessibility text can grow the rows and remains scrollable.
       final rowHeight = math.max(
-        ((viewport.maxHeight - widget.bottomPadding - 64 - 32) / 5).clamp(84.0, 108.0),
-        MediaQuery.textScalerOf(context).scale(15) * 3.2 + 24,
+        ((viewport.maxHeight - widget.bottomPadding - 64 - 32) / 5).clamp(106.0, 128.0),
+        MediaQuery.textScalerOf(context).scale(15) * 3.6 + 40,
       ).toDouble();
       return RefreshIndicator(
       onRefresh: _load,
@@ -203,7 +203,7 @@ class _LiveNowPanelState extends State<LiveNowPanel> {
                   mainAxisExtent: rowHeight,
                 ),
                 delegate: SliverChildBuilderDelegate(
-                  (context, i) => _LiveHuudCard(
+                  (context, i) => LiveHuudCard(
                     huud: huuds[i],
                     busy: _joining == huuds[i].id,
                     onEnter: () => _enter(huuds[i]),
@@ -264,8 +264,8 @@ class _LiveNowPanelState extends State<LiveNowPanel> {
   }
 }
 
-class _LiveHuudCard extends StatelessWidget {
-  const _LiveHuudCard({required this.huud, required this.busy, required this.onEnter, required this.onPeek});
+class LiveHuudCard extends StatelessWidget {
+  const LiveHuudCard({super.key, required this.huud, required this.busy, required this.onEnter, required this.onPeek});
   final LiveHuud huud;
   final bool busy;
   final VoidCallback onEnter;
@@ -293,25 +293,35 @@ class _LiveHuudCard extends StatelessWidget {
         side: BorderSide(color: huud.youAreIn ? h.orange : n.line, width: huud.youAreIn ? 1.5 : 1)),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: onPeek,
+        onTap: busy ? null : onPeek,
         child: Padding(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
           child: Row(children: [
-            Avatar(huud.host?.name ?? huud.name, size: 36, imageUrl: huud.host?.avatarUrl),
-            const SizedBox(width: 9),
             Expanded(child: Column(mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(huud.name, maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 15, height: 1.2, fontWeight: FontWeight.w800, color: n.ink)),
-                if (huud.host != null) Text('Host: ${huud.host!.handle} · ${huud.privacy.label}',
-                    maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, height: 1.2, color: n.mute)),
-                HuudText(doing, maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 12, height: 1.2, fontWeight: FontWeight.w600, color: h.orangeText)),
+                Row(children: [
+                  Avatar(huud.host?.name ?? huud.name, size: 32, imageUrl: huud.host?.avatarUrl),
+                  const SizedBox(width: 8),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(huud.name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 15, height: 1.2, fontWeight: FontWeight.w800, color: n.ink)),
+                    if (huud.host != null) Text('Host: ${huud.host!.handle} · ${huud.privacy.label}',
+                        maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, height: 1.2, color: n.mute)),
+                  ])),
+                ]),
+                const SizedBox(height: 6),
+                Wrap(spacing: 6, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+                  HuudAvatarStack(key: ValueKey('live-members-${huud.id}'),
+                      people: huud.members, total: huud.memberCount, max: 3, size: 26),
+                  HuudText(doing, maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12, height: 1.2, fontWeight: FontWeight.w600, color: h.orangeText)),
+                ]),
               ],
             )),
             const SizedBox(width: 6),
-            Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
+            SizedBox(width: 82, child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
               Text('${huud.memberCount} in here${huud.watching > 0 ? ' · ${huud.watching} watching' : ''}',
-                  maxLines: 1, style: TextStyle(fontSize: 11, height: 1.2, color: n.mute)),
+                  maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.right,
+                  style: TextStyle(fontSize: 11, height: 1.2, color: n.mute)),
               const SizedBox(height: 3),
               ConstrainedBox(constraints: const BoxConstraints(minHeight: 44), child: FilledButton(
                 key: ValueKey('live-enter-${huud.id}'),
@@ -322,9 +332,9 @@ class _LiveHuudCard extends StatelessWidget {
                   textStyle: const TextStyle(fontSize: 12, height: 1.1, fontWeight: FontWeight.w800)),
                 onPressed: busy ? null : onEnter,
                 child: busy ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: h.onOrange))
-                    : Text(huud.findingPlayers ? 'Join to play' : huud.youAreIn ? 'Go in' : 'Join'),
+                    : Text(huud.findingPlayers ? 'Join to play' : huud.youAreIn ? 'Go in' : 'Join', textAlign: TextAlign.center),
               )),
-            ]),
+            ])),
           ]),
         ),
       ),

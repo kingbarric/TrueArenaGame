@@ -21,7 +21,8 @@ Future<void> main() async {
         'userId': name.toLowerCase(),
         'displayName': name,
         'username': name.toLowerCase(),
-        'friend': true
+        'friend': true,
+        'here': true
       }
   ];
   const names = [
@@ -41,7 +42,7 @@ Future<void> main() async {
         'name': names[i],
         'privacy': i.isEven ? 'public' : 'friends',
         'memberCount': 4 + i,
-        'members': [people[i % people.length]],
+        'members': [for (var j = 0; j < 4; j++) people[(i + j) % people.length]],
         'host': people[i % people.length],
         'youAreIn': i == 1,
         'gameType': i == 2 ? 'whot' : null,
@@ -98,6 +99,9 @@ Future<void> main() async {
     dynamic body;
     if (path == '/huud-spaces/live') {
       body = rooms;
+    } else if (path == '/huud-spaces/mine') {
+      body = [{...rooms[1], 'live': true, 'youOwn': true, 'liveCount': 5},
+          {...rooms[3], 'live': false, 'youOwn': false, 'liveCount': 0}];
     } else if (path == '/friends') {
       body = people;
     } else if (path == '/huud/feed') {

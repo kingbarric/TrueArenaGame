@@ -13,6 +13,7 @@ import 'create_huud_sheet.dart';
 import 'go_live_sheet.dart';
 import 'huud_kit.dart';
 import 'huud_space_models.dart';
+import 'huud_discover_sliver.dart';
 import 'huud_space_screen.dart';
 import '../../widgets/huud_art.dart';
 
@@ -30,6 +31,8 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
   List<MyHuud>? _huuds;
   String? _error;
   bool _loading = false;
+  bool _showDiscover = false;
+  final _discover = GlobalKey<HuudDiscoverSliverState>();
   final _code = TextEditingController();
   bool _joining = false;
   String? _goingLive;
@@ -143,7 +146,10 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
     return Scaffold(
       body: SafeArea(
         child: RefreshIndicator(
-          onRefresh: _load,
+          onRefresh: () async {
+            await Future.wait([_load(), if (_showDiscover && _discover.currentState != null)
+              _discover.currentState!.refresh()]);
+          },
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
@@ -170,25 +176,61 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
                   const SizedBox(height: 14),
                   _codeCard(n),
                   const SizedBox(height: 28),
-                  HuudSectionTitle("Huuds you're in",
-                      emoji: '🏠',
-                      trailing: others.isEmpty
-                          ? null
-                          : HuudChip('${others.length}', color: HuudColors.of(context).orangeText)),
-                  if (_huuds != null && others.isEmpty)
-                    const HuudFriendlyState(
-                      emoji: '🌱',
-                      title: 'None yet',
-                      message: "Join a friend's Huud with their code. You'll hear from it whenever it goes Live.",
-                    ),
-                  for (final h in others) ...[_otherHuud(n, h), const SizedBox(height: 12)],
+                  _listTabs(n, others.length),
                 ]),
               ),
+              if (_showDiscover)
+                HuudDiscoverSliver(key: _discover, excludeIds: huuds.map((h) => h.id).toSet(), onJoined: _load)
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  sliver: SliverList.list(children: [
+                    if (_huuds != null && others.isEmpty)
+                      const HuudFriendlyState(
+                        emoji: '🌱',
+                        title: 'None yet',
+                        message: "Join a friend's Huud with their code, or try Discover to find somewhere new.",
+                      ),
+                    for (final h in others) ...[_otherHuud(n, h), const SizedBox(height: 12)],
+                  ]),
+                ),
               // Clear of the shell's floating nav.
               const SliverToBoxAdapter(child: SizedBox(height: 130)),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _listTabs(NeonColors n, int count) {
+    final h = HuudColors.of(context);
+    Widget tab(String key, String label, bool selected, bool discover) => Expanded(
+      child: Semantics(selected: selected, child: TextButton(
+        key: ValueKey(key),
+        style: TextButton.styleFrom(
+          foregroundColor: selected ? h.orangeText : n.mute,
+          backgroundColor: selected ? h.orangeSoft : Colors.transparent,
+          minimumSize: const Size(0, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+        ),
+        onPressed: () => setState(() => _showDiscover = discover),
+        child: Text(label, textAlign: TextAlign.center),
+      )),
+    );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(color: n.panel, borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: n.line)),
+        child: Row(children: [
+          tab('huud-list-joined', "Huuds you're in${count > 0 ? ' ($count)' : ''}", !_showDiscover, false),
+          const SizedBox(width: 4),
+          tab('huud-list-discover', 'Discover', _showDiscover, true),
+        ]),
       ),
     );
   }
