@@ -6,6 +6,7 @@ import '../../theme/neon_theme.dart';
 import '../../widgets/neon.dart';
 import 'huud_kit.dart';
 import 'huud_space_models.dart';
+import '../../widgets/huud_art.dart';
 
 /// Who's playing the Huud's game: everyone in the Huud, and any Cyber Agents.
 /// The host taps people to sit them down or let them watch (up to the seats);
@@ -218,7 +219,7 @@ class _HuudRosterState extends State<HuudRoster> {
                             fontWeight: FontWeight.w800,
                             color: n.ink)),
                   ),
-                  Text(status,
+                  HuudText(status,
                       style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w800,
@@ -287,7 +288,7 @@ class _HuudRosterState extends State<HuudRoster> {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
           decoration: BoxDecoration(
               color: h.orangeSoft, borderRadius: BorderRadius.circular(14)),
-          child: Text(
+          child: HuudText(
               '🤫 The Tell · teams of two · 4, 6 or 8 players · people only',
               style: TextStyle(
                   fontSize: 13.5,
@@ -306,7 +307,7 @@ class _HuudRosterState extends State<HuudRoster> {
             alignment: Alignment.center,
             decoration:
                 BoxDecoration(color: h.orangeSoft, shape: BoxShape.circle),
-            child: const Text('🤖', style: TextStyle(fontSize: 20)),
+            child: const HuudText('🤖', style: TextStyle(fontSize: 20)),
           ),
           name: '${b.handle} (Cyber Agent)',
           status: '🎮 Playing',

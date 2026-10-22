@@ -14,6 +14,7 @@ import 'go_live_sheet.dart';
 import 'huud_kit.dart';
 import 'huud_space_models.dart';
 import 'huud_space_screen.dart';
+import '../../widgets/huud_art.dart';
 
 /// The Huud tab: your Huud (Go Live, or step back in), a box for a friend's
 /// code, and every Huud you belong to — Live ones first. A Huud stays; going
@@ -244,7 +245,7 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: kCabinetInk, height: 1.1)),
           const SizedBox(height: 6),
-          Text(status, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: kCabinetInk)),
+          HuudText(status, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: kCabinetInk)),
           const SizedBox(height: 12),
           HuudAvatarStack(people: h.members, total: h.memberCount, size: 34),
           const SizedBox(height: 16),
@@ -296,10 +297,10 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: n.ink)),
               ),
-              if (h.muted) ...[const SizedBox(width: 6), const Text('🔕', style: TextStyle(fontSize: 14))],
+              if (h.muted) ...[const SizedBox(width: 6), const HuudText('🔕', style: TextStyle(fontSize: 14))],
             ]),
             const SizedBox(height: 2),
-            Text(status,
+            HuudText(status,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: h.live ? hc.orangeText : n.mute)),
@@ -316,7 +317,7 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
     return HuudCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
-          const Text('🔑', style: TextStyle(fontSize: 24)),
+          const HuudText('🔑', style: TextStyle(fontSize: 24)),
           const SizedBox(width: 8),
           Text('Got a code?', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: n.ink)),
         ]),

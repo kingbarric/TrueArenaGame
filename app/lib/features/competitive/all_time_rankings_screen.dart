@@ -8,6 +8,7 @@ import '../../widgets/swipe_to_switch.dart';
 import '../games/game_select_screen.dart' show gameCatalog;
 import 'competitive_widgets.dart';
 import 'player_profile_screen.dart';
+import '../../widgets/huud_art.dart';
 
 /// One place on the all-time board.
 class RankedPlayer {
@@ -219,7 +220,7 @@ class _AllTimeRankingsScreenState extends State<AllTimeRankingsScreen> {
           SizedBox(
             width: 38,
             child: medal != null
-                ? Text(medal, textAlign: TextAlign.center, style: const TextStyle(fontSize: 24))
+                ? HuudText(medal, textAlign: TextAlign.center, style: const TextStyle(fontSize: 24))
                 : Text('#${p.rank}',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: n.mid)),

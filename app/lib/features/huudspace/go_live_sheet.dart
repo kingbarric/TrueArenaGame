@@ -6,6 +6,7 @@ import '../../theme/neon_theme.dart';
 import '../../widgets/nav_art.dart';
 import 'huud_kit.dart';
 import 'huud_space_models.dart';
+import '../../widgets/huud_art.dart';
 
 /// Owner: turn the Huud Live. Asks who to tell first — every member (pushed to
 /// their phones), only the ones online now, or nobody — then goes Live.
@@ -77,7 +78,7 @@ class _GoLiveSheetState extends State<_GoLiveSheet> {
                     border: Border.all(color: _tell == wire ? h.orange : n.line, width: _tell == wire ? 2.4 : 1.4),
                   ),
                   child: Row(children: [
-                    Text(emoji, style: const TextStyle(fontSize: 26)),
+                    HuudText(emoji, style: const TextStyle(fontSize: 26)),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

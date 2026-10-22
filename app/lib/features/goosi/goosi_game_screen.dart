@@ -20,6 +20,7 @@ import '../status/victory_status.dart';
 import '../onboarding/guest_save_session_card.dart';
 import 'goosi_theme.dart';
 import '../huudspace/leave_game.dart';
+import '../../widgets/huud_art.dart';
 
 /// Macala has twelve houses and two players. A move relay-sows around the
 /// board and collects any house brought to exactly four seeds. See `GoosiModule`
@@ -1460,7 +1461,7 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
               builder: (_, t, child) =>
                   Transform.scale(scale: 0.5 + 0.5 * t, child: child),
               child:
-                  Text(tie ? '🤝' : '🏆', style: const TextStyle(fontSize: 64)),
+                  HuudText(tie ? '🤝' : '🏆', style: const TextStyle(fontSize: 64)),
             ),
             const SizedBox(height: 10),
             Text(
@@ -1483,7 +1484,7 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
                         ?.copyWith(color: n.mid)),
               ),
             const SizedBox(height: 6),
-            Text(
+            HuudText(
                 won
                     ? 'You won! 🎉'
                     : (tie ? 'Close one.' : 'Better luck next game.'),

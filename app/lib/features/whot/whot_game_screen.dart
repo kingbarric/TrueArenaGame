@@ -18,6 +18,7 @@ import 'whot_lobby_screen.dart';
 import 'whot_card.dart';
 import '../huudspace/leave_game.dart';
 import '../../widgets/worn_look.dart';
+import '../../widgets/huud_art.dart';
 
 class WhotGameScreen extends StatefulWidget {
   const WhotGameScreen(
@@ -1337,7 +1338,7 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
             style: const TextStyle(
                 color: _gold, fontSize: 18, fontWeight: FontWeight.w900)),
         const SizedBox(height: 8),
-        Text(
+        HuudText(
             selected.isEmpty
                 ? 'Choose a secret symbol. Your teammate will see it privately and tap to confirm.'
                 : confirmed
@@ -1368,7 +1369,7 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
                     side:
                         BorderSide(color: symbol == selected ? _gold : _cream),
                   ),
-                  child: Text(symbol, style: const TextStyle(fontSize: 25)),
+                  child: HuudText(symbol, style: const TextStyle(fontSize: 25)),
                 ),
               ),
           ],
@@ -1398,7 +1399,7 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
                   onPressed: _canAct
                       ? () => _action('SIGNAL', {'symbol': symbol})
                       : null,
-                  icon: Text(symbol, style: const TextStyle(fontSize: 23)),
+                  icon: HuudText(symbol, style: const TextStyle(fontSize: 23)),
                 );
               },
             ),
@@ -1435,7 +1436,7 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 17),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Text('${_name(sender)} → ${signal['symbol']}',
+              HuudText('${_name(sender)} → ${signal['symbol']}',
                   style: const TextStyle(
                       color: _cream,
                       fontSize: 30,

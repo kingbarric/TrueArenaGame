@@ -19,6 +19,7 @@ import '../competitive/player_profile_screen.dart';
 import '../status/victory_status.dart';
 import 'invite_contacts_screen.dart';
 import '../shell/main_shell.dart';
+import '../../widgets/huud_art.dart';
 
 class FriendUser {
   const FriendUser({
@@ -283,7 +284,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
       await app.api.post('/friends/${f.userId}/nudge');
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('👋 Nudged ${f.displayName} — their phone is buzzing')));
+            .showSnackBar(SnackBar(content: HuudText('👋 Nudged ${f.displayName} — their phone is buzzing')));
       }
     } on ApiException catch (e) {
       if (mounted) {
@@ -423,7 +424,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                       if (const {'friends', 'messages'}.contains(emoji))
                         NavArt(emoji, active: active, size: 22)
                       else
-                        Text(emoji, style: const TextStyle(fontSize: 16)),
+                        HuudText(emoji, style: const TextStyle(fontSize: 16)),
                       const SizedBox(width: 6),
                       Text(label,
                           style: TextStyle(
@@ -656,7 +657,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: n.gold.withValues(alpha: 0.6)),
               ),
-              child: Text('👋 Nudge', style: TextStyle(color: n.gold, fontSize: 10, fontWeight: FontWeight.w800)),
+              child: HuudText('👋 Nudge', style: TextStyle(color: n.gold, fontSize: 10, fontWeight: FontWeight.w800)),
             ),
           ),
         ),

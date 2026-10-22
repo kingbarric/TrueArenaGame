@@ -62,6 +62,7 @@ flutter:
     - assets/images/game_icons/
     - assets/images/huud_backgrounds/
     - assets/images/nav/
+    - assets/images/huud_ui/
     - assets/images/monopoly/
     - assets/music/
     - assets/sfx/

@@ -23,6 +23,7 @@ import 'chess_piece.dart';
 import 'chess_var.dart';
 import 'chess_view.dart';
 import '../huudspace/leave_game.dart';
+import '../../widgets/huud_art.dart';
 
 /// Standard chess, played against the server's `ChessModule`. The same
 /// SNAPSHOT/PHASE/EVENT-in, PLAYER_ACTION-out contract as Draughts and Macala.
@@ -1561,7 +1562,7 @@ class _ChessGameScreenState extends State<ChessGameScreen>
               ],
             ),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Text(draw ? '🤝' : (won || _amSpectator ? '🏆' : '♚'),
+              HuudText(draw ? '🤝' : (won || _amSpectator ? '🏆' : '♚'),
                   style: const TextStyle(fontSize: 44, color: _cream)),
               const SizedBox(height: 6),
               Text(title,

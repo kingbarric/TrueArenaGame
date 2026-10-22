@@ -1,3 +1,4 @@
+import 'huud_art.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -475,7 +476,7 @@ class _GameVoiceControlState extends State<GameVoiceControl> {
 
   void _message(String text) {
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: HuudText(text)));
     }
   }
 

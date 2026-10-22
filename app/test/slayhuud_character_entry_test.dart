@@ -103,7 +103,7 @@ void main() {
     await t.pump();
     await t.tap(find.text('This is my star'));
     await t.pump(const Duration(seconds: 1));
-    await t.tap(find.bySemanticsLabel('💇 Hair'));
+    await t.tap(find.bySemanticsLabel('Hair'));
     await t.pump();
     await t.tap(find.bySemanticsLabel('Sculpted Waves, owned'));
     await t.pump();

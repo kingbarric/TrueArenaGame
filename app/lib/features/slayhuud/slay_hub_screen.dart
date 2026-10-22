@@ -13,6 +13,7 @@ import 'slay_competition_screen.dart';
 import 'slay_cups_screen.dart';
 import 'slay_game_menu.dart';
 import '../../widgets/neon.dart';
+import '../../widgets/huud_art.dart';
 
 class SlayHubScreen extends StatefulWidget {
   const SlayHubScreen({super.key});
@@ -114,7 +115,7 @@ class _SlayHubScreenState extends State<SlayHubScreen> {
                                 for (final t in _catalog!['themes'] as List)
                                   DropdownMenuItem(
                                       value: t['id'] as String,
-                                      child: Text(t['title']))
+                                      child: HuudText(t['title']))
                               ],
                               onChanged: (v) => update(() => theme = v!)),
                           if (mode != 'battle') ...[
@@ -301,7 +302,7 @@ class _SlayHubScreenState extends State<SlayHubScreen> {
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const SlayHeadline('Ready to slay?', size: 26, colour: kCabinetInk),
             const SizedBox(height: 4),
-            const Text('Style it, strut it, get judged. ✨',
+            const HuudText('Style it, strut it, get judged. ✨',
                 style:
                     TextStyle(color: kCabinetInk, fontWeight: FontWeight.w700)),
             const SizedBox(height: 12),
@@ -433,7 +434,7 @@ class _SlayHubScreenState extends State<SlayHubScreen> {
         children: [
           SlayHeadline(title, size: wide ? 24 : 19, colour: Colors.white),
           const SizedBox(height: 3),
-          Text(subtitle,
+          HuudText(subtitle,
               style: TextStyle(
                   color: Colors.white.withValues(alpha: .9),
                   fontSize: 12,
@@ -495,10 +496,10 @@ class _SlayHubScreenState extends State<SlayHubScreen> {
                   fontSize: 10,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 1.1)),
-          Text(competition['theme']['title'],
+          HuudText(competition['theme']['title'],
               style:
                   const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
-          Text(status, style: TextStyle(fontSize: 12, color: n.mute)),
+          HuudText(status, style: TextStyle(fontSize: 12, color: n.mute)),
         ])),
         const Icon(Icons.chevron_right_rounded),
       ]),

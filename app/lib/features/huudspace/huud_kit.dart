@@ -6,6 +6,7 @@ import '../../widgets/game_badge.dart';
 import '../../widgets/neon.dart';
 import '../huud/huud_models.dart';
 import 'huud_space_models.dart';
+import '../../widgets/huud_art.dart';
 
 export '../../theme/huud_colors.dart';
 
@@ -304,8 +305,8 @@ class HuudChip extends StatelessWidget {
         border: Border.all(color: onOrange ? kCabinetInk.withValues(alpha: 0.35) : tint.withValues(alpha: 0.35)),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        if (emoji != null) ...[Text(emoji!, style: const TextStyle(fontSize: 13)), const SizedBox(width: 5)],
-        Text(text, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: onOrange ? kCabinetInk : tint)),
+        if (emoji != null) ...[HuudText(emoji!, style: const TextStyle(fontSize: 13)), const SizedBox(width: 5)],
+        HuudText(text, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: onOrange ? kCabinetInk : tint)),
       ]),
     );
   }
@@ -469,13 +470,13 @@ class HuudGameArt extends StatelessWidget {
         color: n.plate,
         alignment: Alignment.center,
         child: art == null
-            ? Text(huudGameEmoji[gameType] ?? '🎮', style: TextStyle(fontSize: size * 0.5))
+            ? HuudText(huudGameEmoji[gameType] ?? '🎮', style: TextStyle(fontSize: size * 0.5))
             : Image.asset(art,
                 width: size,
                 height: size,
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) =>
-                    Text(huudGameEmoji[gameType] ?? '🎮', style: TextStyle(fontSize: size * 0.5))),
+                    HuudText(huudGameEmoji[gameType] ?? '🎮', style: TextStyle(fontSize: size * 0.5))),
       ),
     );
   }
@@ -526,9 +527,9 @@ class HuudSectionTitle extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(children: [
-        if (emoji != null) ...[Text(emoji!, style: const TextStyle(fontSize: 22)), const SizedBox(width: 8)],
+        if (emoji != null) ...[HuudText(emoji!, style: const TextStyle(fontSize: 22)), const SizedBox(width: 8)],
         Expanded(
-          child: Text(title, style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900, color: n.ink)),
+          child: HuudText(title, style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900, color: n.ink)),
         ),
         if (trailing != null) trailing!,
       ]),
@@ -557,12 +558,12 @@ class HuudFriendlyState extends StatelessWidget {
     return HuudCard(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
       child: Column(children: [
-        Text(emoji, style: const TextStyle(fontSize: 44)),
+        HuudText(emoji, style: const TextStyle(fontSize: 44)),
         const SizedBox(height: 10),
-        Text(title,
+        HuudText(title,
             textAlign: TextAlign.center, style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: n.ink)),
         const SizedBox(height: 6),
-        Text(message, textAlign: TextAlign.center, style: TextStyle(fontSize: 15, height: 1.35, color: n.mid)),
+        HuudText(message, textAlign: TextAlign.center, style: TextStyle(fontSize: 15, height: 1.35, color: n.mid)),
         if (action != null) ...[const SizedBox(height: 16), action!],
       ]),
     );
@@ -606,12 +607,12 @@ Future<bool> confirmHuud(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text(emoji, textAlign: TextAlign.center, style: const TextStyle(fontSize: 44)),
+            HuudText(emoji, textAlign: TextAlign.center, style: const TextStyle(fontSize: 44)),
             const SizedBox(height: 8),
-            Text(title,
+            HuudText(title,
                 textAlign: TextAlign.center, style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900, color: n.ink)),
             const SizedBox(height: 6),
-            Text(message, textAlign: TextAlign.center, style: TextStyle(fontSize: 15, height: 1.35, color: n.mid)),
+            HuudText(message, textAlign: TextAlign.center, style: TextStyle(fontSize: 15, height: 1.35, color: n.mid)),
             const SizedBox(height: 20),
             HuudButton(
               label: yes,
@@ -641,7 +642,7 @@ SnackBar huudIconSnack(String message, {SnackBarAction? action}) => SnackBar(
       content: Row(children: [
         Image.asset(huudIcon, width: 26, height: 26),
         const SizedBox(width: 10),
-        Expanded(child: Text(message, style: const TextStyle(fontSize: 15))),
+        Expanded(child: HuudText(message, style: const TextStyle(fontSize: 15))),
       ]),
       action: action,
     );
@@ -650,5 +651,5 @@ void huudSnack(BuildContext context, String message) {
   if (!context.mounted) return;
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(message, style: const TextStyle(fontSize: 15))));
+    ..showSnackBar(SnackBar(content: HuudText(message, style: const TextStyle(fontSize: 15))));
 }

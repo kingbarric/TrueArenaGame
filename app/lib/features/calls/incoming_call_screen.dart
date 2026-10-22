@@ -11,6 +11,7 @@ import '../../core/call_ringer.dart';
 import '../../core/e2e_crypto.dart';
 import '../../widgets/neon.dart';
 import 'call_screen.dart';
+import '../../widgets/huud_art.dart';
 
 /// Shows a ringing screen whenever a friend calls, wherever you are in the
 /// app. Fed by the inbox socket (`CALL_INCOMING` / `CALL_CANCELLED`) while
@@ -77,7 +78,7 @@ class IncomingCalls {
     final ctx = TrueArenaApp.navigatorKey.currentContext;
     if (ctx == null || !ctx.mounted) return;
     ScaffoldMessenger.maybeOf(ctx)?.showSnackBar(SnackBar(
-      content: Text('👋 $fromName nudged you — they want you to play!'),
+      content: HuudText('👋 $fromName nudged you — they want you to play!'),
       duration: const Duration(seconds: 4),
     ));
   }

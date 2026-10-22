@@ -1,0 +1,247 @@
+{
+  "generator": "OpenAI image generation",
+  "generated": "2026-10-22",
+  "transparent_background": true,
+  "assets": [
+    {
+      "file": "app/assets/images/huud_ui/sleep.png",
+      "prompt": "Use case: stylized-concept. Create ONE isolated custom PlayHuud mobile UI icon for an empty, sleeping Huud: a chunky small orange house with a warm amber roof, softly closed sleepy window eyes and a small crescent moon tucked beside the roof. Friendly cozy expression, not a generic yellow emoji face. Match the supplied reference's premium soft 3D orange and gold clay icon, rounded bevels, warm highlights, deep brown edge shading, simple bold silhouette readable at 24px. No words, no letters, no Z symbols, no extra scenes, no border tile. Centered with an 8% clear margin. True transparent background, alpha PNG. Reference image is style reference only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/key.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE isolated custom PlayHuud mobile UI icon: a chunky golden door key with an orange house-shaped key bow, angled diagonally. Style reference is the supplied Huud navigation icon. Match its friendly premium soft 3D clay style, rounded bevels, vivid orange and golden amber palette, cream highlight, deep brown edge shading. Simple bold silhouette legible at 24px. Center the single icon in a square image, filling about 82% of the frame with clear margins. True transparent background and clean alpha edges. No background tile, no scene, no platform emoji, no text, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/trophy.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE isolated custom PlayHuud mobile UI icon: a friendly championship trophy cup with orange handles, gold body and a small warm cream star on its front. Style reference is the supplied Huud navigation icon. Match its friendly premium soft 3D clay style, rounded bevels, vivid orange and golden amber palette, cream highlight, deep brown edge shading. Simple bold silhouette legible at 24px. Center the single icon in a square image, filling about 82% of the frame with clear margins. True transparent background and clean alpha edges. No background tile, no scene, no platform emoji, no text, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/hand.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE isolated custom PlayHuud mobile UI icon: a friendly raised waving hand, warm terracotta and golden-orange clay, clean five-finger silhouette. Style reference is the supplied Huud navigation icon. Match its friendly premium soft 3D clay style, rounded bevels, vivid orange and golden amber palette, cream highlight, deep brown edge shading. Simple bold silhouette legible at 24px. Center the single icon in a square image, filling about 82% of the frame with clear margins. True transparent background and clean alpha edges. No background tile, no scene, no platform emoji, no text, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/robot.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE isolated custom PlayHuud mobile UI icon: a friendly compact Cyber Agent robot head with orange ear pods, a cream face panel and two dark expressive eyes. Style reference is the supplied Huud navigation icon. Match its friendly premium soft 3D clay style, rounded bevels, vivid orange and golden amber palette, cream highlight, deep brown edge shading. Simple bold silhouette legible at 24px. Center the single icon in a square image, filling about 82% of the frame with clear margins. True transparent background and clean alpha edges. No background tile, no scene, no platform emoji, no text, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/heart.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE isolated custom PlayHuud mobile UI icon: a soft orange-red heart with a little golden inset glow. Style reference is the supplied Huud navigation icon. Match its friendly premium soft 3D clay style, rounded bevels, vivid orange and golden amber palette, cream highlight, deep brown edge shading. Simple bold silhouette legible at 24px. Center the single icon in a square image, filling about 82% of the frame with clear margins. True transparent background and clean alpha edges. No background tile, no scene, no platform emoji, no text, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/crown.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE isolated custom PlayHuud mobile UI icon: a bold three-point amber-gold host crown with rounded tips and a small cream inset jewel. Style reference is the supplied Huud navigation icon. Match its friendly premium soft 3D clay style, rounded bevels, vivid orange and golden amber palette, cream highlight, deep brown edge shading. Simple bold silhouette legible at 24px. Center the single icon in a square image, filling about 82% of the frame with clear margins. True transparent background and clean alpha edges. No background tile, no scene, no platform emoji, no text, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/shield.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE isolated custom PlayHuud mobile UI icon: a sturdy rounded orange safety shield with a raised cream check mark. Match the supplied Huud navigation icon's premium friendly soft 3D clay style, rounded bevels, saturated orange and golden amber, warm cream highlights, deep brown edge shading. A clean simple bold silhouette legible at 24px. Center the icon in a square image filling 82% with clean margins. True transparent background and clean alpha edges. No background tile, no scene, no emoji face, no words, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/lock.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE isolated custom PlayHuud mobile UI icon: a chunky golden-orange closed padlock with a rounded cream shackle and dark keyhole. Match the supplied Huud navigation icon's premium friendly soft 3D clay style, rounded bevels, saturated orange and golden amber, warm cream highlights, deep brown edge shading. A clean simple bold silhouette legible at 24px. Center the icon in a square image filling 82% with clean margins. True transparent background and clean alpha edges. No background tile, no scene, no emoji face, no words, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/bell.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE isolated custom PlayHuud mobile UI icon: an orange notification bell with a warm golden clapper. Match the supplied Huud navigation icon's premium friendly soft 3D clay style, rounded bevels, saturated orange and golden amber, warm cream highlights, deep brown edge shading. A clean simple bold silhouette legible at 24px. Center the icon in a square image filling 82% with clean margins. True transparent background and clean alpha edges. No background tile, no scene, no emoji face, no words, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/eyes.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE isolated custom PlayHuud mobile UI icon: a friendly pair of curious cream eyes with dark brown pupils, outlined by an orange rounded binocular-like frame. Match the supplied Huud navigation icon's premium friendly soft 3D clay style, rounded bevels, saturated orange and golden amber, warm cream highlights, deep brown edge shading. A clean simple bold silhouette legible at 24px. Center the icon in a square image filling 82% with clean margins. True transparent background and clean alpha edges. No background tile, no scene, no emoji face, no words, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/sparkle.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE isolated custom PlayHuud mobile UI icon: three dimensional orange and amber four-point sparkle stars, one large and two small. Match the supplied Huud navigation icon's premium friendly soft 3D clay style, rounded bevels, saturated orange and golden amber, warm cream highlights, deep brown edge shading. A clean simple bold silhouette legible at 24px. Center the icon in a square image filling 82% with clean margins. True transparent background and clean alpha edges. No background tile, no scene, no emoji face, no words, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/party.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE isolated custom PlayHuud mobile UI icon: a small orange party popper releasing a compact burst of golden stars and orange streamers. Match the supplied Huud navigation icon's premium friendly soft 3D clay style, rounded bevels, saturated orange and golden amber, warm cream highlights, deep brown edge shading. A clean simple bold silhouette legible at 24px. Center the icon in a square image filling 82% with clean margins. True transparent background and clean alpha edges. No background tile, no scene, no emoji face, no words, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/clock.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE isolated custom PlayHuud mobile UI icon: a chunky orange clock with a warm cream face, simple brown hands and no numerals. Match the supplied Huud navigation icon's premium friendly soft 3D clay style, rounded bevels, saturated orange and golden amber, warm cream highlights, deep brown edge shading. A clean simple bold silhouette legible at 24px. Center the icon in a square image filling 82% with clean margins. True transparent background and clean alpha edges. No background tile, no scene, no emoji face, no words, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/globe.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE isolated custom PlayHuud mobile UI icon: a rounded amber-orange world globe with warm cream continents. Match the supplied Huud navigation icon's premium friendly soft 3D clay style, rounded bevels, saturated orange and golden amber, warm cream highlights, deep brown edge shading. A clean simple bold silhouette legible at 24px. Center the icon in a square image filling 82% with clean margins. True transparent background and clean alpha edges. No background tile, no scene, no emoji face, no words, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/door.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE isolated custom PlayHuud mobile UI icon: a small welcoming orange open doorway with a golden door angled outward and a warm cream opening. Match the supplied Huud navigation reference: premium friendly soft 3D clay, rounded bevels, orange and golden amber palette, cream highlights, deep brown edge shading. Simple bold silhouette legible at 24px. Center in a square image filling 82% with clean margins. True transparent background, clean alpha edges. No background tile, no scene, no platform emoji, no words, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/link.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE isolated custom PlayHuud mobile UI icon: two chunky interlocking golden-orange chain links, tilted diagonally. Match the supplied Huud navigation reference: premium friendly soft 3D clay, rounded bevels, orange and golden amber palette, cream highlights, deep brown edge shading. Simple bold silhouette legible at 24px. Center in a square image filling 82% with clean margins. True transparent background, clean alpha edges. No background tile, no scene, no platform emoji, no words, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/trash.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE isolated custom PlayHuud mobile UI icon: a compact rounded orange waste bin with golden lid and two clean cream vertical inset details. Match the supplied Huud navigation reference: premium friendly soft 3D clay, rounded bevels, orange and golden amber palette, cream highlights, deep brown edge shading. Simple bold silhouette legible at 24px. Center in a square image filling 82% with clean margins. True transparent background, clean alpha edges. No background tile, no scene, no platform emoji, no words, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/stop.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE isolated custom PlayHuud mobile UI icon: a bold rounded orange stop/prohibited ring with a cream diagonal bar, a clear safety/block symbol. Match the supplied Huud navigation reference: premium friendly soft 3D clay, rounded bevels, orange and golden amber palette, cream highlights, deep brown edge shading. Simple bold silhouette legible at 24px. Center in a square image filling 82% with clean margins. True transparent background, clean alpha edges. No background tile, no scene, no platform emoji, no words, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/thinking.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE isolated custom PlayHuud mobile UI icon: a friendly tiny orange Huud house mascot with thoughtful window eyes, one raised eyebrow and a little cream question mark beside its roof. Match the supplied Huud navigation reference: premium friendly soft 3D clay, rounded bevels, orange and golden amber palette, cream highlights, deep brown edge shading. Simple bold silhouette legible at 24px. Center in a square image filling 82% with clean margins. True transparent background, clean alpha edges. No background tile, no scene, no platform emoji, no words, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/gift.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE isolated custom PlayHuud mobile UI icon: an orange wrapped gift box tied with a warm gold ribbon and big rounded bow. Match the supplied Huud navigation reference: premium friendly soft 3D clay, rounded bevels, orange and golden amber palette, cream highlights, deep brown edge shading. Simple bold silhouette legible at 24px. Center in a square image filling 82% with clean margins. True transparent background, clean alpha edges. No background tile, no scene, no platform emoji, no words, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/lightning.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE isolated custom PlayHuud mobile UI icon: a bold rounded golden lightning bolt with a deep orange beveled edge. Match the supplied Huud navigation reference: premium friendly soft 3D clay, rounded bevels, orange and golden amber palette, cream highlights, deep brown edge shading. Simple bold silhouette legible at 24px. Center in a square image filling 82% with clean margins. True transparent background, clean alpha edges. No background tile, no scene, no platform emoji, no words, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/thumb.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE isolated custom PlayHuud mobile UI icon: a friendly terracotta-orange thumbs-up hand with a gold cuff. Match the supplied Huud navigation reference: premium friendly soft 3D clay, rounded bevels, orange and golden amber palette, cream highlights, deep brown edge shading. Simple bold silhouette legible at 24px. Center in a square image filling 82% with clean margins. True transparent background, clean alpha edges. No background tile, no scene, no platform emoji, no words, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/laugh.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE isolated custom PlayHuud mobile UI icon: a friendly orange Huud house mascot face laughing with closed smiling window eyes and an open happy door-shaped mouth. Match the supplied Huud navigation reference: premium friendly soft 3D clay, rounded bevels, orange and golden amber palette, cream highlights, deep brown edge shading. Simple bold silhouette legible at 24px. Center in a square image filling 82% with clean margins. True transparent background, clean alpha edges. No background tile, no scene, no platform emoji, no words, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/wow.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE isolated custom PlayHuud mobile UI icon: a friendly orange Huud house mascot with wide window eyes and a small surprised open round door mouth. Match the supplied Huud navigation reference: premium friendly soft 3D clay, rounded bevels, orange and golden amber palette, cream highlights, deep brown edge shading. Simple bold silhouette legible at 24px. Center in a square image filling 82% with clean margins. True transparent background, clean alpha edges. No background tile, no scene, no platform emoji, no words, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/book.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE isolated custom PlayHuud mobile UI icon: a chunky open cream book with a golden-orange cover and simple thick page layers, no writing. Match the supplied Huud navigation reference: premium friendly soft 3D clay, rounded bevels, orange and golden amber palette, cream highlights, deep brown edge shading. Simple bold silhouette legible at 24px. Center in a square image filling 82% with clean margins. True transparent background, clean alpha edges. No background tile, no scene, no platform emoji, no words, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/music.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE isolated custom PlayHuud mobile UI icon: two chunky golden-orange musical notes joined by a soft orange bar. Match the supplied Huud navigation reference: premium friendly soft 3D clay, rounded bevels, orange and golden amber palette, cream highlights, deep brown edge shading. Simple bold silhouette legible at 24px. Center in a square image filling 82% with clean margins. True transparent background, clean alpha edges. No background tile, no scene, no platform emoji, no words, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/food.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE isolated custom PlayHuud mobile UI icon: a small stylised burger with an orange-gold bun, cream cheese and warm brown patty. Match the supplied Huud navigation reference: premium friendly soft 3D clay, rounded bevels, orange and golden amber palette, cream highlights, deep brown edge shading. Simple bold silhouette legible at 24px. Center in a square image filling 82% with clean margins. True transparent background, clean alpha edges. No background tile, no scene, no platform emoji, no words, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/sport.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE isolated custom PlayHuud mobile UI icon: a round cream football with orange geometric patches and soft deep orange edge shading. Match the supplied Huud navigation reference: premium friendly soft 3D clay, rounded bevels, orange and golden amber palette, cream highlights, deep brown edge shading. Simple bold silhouette legible at 24px. Center in a square image filling 82% with clean margins. True transparent background, clean alpha edges. No background tile, no scene, no platform emoji, no words, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/leaf.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE isolated custom PlayHuud mobile UI icon: a bright orange-gold sprout with two broad rounded leaves and a small warm brown seed base. Match the supplied Huud navigation reference: premium friendly soft 3D clay, rounded bevels, orange and golden amber palette, cream highlights, deep brown edge shading. Simple bold silhouette legible at 24px. Center in a square image filling 82% with clean margins. True transparent background, clean alpha edges. No background tile, no scene, no platform emoji, no words, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/dress.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE custom PlayHuud mobile UI pictogram: a chic orange knee-length dress on a simple golden hanger, modest square neckline, no human body. Match the supplied Huud navigation reference: premium soft 3D clay, chunky rounded bevels, vivid warm orange and golden amber palette, cream highlights, deep brown edge shading. Strong simple silhouette readable at 24px. Center the complete icon in a square with 10% clear margins. True transparent background with clean alpha, no background tile, no scene, no platform emoji, no text, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/shirt.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE custom PlayHuud mobile UI pictogram: a short-sleeved orange shirt with a warm cream collar, no human body. Match the supplied Huud navigation reference: premium soft 3D clay, chunky rounded bevels, vivid warm orange and golden amber palette, cream highlights, deep brown edge shading. Strong simple silhouette readable at 24px. Center the complete icon in a square with 10% clear margins. True transparent background with clean alpha, no background tile, no scene, no platform emoji, no text, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/trousers.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE custom PlayHuud mobile UI pictogram: a pair of tailored golden-orange trousers, front view, no human body. Match the supplied Huud navigation reference: premium soft 3D clay, chunky rounded bevels, vivid warm orange and golden amber palette, cream highlights, deep brown edge shading. Strong simple silhouette readable at 24px. Center the complete icon in a square with 10% clear margins. True transparent background with clean alpha, no background tile, no scene, no platform emoji, no text, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/skirt.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE custom PlayHuud mobile UI pictogram: a simple stylish orange pleated skirt with a cream waistband, no human body. Match the supplied Huud navigation reference: premium soft 3D clay, chunky rounded bevels, vivid warm orange and golden amber palette, cream highlights, deep brown edge shading. Strong simple silhouette readable at 24px. Center the complete icon in a square with 10% clear margins. True transparent background with clean alpha, no background tile, no scene, no platform emoji, no text, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/shoe.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE custom PlayHuud mobile UI pictogram: a stylish orange-gold heeled shoe, clean side silhouette. Match the supplied Huud navigation reference: premium soft 3D clay, chunky rounded bevels, vivid warm orange and golden amber palette, cream highlights, deep brown edge shading. Strong simple silhouette readable at 24px. Center the complete icon in a square with 10% clear margins. True transparent background with clean alpha, no background tile, no scene, no platform emoji, no text, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/bag.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE custom PlayHuud mobile UI pictogram: a small rounded orange handbag with a golden top handle and clasp. Match the supplied Huud navigation reference: premium soft 3D clay, chunky rounded bevels, vivid warm orange and golden amber palette, cream highlights, deep brown edge shading. Strong simple silhouette readable at 24px. Center the complete icon in a square with 10% clear margins. True transparent background with clean alpha, no background tile, no scene, no platform emoji, no text, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/ring.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE custom PlayHuud mobile UI pictogram: a golden-orange jewellery ring with a simple warm cream faceted jewel. Match the supplied Huud navigation reference: premium soft 3D clay, chunky rounded bevels, vivid warm orange and golden amber palette, cream highlights, deep brown edge shading. Strong simple silhouette readable at 24px. Center the complete icon in a square with 10% clear margins. True transparent background with clean alpha, no background tile, no scene, no platform emoji, no text, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/makeup.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE custom PlayHuud mobile UI pictogram: an orange lipstick in a rounded gold case, tip a tasteful coral-orange. Match the supplied Huud navigation reference: premium soft 3D clay, chunky rounded bevels, vivid warm orange and golden amber palette, cream highlights, deep brown edge shading. Strong simple silhouette readable at 24px. Center the complete icon in a square with 10% clear margins. True transparent background with clean alpha, no background tile, no scene, no platform emoji, no text, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/hair.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE custom PlayHuud mobile UI pictogram: a flowing wavy lock of warm auburn-orange hair with golden highlights, no face. Match the supplied Huud navigation reference: premium soft 3D clay, chunky rounded bevels, vivid warm orange and golden amber palette, cream highlights, deep brown edge shading. Strong simple silhouette readable at 24px. Center the complete icon in a square with 10% clear margins. True transparent background with clean alpha, no background tile, no scene, no platform emoji, no text, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/coin.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE custom PlayHuud mobile UI pictogram: a single chunky golden-orange reward coin embossed with a small house roof and three dots, no letters or numbers. Match the supplied Huud navigation reference: premium soft 3D clay, chunky rounded bevels, vivid warm orange and golden amber palette, cream highlights, deep brown edge shading. Strong simple silhouette readable at 24px. Center the complete icon in a square with 10% clear margins. True transparent background with clean alpha, no background tile, no scene, no platform emoji, no text, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/palette.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE custom PlayHuud mobile UI pictogram: a small rounded orange artist palette with four cream, amber, coral and brown paint wells and a short golden brush. Match the supplied Huud navigation reference: premium soft 3D clay, chunky rounded bevels, vivid warm orange and golden amber palette, cream highlights, deep brown edge shading. Strong simple silhouette readable at 24px. Center the complete icon in a square with 10% clear margins. True transparent background with clean alpha, no background tile, no scene, no platform emoji, no text, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/bulb.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE custom PlayHuud mobile UI pictogram: a friendly golden light bulb with an orange rounded base and a soft cream highlight. Match the supplied Huud navigation reference: premium soft 3D clay, chunky rounded bevels, vivid warm orange and golden amber palette, cream highlights, deep brown edge shading. Strong simple silhouette readable at 24px. Center the complete icon in a square with 10% clear margins. True transparent background with clean alpha, no background tile, no scene, no platform emoji, no text, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/sun.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE custom PlayHuud mobile UI pictogram: a warm golden sun with rounded orange rays and no face. Match the supplied Huud navigation reference: premium soft 3D clay, chunky rounded bevels, vivid warm orange and golden amber palette, cream highlights, deep brown edge shading. Strong simple silhouette readable at 24px. Center the complete icon in a square with 10% clear margins. True transparent background with clean alpha, no background tile, no scene, no platform emoji, no text, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/calendar.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE custom PlayHuud mobile UI pictogram: a compact orange desk calendar with a cream page and a small golden inset square, no words or numerals. Match the supplied Huud navigation reference: premium soft 3D clay, chunky rounded bevels, vivid warm orange and golden amber palette, cream highlights, deep brown edge shading. Strong simple silhouette readable at 24px. Center the complete icon in a square with 10% clear margins. True transparent background with clean alpha, no background tile, no scene, no platform emoji, no text, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/fire.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE custom PlayHuud mobile UI pictogram: a simple friendly golden flame with a deep orange outer tongue and cream inner glow. Match the supplied Huud navigation reference: premium soft 3D clay, chunky rounded bevels, vivid warm orange and golden amber palette, cream highlights, deep brown edge shading. Strong simple silhouette readable at 24px. Center the complete icon in a square with 10% clear margins. True transparent background with clean alpha, no background tile, no scene, no platform emoji, no text, no letters, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/avatar_fox.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE original PlayHuud profile-avatar mascot icon: a clever friendly fox head with pointed ears and a cream muzzle. Match the supplied Huud navigation art: premium friendly soft 3D clay, chunky rounded bevels, vivid warm orange and golden amber palette, cream highlights, deep brown edge shading. One expressive front-facing bust/head or compact mascot, strong memorable silhouette readable at 32px. Square composition, center the complete mascot, 10% clear margins, transparent background with true alpha. No circular frame, no background tile, no text, no letters, no platform emoji, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/avatar_wolf.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE original PlayHuud profile-avatar mascot icon: a friendly confident wolf head with pointed ears and a cream muzzle. Match the supplied Huud navigation art: premium friendly soft 3D clay, chunky rounded bevels, vivid warm orange and golden amber palette, cream highlights, deep brown edge shading. One expressive front-facing bust/head or compact mascot, strong memorable silhouette readable at 32px. Square composition, center the complete mascot, 10% clear margins, transparent background with true alpha. No circular frame, no background tile, no text, no letters, no platform emoji, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/avatar_mask.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE original PlayHuud profile-avatar mascot icon: a theatrical mystery mask with two soft eye openings and a rounded split orange and cream face. Match the supplied Huud navigation art: premium friendly soft 3D clay, chunky rounded bevels, vivid warm orange and golden amber palette, cream highlights, deep brown edge shading. One expressive front-facing bust/head or compact mascot, strong memorable silhouette readable at 32px. Square composition, center the complete mascot, 10% clear margins, transparent background with true alpha. No circular frame, no background tile, no text, no letters, no platform emoji, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/avatar_detective.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE original PlayHuud profile-avatar mascot icon: a friendly mysterious detective head wearing an orange fedora and a cream trench-coat collar. Match the supplied Huud navigation art: premium friendly soft 3D clay, chunky rounded bevels, vivid warm orange and golden amber palette, cream highlights, deep brown edge shading. One expressive front-facing bust/head or compact mascot, strong memorable silhouette readable at 32px. Square composition, center the complete mascot, 10% clear margins, transparent background with true alpha. No circular frame, no background tile, no text, no letters, no platform emoji, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/avatar_lion.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE original PlayHuud profile-avatar mascot icon: a proud friendly lion head with a thick orange mane and golden cream muzzle. Match the supplied Huud navigation art: premium friendly soft 3D clay, chunky rounded bevels, vivid warm orange and golden amber palette, cream highlights, deep brown edge shading. One expressive front-facing bust/head or compact mascot, strong memorable silhouette readable at 32px. Square composition, center the complete mascot, 10% clear margins, transparent background with true alpha. No circular frame, no background tile, no text, no letters, no platform emoji, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/avatar_frog.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE original PlayHuud profile-avatar mascot icon: a friendly round frog head with raised eyes, expressed in orange and cream rather than green. Match the supplied Huud navigation art: premium friendly soft 3D clay, chunky rounded bevels, vivid warm orange and golden amber palette, cream highlights, deep brown edge shading. One expressive front-facing bust/head or compact mascot, strong memorable silhouette readable at 32px. Square composition, center the complete mascot, 10% clear margins, transparent background with true alpha. No circular frame, no background tile, no text, no letters, no platform emoji, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/avatar_unicorn.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE original PlayHuud profile-avatar mascot icon: a friendly unicorn head with a short golden horn and orange flowing mane. Match the supplied Huud navigation art: premium friendly soft 3D clay, chunky rounded bevels, vivid warm orange and golden amber palette, cream highlights, deep brown edge shading. One expressive front-facing bust/head or compact mascot, strong memorable silhouette readable at 32px. Square composition, center the complete mascot, 10% clear margins, transparent background with true alpha. No circular frame, no background tile, no text, no letters, no platform emoji, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/avatar_octopus.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE original PlayHuud profile-avatar mascot icon: a cute compact octopus mascot with an orange rounded head and short curled tentacles. Match the supplied Huud navigation art: premium friendly soft 3D clay, chunky rounded bevels, vivid warm orange and golden amber palette, cream highlights, deep brown edge shading. One expressive front-facing bust/head or compact mascot, strong memorable silhouette readable at 32px. Square composition, center the complete mascot, 10% clear margins, transparent background with true alpha. No circular frame, no background tile, no text, no letters, no platform emoji, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/avatar_owl.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE original PlayHuud profile-avatar mascot icon: a friendly owl head with round cream eye discs and an orange-gold brow. Match the supplied Huud navigation art: premium friendly soft 3D clay, chunky rounded bevels, vivid warm orange and golden amber palette, cream highlights, deep brown edge shading. One expressive front-facing bust/head or compact mascot, strong memorable silhouette readable at 32px. Square composition, center the complete mascot, 10% clear margins, transparent background with true alpha. No circular frame, no background tile, no text, no letters, no platform emoji, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/avatar_dragon.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE original PlayHuud profile-avatar mascot icon: a friendly small dragon head with gold horns and an orange snout. Match the supplied Huud navigation art: premium friendly soft 3D clay, chunky rounded bevels, vivid warm orange and golden amber palette, cream highlights, deep brown edge shading. One expressive front-facing bust/head or compact mascot, strong memorable silhouette readable at 32px. Square composition, center the complete mascot, 10% clear margins, transparent background with true alpha. No circular frame, no background tile, no text, no letters, no platform emoji, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/avatar_guardian.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE original PlayHuud profile-avatar mascot icon: a friendly bold guardian theatre mask with gold brows and rounded orange cheek shapes, no scary expression. Match the supplied Huud navigation art: premium friendly soft 3D clay, chunky rounded bevels, vivid warm orange and golden amber palette, cream highlights, deep brown edge shading. One expressive front-facing bust/head or compact mascot, strong memorable silhouette readable at 32px. Square composition, center the complete mascot, 10% clear margins, transparent background with true alpha. No circular frame, no background tile, no text, no letters, no platform emoji, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/avatar_alien.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE original PlayHuud profile-avatar mascot icon: a friendly small alien head with a soft orange rounded forehead and cream eye panels. Match the supplied Huud navigation art: premium friendly soft 3D clay, chunky rounded bevels, vivid warm orange and golden amber palette, cream highlights, deep brown edge shading. One expressive front-facing bust/head or compact mascot, strong memorable silhouette readable at 32px. Square composition, center the complete mascot, 10% clear margins, transparent background with true alpha. No circular frame, no background tile, no text, no letters, no platform emoji, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/avatar_ninja.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE original PlayHuud profile-avatar mascot icon: a friendly ninja head in an orange hood with a cream eye opening. Match the supplied Huud navigation art: premium friendly soft 3D clay, chunky rounded bevels, vivid warm orange and golden amber palette, cream highlights, deep brown edge shading. One expressive front-facing bust/head or compact mascot, strong memorable silhouette readable at 32px. Square composition, center the complete mascot, 10% clear margins, transparent background with true alpha. No circular frame, no background tile, no text, no letters, no platform emoji, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/avatar_trickster.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE original PlayHuud profile-avatar mascot icon: a mischievous smiling orange mascot head with two small rounded golden horns, friendly not frightening. Match the supplied Huud navigation art: premium friendly soft 3D clay, chunky rounded bevels, vivid warm orange and golden amber palette, cream highlights, deep brown edge shading. One expressive front-facing bust/head or compact mascot, strong memorable silhouette readable at 32px. Square composition, center the complete mascot, 10% clear margins, transparent background with true alpha. No circular frame, no background tile, no text, no letters, no platform emoji, no watermark. Reference is style only."
+    },
+    {
+      "file": "app/assets/images/huud_ui/avatar_angel.png",
+      "prompt": "Use case: stylized-concept. Generate exactly ONE original PlayHuud profile-avatar mascot icon: a kind smiling orange mascot head with a simple floating golden halo and small cream wing tips. Match the supplied Huud navigation art: premium friendly soft 3D clay, chunky rounded bevels, vivid warm orange and golden amber palette, cream highlights, deep brown edge shading. One expressive front-facing bust/head or compact mascot, strong memorable silhouette readable at 32px. Square composition, center the complete mascot, 10% clear margins, transparent background with true alpha. No circular frame, no background tile, no text, no letters, no platform emoji, no watermark. Reference is style only."
+    }
+  ]
+}

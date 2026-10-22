@@ -17,6 +17,7 @@ import '../../widgets/neon_form.dart';
 import '../status/victory_status.dart';
 import '../onboarding/guest_save_session_card.dart';
 import '../huudspace/leave_game.dart';
+import '../../widgets/huud_art.dart';
 
 /// The actual game loop — role reveal through results — driven entirely by
 /// server frames over the socket the lobby already opened. This screen holds
@@ -798,7 +799,7 @@ class _GameScreenState extends State<GameScreen> {
     final traitor = isTraitor;
     final color = traitor ? n.brand : n.gold;
     return _centered([
-      Text(traitor ? '😈' : '😇', style: const TextStyle(fontSize: 64)),
+      HuudText(traitor ? '😈' : '😇', style: const TextStyle(fontSize: 64)),
       const SizedBox(height: 14),
       Text(traitor ? 'You are a Traitor' : 'You are Faithful',
           style: Theme.of(context)
@@ -849,7 +850,7 @@ class _GameScreenState extends State<GameScreen> {
         .toList();
     if (!isTraitor || !_amAlive) {
       return _centered([
-        const Text('🌙', style: TextStyle(fontSize: 56)),
+        const HuudText('🌙', style: TextStyle(fontSize: 56)),
         const SizedBox(height: 14),
         Text('The town sleeps…',
             style: Theme.of(context)
@@ -915,7 +916,7 @@ class _GameScreenState extends State<GameScreen> {
   Widget _defense(NeonColors n) {
     final trial = _tieCandidates.isNotEmpty;
     return _centered([
-      const Text('🗣️', style: TextStyle(fontSize: 52)),
+      const HuudText('🗣️', style: TextStyle(fontSize: 52)),
       const SizedBox(height: 10),
       Text(trial ? 'Trial of two' : 'The defense',
           style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 26)),
@@ -942,7 +943,7 @@ class _GameScreenState extends State<GameScreen> {
   /// count as abstentions. This phase used to render as an endless spinner.
   Widget _hostAssignVotes(NeonColors n) {
     return _centered([
-      const Text('🗳️', style: TextStyle(fontSize: 52)),
+      const HuudText('🗳️', style: TextStyle(fontSize: 52)),
       const SizedBox(height: 10),
       Text('Missing votes', style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 26)),
       const SizedBox(height: 8),
@@ -974,7 +975,7 @@ class _GameScreenState extends State<GameScreen> {
       children: [
         Expanded(
           child: _centered([
-            const Text('🎪', style: TextStyle(fontSize: 52)),
+            const HuudText('🎪', style: TextStyle(fontSize: 52)),
             const SizedBox(height: 10),
             Text('Round table',
                 style: Theme.of(context)
@@ -1075,7 +1076,7 @@ class _GameScreenState extends State<GameScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
               child: Row(children: [
-                Text(onTraitorChannel ? '🎭' : '💬',
+                HuudText(onTraitorChannel ? '🎭' : '💬',
                     style: const TextStyle(fontSize: 16)),
                 const SizedBox(width: 8),
                 Text(onTraitorChannel ? 'Traitors only' : 'Round table chat',
@@ -1208,7 +1209,7 @@ class _GameScreenState extends State<GameScreen> {
     if (!_amAlive) {
       // Eliminated players and spectators watch; the picker only produced errors for them.
       return _centered([
-        const Text('🗳️', style: TextStyle(fontSize: 52)),
+        const HuudText('🗳️', style: TextStyle(fontSize: 52)),
         const SizedBox(height: 10),
         Text('The table is voting', style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 26)),
         const SizedBox(height: 8),
@@ -1249,7 +1250,7 @@ class _GameScreenState extends State<GameScreen> {
   Widget _simpleAdvance(NeonColors n, String emoji, String title,
       {List<Widget> extras = const [], List<Widget> hostExtras = const [], String continueLabel = 'Continue'}) {
     return _centered([
-      Text(emoji, style: const TextStyle(fontSize: 52)),
+      HuudText(emoji, style: const TextStyle(fontSize: 52)),
       const SizedBox(height: 10),
       Text(title,
           style:
@@ -1276,7 +1277,7 @@ class _GameScreenState extends State<GameScreen> {
   Widget _results(NeonColors n) {
     final won = winningSide == 'traitors' ? isTraitor : !isTraitor;
     return _centered([
-      Text(winningSide == 'traitors' ? '😈' : '😇',
+      HuudText(winningSide == 'traitors' ? '😈' : '😇',
           style: const TextStyle(fontSize: 64)),
       const SizedBox(height: 10),
       Text(winningSide == 'traitors' ? 'The Traitors win' : 'The Faithful win',
@@ -1284,7 +1285,7 @@ class _GameScreenState extends State<GameScreen> {
               fontSize: 28,
               color: winningSide == 'traitors' ? n.brand : n.gold)),
       const SizedBox(height: 6),
-      Text(won ? 'You won! 🎉' : 'Better luck next table.',
+      HuudText(won ? 'You won! 🎉' : 'Better luck next table.',
           style:
               Theme.of(context).textTheme.bodyMedium?.copyWith(color: n.mid)),
       const SizedBox(height: 18),
@@ -1371,7 +1372,7 @@ class _GameScreenState extends State<GameScreen> {
                 textAlign: TextAlign.center),
             if (!compact) ...[
               const SizedBox(height: 6),
-              Text(subtitle,
+              HuudText(subtitle,
                   textAlign: TextAlign.center,
                   style: Theme.of(context)
                       .textTheme

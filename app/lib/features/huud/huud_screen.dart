@@ -29,6 +29,7 @@ import '../huudspace/safety_sheet.dart';
 import '../../widgets/nav_art.dart';
 import '../huudspace/live_now_panel.dart';
 import 'huud_models.dart';
+import '../../widgets/huud_art.dart';
 
 /// Live — what's happening now and PlayHuud's lobby feed, one tab in the shell.
 ///
@@ -266,7 +267,7 @@ class _HuudScreenState extends State<HuudScreen> {
 
   void _snack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: HuudText(message)));
   }
 
   Future<void> _enterRoom(RoomView room) async {
@@ -670,7 +671,7 @@ class _HuudScreenState extends State<HuudScreen> {
         Row(children: [
           const SizedBox(width: 48),
           Expanded(
-            child: Text('👫 Only your friends see it',
+            child: HuudText('👫 Only your friends see it',
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: h.orangeText)),
           ),
           HuudButton(
@@ -1698,7 +1699,7 @@ class _SharedHuudCard extends StatelessWidget {
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(color: h.orangeSoft, borderRadius: BorderRadius.circular(18)),
           child: Row(children: [
-            if (game != null) HuudGameArt(game, size: 44) else const Text('💬', style: TextStyle(fontSize: 30)),
+            if (game != null) HuudGameArt(game, size: 44) else const HuudText('💬', style: TextStyle(fontSize: 30)),
             const SizedBox(width: 10),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1793,7 +1794,7 @@ class _TextPostCardState extends State<_TextPostCard> {
                         shape: BoxShape.circle,
                         border: Border.all(color: _reactions.mine == e ? h.orange : n.line, width: 2),
                       ),
-                      child: Text(e, style: const TextStyle(fontSize: 32)),
+                      child: HuudText(e, style: const TextStyle(fontSize: 32)),
                     ),
                   ),
                 ),
@@ -1863,7 +1864,7 @@ class _TextPostCardState extends State<_TextPostCard> {
                         borderRadius: BorderRadius.circular(999),
                         border: Border.all(color: _reactions.mine == e ? h.orange : n.line, width: 1.6),
                       ),
-                      child: Text('$e ${_reactions.counts[e]}',
+                      child: HuudText('$e ${_reactions.counts[e]}',
                           style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: n.ink)),
                     ),
                   ),

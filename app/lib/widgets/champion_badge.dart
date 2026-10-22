@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'game_badge.dart';
+import 'huud_art.dart';
 
 /// A championship winner's badge: the gold shield in its laurels, with the
 /// game on the shield and, when there's room to read it, how many players
@@ -43,7 +44,7 @@ class ChampionBadge extends StatelessWidget {
                 asset,
                 fit: BoxFit.contain,
                 errorBuilder: (_, __, ___) => Center(
-                  child: Text('🏆', style: TextStyle(fontSize: width * 0.6)),
+                  child: HuudText('🏆', style: TextStyle(fontSize: width * 0.6)),
                 ),
               ),
             ),

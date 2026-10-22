@@ -6,6 +6,7 @@ import '../../theme/neon_theme.dart';
 import '../../widgets/champion_badge.dart';
 import '../../widgets/neon.dart';
 import 'huud_kit.dart';
+import '../../widgets/huud_art.dart';
 
 /// A Chess or Draughts championship inside a Huud: registration, the system
 /// draw, rounds of matches (several at once), and a champion — then the Huud
@@ -352,7 +353,7 @@ class _SetupSheetState extends State<_SetupSheet> {
     final n = context.neon;
     Widget label(String text) => Padding(
           padding: const EdgeInsets.only(top: 16, bottom: 8),
-          child: Text(text, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: n.mid)),
+          child: HuudText(text, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: n.mid)),
         );
     Widget choices<T>(List<(T, String)> options, T value, ValueChanged<T> pick, String keyPrefix) => Wrap(
           spacing: 8,
@@ -371,7 +372,7 @@ class _SetupSheetState extends State<_SetupSheet> {
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          const Text('🏆', textAlign: TextAlign.center, style: TextStyle(fontSize: 40)),
+          const HuudText('🏆', textAlign: TextAlign.center, style: TextStyle(fontSize: 40)),
           Text('Start a championship',
               textAlign: TextAlign.center, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: n.ink)),
           const SizedBox(height: 4),
@@ -494,7 +495,7 @@ class _Pill extends StatelessWidget {
             borderRadius: BorderRadius.circular(22),
             border: Border.all(color: selected ? kCabinetInk : n.line, width: selected ? 2 : 1.2),
           ),
-          child: Text(text,
+          child: HuudText(text,
               style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: selected ? h.onOrange : n.ink)),
         ),
       ),
@@ -607,7 +608,7 @@ class ChampionshipPanel extends StatelessWidget {
       child: Row(children: [
         Stack(clipBehavior: Clip.none, children: [
           HuudGameArt(cup.gameType, size: 64),
-          const Positioned(right: -6, bottom: -6, child: Text('🏆', style: TextStyle(fontSize: 24))),
+          const Positioned(right: -6, bottom: -6, child: HuudText('🏆', style: TextStyle(fontSize: 24))),
         ]),
         const SizedBox(width: 14),
         Expanded(
@@ -618,7 +619,7 @@ class ChampionshipPanel extends StatelessWidget {
                 key: const ValueKey('cup-name'),
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: n.ink)),
             const SizedBox(height: 2),
-            Text(subtitle,
+            HuudText(subtitle,
                 key: const ValueKey('cup-status'),
                 style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: h.orangeText)),
             const SizedBox(height: 4),
@@ -835,7 +836,7 @@ class ChampionshipPanel extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: Column(children: [
           if (champion == null) ...[
-            const Text('🏆', style: TextStyle(fontSize: 48)),
+            const HuudText('🏆', style: TextStyle(fontSize: 48)),
             Text('No champion this time',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: n.ink)),
@@ -862,7 +863,7 @@ class ChampionshipPanel extends StatelessWidget {
           ],
           if (runnerUp != null) ...[
             const SizedBox(height: 6),
-            Text('🥈 Runner-up: ${runnerUp.userId == me ? 'You' : runnerUp.handle}',
+            HuudText('🥈 Runner-up: ${runnerUp.userId == me ? 'You' : runnerUp.handle}',
                 key: const ValueKey('cup-runner-up'),
                 style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: n.mid)),
           ],
@@ -907,7 +908,7 @@ class ChampionshipPanel extends StatelessWidget {
     ];
   }
 
-  Widget _note(BuildContext context, String text) => Text(text,
+  Widget _note(BuildContext context, String text) => HuudText(text,
       textAlign: TextAlign.center,
       style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: HuudColors.of(context).orangeText));
 }

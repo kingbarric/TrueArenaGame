@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/neon.dart';
 import 'competitive_models.dart';
+import '../../widgets/huud_art.dart';
 
 /// Another player's avatar. `avatarUrl` is either a bare preset emoji or an
 /// image (inline `data:` or http) — routed to the right [Avatar] slot so an
@@ -210,7 +211,7 @@ class AchievementShelf extends StatelessWidget {
             border: Border.all(color: _rarityColor(n, a.rarity).withValues(alpha: 0.75)),
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Text(a.icon, style: const TextStyle(fontSize: 15)),
+            HuudText(a.icon, style: const TextStyle(fontSize: 15)),
             const SizedBox(width: 6),
             Text(a.label,
                 style: TextStyle(color: n.ink, fontWeight: FontWeight.w700, fontSize: 12)),

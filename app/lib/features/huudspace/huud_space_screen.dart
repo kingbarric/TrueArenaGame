@@ -30,6 +30,7 @@ import 'huud_game_modes.dart';
 import 'safety_sheet.dart';
 import '../../core/keep_awake.dart';
 import '../competitive/player_profile_screen.dart';
+import '../../widgets/huud_art.dart';
 
 Future<void> openHuudSpace(BuildContext context, String id,
         {HuudSpace? initial}) =>
@@ -1339,7 +1340,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         Icon(Icons.graphic_eq_rounded,
             size: 16, color: HuudColors.of(context).orange),
         const SizedBox(width: 6),
-        Text(text,
+        HuudText(text,
             style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w900,
@@ -1423,7 +1424,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                   decoration: BoxDecoration(
                       color: kCabinetInk,
                       borderRadius: BorderRadius.circular(999)),
-                  child: Text(
+                  child: HuudText(
                       _unread == 1
                           ? '💬 1 new message'
                           : '💬 $_unread new messages',
@@ -1444,7 +1445,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                 fontWeight: FontWeight.w900,
                 color: kCabinetInk)),
         const SizedBox(height: 6),
-        Text('👑 $hostLine',
+        HuudText('👑 $hostLine',
             style: const TextStyle(
                 fontSize: 16, fontWeight: FontWeight.w800, color: kCabinetInk)),
         const SizedBox(height: 14),
@@ -1600,7 +1601,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         highlight: true,
         child:
             Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text('🌙 Your Huud is offline',
+          HuudText('🌙 Your Huud is offline',
               style: TextStyle(
                   fontSize: 19, fontWeight: FontWeight.w900, color: n.ink)),
           const SizedBox(height: 4),
@@ -1621,7 +1622,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     return HuudCard(
       key: const ValueKey('huud-offline-member'),
       child: Row(children: [
-        const Text('🌙', style: TextStyle(fontSize: 30)),
+        const HuudText('🌙', style: TextStyle(fontSize: 30)),
         const SizedBox(width: 12),
         Expanded(
           child:
@@ -1656,7 +1657,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         border: Border.all(color: h.orange, width: 2.4),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text(
+        HuudText(
             huud.requests.length == 1
                 ? '✋ 1 person is asking'
                 : '✋ ${huud.requests.length} people are asking',
@@ -1680,7 +1681,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                               fontSize: 16,
                               fontWeight: FontWeight.w900,
                               color: n.ink)),
-                      Text('${r.emoji} ${r.ask}',
+                      HuudText('${r.emoji} ${r.ask}',
                           style: TextStyle(fontSize: 14, color: n.mid)),
                     ]),
               ),
@@ -1749,7 +1750,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                 Flexible(
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
-                    child: Text('$emoji $label',
+                    child: HuudText('$emoji $label',
                         style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w900,
@@ -1881,9 +1882,9 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
               if (game.playing)
                 const HuudLiveChip(label: 'Playing')
               else
-                Text(emoji, style: const TextStyle(fontSize: 22)),
+                HuudText(emoji, style: const TextStyle(fontSize: 22)),
               const SizedBox(height: 6),
-              Text(title,
+              HuudText(title,
                   style: TextStyle(
                       fontSize: 21, fontWeight: FontWeight.w900, color: n.ink)),
               const SizedBox(height: 2),
@@ -1934,7 +1935,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
 
   List<Widget> _gameButtons(
       NeonColors n, HuudColors h, HuudSpace huud, HuudGame game, String name) {
-    Widget note(String text) => Text(text,
+    Widget note(String text) => HuudText(text,
         textAlign: TextAlign.center,
         style: TextStyle(
             fontSize: 15, fontWeight: FontWeight.w800, color: h.orangeText));
@@ -2071,7 +2072,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
               key: const ValueKey('huud-start-championship'),
               onTap: _busy == null ? _newChampionship : null,
               child: Row(children: [
-                const Text('🏆', style: TextStyle(fontSize: 34)),
+                const HuudText('🏆', style: TextStyle(fontSize: 34)),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -2544,7 +2545,7 @@ class _LinkActions extends StatelessWidget {
           border: Border.all(color: h.orange.withValues(alpha: 0.6)),
         ),
         child: Row(children: [
-          const Text('🔗', style: TextStyle(fontSize: 18)),
+          const HuudText('🔗', style: TextStyle(fontSize: 18)),
           const SizedBox(width: 8),
           Expanded(
             child: Text(huudLink(huud.code!).replaceFirst('https://', ''),
@@ -2735,7 +2736,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
                 Wrap(spacing: 8, runSpacing: 8, children: [
                   for (final p in HuudPrivacy.values)
                     ChoiceChip(
-                      label: Text('${p.emoji}  ${p.label}',
+                      label: HuudText('${p.emoji}  ${p.label}',
                           style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w800,
@@ -2797,7 +2798,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
                                     : null,
                               ),
                               const SizedBox(height: 4),
-                              Text(label,
+                              HuudText(label,
                                   style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: _background == wire
@@ -2819,7 +2820,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
                   value: _shared,
                   activeThumbColor: h.onOrange,
                   activeTrackColor: h.orange,
-                  title: Text('📣 Show it on the feed',
+                  title: HuudText('📣 Show it on the feed',
                       style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w800,

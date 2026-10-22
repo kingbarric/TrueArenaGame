@@ -22,6 +22,7 @@ import '../../widgets/game_controls.dart';
 import '../../widgets/turn_ring.dart';
 import '../../widgets/neon.dart' show OnlineAvatar;
 import '../../widgets/worn_look.dart';
+import '../../widgets/huud_art.dart';
 
 enum _LudoBoardTheme { classic, glass, wood }
 
@@ -1023,7 +1024,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                     alignment: Alignment(2 * (turnIndex + 1) / (n + 1) - 1, -0.15),
                     child: const Padding(
                       padding: EdgeInsets.only(left: 52),
-                      child: Text('✋', key: ValueKey('turn-hand'), style: TextStyle(fontSize: 20)),
+                      child: HuudText('✋', key: ValueKey('turn-hand'), style: TextStyle(fontSize: 20)),
                     ),
                   ),
                 ),

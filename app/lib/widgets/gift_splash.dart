@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'huud_art.dart';
 
 /// A coin gift arriving: a small card that slides into the top corner for a
 /// few seconds, over whatever you're doing — a game included — and lets
@@ -102,7 +103,7 @@ class _GiftCard extends StatelessWidget {
           boxShadow: [BoxShadow(color: const Color(0xffff8a1f).withValues(alpha: 0.55), blurRadius: 16)],
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          const Text('🎁', style: TextStyle(fontSize: 24)),
+          const HuudText('🎁', style: TextStyle(fontSize: 24)),
           const SizedBox(width: 8),
           Flexible(
             child: Text('$fromName sent you $coins coins!',

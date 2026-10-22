@@ -4,6 +4,7 @@ import '../../theme/neon_theme.dart';
 import '../../widgets/fireworks.dart';
 import 'slay_theme.dart';
 import 'slay_ui.dart';
+import '../../widgets/huud_art.dart';
 
 /// The judged-look moment. Pops `true` to move on, `false` to keep styling.
 class SlayResultsScreen extends StatelessWidget {
@@ -93,7 +94,7 @@ class SlayResultsScreen extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
               children: [
-                Text(title.toUpperCase(),
+                HuudText(title.toUpperCase(),
                     textAlign: TextAlign.center,
                     style: TextStyle(
                         color: n.mid,
@@ -146,7 +147,7 @@ class SlayResultsScreen extends StatelessWidget {
                           color: n.gold,
                           borderRadius: BorderRadius.circular(99),
                           border: Border.all(color: kCabinetInk, width: 2)),
-                      child: Text('🏆 NEW PERSONAL BEST',
+                      child: HuudText('🏆 NEW PERSONAL BEST',
                           style: TextStyle(
                               color: n.onAccent,
                               fontWeight: FontWeight.w900,
@@ -184,10 +185,10 @@ class SlayResultsScreen extends StatelessWidget {
                           Padding(
                             padding: const EdgeInsets.only(bottom: 10),
                             child: Row(children: [
-                              SizedBox(width: 26, child: Text(emoji)),
+                              SizedBox(width: 26, child: HuudText(emoji)),
                               SizedBox(
                                   width: 104,
-                                  child: Text(label,
+                                  child: HuudText(label,
                                       style: const TextStyle(
                                           fontWeight: FontWeight.w800,
                                           fontSize: 13))),
@@ -329,10 +330,10 @@ class _Bullet extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(top: 5),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(emoji),
+          HuudText(emoji),
           const SizedBox(width: 8),
           Expanded(
-              child: Text(text,
+              child: HuudText(text,
                   style: const TextStyle(fontSize: 13.5, height: 1.3))),
         ]),
       );
@@ -345,7 +346,7 @@ class _Note extends StatelessWidget {
   Widget build(BuildContext context) => SlayCabinet(
       colour: context.neon.gold.withValues(alpha: .18),
       padding: const EdgeInsets.all(12),
-      child: Text(text, style: const TextStyle(fontWeight: FontWeight.w800)));
+      child: HuudText(text, style: const TextStyle(fontWeight: FontWeight.w800)));
 }
 
 class _RankUp extends StatelessWidget {
@@ -359,7 +360,7 @@ class _RankUp extends StatelessWidget {
     return SlayCabinet(
       gradient: stage.gradient,
       child: Column(children: [
-        Text('🎉 RANK UP',
+        HuudText('🎉 RANK UP',
             style: TextStyle(
                 color: stage.ink,
                 fontWeight: FontWeight.w900,
@@ -396,7 +397,7 @@ class _Unlocked extends StatelessWidget {
                   height: 70,
                   child: item['thumbnailUrl'] == null
                       ? Center(
-                          child: Text(
+                          child: HuudText(
                               slayCategoryEmoji[item['category']] ?? '✨',
                               style: const TextStyle(fontSize: 36)))
                       : SlayThumbnail(url: item['thumbnailUrl'])),

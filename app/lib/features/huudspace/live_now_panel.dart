@@ -13,6 +13,7 @@ import 'huud_kit.dart';
 import 'huud_space_models.dart';
 import 'huud_space_screen.dart';
 import 'huud_swipe_screen.dart';
+import '../../widgets/huud_art.dart';
 
 /// The Live tab's first page: Huuds going on right now (yours, your friends'
 /// and public ones) and games you can watch.
@@ -297,7 +298,7 @@ class _LiveHuudCard extends StatelessWidget {
         Row(children: [
           if (game != null) ...[HuudGameArt(game, size: 34), const SizedBox(width: 10)],
           Expanded(
-            child: Text(doing,
+            child: HuudText(doing,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: h.orangeText)),
@@ -309,7 +310,7 @@ class _LiveHuudCard extends StatelessWidget {
           HuudAvatarStack(people: huud.members, total: huud.memberCount, size: 30, max: 4),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
+            child: HuudText(
                 (huud.memberCount == 1 ? '1 in here' : '${huud.memberCount} in here') +
                     (huud.watching > 0 ? ' · ${huud.watching} 👀' : ''),
                 maxLines: 1,

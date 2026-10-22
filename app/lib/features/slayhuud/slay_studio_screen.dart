@@ -15,6 +15,7 @@ import 'slay_results.dart';
 import 'slay_colour_picker.dart';
 import 'slay_wardrobe.dart';
 import 'slay_character_picker.dart';
+import '../../widgets/huud_art.dart';
 
 class SlayStudioScreen extends StatefulWidget {
   const SlayStudioScreen(
@@ -129,7 +130,7 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(widget.theme['title'],
+                    HuudText(widget.theme['title'],
                         style: Theme.of(sheet).textTheme.headlineMedium),
                     const SizedBox(height: 12),
                     Text(widget.theme['description']),
@@ -209,7 +210,7 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
     if (_career && !_usable(item)) {
       setState(() => _selecting = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('🔒 ${item['name']}: '
+          content: HuudText('🔒 ${item['name']}: '
               '${_careerLocks[id] ?? 'not part of this career stage'}. Keep slaying!')));
       return;
     }
@@ -439,7 +440,7 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                           child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                            Text(widget.theme['title'],
+                            HuudText(widget.theme['title'],
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: Theme.of(context)
@@ -706,6 +707,7 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                                 child: SlayTab(
                                     label:
                                         '${slayCategoryEmoji[c.key] ?? '✨'} ${c.value}',
+                                        semanticsLabel: c.value,
                                     selected: category == c.key,
                                     onPressed: (_busy || _selecting)
                                         ? null
@@ -948,8 +950,8 @@ class _SlayStudioScreenState extends State<SlayStudioScreen> {
                 border: Border.all(
                     color: _wearing(category) ? n.jade : n.line, width: 1.5),
               ),
-              child: Text(
-                  '${slayCategoryEmoji[category] ?? '✨'}${_wearing(category) ? '✅' : '⬜'}',
+              child: HuudText(
+                  '${slayCategoryEmoji[category] ?? '✨'}${_wearing(category) ? '✅' : ''}',
                   semanticsLabel:
                       '${slayCategoryName(category)} ${_wearing(category) ? 'done' : 'still needed'}',
                   style: const TextStyle(fontSize: 13)),

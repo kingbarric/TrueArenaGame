@@ -12,6 +12,7 @@ import 'slay_character_picker.dart';
 export 'slay_character_picker.dart' show SlayCharacterPicker;
 import 'slay_theme.dart';
 import 'slay_ui.dart';
+import '../../widgets/huud_art.dart';
 
 /// Solo career: choose a star for each event and climb to Global Star.
 class SlayCareerScreen extends StatefulWidget {
@@ -268,7 +269,7 @@ class _RankCard extends StatelessWidget {
         const SizedBox(height: 14),
         SlayXpBar(value: to == null ? 1 : (xp - from) / math.max(1, to - from)),
         const SizedBox(height: 6),
-        Text(
+        HuudText(
             next == null
                 ? 'Global Star! You made it to the top ✨'
                 : '$xp / $to XP to ${next['name']}',
@@ -327,7 +328,7 @@ class _NextUpCard extends StatelessWidget {
                   fontWeight: FontWeight.w900,
                   letterSpacing: 1.2,
                   fontSize: 11)),
-          Text(event['title'],
+          HuudText(event['title'],
               style: Theme.of(context)
                   .textTheme
                   .titleLarge
@@ -378,7 +379,7 @@ class _DailyCard extends StatelessWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           const Expanded(
-            child: Text('☀️ DAILY SLAY',
+            child: HuudText('☀️ DAILY SLAY',
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                     color: Colors.white,
@@ -473,7 +474,7 @@ class _StageSection extends StatelessWidget {
         if (!open && nextRank != null)
           Padding(
             padding: const EdgeInsets.fromLTRB(8, 10, 8, 0),
-            child: Text(
+            child: HuudText(
                 '🔓 Become ${nextRank['name']}: ${nextRank['minimumXp']} XP · '
                 '${nextRank['minimumCompleted']} events · ${nextRank['minimumStars']}★ '
                 'and clear the finale before it.',
@@ -600,12 +601,12 @@ class _EventNode extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (finale)
-              Text('👑 Finale: score ${event['minimumScore']}!',
+              HuudText('👑 Finale: score ${event['minimumScore']}!',
                   style: TextStyle(
                       color: n.gold,
                       fontSize: 10,
                       fontWeight: FontWeight.w900)),
-            Text(event['title'],
+            HuudText(event['title'],
                 textAlign: labelLeft ? TextAlign.end : TextAlign.start,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -616,7 +617,7 @@ class _EventNode extends StatelessWidget {
             if (done || (event['stars'] as int) > 0)
               SlayStars(event['stars'] as int, size: 14),
             if (current && open && !done)
-              Text('👆 Tap to play!',
+              HuudText('👆 Tap to play!',
                   style: TextStyle(
                       color: n.gold,
                       fontWeight: FontWeight.w900,
@@ -675,7 +676,7 @@ Future<bool?> showSlayInvite(BuildContext context, Map<String, dynamic> event,
                         child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
+                              HuudText(
                                   daily ? '☀️ DAILY SLAY' : '💌 YOU’RE INVITED',
                                   style: TextStyle(
                                       color: stage.ink,
@@ -726,7 +727,7 @@ Future<bool?> showSlayInvite(BuildContext context, Map<String, dynamic> event,
                               if ((event['bonus'] ?? '').toString().isNotEmpty)
                                 _InviteRow(
                                     title: 'Bonus tip',
-                                    child: Text('💡 ${event['bonus']}')),
+                                    child: HuudText('💡 ${event['bonus']}')),
                               _InviteRow(
                                   title: 'Rewards',
                                   child: Wrap(
@@ -754,7 +755,7 @@ Future<bool?> showSlayInvite(BuildContext context, Map<String, dynamic> event,
                                       borderRadius: BorderRadius.circular(14),
                                       border: Border.all(
                                           color: n.gold, width: 1.5)),
-                                  child: Text(
+                                  child: HuudText(
                                       '👑 Stage finale: score ${event['minimumScore']} or more to open the next stage.',
                                       style: TextStyle(
                                           color: n.ink,
@@ -803,7 +804,7 @@ class _InviteRow extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(bottom: 14),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title.toUpperCase(),
+          HuudText(title.toUpperCase(),
               style: TextStyle(
                   color: context.neon.mute,
                   fontSize: 11,
@@ -827,7 +828,7 @@ class _Tag extends StatelessWidget {
             borderRadius: BorderRadius.circular(99),
             border:
                 Border.all(color: colour.withValues(alpha: .7), width: 1.5)),
-        child: Text(text,
+        child: HuudText(text,
             style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
       );
 }

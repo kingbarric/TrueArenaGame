@@ -15,6 +15,7 @@ import '../notifications/notifications_screen.dart';
 import '../onboarding/sign_out.dart';
 import 'delete_account_screen.dart';
 import 'age_safety_screen.dart';
+import '../../widgets/huud_art.dart';
 
 /// Everything about you and your device: edit profile (photo, username,
 /// where you compete, who can see your cards), appearance, sound,
@@ -549,7 +550,7 @@ class _PresetTile extends StatelessWidget {
               : null,
         ),
         alignment: Alignment.center,
-        child: Text(emoji, style: const TextStyle(fontSize: 22)),
+        child: HuudText(emoji, style: const TextStyle(fontSize: 22)),
       ),
     );
   }

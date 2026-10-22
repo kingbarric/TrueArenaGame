@@ -16,6 +16,7 @@ import '../competitive/competitive_models.dart';
 import '../competitive/all_time_rankings_screen.dart';
 import '../competitive/player_profile_screen.dart';
 import 'huud_avatar_screen.dart';
+import '../../widgets/huud_art.dart';
 
 /// Reached from Home by tapping the avatar/name row. Appearance is available
 /// here, with the rest of the device preferences in [SettingsScreen].
@@ -210,7 +211,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onTap: () =>
                     Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AllTimeRankingsScreen())),
                 child: Row(children: [
-                  const Text('🏆', style: TextStyle(fontSize: 22)),
+                  const HuudText('🏆', style: TextStyle(fontSize: 22)),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
