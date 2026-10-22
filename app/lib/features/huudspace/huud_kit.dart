@@ -112,7 +112,7 @@ class HuudButton extends StatelessWidget {
     final disabled = onPressed == null || busy;
     final raised = kind == HuudButtonKind.orange || kind == HuudButtonKind.lightOrange;
     final (Color fill, Color fg, Color edge) = switch (kind) {
-      HuudButtonKind.orange => (h.orange, h.onOrange, kCabinetInk),
+      HuudButtonKind.orange => (h.buttonFill, h.onOrange, kCabinetInk),
       HuudButtonKind.lightOrange => (const Color(0xFFFFE0B8), kCabinetInk, kCabinetInk),
       HuudButtonKind.soft => (h.orangeSoft, h.orangeText, h.orangeText.withValues(alpha: 0.35)),
       HuudButtonKind.plain => (n.panel, n.ink, n.line),

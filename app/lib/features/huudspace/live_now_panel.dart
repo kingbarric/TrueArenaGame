@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -133,17 +134,28 @@ class _LiveNowPanelState extends State<LiveNowPanel> {
   Widget build(BuildContext context) {
     final n = context.neon;
     final huuds = _huuds;
-    return RefreshIndicator(
+    return LayoutBuilder(builder: (context, viewport) {
+      // Five standard-size rows fit above the shell navigation on a phone.
+      // Larger accessibility text can grow the rows and remains scrollable.
+      final rowHeight = math.max(
+        ((viewport.maxHeight - widget.bottomPadding - 64 - 32) / 5).clamp(84.0, 108.0),
+        MediaQuery.textScalerOf(context).scale(15) * 3.2 + 24,
+      ).toDouble();
+      return RefreshIndicator(
       onRefresh: _load,
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
             sliver: SliverToBoxAdapter(
-              child: HuudSectionTitle('Huuds on now',
-                  emoji: '🔴',
-                  trailing: huuds == null || huuds.isEmpty ? null : HuudLiveChip(label: '${huuds.length} live')),
+              child: Padding(padding: const EdgeInsets.only(bottom: 12), child: Row(children: [
+                const HuudSymbol('📡', size: 22), const SizedBox(width: 8),
+                Expanded(child: Text('Huuds on now', maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 18, height: 1.2, fontWeight: FontWeight.w800, color: n.ink))),
+                if (huuds != null && huuds.isNotEmpty) Text('${huuds.length} live',
+                    style: TextStyle(fontSize: 12, height: 1.2, color: HuudColors.of(context).live)),
+              ])),
             ),
           ),
           if (huuds == null)
@@ -184,11 +196,11 @@ class _LiveNowPanelState extends State<LiveNowPanel> {
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               sliver: SliverGrid(
-                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
                   maxCrossAxisExtent: 440,
-                  mainAxisSpacing: 14,
-                  crossAxisSpacing: 14,
-                  mainAxisExtent: 196,
+                  mainAxisSpacing: 8,
+                  crossAxisSpacing: 12,
+                  mainAxisExtent: rowHeight,
                 ),
                 delegate: SliverChildBuilderDelegate(
                   (context, i) => _LiveHuudCard(
@@ -248,6 +260,7 @@ class _LiveNowPanelState extends State<LiveNowPanel> {
         ],
       ),
     );
+    });
   }
 }
 
@@ -273,58 +286,48 @@ class _LiveHuudCard extends StatelessWidget {
                 'waiting' => huud.findingPlayers ? '${huudGameName(game)} · Join to play' : 'Getting ready for ${huudGameName(game)}',
                 _ => 'Just played ${huudGameName(game)}',
               };
-    return HuudCard(
+    return Material(
       key: ValueKey('live-huud-${huud.id}'),
-      onTap: onPeek,
-      highlight: huud.youAreIn,
-      padding: const EdgeInsets.all(14),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Row(children: [
-          Avatar(huud.host?.name ?? huud.name, size: 44, imageUrl: huud.host?.avatarUrl),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(huud.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: n.ink)),
-              Text(huud.host == null ? '' : 'Host: ${huud.host!.handle}',
-                  maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 14, color: n.mid)),
+      color: n.panel,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: huud.youAreIn ? h.orange : n.line, width: huud.youAreIn ? 1.5 : 1)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onPeek,
+        child: Padding(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          child: Row(children: [
+            Avatar(huud.host?.name ?? huud.name, size: 36, imageUrl: huud.host?.avatarUrl),
+            const SizedBox(width: 9),
+            Expanded(child: Column(mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(huud.name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 15, height: 1.2, fontWeight: FontWeight.w800, color: n.ink)),
+                if (huud.host != null) Text('Host: ${huud.host!.handle} · ${huud.privacy.label}',
+                    maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, height: 1.2, color: n.mute)),
+                HuudText(doing, maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12, height: 1.2, fontWeight: FontWeight.w600, color: h.orangeText)),
+              ],
+            )),
+            const SizedBox(width: 6),
+            Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Text('${huud.memberCount} in here${huud.watching > 0 ? ' · ${huud.watching} watching' : ''}',
+                  maxLines: 1, style: TextStyle(fontSize: 11, height: 1.2, color: n.mute)),
+              const SizedBox(height: 3),
+              ConstrainedBox(constraints: const BoxConstraints(minHeight: 44), child: FilledButton(
+                key: ValueKey('live-enter-${huud.id}'),
+                style: FilledButton.styleFrom(backgroundColor: h.buttonFill, foregroundColor: h.onOrange,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  minimumSize: const Size(54, 44), padding: const EdgeInsets.symmetric(horizontal: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
+                  textStyle: const TextStyle(fontSize: 12, height: 1.1, fontWeight: FontWeight.w800)),
+                onPressed: busy ? null : onEnter,
+                child: busy ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: h.onOrange))
+                    : Text(huud.findingPlayers ? 'Join to play' : huud.youAreIn ? 'Go in' : 'Join'),
+              )),
             ]),
-          ),
-          const HuudLiveChip(),
-        ]),
-        const SizedBox(height: 12),
-        Row(children: [
-          if (game != null) ...[HuudGameArt(game, size: 34), const SizedBox(width: 10)],
-          Expanded(
-            child: HuudText(doing,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: h.orangeText)),
-          ),
-          HuudChip(huud.privacy.label, emoji: huud.privacy.emoji),
-        ]),
-        const Spacer(),
-        Row(children: [
-          HuudAvatarStack(people: huud.members, total: huud.memberCount, size: 30, max: 4),
-          const SizedBox(width: 8),
-          Expanded(
-            child: HuudText(
-                (huud.memberCount == 1 ? '1 in here' : '${huud.memberCount} in here') +
-                    (huud.watching > 0 ? ' · ${huud.watching} 👀' : ''),
-                maxLines: 1,
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: n.mid)),
-          ),
-          HuudButton(
-            key: ValueKey('live-enter-${huud.id}'),
-            label: huud.findingPlayers ? 'Join to play' : huud.youAreIn ? 'Go in' : 'Join',
-            icon: huud.youAreIn ? Icons.arrow_forward_rounded : Icons.login_rounded,
-            busy: busy,
-            onPressed: onEnter,
-          ),
-        ]),
-      ]),
+          ]),
+        ),
+      ),
     );
   }
 }

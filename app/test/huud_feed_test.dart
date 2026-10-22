@@ -130,7 +130,7 @@ void main() {
     return calls;
   }
 
-  testWidgets('Friends comes before For you and pins a challenge with Accept / Not now', (tester) async {
+  testWidgets('Feeds comes before For you and pins a challenge with Accept / Not now', (tester) async {
     final calls = await pumpFeed(tester, (request) async {
       if (request.url.path == '/api/v1/huud/feed') {
         expect(request.url.queryParameters['tab'], 'friends');
@@ -143,7 +143,7 @@ void main() {
     expect(calls.first, 'GET /api/v1/huud/feed?tab=friends&filter=all');
     final friendsTab = find.byKey(const ValueKey('huud-tab-friends'));
     final forYouTab = find.byKey(const ValueKey('huud-tab-for_you'));
-    expect(find.descendant(of: friendsTab, matching: find.textContaining('Friends')), findsOneWidget);
+    expect(find.descendant(of: friendsTab, matching: find.textContaining('Feeds')), findsOneWidget);
     expect(find.descendant(of: forYouTab, matching: find.textContaining('For you')), findsOneWidget);
     // Friends sits left of For you, with Live now in front of both.
     expect(tester.getCenter(friendsTab).dx, lessThan(tester.getCenter(forYouTab).dx));
@@ -189,6 +189,8 @@ void main() {
     expect(find.text('Nigeria Draughts Championship'), findsOneWidget);
     expect(find.textContaining('32/64 registered'), findsOneWidget);
 
+    await tester.tap(find.byKey(const ValueKey('feed-filters')).hitTestable());
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('huud-filter-wins')));
     await tester.pumpAndSettle();
     expect(calls, contains('GET /api/v1/huud/feed?tab=for_you&filter=wins'));
@@ -199,6 +201,10 @@ void main() {
     await pumpFeed(tester, (request) async => _json([]));
     expect(find.byKey(const ValueKey('huud-composer')), findsNothing);
     expect(find.text('What do you want to play?'), findsNothing);
+    expect(find.byKey(const ValueKey('feed-make-huud')), findsNothing);
+    expect(find.byKey(const ValueKey('feed-say')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('feed-create')));
+    await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('feed-make-huud')), findsOneWidget);
   });
 
@@ -407,6 +413,8 @@ void main() {
       return http.Response('not found', 404);
     });
 
+    await tester.tap(find.byKey(const ValueKey('feed-search-toggle')).hitTestable());
+    await tester.pump();
     final field = find.byType(TextField).first;
     await tester.enterText(field, 'a');
     await tester.pump(const Duration(milliseconds: 350));
@@ -502,9 +510,14 @@ void main() {
       if (request.url.path == '/api/v1/huud/text-posts') return _json({'kind': 'post'}, 201);
       return http.Response('', 200);
     });
-    expect(find.byKey(const ValueKey('feed-say')), findsOneWidget);
-    expect(find.text('👫 Only your friends see it'), findsOneWidget);
+    expect(find.byKey(const ValueKey('feed-say')), findsNothing);
     expect(find.text('Ludo at 6?'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('feed-create')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Post something'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('feed-say')), findsOneWidget);
+    expect(find.text('Only your friends see it'), findsOneWidget);
 
     await tester.enterText(find.byKey(const ValueKey('feed-say')), 'Who wants to play later?');
     await tester.pump();
@@ -560,7 +573,7 @@ void main() {
   });
 
 
-  testWidgets('swiping sideways moves between Live now, Friends and For you', (tester) async {
+  testWidgets('swiping sideways moves between Live now, Feeds and For you', (tester) async {
     final calls = await pumpFeed(tester, (request) async {
       if (request.url.path == '/api/v1/huud/feed') {
         return _json(request.url.queryParameters['tab'] == 'friends' ? [_request()] : [_win()]);
