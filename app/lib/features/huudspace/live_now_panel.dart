@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import '../../core/api_client.dart';
 import '../../core/app_state.dart';
 import '../../theme/neon_theme.dart';
-import '../../widgets/neon.dart';
 import '../spectate/spectate_screen.dart';
 import '../spectate/spectator_discovery_screen.dart' show DiscoverableRoom;
 import 'create_huud_sheet.dart';
@@ -139,7 +138,7 @@ class _LiveNowPanelState extends State<LiveNowPanel> {
       // Larger accessibility text can grow the rows and remains scrollable.
       final rowHeight = math.max(
         ((viewport.maxHeight - widget.bottomPadding - 64 - 32) / 5).clamp(106.0, 128.0),
-        MediaQuery.textScalerOf(context).scale(15) * 3.6 + 40,
+        MediaQuery.textScalerOf(context).scale(18) * 3.6 + 40,
       ).toDouble();
       return RefreshIndicator(
       onRefresh: _load,
@@ -298,16 +297,10 @@ class LiveHuudCard extends StatelessWidget {
           child: Row(children: [
             Expanded(child: Column(mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
-                  Avatar(huud.host?.name ?? huud.name, size: 32, imageUrl: huud.host?.avatarUrl),
-                  const SizedBox(width: 8),
-                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(huud.name, maxLines: 1, overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 15, height: 1.2, fontWeight: FontWeight.w800, color: n.ink)),
-                    if (huud.host != null) Text('Host: ${huud.host!.handle} · ${huud.privacy.label}',
-                        maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, height: 1.2, color: n.mute)),
-                  ])),
-                ]),
+                Text(huud.name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 18, height: 1.2, fontWeight: FontWeight.w900, color: n.ink)),
+                if (huud.host != null) Text('Host: ${huud.host!.handle} · ${huud.privacy.label}',
+                    maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, height: 1.2, color: n.mute)),
                 const SizedBox(height: 6),
                 Wrap(spacing: 6, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
                   HuudAvatarStack(key: ValueKey('live-members-${huud.id}'),

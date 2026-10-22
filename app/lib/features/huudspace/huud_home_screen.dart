@@ -328,8 +328,6 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
       onTap: () => _open(h.id),
       padding: const EdgeInsets.all(14),
       child: Row(children: [
-        Avatar(h.host?.name ?? h.name, size: 46, imageUrl: h.host?.avatarUrl),
-        const SizedBox(width: 12),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
@@ -337,7 +335,7 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
                 child: Text(h.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: n.ink)),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: n.ink)),
               ),
               if (h.muted) ...[const SizedBox(width: 6), const HuudText('🔕', style: TextStyle(fontSize: 14))],
             ]),
