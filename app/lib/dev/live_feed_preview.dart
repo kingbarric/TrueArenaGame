@@ -13,7 +13,8 @@ import '../theme/neon_theme.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
-  await prefs.setInt('ta_main_tab_v4', 0);
+  const gameEntryPreview = bool.fromEnvironment('PREVIEW_GAME_ENTRY');
+  await prefs.setInt('ta_main_tab_v4', gameEntryPreview ? 2 : 0);
   final now = DateTime.now().toUtc();
   final people = [
     for (final name in ['Beverly', 'Alex', 'Chloe', 'Ethan', 'Maya'])
@@ -94,10 +95,30 @@ Future<void> main() async {
         }
       }
   ];
+  String? selectedGame, selectedMode;
+  Map<String, dynamic> gameHuud() => {
+    ...rooms[1], 'status': 'active', 'code': 'PRE123', 'live': true,
+    'youAreHost': true, 'youOwn': true, 'youAreIn': true,
+    'currentGame': selectedGame == null ? null : {
+      'roomId': 'preview-game', 'code': 'GAME12', 'gameType': selectedGame,
+      'mode': selectedMode, 'status': 'waiting', 'players': 1, 'seats': 4,
+      'playerIds': ['me'], 'youArePlaying': true,
+      'table': [{'userId': 'me', 'displayName': 'Riley', 'username': 'riley', 'bot': false}],
+    },
+  };
   final api = ApiClient(client: MockClient((request) async {
     final path = request.url.path.replaceFirst('/api/v1', '');
     dynamic body;
-    if (path == '/huud-spaces/live') {
+    if (path == '/huud-spaces/current' || path == '/huud-spaces/preview-1') {
+      body = gameHuud();
+    } else if (path == '/huud-spaces/preview-1/game' && request.method == 'POST') {
+      final chosen = jsonDecode(request.body) as Map;
+      selectedGame = chosen['gameType'] as String;
+      selectedMode = chosen['mode'] as String?;
+      body = {};
+    } else if (path == '/huud-spaces/preview-1/messages') {
+      body = [];
+    } else if (path == '/huud-spaces/live') {
       body = rooms;
     } else if (path == '/huud-spaces/mine') {
       body = [{...rooms[1], 'live': true, 'youOwn': true, 'liveCount': 5},
