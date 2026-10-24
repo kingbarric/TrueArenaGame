@@ -144,10 +144,26 @@ public final class HuudSpaceDtos {
                                 UUID championshipId, boolean youCanManageMic, boolean findingPlayers) {
     }
 
-    /** A card on the Live tab. The code stays out: only people inside see it. */
+    /**
+     * A card on the Live tab. The code stays out: only people inside see it.
+     * {@code moments}: what's going on in there, newest first;
+     * {@code gamesPlayed} since it went Live; {@code recentMessages} in the
+     * last half hour (a count — the chat itself stays with its members).
+     */
     public record LiveHuud(UUID id, String name, String privacy, Person host, int memberCount,
                            List<Person> members, String gameType, String gameStatus,
-                           boolean youAreIn, int watching, Instant createdAt, ChampionshipLine championship, boolean findingPlayers) {
+                           boolean youAreIn, int watching, Instant createdAt, ChampionshipLine championship, boolean findingPlayers,
+                           String background, List<Moment> moments, int gamesPlayed, int recentMessages) {
+    }
+
+    /**
+     * Something that just happened in a Live Huud. {@code kind}: play (a move
+     * in the game on now), win, joined, live (went Live), chat — chat only
+     * reaches the Huud's own members. {@code who} is empty for the game
+     * itself ("Nobody was murdered last night"); {@code at} is empty for a
+     * play, which is happening now.
+     */
+    public record Moment(String kind, Person who, String text, Instant at) {
     }
 
     // ------------------------------------------------------------ championships

@@ -76,6 +76,7 @@ public class HuudSpaceService {
     private final RoomRuntimeRegistry runtimes;
     private final BotRuntimeRegistry bots;
     private final HuudSpaceAccess access;
+    private final HuudMoments moments;
 
     public HuudSpaceService(DatabaseClient db, ReactiveTransactionManager manager, InboxRegistry inbox,
                             RoomService rooms, UserRepository users, VoiceSessionService voiceSessions,
@@ -83,7 +84,7 @@ public class HuudSpaceService {
                             @Value("${huud.host-grace:PT5M}") Duration hostGrace,
                             @Value("${huud.member-timeout:PT10M}") Duration memberTimeout,
                             @Value("${huud.inactivity-timeout:PT24H}") Duration inactivityTimeout,
-                            RoomRuntimeRegistry runtimes, BotRuntimeRegistry bots) {
+                            RoomRuntimeRegistry runtimes, BotRuntimeRegistry bots, HuudMoments moments) {
         this.db = db;
         this.tx = TransactionalOperator.create(manager);
         this.inbox = inbox;
@@ -100,6 +101,7 @@ public class HuudSpaceService {
         this.runtimes = runtimes;
         this.bots = bots;
         this.access = access;
+        this.moments = moments;
     }
 
     /** {@code ownerId}: running it now; {@code createdBy}: the owner. */
@@ -1218,12 +1220,16 @@ public class HuudSpaceService {
                 .flatMap(id -> view(id, viewer));
     }
 
-    /** Live Huuds you can look into: yours, your friends' and public ones. */
+    /** Live Huuds you can look into: yours, your friends' and public ones — each with what's going on in it. */
     public Flux<LiveHuud> live(UUID viewer) {
-        return db.sql("SELECT s.id, s.name, s.privacy, s.created_at, r.game_type, r.status AS room_status, "
+        return db.sql("SELECT s.id, s.name, s.privacy, s.created_at, s.background, r.id AS room_id, r.game_type, r.status AS room_status, "
                         + CUP_COLUMNS + ", "
                         + "EXISTS(SELECT 1 FROM huud_space_members me WHERE me.huud_space_id=s.id AND me.user_id=:user AND me.left_at IS NULL) AS mine, "
                         + "(SELECT count(*) FROM huud_space_members c WHERE c.huud_space_id=s.id AND c.live_at IS NOT NULL) AS present, "
+                        + "(SELECT count(*) FROM match_records mr JOIN rooms gr ON gr.id=mr.room_id "
+                        + "  WHERE gr.huud_space_id=s.id AND mr.completed_at >= s.live_since) AS games_played, "
+                        + "(SELECT count(*) FROM huud_space_messages hm WHERE hm.huud_space_id=s.id "
+                        + "  AND hm.created_at > now()-interval '30 minutes') AS recent_messages, "
                         + watchingSql("s.id") + " AS watching, " + publicInviteSql("s") + " AS finding_players "
                         + "FROM huud_spaces s LEFT JOIN rooms r ON r.id=s.current_room_id " + CUP_JOIN
                         + "WHERE s.status='active' AND s.live_since IS NOT NULL "
@@ -1237,20 +1243,30 @@ public class HuudSpaceService {
                         + "      AND f.low_user_id=LEAST(s.created_by,:user) AND f.high_user_id=GREATEST(s.created_by,:user)))) "
                         + "ORDER BY mine DESC, present DESC, s.created_at DESC LIMIT " + LIST_LIMIT)
                 .bind("user", viewer)
-                .map((r, m) -> new Object[]{r.get("id", UUID.class), r.get("name", String.class),
-                        r.get("privacy", String.class), instant(r.get("created_at")), r.get("game_type", String.class),
-                        r.get("room_status", String.class), Boolean.TRUE.equals(r.get("mine", Boolean.class)),
+                .map((r, m) -> new LiveRow(r.get("id", UUID.class), r.get("name", String.class),
+                        r.get("privacy", String.class), instant(r.get("created_at")), r.get("background", String.class),
+                        r.get("room_id", UUID.class), r.get("game_type", String.class), r.get("room_status", String.class),
+                        Boolean.TRUE.equals(r.get("mine", Boolean.class)),
                         ((Number) r.get("present")).intValue(), ((Number) r.get("watching")).intValue(),
+                        ((Number) r.get("games_played")).intValue(), ((Number) r.get("recent_messages")).intValue(),
                         championshipLine(r.get("cup_name", String.class), r.get("cup_game", String.class),
                                 r.get("cup_status", String.class), r.get("cup_size", Integer.class),
-                                r.get("cup_round", Integer.class)), Boolean.TRUE.equals(r.get("finding_players", Boolean.class))})
+                                r.get("cup_round", Integer.class)), Boolean.TRUE.equals(r.get("finding_players", Boolean.class))))
                 .all()
-                .concatMap(row -> members((UUID) row[0]).collectList().map(people -> new LiveHuud(
-                        (UUID) row[0], (String) row[1], (String) row[2],
-                        people.stream().filter(Person::host).findFirst().orElse(null),
-                        (int) row[7], people.stream().filter(Person::here).limit(6).toList(), (String) row[4],
-                        row[5] == null ? null : gameStatus((String) row[5]), (boolean) row[6], (int) row[8],
-                        (Instant) row[3], (HuudSpaceDtos.ChampionshipLine) row[9], (boolean) row[10])));
+                .concatMap(row -> Mono.zip(members(row.id()).collectList(),
+                                moments.forCard(row.id(), row.roomId(), row.gameType(), "in_game".equals(row.roomStatus()), viewer, row.mine()))
+                        .map(t -> new LiveHuud(row.id(), row.name(), row.privacy(),
+                                t.getT1().stream().filter(Person::host).findFirst().orElse(null),
+                                row.present(), t.getT1().stream().filter(Person::here).limit(6).toList(), row.gameType(),
+                                row.roomStatus() == null ? null : gameStatus(row.roomStatus()), row.mine(), row.watching(),
+                                row.createdAt(), row.championship(), row.findingPlayers(),
+                                row.background(), t.getT2(), row.gamesPlayed(), row.recentMessages())));
+    }
+
+    private record LiveRow(UUID id, String name, String privacy, Instant createdAt, String background, UUID roomId,
+                           String gameType, String roomStatus, boolean mine, int present, int watching,
+                           int gamesPlayed, int recentMessages, HuudSpaceDtos.ChampionshipLine championship,
+                           boolean findingPlayers) {
     }
 
     /**

@@ -355,6 +355,35 @@ class HuudCupLine {
   }
 }
 
+/// Something that just happened in a Live Huud: a move in the game on now
+/// (`play`), a `win`, someone who `joined`, the Huud going `live`, or — for
+/// its own members — a `chat` line. [who] is empty when the game itself is
+/// talking; [at] is empty for a play, which is happening now.
+class HuudMoment {
+  const HuudMoment({required this.kind, required this.text, this.who, this.at});
+
+  final String kind;
+  final String text;
+  final HuudMember? who;
+  final DateTime? at;
+
+  /// The little picture beside the line.
+  String get symbol => switch (kind) {
+        'win' => '🏆',
+        'joined' => '👋',
+        'live' => '📡',
+        'chat' => '💬',
+        _ => '🎮',
+      };
+
+  factory HuudMoment.fromJson(Map<String, dynamic> j) => HuudMoment(
+        kind: j['kind'] as String? ?? 'play',
+        text: j['text'] as String? ?? '',
+        who: j['who'] == null ? null : HuudMember.fromJson((j['who'] as Map).cast<String, dynamic>()),
+        at: DateTime.tryParse(j['at'] as String? ?? ''),
+      );
+}
+
 /// A card on the Live tab.
 class LiveHuud {
   const LiveHuud({
@@ -370,10 +399,23 @@ class LiveHuud {
     this.gameStatus,
     this.watching = 0,
     this.championship,
+    this.background,
+    this.moments = const [],
+    this.gamesPlayed = 0,
+    this.recentMessages = 0,
   });
 
   final bool findingPlayers;
   final int watching;
+
+  /// The picture behind the card's top, as the host chose it.
+  final String? background;
+
+  /// What's going on in there, newest first.
+  final List<HuudMoment> moments;
+
+  /// Games finished since it went Live, and chat lines in the last half hour.
+  final int gamesPlayed, recentMessages;
 
   /// A championship on in it — the card says that instead of the game.
   final HuudCupLine? championship;
@@ -406,6 +448,13 @@ class LiveHuud {
         youAreIn: j['youAreIn'] == true,
         watching: (j['watching'] as num?)?.toInt() ?? 0,
         championship: HuudCupLine.fromJson(j['championship']),
+        background: j['background'] as String?,
+        moments: [
+          for (final m in (j['moments'] as List? ?? const []))
+            HuudMoment.fromJson((m as Map).cast<String, dynamic>()),
+        ],
+        gamesPlayed: (j['gamesPlayed'] as num?)?.toInt() ?? 0,
+        recentMessages: (j['recentMessages'] as num?)?.toInt() ?? 0,
       );
 }
 

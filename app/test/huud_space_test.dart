@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:clock/clock.dart';
 import 'package:truearena/features/huudspace/huud_lounge.dart';
 
 import 'package:flutter/material.dart';
@@ -515,7 +516,8 @@ void main() {
     expect(find.text('KTB7QX'), findsOneWidget);
   });
 
-  testWidgets('Live now lists live Huuds with what they are playing, and games to watch', (tester) async {
+  testWidgets('Live now tells what is happening in each Huud, and lists games to watch', (tester) async {
+    final now = clock.now().toUtc();
     await pump(tester, const Scaffold(body: LiveNowPanel()), (r) async {
       if (r.url.path == '/api/v1/huud-spaces/live') {
         return _json([
@@ -525,10 +527,20 @@ void main() {
             'privacy': 'public',
             'host': _member('ada', 'Ada', host: true),
             'memberCount': 4,
+            'watching': 2,
             'members': [_member('ada', 'Ada', host: true), _member('chidi', 'Chidi')],
             'gameType': 'whot',
             'gameStatus': 'playing',
             'youAreIn': false,
+            'background': 'disco',
+            'gamesPlayed': 3,
+            'recentMessages': 5,
+            'moments': [
+              {'kind': 'play', 'who': _member('chidi', 'Chidi'), 'text': 'called General Market. Everyone picks one'},
+              {'kind': 'win', 'who': _member('ada', 'Ada'), 'text': 'won Whot',
+                'at': now.subtract(const Duration(minutes: 4)).toIso8601String()},
+              {'kind': 'chat', 'who': _member('tobi', 'Tobi'), 'text': 'Who took my last card?', 'at': now.toIso8601String()},
+            ],
           },
         ]);
       }
@@ -541,12 +553,23 @@ void main() {
     }, settle: false);
     expect(find.text("Ada's Huud"), findsOneWidget);
     expect(find.text('Playing Whot'), findsOneWidget);
-    expect(find.text('4 in here'), findsOneWidget);
-    expect(find.byKey(const ValueKey('live-enter-h2')), findsOneWidget);
+    expect(find.text('4 in · 2 watching'), findsOneWidget);
+    expect(find.text('Tap a Huud to listen in'), findsOneWidget);
+    expect(find.textContaining('chidi called General Market', findRichText: true), findsOneWidget);
+    expect(find.textContaining('ada won Whot', findRichText: true), findsOneWidget);
+    expect(find.textContaining('tobi: “Who took my last card?”', findRichText: true), findsOneWidget);
+    expect(find.text('4m'), findsOneWidget);
+    Finder labelled(String label) => find.byWidgetPredicate((w) => w is Semantics && w.properties.label == label);
+    expect(labelled('3 games played'), findsOneWidget);
+    expect(labelled('5 chat messages lately'), findsOneWidget);
+    // No buttons on the card: the card itself is the way in.
+    expect(find.byKey(const ValueKey('live-enter-h2')), findsNothing);
+    expect(find.byKey(const ValueKey('live-huud-h2')), findsOneWidget);
     expect(find.text("Tobi's Chess"), findsOneWidget);
   });
 
-  testWidgets('Live Now shows Join to play beside an open game invitation', (tester) async {
+  testWidgets('Live Now: tapping an open game invitation opens the look-in, where Join to play takes a seat',
+      (tester) async {
     final calls = await pump(tester, const Scaffold(body: LiveNowPanel()), (r) async {
       if (r.url.path == '/api/v1/huud-spaces/live') return _json([{
         'id': 'h2', 'name': "Ada's table", 'privacy': 'private',
@@ -558,8 +581,12 @@ void main() {
       return http.Response('{}', 409);
     }, settle: false);
     expect(find.text('Chess · Join to play'), findsOneWidget);
-    expect(find.text('Join to play'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('live-enter-h2')));
+    await tester.tap(find.byKey(const ValueKey('live-huud-h2')));
+    for (var i = 0; i < 8; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.byType(HuudSwipeScreen), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('swipe-enter-h2')));
     await tester.pump();
     expect(calls, contains('POST /api/v1/huud-spaces/h2/public-invite/play {}'));
     expect(calls.where((c) => c.startsWith('POST /api/v1/huud-spaces/h2/join')), isEmpty);

@@ -39,6 +39,20 @@ Future<void> main() async {
     'A little conversation',
     'The weekend crew'
   ];
+  const games = ['whot', null, 'chess', 'ludo', null, 'truearena', 'monopoly', null];
+  const backgrounds = ['disco', 'lounge', 'club', 'poolside', 'blank', 'disco', 'poolside', 'lounge'];
+  // What's going on in each, as the server tells it: the game first, then
+  // wins, arrivals and (for members) chat.
+  final plays = <List<(String, String)>>[
+    [('play', 'called General Market. Everyone picks one'), ('win', 'won Whot')],
+    [('chat', 'Who is bringing the snacks tonight?'), ('joined', 'joined')],
+    [('play', 'took a queen (Qxd5)'), ('play', 'gave check (Bb5+)'), ('joined', 'joined')],
+    [('play', 'sent alex back home')],
+    [('live', 'went Live')],
+    [('play', 'accused chloe'), ('play', 'Nobody was murdered last night'), ('win', 'won Traitors')],
+    [('play', 'built a hotel')],
+    [('joined', 'joined'), ('chat', 'Good music, better conversation')],
+  ];
   final rooms = [
     for (var i = 0; i < names.length; i++)
       {
@@ -46,11 +60,24 @@ Future<void> main() async {
         'name': names[i],
         'privacy': i.isEven ? 'public' : 'friends',
         'memberCount': 4 + i,
+        'watching': i == 2 ? 6 : 0,
         'members': [for (var j = 0; j < 4; j++) people[(i + j) % people.length]],
         'host': people[i % people.length],
         'youAreIn': i == 1,
-        'gameType': i == 2 ? 'whot' : null,
-        'gameStatus': i == 2 ? 'playing' : null,
+        'gameType': games[i],
+        'gameStatus': games[i] == null ? null : 'playing',
+        'background': backgrounds[i],
+        'gamesPlayed': i % 4,
+        'recentMessages': i.isOdd ? 3 + i : 0,
+        'moments': [
+          for (var k = 0; k < plays[i].length; k++)
+            {
+              'kind': plays[i][k].$1,
+              'text': plays[i][k].$2,
+              if (!plays[i][k].$2.startsWith('Nobody')) 'who': people[(i + k + 1) % people.length],
+              if (plays[i][k].$1 != 'play') 'at': now.subtract(Duration(minutes: 2 + k * 6)).toIso8601String(),
+            }
+        ],
       }
   ];
   final posts = <Map<String, dynamic>>[

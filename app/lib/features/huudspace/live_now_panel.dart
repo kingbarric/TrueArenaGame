@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -13,10 +12,13 @@ import 'huud_kit.dart';
 import 'huud_space_models.dart';
 import 'huud_space_screen.dart';
 import 'huud_swipe_screen.dart';
+import 'live_moment_card.dart';
 import '../../widgets/huud_art.dart';
 
 /// The Live tab's first page: Huuds going on right now (yours, your friends'
-/// and public ones) and games you can watch.
+/// and public ones), each with what's happening in it, and games you can
+/// watch. A card is opened by tapping it — the look-in lets you listen
+/// before you join.
 class LiveNowPanel extends StatefulWidget {
   const LiveNowPanel({super.key, this.bottomPadding = 130});
   final double bottomPadding;
@@ -29,7 +31,6 @@ class _LiveNowPanelState extends State<LiveNowPanel> {
   List<LiveHuud>? _huuds;
   List<DiscoverableRoom> _games = const [];
   String? _error;
-  String? _joining;
   StreamSubscription? _events;
   Timer? _poll;
   bool _started = false;
@@ -84,44 +85,10 @@ class _LiveNowPanelState extends State<LiveNowPanel> {
     }
   }
 
-  Future<void> _enter(LiveHuud huud) async {
-    if (_joining != null) return;
-    if (huud.findingPlayers) {
-      setState(() => _joining = huud.id);
-      try {
-        await requestPublicHuudSeat(context, huud.id);
-      } on ApiException catch (e) {
-        if (mounted) huudSnack(context, e.message);
-      } catch (_) {
-        if (mounted) huudSnack(context, userErrorMessage);
-      } finally {
-        if (mounted) { setState(() => _joining = null); _load(); }
-      }
-      return;
-    }
-    if (huud.youAreIn) {
-      await openHuudSpace(context, huud.id);
-      if (mounted) _load();
-      return;
-    }
-    setState(() => _joining = huud.id);
-    try {
-      final raw = await AppScope.of(context).api.post('/huud-spaces/${huud.id}/join') as Map<String, dynamic>;
-      if (!mounted) return;
-      setState(() => _joining = null);
-      final joined = HuudSpace.fromJson(raw);
-      if (!joined.youAreIn) huudSnack(context, "Asked the host — you'll get in when they say yes ⏳");
-      await openHuudSpace(context, joined.id, initial: joined);
-    } on ApiException catch (e) {
-      if (mounted) huudSnack(context, e.message);
-    } catch (_) {
-      if (mounted) huudSnack(context, userErrorMessage);
-    } finally {
-      if (mounted) {
-        setState(() => _joining = null);
-        _load();
-      }
-    }
+  /// Into the full-screen look-in, which can swipe on to the others.
+  Future<void> _open(List<LiveHuud> huuds, int index) async {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => HuudSwipeScreen(huuds: huuds, start: index)));
+    if (mounted) _load();
   }
 
   void _watch(DiscoverableRoom room) => Navigator.of(context).push(MaterialPageRoute(
@@ -133,14 +100,7 @@ class _LiveNowPanelState extends State<LiveNowPanel> {
   Widget build(BuildContext context) {
     final n = context.neon;
     final huuds = _huuds;
-    return LayoutBuilder(builder: (context, viewport) {
-      // Keep the list compact, with room for people and readable metadata.
-      // Larger accessibility text can grow the rows and remains scrollable.
-      final rowHeight = math.max(
-        ((viewport.maxHeight - widget.bottomPadding - 64 - 32) / 5).clamp(106.0, 128.0),
-        MediaQuery.textScalerOf(context).scale(18) * 3.6 + 40,
-      ).toDouble();
-      return RefreshIndicator(
+    return RefreshIndicator(
       onRefresh: _load,
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -150,8 +110,13 @@ class _LiveNowPanelState extends State<LiveNowPanel> {
             sliver: SliverToBoxAdapter(
               child: Padding(padding: const EdgeInsets.only(bottom: 12), child: Row(children: [
                 const HuudSymbol('📡', size: 22), const SizedBox(width: 8),
-                Expanded(child: Text('Huuds on now', maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 18, height: 1.2, fontWeight: FontWeight.w800, color: n.ink))),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Huuds on now', maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 18, height: 1.2, fontWeight: FontWeight.w800, color: n.ink)),
+                  if (huuds != null && huuds.isNotEmpty)
+                    Text('Tap a Huud to listen in', maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 12, height: 1.3, color: n.mute)),
+                ])),
                 if (huuds != null && huuds.isNotEmpty) Text('${huuds.length} live',
                     style: TextStyle(fontSize: 12, height: 1.2, color: HuudColors.of(context).live)),
               ])),
@@ -194,25 +159,7 @@ class _LiveNowPanelState extends State<LiveNowPanel> {
           else
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              sliver: SliverGrid(
-                gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: 440,
-                  mainAxisSpacing: 8,
-                  crossAxisSpacing: 12,
-                  mainAxisExtent: rowHeight,
-                ),
-                delegate: SliverChildBuilderDelegate(
-                  (context, i) => LiveHuudCard(
-                    huud: huuds[i],
-                    busy: _joining == huuds[i].id,
-                    onEnter: () => _enter(huuds[i]),
-                    onPeek: () => Navigator.of(context)
-                        .push(MaterialPageRoute(builder: (_) => HuudSwipeScreen(huuds: huuds, start: i)))
-                        .then((_) => _load()),
-                  ),
-                  childCount: huuds.length,
-                ),
-              ),
+              sliver: SliverToBoxAdapter(child: LiveMomentWall(huuds: huuds, onOpen: (i) => _open(huuds, i))),
             ),
           if (_games.isNotEmpty) ...[
             const SliverPadding(
@@ -259,7 +206,6 @@ class _LiveNowPanelState extends State<LiveNowPanel> {
         ],
       ),
     );
-    });
   }
 }
 

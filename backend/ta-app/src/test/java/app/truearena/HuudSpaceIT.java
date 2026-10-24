@@ -75,6 +75,7 @@ class HuudSpaceIT {
     @Autowired app.truearena.api.auth.JwtService jwt;
     @Autowired GameOrchestrator games;
     @Autowired app.truearena.room.RoomRuntimeRegistry runtimes;
+    @Autowired app.truearena.room.RoomEventLog eventLog;
     @Autowired com.fasterxml.jackson.databind.ObjectMapper mapper;
     @Autowired HuudSpaceService huuds;
     @Autowired HuudSpaceRequestService requests;
@@ -286,6 +287,38 @@ class HuudSpaceIT {
         assertThat(huuds.view(huud.id(), friend).block().joinRequest()).isEqualTo("declined");
         // Not straight back at the host's door.
         assertThatThrownBy(() -> huuds.joinByCode(friend, huud.code()).block()).isInstanceOf(ResponseStatusException.class);
+    }
+
+    @Test void liveCardsTellTheGameMoveByMoveAndKeepTheChatForMembers() throws Exception {
+        UUID host = person("Moments host"), member = person("Moments member"), stranger = person("Moments stranger");
+        var huud = huuds.create(host, "Moments night", "public").block();
+        huuds.join(member, huud.id()).block();
+        var room = huuds.addGame(host, huud.id(), "whot").block();
+        db.sql("UPDATE rooms SET status='in_game' WHERE id=:id").bind("id", room.id()).fetch().rowsUpdated().block();
+        eventLog.clear(room.id()).block();
+        eventLog.append(room.id(), mapper.writeValueAsString(app.truearena.engine.GameEvent.pub(1, "GENERAL_MARKET",
+                java.util.Map.of("by", member.toString())))).block();
+        // A hand is private: it must never become a line on the card.
+        eventLog.append(room.id(), mapper.writeValueAsString(app.truearena.engine.GameEvent.toPlayer(2, "YOUR_HAND",
+                java.util.Map.of("cards", List.of("star-7")), member.toString()))).block();
+        chat.send(member, huud.id(), "Who took my last card?").block();
+
+        var mine = huuds.live(member).filter(h -> h.id().equals(huud.id())).blockFirst();
+        assertThat(mine.moments()).isNotEmpty();
+        assertThat(mine.moments().getFirst().kind()).isEqualTo("play");
+        assertThat(mine.moments().getFirst().text()).isEqualTo("called General Market. Everyone picks one");
+        assertThat(mine.moments().getFirst().who().userId()).isEqualTo(member);
+        assertThat(mine.moments().getFirst().at()).isNull();
+        assertThat(mine.moments()).extracting("kind").contains("chat");
+        assertThat(mine.moments()).hasSizeLessThanOrEqualTo(3);
+        assertThat(mine.recentMessages()).isEqualTo(1);
+        assertThat(mine.background()).isEqualTo("blank");
+
+        // Someone outside sees the game and who came in — never the chat itself.
+        var theirs = huuds.live(stranger).filter(h -> h.id().equals(huud.id())).blockFirst();
+        assertThat(theirs.moments()).extracting("kind").contains("play").doesNotContain("chat");
+        assertThat(theirs.moments()).extracting("text").doesNotContain("Who took my last card?");
+        assertThat(theirs.recentMessages()).isEqualTo(1);
     }
 
     @Test void publicHuudsLetAnyoneIn() {

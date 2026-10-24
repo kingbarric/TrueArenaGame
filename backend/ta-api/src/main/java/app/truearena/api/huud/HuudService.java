@@ -64,7 +64,7 @@ public class HuudService {
             "whot", 4, "ludo", 4, "wordbluff", 4, "truearena", 6, "monopoly", app.truearena.game.monopoly.MonopolyConfig.MAX_PLAYERS, "slayhuud", 2);
     private static final Set<String> HEAD_TO_HEAD = Set.of("draughts", "chess", "goosi");
 
-    static final Map<String, String> GAME_NAMES = Map.of(
+    public static final Map<String, String> GAME_NAMES = Map.of(
             "draughts", "Draughts", "chess", "Chess", "goosi", "Macala", "whot", "Whot",
             "ludo", "Ludo", "wordbluff", "Word Bluff", "truearena", "Traitors", "monopoly", "Huudpoly", "slayhuud", "SlayHuud");
 

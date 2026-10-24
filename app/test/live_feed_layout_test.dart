@@ -36,7 +36,25 @@ Map<String, dynamic> liveRoom(int i) => {
           }
       ],
       'youAreIn': false,
-      'gameType': null,
+      'gameType': i.isEven ? 'whot' : null,
+      'gameStatus': i.isEven ? 'playing' : null,
+      'background': i % 3 == 0 ? 'disco' : 'blank',
+      'gamesPlayed': i,
+      'moments': [
+        {
+          'kind': 'play',
+          'who': {'userId': 'person-0', 'displayName': 'Person 0', 'username': 'person0'},
+          'text': 'called General Market. Everyone picks one'
+        },
+        // Uneven cards: every other Huud has more going on.
+        if (i.isEven)
+          {
+            'kind': 'joined',
+            'who': {'userId': 'person-1', 'displayName': 'Person 1', 'username': 'person1'},
+            'text': 'joined',
+            'at': DateTime.now().toUtc().toIso8601String()
+          },
+      ],
     };
 
 Future<void> open(
@@ -68,31 +86,39 @@ Future<void> open(
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
   testWidgets(
-      'live Huuds stay compact with room for people above the shell menu',
+      'live Huuds sit two to a row as uneven cards, the first row above the shell menu',
       (t) async {
     await open(
         t,
         (r) async => r.url.path.endsWith('/huud-spaces/live')
             ? json(List.generate(8, liveRoom))
             : json([]));
-    final cards = [
-      for (var i = 0; i < 4; i++) find.byKey(ValueKey('live-huud-live-$i'))
-    ];
-    for (final card in cards) {
-      expect(card, findsOneWidget);
-      expect(t.getRect(card).height, inInclusiveRange(105.9, 128.1));
+    final first = find.byKey(const ValueKey('live-huud-live-0'));
+    final second = find.byKey(const ValueKey('live-huud-live-1'));
+    expect(first, findsOneWidget);
+    expect(second, findsOneWidget);
+    // Side by side, and not the same height.
+    expect(t.getRect(second).left, greaterThan(t.getRect(first).right));
+    expect(t.getRect(second).top, t.getRect(first).top);
+    expect(t.getRect(first).height, isNot(t.getRect(second).height));
+    for (final card in [first, second]) {
+      expect(t.getRect(card).width, greaterThan(150));
       expect(t.getRect(card).bottom, lessThanOrEqualTo(844 - 34 - 130));
+      // The card is the button.
+      expect(card.hitTestable(), findsOneWidget);
     }
-    for (var i = 0; i < 4; i++) {
-      expect(find.byKey(ValueKey('live-enter-live-$i')).hitTestable(),
-          findsOneWidget);
-    }
+    expect(find.byKey(const ValueKey('live-enter-live-0')), findsNothing);
+    expect(
+        find.textContaining('person0 called General Market',
+            findRichText: true),
+        findsWidgets);
     final people = find.byKey(const ValueKey('live-members-live-0'));
     expect(
         find.descendant(of: people, matching: find.text('+1')), findsOneWidget);
     expect(t.takeException(), isNull);
   });
-  testWidgets('compact live rooms remain readable and scroll at enlarged text',
+  testWidgets(
+      'live cards go one to a row and scroll at enlarged text, in both themes',
       (t) async {
     for (final theme in [NeonTheme.dark, NeonTheme.light]) {
       await open(
@@ -104,15 +130,18 @@ void main() {
           scale: 1.8,
           theme: theme);
       expect(t.takeException(), isNull);
+      final first = find.byKey(const ValueKey('live-huud-live-0'));
+      final second = find.byKey(const ValueKey('live-huud-live-1'));
+      expect(t.getRect(second).top, greaterThan(t.getRect(first).bottom));
       await t.scrollUntilVisible(
-          find.byKey(const ValueKey('live-enter-live-7')), 180,
+          find.byKey(const ValueKey('live-huud-live-7')), 180,
           scrollable: find
               .descendant(
                   of: find.byType(RefreshIndicator).first,
                   matching: find.byType(Scrollable))
               .first);
       await t.pump();
-      expect(find.byKey(const ValueKey('live-enter-live-7')).hitTestable(),
+      expect(find.byKey(const ValueKey('live-huud-live-7')).hitTestable(),
           findsOneWidget);
       expect(t.takeException(), isNull);
       await t.pumpWidget(const SizedBox.shrink());
