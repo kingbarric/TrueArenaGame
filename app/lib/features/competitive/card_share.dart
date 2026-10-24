@@ -24,7 +24,8 @@ String playerCardShareText(PlayerCardData card) {
   if (card.blank) {
     return 'Come play $game with me on PlayHuud$id: $_site';
   }
-  return 'My $game card on PlayHuud — rating ${card.bigValue}, ${card.bigLabel}. Find me:$id $_site';
+  final rating = card.competitiveRating == null ? '' : ', competitive rating ${card.competitiveRating}';
+  return 'My $game card on PlayHuud — strength ${card.bigValue}/100$rating. Find me:$id $_site';
 }
 
 /// Captures the card under [cardKey] (a RepaintBoundary) and composes it

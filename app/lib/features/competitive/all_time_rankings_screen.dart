@@ -56,7 +56,7 @@ class RankedPlayer {
 }
 
 /// All-time rankings: the top 20 on PlayHuud for each game, and overall,
-/// by strength (every finished game adds to it — the shield's number).
+/// by the same server-calculated /100 strength shown on the cards.
 class AllTimeRankingsScreen extends StatefulWidget {
   const AllTimeRankingsScreen({super.key, this.initialGame});
 
@@ -154,7 +154,7 @@ class _AllTimeRankingsScreenState extends State<AllTimeRankingsScreen> {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 2, 20, 8),
-            child: Text('Top 20 of all time · every game you finish adds to your strength',
+            child: Text('Strength /100 · 10 human games to earn a rank. Rated games use opponent ratings and confidence; other games show a result estimate.',
                 style: TextStyle(fontSize: 13, color: n.mute)),
           ),
           Expanded(
@@ -221,7 +221,7 @@ class _AllTimeRankingsScreenState extends State<AllTimeRankingsScreen> {
             width: 38,
             child: medal != null
                 ? HuudText(medal, textAlign: TextAlign.center, style: const TextStyle(fontSize: 24))
-                : Text('#${p.rank}',
+                : Text(p.rank == 0 ? '—' : '#${p.rank}',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: n.mid)),
           ),
@@ -234,12 +234,12 @@ class _AllTimeRankingsScreenState extends State<AllTimeRankingsScreen> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: n.ink)),
-              Text('${p.gamesPlayed} games · ${p.wins} W · ${p.draws} D · ${p.losses} L',
+              Text('${p.gamesPlayed} played · ${p.wins} won · ${p.draws} drawn · ${p.losses} lost',
                   style: TextStyle(fontSize: 12, color: n.mute)),
             ]),
           ),
           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Text('${p.strength}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: n.gold)),
+            Text('${p.strength}/100', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: n.gold)),
             Text('STRENGTH',
                 style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: n.mute, letterSpacing: 1)),
           ]),

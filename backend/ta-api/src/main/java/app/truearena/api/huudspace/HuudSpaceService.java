@@ -1037,7 +1037,8 @@ public class HuudSpaceService {
                             }
                             return Mono.just(s);
                         }).defaultIfEmpty(s))
-                .flatMap(s -> rooms.create(host, null, gameType, null, config, false))
+                .flatMap(s -> rooms.create(host, null, gameType, null, config, "chess".equals(gameType)
+                        || ("draughts".equals(gameType) && config != null && Boolean.TRUE.equals(config.get("mandatoryCapture")))))
                 .flatMap(room -> db.sql("UPDATE rooms SET huud_space_id=:id WHERE id=:room")
                         .bind("id", id).bind("room", room.id()).fetch().rowsUpdated()
                         .then(db.sql("UPDATE huud_spaces SET current_room_id=:room WHERE id=:id")

@@ -268,8 +268,6 @@ void main() {
       }
       return json([]);
     });
-    expect(t.getSemantics(find.byKey(const ValueKey('huud-tab-play'))),
-        isSemantics(isSelected: true));
     expect(
         t
             .widget<HuudSpaceScreen>(find.byType(HuudSpaceScreen))
@@ -278,6 +276,12 @@ void main() {
             .gameType,
         'ludo');
     expect(gamePosts, 0);
+    expect(find.byKey(const ValueKey('huud-existing-game-dialog')), findsOneWidget);
+    expect(find.textContaining('You already have Ludo open.'), findsOneWidget);
+    await t.tap(find.byKey(const ValueKey('huud-existing-game-okay')));
+    await frames(t);
+    expect(find.byKey(const ValueKey('huud-existing-game-dialog')), findsNothing);
+    expect(t.getSemantics(find.byKey(const ValueKey('huud-tab-play'))), isSemantics(isSelected: true));
     expect(t.takeException(), isNull);
   });
 }
