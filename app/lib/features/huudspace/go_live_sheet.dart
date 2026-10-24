@@ -8,14 +8,26 @@ import 'huud_kit.dart';
 import 'huud_space_models.dart';
 import '../../widgets/huud_art.dart';
 
-/// Owner: turn the Huud Live. Asks who to tell first — every member (pushed to
-/// their phones), only the ones online now, or nobody — then goes Live.
-/// Returns the Huud as it is now, or null if they backed out.
+/// Owner: turn the Huud Live. Only one of your Huuds is Live at a time, so
+/// with another one Live it asks first whether to end that one. Then it asks
+/// who to tell — every member (pushed to their phones), only the ones online
+/// now, or nobody — and goes Live. Returns the Huud as it is now, or null if
+/// they backed out.
 Future<HuudSpace?> goLive(BuildContext context, String huudId) async {
+  final api = AppScope.of(context).api;
+  MyHuud? other;
+  try {
+    other = await otherLiveHuud(api, except: huudId);
+  } catch (_) {
+    // Can't tell — the server still refuses a second Live one, and says why.
+  }
+  if (!context.mounted) return null;
+  if (other != null && !await confirmSwitchLive(context, other)) return null;
+  if (!context.mounted) return null;
   final tell = await showHuudSheet<String>(context, builder: (_) => const _GoLiveSheet());
   if (tell == null || !context.mounted) return null;
   try {
-    final raw = await AppScope.of(context).api.post('/huud-spaces/$huudId/live', {'notify': tell});
+    final raw = await api.post('/huud-spaces/$huudId/live', {'notify': tell, if (other != null) 'switchLive': true});
     if (context.mounted) huudSnack(context, "You're Live! 🔴");
     return HuudSpace.fromJson((raw as Map).cast<String, dynamic>());
   } on ApiException catch (e) {
@@ -25,6 +37,27 @@ Future<HuudSpace?> goLive(BuildContext context, String huudId) async {
   }
   return null;
 }
+
+/// Your Huuds, from the server's list: yours only, the Live one first.
+Future<List<MyHuud>> ownHuuds(ApiClient api) async {
+  final raw = await api.get('/huud-spaces/mine') as List;
+  return [
+    for (final e in raw)
+      if (MyHuud.fromJson((e as Map).cast<String, dynamic>()) case final h when h.youOwn) h,
+  ]..sort((a, b) => (b.live ? 1 : 0) - (a.live ? 1 : 0));
+}
+
+/// Your other Huud that's Live, if one is — only one of yours can be.
+Future<MyHuud?> otherLiveHuud(ApiClient api, {String? except}) async =>
+    (await ownHuuds(api)).where((h) => h.live && h.id != except).firstOrNull;
+
+/// Before ending [other]'s Live to go Live somewhere else.
+Future<bool> confirmSwitchLive(BuildContext context, MyHuud other, {String yes = 'End it and go Live here'}) =>
+    confirmHuud(context,
+        emoji: '📡',
+        title: 'One Live at a time',
+        message: '${other.name} is Live right now. Only one of your Huuds can be Live — end it and go Live here?',
+        yes: yes);
 
 const _choices = [
   ('all', '📣', 'Tell all members', "Everyone gets a notification (unless they've muted this Huud)"),

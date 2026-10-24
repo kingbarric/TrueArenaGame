@@ -17,10 +17,18 @@ public final class HuudSpaceDtos {
     /**
      * Name and privacy make the Huud. The rest is optional: a first game to set
      * up (with its {@code mode} — Whot's "classic" or "tell"), and a short
-     * line to share it to the feed with.
+     * line to share it to the feed with. {@code another}: make a new Huud even
+     * if you have one (up to five) — without it, as older apps send, this opens
+     * the one you have. {@code switchLive}: if another of yours is Live, end
+     * its Live — a new Huud goes Live straight away, and only one can be.
      */
     public record CreateRequest(@Size(max = 40) String name, String privacy, String gameType,
-                                @Size(max = 140) String message, Boolean share, String mode, java.util.Map<String, Object> gameConfig) {
+                                @Size(max = 140) String message, Boolean share, String mode, java.util.Map<String, Object> gameConfig,
+                                Boolean another, Boolean switchLive) {
+        public CreateRequest(String name, String privacy, String gameType, String message, Boolean share, String mode,
+                             java.util.Map<String, Object> gameConfig) {
+            this(name, privacy, gameType, message, share, mode, gameConfig, null, null);
+        }
     }
 
     public record ShareRequest(@Size(max = 140) String message) {
@@ -84,8 +92,24 @@ public final class HuudSpaceDtos {
         }
     }
 
-    /** Going Live: who to tell — "all" members, "online" members only, or "none". */
-    public record GoLiveRequest(@com.fasterxml.jackson.annotation.JsonProperty("notify") String tell) {
+    /**
+     * Going Live: who to tell — "all" members, "online" members only, or "none".
+     * {@code switchLive}: end your other Huud's Live first — only one of yours
+     * can be Live, and without it that's refused.
+     */
+    public record GoLiveRequest(@com.fasterxml.jackson.annotation.JsonProperty("notify") String tell, Boolean switchLive) {
+        public GoLiveRequest(String tell) {
+            this(tell, null);
+        }
+    }
+
+    /**
+     * The Live hangout you're in somewhere else — you're in one at a time. Seen
+     * on a Huud you belong to that's Live but that you haven't walked into, so
+     * the app can offer to bring you over. {@code playing}: you're in a game
+     * there, so you finish that first.
+     */
+    public record Elsewhere(UUID id, String name, boolean playing) {
     }
 
     public record MuteRequest(Boolean muted) {
@@ -136,6 +160,8 @@ public final class HuudSpaceDtos {
      * asks ("pending", "accepted", "declined" or null); {@code requests} is what
      * the host has to answer; eligible mic cover sees mic requests only.
      * {@code quiet}: Live, but nobody in the hangout has had the app open lately.
+     * {@code elsewhere}: you belong here, it's Live, and you're in another
+     * Huud's hangout instead — opening this one doesn't pull you out of that.
      */
     public record HuudSpaceView(UUID id, String code, String name, String privacy, String status,
                                 Person host, List<Person> members, CurrentGame currentGame,
@@ -144,7 +170,8 @@ public final class HuudSpaceDtos {
                                 List<PendingRequest> requests, boolean shared, String feedMessage,
                                 int watching, String background, Instant createdAt, Instant endedAt,
                                 boolean live, boolean youOwn, boolean muted, int memberCount, int liveCount,
-                                UUID championshipId, boolean youCanManageMic, boolean findingPlayers, boolean quiet) {
+                                UUID championshipId, boolean youCanManageMic, boolean findingPlayers, boolean quiet,
+                                Elsewhere elsewhere) {
     }
 
     /**

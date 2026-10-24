@@ -175,11 +175,17 @@ class HuudSpace {
     this.liveCount = 0,
     this.championshipId,
     this.quiet = false,
+    this.elsewhere,
   });
 
   /// Live, but nobody in the hangout has had the app open for a while — it
   /// shows amber and is kept off the Live tab until someone's back.
   final bool quiet;
+
+  /// You belong here and it's Live, but you're in another Huud's hangout —
+  /// you're in one at a time. Opening this one leaves you there; Join brings
+  /// you over.
+  final HuudElsewhere? elsewhere;
 
   /// The championship on in the Huud (registering, being played, or just
   /// finished and still showing its bracket) — null when it's hanging out.
@@ -275,8 +281,25 @@ class HuudSpace {
         liveCount: (j['liveCount'] as num?)?.toInt() ?? 0,
         championshipId: j['championshipId']?.toString(),
         quiet: j['quiet'] == true,
+        elsewhere: HuudElsewhere.fromJson(j['elsewhere']),
       );
 }
+
+/// The Live hangout you're in somewhere else. [playing]: you're in a game
+/// there, so you finish that before coming over.
+class HuudElsewhere {
+  const HuudElsewhere({required this.id, required this.name, this.playing = false});
+  final String id;
+  final String name;
+  final bool playing;
+
+  static HuudElsewhere? fromJson(Object? j) => j is Map
+      ? HuudElsewhere(id: j['id'].toString(), name: j['name'] as String? ?? 'another Huud', playing: j['playing'] == true)
+      : null;
+}
+
+/// Huuds one person can have — one for each circle: family, friends, everyone.
+const kMaxHuuds = 5;
 
 /// Someone asking the host: to come in ("join"), to play ("play"), or to talk ("mic").
 class HuudRequest {

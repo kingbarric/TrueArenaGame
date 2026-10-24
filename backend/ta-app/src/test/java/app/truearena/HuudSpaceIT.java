@@ -1,5 +1,6 @@
 package app.truearena;
 import app.truearena.api.huudspace.HuudSpaceAccess;
+import app.truearena.api.huudspace.HuudSpaceDtos;
 import app.truearena.api.huudspace.HuudSpaceService;
 import app.truearena.api.huudspace.HuudSpaceRequestService;
 import app.truearena.api.huudspace.HuudSpaceChatService;
@@ -287,6 +288,105 @@ class HuudSpaceIT {
         assertThat(huuds.view(huud.id(), friend).block().joinRequest()).isEqualTo("declined");
         // Not straight back at the host's door.
         assertThatThrownBy(() -> huuds.joinByCode(friend, huud.code()).block()).isInstanceOf(ResponseStatusException.class);
+    }
+
+    /** Every Live hangout {@code user} is in right now — there should only ever be one. */
+    List<UUID> hangouts(UUID user) {
+        return db.sql("SELECT huud_space_id FROM huud_space_members WHERE user_id=:user AND live_at IS NOT NULL")
+                .bind("user", user).map((r, m) -> r.get("huud_space_id", UUID.class)).all().collectList().block();
+    }
+
+    HuudSpaceDtos.HuudSpaceView another(UUID owner, String name, boolean switchLive) {
+        return huuds.create(owner, name, "public", null, null, null, false, null, true, switchLive).block();
+    }
+
+    @Test void upToFiveHuudsEachAndOnlyOneOfThemLive() {
+        UUID owner = person("Five circles");
+        var family = huuds.create(owner, "Family", "private").block();
+        // What older apps send still opens the one you have.
+        assertThat(huuds.create(owner, null, null).block().id()).isEqualTo(family.id());
+
+        // A second one goes Live straight away, so it has to be asked for.
+        assertThatThrownBy(() -> another(owner, "Friends", false))
+                .isInstanceOf(ResponseStatusException.class).hasMessageContaining("Family is Live");
+        var friends = another(owner, "Friends", true);
+        assertThat(friends.live()).isTrue();
+        assertThat(huuds.view(family.id(), owner).block().live()).isFalse();
+        assertThat(hangouts(owner)).containsExactly(friends.id());
+
+        var numbered = another(owner, null, true);
+        assertThat(numbered.name()).endsWith(" 3");
+        another(owner, "Game night", true);
+        var church = another(owner, "Church", true);
+        assertThatThrownBy(() -> another(owner, "Sixth", true)).hasMessageContaining("5 Huuds");
+        assertThat(huuds.mine(owner).filter(HuudSpaceDtos.MyHuud::youOwn).count().block()).isEqualTo(5);
+        assertThat(huuds.mine(owner).filter(h -> h.youOwn() && h.live()).count().block()).isEqualTo(1);
+        // "Your Huud" for anything that wants one: the Live one.
+        assertThat(huuds.current(owner).block().id()).isEqualTo(church.id());
+
+        // Deleting one frees its place.
+        huuds.delete(owner, family.id()).block();
+        assertThat(another(owner, "Sixth", true).name()).isEqualTo("Sixth");
+
+        // Going Live in an offline one asks too, then takes Live over.
+        assertThatThrownBy(() -> huuds.goLive(owner, friends.id(), "none").block()).hasMessageContaining("Sixth is Live");
+        assertThat(huuds.goLive(owner, friends.id(), "none", true).block().live()).isTrue();
+        assertThat(huuds.mine(owner).filter(h -> h.youOwn() && h.live()).map(HuudSpaceDtos.MyHuud::id).collectList().block())
+                .containsExactly(friends.id());
+        assertThat(hangouts(owner)).containsExactly(friends.id());
+    }
+
+    @Test void youAreInOneHangoutAtATimeAndOpeningAnotherNeverMovesYou() {
+        UUID ama = person("Ama"), kofi = person("Kofi"), esi = person("Esi");
+        var amas = huuds.create(ama, "Ama's place", "public").block();
+        var kofis = huuds.create(kofi, "Kofi's place", "public").block();
+        huuds.join(esi, amas.id()).block();
+        assertThat(hangouts(esi)).containsExactly(amas.id());
+
+        huuds.join(esi, kofis.id()).block();
+        assertThat(hangouts(esi)).containsExactly(kofis.id());
+
+        // Looking at the other one is free: it says where you are and leaves you there.
+        var look = huuds.view(amas.id(), esi).block();
+        assertThat(look.youAreIn()).isTrue();
+        assertThat(look.elsewhere().id()).isEqualTo(kofis.id());
+        assertThat(look.elsewhere().name()).isEqualTo("Kofi's place");
+        assertThat(hangouts(esi)).containsExactly(kofis.id());
+
+        // Joining is choosing to come over.
+        huuds.join(esi, amas.id()).block();
+        assertThat(hangouts(esi)).containsExactly(amas.id());
+        assertThat(huuds.view(amas.id(), esi).block().elsewhere()).isNull();
+
+        // The owner walking into someone else's Huud hands their own on to whoever's next there.
+        huuds.join(ama, kofis.id()).block();
+        assertThat(hangouts(ama)).containsExactly(kofis.id());
+        var amasNow = huuds.view(amas.id(), esi).block();
+        assertThat(amasNow.live()).isTrue();
+        assertThat(amasNow.host().userId()).isEqualTo(esi);
+    }
+
+    @Test void nobodyIsPulledOutOfAGameTheyAreIn() {
+        UUID ama = person("Game host"), kofi = person("Other host"), esi = person("Player");
+        var amas = huuds.create(ama, "Game table", "public").block();
+        var kofis = huuds.create(kofi, "Next door", "public").block();
+        huuds.join(esi, amas.id()).block();
+        huuds.join(esi, kofis.id()).block();
+        huuds.join(esi, amas.id()).block();
+        UUID room = db.sql("INSERT INTO rooms(code,host_id,status,game_type,huud_space_id) "
+                        + "VALUES(:code,:host,'in_game','whot',:huud) RETURNING id")
+                .bind("code", UUID.randomUUID().toString().substring(0, 6).toUpperCase()).bind("host", ama).bind("huud", amas.id())
+                .map((r, m) -> r.get("id", UUID.class)).one().block();
+        db.sql("INSERT INTO room_members(room_id,user_id) VALUES(:room,:user)").bind("room", room).bind("user", esi)
+                .fetch().rowsUpdated().block();
+
+        assertThatThrownBy(() -> huuds.join(esi, kofis.id()).block())
+                .isInstanceOf(ResponseStatusException.class).hasMessageContaining("finish it first");
+        assertThat(hangouts(esi)).containsExactly(amas.id());
+        assertThat(huuds.view(kofis.id(), esi).block().elsewhere().playing()).isTrue();
+        // Nor can they make a Huud of their own and walk into it.
+        assertThatThrownBy(() -> huuds.create(esi, "Mine", "public").block()).hasMessageContaining("finish it first");
+        assertThat(huuds.mine(esi).filter(HuudSpaceDtos.MyHuud::youOwn).count().block()).isZero();
     }
 
     @Test void liveCardsTellTheGameMoveByMoveAndKeepTheChatForMembers() throws Exception {

@@ -48,14 +48,16 @@ public class HuudSpaceController {
     }
 
     @PostMapping
-    @Operation(summary = "Make a Huud (name + privacy; optionally a first game and a feed share), or reopen yours")
+    @Operation(summary = "Make a Huud (name + privacy; optionally a first game and a feed share), or reopen yours — "
+            + "with another=true, a new one (up to 5; switchLive=true ends your other one's Live)")
     public Mono<HuudSpaceView> create(@Valid @RequestBody CreateRequest body) {
         return CurrentUser.id().flatMap(user -> huuds.create(user, body.name(), body.privacy(), body.gameType(),
-                body.mode(), body.message(), Boolean.TRUE.equals(body.share()), body.gameConfig()));
+                body.mode(), body.message(), Boolean.TRUE.equals(body.share()), body.gameConfig(),
+                Boolean.TRUE.equals(body.another()), Boolean.TRUE.equals(body.switchLive())));
     }
 
     @GetMapping("/current")
-    @Operation(summary = "The Huud you host right now — empty when you host none")
+    @Operation(summary = "Your Huud: the Live one, else your newest — empty when you have none")
     public Mono<HuudSpaceView> current() {
         return CurrentUser.id().flatMap(huuds::current);
     }
@@ -199,7 +201,8 @@ public class HuudSpaceController {
     }
 
     @PostMapping("/{id}/join")
-    @Operation(summary = "Join a Huud: straight in if allowed, otherwise asks the host")
+    @Operation(summary = "Join a Huud: straight in if allowed, otherwise asks the host. While it's Live this walks "
+            + "you into its hangout — out of any other one you're in, unless you're in a game there")
     public Mono<HuudSpaceView> join(@PathVariable UUID id) {
         return CurrentUser.id().flatMap(user -> huuds.join(user, id));
     }
@@ -211,9 +214,11 @@ public class HuudSpaceController {
     }
 
     @PostMapping("/{id}/live")
-    @Operation(summary = "Owner only: go Live, telling all members, online members only, or nobody")
+    @Operation(summary = "Owner only: go Live, telling all members, online members only, or nobody — "
+            + "switchLive=true ends your other Huud's Live first")
     public Mono<HuudSpaceView> goLive(@PathVariable UUID id, @RequestBody(required = false) HuudSpaceDtos.GoLiveRequest body) {
-        return CurrentUser.id().flatMap(user -> huuds.goLive(user, id, body == null ? null : body.tell()));
+        return CurrentUser.id().flatMap(user -> huuds.goLive(user, id, body == null ? null : body.tell(),
+                body != null && Boolean.TRUE.equals(body.switchLive())));
     }
 
     @DeleteMapping("/{id}/live")

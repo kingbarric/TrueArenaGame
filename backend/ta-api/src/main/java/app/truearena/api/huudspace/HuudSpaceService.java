@@ -59,6 +59,10 @@ public class HuudSpaceService {
     static final int CODE_LENGTH = 6;
     static final int LIST_LIMIT = 40;
     static final List<String> NOTIFY = List.of("all", "online", "none");
+    /** Huuds one person can have — one for each circle: family, friends, everyone. */
+    static final int MAX_HUUDS = 5;
+    /** No Huud: stands in for "not this one" when there's no "this one". */
+    private static final UUID NOWHERE = new UUID(0, 0);
 
     private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -138,7 +142,9 @@ public class HuudSpaceService {
 
     /**
      * Your Huud: made the first time (and Live straight away — you made it to
-     * hang out), the same one every time after. One Huud per person.
+     * hang out). Asked again — as older apps do — it's the one you have: your
+     * Live one, else your newest. See the overload taking {@code another} for
+     * making more.
      */
     public Mono<HuudSpaceView> create(UUID user, String requestedName, String requestedPrivacy) {
         return create(user, requestedName, requestedPrivacy, null, null, null, false);
@@ -156,6 +162,20 @@ public class HuudSpaceService {
 
     public Mono<HuudSpaceView> create(UUID user, String requestedName, String requestedPrivacy,
                                       String gameType, String mode, String message, boolean share, Map<String, Object> gameConfig) {
+        return create(user, requestedName, requestedPrivacy, gameType, mode, message, share, gameConfig, false, false);
+    }
+
+    /**
+     * {@code another}: a new Huud even though you have one — up to
+     * {@link #MAX_HUUDS}, one for each circle. It goes Live straight away, and
+     * only one of yours can be Live: with another one Live, {@code switchLive}
+     * (the app asked you first) ends that one's Live; without it, nothing is
+     * made. Making one walks you into it, so you can't while you're in a game
+     * somewhere else.
+     */
+    public Mono<HuudSpaceView> create(UUID user, String requestedName, String requestedPrivacy,
+                                      String gameType, String mode, String message, boolean share, Map<String, Object> gameConfig,
+                                      boolean another, boolean switchLive) {
         String privacy = privacyOrDefault(requestedPrivacy);
         return users.findById(user)
                 .switchIfEmpty(Mono.error(ApiExceptions.unauthorized("unknown user")))
@@ -164,15 +184,28 @@ public class HuudSpaceService {
                         return Mono.error(ApiExceptions.forbidden(
                                 "Verify your phone or email to make a Huud — you can still join friends' Huuds"));
                     }
-                    String name = nameOrDefault(requestedName, me.displayName());
                     return tx.transactional(lock("huud-space-owner:" + user)
-                            .then(ownedId(user))
-                            .switchIfEmpty(Mono.defer(() -> freshCode().flatMap(code -> db.sql(
-                                            "INSERT INTO huud_spaces(code,name,privacy,owner_id,created_by,live_since,background) "
-                                                    + "VALUES(:code,:name,:privacy,:user,:user,now(),'blank') RETURNING id")
-                                    .bind("code", code).bind("name", name).bind("privacy", privacy).bind("user", user)
-                                    .map((r, m) -> r.get("id", UUID.class)).one()
-                                    .flatMap(id -> admitRow(id, user).then(enterLive(id, user)).thenReturn(id))))));
+                            .then(another ? Mono.<UUID>empty() : ownedId(user))
+                            .switchIfEmpty(Mono.defer(() -> owned(user).collectList().flatMap(mine -> {
+                                if (mine.size() >= MAX_HUUDS) {
+                                    return Mono.error(ApiExceptions.conflict(
+                                            "You have " + MAX_HUUDS + " Huuds already — delete one to make another"));
+                                }
+                                Owned live = mine.stream().filter(Owned::live).findFirst().orElse(null);
+                                if (live != null && !switchLive) return Mono.error(ApiExceptions.conflict(liveAlready(live.name())));
+                                // A second "Ama's Huud" gets a number rather than the same name twice.
+                                String base = nameOrDefault(requestedName, me.displayName());
+                                String name = (requestedName == null || requestedName.isBlank()) && !mine.isEmpty()
+                                        ? base + " " + (mine.size() + 1) : base;
+                                return refuseIfPlaying(user, null)
+                                        .then(live == null ? Mono.<Void>empty() : space(live.id()).flatMap(s -> stopLive(s, user)))
+                                        .then(freshCode().flatMap(code -> db.sql(
+                                                        "INSERT INTO huud_spaces(code,name,privacy,owner_id,created_by,live_since,background) "
+                                                                + "VALUES(:code,:name,:privacy,:user,:user,now(),'blank') RETURNING id")
+                                                .bind("code", code).bind("name", name).bind("privacy", privacy).bind("user", user)
+                                                .map((r, m) -> r.get("id", UUID.class)).one()))
+                                        .flatMap(id -> admitRow(id, user).then(enterLive(id, user, true)).thenReturn(id));
+                            }))));
                 })
                 .flatMap(id -> space(id).flatMap(s -> !s.live() || gameType == null || gameType.isBlank()
                                 || s.currentRoomId() != null ? Mono.<Void>empty()
@@ -182,7 +215,6 @@ public class HuudSpaceService {
                         .then(view(id, user)));
     }
 
-    /** The Huud you own, if any. */
     /** For playhuud.com/huud/CODE: a Huud that exists, by its code. */
     public Mono<HuudSpaceDtos.InvitePreview> invitePreview(String rawCode) {
         String code = rawCode == null ? "" : rawCode.trim().toUpperCase();
@@ -206,9 +238,36 @@ public class HuudSpaceService {
         return ownedId(user).flatMap(id -> view(id, user));
     }
 
+    /** "Your Huud", for anything that expects one: your Live one, else your newest. */
     private Mono<UUID> ownedId(UUID user) {
-        return db.sql("SELECT id FROM huud_spaces WHERE created_by=:user AND status='active'")
+        return db.sql("SELECT id FROM huud_spaces WHERE created_by=:user AND status='active' "
+                        + "ORDER BY (live_since IS NOT NULL) DESC, created_at DESC LIMIT 1")
                 .bind("user", user).map((r, m) -> r.get("id", UUID.class)).one();
+    }
+
+    private record Owned(UUID id, String name, boolean live) {
+    }
+
+    /** Every Huud you own. */
+    private Flux<Owned> owned(UUID user) {
+        return db.sql("SELECT id, name, live_since IS NOT NULL AS live FROM huud_spaces WHERE created_by=:user AND status='active'")
+                .bind("user", user)
+                .map((r, m) -> new Owned(r.get("id", UUID.class), r.get("name", String.class),
+                        Boolean.TRUE.equals(r.get("live", Boolean.class))))
+                .all();
+    }
+
+    /** Your other Huud that's Live, if one is — only one of yours can be. */
+    private Mono<Owned> liveOwned(UUID user, UUID except) {
+        return owned(user).filter(o -> o.live() && !o.id().equals(except)).next();
+    }
+
+    static String liveAlready(String name) {
+        return name + " is Live — only one of your Huuds can be Live at a time";
+    }
+
+    static String finishFirst(String name) {
+        return "You're in a game in " + name + " — finish it first, then come over";
     }
 
     private Mono<String> freshCode() {
@@ -254,17 +313,32 @@ public class HuudSpaceService {
      * "online": only those with the app open; "none": nobody.
      */
     public Mono<HuudSpaceView> goLive(UUID user, UUID id, String notify) {
+        return goLive(user, id, notify, false);
+    }
+
+    /**
+     * Only one of your Huuds is Live at a time: with another one Live,
+     * {@code switchLive} (the app asked you first) ends that one's Live, and
+     * without it this is refused. Going Live walks you in, so you can't while
+     * you're in a game somewhere else.
+     */
+    public Mono<HuudSpaceView> goLive(UUID user, UUID id, String notify, boolean switchLive) {
         String who = notify == null || notify.isBlank() ? "all" : notify;
         if (!NOTIFY.contains(who)) return Mono.error(ApiExceptions.badRequest("notify must be all, online or none"));
         return space(id).filter(s -> s.active() && s.createdBy().equals(user))
                 .switchIfEmpty(Mono.error(ApiExceptions.forbidden("Only the owner can take the Huud Live")))
                 .flatMap(s -> s.live() ? Mono.just(false)
-                        : tx.transactional(lock("huud-space:" + id)
+                        : refuseIfPlaying(user, id).then(tx.transactional(lock("huud-space-owner:" + user)
+                                .then(liveOwned(user, id).map(Optional::of).defaultIfEmpty(Optional.empty()))
+                                .flatMap(other -> other.isEmpty() ? Mono.<Void>empty()
+                                        : switchLive ? space(other.get().id()).flatMap(o -> stopLive(o, user))
+                                        : Mono.error(ApiExceptions.conflict(liveAlready(other.get().name()))))
+                                .then(lock("huud-space:" + id))
                                 .then(db.sql("UPDATE huud_spaces SET live_since=now(), owner_id=created_by "
                                                 + "WHERE id=:id AND live_since IS NULL")
                                         .bind("id", id).fetch().rowsUpdated()))
-                                .map(n -> n > 0))
-                .flatMap(started -> enterLive(id, user)
+                                .map(n -> n > 0)))
+                .flatMap(started -> enterLive(id, user, true)
                         .then(started && !"none".equals(who) ? announceLive(id, user, who) : Mono.<Void>empty()))
                 .then(view(id, user));
     }
@@ -341,10 +415,71 @@ public class HuudSpaceService {
     }
 
     /**
-     * In the Live hangout (opening a Live Huud is walking in). The owner
-     * coming back takes over again from whoever stepped in.
+     * Walking into a Live Huud's hangout. You're in one hangout at a time.
+     * Already in another one, {@code move} — you asked to come here — takes
+     * you out of that one first (whoever's next covers if you were hosting it),
+     * unless you're in a game there. Without it you stay where you are, and
+     * this Huud just shows where you are ({@code elsewhere}). True once you're in.
      */
-    Mono<Void> enterLive(UUID id, UUID user) {
+    Mono<Boolean> enterLive(UUID id, UUID user, boolean move) {
+        return tx.transactional(lock("huud-presence:" + user)
+                        .then(hangoutElsewhere(id, user).map(Optional::of).defaultIfEmpty(Optional.empty()))
+                        .flatMap(other -> {
+                            if (other.isEmpty()) return walkIn(id, user).thenReturn(Optional.<UUID>empty());
+                            if (!move) return Mono.<Optional<UUID>>empty();
+                            if (other.get().playing()) {
+                                return Mono.<Optional<UUID>>error(ApiExceptions.conflict(finishFirst(other.get().name())));
+                            }
+                            UUID from = other.get().id();
+                            // Both Huuds locked in one order, so two people crossing over can't deadlock.
+                            UUID first = from.compareTo(id) < 0 ? from : id;
+                            UUID second = first.equals(from) ? id : from;
+                            return lock("huud-space:" + first).then(lock("huud-space:" + second))
+                                    .then(stepOut(from, user)).then(walkIn(id, user)).thenReturn(Optional.of(from));
+                        }))
+                // Off the old Huud's voice once the move is saved.
+                .flatMap(left -> left.map(from -> dropFromVoice(from, user)).orElse(Mono.empty()).thenReturn(true))
+                .defaultIfEmpty(false);
+    }
+
+    /**
+     * Out of a hangout — not out of the Huud: you're just away there now. If
+     * you were hosting it, the next person in the hangout covers.
+     */
+    private Mono<Void> stepOut(UUID from, UUID user) {
+        return db.sql("UPDATE huud_space_members SET live_at=NULL, can_speak=false "
+                        + "WHERE huud_space_id=:id AND user_id=:user AND live_at IS NOT NULL")
+                .bind("id", from).bind("user", user).fetch().rowsUpdated()
+                .flatMap(n -> n == 0 ? Mono.<Void>empty() : space(from)
+                        .flatMap(s -> s.live() && s.ownerId().equals(user)
+                                ? handOffOrOwner(from).doOnNext(next -> {
+                                    if (!next.equals(user)) notifyMembers(from, "host", user);
+                                }).then()
+                                : Mono.<Void>empty())
+                        .doOnSuccess(v -> notifyMembers(from, "away", user)));
+    }
+
+    /** The Live hangout you're in other than {@code here} (null: any), and whether you're in a game in it. */
+    private Mono<HuudSpaceDtos.Elsewhere> hangoutElsewhere(UUID here, UUID user) {
+        return db.sql("SELECT s.id, s.name, EXISTS(SELECT 1 FROM rooms r JOIN room_members rm ON rm.room_id=r.id "
+                        + "WHERE r.huud_space_id=s.id AND r.status='in_game' AND rm.user_id=:user) AS playing "
+                        + "FROM huud_space_members m JOIN huud_spaces s ON s.id=m.huud_space_id "
+                        + "WHERE m.user_id=:user AND m.live_at IS NOT NULL AND s.status='active' AND s.live_since IS NOT NULL "
+                        + "AND s.id<>:here LIMIT 1")
+                .bind("user", user).bind("here", here == null ? NOWHERE : here)
+                .map((r, m) -> new HuudSpaceDtos.Elsewhere(r.get("id", UUID.class), r.get("name", String.class),
+                        Boolean.TRUE.equals(r.get("playing", Boolean.class))))
+                .one();
+    }
+
+    /** Making a Huud or going Live walks you in — not while you're mid-game in another one. */
+    private Mono<Void> refuseIfPlaying(UUID user, UUID here) {
+        return hangoutElsewhere(here, user).filter(HuudSpaceDtos.Elsewhere::playing)
+                .flatMap(e -> Mono.<Void>error(ApiExceptions.conflict(finishFirst(e.name()))));
+    }
+
+    /** In the hangout. The owner coming back takes over again from whoever stepped in. */
+    private Mono<Void> walkIn(UUID id, UUID user) {
         return tx.transactional(lock("huud-space:" + id).then(db.sql(
                         "UPDATE huud_space_members m SET live_at=COALESCE(m.live_at, now()), last_seen_at=now(), "
                         + "app_seen_at=now() "
@@ -394,7 +529,7 @@ public class HuudSpaceService {
                                     : straightIn).flatMap(ok -> ok
                                     ? tx.transactional(lock("huud-space:" + id).then(admitRow(id, user)))
                                         .doOnSuccess(v -> { if (m.isEmpty() || !m.get().in()) notifyMembers(id, "member", user); })
-                                        .then(enterLive(id, user))
+                                        .then(enterLive(id, user, true))
                                         .then(view(id, user))
                                     : askToJoin(s, user).then(view(id, user)));
                         }));
@@ -1205,8 +1340,9 @@ public class HuudSpaceService {
                                             : request(id, viewer, "join").map(r -> true).switchIfEmpty(request(id, viewer, "play").map(r -> true)).defaultIfEmpty(false)));
                             return allowed.flatMap(ok -> {
                                 if (!ok) return Mono.error(ApiExceptions.forbidden("This Huud isn't open to you"));
-                                // Opening a Live Huud you belong to is walking into the hangout.
-                                Mono<Void> walkIn = enter && member && s.live() ? enterLive(id, viewer) : Mono.empty();
+                                // Opening a Live Huud you belong to is walking into the hangout —
+                                // unless you're in another one: that's yours to choose (Join).
+                                Mono<Boolean> walkIn = enter && member && s.live() ? enterLive(id, viewer, false) : Mono.just(false);
                                 return walkIn.then(space(id)).flatMap(now -> membership(id, viewer)
                                         .map(Optional::of).defaultIfEmpty(Optional.empty())
                                         .flatMap(me -> Mono.zip(
@@ -1216,7 +1352,10 @@ public class HuudSpaceService {
                                                 pendingRequests(id).collectList(),
                                                 watching(id),
                                                 micApprovers(id).any(viewer::equals),
-                                                quiet(id))
+                                                quiet(id),
+                                                member && now.live()
+                                                        ? hangoutElsewhere(id, viewer).map(Optional::of).defaultIfEmpty(Optional.empty())
+                                                        : Mono.just(Optional.<HuudSpaceDtos.Elsewhere>empty()))
                                         .map(t -> {
                                             boolean host = now.active() && now.ownerId().equals(viewer);
                                             boolean owner = now.active() && now.createdBy().equals(viewer);
@@ -1239,7 +1378,7 @@ public class HuudSpaceService {
                                                     now.background(), now.createdAt(), now.endedAt(),
                                                     now.live(), owner, me.map(Membership::muted).orElse(false),
                                                     people.size(), liveCount, now.championshipId(), t.getT6(), now.findingPlayers(),
-                                                    now.live() && t.getT7());
+                                                    now.live() && t.getT7(), t.getT8().orElse(null));
                                         })));
                             });
                         }));

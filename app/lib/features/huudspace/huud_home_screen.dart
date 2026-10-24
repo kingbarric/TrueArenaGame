@@ -140,7 +140,8 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
   Widget build(BuildContext context) {
     final n = context.neon;
     final huuds = _huuds ?? const <MyHuud>[];
-    final mine = huuds.where((h) => h.youOwn).firstOrNull;
+    // Yours come first from the server, the Live one (or the newest) on top.
+    final mine = huuds.where((h) => h.youOwn).toList();
     final others = huuds.where((h) => !h.youOwn).toList();
 
     return Scaffold(
@@ -169,10 +170,20 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
                       message: userErrorMessage,
                       action: HuudButton(label: 'Try again', icon: Icons.refresh_rounded, onPressed: _load),
                     )
-                  else if (mine == null)
+                  else if (mine.isEmpty)
                     _makeHero()
-                  else
-                    _yourHuud(mine),
+                  else ...[
+                    _yourHuudsHeader(n, mine.length),
+                    _yourHuud(mine.first),
+                    for (final h in mine.skip(1)) ...[const SizedBox(height: 10), _ownHuud(n, h)],
+                    if (mine.length >= kMaxHuuds)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: Text("That's $kMaxHuuds — the most you can have. Delete one in its settings to make another.",
+                            key: const ValueKey('huud-limit'),
+                            style: TextStyle(fontSize: 14, height: 1.35, color: n.mid)),
+                      ),
+                  ],
                   const SizedBox(height: 14),
                   _codeCard(n),
                   const SizedBox(height: 28),
@@ -260,7 +271,85 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
         ]),
       );
 
-  /// Your Huud: Live now, or offline with a big Go Live.
+  /// "Your Huuds 2/5", and a way to make another while there's room.
+  Widget _yourHuudsHeader(NeonColors n, int count) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Row(children: [
+          Flexible(
+            child: Text('Your Huuds',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: n.ink)),
+          ),
+          const SizedBox(width: 8),
+          Text('$count/$kMaxHuuds',
+              key: const ValueKey('huud-count'), style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: n.mute)),
+          const Spacer(),
+          if (count < kMaxHuuds)
+            TextButton.icon(
+              key: const ValueKey('huud-new'),
+              style: TextButton.styleFrom(
+                foregroundColor: HuudColors.of(context).orangeText,
+                minimumSize: const Size(48, 48),
+                textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+              ),
+              onPressed: _make,
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('New Huud'),
+            ),
+        ]),
+      );
+
+  /// One of your other Huuds: Live (go in) or offline (Go Live).
+  Widget _ownHuud(NeonColors n, MyHuud h) {
+    final hc = HuudColors.of(context);
+    final status = huudStatusLine(
+        live: h.live,
+        liveCount: h.liveCount,
+        memberCount: h.memberCount,
+        game: h.gameType == null ? null : huudGameName(h.gameType),
+        gameStatus: h.gameStatus,
+        championship: h.championship,
+        quiet: h.quiet);
+    return HuudCard(
+      key: ValueKey('own-huud-${h.id}'),
+      highlight: h.live && !h.quiet,
+      onTap: () => _open(h.id),
+      padding: const EdgeInsets.all(14),
+      child: Row(children: [
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Flexible(
+                child: Text(h.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: n.ink)),
+              ),
+              const SizedBox(width: 6),
+              HuudText(h.privacy.emoji, style: const TextStyle(fontSize: 14)),
+            ]),
+            const SizedBox(height: 2),
+            HuudText(status,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: h.live && !h.quiet ? hc.orangeText : n.mute)),
+          ]),
+        ),
+        const SizedBox(width: 8),
+        h.live
+            ? HuudLiveChip(quiet: h.quiet)
+            : HuudButton(
+                key: ValueKey('huud-go-live-${h.id}'),
+                label: _goingLive == h.id ? 'Going…' : 'Go Live',
+                icon: Icons.sensors_rounded,
+                kind: HuudButtonKind.soft,
+                onPressed: () => _goLive(h)),
+      ]),
+    );
+  }
+
+  /// Your Live Huud (or newest): Live now, or offline with a big Go Live.
   Widget _yourHuud(MyHuud h) {
     final status = huudStatusLine(
         live: h.live,
