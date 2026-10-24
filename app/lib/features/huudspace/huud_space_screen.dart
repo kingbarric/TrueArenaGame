@@ -34,8 +34,8 @@ import '../competitive/player_profile_screen.dart';
 import '../../widgets/huud_art.dart';
 
 Future<void> openHuudSpace(BuildContext context, String id,
-        {HuudSpace? initial, bool startOnGame = false}) =>
-    Navigator.of(context).push(huudRoute(id, initial: initial, startOnGame: startOnGame));
+        {HuudSpace? initial, bool startOnGame = false, String? gameNotice}) =>
+    Navigator.of(context).push(huudRoute(id, initial: initial, startOnGame: startOnGame, gameNotice: gameNotice));
 
 Future<void> requestPublicHuudSeat(BuildContext context, String id) async {
   final raw = await AppScope.of(context)
@@ -49,16 +49,16 @@ Future<void> requestPublicHuudSeat(BuildContext context, String id) async {
 /// Named so a finished game can find its way back to the Huud (`leaveGame`).
 String huudRouteName(String id) => 'huud/$id';
 
-Route<void> huudRoute(String id, {HuudSpace? initial, bool startOnGame = false}) =>
-    HuudSpaceRoute(id, initial: initial, startOnGame: startOnGame);
+Route<void> huudRoute(String id, {HuudSpace? initial, bool startOnGame = false, String? gameNotice}) =>
+    HuudSpaceRoute(id, initial: initial, startOnGame: startOnGame, gameNotice: gameNotice);
 
 class HuudSpaceRoute extends MaterialPageRoute<void> {
-  factory HuudSpaceRoute(String id, {HuudSpace? initial, bool startOnGame = false}) =>
-      HuudSpaceRoute._(id, GlobalKey<_HuudSpaceScreenState>(), initial, startOnGame);
+  factory HuudSpaceRoute(String id, {HuudSpace? initial, bool startOnGame = false, String? gameNotice}) =>
+      HuudSpaceRoute._(id, GlobalKey<_HuudSpaceScreenState>(), initial, startOnGame, gameNotice);
 
-  HuudSpaceRoute._(this.huudId, this._huudKey, HuudSpace? initial, bool startOnGame)
+  HuudSpaceRoute._(this.huudId, this._huudKey, HuudSpace? initial, bool startOnGame, String? gameNotice)
       : super(settings: RouteSettings(name: huudRouteName(huudId)),
-          builder: (_) => HuudSpaceScreen(key: _huudKey, id: huudId, initial: initial, startOnGame: startOnGame));
+          builder: (_) => HuudSpaceScreen(key: _huudKey, id: huudId, initial: initial, startOnGame: startOnGame, gameNotice: gameNotice));
   final String huudId;
   final GlobalKey<_HuudSpaceScreenState> _huudKey;
   bool containsGame(String roomId) => _huudKey.currentState?._huud?.currentGame?.roomId == roomId;
@@ -81,6 +81,7 @@ class HuudSpaceScreen extends StatefulWidget {
       required this.id,
       this.initial,
       this.startOnGame = false,
+      this.gameNotice,
       this.previewSpeakingIds = const {}});
 
   final String id;
@@ -88,6 +89,7 @@ class HuudSpaceScreen extends StatefulWidget {
 
   /// Entering from a selected game goes straight to its setup and players.
   final bool startOnGame;
+  final String? gameNotice;
   @visibleForTesting
   final Set<String> previewSpeakingIds;
 
@@ -149,6 +151,17 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _load();
       _loadFriends();
+      final notice = widget.gameNotice;
+      if (mounted && notice != null) {
+        showDialog<void>(context: context, builder: (dialogContext) => AlertDialog(
+          key: const ValueKey('huud-existing-game-dialog'),
+          icon: const HuudSymbol('😂', size: 64),
+          title: const Text('You already have a game open'),
+          content: Text(notice),
+          actions: [TextButton(key: const ValueKey('huud-existing-game-okay'),
+            onPressed: () => Navigator.pop(dialogContext), child: const Text('Okay'))],
+        ));
+      }
     });
   }
 

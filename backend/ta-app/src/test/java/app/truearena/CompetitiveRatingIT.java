@@ -90,6 +90,7 @@ class CompetitiveRatingIT {
     @Autowired CompetitiveProfileService profiles;
     @Autowired UserRepository users;
     @Autowired DatabaseClient db;
+    @Autowired app.truearena.api.competitive.StrengthService strengths;
 
     // ---------------------------------------------------------------- fixtures
 
@@ -173,6 +174,37 @@ class CompetitiveRatingIT {
         assertThat(profiles.matchesOf(me, "whot", 10, "historyalex", since, until).block()).isEmpty();
         assertThat(profiles.matchesOf(me, null, 10, "HistoryAlex", until, until.plusSeconds(1)).block()).isEmpty();
         assertThat(profiles.matchesOf(me, null, 10, "%", null, null).block()).isEmpty();
+    }
+
+    @Test
+    void strengthUsesRealHumanResultsAndOneCanonicalScoreForCardsAndBoards() {
+        UUID novice = human("StrengthNew"), veteran = human("StrengthVeteran"), stronger = human("StrengthElite");
+        seedRated(novice, 1800, 3, "NG", "NG-RI");
+        seedRated(veteran, 1800, 100, "NG", "NG-RI");
+        seedRated(stronger, 2200, 100, "NG", "NG-RI");
+        var n = strengths.forUser(novice).block().get("draughts");
+        var v = strengths.forUser(veteran).block().get("draughts");
+        var s = strengths.forUser(stronger).block().get("draughts");
+        assertThat(n.score()).isBetween(0, 100).isLessThan(v.score());
+        assertThat(n.ranks().global().rank()).isNull();
+        assertThat(n.ranks().country().status()).isEqualTo("provisional");
+        assertThat(s.score()).isGreaterThan(v.score());
+        assertThat(s.ranks().global().rank()).isLessThan(v.ranks().global().rank());
+        assertThat(s.ranks().country().rank()).isNotNull();
+        assertThat(s.ranks().region().rank()).isNotNull();
+        var card = profiles.profileOf(stronger, true).block().games().stream().filter(g->g.gameType().equals("draughts")).findFirst().orElseThrow();
+        assertThat(card.strength().score()).isEqualTo(s.score());
+        assertThat(card.rating()).isEqualTo(2200);
+        assertThat(strengths.top("draughts").block().stream().filter(e->e.userId().equals(stronger)).findFirst().orElseThrow().score()).isEqualTo(card.strength().score());
+
+        UUID casual = human("StrengthCasual"), opponent = human("StrengthOpponent"), bot = agent();
+        for(int i=0;i<12;i++) play(session(casual,false),casual,opponent);
+        var estimate = strengths.forUser(casual).block().get("draughts");
+        assertThat(estimate.basis()).isEqualTo("estimate");
+        assertThat(estimate.games()).isEqualTo(5); // Same-opponent daily cap.
+        assertThat(estimate.ranks().global().rank()).isNull();
+        for(int i=0;i<3;i++) play(session(casual,false),casual,bot);
+        assertThat(strengths.forUser(casual).block().get("draughts").score()).isEqualTo(estimate.score());
     }
 
     // ---------------------------------------------------------------- PlayHuud number

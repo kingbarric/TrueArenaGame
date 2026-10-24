@@ -14,6 +14,7 @@ import 'competitive_setup_screen.dart';
 import 'competitive_widgets.dart';
 import 'leaderboard_screen.dart';
 import 'card_share.dart';
+import 'all_time_rankings_screen.dart';
 import 'champion_badges.dart';
 import 'player_card.dart';
 import '../status/victory_status.dart';
@@ -237,12 +238,12 @@ class CompetitiveRecordSection extends StatelessWidget {
         cards: cards,
         onOpen: (card) {
           final game = card.gameType;
-          if (game == null) return;
+          if (game == null) {
+            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AllTimeRankingsScreen()));
+            return;
+          }
           if (!card.ranked) {
-            // Only some games have ratings so far; the card is there (in its
-            // colours) so the set is complete, but there's no page behind it yet.
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text('Rankings for ${gameDisplayName(game)} are coming soon.')));
+            Navigator.of(context).push(MaterialPageRoute(builder: (_) => AllTimeRankingsScreen(initialGame: game)));
             return;
           }
           Navigator.of(context)

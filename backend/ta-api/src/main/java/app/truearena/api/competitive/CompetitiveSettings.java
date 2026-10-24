@@ -35,7 +35,7 @@ public class CompetitiveSettings {
     private final int maxLocationChanges;
 
     public CompetitiveSettings(
-            @Value("${truearena.competitive.rated-game-types:draughts}") String ratedGameTypes,
+            @Value("${truearena.competitive.rated-game-types:draughts,chess}") String ratedGameTypes,
             @Value("${truearena.competitive.placement-games:10}") int placementGames,
             @Value("${truearena.competitive.max-rated-games-per-pair-per-day:5}") int maxRatedGamesPerPairPerDay,
             @Value("${truearena.competitive.location-cooldown-days:30}") int locationCooldownDays,
@@ -50,7 +50,7 @@ public class CompetitiveSettings {
 
     /** Defaults, for tests and anywhere a Spring context isn't available. */
     public static CompetitiveSettings defaults() {
-        return new CompetitiveSettings("draughts", 10, 5, 30, 3);
+        return new CompetitiveSettings("draughts,chess", 10, 5, 30, 3);
     }
 
     public Set<String> ratedGameTypes() {

@@ -83,7 +83,7 @@ truearena:
   competitive:
     # Games with a skill rating + leaderboards (comma-separated). Adding a game
     # here is all it takes once its GameModule exists — see CompetitiveSettings.
-    rated-game-types: ${COMPETITIVE_RATED_GAMES:draughts}
+    rated-game-types: ${COMPETITIVE_RATED_GAMES:draughts,chess}
     # Rated games before a player stops being provisional and can appear on a board.
     placement-games: 10
     # Rated games one pair of accounts can play against each other per 24h

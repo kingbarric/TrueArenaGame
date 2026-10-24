@@ -9,6 +9,8 @@ import '../core/app_state.dart';
 import '../core/models.dart';
 import '../features/shell/main_shell.dart';
 import '../features/profile/match_history_box.dart';
+import '../features/competitive/player_profile_screen.dart';
+import '../features/competitive/competitive_models.dart';
 import '../theme/neon_theme.dart';
 
 Future<void> main() async {
@@ -96,7 +98,7 @@ Future<void> main() async {
         }
       }
   ];
-  String? selectedGame, selectedMode;
+  String? selectedGame = const bool.fromEnvironment('PREVIEW_GAME_CONFLICT') ? 'whot' : null, selectedMode;
   Map<String, dynamic> gameHuud() => {
     ...rooms[1], 'status': 'active', 'code': 'PRE123', 'live': true,
     'youAreHost': true, 'youOwn': true, 'youAreIn': true,
@@ -121,7 +123,7 @@ Future<void> main() async {
       final q = request.url.queryParameters;
       final history = [for (var i = 0; i < 18; i++) {
         'matchId': 'preview-match-$i', 'gameType': ['whot','chess','ludo'][i % 3],
-        'outcome': i % 3 == 0 ? 'loss' : 'win',
+        'outcome': i % 3 == 0 ? 'lost' : 'won',
         'completedAt': now.subtract(Duration(hours: i * 5)).toIso8601String(),
         'opponents': [{'userId': 'preview-player-$i', 'username': i.isEven ? 'alex' : 'beverly', 'displayName': i.isEven ? 'Alex' : 'Beverly'}],
       }];
@@ -178,6 +180,15 @@ Future<void> main() async {
         id: 'me', displayName: 'Riley', username: 'riley', isGuest: false)
     ..identity = Identity.account;
   state.onlineFriends.value = {'beverly', 'alex', 'chloe'};
+  final strength = {'score':63,'basis':'glicko2','games':100,'ranks': {
+    'global':{'rank':23,'status':'ranked'},'country':{'rank':13,'status':'ranked'},'region':{'rank':2,'status':'ranked'}}};
+  final profile = CompetitiveProfile.fromJson({
+    'userId':'me','username':'riley','displayName':'Riley','playhuudId':'#000127',
+    'strength':strength, 'profileComplete':true,
+    'location':{'countryCode':'NG','countryName':'Nigeria','regionCode':'NG-RI','regionName':'Rivers'},
+    'games':[for(final game in ['draughts','chess']) {'gameType':game,'rating':1842,'strength':strength,
+      'provisional':false,'stats':{'gamesPlayed':12,'wins':3,'losses':9,'winRate':.25}}],
+  });
   runApp(AppScope(
       state: state,
       child: MaterialApp(
@@ -185,7 +196,9 @@ Future<void> main() async {
           theme: const bool.fromEnvironment('PREVIEW_LIGHT')
               ? NeonTheme.light
               : NeonTheme.dark,
-          home: const bool.fromEnvironment('PREVIEW_HISTORY')
+          home: const bool.fromEnvironment('PREVIEW_PROFILE')
+              ? Scaffold(appBar: AppBar(title: const Text('Profile'),actions:[Builder(builder:(context)=>IconButton(tooltip:'Preview Games',icon:const Icon(Icons.sports_esports),onPressed:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>const MainShell(initialIndex:2)))))]),body:SingleChildScrollView(child:Column(children:[CompetitiveRecordSection(profile:profile,own:false,ratedGames:const ['draughts','chess']),const Padding(padding:EdgeInsets.all(16),child:MatchHistoryBox())])))
+              : const bool.fromEnvironment('PREVIEW_HISTORY')
               ? Scaffold(appBar: AppBar(title: const Text('Profile')), body: const SingleChildScrollView(padding: EdgeInsets.all(16), child: MatchHistoryBox()))
               : const MainShell(initialIndex: 0))));
 }

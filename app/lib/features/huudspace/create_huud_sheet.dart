@@ -467,8 +467,9 @@ Future<void> openHuudForGame(BuildContext context, String gameType, {VoidCallbac
       if (context.mounted) huudSnack(context, userErrorMessage);
       return;
     }
-  } else if (game.gameType != gameType) {
-    huudSnack(context, '${huudGameName(game.gameType)} is on in your Huud — finish it first');
   }
-  if (context.mounted) await openHuudSpace(context, huud.id, initial: huud, startOnGame: true);
+  final notice = game != null && !game.finished && game.gameType != gameType
+      ? 'You already have ${huudGameName(game.gameType)} open. End it or put it away from this Games tab before choosing ${huudGameName(gameType)}.'
+      : null;
+  if (context.mounted) await openHuudSpace(context, huud.id, initial: huud, startOnGame: true, gameNotice: notice);
 }

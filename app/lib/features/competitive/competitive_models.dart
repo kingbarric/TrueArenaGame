@@ -125,14 +125,6 @@ class GameStats {
   final int tournamentWins;
   final int casualGames;
 
-  /// Grows with every game you finish: +20 a win, +8 a draw, +3 a loss
-  /// (resigning is a loss). It never goes down — playing always counts.
-  int get strength => wins * strengthPerWin + draws * strengthPerDraw + losses * strengthPerLoss;
-
-  static const strengthPerWin = 20;
-  static const strengthPerDraw = 8;
-  static const strengthPerLoss = 3;
-
   factory GameStats.fromJson(Object? raw) {
     if (raw is! Map) return const GameStats();
     final j = raw.cast<String, dynamic>();
@@ -152,11 +144,28 @@ class GameStats {
   }
 }
 
+/// Calculated by the server, shared with the strength boards.
+class PlayerStrength {
+  const PlayerStrength({this.score = 0, this.basis = 'unavailable', this.games = 0, this.ranks = const GameRanks()});
+  final int score;
+  final String basis;
+  final int games;
+  final GameRanks ranks;
+  String get status => games == 0 ? 'Getting started' : games < 10 ? 'Building' : basis == 'glicko2' ? 'Rated' : 'Estimate';
+  factory PlayerStrength.fromJson(Object? raw) {
+    if (raw is! Map) return const PlayerStrength();
+    return PlayerStrength(score: ((raw['score'] as num?)?.toInt() ?? 0).clamp(0,100),
+      basis: raw['basis'] as String? ?? 'unavailable', games: (raw['games'] as num?)?.toInt() ?? 0,
+      ranks: GameRanks.fromJson(raw['ranks']));
+  }
+}
+
 class GameRecord {
   const GameRecord({
     required this.gameType,
     this.rating,
     this.peakRating,
+    this.strength = const PlayerStrength(),
     this.provisional = true,
     this.placementGamesPlayed = 0,
     this.placementGamesRequired = 10,
@@ -167,6 +176,7 @@ class GameRecord {
   final String gameType;
   final int? rating;
   final int? peakRating;
+  final PlayerStrength strength;
   final bool provisional;
   final int placementGamesPlayed;
   final int placementGamesRequired;
@@ -178,6 +188,7 @@ class GameRecord {
 
   factory GameRecord.fromJson(Map<String, dynamic> j) => GameRecord(
         gameType: j['gameType'] as String,
+        strength: PlayerStrength.fromJson(j['strength']),
         rating: (j['rating'] as num?)?.toInt(),
         peakRating: (j['peakRating'] as num?)?.toInt(),
         provisional: j['provisional'] as bool? ?? true,
@@ -223,6 +234,7 @@ class CompetitiveProfile {
     required this.username,
     required this.displayName,
     this.avatarUrl,
+    this.strength = const PlayerStrength(),
     this.playhuudNumber,
     this.playhuudId,
     this.founding,
@@ -239,6 +251,7 @@ class CompetitiveProfile {
   final String username;
   final String displayName;
   final String? avatarUrl;
+  final PlayerStrength strength;
   final int? playhuudNumber;
 
   /// Server-formatted, e.g. "#000127".
@@ -269,6 +282,7 @@ class CompetitiveProfile {
 
   factory CompetitiveProfile.fromJson(Map<String, dynamic> j) => CompetitiveProfile(
         userId: j['userId'] as String,
+        strength: PlayerStrength.fromJson(j['strength']),
         username: j['username'] as String? ?? '',
         displayName: j['displayName'] as String? ?? 'Player',
         avatarUrl: j['avatarUrl'] as String?,

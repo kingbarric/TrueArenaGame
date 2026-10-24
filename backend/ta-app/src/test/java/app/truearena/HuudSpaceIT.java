@@ -1018,25 +1018,37 @@ class HuudSpaceIT {
                 .bind("w", wins).bind("l", losses).bind("d", draws).fetch().rowsUpdated().block();
     }
 
-    @Test void allTimeRankingsOrderEveryoneByStrengthPerGameAndOverall() {
+    @Test void activityTotalsAloneCannotManufactureSkillOrPublicRanks() {
         String game = "zz" + UUID.randomUUID().toString().substring(0, 6); // a board of our own
         UUID ada = person("Ada Obi");
         UUID tobi = person("Tobi Ade");
         UUID zara = person("Zara Bello");
         UUID bot = guest("Guest");
-        played(ada, game, 3, 0, 1);   // 63
-        played(tobi, game, 1, 2, 5);  // 51
-        played(zara, game, 4, 0, 0);  // 80
+        played(ada, game, 3, 0, 1);
+        played(tobi, game, 1, 2, 5);
+        played(zara, game, 4, 0, 0);
         played(bot, game, 50, 0, 0);  // guests aren't ranked
 
         var board = rankings.ranking(game, tobi).block();
-        assertThat(board.top()).extracting("userId").containsExactly(zara, ada, tobi);
-        assertThat(board.top()).extracting("strength").containsExactly(80L, 63L, 51L);
-        assertThat(board.you().rank()).isEqualTo(3);
-
+        // Imported/legacy activity totals without real human match evidence
+        // cannot manufacture skill or a public place.
+        assertThat(board.top()).isEmpty();
+        assertThat(board.you().rank()).isZero();
+        assertThat(board.you().strength()).isZero();
         var overall = rankings.ranking(null, ada).block();
-        assertThat(overall.top()).hasSizeLessThanOrEqualTo(20);
-        assertThat(overall.you().strength()).isGreaterThanOrEqualTo(63L);
+        assertThat(overall.you().strength()).isZero();
+    }
+
+    @Test void chessAndOfficialDraughtsRequestCompetitiveRatingsWithoutChangingCasualRules() {
+        for (String mode : List.of("chess", "official", "casual")) {
+            UUID host = person("Rating " + mode);
+            var huud = huuds.create(host, "Rating room", "friends").block();
+            var room = huuds.addGame(host, huud.id(), mode.equals("chess") ? "chess" : "draughts",
+                    mode.equals("chess") ? null : mode, false).block();
+            Boolean ranked = db.sql("SELECT ranked FROM rooms WHERE id=:id").bind("id",room.id())
+                    .map(r->r.get("ranked",Boolean.class)).one().block();
+            assertThat(ranked).isEqualTo(!mode.equals("casual"));
+        }
     }
 
     @Test void anInviteLinkShowsTheHuudsNameOwnerAndHowManyAreInIt() {
