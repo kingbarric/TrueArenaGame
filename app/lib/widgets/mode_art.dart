@@ -42,8 +42,8 @@ class ModeArtBackdrop extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  n.panel.withValues(alpha: dark ? 0.9 : 0.93),
-                  n.panel.withValues(alpha: dark ? 0.74 : 0.82),
+                  n.panel.withValues(alpha: dark ? 0.8 : 0.85),
+                  n.panel.withValues(alpha: dark ? 0.6 : 0.7),
                 ],
               ),
             ),
