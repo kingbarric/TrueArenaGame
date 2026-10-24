@@ -277,6 +277,7 @@ void main() {
         'ludo');
     expect(gamePosts, 0);
     expect(find.byKey(const ValueKey('huud-existing-game-dialog')), findsOneWidget);
+    expect(t.widget<AlertDialog>(find.byKey(const ValueKey('huud-existing-game-dialog'))).backgroundColor!.a, 1.0);
     expect(find.textContaining('You already have Ludo open.'), findsOneWidget);
     await t.tap(find.byKey(const ValueKey('huud-existing-game-okay')));
     await frames(t);
