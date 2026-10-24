@@ -1,3 +1,4 @@
+import '../../widgets/match_coin_reward.dart';
 import '../../core/api_client.dart' show userRetryMessage;
 import 'dart:async';
 import 'dart:ui' as ui;
@@ -114,7 +115,6 @@ class _ChessGameScreenState extends State<ChessGameScreen>
   final TextEditingController _chatController = TextEditingController();
   int _spectatorCount = 0;
   bool _spectatorsMuted = false;
-  int? _coinsAwarded;
   bool _showResults = true;
   bool _musicOn = GameMusic.enabled;
   bool _sfxOn = GameSfx.enabled;
@@ -323,8 +323,6 @@ class _ChessGameScreenState extends State<ChessGameScreen>
             ? 'Draw · ${describeResult(data['reason']?.toString())}'
             : '${_label(_view.playerFor(winner ?? 'white'))} wins · '
                 '${describeResult(data['reason']?.toString())}');
-      case 'COINS_AWARDED':
-        setState(() => _coinsAwarded = data['amount'] as int?);
       case 'SPECTATOR_COUNT':
         setState(
             () => _spectatorCount = data['count'] as int? ?? _spectatorCount);
@@ -1585,13 +1583,8 @@ class _ChessGameScreenState extends State<ChessGameScreen>
                       fontSize: 18,
                       fontWeight: FontWeight.w900,
                       fontFeatures: [ui.FontFeature.tabularFigures()])),
-              if (_coinsAwarded != null) ...[
-                const SizedBox(height: 8),
-                Text('+$_coinsAwarded ${_coinsAwarded == 1 ? 'coin' : 'coins'}',
-                    style: const TextStyle(
-                        color: _gold, fontWeight: FontWeight.w800)),
-              ],
               const SizedBox(height: 14),
+              if (!widget.spectating) MatchCoinReward(roomId: widget.socket.roomId, foregroundColor: _cream),
               if (won)
                 VictoryShareButton(
                     roomId: widget.socket.roomId, gameType: 'chess'),

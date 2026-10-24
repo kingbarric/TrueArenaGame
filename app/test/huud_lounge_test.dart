@@ -139,14 +139,14 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('grid reaches everyone and switches back to the same 3D room',
+  testWidgets('Players view reaches everyone and switches back to the same Huud room',
       (tester) async {
     String? tapped;
     await pumpRoom(tester, members,
         onPerson: (p) => tapped = p.userId, speaking: {'1'});
     await tester.tap(find.byKey(const ValueKey('huud-table-next')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Grid'));
+    await tester.tap(find.text('Players'));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('huud-scene-viewport')), findsNothing);
     expect(find.text('Talking now'), findsOneWidget);
@@ -160,7 +160,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('huud-grid-15')));
     await tester.pumpAndSettle();
     expect(tapped, '15');
-    await tester.tap(find.text('3D'));
+    await tester.tap(find.text('Huud'));
     await tester.pumpAndSettle();
     expect(find.text('Room 2 of 2'), findsOneWidget);
     expect(find.byKey(const ValueKey('huud-scene-viewport')), findsOneWidget);

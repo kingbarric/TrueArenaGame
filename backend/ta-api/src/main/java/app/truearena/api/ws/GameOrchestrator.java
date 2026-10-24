@@ -1680,13 +1680,11 @@ public class GameOrchestrator {
         Mono<Void> endRoom = updateRoomStatus(rt.roomId, "ended");
         Mono<Void> stats = win == null ? Mono.empty() : updateStats(rt, win.perPlayerOutcome());
         Mono<Void> coinRewards = win == null ? Mono.empty() : awardCoins(rt, win.perPlayerOutcome());
-        Mono<Void> stakePayout = win == null ? Mono.empty()
-                : rooms.findById(rt.roomId).flatMap(room -> payoutStake(room, win.perPlayerOutcome())).then();
         Mono<Void> tournament = championships == null || win == null ? Mono.empty()
                 : championships.gameFinished(rt.roomId, rt.gameSessionId, win.perPlayerOutcome());
         Mono<Void> competitive = win == null ? Mono.empty() : recordCompetitive(rt, win);
         return saveResult.then(flushEvents).then(endSession).then(endRoom).then(stats).then(coinRewards)
-                .then(stakePayout).then(tournament).then(competitive).then(releaseAgents(rt.roomId));
+                .then(tournament).then(competitive).then(releaseAgents(rt.roomId));
     }
 
     /**
@@ -1724,118 +1722,17 @@ public class GameOrchestrator {
                 .then();
     }
 
-    /**
-     * The staked pot (stake × player count) splits evenly among winners —
-     * "won" and "tied" both count as a winner here (a module reports "tied"
-     * for a genuine joint win, e.g. Goosi's shared high score or an agreed
-     * Draughts draw). A no-op
-     * for an unstaked room ({@code stakeCoins == 0}), and never blocks or
-     * undoes the participation-coin rewards above if it fails.
-     */
-    private Mono<Void> payoutStake(RoomRow room, Map<String, String> perPlayerOutcome) {
-        if (room.stakeCoins() <= 0) {
-            return Mono.empty();
-        }
-        List<String> winners = perPlayerOutcome.entrySet().stream()
-                .filter(e -> "won".equals(e.getValue()) || "tied".equals(e.getValue()))
-                .map(Map.Entry::getKey)
-                .toList();
-        if (winners.isEmpty()) {
-            return Mono.empty();
-        }
-        long pot = room.stakeCoins() * perPlayerOutcome.size();
-        long share = pot / winners.size();
-        long remainder = pot - share * winners.size(); // integer-division leftover — first winner gets the odd coin, nothing is lost
-        return Flux.fromIterable(winners)
-                .index()
-                .flatMap(t -> {
-                    UUID userId;
-                    try {
-                        userId = UUID.fromString(t.getT2());
-                    } catch (IllegalArgumentException ex) {
-                        return Mono.empty();
-                    }
-                    long amount = share + (t.getT1() == 0 ? remainder : 0);
-                    if (amount <= 0) {
-                        return Mono.empty();
-                    }
-                    return coins.credit(userId, amount, CoinService.REASON_MATCH_STAKE_PAYOUT, room.id())
-                            .onErrorResume(err -> {
-                                log.warn("stake payout failed for user {} in room {}: {}", userId, room.id(), err.toString());
-                                return Mono.empty();
-                            });
-                })
-                .then();
-    }
+    @org.springframework.beans.factory.annotation.Autowired
+    private app.truearena.api.coins.MatchRewardService matchRewards;
 
-    /**
-     * A flat participation/result reward, generic across every game type —
-     * built straight off {@code WinResult.perPlayerOutcome()} (every module
-     * produces this the same shape) rather than {@code roleRows}, which is
-     * TrueArena-specific and empty for Draughts/Word Bluff/Goosi. Best-
-     * effort per player: one payout failing (e.g. a bot's row, or any
-     * transient error) never undoes the result/session writes above, and
-     * never blocks the others.
-     */
-    /**
-     * Pays out at the end of a match — but only a match against another
-     * person. Cyber Agents are a free, always-available shared pool (see
-     * {@code BotService}), so a match against one pays nothing at all, win
-     * or lose: any positive payout there would make grinding the nearest
-     * free agent a zero-cost, zero-risk way to mint coins. See the class
-     * doc on {@link CoinService}. Agents themselves are never paid either —
-     * they have nothing to spend it on, and a bot's balance would only
-     * muddy the ledger.
-     *
-     * <p>Each player is told what they earned (zero, against an agent) so
-     * the results screen can show it, rather than the number quietly
-     * changing — or conspicuously not changing — in their wallet.
-     */
     private Mono<Void> awardCoins(RoomRuntime rt, Map<String, String> perPlayerOutcome) {
-        List<UUID> ids = perPlayerOutcome.keySet().stream()
-                .map(GameOrchestrator::parseUuid)
-                .filter(Objects::nonNull)
-                .toList();
-        if (ids.isEmpty()) {
-            return Mono.empty();
-        }
-        return Flux.fromIterable(ids)
-                .concatMap(users::findById)
-                .collectList()
-                .flatMapMany(rows -> {
-                    boolean vsAgent = rows.stream().anyMatch(UserRow::isBot);
-                    return Flux.fromIterable(rows)
-                            .filter(u -> !u.isBot())
-                            .concatMap(u -> {
-                                if (vsAgent) {
-                                    rt.tellUser(u.id().toString(), Envelope.of(MessageType.EVENT, Map.of(
-                                            "type", "COINS_AWARDED",
-                                            "data", Map.of("amount", 0L, "vsAgent", true))));
-                                    return Mono.<Void>empty();
-                                }
-                                String outcome = perPlayerOutcome.getOrDefault(u.id().toString(), "lost");
-                                long amount = switch (outcome) {
-                                    case "won" -> CoinService.WIN_VS_PERSON;
-                                    case "tied" -> CoinService.TIE_VS_PERSON;
-                                    default -> CoinService.LOSS_VS_PERSON;
-                                };
-                                String reason = switch (outcome) {
-                                    case "won" -> CoinService.REASON_MATCH_WIN;
-                                    case "tied" -> CoinService.REASON_MATCH_TIE;
-                                    default -> CoinService.REASON_MATCH_LOSS;
-                                };
-                                return coins.credit(u.id(), amount, reason, null)
-                                        .doOnSuccess(balance -> rt.tellUser(u.id().toString(),
-                                                Envelope.of(MessageType.EVENT, Map.of(
-                                                        "type", "COINS_AWARDED",
-                                                        "data", Map.of("amount", amount, "vsAgent", false)))))
-                                        .onErrorResume(err -> {
-                                            log.warn("coin reward failed for user {}: {}", u.id(), err.toString());
-                                            return Mono.empty();
-                                        });
-                            });
-                })
-                .then();
+        return matchRewards.award(rt.gameSessionId)
+                .doOnNext(reward -> rt.tellUser(reward.userId().toString(),
+                        Envelope.of(MessageType.EVENT, Map.of("type", "COINS_AWARDED", "data", reward))))
+                .then().onErrorResume(error -> {
+                    log.warn("match rewards pending for session {}: {}", rt.gameSessionId, error.toString());
+                    return Mono.empty();
+                });
     }
 
     private static UUID parseUuid(String raw) {

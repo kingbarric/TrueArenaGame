@@ -237,8 +237,8 @@ class FullGameContractIT {
             case "GAME_STARTED" -> c.alive = newAliveSet((List<String>) data.getOrDefault("players", List.of()));
             case "PLAYER_ELIMINATED" -> c.alive.remove(data.get("id"));
             case "GAME_OVER" -> {
-                finished.set(true);
                 winningSide.set((String) data.get("winningSide"));
+                finished.set(true);
             }
             default -> {
             }
@@ -407,7 +407,9 @@ class FullGameContractIT {
 
         // ---- play the rest of the game to completion ----
         long gameDeadline = System.currentTimeMillis() + 30_000;
-        while (!finished.get() && System.currentTimeMillis() < gameDeadline) {
+        // A Results PHASE can arrive before GAME_OVER. Wait for its winner too,
+        // rather than asserting on a value that another socket thread has not set yet.
+        while ((!finished.get() || winningSide.get() == null) && System.currentTimeMillis() < gameDeadline) {
             Thread.sleep(250);
         }
         assertThat(violations).as("no client should ever see another player's un-revealed role").isEmpty();

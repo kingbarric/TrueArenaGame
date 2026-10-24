@@ -1,3 +1,4 @@
+import '../../widgets/match_coin_reward.dart';
 import '../../core/api_client.dart' show userErrorMessage;
 import 'dart:async';
 
@@ -1328,6 +1329,7 @@ class _GameScreenState extends State<GameScreen> {
         ],
       ],
       const SizedBox(height: 28),
+      if (!_amSpectator) MatchCoinReward(roomId: widget.socket.roomId),
       if (won) VictoryShareButton(roomId: widget.socket.roomId,
           gameType: 'truearena', detail: 'The ${winningSide == 'traitors' ? 'Traitors' : 'Faithful'} win'),
       NeonButton('Back to the Huud', onPressed: () {

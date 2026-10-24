@@ -744,6 +744,7 @@ class _MonopolyGameScreenState extends State<MonopolyGameScreen> {
       backgroundColor: const Color(0xff221815),
       body: SafeArea(
           child: MonopolyTable(
+        roomId: widget.socket.roomId,
         speaking:
             _voiceRoom != null && HangoutState.instance.roomName == _voiceRoom
                 ? HangoutState.instance.participants

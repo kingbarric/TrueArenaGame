@@ -94,11 +94,11 @@ class _HuudLoungeState extends State<HuudLounge> {
             segments: const [
               ButtonSegment(
                   value: false,
-                  label: Text('3D'),
+                  label: Text('Huud'),
                   icon: Icon(Icons.view_in_ar_rounded)),
               ButtonSegment(
                   value: true,
-                  label: Text('Grid'),
+                  label: Text('Players'),
                   icon: Icon(Icons.grid_view_rounded)),
             ],
             selected: {_grid},

@@ -1,3 +1,4 @@
+import '../../widgets/match_coin_reward.dart';
 import 'package:flutter/material.dart';
 import 'monopoly_board.dart';
 import '../../widgets/table_chat.dart';
@@ -20,6 +21,7 @@ class MonopolyTable extends StatefulWidget {
       required this.messages,
       required this.onSendChat,
       required this.onBack,
+      this.roomId,
       this.huudName = 'Your Huud',
       this.voice,
       this.rollPending = false,
@@ -41,6 +43,7 @@ class MonopolyTable extends StatefulWidget {
       this.speaking = const {}});
   final Map<String, dynamic> state;
   final String selfId, huudName;
+  final String? roomId;
   final Map<String, String> names;
   final MonopolyAction onAction;
   final VoidCallback onProperties, onTrade, onSendChat, onBack;
@@ -462,6 +465,7 @@ class _MonopolyTableState extends State<MonopolyTable> {
                               fontWeight: FontWeight.w800,
                               fontSize: 13))),
                 if (winner != null) ...[
+                  if (!widget.spectating && widget.roomId != null) MatchCoinReward(roomId: widget.roomId!),
                   Text('${name(winner)} is the last player standing',
                       style: const TextStyle(
                           color: monopolyInk, fontWeight: FontWeight.w800)),

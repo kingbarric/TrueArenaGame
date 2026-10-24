@@ -1,3 +1,4 @@
+import '../../widgets/match_coin_reward.dart';
 import '../../core/api_client.dart' show userErrorMessage, userRetryMessage;
 import 'dart:async';
 import 'dart:math' as math;
@@ -1937,6 +1938,7 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 22),
             child: Column(children: [
+              if (!widget.spectating) MatchCoinReward(roomId: widget.socket.roomId),
               if (won)
                 VictoryShareButton(
                     roomId: widget.roomId,
