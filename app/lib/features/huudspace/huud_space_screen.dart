@@ -799,6 +799,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
       case MicState.live:
         break;
     }
+    if (!mounted) return;
     if (!voice.isIn(_voiceRoom(huud))) {
       if (voice.isConnecting(_voiceRoom(huud))) return;
       _syncVoice(huud);
@@ -1437,7 +1438,9 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         Wrap(spacing: 8, runSpacing: 8, children: [
           if (huud.active)
             huud.live
-                ? const HuudChip('Live', emoji: '🔴', onOrange: true)
+                ? (huud.quiet
+                    ? const HuudChip('Quiet', emoji: '😴', onOrange: true)
+                    : const HuudChip('Live', emoji: '🔴', onOrange: true))
                 : const HuudChip('Offline', emoji: '🌙', onOrange: true)
           else
             const HuudChip('Ended', emoji: '🌙', onOrange: true),

@@ -251,6 +251,22 @@ void main() {
     expect(calls, contains('POST /api/v1/huud-spaces/h1/live {"notify":"online"}'));
   });
 
+  testWidgets('a Live Huud nobody is using shows amber Quiet, not Live', (tester) async {
+    await pump(tester, const HuudHomeScreen(), (r) async {
+      if (r.url.path == '/api/v1/huud-spaces/mine') {
+        return _json([
+          {...mine('h1', "Eric's Huud", live: true, here: 1), 'quiet': true},
+          {...mine('h2', "Ada's Huud", owns: false, live: true, here: 1), 'quiet': true},
+        ]);
+      }
+      return _json(_huud());
+    }, settle: false);
+    expect(find.text('Quiet · nobody on right now'), findsNWidgets(2));
+    expect(find.text('Quiet'), findsNWidgets(2), reason: 'the chip on your card and the dot on theirs');
+    expect(find.text('Live'), findsNothing);
+    expect(find.byKey(const ValueKey('huud-go-in-h1')), findsOneWidget, reason: 'still on — walk back in');
+  });
+
   testWidgets('a Live Huud of yours has Go in', (tester) async {
     await pump(tester, const HuudHomeScreen(), (r) async => _json([mine('h1', "Eric's Huud", live: true, here: 2)]),
         settle: false);

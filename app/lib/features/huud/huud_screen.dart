@@ -285,6 +285,7 @@ class _HuudScreenState extends State<HuudScreen> {
           : await app.api.post('/rooms/join', {'code': game.roomCode});
       await _enterRoom(RoomView.fromJson((raw as Map).cast<String, dynamic>()));
     } on ApiException catch (e) {
+      if (!mounted) return;
       if (isAlreadyPlaying(e) && await watchHuudByCode(app, game.roomCode, context: context)) {
         if (mounted) announceWatching(ScaffoldMessenger.of(context));
         _load();

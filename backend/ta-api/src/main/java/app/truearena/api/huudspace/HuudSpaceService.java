@@ -77,6 +77,13 @@ public class HuudSpaceService {
     private final BotRuntimeRegistry bots;
     private final HuudSpaceAccess access;
     private final HuudMoments moments;
+    /**
+     * A Live Huud nobody in the hangout has had the app open in for this long
+     * drops out of the Live list and reads as quiet (amber) — it stays Live
+     * until its owner ends it or the 24-hour sweep does.
+     */
+    @Value("${huud.live-idle:PT15M}")
+    Duration liveIdle = Duration.ofMinutes(15);
 
     public HuudSpaceService(DatabaseClient db, ReactiveTransactionManager manager, InboxRegistry inbox,
                             RoomService rooms, UserRepository users, VoiceSessionService voiceSessions,
@@ -339,7 +346,8 @@ public class HuudSpaceService {
      */
     Mono<Void> enterLive(UUID id, UUID user) {
         return tx.transactional(lock("huud-space:" + id).then(db.sql(
-                        "UPDATE huud_space_members m SET live_at=COALESCE(m.live_at, now()), last_seen_at=now() "
+                        "UPDATE huud_space_members m SET live_at=COALESCE(m.live_at, now()), last_seen_at=now(), "
+                        + "app_seen_at=now() "
                         + "FROM huud_spaces s WHERE s.id=m.huud_space_id AND m.huud_space_id=:id AND m.user_id=:user "
                         + "AND s.live_since IS NOT NULL AND m.left_at IS NULL AND NOT m.removed RETURNING (m.live_at = m.last_seen_at) AS fresh")
                 .bind("id", id).bind("user", user)
@@ -699,7 +707,7 @@ public class HuudSpaceService {
                         + "AND m.left_at IS NULL AND NOT m.removed")
                 .bind("user", user).map((r, m) -> r.get("id", UUID.class)).all()
                 .concatMap(id -> tx.transactional(lock("huud-space:" + id).then(db.sql(
-                        "UPDATE huud_space_members m SET last_seen_at=now() FROM huud_spaces s "
+                        "UPDATE huud_space_members m SET last_seen_at=now(), app_seen_at=now() FROM huud_spaces s "
                         + "WHERE s.id=m.huud_space_id AND s.live_since IS NOT NULL AND m.user_id=:user "
                         + "AND s.id=:id AND m.left_at IS NULL AND NOT m.removed")
                         .bind("user", user).bind("id", id).fetch().rowsUpdated())))
@@ -736,6 +744,28 @@ public class HuudSpaceService {
                         .map((r, m) -> r.get("id", UUID.class)).all())
                 .concatMap(this::endIfInactive)
                 .then();
+    }
+
+    /**
+     * Someone in the hangout has had the app open within {@link #liveIdle} — the
+     * app's own heartbeat or walking in, not a socket or voice link left running
+     * in the background. Binds {@code :liveIdle}.
+     */
+    static String inUseSql(String s) {
+        return "EXISTS(SELECT 1 FROM huud_space_members a JOIN users au ON au.id=a.user_id "
+                + "WHERE a.huud_space_id=" + s + ".id AND a.live_at IS NOT NULL AND a.left_at IS NULL "
+                + "AND NOT a.removed AND NOT au.is_bot AND a.app_seen_at > now() - make_interval(secs => :liveIdle))";
+    }
+
+    /** Live, but quiet: still on, just nobody using it. Binds {@code :liveIdle}. */
+    static String quietSql(String s) {
+        return "(" + s + ".live_since IS NOT NULL AND NOT " + inUseSql(s) + ")";
+    }
+
+    private Mono<Boolean> quiet(UUID id) {
+        return db.sql("SELECT " + quietSql("s") + " AS quiet FROM huud_spaces s WHERE s.id=:id")
+                .bind("id", id).bind("liveIdle", (double) liveIdle.toSeconds())
+                .map((r, m) -> Boolean.TRUE.equals(r.get("quiet", Boolean.class))).one().defaultIfEmpty(false);
     }
 
     /** Persistent activity evidence survives a server restart; stale seats/room statuses don't count as presence. */
@@ -1185,7 +1215,8 @@ public class HuudSpaceService {
                                                 myRequests(id, viewer),
                                                 pendingRequests(id).collectList(),
                                                 watching(id),
-                                                micApprovers(id).any(viewer::equals))
+                                                micApprovers(id).any(viewer::equals),
+                                                quiet(id))
                                         .map(t -> {
                                             boolean host = now.active() && now.ownerId().equals(viewer);
                                             boolean owner = now.active() && now.createdBy().equals(viewer);
@@ -1207,7 +1238,8 @@ public class HuudSpaceService {
                                                     t.getT4().stream().filter(request -> host || (t.getT6() && "mic".equals(request.kind()))).toList(), now.sharedAt() != null, now.feedMessage(), t.getT5(),
                                                     now.background(), now.createdAt(), now.endedAt(),
                                                     now.live(), owner, me.map(Membership::muted).orElse(false),
-                                                    people.size(), liveCount, now.championshipId(), t.getT6(), now.findingPlayers());
+                                                    people.size(), liveCount, now.championshipId(), t.getT6(), now.findingPlayers(),
+                                                    now.live() && t.getT7());
                                         })));
                             });
                         }));
@@ -1235,14 +1267,16 @@ public class HuudSpaceService {
                         + "WHERE s.status='active' AND s.live_since IS NOT NULL "
                         + "AND NOT EXISTS(SELECT 1 FROM huud_space_members x WHERE x.huud_space_id=s.id AND x.user_id=:user AND x.removed) "
                         + "AND NOT " + blockedSql("s.created_by", ":user") + " "
-                        + "AND EXISTS(SELECT 1 FROM huud_space_members p WHERE p.huud_space_id=s.id AND p.live_at IS NOT NULL) "
+                        // On, but nobody's had the app open in it lately: it shows as quiet in
+                        // the members' own Huud list, not here.
+                        + "AND " + inUseSql("s") + " "
                         + "AND (s.privacy='public' OR " + publicInviteSql("s") + " "
                         + "  OR EXISTS(SELECT 1 FROM huud_space_members me WHERE me.huud_space_id=s.id AND me.user_id=:user AND me.left_at IS NULL) "
                         + "  OR EXISTS(SELECT 1 FROM huud_space_requests q WHERE q.huud_space_id=s.id AND q.user_id=:user AND q.kind='join' AND q.status='accepted') "
                         + "  OR (s.privacy='friends' AND EXISTS(SELECT 1 FROM friends f WHERE f.status='accepted' "
                         + "      AND f.low_user_id=LEAST(s.created_by,:user) AND f.high_user_id=GREATEST(s.created_by,:user)))) "
                         + "ORDER BY mine DESC, present DESC, s.created_at DESC LIMIT " + LIST_LIMIT)
-                .bind("user", viewer)
+                .bind("user", viewer).bind("liveIdle", (double) liveIdle.toSeconds())
                 .map((r, m) -> new LiveRow(r.get("id", UUID.class), r.get("name", String.class),
                         r.get("privacy", String.class), instant(r.get("created_at")), r.get("background", String.class),
                         r.get("room_id", UUID.class), r.get("game_type", String.class), r.get("room_status", String.class),
@@ -1274,13 +1308,14 @@ public class HuudSpaceService {
      * then the rest by when they were last Live.
      */
     public Flux<MyHuud> mine(UUID viewer) {
-        return db.sql("SELECT s.*, m.muted, r.game_type, r.status AS room_status, " + CUP_COLUMNS + " FROM huud_spaces s "
+        return db.sql("SELECT s.*, m.muted, r.game_type, r.status AS room_status, " + quietSql("s") + " AS quiet, "
+                        + CUP_COLUMNS + " FROM huud_spaces s "
                         + "JOIN huud_space_members m ON m.huud_space_id=s.id LEFT JOIN rooms r ON r.id=s.current_room_id "
                         + CUP_JOIN
                         + "WHERE m.user_id=:user AND m.left_at IS NULL AND NOT m.removed AND s.status='active' "
                         + "ORDER BY (s.created_by=:user) DESC, (s.live_since IS NOT NULL) DESC, "
                         + "COALESCE(s.live_since, s.created_at) DESC LIMIT " + LIST_LIMIT)
-                .bind("user", viewer).fetch().all()
+                .bind("user", viewer).bind("liveIdle", (double) liveIdle.toSeconds()).fetch().all()
                 .concatMap(row -> {
                     Space s = toSpace(row);
                     return members(s.id()).collectList().map(people -> new MyHuud(s.id(), s.name(), s.privacy(), s.live(),
@@ -1292,7 +1327,8 @@ public class HuudSpaceService {
                             s.background(), Boolean.TRUE.equals(row.get("muted")), s.liveSince(),
                             s.live() ? championshipLine((String) row.get("cup_name"), (String) row.get("cup_game"),
                                     (String) row.get("cup_status"), (Integer) row.get("cup_size"),
-                                    (Integer) row.get("cup_round")) : null));
+                                    (Integer) row.get("cup_round")) : null,
+                            s.live() && Boolean.TRUE.equals(row.get("quiet"))));
                 });
     }
 

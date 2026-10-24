@@ -34,6 +34,7 @@ Future<void> shareHuud(BuildContext context, HuudSpace huud) async {
   try {
     await Share.share(huudInviteText(huud), subject: 'Join my Huud on PlayHuud', sharePositionOrigin: origin);
   } catch (_) {
+    if (!context.mounted) return;
     await copyHuudLink(context, huud);
   }
 }

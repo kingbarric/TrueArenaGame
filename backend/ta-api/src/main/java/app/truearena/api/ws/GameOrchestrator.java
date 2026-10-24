@@ -90,6 +90,10 @@ public class GameOrchestrator {
 
     private static final Logger log = LoggerFactory.getLogger(GameOrchestrator.class);
     private static final Duration LOCK_TTL = Duration.ofSeconds(10);
+    /** What one tap of the Traitors host's "+2 min" adds to the running clock. */
+    static final int EXTEND_SECONDS = 120;
+    /** The longest a Traitors host's pause holds before the clock starts again by itself. */
+    Duration hostPauseLimit = Duration.ofMinutes(10);
 
     private final RoomRuntimeRegistry registry;
     private final RoomLock lock;
@@ -358,6 +362,7 @@ public class GameOrchestrator {
                 case PLAYER_ACTION -> handlePlayerAction(rt, userId, in);
                 case CHAT_SEND -> handleChat(rt, userId, in, spectator);
                 case PAUSE_TOGGLE -> handlePauseToggle(rt, userId);
+                case HOST_CONTROL -> handleHostControl(rt, userId, in);
                 case MUTE_SPECTATORS_TOGGLE -> handleMuteSpectatorsToggle(rt, userId);
                 case SPECTATOR_VOICE_REQUEST -> handleSpectatorVoiceRequest(rt, userId, spectator);
                 case SPECTATOR_VOICE_APPROVE -> handleSpectatorVoiceApprove(rt, userId, in);
@@ -504,6 +509,7 @@ public class GameOrchestrator {
         // spectator) immediately knows the room is paused and how many are watching.
         view.put("paused", rt.paused);
         view.put("secondsLeft", secondsLeft(rt));
+        if (rt.paused && rt.pauseLimitDeadlineMs > 0) view.put("pauseResumesInSeconds", pauseSecondsLeft(rt));
         // Millisecond precision for per-player clocks, where the final seconds matter.
         liveClockMs(rt).ifPresent(ms -> view.put("clockMsLeft", ms));
         view.put("spectatorCount", rt.spectatorUserIds.size());
@@ -613,7 +619,7 @@ public class GameOrchestrator {
     }
 
     private Mono<Void> togglePause(RoomRuntime rt, String userId) {
-        if (rt.started() && "monopoly".equals(rt.module().gameType()) && monopolyStore != null)
+        if (rt.started() && ("monopoly".equals(rt.module().gameType()) && monopolyStore != null || hostRunsClock(rt)))
             return lock.withLock(rt.roomId, LOCK_TTL, () -> togglePauseLocked(rt, userId));
         return togglePauseLocked(rt, userId);
     }
@@ -625,17 +631,27 @@ public class GameOrchestrator {
         if (!rt.connectedUserIds.contains(userId)) {
             return tellError(rt, userId, "SPECTATORS_CANT_PAUSE", "only players can pause the game");
         }
+        // A Traitors pause is the moderator's call: in a player's hands it would
+        // let a Traitor stop the clock on a vote that was about to catch them.
+        if (hostRunsClock(rt) && !userId.equals(rt.hostUserId)) {
+            return tellError(rt, userId, "NOT_HOST", "only the host can pause the clock");
+        }
         rt.paused = !rt.paused;
         if (rt.paused) {
             freezeTimer(rt);
         } else {
             thawTimer(rt);
         }
+        if (hostRunsClock(rt)) {
+            if (rt.paused) armPauseLimit(rt);
+            else rt.cancelPauseLimit();
+        }
         // Per-player clocks freeze with the timer (they're the same deadline),
         // and carry the exact figure so both screens stop on the same tenth.
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("by", userId);
         data.put("secondsLeft", secondsLeft(rt));
+        if (rt.paused && rt.pauseLimitDeadlineMs > 0) data.put("resumesInSeconds", pauseSecondsLeft(rt));
         liveClockMs(rt).ifPresent(ms -> data.put("clockMsLeft", ms));
         Mono<Void> persist = monopolyStore == null ? Mono.empty() : monopolyStore.save(rt);
         return persist.doOnSuccess(ignored -> {
@@ -645,6 +661,102 @@ public class GameOrchestrator {
                 broadcastSpectatorState(rt);
             }
         });
+    }
+
+    /**
+     * Games whose host is a moderator who paces the table — Traitors. Only that
+     * host may pause or add time there; every other game keeps its
+     * either-player pause and has no extend control.
+     */
+    private static boolean hostRunsClock(RoomRuntime rt) {
+        return rt.started() && TrueArenaModule.GAME_TYPE.equals(rt.module().gameType());
+    }
+
+    /**
+     * A host's pause holds for {@link #hostPauseLimit} and then lets the clock go
+     * again — a host who pauses and walks away would otherwise leave the whole
+     * table stuck. Pausing again starts a fresh limit.
+     */
+    private void armPauseLimit(RoomRuntime rt) {
+        rt.cancelPauseLimit();
+        rt.pauseLimitDeadlineMs = System.currentTimeMillis() + hostPauseLimit.toMillis();
+        rt.pauseLimit = Mono.delay(hostPauseLimit).subscribe(x -> pauseLimitReached(rt));
+    }
+
+    private void pauseLimitReached(RoomRuntime rt) {
+        lock.withLock(rt.roomId, LOCK_TTL, () -> {
+            // Cleared, not disposed: this is the subscription that's running.
+            rt.pauseLimit = null;
+            rt.pauseLimitDeadlineMs = 0;
+            if (!rt.paused || !rt.started() || rt.state().finished()) return Mono.empty();
+            rt.paused = false;
+            thawTimer(rt);
+            rt.bus.tryEmitNext(new LobbyBroadcast("GAME_RESUMED",
+                    Map.of("reason", "pause_limit", "secondsLeft", secondsLeft(rt))));
+            return Mono.empty();
+        }).subscribe(v -> { }, e -> log.warn("pause limit failed for room {}: {}", rt.roomId, e.toString()));
+    }
+
+    private int pauseSecondsLeft(RoomRuntime rt) {
+        long ms = rt.pauseLimitDeadlineMs - System.currentTimeMillis();
+        return (int) Math.max(0, Math.round(ms / 1000.0));
+    }
+
+    /**
+     * Moderator controls that aren't moves in the game. {@code EXTEND_TIMER}
+     * gives the table {@link #EXTEND_SECONDS} more on the clock — the host
+     * wants the conversation to run on. The amount is the server's, not the
+     * client's, so a crafted frame can't add an hour.
+     */
+    private Mono<Void> handleHostControl(RoomRuntime rt, String userId, Envelope in) {
+        Object cmd = in.payload().get("cmd");
+        if (!"EXTEND_TIMER".equals(cmd)) {
+            return tellError(rt, userId, "UNSUPPORTED", "unknown host control");
+        }
+        if (!rt.started() || rt.state().finished()) {
+            return tellError(rt, userId, "NOT_STARTED", "there's no game running");
+        }
+        if (!hostRunsClock(rt)) {
+            return tellError(rt, userId, "UNSUPPORTED", "this game's clock can't be extended");
+        }
+        if (rt.tournament) return tellError(rt, userId, "TOURNAMENT_CLOCK", "the tournament controls the game clock");
+        if (!userId.equals(rt.hostUserId)) {
+            return tellError(rt, userId, "NOT_HOST", "only the host can add time");
+        }
+        return lock.withLock(rt.roomId, LOCK_TTL, () -> {
+            if (!extendTimer(rt, EXTEND_SECONDS * 1000L)) {
+                return tellError(rt, userId, "NO_CLOCK", "there's no clock running to add time to");
+            }
+            rt.bus.tryEmitNext(new LobbyBroadcast("TIMER_EXTENDED", Map.of("by", userId,
+                    "addedSeconds", EXTEND_SECONDS, "secondsLeft", secondsLeft(rt), "paused", rt.paused)));
+            return Mono.empty();
+        });
+    }
+
+    /**
+     * Adds time to the phase clock — the running one, or the banked remainder
+     * while paused. False when the phase has no clock to add to.
+     */
+    private boolean extendTimer(RoomRuntime rt, long ms) {
+        String phase = rt.state().phase();
+        boolean timed = rt.module().definePhases(rt.config).stream()
+                .anyMatch(p -> p.name().equals(phase) && p.timed());
+        if (!timed) return false;
+        if (rt.paused) {
+            rt.timerRemainingMs = Math.max(0, rt.timerRemainingMs) + ms;
+            return true;
+        }
+        if (rt.timerDeadlineMs <= 0) return false;
+        int round = rt.state().round();
+        long remaining = Math.max(0, rt.timerDeadlineMs - System.currentTimeMillis()) + ms;
+        rt.cancelTimer();
+        // Same phase, same round: put the bookkeeping back so rescheduleTimer
+        // doesn't mistake this for a new phase and restart it from full.
+        rt.timerForPhase = phase;
+        rt.timerForRound = round;
+        rt.timerDeadlineMs = System.currentTimeMillis() + remaining;
+        rt.timer = Mono.delay(Duration.ofMillis(remaining)).subscribe(x -> triggerElapse(rt, phase, round));
+        return true;
     }
 
     /**

@@ -312,10 +312,15 @@ class HuudChip extends StatelessWidget {
   }
 }
 
-/// A pulsing green dot + "Live".
+/// A pulsing green dot + "Live" — or, for a Live Huud nobody is using right
+/// now, a steady amber dot + "Quiet".
 class HuudLiveChip extends StatefulWidget {
-  const HuudLiveChip({super.key, this.label = 'Live'});
+  const HuudLiveChip({super.key, this.label = 'Live', this.quiet = false});
   final String label;
+  final bool quiet;
+
+  /// The same amber as a player who has stepped away from a game.
+  static const quietAmber = Color(0xfff5a524);
 
   @override
   State<HuudLiveChip> createState() => _HuudLiveChipState();
@@ -344,20 +349,20 @@ class _HuudLiveChipState extends State<HuudLiveChip> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     final h = HuudColors.of(context);
+    final tint = widget.quiet ? HuudLiveChip.quietAmber : h.live;
+    final dot = Container(width: 9, height: 9, decoration: BoxDecoration(color: tint, shape: BoxShape.circle));
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: h.live.withValues(alpha: 0.14),
+        color: tint.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: h.live.withValues(alpha: 0.45)),
+        border: Border.all(color: tint.withValues(alpha: 0.45)),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        FadeTransition(
-          opacity: Tween(begin: 0.35, end: 1.0).animate(_pulse),
-          child: Container(width: 9, height: 9, decoration: BoxDecoration(color: h.live, shape: BoxShape.circle)),
-        ),
+        widget.quiet ? dot : FadeTransition(opacity: Tween(begin: 0.35, end: 1.0).animate(_pulse), child: dot),
         const SizedBox(width: 6),
-        Text(widget.label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: h.live)),
+        Text(widget.quiet ? 'Quiet' : widget.label,
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: tint)),
       ]),
     );
   }

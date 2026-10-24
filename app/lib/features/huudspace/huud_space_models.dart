@@ -174,7 +174,12 @@ class HuudSpace {
     this.memberCount = 0,
     this.liveCount = 0,
     this.championshipId,
+    this.quiet = false,
   });
+
+  /// Live, but nobody in the hangout has had the app open for a while — it
+  /// shows amber and is kept off the Live tab until someone's back.
+  final bool quiet;
 
   /// The championship on in the Huud (registering, being played, or just
   /// finished and still showing its bracket) — null when it's hanging out.
@@ -269,6 +274,7 @@ class HuudSpace {
         memberCount: (j['memberCount'] as num?)?.toInt() ?? 0,
         liveCount: (j['liveCount'] as num?)?.toInt() ?? 0,
         championshipId: j['championshipId']?.toString(),
+        quiet: j['quiet'] == true,
       );
 }
 
@@ -475,7 +481,11 @@ class MyHuud {
     this.background,
     this.muted = false,
     this.championship,
+    this.quiet = false,
   });
+
+  /// Live, but nobody in it has had the app open for a while (amber).
+  final bool quiet;
 
   /// A championship on in it — the card says that instead of the game.
   final HuudCupLine? championship;
@@ -514,10 +524,12 @@ class MyHuud {
         background: j['background'] as String?,
         muted: j['muted'] == true,
         championship: HuudCupLine.fromJson(j['championship']),
+        quiet: j['quiet'] == true,
       );
 }
 
-/// "Live now · 8 in Huud · Playing Whot" — or "Offline · 12 members".
+/// "Live now · 8 in Huud · Playing Whot" — or "Offline · 12 members", or
+/// "Quiet · nobody on right now" for a Live Huud no one is using.
 /// A championship on in the Huud is said instead of the game.
 String huudStatusLine(
     {required bool live,
@@ -525,11 +537,10 @@ String huudStatusLine(
     required int memberCount,
     String? game,
     String? gameStatus,
-    HuudCupLine? championship}) {
-  if (!live)
-    return memberCount == 1
-        ? 'Offline · 1 member'
-        : 'Offline · $memberCount members';
+    HuudCupLine? championship,
+    bool quiet = false}) {
+  if (!live) return memberCount == 1 ? 'Offline · 1 member' : 'Offline · $memberCount members';
+  if (quiet) return 'Quiet · nobody on right now';
   final doing = championship != null
       ? championship.text
       : game == null
