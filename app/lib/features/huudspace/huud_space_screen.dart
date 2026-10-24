@@ -155,8 +155,9 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
       if (mounted && notice != null) {
         showDialog<void>(context: context, builder: (dialogContext) => AlertDialog(
           key: const ValueKey('huud-existing-game-dialog'),
+          backgroundColor: context.neon.panel,
           icon: const HuudSymbol('😂', size: 64),
-          title: const Text('You already have a game open'),
+          title: Text('${huudGameName(widget.initial?.currentGame?.gameType ?? '')} is already open'),
           content: Text(notice),
           actions: [TextButton(key: const ValueKey('huud-existing-game-okay'),
             onPressed: () => Navigator.pop(dialogContext), child: const Text('Okay'))],

@@ -345,7 +345,7 @@ class PlayerCard extends StatelessWidget {
                 right: w * 0.08,
                 top: h * 0.51,
                 child: Column(children: [
-                  FittedBox(
+                  SizedBox(height: h * .07, child: FittedBox(fit: BoxFit.scaleDown,
                     child: Text(data.name.toUpperCase(),
                         maxLines: 1,
                         style: TextStyle(
@@ -354,12 +354,12 @@ class PlayerCard extends StatelessWidget {
                             fontSize: w * 0.105,
                             letterSpacing: 1.2,
                             shadows: [Shadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 6)])),
-                  ),
+                  )),
                   SizedBox(height: h * 0.008),
                   Container(height: 1.4, color: t.accent.withValues(alpha: 0.55)),
                 ]),
               ),
-              Positioned(left: w * .08, right: w * .08, top: h * .605,
+              Positioned(left: w * .08, right: w * .08, top: h * .605, height: h * .04,
                 child: FittedBox(fit: BoxFit.scaleDown, child: Text(
                   data.gameType == null ? 'Competitive ratings on each game' : data.competitiveRating == null
                     ? 'Competitive rating · not rated' : 'Competitive rating ${groupedNumber(data.competitiveRating!)}',

@@ -155,6 +155,9 @@ void main() {
       expect(find.text('Competitive rating 1,842'),findsOneWidget);
       expect(find.text('23rd'),findsOneWidget);
       expect(find.text('in Rivers'),findsOneWidget);
+      final rating = tester.getRect(find.byKey(const ValueKey('card-rating-DRAUGHTS')));
+      expect(tester.getRect(find.text('ERIC')).bottom,lessThan(rating.top));
+      expect(rating.bottom,lessThan(tester.getRect(find.text('played')).top));
       expect(tester.takeException(),isNull);
     });
 
