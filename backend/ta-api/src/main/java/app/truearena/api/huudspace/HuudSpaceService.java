@@ -142,6 +142,11 @@ public class HuudSpaceService {
 
     public Mono<HuudSpaceView> create(UUID user, String requestedName, String requestedPrivacy,
                                       String gameType, String mode, String message, boolean share) {
+        return create(user, requestedName, requestedPrivacy, gameType, mode, message, share, null);
+    }
+
+    public Mono<HuudSpaceView> create(UUID user, String requestedName, String requestedPrivacy,
+                                      String gameType, String mode, String message, boolean share, Map<String, Object> gameConfig) {
         String privacy = privacyOrDefault(requestedPrivacy);
         return users.findById(user)
                 .switchIfEmpty(Mono.error(ApiExceptions.unauthorized("unknown user")))
@@ -162,7 +167,7 @@ public class HuudSpaceService {
                 })
                 .flatMap(id -> space(id).flatMap(s -> !s.live() || gameType == null || gameType.isBlank()
                                 || s.currentRoomId() != null ? Mono.<Void>empty()
-                                : addGame(user, id, gameType, mode, false).then())
+                                : addGame(user, id, gameType, mode, false, gameConfig).then())
                         .then(share ? space(id).filter(Space::live).flatMap(s -> share(user, id, message)).then()
                                 : Mono.<Void>empty())
                         .then(view(id, user)));
@@ -839,15 +844,25 @@ public class HuudSpaceService {
      * anyone missing just leaves a free seat for the queue.
      */
     public Mono<RoomView> addGame(UUID host, UUID id, String gameType, String mode, boolean rematch) {
+        return addGame(host, id, gameType, mode, rematch, null);
+    }
+
+    public Mono<RoomView> addGame(UUID host, UUID id, String gameType, String mode, boolean rematch,
+                                  Map<String, Object> requestedConfig) {
         Mono<Optional<CurrentGame>> last = !rematch ? Mono.just(Optional.empty())
                 : space(id).flatMap(s -> currentGame(s.currentRoomId(), null)).map(Optional::of)
                         .defaultIfEmpty(Optional.empty());
         return last.flatMap(game -> {
+            Mono<Map<String, Object>> previous = rematch && game.isPresent() && game.get().gameType().equals(gameType)
+                    ? db.sql("SELECT game_config FROM rooms WHERE id=:id").bind("id", game.get().roomId())
+                        .map((r, m) -> readRules(r.get("game_config", String.class))).one().defaultIfEmpty(Map.of())
+                    : Mono.just(Map.of());
+            return previous.flatMap(savedConfig -> {
             String chosen = mode != null || game.isEmpty() || !game.get().gameType().equals(gameType)
                     ? mode : game.get().mode();
             Map<String, Object> config;
             try {
-                config = gameConfigFor(gameType, chosen);
+                config = gameConfigFor(gameType, chosen, requestedConfig == null ? savedConfig : requestedConfig);
             } catch (IllegalArgumentException e) {
                 return Mono.error(ApiExceptions.badRequest(e.getMessage()));
             }
@@ -860,7 +875,47 @@ public class HuudSpaceService {
                     .flatMap(room -> Flux.fromIterable(players)
                             .concatMap(p -> rooms.join(room.code(), p, null).onErrorResume(e -> Mono.empty()))
                             .then(rooms.get(room.id(), host))));
+            });
         });
+    }
+
+    private static Map<String, Object> readRules(String json) {
+        try {
+            return json == null || json.isBlank() ? Map.of() : JSON.readValue(json, new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+        } catch (Exception e) {
+            throw new IllegalArgumentException("The previous game rules could not be read");
+        }
+    }
+
+    static Map<String, Object> gameConfigFor(String gameType, String mode, Map<String, Object> requested) {
+        Map<String, Object> base = gameConfigFor(gameType, mode);
+        if (!"whot".equals(gameType) || requested == null || requested.isEmpty()) return base;
+        var defaults = app.truearena.game.whot.WhotConfig.defaults();
+        Map<String, Object> config = new java.util.LinkedHashMap<>(Map.of(
+                "turnSeconds", defaults.turnSeconds(), "startingHand", defaults.startingHand(),
+                "includeWhot", defaults.includeWhot(), "pickTwo", defaults.pickTwo(),
+                "pickTwoStacking", defaults.pickTwoStacking(), "generalMarket", defaults.generalMarket(),
+                "holdOn", defaults.holdOn(), "suspension", defaults.suspension(),
+                "tellRule", defaults.tellRule(), "tellMinCards", defaults.tellMinCards()));
+        for (var entry : requested.entrySet()) {
+            if ("mode".equals(entry.getKey())) continue; // The explicit chosen mode remains authoritative.
+            if (!config.containsKey(entry.getKey())) throw new IllegalArgumentException("Unknown Whot rule: " + entry.getKey());
+            Object prior = config.get(entry.getKey());
+            Object value = entry.getValue();
+            if (prior instanceof Boolean && !(value instanceof Boolean)
+                    || prior instanceof Integer && (!(value instanceof Number n) || n.doubleValue() != n.intValue())
+                    || prior instanceof String && !(value instanceof String)) {
+                throw new IllegalArgumentException("Invalid Whot rule: " + entry.getKey());
+            }
+            config.put(entry.getKey(), value);
+        }
+        config.put("mode", base.get("mode"));
+        try {
+            JSON.convertValue(config, app.truearena.game.whot.WhotConfig.class);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid Whot rules: check cards, turn time and Tell settings");
+        }
+        return config;
     }
 
     /** The room's rules for a Huud game: only Whot has a choice to make — Classic or The Tell. */

@@ -1896,7 +1896,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
                   roomId: widget.socket.roomId, gameType: 'draughts'),
             NeonButton(
                 widget.championshipId == null
-                    ? 'Back to home'
+                    ? 'Back to the Huud'
                     : 'Back to championship', onPressed: () {
               if (widget.championshipId != null) {
                 Navigator.of(context).pop();

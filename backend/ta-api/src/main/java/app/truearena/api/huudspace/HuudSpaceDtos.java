@@ -20,7 +20,7 @@ public final class HuudSpaceDtos {
      * line to share it to the feed with.
      */
     public record CreateRequest(@Size(max = 40) String name, String privacy, String gameType,
-                                @Size(max = 140) String message, Boolean share, String mode) {
+                                @Size(max = 140) String message, Boolean share, String mode, java.util.Map<String, Object> gameConfig) {
     }
 
     public record ShareRequest(@Size(max = 140) String message) {
@@ -63,7 +63,7 @@ public final class HuudSpaceDtos {
      * {@code rematch}: seat the last game's players again (whoever's still in the Huud),
      * in the same mode. {@code mode}: Whot's "classic" (the default) or "tell".
      */
-    public record AddGameRequest(@NotBlank String gameType, Boolean rematch, String mode) {
+    public record AddGameRequest(@NotBlank String gameType, Boolean rematch, String mode, java.util.Map<String, Object> gameConfig) {
     }
 
     /**

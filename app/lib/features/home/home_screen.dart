@@ -257,7 +257,7 @@ class HomeScreen extends StatelessWidget {
     // (and anyone signed out) keep the quick lobby: bots, a friend's code.
     final app = AppScope.of(context);
     if (app.identity == Identity.account && huudGameNames.containsKey(_huudType(g.id))) {
-      await openHuudForGame(context, _huudType(g.id), quickPlay: () => _openQuickLobby(context, g));
+      await openHuudForGame(context, _huudType(g.id), quickPlay: g.id == 'slayhuud' ? () => _openQuickLobby(context, g) : null);
       return;
     }
     await _openQuickLobby(context, g);

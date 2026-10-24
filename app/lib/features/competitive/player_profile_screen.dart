@@ -7,6 +7,7 @@ import '../../core/app_state.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/game_badge.dart';
 import '../../widgets/neon.dart';
+import '../huudspace/huud_kit.dart' show HuudGameArt;
 import 'competitive_api.dart';
 import 'competitive_models.dart';
 import 'competitive_setup_screen.dart';
@@ -619,6 +620,8 @@ class MatchRow extends StatelessWidget {
             RatingDelta(m.ratingDelta),
             if (m.ratingAfter != null) Text('${m.ratingAfter}', style: t.labelSmall?.copyWith(color: n.mute)),
           ]),
+        const SizedBox(width: 10),
+        HuudGameArt(m.gameType, key: ValueKey('match-game-${m.matchId}'), size: 36),
       ]),
     );
   }

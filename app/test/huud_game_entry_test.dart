@@ -200,9 +200,11 @@ void main() {
     await t.ensureVisible(find.byKey(const ValueKey('whot-mode-tell')));
     await t.tap(find.byKey(const ValueKey('whot-mode-tell')));
     await frames(t);
-    expect(posts, [
-      {'gameType': 'whot', 'mode': 'tell'}
-    ]);
+    await t.scrollUntilVisible(find.byKey(const ValueKey('whot-rule-holdOn')), 100, scrollable: find.byType(Scrollable).last);
+    await t.tap(find.byKey(const ValueKey('whot-rule-holdOn')));
+    await t.tap(find.byKey(const ValueKey('whot-settings-continue')));
+    await frames(t);
+    expect(posts, [containsPair('gameConfig', containsPair('holdOn', false))]);
     expectGame(t, 'whot', mode: 'tell');
   });
 

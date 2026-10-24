@@ -51,7 +51,7 @@ public class HuudSpaceController {
     @Operation(summary = "Make a Huud (name + privacy; optionally a first game and a feed share), or reopen yours")
     public Mono<HuudSpaceView> create(@Valid @RequestBody CreateRequest body) {
         return CurrentUser.id().flatMap(user -> huuds.create(user, body.name(), body.privacy(), body.gameType(),
-                body.mode(), body.message(), Boolean.TRUE.equals(body.share())));
+                body.mode(), body.message(), Boolean.TRUE.equals(body.share()), body.gameConfig()));
     }
 
     @GetMapping("/current")
@@ -250,7 +250,7 @@ public class HuudSpaceController {
     @Operation(summary = "Host only: set up the next game in the Huud")
     public Mono<RoomView> addGame(@PathVariable UUID id, @Valid @RequestBody AddGameRequest body) {
         return CurrentUser.id().flatMap(user -> huuds.addGame(user, id, body.gameType(), body.mode(),
-                Boolean.TRUE.equals(body.rematch())));
+                Boolean.TRUE.equals(body.rematch()), body.gameConfig()));
     }
 
     @DeleteMapping("/{id}/game")

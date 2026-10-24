@@ -8,6 +8,7 @@ import 'slay_theme.dart';
 import '../../theme/neon_theme.dart';
 import 'slay_studio_screen.dart';
 import 'slay_game_menu.dart';
+import '../huudspace/leave_game.dart';
 import 'slay_runway.dart';
 import '../../widgets/huud_art.dart';
 
@@ -324,8 +325,8 @@ class _SlayCompetitionScreenState extends State<SlayCompetitionScreen>
                       icon: const Icon(Icons.copy, size: 15),
                       label: Text(_state!['roomCode'])),
                 SlayGameMenu(
-                    onExit: () => leaveSlayScreen(context),
-                    exitLabel: 'Back to SlayHuud'),
+                    onExit: () => widget.roomId == null ? leaveSlayScreen(context) : leaveGame(context, widget.roomId!),
+                    exitLabel: widget.roomId == null ? 'Back to SlayHuud' : 'Back to the Huud'),
               ]),
               body: SafeArea(
                   child: _state == null
@@ -718,7 +719,10 @@ class _SlayCompetitionScreenState extends State<SlayCompetitionScreen>
                           color: context.neon.gold, size: 30)
                   ]))),
         const SizedBox(height: 8),
-        if (!['daily', 'weekly'].contains(s['mode']))
+        if (widget.roomId != null) SlayButton(
+            onPressed: () => leaveGame(context, widget.roomId!),
+            child: const Text('Back to the Huud')),
+        if (widget.roomId == null && !['daily', 'weekly'].contains(s['mode']))
           SlayButton(
               onPressed: _busy
                   ? null

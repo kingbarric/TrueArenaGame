@@ -51,6 +51,7 @@ class _CreateHuudSheetState extends State<CreateHuudSheet> {
 
   /// Whot's "classic" or "tell", SlayHuud's "battle" or "group" — asked when the game is picked.
   String? _mode;
+  Map<String, dynamic>? _gameConfig;
   late bool _share = widget.share;
   bool _busy = false;
   String? _error;
@@ -79,9 +80,9 @@ class _CreateHuudSheetState extends State<CreateHuudSheet> {
     // A game with modes came already picked: still ask which one.
     final game = _game;
     if (game != null && huudGameHasModes(game) && _mode == null) {
-      final mode = await askHuudGameMode(context, game);
-      if (mode == null || !mounted) return;
-      setState(() => _mode = mode);
+      final setup = await askHuudGameSetup(context, game);
+      if (setup == null || !mounted) return;
+      setState(() { _mode = setup.mode; _gameConfig = setup.gameConfig; });
     }
     setState(() {
       _busy = true;
@@ -93,6 +94,7 @@ class _CreateHuudSheetState extends State<CreateHuudSheet> {
         'privacy': _privacy.wire,
         if (_game != null) 'gameType': _game,
         if (huudGameHasModes(_game) && _mode != null) 'mode': _mode,
+        if (_gameConfig != null) 'gameConfig': _gameConfig,
         if (_share) 'share': true,
         if (_share && _message.text.trim().isNotEmpty) 'message': _message.text.trim(),
       }) as Map<String, dynamic>;
@@ -241,17 +243,19 @@ class _CreateHuudSheetState extends State<CreateHuudSheet> {
   /// Whot and SlayHuud are two games each: ask which as it's picked.
   Future<void> _pick(String? game) async {
     if (game != null && huudGameHasModes(game)) {
-      final mode = await askHuudGameMode(context, game);
-      if (mode == null || !mounted) return;
+      final setup = await askHuudGameSetup(context, game);
+      if (setup == null || !mounted) return;
       setState(() {
         _game = game;
-        _mode = mode;
+        _mode = setup.mode;
+        _gameConfig = setup.gameConfig;
       });
       return;
     }
     setState(() {
       _game = game;
       _mode = null;
+      _gameConfig = null;
     });
   }
 
@@ -447,13 +451,14 @@ Future<void> openHuudForGame(BuildContext context, String gameType, {VoidCallbac
   final game = huud.currentGame;
   if (game == null || game.finished) {
     // Which Traitors, Whot or SlayHuud — asked before the table is set.
-    String? mode;
+    HuudGameSetup? setup;
     if (huudGameHasModes(gameType)) {
-      mode = await askHuudGameMode(context, gameType);
-      if (mode == null || !context.mounted) return;
+      setup = await askHuudGameSetup(context, gameType);
+      if (setup == null || !context.mounted) return;
     }
     try {
-      await api.post('/huud-spaces/${huud.id}/game', {'gameType': gameType, if (mode != null) 'mode': mode});
+      await api.post('/huud-spaces/${huud.id}/game', {'gameType': gameType, if (setup != null) 'mode': setup.mode,
+          if (setup?.gameConfig != null) 'gameConfig': setup!.gameConfig});
       huud = HuudSpace.fromJson((await api.get('/huud-spaces/${huud.id}') as Map).cast<String, dynamic>());
     } on ApiException catch (e) {
       if (context.mounted) huudSnack(context, e.message);

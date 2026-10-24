@@ -1332,7 +1332,7 @@ class _GameScreenState extends State<GameScreen> {
       if (!_amSpectator) MatchCoinReward(roomId: widget.socket.roomId),
       if (won) VictoryShareButton(roomId: widget.socket.roomId,
           gameType: 'truearena', detail: 'The ${winningSide == 'traitors' ? 'Traitors' : 'Faithful'} win'),
-      NeonButton('Back to home', onPressed: () {
+      NeonButton('Back to the Huud', onPressed: () {
         leaveGame(context, widget.socket.roomId);
       }),
       const GuestSaveSessionCard(),
