@@ -280,6 +280,15 @@ public class CompetitiveProfileService {
     // ---------------------------------------------------------------- match history
 
     public Mono<List<MatchHistoryView>> matchesOf(UUID userId, String gameType, int limit) {
+        return matchesOf(userId, gameType, limit, null, null, null);
+    }
+
+    public Mono<List<MatchHistoryView>> matchesOf(UUID userId, String gameType, int limit, String opponent,
+                                                java.time.Instant from, java.time.Instant until) {
+        String search = opponent == null ? "" : opponent.trim();
+        if (search.length() > 80 || from != null && until != null && !from.isBefore(until)) {
+            return Mono.error(ApiExceptions.badRequest("Invalid match history filters"));
+        }
         int pageSize = Math.max(1, Math.min(limit, 50));
         String sql = "SELECT m.id, m.game_type, m.ranked, m.unranked_reason, m.draw, m.completed_at, m.duration_ms, "
                 + "m.championship_id, p.outcome, p.rating_before, p.rating_after, p.rating_delta, "
@@ -290,9 +299,16 @@ public class CompetitiveProfileService {
                 + "  WHERE o.match_id = m.id AND o.user_id <> :uid) AS opponents "
                 + "FROM match_participants p JOIN match_records m ON m.id = p.match_id "
                 + "WHERE p.user_id = :uid " + (gameType == null ? "" : "AND m.game_type = :g ")
-                + "ORDER BY m.completed_at DESC LIMIT :limit";
+                + (search.isEmpty() ? "" : "AND EXISTS (SELECT 1 FROM match_participants fp JOIN users fu ON fu.id=fp.user_id "
+                    + "WHERE fp.match_id=m.id AND fp.user_id<>:uid AND (fu.username ILIKE :opponent OR fu.display_name ILIKE :opponent)) ")
+                + (from == null ? "" : "AND m.completed_at >= :from ")
+                + (until == null ? "" : "AND m.completed_at < :until ")
+                + "ORDER BY m.completed_at DESC, m.id DESC LIMIT :limit";
         var spec = db.sql(sql).bind("uid", userId).bind("limit", pageSize);
         if (gameType != null) spec = spec.bind("g", gameType);
+        if (!search.isEmpty()) spec = spec.bind("opponent", "%" + search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%");
+        if (from != null) spec = spec.bind("from", from);
+        if (until != null) spec = spec.bind("until", until);
         return spec.map(row -> new MatchHistoryView(
                         row.get("id", UUID.class),
                         row.get("game_type", String.class),

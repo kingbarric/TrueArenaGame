@@ -38,8 +38,14 @@ class CompetitiveApi {
     return Leaderboard.fromJson((await api.get('/leaderboards/$gameType?$q') as Map).cast<String, dynamic>());
   }
 
-  Future<List<MatchHistoryEntry>> myMatches({String? gameType, int limit = 20}) async {
-    final q = 'limit=$limit${gameType == null ? '' : '&gameType=$gameType'}';
+  Future<List<MatchHistoryEntry>> myMatches({String? gameType, int limit = 20, String? opponent, DateTime? playedOn}) async {
+    final day = playedOn == null ? null : DateTime(playedOn.year, playedOn.month, playedOn.day);
+    final q = Uri(queryParameters: {
+      'limit': '$limit', if (gameType != null) 'gameType': gameType,
+      if (opponent?.trim().isNotEmpty == true) 'opponent': opponent!.trim(),
+      if (day != null) 'from': day.toUtc().toIso8601String(),
+      if (day != null) 'until': DateTime(day.year, day.month, day.day + 1).toUtc().toIso8601String(),
+    }).query;
     final rows = await api.get('/me/matches?$q') as List;
     return rows.map((e) => MatchHistoryEntry.fromJson((e as Map).cast<String, dynamic>())).toList();
   }

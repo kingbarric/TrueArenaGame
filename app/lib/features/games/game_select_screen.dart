@@ -135,6 +135,10 @@ class GameSelectScreen extends StatelessWidget {
                       SnackBar(content: Text('${g.name} is coming soon')));
                   return;
                 }
+                if (AppScope.of(context).identity == Identity.account && g.id != 'slayhuud') {
+                  await openHuudForGame(context, g.id == 'bluff' ? 'wordbluff' : g.id);
+                  return;
+                }
                 if (g.id == 'slayhuud') {
                   void solo() => Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const SlayHubScreen()));

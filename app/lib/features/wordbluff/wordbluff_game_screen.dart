@@ -1749,7 +1749,7 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
             roomId: widget.socket.roomId,
             gameType: 'wordbluff',
             detail: 'Team $winningTeam wins'),
-      NeonButton(widget.spectating ? 'Close' : 'Back to home', onPressed: () {
+      NeonButton(widget.spectating ? 'Close' : 'Back to the Huud', onPressed: () {
         if (widget.spectating) {
           Navigator.of(context).pop();
         } else {

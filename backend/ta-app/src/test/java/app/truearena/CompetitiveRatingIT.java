@@ -160,6 +160,21 @@ class CompetitiveRatingIT {
      */
     private String gameType = "draughts";
 
+    @Test
+    void historyFiltersSearchAllMatchesBeforeLimitingToTheLatestTen() {
+        UUID me = human("HistoryOwner"), alex = human("HistoryAlex"), other = human("HistoryOther");
+        for (int i = 0; i < 14; i++) play(session(me, true), me, i % 2 == 0 ? alex : other);
+        var since = java.time.Instant.now().minusSeconds(60);
+        var until = java.time.Instant.now().plusSeconds(60);
+        assertThat(profiles.matchesOf(me, null, 10, null, null, null).block()).hasSize(10);
+        var selected = profiles.matchesOf(me, "draughts", 10, "historyalex", since, until).block();
+        assertThat(selected).hasSize(7).allSatisfy(m -> assertThat(m.opponents())
+                .anySatisfy(o -> assertThat(o.userId()).isEqualTo(alex)));
+        assertThat(profiles.matchesOf(me, "whot", 10, "historyalex", since, until).block()).isEmpty();
+        assertThat(profiles.matchesOf(me, null, 10, "HistoryAlex", until, until.plusSeconds(1)).block()).isEmpty();
+        assertThat(profiles.matchesOf(me, null, 10, "%", null, null).block()).isEmpty();
+    }
+
     // ---------------------------------------------------------------- PlayHuud number
 
     @Test

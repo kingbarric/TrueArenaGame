@@ -1612,7 +1612,7 @@ class _ChessGameScreenState extends State<ChessGameScreen>
                           backgroundColor: _gold,
                           foregroundColor: const Color(0xff2a1600)),
                       onPressed: _leave,
-                      child: Text(_amSpectator ? 'Done' : 'Back to home',
+                      child: Text(_amSpectator ? 'Done' : 'Back to the Huud',
                           style: const TextStyle(fontWeight: FontWeight.w900)),
                     ),
                   ]),

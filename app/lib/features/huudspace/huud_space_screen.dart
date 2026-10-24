@@ -27,6 +27,7 @@ import 'huud_roster.dart';
 import 'huud_lounge.dart';
 import 'huud_avatar_motion.dart';
 import 'huud_game_modes.dart';
+import 'whot_mode_sheet.dart';
 import 'safety_sheet.dart';
 import '../../core/keep_awake.dart';
 import '../competitive/player_profile_screen.dart';
@@ -48,9 +49,24 @@ Future<void> requestPublicHuudSeat(BuildContext context, String id) async {
 /// Named so a finished game can find its way back to the Huud (`leaveGame`).
 String huudRouteName(String id) => 'huud/$id';
 
-Route<void> huudRoute(String id, {HuudSpace? initial, bool startOnGame = false}) => MaterialPageRoute(
-    settings: RouteSettings(name: huudRouteName(id)),
-    builder: (_) => HuudSpaceScreen(id: id, initial: initial, startOnGame: startOnGame));
+Route<void> huudRoute(String id, {HuudSpace? initial, bool startOnGame = false}) =>
+    HuudSpaceRoute(id, initial: initial, startOnGame: startOnGame);
+
+class HuudSpaceRoute extends MaterialPageRoute<void> {
+  factory HuudSpaceRoute(String id, {HuudSpace? initial, bool startOnGame = false}) =>
+      HuudSpaceRoute._(id, GlobalKey<_HuudSpaceScreenState>(), initial, startOnGame);
+
+  HuudSpaceRoute._(this.huudId, this._huudKey, HuudSpace? initial, bool startOnGame)
+      : super(settings: RouteSettings(name: huudRouteName(huudId)),
+          builder: (_) => HuudSpaceScreen(key: _huudKey, id: huudId, initial: initial, startOnGame: startOnGame));
+  final String huudId;
+  final GlobalKey<_HuudSpaceScreenState> _huudKey;
+  bool containsGame(String roomId) => _huudKey.currentState?._huud?.currentGame?.roomId == roomId;
+  void showGames() {
+    _huudKey.currentState?._openTab(_Tab.play);
+    _huudKey.currentState?._load();
+  }
+}
 
 /// Inside a Huud: who's here, what's being played, and the chat.
 ///
@@ -460,21 +476,22 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     await app.rememberActiveRoom(room.id);
     if (!mounted) return;
     await Navigator.of(context)
-        .push(MaterialPageRoute(builder: (_) => JoinedRoomScreen(room: room)));
+        .push(MaterialPageRoute(builder: (_) => JoinedRoomScreen(room: room, huudId: widget.id, startGame: room.status == 'lobby' && _huud?.youAreHost == true)));
     if (mounted) _load();
   }
 
   Future<void> _pickGame(String gameType) async {
     // Whot and SlayHuud are two games each: ask which before anyone is seated.
     final asks = huudGameHasModes(gameType);
-    final mode = asks ? await askHuudGameMode(context, gameType) : null;
-    if (asks && (mode == null || !mounted)) return;
+    final setup = asks ? await askHuudGameSetup(context, gameType) : null;
+    if (asks && (setup == null || !mounted)) return;
     final raw = await _run(
         'game-$gameType',
         (api) => api.post('/huud-spaces/${widget.id}/game',
-            {'gameType': gameType, if (mode != null) 'mode': mode}));
+            {'gameType': gameType, if (setup != null) 'mode': setup.mode,
+              if (setup?.gameConfig != null) 'gameConfig': setup!.gameConfig}));
     if (raw is Map && mounted) {
-      await _enterRoom(RoomView.fromJson(raw.cast<String, dynamic>()));
+      await _load();
     }
   }
 
@@ -485,7 +502,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
         (api) => api.post('/huud-spaces/${widget.id}/game',
             {'gameType': gameType, 'rematch': true}));
     if (raw is Map && mounted) {
-      await _enterRoom(RoomView.fromJson(raw.cast<String, dynamic>()));
+      await _load();
     }
   }
 
@@ -2003,6 +2020,8 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                     : note('Join the Huud to ask to play'),
       ];
     }
+    final tellProblem = game.waiting && game.tell
+        ? tellStartProblem(game.players, game.table.where((p) => p.bot).length) : null;
     final main = game.youArePlaying ||
             (huud.youAreHost && game.waiting && game.gameType == 'monopoly')
         ? HuudButton(
@@ -2010,13 +2029,13 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
             label: game.playing
                 ? 'Back to the game'
                 : huud.youAreHost
-                    ? 'Open the game to start'
+                    ? 'Start game'
                     : 'Open the game',
             icon: Icons.sports_esports_rounded,
             big: true,
             expand: true,
             busy: _busy == 'open',
-            onPressed: () => _openGame(game),
+            onPressed: tellProblem == null ? () => _openGame(game) : null,
           )
         : game.playing
             ? HuudButton(
@@ -2051,6 +2070,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
             'You\'re playing 🎮 — waiting for ${huud.host?.handle ?? 'the host'} to start'),
         const SizedBox(height: 10),
       ],
+      if (tellProblem != null) ...[note(tellProblem), const SizedBox(height: 10)],
       main,
       if (huud.youAreHost && game.waiting) ...[
         const SizedBox(height: 10),

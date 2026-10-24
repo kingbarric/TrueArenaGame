@@ -24,7 +24,6 @@ import 'package:truearena/widgets/mic_button.dart';
 import 'package:truearena/widgets/gift_splash.dart';
 import 'package:truearena/features/huudspace/huud_link.dart';
 import 'package:truearena/features/huudspace/whot_mode_sheet.dart';
-import 'package:truearena/widgets/neon.dart';
 import 'dart:async';
 import 'package:truearena/theme/neon_theme.dart';
 
@@ -314,7 +313,11 @@ void main() {
     await tester.ensureVisible(find.byKey(const ValueKey('whot-mode-tell')));
     await tester.tap(find.byKey(const ValueKey('whot-mode-tell')));
     await tester.pump();
-    expect(calls, contains('POST /api/v1/huud-spaces/h1/game {"gameType":"whot","mode":"tell"}'));
+    await tester.pumpAndSettle();
+    expect(find.text('Whot settings'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('whot-settings-continue')));
+    await tester.pump();
+    expect(calls, contains(startsWith('POST /api/v1/huud-spaces/h1/game {"gameType":"whot","mode":"tell","gameConfig":')));
   });
 
   testWidgets('closing the Whot question picks nothing; other games need no question', (tester) async {
@@ -708,10 +711,14 @@ void main() {
     expect(find.text('Which Whot?'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('whot-mode-classic')));
     await tester.pumpAndSettle();
-    expect(
-        calls,
-        contains('POST /api/v1/huud-spaces {"name":"Eric\'s Huud","privacy":"friends","gameType":"whot",'
-            '"mode":"classic","share":true,"message":"Who wants to play Whot?"}'));
+    expect(find.text('Whot settings'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('whot-settings-continue')));
+    await tester.pumpAndSettle();
+    final sent = calls.singleWhere((c) => c.startsWith('POST /api/v1/huud-spaces '));
+    final body = jsonDecode(sent.substring(sent.indexOf(' {') + 1)) as Map;
+    expect(body['gameConfig'], containsPair('pickTwo', true));
+    expect(body['mode'], 'classic');
+    expect(body['message'], 'Who wants to play Whot?');
   });
 
   testWidgets('a Huud made for SlayHuud asks Style Battle or Group Show first', (tester) async {
@@ -768,37 +775,34 @@ void main() {
     expect(find.byKey(const ValueKey('huud-watch')), findsOneWidget);
   });
 
-  testWidgets('after a game the host can rematch with the same players', (tester) async {
-    final calls = await pump(
-        tester,
-        const HuudSpaceScreen(id: 'h1'),
-        (r) async => r.url.path.endsWith('/game')
-            ? _json({
-                'id': 'room2',
-                'code': 'ZZ12CD',
-                'hostId': 'me',
-                'status': 'lobby',
-                'gameType': 'ludo',
-                'stakeCoins': 0,
-                'createdAt': DateTime.now().toUtc().toIso8601String(),
-                'members': <dynamic>[],
-                'ranked': false,
-              })
-            : _json(_huud(game: {
-                'roomId': 'room1',
-                'code': 'AB12CD',
-                'gameType': 'ludo',
-                'status': 'finished',
-                'players': 3,
-                'seats': 4,
-                'playerIds': ['me', 'ada', 'chidi'],
-                'youArePlaying': true,
-              })));
+  testWidgets('rematch stays in the current Huud Games with the new seating', (tester) async {
+    var rematched = false;
+    final calls = await pump(tester, const HuudSpaceScreen(id: 'h1'), (r) async {
+      if (r.url.path.endsWith('/game') && r.method == 'POST') {
+        rematched = true;
+        return _json({'id': 'room2', 'code': 'ZZ12CD', 'hostId': 'me',
+          'status': 'lobby', 'gameType': 'ludo', 'members': []});
+      }
+      return _json(_huud(game: {
+        'roomId': rematched ? 'room2' : 'room1', 'code': 'AB12CD',
+        'gameType': 'ludo', 'status': rematched ? 'waiting' : 'finished',
+        'players': 3, 'seats': 4, 'playerIds': ['me', 'ada', 'chidi'],
+        'youArePlaying': true,
+      }));
+    });
     expect(find.text('Rematch — same players'), findsOneWidget);
     expect(find.text('Play Ludo with new players'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('huud-rematch')));
-    await tester.pump();
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
     expect(calls, contains('POST /api/v1/huud-spaces/h1/game {"gameType":"ludo","rematch":true}'));
+    expect(find.byType(JoinedRoomScreen), findsNothing);
+    expect(find.byType(HuudSpaceScreen), findsOneWidget);
+    expect(tester.getSemantics(find.byKey(const ValueKey('huud-tab-play'))), isSemantics(isSelected: true));
+    expect(find.text('Get ready for Ludo'), findsOneWidget);
+    expect(find.text('Start game'), findsOneWidget);
+    expect(find.text('Rematch — same players'), findsNothing);
   });
 
   testWidgets('swiping: one Huud per screen, watched while on screen, swipe up for the next', (tester) async {
@@ -867,7 +871,7 @@ void main() {
     expect(find.text('🟢 Active'), findsOneWidget); // Chidi, in the Huud but not playing
     expect(find.byKey(const ValueKey('huud-add-players')), findsNothing);
     expect(find.byKey(const ValueKey('roster-add-agent')), findsOneWidget);
-    expect(find.text('Open the game to start'), findsOneWidget);
+    expect(find.text('Start game'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('roster-chidi')));
     await tester.pumpAndSettle();
@@ -937,38 +941,33 @@ void main() {
     expect(find.byKey(const ValueKey('roster-add-agent')),findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('roster-me')));await tester.pumpAndSettle();
     expect(calls,contains('DELETE /api/v1/huud-spaces/h1/game/players/me'));
-    expect(find.text('Open the game to start'),findsOneWidget);
+    expect(find.text('Start game'),findsOneWidget);
     expect(find.text('2 / 8 playing'),findsOneWidget);
   });
 
-  testWidgets('the game lobby of a Huud game lists the Huud instead of a room code', (tester) async {
+  testWidgets('a restored pending Huud game returns to the current Games tab', (tester) async {
     await pump(
         tester,
         const JoinedRoomScreen(
             room: RoomView(id: 'room1', code: 'AB12CD', hostId: 'me', status: 'lobby', gameType: 'whot', members: [
           RoomMember(userId: 'me', nickname: 'Eric', ready: false, connected: true),
         ])),
-        (r) async => r.url.path == '/api/v1/huud-spaces/by-room/room1'
-            ? _json(_huud(
+        (r) async => _json(_huud(
                 game: {'roomId': 'room1', 'gameType': 'whot', 'status': 'waiting', 'players': 1, 'seats': 4},
                 members: [
                   _member('me', 'Eric', host: true),
                   _member('ada', 'Ada'),
                   _member('chidi', 'Chidi', here: false),
-                ]))
-            : http.Response('', 200),
+                ])),
         settle: false);
     for (var i = 0; i < 10; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
-    expect(find.byKey(const ValueKey('lobby-roster')), findsOneWidget);
+    expect(find.byKey(const ValueKey('lobby-roster')), findsNothing);
     expect(find.text('AB12CD'), findsNothing);
-    expect(find.text('🟢 Active'), findsOneWidget); // Ada is here
-    expect(find.text('🌙 Away'), findsOneWidget); // Chidi isn't
-    // No Cancel, no Ready up — one big Start game for the host.
-    expect(find.text('Ready up'), findsNothing);
-    expect(find.byKey(const ValueKey('lobby-start')), findsOneWidget);
-    expect(find.text('Start game'), findsOneWidget);
+    expect(find.byType(HuudSpaceScreen), findsOneWidget);
+    expect(tester.getSemantics(find.byKey(const ValueKey('huud-tab-play'))), isSemantics(isSelected: true));
+    expect(find.byKey(const ValueKey('lobby-start')), findsNothing);
   });
 
   testWidgets('The Tell in a Huud: its name on the card, pairs of people only, Start waits for 4, 6 or 8',
@@ -1001,6 +1000,7 @@ void main() {
     await pump(
         tester,
         const JoinedRoomScreen(
+            huudId: 'h1',
             room: RoomView(id: 'room1', code: 'AB12CD', hostId: 'me', status: 'lobby', gameType: 'whot', members: [
           RoomMember(userId: 'me', nickname: 'Eric', ready: false, connected: true),
           RoomMember(userId: 'ada', nickname: 'Ada', ready: false, connected: true),
@@ -1019,9 +1019,8 @@ void main() {
     for (var i = 0; i < 10; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
-    expect(find.text('The Tell needs 4, 6 or 8 players — teams of two'), findsOneWidget);
-    final start = tester.widget<NeonButton>(find.byKey(const ValueKey('lobby-start')));
-    expect(start.onPressed, isNull);
+    expect(find.text('Waiting for the host to start'), findsOneWidget);
+    expect(find.byKey(const ValueKey('lobby-start')), findsNothing);
   });
 
   test('The Tell starts only with 4, 6 or 8 people', () {

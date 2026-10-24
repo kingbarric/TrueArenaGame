@@ -818,6 +818,21 @@ class HuudSpaceIT {
         assertThat(huuds.view(huud.id(), late).block().currentGame().youArePlaying()).isFalse();
     }
 
+    @Test void whotRulesAreStoredOnFirstCreateAndSurviveHuudRematch() {
+        UUID host = person("RulesHost");
+        var rules = java.util.Map.<String, Object>of("pickTwo", false, "holdOn", false, "startingHand", 7, "turnSeconds", 90);
+        var huud = huuds.create(host, "Rule test", "public", "whot", "classic", null, false, rules).block();
+        UUID roomId = huud.currentGame().roomId();
+        String original = db.sql("SELECT game_config FROM rooms WHERE id=:id").bind("id", roomId)
+                .map((r,m) -> r.get("game_config", String.class)).one().block();
+        assertThat(original.replace(" ", "")).contains("\"pickTwo\":false", "\"holdOn\":false", "\"startingHand\":7");
+        db.sql("UPDATE rooms SET status='ended' WHERE id=:id").bind("id", roomId).fetch().rowsUpdated().block();
+        var again = huuds.addGame(host, huud.id(), "whot", true).block();
+        String repeated = db.sql("SELECT game_config FROM rooms WHERE id=:id").bind("id", again.id())
+                .map((r,m) -> r.get("game_config", String.class)).one().block();
+        assertThat(repeated).isEqualTo(original);
+    }
+
     @Test void whotInAHuudIsClassicOrTheTellAndARematchKeepsTheMode() {
         UUID host = person("Host");
         var huud = huuds.create(host, null, "public").block();

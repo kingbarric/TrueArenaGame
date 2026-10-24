@@ -16,6 +16,7 @@ import '../competitive/competitive_models.dart';
 import '../competitive/all_time_rankings_screen.dart';
 import '../competitive/player_profile_screen.dart';
 import 'huud_avatar_screen.dart';
+import 'match_history_box.dart';
 import '../../widgets/huud_art.dart';
 
 /// Reached from Home by tapping the avatar/name row. Appearance is available
@@ -33,7 +34,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   List<ChampionBadgeData> _championshipBadges = const [];
   CompetitiveProfile? _competitive;
   List<String> _ratedGames = const ['draughts'];
-  List<MatchHistoryEntry>? _matches;
+  final _history = GlobalKey<MatchHistoryBoxState>();
 
   @override
   void initState() {
@@ -72,17 +73,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (_) {/* optional section */}
   }
 
-  /// Your last games of every kind, newest first.
-  Future<void> _loadMatches() async {
-    final app = AppScope.of(context);
-    if (app.identity == Identity.anonymous) return;
-    try {
-      final matches = await CompetitiveApi(app.api).myMatches(limit: 15);
-      if (mounted) setState(() => _matches = matches);
-    } catch (_) {
-      if (mounted) setState(() => _matches = const []);
-    }
-  }
+  Future<void> _loadMatches() async { await _history.currentState?.reload(); }
 
   Future<void> _loadBadges() async {
     try {
@@ -247,17 +238,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               else
                 _statsGrid(n, _stats!),
               const SizedBox(height: 14),
-              if (_matches == null)
-                const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator()))
-              else if (_matches!.isEmpty)
-                Text('No games yet — your games will show up here.',
-                    key: const ValueKey('profile-no-matches'), style: TextStyle(color: n.mute))
-              else
-                for (final m in _matches!)
-                  Padding(
-                      key: ValueKey('profile-match-${m.matchId}'),
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: MatchRow(match: m)),
+              MatchHistoryBox(key: _history),
             ],
           ),
         ),

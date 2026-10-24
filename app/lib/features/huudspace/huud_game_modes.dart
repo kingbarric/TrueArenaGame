@@ -6,11 +6,15 @@ import 'huud_kit.dart';
 import 'slay_mode_sheet.dart';
 import 'traitors_mode_sheet.dart';
 import 'whot_mode_sheet.dart';
+import 'whot_settings_sheet.dart';
 
 /// Games that ask a question before anyone sits down: which Traitors, which
 /// Whot, which SlayHuud, which Draughts rules.
 bool huudGameHasModes(String? gameType) =>
-    gameType == 'truearena' || gameType == 'whot' || gameType == 'slayhuud' || gameType == 'draughts';
+    gameType == 'truearena' ||
+    gameType == 'whot' ||
+    gameType == 'slayhuud' ||
+    gameType == 'draughts';
 
 /// The question for [gameType]. Null when the sheet is closed without
 /// choosing — or when the player chose SlayHuud solo, which opens its hub.
@@ -24,7 +28,8 @@ Future<String?> askHuudGameMode(BuildContext context, String gameType) async {
       final mode = await askSlayMode(context);
       if (mode != slaySolo) return mode;
       if (context.mounted) {
-        await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SlayHubScreen()));
+        await Navigator.of(context)
+            .push(MaterialPageRoute(builder: (_) => const SlayHubScreen()));
       }
       return null;
     default:
@@ -40,3 +45,18 @@ String huudGameTitle(String gameType, String? mode) => switch (gameType) {
       'slayhuud' => slayModeName(mode),
       _ => huudGameName(gameType),
     };
+
+class HuudGameSetup {
+  const HuudGameSetup(this.mode, [this.gameConfig]);
+  final String mode;
+  final Map<String, dynamic>? gameConfig;
+}
+
+Future<HuudGameSetup?> askHuudGameSetup(
+    BuildContext context, String gameType) async {
+  final mode = await askHuudGameMode(context, gameType);
+  if (mode == null || !context.mounted) return null;
+  if (gameType != 'whot') return HuudGameSetup(mode);
+  final rules = await askWhotSettings(context, mode);
+  return rules == null ? null : HuudGameSetup(mode, rules);
+}

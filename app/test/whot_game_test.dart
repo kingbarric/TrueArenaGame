@@ -168,11 +168,12 @@ void main() {
     expect(find.byKey(const ValueKey('whot-result-summary')), findsOneWidget);
     expect(find.text('DEFEAT'), findsOneWidget);
     expect(find.text('Alex cards left'), findsOneWidget);
-    expect(find.text('Play again'), findsOneWidget);
-    expect(find.text('Play another game'), findsOneWidget);
-    await tester.tap(find.text('Play again'), warnIfMissed: false);
-    await tester.pumpAndSettle();
-    expect(find.byType(WhotLobbyScreen), findsOneWidget);
+    expect(find.text('Play again'), findsNothing);
+    expect(find.text('Back to the Huud'), findsOneWidget);
+    await tester.tap(find.text('Back to the Huud'), warnIfMissed: false);
+    for (var i = 0; i < 6; i++) { await tester.pump(const Duration(milliseconds: 100)); }
+    expect(find.byType(WhotLobbyScreen), findsNothing);
+    expect(find.byType(MainShell), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
 
@@ -196,7 +197,7 @@ void main() {
     expect(find.text('VICTORY!'), findsOneWidget);
     expect(find.text('Alex cards left'), findsOneWidget);
     expect(find.text('3'), findsWidgets);
-    await tester.tap(find.text('Play another game'), warnIfMissed: false);
+    await tester.tap(find.text('Back to the Huud'), warnIfMissed: false);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.byType(MainShell), findsOneWidget);

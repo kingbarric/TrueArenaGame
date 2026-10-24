@@ -37,4 +37,24 @@ class HuudSpaceWhotModeTest {
         assertThat(HuudSpaceService.seatsFor("whot", "classic")).isEqualTo(4);
         assertThat(HuudSpaceService.seatsFor("draughts", null)).isEqualTo(2);
     }
+    @Test
+    void customRulesKeepFalseValuesAndTheSelectedMode() {
+        var config = HuudSpaceService.gameConfigFor("whot", "tell", java.util.Map.of(
+                "pickTwo", false, "holdOn", false, "startingHand", 7, "turnSeconds", 90));
+        assertThat(config).containsEntry("mode", "tell").containsEntry("pickTwo", false)
+                .containsEntry("holdOn", false).containsEntry("startingHand", 7)
+                .containsEntry("turnSeconds", 90).containsEntry("suspension", true);
+        assertThat(HuudSpaceService.gameConfigFor("whot", "tell", config)).isEqualTo(config);
+    }
+
+    @Test
+    void invalidRulesAreRejectedBeforeCreatingARoom() {
+        assertThatThrownBy(() -> HuudSpaceService.gameConfigFor("whot", "classic", java.util.Map.of("startingHand", 99)))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> HuudSpaceService.gameConfigFor("whot", "classic", java.util.Map.of("holdOn", "false")))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> HuudSpaceService.gameConfigFor("whot", "classic", java.util.Map.of("unknownRule", true)))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
 }

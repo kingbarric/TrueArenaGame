@@ -1505,7 +1505,7 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
                   roomId: widget.socket.roomId,
                   gameType: 'goosi',
                   detail: '${scores[widget.selfId] ?? 0} points'),
-            NeonButton('Back to home', onPressed: () {
+            NeonButton('Back to the Huud', onPressed: () {
               leaveGame(context, widget.socket.roomId);
             }),
             const GuestSaveSessionCard(),

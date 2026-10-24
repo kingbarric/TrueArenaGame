@@ -94,6 +94,7 @@ void main() {
     expect(calls, contains('GET /api/v1/huud-spaces/by-room/room1'));
     expect(find.byKey(const ValueKey('game-over')), findsNothing);
     expect(find.byType(HuudSpaceScreen), findsOneWidget);
+    expect(tester.getSemantics(find.byKey(const ValueKey('huud-tab-play'))), isSemantics(isSelected: true));
     expect(find.text("Ada's Whot Club"), findsWidgets);
   });
 

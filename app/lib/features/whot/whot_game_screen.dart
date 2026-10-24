@@ -13,7 +13,6 @@ import '../../widgets/neon.dart';
 import '../../widgets/table_chat.dart';
 import '../../widgets/game_voice_control.dart';
 import '../status/victory_status.dart';
-import 'whot_lobby_screen.dart';
 import 'whot_card.dart';
 import '../huudspace/leave_game.dart';
 import '../../widgets/worn_look.dart';
@@ -1943,14 +1942,7 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
                     roomId: widget.roomId,
                     gameType: 'whot',
                     detail: '$_winnerLabel won Whot'),
-              if (!widget.spectating) ...[
-                NeonButton('Play again',
-                    onPressed: () => Navigator.of(context).pushReplacement(
-                        MaterialPageRoute(
-                            builder: (_) => const WhotLobbyScreen()))),
-                const SizedBox(height: 8),
-              ],
-              NeonButton('Play another game',
+              NeonButton('Back to the Huud',
                   style: NeonStyle.ghost,
                   onPressed: () => leaveGame(context, widget.roomId)),
             ]),

@@ -22,16 +22,17 @@ import '../wordbluff/wordbluff_game_screen.dart';
 import '../huudspace/huud_roster.dart';
 import '../huudspace/huud_space_models.dart';
 import '../huudspace/whot_mode_sheet.dart';
+import '../huudspace/leave_game.dart';
 import '../../widgets/lobby_start_bar.dart';
 
-/// The lobby for a room this device *joined* rather than created — same live
-/// roster/ready/socket wiring as `LobbyScreen`/`WordBluffLobbyScreen`, but
-/// generic across both game types (it doesn't know which one until the
-/// `POST /rooms/join` response says so) and never posts `GAME_START` itself
-/// since a joiner is essentially never the host.
+/// Connects a seated Huud player directly to the match. The host's Start game
+/// action waits for a live lobby snapshot before sending GAME_START. Guest
+/// rooms without a Huud retain their standalone waiting lobby.
 class JoinedRoomScreen extends StatefulWidget {
-  const JoinedRoomScreen({super.key, required this.room, this.socket});
+  const JoinedRoomScreen({super.key, required this.room, this.socket, this.huudId, this.startGame = false});
   final RoomView room;
+  final String? huudId;
+  final bool startGame;
   final GameSocket? socket;
 
   @override
@@ -43,6 +44,8 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
   GameSocket? _socket;
   StreamSubscription? _sub;
   bool _handedOff = false;
+  bool _startSent = false;
+  String? _startError;
   bool _gameUnavailable = false;
   String _gameMode = 'relay';
   late AppState _app;
@@ -94,7 +97,13 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
       switch (env['type']) {
         case 'SNAPSHOT':
           final p = (env['payload'] as Map).cast<String, dynamic>();
-          if (p['lobby'] == true) _applyLobbySnapshot(p);
+          if (p['lobby'] == true) {
+            _applyLobbySnapshot(p);
+            if (widget.startGame && p['hostId'] == _selfId() && !_startSent) {
+              _startSent = true;
+              socket.send('GAME_START');
+            }
+          }
           if (p['lobby'] == false) {
             _handOffToGame();
           }
@@ -107,6 +116,7 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
         case 'ERROR':
           final msg = (env['payload'] as Map)['message']?.toString();
           if (msg != null && mounted) {
+            setState(() { _startError = msg; });
             ScaffoldMessenger.of(context)
                 .showSnackBar(SnackBar(content: Text(msg)));
           }
@@ -120,6 +130,9 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
       final raw = await _app.api.get('/huud-spaces/by-room/${_room.id}');
       if (!mounted || raw is! Map || raw.isEmpty) return;
       setState(() => _huud = HuudSpace.fromJson(raw.cast<String, dynamic>()));
+      if (widget.huudId == null && _room.status == 'lobby' && mounted) {
+        await leaveGame(context, _room.id);
+      }
     } catch (_) {
       // Not a Huud game — the ordinary lobby it is.
     }
@@ -271,7 +284,7 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
         ],
       ),
       body: SafeArea(
-        child: _gameUnavailable ? _unavailableGame() : Column(
+        child: _gameUnavailable ? _unavailableGame() : (widget.huudId != null || _huud != null) ? _gameBridge() : Column(
           children: [
             MarqueeBar(_room.gameType == 'goosi'
                 ? _gameMode == 'oware'
@@ -368,6 +381,22 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
       ),
     );
   }
+
+  Widget _gameBridge() => Center(child: Padding(
+    padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: [
+      if (_startError == null) const CircularProgressIndicator(),
+      const SizedBox(height: 18),
+      Text(_startError ?? (widget.startGame ? 'Starting the game…' : 'Waiting for the host to start'),
+          textAlign: TextAlign.center),
+      if (_startError != null) TextButton(onPressed: () {
+        setState(() => _startError = null);
+        if (widget.startGame) _socket?.send('GAME_START');
+        _socket?.send('HELLO', {'lastSeq': 0});
+      }, child: const Text('Try again')),
+      const SizedBox(height: 12),
+      TextButton(onPressed: () => leaveGame(context, _room.id), child: const Text('Back to the Huud')),
+    ]),
+  ));
 
   Widget _unavailableGame() => Center(
         child: Padding(

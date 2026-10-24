@@ -8,6 +8,7 @@ import '../core/api_client.dart';
 import '../core/app_state.dart';
 import '../core/models.dart';
 import '../features/shell/main_shell.dart';
+import '../features/profile/match_history_box.dart';
 import '../theme/neon_theme.dart';
 
 Future<void> main() async {
@@ -116,6 +117,22 @@ Future<void> main() async {
       selectedGame = chosen['gameType'] as String;
       selectedMode = chosen['mode'] as String?;
       body = {};
+    } else if (path == '/me/matches') {
+      final q = request.url.queryParameters;
+      final history = [for (var i = 0; i < 18; i++) {
+        'matchId': 'preview-match-$i', 'gameType': ['whot','chess','ludo'][i % 3],
+        'outcome': i % 3 == 0 ? 'loss' : 'win',
+        'completedAt': now.subtract(Duration(hours: i * 5)).toIso8601String(),
+        'opponents': [{'userId': 'preview-player-$i', 'username': i.isEven ? 'alex' : 'beverly', 'displayName': i.isEven ? 'Alex' : 'Beverly'}],
+      }];
+      body = history.where((m) {
+        final game = q['gameType'], opponent = q['opponent'];
+        final date = DateTime.parse(m['completedAt'] as String);
+        return (game == null || m['gameType'] == game)
+            && (opponent == null || (m['opponents'] as List).toString().toLowerCase().contains(opponent.toLowerCase()))
+            && (q['from'] == null || !date.isBefore(DateTime.parse(q['from']!)))
+            && (q['until'] == null || date.isBefore(DateTime.parse(q['until']!)));
+      }).take(10).toList();
     } else if (path == '/huud-spaces/preview-1/messages') {
       body = [];
     } else if (path == '/huud-spaces/live') {
@@ -168,5 +185,7 @@ Future<void> main() async {
           theme: const bool.fromEnvironment('PREVIEW_LIGHT')
               ? NeonTheme.light
               : NeonTheme.dark,
-          home: const MainShell(initialIndex: 0))));
+          home: const bool.fromEnvironment('PREVIEW_HISTORY')
+              ? Scaffold(appBar: AppBar(title: const Text('Profile')), body: const SingleChildScrollView(padding: EdgeInsets.all(16), child: MatchHistoryBox()))
+              : const MainShell(initialIndex: 0))));
 }

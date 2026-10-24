@@ -13,16 +13,21 @@ import 'huud_space_screen.dart';
 Future<void> leaveGame(BuildContext context, String roomId) async {
   final nav = Navigator.of(context);
   final huudId = await _huudOf(context, roomId);
-  if (huudId != null) {
-    var found = false;
-    nav.popUntil((route) {
-      found = route.settings.name == huudRouteName(huudId);
-      return found || route.isFirst;
-    });
-    if (found) return;
-  }
+  if (!nav.mounted) return;
+  var found = false;
+  nav.popUntil((route) {
+    if (route is HuudSpaceRoute &&
+        (route.huudId == huudId || route.containsGame(roomId))) {
+      found = true;
+      route.showGames();
+    } else if (huudId != null && route.settings.name == huudRouteName(huudId)) {
+      found = true;
+    }
+    return found || route.isFirst;
+  });
+  if (found) return;
   nav.pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const MainShell()), (_) => false);
-  if (huudId != null) nav.push(huudRoute(huudId));
+  if (huudId != null) nav.push(huudRoute(huudId, startOnGame: true));
 }
 
 Future<String?> _huudOf(BuildContext context, String roomId) async {

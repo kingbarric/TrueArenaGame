@@ -57,7 +57,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  Future<(_Socket, AppState)> open(WidgetTester tester) async {
+  Future<(_Socket, AppState)> open(WidgetTester tester, {bool huud = false, bool start = false}) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     final socket = _Socket();
     final app = AppState(ApiClient(client: MockClient((_) async =>
@@ -67,7 +67,7 @@ void main() {
       theme: NeonTheme.dark,
       home: const Scaffold(body: Text('Your Huud')),
       routes: {'/resume': (_) => JoinedRoomScreen(
-        socket: socket,
+        socket: socket, huudId: huud ? 'h1' : null, startGame: start,
         room: const RoomView(id: 'room', code: 'ABCDEF', hostId: 'me',
           status: 'in_game', gameType: 'draughts', members: [
             RoomMember(userId: 'me', nickname: 'Player', ready: true, connected: true),
@@ -125,4 +125,44 @@ void main() {
     app.dispose();
     await tester.binding.setSurfaceSize(null);
   });
+  testWidgets('Huud host starts once from the current setup and can retry a rejected start', (tester) async {
+    final (socket, app) = await open(tester, huud: true, start: true);
+    final lobby = <String, dynamic>{
+      'lobby': true, 'roomId': 'room', 'code': 'ABCDEF', 'hostId': 'me',
+      'status': 'lobby', 'members': [{'userId': 'me', 'nickname': 'Player'}],
+    };
+    socket.emit('SNAPSHOT', lobby);
+    socket.emit('SNAPSHOT', lobby);
+    await tester.pump();
+    expect(socket.sent.where((e) => e['type'] == 'GAME_START'), hasLength(1));
+    expect(find.text('Starting the game…'), findsOneWidget);
+    expect(find.byKey(const ValueKey('lobby-roster')), findsNothing);
+    expect(find.byKey(const ValueKey('lobby-start')), findsNothing);
+    socket.emit('ERROR', {'message': 'Add another player to start'});
+    await tester.pump();
+    await tester.tap(find.text('Try again'));
+    await tester.pump();
+    expect(socket.sent.where((e) => e['type'] == 'GAME_START'), hasLength(2));
+    expect(find.text('Starting the game…'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    app.dispose();
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('a Huud participant waits without starting or seeing the old room lobby', (tester) async {
+    final (socket, app) = await open(tester, huud: true);
+    socket.emit('SNAPSHOT', {
+      'lobby': true, 'roomId': 'room', 'code': 'ABCDEF', 'hostId': 'opponent',
+      'status': 'lobby', 'members': [{'userId': 'me', 'nickname': 'Player'}],
+    });
+    await tester.pump();
+    expect(find.text('Waiting for the host to start'), findsOneWidget);
+    expect(find.text('Back to the Huud'), findsOneWidget);
+    expect(socket.sent.where((e) => e['type'] == 'GAME_START'), isEmpty);
+    expect(find.byKey(const ValueKey('lobby-roster')), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    app.dispose();
+    await tester.binding.setSurfaceSize(null);
+  });
+
 }
