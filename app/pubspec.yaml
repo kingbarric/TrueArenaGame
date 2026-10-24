@@ -64,6 +64,7 @@ flutter:
     - assets/images/nav/
     - assets/images/huud_ui/
     - assets/images/monopoly/
+    - assets/images/traitors_modes/
     - assets/music/
     - assets/sfx/
     - assets/slay_renderer/

@@ -4,6 +4,7 @@ import '../../core/api_client.dart';
 import '../../core/app_state.dart';
 import '../../core/models.dart';
 import '../../theme/neon_theme.dart';
+import '../../widgets/mode_art.dart';
 import '../../widgets/neon.dart';
 import '../lobby/lobby_screen.dart';
 import '../onboarding/guest_gate.dart';
@@ -104,36 +105,50 @@ class _ModeSelectScreenState extends State<ModeSelectScreen> {
   Widget _card(ModePreset p, {bool mirror = false}) {
     final n = context.neon;
     final selected = p.id == _selectedId;
+    // The mode's own picture, faded behind its words, filling the card's shape.
+    final art = traitorsModeArt[p.slug];
+    final design = context.neonDesign.kind;
+    final radius = design == NeonDesignKind.cabinet
+        ? NeonRadius.blob(mirror: mirror)
+        : BorderRadius.circular(design == NeonDesignKind.supercar ? 18 : 24);
     return Padding(
       padding: const EdgeInsets.only(bottom: 11),
       child: NeonCard(
         selected: selected,
         mirror: mirror,
+        padding: art == null ? null : EdgeInsets.zero,
         onTap: () => setState(() => _selectedId = p.id),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+        child: ModeArtBackdrop(
+          asset: art,
+          borderRadius: radius,
+          child: Padding(
+            padding: art == null ? EdgeInsets.zero : const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (p.tag != null) _pill(p.tag!, n.jade, n.onAccent),
-                const Spacer(),
-                if (selected) Icon(Icons.check_circle, color: n.gold, size: 18),
+                Row(
+                  children: [
+                    if (p.tag != null) _pill(p.tag!, n.jade, n.onAccent),
+                    const Spacer(),
+                    if (selected) Icon(Icons.check_circle, color: n.gold, size: 18),
+                  ],
+                ),
+                if (p.tag != null) const SizedBox(height: 8),
+                Text(p.name, style: Theme.of(context).textTheme.titleMedium),
+                if (p.description != null) ...[
+                  const SizedBox(height: 4),
+                  Text(p.description!, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: n.mid)),
+                ],
+                const SizedBox(height: 10),
+                Wrap(spacing: 6, runSpacing: 6, children: [
+                  _stat('${p.minPlayers}–${p.maxPlayers} players', n.gold),
+                  _stat('${p.traitors} traitors', n.brand),
+                  _stat(p.veilLabel, n.jade),
+                  if (p.twistCount > 0) _stat('${p.twistCount} twist${p.twistCount == 1 ? '' : 's'}', n.mid),
+                ]),
               ],
             ),
-            if (p.tag != null) const SizedBox(height: 8),
-            Text(p.name, style: Theme.of(context).textTheme.titleMedium),
-            if (p.description != null) ...[
-              const SizedBox(height: 4),
-              Text(p.description!, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: n.mid)),
-            ],
-            const SizedBox(height: 10),
-            Wrap(spacing: 6, runSpacing: 6, children: [
-              _stat('${p.minPlayers}–${p.maxPlayers} players', n.gold),
-              _stat('${p.traitors} traitors', n.brand),
-              _stat(p.veilLabel, n.jade),
-              if (p.twistCount > 0) _stat('${p.twistCount} twist${p.twistCount == 1 ? '' : 's'}', n.mid),
-            ]),
-          ],
+          ),
         ),
       ),
     );
