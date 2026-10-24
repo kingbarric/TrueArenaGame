@@ -26,7 +26,8 @@ Future<void> startHuud(BuildContext context, {String? gameType, bool share = fal
     builder: (_) => CreateHuudSheet(gameType: gameType, share: share, onQuickPlay: onQuickPlay),
   );
   if (made == null || !context.mounted) return;
-  await openHuudSpace(context, made.id, initial: made);
+  await openHuudSpace(context, made.id, initial: made,
+      startOnGame: gameType != null || made.currentGame != null);
 }
 
 /// Two questions — what's it called, and who can join — then two optional
@@ -440,10 +441,7 @@ Future<void> openHuudForGame(BuildContext context, String gameType, {VoidCallbac
     // Your Huud is offline — Go Live first, then the game goes on.
     final live = await goLive(context, huud.id);
     if (!context.mounted) return;
-    if (live == null) {
-      await openHuudSpace(context, huud.id, initial: huud);
-      return;
-    }
+    if (live == null) return;
     huud = live;
   }
   final game = huud.currentGame;
@@ -459,9 +457,13 @@ Future<void> openHuudForGame(BuildContext context, String gameType, {VoidCallbac
       huud = HuudSpace.fromJson((await api.get('/huud-spaces/${huud.id}') as Map).cast<String, dynamic>());
     } on ApiException catch (e) {
       if (context.mounted) huudSnack(context, e.message);
-    } catch (_) {}
+      return;
+    } catch (_) {
+      if (context.mounted) huudSnack(context, userErrorMessage);
+      return;
+    }
   } else if (game.gameType != gameType) {
     huudSnack(context, '${huudGameName(game.gameType)} is on in your Huud — finish it first');
   }
-  if (context.mounted) await openHuudSpace(context, huud.id, initial: huud);
+  if (context.mounted) await openHuudSpace(context, huud.id, initial: huud, startOnGame: true);
 }

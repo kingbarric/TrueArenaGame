@@ -33,8 +33,8 @@ import '../competitive/player_profile_screen.dart';
 import '../../widgets/huud_art.dart';
 
 Future<void> openHuudSpace(BuildContext context, String id,
-        {HuudSpace? initial}) =>
-    Navigator.of(context).push(huudRoute(id, initial: initial));
+        {HuudSpace? initial, bool startOnGame = false}) =>
+    Navigator.of(context).push(huudRoute(id, initial: initial, startOnGame: startOnGame));
 
 Future<void> requestPublicHuudSeat(BuildContext context, String id) async {
   final raw = await AppScope.of(context)
@@ -42,15 +42,15 @@ Future<void> requestPublicHuudSeat(BuildContext context, String id) async {
       .post('/huud-spaces/$id/public-invite/play') as Map<String, dynamic>;
   if (!context.mounted) return;
   final huud = HuudSpace.fromJson(raw);
-  await openHuudSpace(context, id, initial: huud);
+  await openHuudSpace(context, id, initial: huud, startOnGame: true);
 }
 
 /// Named so a finished game can find its way back to the Huud (`leaveGame`).
 String huudRouteName(String id) => 'huud/$id';
 
-Route<void> huudRoute(String id, {HuudSpace? initial}) => MaterialPageRoute(
+Route<void> huudRoute(String id, {HuudSpace? initial, bool startOnGame = false}) => MaterialPageRoute(
     settings: RouteSettings(name: huudRouteName(id)),
-    builder: (_) => HuudSpaceScreen(id: id, initial: initial));
+    builder: (_) => HuudSpaceScreen(id: id, initial: initial, startOnGame: startOnGame));
 
 /// Inside a Huud: who's here, what's being played, and the chat.
 ///
@@ -64,10 +64,14 @@ class HuudSpaceScreen extends StatefulWidget {
       {super.key,
       required this.id,
       this.initial,
+      this.startOnGame = false,
       this.previewSpeakingIds = const {}});
 
   final String id;
   final HuudSpace? initial;
+
+  /// Entering from a selected game goes straight to its setup and players.
+  final bool startOnGame;
   @visibleForTesting
   final Set<String> previewSpeakingIds;
 
@@ -80,7 +84,7 @@ enum _Tab { people, play, chat }
 class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
   late HuudSpace? _huud = widget.initial;
   String? _error;
-  _Tab _tab = _Tab.people;
+  late _Tab _tab = widget.startOnGame ? _Tab.play : _Tab.people;
   final _avatarMotion = HuudAvatarMotion();
   String? _busy;
   Timer? _poll;
