@@ -64,4 +64,9 @@ before the Huud metadata arrives.
   reports no issues. Full-motion 390×844 previews were rendered and inspected.
 - Evidence: `output/draughts-effects-validation/verification.json` and the
   adjacent `king-down.png` / `king-me.png` previews.
-- This change has not been deployed to the phone or backend yet.
+- Deployed source `7ea7818` to the isolated test backend and iPhone build
+  **2026102511** on 25 October 2026. Confirmed the installed version and
+  successful launch. Both native engines passed container smoke checks and
+  reported ready after rollout. Production container identities and start
+  times were unchanged. Deployment hashes and evidence are recorded in
+  `output/phone-deploy/2026102511/manifest.json`.
