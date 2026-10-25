@@ -43,7 +43,7 @@ requires published store listings and physical first-install verification.
 
 ## Verified implementation
 
-- Full backend `verify -DskipITs`: 923 tests across 137 suites, zero failures
+- Full backend `verify -DskipITs`: 924 tests across 137 suites, zero failures
   or errors; seven environment-dependent checks skipped (six native engine
   checks and one live-storage check). Docker integration tests were excluded.
 - 110 Flutter regression tests passed, plus the artwork export test. Ten
@@ -98,3 +98,26 @@ and prefix. Both Huud and championship shares stay on their own database.
 The test host is not an iOS associated domain: its invitation page's **Open
 invitation in PlayHuud** button opens the installed app via its custom scheme.
 Production association files and store-release verification remain separate.
+
+## Phone deployment — 25 October 2026
+
+Synced `codex/local-bot-gameplay` with main `806a9ea` (already included; no
+conflicts). Deployed source `029122e` to the isolated test backend and installed,
+launched and verified iPhone build **1.0.1 (2026102512)** on iKingbarric.
+The signed app uses the test API and invitation base described above.
+
+Backend verification: 924 tests, 137 suites, zero failures/errors, seven
+resource-dependent skips; Docker integration tests excluded. Focused Flutter
+invitation/onboarding tests passed (14), configured-test-base parsing tests
+passed (6), and ten website flow tests passed. Focused static analysis is clean.
+The release signature was verified using the system trust store.
+
+Live checks passed for existing Huud and championship pages, malformed-code 404
+pages, all four publicly served covers (matching repository checksums), store
+configuration and both native engines. Stockfish and Scan each have one ready
+worker and no recorded failure. Production container IDs and start times were
+unchanged; shared Caddy and production website were not redeployed.
+
+Evidence and the signed app archive are under
+`output/phone-deploy/2026102512/`. Store URLs remain unset while listings are in
+review; physical store-to-first-install handoff remains pending publication.
