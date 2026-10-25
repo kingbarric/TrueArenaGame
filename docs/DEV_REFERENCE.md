@@ -734,7 +734,7 @@ Same Shape, or Either for Tell matching and a 2–12 card minimum (default 3).
 The server redeals any initial hand that already satisfies the Tell rule.
 See [WHOT_THE_TELL.md](WHOT_THE_TELL.md).
 
-Planned attack/counter animations, last-card warnings, selectable final-card
+Attack/counter animations, last-card warnings, selectable final-card
 celebrations and Tell outcome effects are specified in
 [WHOT_DRAMATIC_EFFECTS_PLAN.md](WHOT_DRAMATIC_EFFECTS_PLAN.md). It includes
 VAR replay, consent-based take-backs and spectator reactions confined to side

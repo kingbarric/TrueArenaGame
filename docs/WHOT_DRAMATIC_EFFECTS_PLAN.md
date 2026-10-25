@@ -1,7 +1,7 @@
 # Whot dramatic effects and selectable final-card celebrations
 
-Status: implemented on `codex/local-bot-gameplay`; final integration validation
-is in progress. No deployment is included in this implementation task.
+Status: implemented and verified on `codex/local-bot-gameplay`, including main
+through `362503f`. These changes have not been pushed or deployed.
 
 ## Goal
 
@@ -257,3 +257,23 @@ Related specifications: [The Tell](WHOT_THE_TELL.md),
   it returns VAR/Undo controls. It leaves card and market input available and
   uses a separate acknowledgement, so saving a cosmetic choice cannot release
   an unrelated pending card action.
+
+## Verification results
+
+- Full backend `verify -DskipITs`: **892 tests across 130 suites, zero failures
+  or errors, seven skipped checks**. Six skipped checks require local native
+  Scan/Stockfish executables; one requires live object-storage credentials.
+  Docker integration tests were excluded.
+- **155 selected Flutter tests passed**, covering existing Whot play, all six
+  finishers, chooser input and cosmetic acknowledgements, VAR, take-back
+  consent, spectator side-lane geometry/expiry, reduced-motion dealing, Tell
+  interception results, reconnect suppression, shared Draughts VAR controls
+  and the latest Huud flows.
+- Static analysis of the three Whot UI files reports **no issues**.
+- A 390×844 phone layout was rendered and inspected. Animations preserve
+  authoritative card legality while the visible card fan catches up; the
+  finisher chooser replaces the review strip while open to preserve play space.
+- Validation metadata and the rendered preview are in
+  `output/whot-effects-validation/`. Your earlier local multiple-Huud plan was
+  preserved in `output/merge-backups/20261025-whot-effects/` when main's updated
+  tracked version was merged.

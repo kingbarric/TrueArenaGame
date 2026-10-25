@@ -211,6 +211,9 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
     if (!mounted) return;
     final p = (env['payload'] as Map? ?? {}).cast<String, dynamic>();
     if (env['type'] == 'CONNECTION') {
+      if (p['connected'] == true && !_snapshotSeen) {
+        _socket.send('HELLO', {'lastSeq': 0});
+      }
       setState(() {
         _disconnected = p['connected'] != true;
         if (_disconnected) {
@@ -234,6 +237,7 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
     if (env['type'] == 'SNAPSHOT' && p['lobby'] == true && widget.spectating) {
       setState(() => _state = {'phase': 'Lobby', ...p});
     } else if (env['type'] == 'SNAPSHOT' && p['lobby'] != true) {
+      final firstSnapshot = !_snapshotSeen;
       final acknowledged = !_pending ||
           !p.containsKey('ackActionId') ||
           p['ackActionId'] == _pendingActionId;
@@ -281,10 +285,16 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
       final flights = <_CardFlightSpec>[];
       var stagger = 0;
       final maxRounds = drawDeltas.values.fold<int>(0, math.max);
-      final maxFlights = isDealing ? 40 : drawDeltas.length > 1 ? 24 : 6;
+      final maxFlights = isDealing
+          ? 40
+          : drawDeltas.length > 1
+              ? 24
+              : 6;
       // Deal in table order, one card per seat each round. Limit very large
       // tables to a few visible rounds so the animation stays under 7 seconds.
-      for (var round = 0; round < maxRounds && flights.length < maxFlights; round++) {
+      for (var round = 0;
+          round < maxRounds && flights.length < maxFlights;
+          round++) {
         for (final draw in drawDeltas.entries) {
           if (draw.value <= round || flights.length >= maxFlights) continue;
           final destination = draw.key == widget.selfId && !widget.spectating
@@ -348,11 +358,14 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
           _offeredFinisher = false;
           _effectPickerOpen = false;
         }
-        if (nextHand.length != 1 || _finished || (p['pendingUndo'] ?? '') != '') {
+        if (nextHand.length != 1 ||
+            _finished ||
+            (p['pendingUndo'] ?? '') != '') {
           _effectPickerOpen = false;
         }
         final effects = p['finishEffects'];
-        if (effects is Map && whotFinishers.containsKey(effects[widget.selfId])) {
+        if (effects is Map &&
+            whotFinishers.containsKey(effects[widget.selfId])) {
           _finisher = effects[widget.selfId];
         }
         _disconnected = false;
@@ -380,7 +393,7 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
           }
         }
       } else {
-        _beginResult();
+        _beginResult(celebrate: !firstSnapshot);
       }
       if (flights.isNotEmpty) {
         if (isDealing) {
@@ -656,7 +669,12 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
             child: SizedBox(
                 key: const ValueKey('whot-board-play-area'),
                 child: WhotEffectStage(
-                  moment: _paused || (_finished && !const ['stolen', 'buzz', 'eliminated'].contains(_moment?['kind'])) ? null : _moment,
+                  moment: _paused ||
+                          (_finished &&
+                              !const ['stolen', 'buzz', 'eliminated']
+                                  .contains(_moment?['kind']))
+                      ? null
+                      : _moment,
                   seats: {
                     for (final player in _players)
                       player: _seatOffsetFor(player)
@@ -877,29 +895,39 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
     });
   }
 
-  void _beginResult() {
+  void _beginResult({bool celebrate = true}) {
     if (_resultStarted || !mounted) return;
     _resultStarted = true;
     final momentSeq = (_moment?['seq'] as num?)?.toInt();
-    final currentSeq = math.max((_state['stateSeq'] as num?)?.toInt() ?? 0, _lastVisualSeq);
-    if (momentSeq == null || currentSeq - momentSeq < 0 || currentSeq - momentSeq > 2) _moment = null;
+    final currentSeq =
+        math.max((_state['stateSeq'] as num?)?.toInt() ?? 0, _lastVisualSeq);
+    if (momentSeq == null ||
+        currentSeq - momentSeq < 0 ||
+        currentSeq - momentSeq > 2) {
+      _moment = null;
+    }
     _warningTimer?.cancel();
     _flightTimer?.cancel();
     _reshuffleTimer?.cancel();
     _signalTimer?.cancel();
     _cardFlights = const [];
     _reshuffleFlights = const [];
-    if (_winnerClearedHand) GameSfx.capture();
-    if (!widget.spectating) {
+    if (_winnerClearedHand && celebrate) GameSfx.capture();
+    if (!widget.spectating && celebrate) {
       if (_winnerClearedHand) unawaited(HapticFeedback.heavyImpact());
       GameMusic.playOutcome(won: _won);
     }
     setState(() {
       _lastCardWarning = null;
-      _finalSplash = _winnerClearedHand;
+      _finalSplash = _winnerClearedHand && celebrate;
     });
     _resultTimer = Timer(
-        Duration(milliseconds: _winnerClearedHand ? 1250 : _tell ? 1100 : 250), () async {
+        Duration(
+            milliseconds: celebrate && _winnerClearedHand
+                ? 1250
+                : celebrate && _tell
+                    ? 1100
+                    : 250), () async {
       if (!mounted) return;
       setState(() => _finalSplash = false);
       await showDialog<void>(
@@ -1566,50 +1594,55 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
     );
   }
 
-  Widget _cardFlightLayer(Size size) => _reduceMotion ? const SizedBox.shrink() : IgnorePointer(
-        child: Stack(children: [
-          if (_reshuffleFlights.isNotEmpty)
-            Positioned(
-              left: size.width * .35,
-              right: size.width * .35,
-              top: size.height * .36,
-              child: const Text('RESHUFFLING MARKET',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                      color: _gold, fontSize: 10, fontWeight: FontWeight.w900)),
-            ),
-          for (final flight in [..._reshuffleFlights, ..._cardFlights])
-            TweenAnimationBuilder<double>(
-              key: ValueKey(flight.id),
-              tween: Tween(begin: 0, end: 1),
-              duration: Duration(milliseconds: 850 + flight.delayMs),
-              curve: Curves.easeInOutCubic,
-              builder: (context, rawProgress, child) {
-                final elapsed =
-                    rawProgress * (850 + flight.delayMs) - flight.delayMs;
-                final progress = (elapsed / 850).clamp(0.0, 1.0);
-                final x =
-                    flight.from.dx + (flight.to.dx - flight.from.dx) * progress;
-                final y =
-                    flight.from.dy + (flight.to.dy - flight.from.dy) * progress;
-                return Positioned(
-                  left: x * size.width - 23,
-                  top: y * size.height - 31,
-                  child: Opacity(
-                    opacity: elapsed < 0 ? 0 : 1,
-                    child: Transform.rotate(
-                      angle: (1 - progress) * -.12,
-                      child: Transform.scale(
-                          scale: .9 + math.sin(progress * math.pi) * .14,
-                          child: child),
+  Widget _cardFlightLayer(Size size) => _reduceMotion
+      ? const SizedBox.shrink()
+      : IgnorePointer(
+          child: Stack(children: [
+            if (_reshuffleFlights.isNotEmpty)
+              Positioned(
+                left: size.width * .35,
+                right: size.width * .35,
+                top: size.height * .36,
+                child: const Text('RESHUFFLING MARKET',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        color: _gold,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900)),
+              ),
+            for (final flight in [..._reshuffleFlights, ..._cardFlights])
+              TweenAnimationBuilder<double>(
+                key: ValueKey(flight.id),
+                tween: Tween(begin: 0, end: 1),
+                duration: Duration(milliseconds: 850 + flight.delayMs),
+                curve: Curves.easeInOutCubic,
+                builder: (context, rawProgress, child) {
+                  final elapsed =
+                      rawProgress * (850 + flight.delayMs) - flight.delayMs;
+                  final progress = (elapsed / 850).clamp(0.0, 1.0);
+                  final x = flight.from.dx +
+                      (flight.to.dx - flight.from.dx) * progress;
+                  final y = flight.from.dy +
+                      (flight.to.dy - flight.from.dy) * progress;
+                  return Positioned(
+                    left: x * size.width - 23,
+                    top: y * size.height - 31,
+                    child: Opacity(
+                      opacity: elapsed < 0 ? 0 : 1,
+                      child: Transform.rotate(
+                        angle: (1 - progress) * -.12,
+                        child: Transform.scale(
+                            scale: .9 + math.sin(progress * math.pi) * .14,
+                            child: child),
+                      ),
                     ),
-                  ),
-                );
-              },
-              child: WhotCardView(code: flight.code, compact: true, scale: .72),
-            ),
-        ]),
-      );
+                  );
+                },
+                child:
+                    WhotCardView(code: flight.code, compact: true, scale: .72),
+              ),
+          ]),
+        );
 
   String _statusText() {
     if (_finished) return '$_winnerLabel won!';
@@ -2081,8 +2114,7 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.center,
-                          style: TextStyle(
-                              color: Colors.white, fontSize: 10))),
+                          style: TextStyle(color: Colors.white, fontSize: 10))),
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.fromLTRB(8, 4, 8, 3),
@@ -2126,8 +2158,12 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
                   _undoBanner(),
                 Expanded(
                   child: _choosingSignals
-                      ? WhotEffectStage(moment: _moment?['kind'] == 'qualified' ? _moment : null,
-                          seats: const {}, reduced: _reduceMotion, child: _signalSetupView())
+                      ? WhotEffectStage(
+                          moment:
+                              _moment?['kind'] == 'qualified' ? _moment : null,
+                          seats: const {},
+                          reduced: _reduceMotion,
+                          child: _signalSetupView())
                       : Stack(children: [
                           Positioned.fill(
                             child: _paused
@@ -2515,8 +2551,7 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
                           const Padding(
                               padding: EdgeInsets.symmetric(vertical: 8),
                               child: Text(userErrorMessage,
-                                  style: TextStyle(
-                                      color: Color(0xffff927c)))),
+                                  style: TextStyle(color: Color(0xffff927c)))),
                         SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
                             child: Row(children: [

@@ -316,32 +316,100 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     }
   });
-  testWidgets('reduced-motion dealing reveals the authoritative hand immediately', (tester) async {
+  testWidgets(
+      'reduced-motion dealing reveals the authoritative hand immediately',
+      (tester) async {
     final socket = await open(tester, reduced: true, state: {
-      'phase': 'Deal', 'yourHand': <String>[], 'handSizes': {'me': 0, 'other': 0}, 'topCard': '',
+      'phase': 'Deal',
+      'yourHand': <String>[],
+      'handSizes': {'me': 0, 'other': 0},
+      'topCard': '',
     });
-    socket.snapshot({'phase': 'Turn', 'yourHand': ['circle-3', 'triangle-5', 'square-4'],
-      'handSizes': {'me': 3, 'other': 3}, 'topCard': 'circle-7'});
-    await tester.pump(); await tester.pump();
+    socket.snapshot({
+      'phase': 'Turn',
+      'yourHand': ['circle-3', 'triangle-5', 'square-4'],
+      'handSizes': {'me': 3, 'other': 3},
+      'topCard': 'circle-7'
+    });
+    await tester.pump();
+    await tester.pump();
     expect(find.text('Waiting for your cards'), findsNothing);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('a final Tell interception stays visible before the result dialog', (tester) async {
-    final socket = await open(tester, state: {'mode': 'tell', 'yourTeam': 0,
-      'players': ['me', 'partner', 'other', 'rival'], 'teams': [['me', 'partner'], ['other', 'rival']]});
-    socket.snapshot({'stateSeq': 12, 'phase': 'Results', 'mode': 'tell', 'yourTeam': 0, 'winner': 'other', 'winnerTeam': 1,
-      'players': ['me', 'partner', 'other', 'rival'], 'teams': [['me', 'partner'], ['other', 'rival']],
-      'handSizes': {'me': 3, 'partner': 3, 'other': 3, 'rival': 3}});
-    await tester.pump(); await tester.pump();
-    event(socket, 11, 'BUZZ_RESOLVED', {'correct': true, 'interception': true, 'by': 'other', 'team': 1, 'signalId': 10});
-    await tester.pump(); await tester.pump();
+  testWidgets(
+      'a final Tell interception stays visible before the result dialog',
+      (tester) async {
+    final socket = await open(tester, state: {
+      'mode': 'tell',
+      'yourTeam': 0,
+      'players': ['me', 'partner', 'other', 'rival'],
+      'teams': [
+        ['me', 'partner'],
+        ['other', 'rival']
+      ]
+    });
+    socket.snapshot({
+      'stateSeq': 12,
+      'phase': 'Results',
+      'mode': 'tell',
+      'yourTeam': 0,
+      'winner': 'other',
+      'winnerTeam': 1,
+      'players': ['me', 'partner', 'other', 'rival'],
+      'teams': [
+        ['me', 'partner'],
+        ['other', 'rival']
+      ],
+      'handSizes': {'me': 3, 'partner': 3, 'other': 3, 'rival': 3}
+    });
+    await tester.pump();
+    await tester.pump();
+    event(socket, 11, 'BUZZ_RESOLVED', {
+      'correct': true,
+      'interception': true,
+      'by': 'other',
+      'team': 1,
+      'signalId': 10
+    });
+    await tester.pump();
+    await tester.pump();
     expect(find.byKey(const ValueKey('whot-effect-stolen')), findsOneWidget);
     expect(find.byKey(const ValueKey('whot-game-over-dialog')), findsNothing);
-    await tester.pump(const Duration(milliseconds: 1200)); await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1200));
+    await tester.pump();
     expect(find.byKey(const ValueKey('whot-game-over-dialog')), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
-
+  testWidgets(
+      'reconnect requests a fresh private snapshot and suppresses old effects',
+      (tester) async {
+    final socket = await open(tester, state: {'stateSeq': 5});
+    socket.controller.add({
+      'type': 'CONNECTION',
+      'payload': {'connected': false}
+    });
+    await tester.pump();
+    await tester.pump();
+    socket.controller.add({
+      'type': 'CONNECTION',
+      'payload': {'connected': true}
+    });
+    await tester.pump();
+    await tester.pump();
+    expect(socket.sent.last, {'type': 'HELLO', 'lastSeq': 0});
+    event(socket, 6, 'WHOT_MOMENT', {'id': 6, 'kind': 'pickTwo', 'debt': 2});
+    await tester.pump();
+    await tester.pump();
+    expect(find.byKey(const ValueKey('whot-effect-pickTwo')), findsNothing);
+    socket.snapshot({'stateSeq': 7});
+    await tester.pump();
+    await tester.pump();
+    event(socket, 8, 'WHOT_MOMENT', {'id': 8, 'kind': 'pickTwo', 'debt': 4});
+    await tester.pump();
+    await tester.pump();
+    expect(find.byKey(const ValueKey('whot-effect-pickTwo')), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
 }

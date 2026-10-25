@@ -44,7 +44,8 @@ class _WhotVarSheetState extends State<WhotVarSheet> {
     final sizes = play['handSizes'] as Map? ?? const {};
     return SafeArea(
         child: SizedBox(
-            height: (MediaQuery.sizeOf(context).height * .82).clamp(350.0, 600.0),
+            height:
+                (MediaQuery.sizeOf(context).height * .82).clamp(350.0, 600.0),
             child: Padding(
               padding: const EdgeInsets.all(18),
               child: Column(children: [
