@@ -20,6 +20,7 @@ import '../onboarding/guest_save_session_card.dart';
 import '../huudspace/leave_game.dart';
 import 'table_ring.dart';
 import 'traitors_reveal.dart';
+import '../whot/whot_effects.dart' show WhotReactionLane, whotReactions;
 import '../../widgets/huud_art.dart';
 
 /// The actual game loop — role reveal through results — driven entirely by
@@ -35,11 +36,16 @@ class GameScreen extends StatefulWidget {
     required this.selfId,
     required this.isHost,
     required this.nicknames,
+    this.spectating = false,
   });
 
   final GameSocket socket;
   final String selfId;
   final bool isHost;
+
+  /// Watching, not playing: the whole public table, its talk and its
+  /// reveals, with nothing to act on — and a tray of reactions to send.
+  final bool spectating;
 
   /// userId -> display name, best-effort (falls back to a short id).
   final Map<String, String> nicknames;
@@ -127,6 +133,13 @@ class _GameScreenState extends State<GameScreen> {
   final TextEditingController _watchController = TextEditingController();
   int _spectatorCount = 0;
 
+  /// Spectators' reactions floating past — players see them too.
+  final _reactions = <Map<String, dynamic>>[];
+  final _seenReactions = <String>{};
+  Timer? _reactionSweep, _reactionCooldown;
+  int _reactionSerial = 0;
+  bool _reactionCooling = false, _spectatorsMuted = false;
+
   bool get _amSpectator => !players.contains(widget.selfId);
 
   /// The host stopped the game partway: it's over, and nobody won.
@@ -189,6 +202,11 @@ class _GameScreenState extends State<GameScreen> {
   /// Always reachable — a round can stall on somebody who has walked away,
   /// and there was no way out of this screen at all.
   Future<void> _confirmExit() async {
+    // A spectator has no seat to give up — back to wherever they watched from.
+    if (widget.spectating) {
+      await Navigator.of(context).maybePop();
+      return;
+    }
     final leave = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -273,6 +291,8 @@ class _GameScreenState extends State<GameScreen> {
     GameMusic.stop();
     _chatController.dispose();
     _watchController.dispose();
+    _reactionSweep?.cancel();
+    _reactionCooldown?.cancel();
     super.dispose();
   }
 
@@ -332,6 +352,7 @@ class _GameScreenState extends State<GameScreen> {
       _giftUses = p['giftUses'] as int? ?? 0;
       players = ((p['players'] as List?) ?? players).cast<String>();
       _spectatorCount = p['spectatorCount'] as int? ?? _spectatorCount;
+      _spectatorsMuted = p['spectatorsMuted'] as bool? ?? _spectatorsMuted;
       alive = ((p['alive'] as List?) ?? alive.toList()).cast<String>().toSet();
       yourRole = p['yourRole'] as String? ?? yourRole;
       fellowTraitors =
@@ -543,7 +564,8 @@ class _GameScreenState extends State<GameScreen> {
           unawaited(GameMusic.stop());
         case 'GAME_OVER':
           winningSide = data['winningSide'] as String?;
-          GameMusic.playOutcome(won: (winningSide == 'traitors') == isTraitor);
+          // A spectator has no side: the ending is a show either way.
+          GameMusic.playOutcome(won: widget.spectating || (winningSide == 'traitors') == isTraitor);
         case 'FULL_REVEAL':
           allRoles = (data['roles'] as Map).cast<String, String>();
           _hiddenBallots = ((data['ballots'] as List?) ?? const [])
@@ -552,6 +574,12 @@ class _GameScreenState extends State<GameScreen> {
               .toList();
         case 'SPECTATOR_COUNT':
           _spectatorCount = data['count'] as int? ?? _spectatorCount;
+        case 'SPECTATOR_REACTION':
+          _receiveReaction(data);
+        case 'SPECTATORS_MUTED':
+          _spectatorsMuted = true;
+        case 'SPECTATORS_UNMUTED':
+          _spectatorsMuted = false;
         case 'CHAT_MESSAGE':
           final from = data['from'] as String;
           final channel = data['channel']?.toString();
@@ -877,7 +905,7 @@ class _GameScreenState extends State<GameScreen> {
                 _menuItem('credits', Icons.library_music_outlined, 'Music credits'),
                 if (widget.isHost && !finished)
                   _menuItem('end', Icons.stop_circle_outlined, 'End game for everyone'),
-                _menuItem('exit', Icons.logout_rounded, 'Leave'),
+                _menuItem('exit', Icons.logout_rounded, widget.spectating ? 'Stop watching' : 'Leave'),
               ],
             ),
           ],
@@ -914,13 +942,80 @@ class _GameScreenState extends State<GameScreen> {
                     disabledHint:
                         'Watchers comment here — you talk at the round table.',
                   ),
+                if (widget.spectating && !finished && !_spectatorsMuted) _reactionTray(),
               ]),
             ),
+            // Reactions drift up the edges, clear of the table and its buttons.
+            for (final side in const [0, 1])
+              Positioned(
+                left: side == 0 ? 2 : null,
+                right: side == 1 ? 2 : null,
+                top: 96,
+                bottom: 150,
+                child: WhotReactionLane(
+                    key: ValueKey('traitors-reactions-$side'),
+                    reactions: _reactions,
+                    side: side,
+                    reduced: MediaQuery.disableAnimationsOf(context)),
+              ),
           ],
         ),
       ),
     );
   }
+
+  /// Someone watching reacted. Each shows once, only while it's fresh, and
+  /// never while the players have quietened the audience.
+  void _receiveReaction(Map<String, dynamic> data) {
+    final id = data['id']?.toString();
+    final sent = (data['sentAtMs'] as num?)?.toInt();
+    if (_spectatorsMuted ||
+        id == null ||
+        sent == null ||
+        !whotReactions.contains(data['emoji']) ||
+        DateTime.now().millisecondsSinceEpoch - sent > 3000 ||
+        !_seenReactions.add(id)) {
+      return;
+    }
+    if (_seenReactions.length > 128) _seenReactions.remove(_seenReactions.first);
+    _reactions.add({...data, 'lane': _reactionSerial++ % 2, 'expiresAtTick': (_reactionSweep?.tick ?? 0) + 23});
+    if (_reactions.length > 8) _reactions.removeAt(0);
+    _reactionSweep ??= Timer.periodic(const Duration(milliseconds: 100), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      setState(() => _reactions.removeWhere((r) => (r['expiresAtTick'] as int) <= timer.tick));
+      if (_reactions.isEmpty) {
+        timer.cancel();
+        _reactionSweep = null;
+      }
+    });
+  }
+
+  /// A spectator's reactions — one a second, as the server allows.
+  Widget _reactionTray() => SizedBox(
+      key: const ValueKey('traitors-reaction-tray'),
+      height: 38,
+      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        for (final emoji in whotReactions)
+          IconButton(
+              key: ValueKey('traitors-react-$emoji'),
+              tooltip: 'React $emoji',
+              padding: const EdgeInsets.all(3),
+              constraints: const BoxConstraints(minWidth: 42, minHeight: 34),
+              onPressed: _reactionCooling
+                  ? null
+                  : () {
+                      setState(() => _reactionCooling = true);
+                      widget.socket.send('REACTION_SEND', {'emoji': emoji});
+                      _reactionCooldown?.cancel();
+                      _reactionCooldown = Timer(const Duration(milliseconds: 1100), () {
+                        if (mounted) setState(() => _reactionCooling = false);
+                      });
+                    },
+              icon: Text(emoji, style: const TextStyle(fontSize: 21))),
+      ]));
 
   Widget _phaseBody(NeonColors n) {
     return switch (phase) {
@@ -962,6 +1057,22 @@ class _GameScreenState extends State<GameScreen> {
   // ---------------------------------------------------------------- phase screens
 
   Widget _roleReveal(NeonColors n) {
+    if (widget.spectating) {
+      return _centered([
+        const HuudText('🎭', style: TextStyle(fontSize: 64)),
+        const SizedBox(height: 14),
+        Text('The roles are being dealt',
+            key: const ValueKey('watch-role-reveal'),
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 28, color: n.gold)),
+        const SizedBox(height: 10),
+        Text('Everyone is finding out who they are. The Traitors are among them — watch closely.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: n.mid)),
+        const SizedBox(height: 28),
+        _waiting(n, _movingOnLine),
+      ]);
+    }
     final traitor = isTraitor;
     final color = traitor ? n.brand : n.gold;
     return _centered([
@@ -1350,6 +1461,14 @@ class _GameScreenState extends State<GameScreen> {
                       },
                     ),
             ),
+            if (widget.spectating)
+              Padding(
+                key: const ValueKey('watch-table-chat-note'),
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                child: Text('The players are talking — you\'re watching. Comment and react below.',
+                    textAlign: TextAlign.center, style: TextStyle(color: n.mute, fontSize: 12)),
+              )
+            else
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
               child: Row(children: [
@@ -1406,7 +1525,7 @@ class _GameScreenState extends State<GameScreen> {
         const SizedBox(height: 10),
         Text('The table is voting', style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 26)),
         const SizedBox(height: 8),
-        Text('You\'re out of this game — watch how it plays out$progress',
+        Text(widget.spectating ? 'Watch how the table votes$progress' : 'You\'re out of this game — watch how it plays out$progress',
             textAlign: TextAlign.center, style: TextStyle(color: n.mid)),
         if (_secondsLeft != null) ...[const SizedBox(height: 12), _countdown(n)],
         const SizedBox(height: 14),
@@ -1522,9 +1641,11 @@ class _GameScreenState extends State<GameScreen> {
       HuudText(
           ended
               ? "Nobody won this one — here's who was who."
-              : won
-                  ? 'You won! 🎉'
-                  : 'Better luck next table.',
+              : widget.spectating
+                  ? 'Thanks for watching 👀'
+                  : won
+                      ? 'You won! 🎉'
+                      : 'Better luck next table.',
           textAlign: TextAlign.center,
           style:
               Theme.of(context).textTheme.bodyMedium?.copyWith(color: n.mid)),

@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:truearena/features/game/traitors_watch_screen.dart';
 import 'package:truearena/core/api_client.dart';
 import 'package:truearena/core/app_state.dart';
 import 'package:truearena/features/lobby/join_room_screen.dart';
@@ -65,7 +66,8 @@ void main() {
 
     expect(calls, containsAllInOrder(['POST /rooms/join', 'POST /rooms/watch']));
     expect(find.byType(SpectateScreen), findsOneWidget, reason: 'no dead end — they land on the live view');
-    expect(find.text('Watching Traitors'), findsOneWidget);
+    // Traitors opens its real table, read-only, rather than a plain event list.
+    expect(find.byType(TraitorsWatchScreen), findsOneWidget);
   });
 
   testWidgets('a finished game shows the generic error and does not try to watch', (tester) async {

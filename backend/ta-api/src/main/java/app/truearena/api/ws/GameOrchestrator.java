@@ -781,9 +781,13 @@ public class GameOrchestrator {
         return Mono.empty();
     }
 
+    /** The games whose tables show spectators' reactions floating past. */
+    static final Set<String> REACTION_GAMES = Set.of("whot", "truearena");
+
     private Mono<Void> handleReaction(RoomRuntime rt, String userId, Envelope in, boolean spectator) {
-        if (!spectator || !rt.spectatorUserIds.contains(userId) || !rt.started() || !"whot".equals(rt.module().gameType()))
-            return tellError(rt, userId, "SPECTATORS_ONLY", "only Whot spectators can send reactions");
+        if (!spectator || !rt.spectatorUserIds.contains(userId) || !rt.started()
+                || !REACTION_GAMES.contains(rt.module().gameType()))
+            return tellError(rt, userId, "SPECTATORS_ONLY", "only spectators can send reactions, in Whot and Traitors");
         if (rt.tournament) return tellError(rt, userId, "SPECTATOR_READ_ONLY", "this match is read-only for spectators");
         if (rt.spectatorsMuted) return tellError(rt, userId, "SPECTATORS_MUTED", "spectator reactions are muted");
         String emoji = String.valueOf(in.payload().get("emoji"));

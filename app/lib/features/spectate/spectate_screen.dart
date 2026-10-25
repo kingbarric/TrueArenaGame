@@ -7,6 +7,7 @@ import '../../core/game_socket.dart';
 import '../slayhuud/slay_competition_screen.dart';
 import '../../theme/neon_theme.dart';
 import '../whot/whot_watch_screen.dart';
+import '../game/traitors_watch_screen.dart';
 import '../ludo/ludo_watch_screen.dart';
 import '../../widgets/game_voice_control.dart';
 import 'board_game_watch_screen.dart';
@@ -56,7 +57,7 @@ class _SpectateScreenState extends State<SpectateScreen> {
     super.didChangeDependencies();
     if (_started) return;
     _started = true;
-    if (const {'whot', 'ludo', 'draughts', 'chess', 'goosi', 'wordbluff', 'monopoly', 'slayhuud'}
+    if (const {'whot', 'ludo', 'draughts', 'chess', 'goosi', 'wordbluff', 'monopoly', 'slayhuud', 'truearena'}
         .contains(widget.gameType)) {
       return;
     }
@@ -195,6 +196,9 @@ class _SpectateScreenState extends State<SpectateScreen> {
     if(widget.gameType == 'slayhuud') return SlayCompetitionScreen(roomId: widget.roomId);
     if (widget.gameType == 'whot') {
       return WhotWatchScreen(roomId: widget.roomId);
+    }
+    if (widget.gameType == 'truearena') {
+      return TraitorsWatchScreen(roomId: widget.roomId);
     }
     if (widget.gameType == 'ludo') {
       return LudoWatchScreen(roomId: widget.roomId);

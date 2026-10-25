@@ -72,7 +72,7 @@ void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
 
   Future<_Socket> open(WidgetTester tester, Map<String, dynamic> snapshot,
-      {String self = 'p1', bool host = false}) async {
+      {String self = 'p1', bool host = false, bool spectating = false}) async {
     tester.view.physicalSize = const Size(1170, 2532);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
@@ -81,7 +81,7 @@ void main() {
       state: AppState(ApiClient(client: MockClient((_) async => http.Response('[]', 200)))),
       child: MaterialApp(
         theme: NeonTheme.dark,
-        home: GameScreen(socket: socket, selfId: self, isHost: host, nicknames: const {
+        home: GameScreen(socket: socket, selfId: self, isHost: host, spectating: spectating, nicknames: const {
           'p1': 'Ada', 'p2': 'Bola', 'p3': 'Chidi', 'p4': 'Dayo', 'p5': 'Efe', 'p6': 'Femi',
         }),
       ),
@@ -361,6 +361,73 @@ void main() {
     for (final title in ['Heart of Nowhere', 'Lightless Dawn', 'Crypto', 'Gathering Darkness']) {
       expect(credits, contains(title));
     }
+  });
+
+  /// What a spectator is sent: the public table, no role of their own.
+  Map<String, dynamic> watching(String phase) => {..._snap(phase)}..remove('yourRole');
+
+  testWidgets('a spectator watches the real table by name, reads the talk, and can react', (tester) async {
+    final socket = await open(tester, watching('RoleReveal'), self: 'watcher', spectating: true);
+    expect(find.byKey(const ValueKey('watch-role-reveal')), findsOneWidget);
+    expect(find.text('You are Faithful'), findsNothing);
+
+    socket.snapshot(watching('RoundTable'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    for (final id in _players) {
+      expect(find.byKey(ValueKey('table-seat-$id')), findsOneWidget);
+    }
+    expect(find.text('Ada'), findsWidgets);
+    expect(find.byKey(const ValueKey('round-table-skip')), findsNothing);
+    // The players' debate is there to read, not to type into.
+    await tester.tap(find.text('Round table chat'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('watch-table-chat-note')), findsOneWidget);
+
+    // A reaction a second, as the server allows.
+    expect(find.byKey(const ValueKey('traitors-reaction-tray')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('traitors-react-😮')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('traitors-react-🔥')));
+    await tester.pump();
+    expect(socket.sent.where((s) => s.type == 'REACTION_SEND').map((s) => s.payload), [
+      {'emoji': '😮'}
+    ]);
+    await tester.pump(const Duration(milliseconds: 1200));
+    await tester.tap(find.byKey(const ValueKey('traitors-react-🔥')));
+    await tester.pump();
+    expect(socket.sent.where((s) => s.type == 'REACTION_SEND'), hasLength(2));
+
+    socket.event('GAME_OVER', {'winningSide': 'faithful'});
+    socket.phase('Results');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Thanks for watching 👀'), findsOneWidget);
+    expect(find.text('Better luck next table.'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('the table sees spectators\' reactions float past, once each, and not while muted', (tester) async {
+    final socket = await open(tester, _snap('RoundTable'));
+    await tester.pump(const Duration(milliseconds: 400));
+    // Players don't get a tray — reactions are the audience's.
+    expect(find.byKey(const ValueKey('traitors-reaction-tray')), findsNothing);
+    final now = DateTime.now().millisecondsSinceEpoch;
+    socket.event('SPECTATOR_REACTION', {'id': 'r1', 'from': 'watcher', 'emoji': '🎉', 'sentAtMs': now});
+    socket.event('SPECTATOR_REACTION', {'id': 'r1', 'from': 'watcher', 'emoji': '🎉', 'sentAtMs': now});
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('🎉'), findsOneWidget);
+
+    socket.event('SPECTATORS_MUTED', {});
+    socket.event('SPECTATOR_REACTION', {'id': 'r2', 'from': 'watcher', 'emoji': '😂', 'sentAtMs': now});
+    await tester.pump();
+    expect(find.text('😂'), findsNothing);
+
+    // Each one drifts away after a couple of seconds.
+    await tester.pump(const Duration(seconds: 3));
+    expect(find.text('🎉'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
   });
 
   Future<void> seconds(WidgetTester tester, int n) async {
