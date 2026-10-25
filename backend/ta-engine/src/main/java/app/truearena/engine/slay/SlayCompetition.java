@@ -13,7 +13,7 @@ public final class SlayCompetition {
             round = 1,
             revealIndex = 0;
     public double systemWeight = .35;
-    public boolean requestedRanked = false, eligibleRating = false, communityUsed = false;
+    public boolean requestedRanked = false, eligibleRating = false, communityUsed = false, guestMatch = false;
     public Instant deadline, startedAt;
     public List<Member> members = new ArrayList<>();
     public List<Entry> entries = new ArrayList<>();
@@ -198,7 +198,7 @@ public final class SlayCompetition {
                                                                 >= minExposure);
         communityUsed = enough;
         eligibleRating =
-                (round == 1 ? true : eligibleRating) && enough && requestedRanked && !isAsync();
+                (round == 1 ? true : eligibleRating) && enough && requestedRanked && !isAsync() && !guestMatch;
         for (Entry e : current) {
             e.community =
                     isElimination()

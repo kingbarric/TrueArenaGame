@@ -77,6 +77,9 @@ services:
     environment:
       APP_ENV: test
       SPRING_PROFILES_ACTIVE: test
+      # Published listing URLs; empty while the stores review the release.
+      PLAYHUUD_IOS_STORE_URL: ${PLAYHUUD_IOS_STORE_URL:-}
+      PLAYHUUD_ANDROID_STORE_URL: ${PLAYHUUD_ANDROID_STORE_URL:-}
       PORT: 8080
       # Native engine memory is outside the Java heap; leave room within the 1 GB container.
       JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=40

@@ -54,6 +54,9 @@ services:
       redis: { condition: service_healthy }
     environment:
       SPRING_PROFILES_ACTIVE: local
+      # Published listing URLs; empty while the stores review the release.
+      PLAYHUUD_IOS_STORE_URL: ${PLAYHUUD_IOS_STORE_URL:-}
+      PLAYHUUD_ANDROID_STORE_URL: ${PLAYHUUD_ANDROID_STORE_URL:-}
       PORT: 8080
       R2DBC_URL: r2dbc:postgresql://postgres:5432/truearena
       JDBC_URL: jdbc:postgresql://postgres:5432/truearena

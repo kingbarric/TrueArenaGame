@@ -159,7 +159,7 @@ public class HuudChampionshipService implements ChampionshipEvents {
                     c.currentRound() == 0 ? null : roundName(c.currentRound(), rounds), players,
                     players.stream().anyMatch(p -> p.userId().equals(viewer)), matches, c.championId(), runnerUp,
                     yours, HuudSpaceAccess.VOICE_PREFIX + c.huudSpaceId(), c.creatorId(), c.scheduledAt(),
-                    ChampionshipService.HUUD_MIN_PLAYERS);
+                    ChampionshipService.HUUD_MIN_PLAYERS, c.code(), "https://playhuud.com/championships/" + c.code());
         });
     }
 

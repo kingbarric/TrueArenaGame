@@ -381,6 +381,10 @@ class _SlayCompetitionScreenState extends State<SlayCompetitionScreen>
                                 child: Text(_error!,
                                     style: const TextStyle(color: Colors.red))),
                           ..._content(context),
+                          if (_state!['guestMatch'] == true) ...[
+                            const SizedBox(height: 12),
+                            const Center(child: Text('Guest match · ratings stay unchanged')),
+                          ],
                           if (_state!['developmentAssets'] == true) ...[
                             const SizedBox(height: 20),
                             Center(

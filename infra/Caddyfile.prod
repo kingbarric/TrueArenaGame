@@ -33,10 +33,10 @@ playhuud.com {
 
 	@admin_api path /api/v1/admin/*
 	reverse_proxy @admin_api backend:8080
-	@championship_preview path /api/v1/championships/invite/*/preview
+	@championship_preview path /api/v1/championships/invite/*/preview /api/v1/invitations/stores
 	reverse_proxy @championship_preview backend:8080
 	@championship_invite path /championships/*
-	rewrite @championship_invite /championships/index.html
+	reverse_proxy @championship_invite backend:8080
 	# SlayHuud art (website/slay-assets, rsynced like downloads/): names carry a
 	# content hash, so a file never changes and may be cached forever.
 	@slay_assets path /slay-assets/*
@@ -47,7 +47,7 @@ playhuud.com {
 	@huud_preview path /api/v1/huud-spaces/invite/*/preview
 	reverse_proxy @huud_preview backend:8080
 	@huud_invite path /huud/*
-	rewrite @huud_invite /huud/index.html
+	reverse_proxy @huud_invite backend:8080
 	@app_links path /.well-known/apple-app-site-association /.well-known/assetlinks.json
 	header @app_links Content-Type application/json
 

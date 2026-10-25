@@ -132,6 +132,12 @@ public class SlayService {
                                         : Mono.empty());
     }
 
+    Mono<Void> humanPlayer(UUID user) {
+        return users.findById(user)
+                .switchIfEmpty(Mono.error(ApiExceptions.unauthorized("Unknown user")))
+                .flatMap(u -> u.isBot() ? Mono.error(ApiExceptions.forbidden("A human player is required")) : Mono.empty());
+    }
+
     public Mono<Set<String>> wardrobe(UUID user) {
         return db.sql("SELECT item_id FROM slay_wardrobe WHERE user_id=:u")
                 .bind("u", user)
@@ -885,7 +891,7 @@ public class SlayService {
     }
 
     public Mono<Map<String, Object>> join(UUID user, UUID id, Join request) {
-        return verified(user)
+        return humanPlayer(user)
                 .then(
                         mutate(
                                 id,
@@ -978,16 +984,16 @@ public class SlayService {
                                                                     + " of a blocked relationship");
                                                         return membership;
                                                     })
-                                            .then(
-                                                    Mono.fromSupplier(
-                                                            () -> {
+                                            .then(users.findById(user))
+                                            .map(profile -> {
+                                                                if (profile.isGuest()) { c.guestMatch = true; c.eligibleRating = false; }
                                                                 c.members.add(
                                                                         new SlayCompetition.Member(
                                                                                 user.toString(),
                                                                                 role,
                                                                                 request.body()));
                                                                 return c;
-                                                            }));
+                                                            });
                                 }))
                 .flatMap(c -> view(user, c));
     }
@@ -1064,7 +1070,7 @@ public class SlayService {
     }
 
     public Mono<Map<String, Object>> judge(UUID user, UUID id, String entry, boolean slay) {
-        return verified(user)
+        return humanPlayer(user)
                 .then(
                         mutate(
                                 id,
@@ -1076,7 +1082,7 @@ public class SlayService {
     }
 
     public Mono<Map<String, Object>> finalVote(UUID user, UUID id, String entry) {
-        return verified(user)
+        return humanPlayer(user)
                 .then(
                         mutate(
                                 id,
@@ -1856,6 +1862,7 @@ public class SlayService {
         result.put("host", viewer.toString().equals(c.hostId));
         result.put("developmentAssets", catalog.manifest().developmentAssets());
         result.put("rated", rated(c));
+        result.put("guestMatch", c.guestMatch);
         result.put("voteCount", c.comparisons.size());
         result.put("communityUsed", c.communityUsed);
         var member =

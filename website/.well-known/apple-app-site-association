@@ -4,7 +4,8 @@
       {
         "appIDs": ["WD4GX3YYY8.app.truearena.truearena"],
         "components": [
-          { "/": "/huud/*", "comment": "Huud invite links open the Huud in the app" }
+          { "/": "/huud/*", "comment": "Huud invitations open in the app" },
+          { "/": "/championships/*", "comment": "Championship invitations open in the app" }
         ]
       }
     ]

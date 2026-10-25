@@ -73,6 +73,9 @@ services:
       AGE_ENFORCEMENT_ENABLED: ${AGE_ENFORCEMENT_ENABLED:-false}
       APP_ENV: production
       SPRING_PROFILES_ACTIVE: production
+      # Published listing URLs; empty while the stores review the release.
+      PLAYHUUD_IOS_STORE_URL: ${PLAYHUUD_IOS_STORE_URL:-}
+      PLAYHUUD_ANDROID_STORE_URL: ${PLAYHUUD_ANDROID_STORE_URL:-}
       LOGGING_LEVEL_APP_TRUEARENA: ${LOGGING_LEVEL_APP_TRUEARENA:-INFO}
       PORT: 8080
       R2DBC_URL: r2dbc:postgresql://postgres:5432/truearena

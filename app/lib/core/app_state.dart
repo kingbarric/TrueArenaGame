@@ -1,3 +1,5 @@
+import 'install_invitation.dart';
+import 'invitation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -24,14 +26,22 @@ enum Identity { anonymous, guest, account }
 enum VisualTheme { palmWine, nebula, supercar }
 
 /// Session + identity, held once and shared through [AppScope]. A guest is a real,
-/// server-known identity too (`POST /auth/guest`, keyed by device id) — it can host
-/// and join real rooms and its tokens persist like an account's; the only difference
+/// server-known identity too (`POST /auth/guest`, keyed by device id) — it can join
+/// real rooms and its tokens persist like an account's; the only difference
 /// is it has no phone/email yet, so it's tied to this one device until it verifies
 /// one (which upgrades the *same* id in place — see `startGuest`/`_completeSignIn`).
 class AppState extends ChangeNotifier with WidgetsBindingObserver {
   /// Kept while a new invitee completes sign-in after opening a championship link.
   String? pendingChampionshipCode;
+  Invitation? activeInvitation;
   AppState(this.api);
+
+  Future<void> clearPendingInvitation({bool refresh = false}) async {
+    pendingChampionshipCode = null;
+    pendingHuudCode = null;
+    await PendingInvitation.clear();
+    if (refresh) notifyListeners();
+  }
 
   final ApiClient api;
 
@@ -373,6 +383,10 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     // case token expiry — see ApiClient._send and _tryRefresh below.
     api.refreshHandler = _tryRefresh;
     final prefs = await SharedPreferences.getInstance();
+    final savedInvitation = await PendingInvitation.load() ??
+        await installationInvitation(firstInstall: freshInstall);
+    if (savedInvitation?.kind == InvitationKind.huud) pendingHuudCode = savedInvitation!.code;
+    if (savedInvitation?.kind == InvitationKind.championship) pendingChampionshipCode = savedInvitation!.code;
     switch (prefs.getString(_kThemeMode)) {
       case 'light':
         themeMode = ThemeMode.light;
@@ -696,7 +710,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   /// A real, server-known guest identity (POST /auth/guest) keyed by device id —
-  /// can host/join real rooms like any account, just with no phone/email yet.
+  /// can join real rooms with no phone/email; hosting requires registration.
   /// Relaunching the app on the same device reconnects to this same identity
   /// (and its rooms) rather than minting a new guest every time. See
   /// `docs/DEV_REFERENCE.md` for the upgrade-in-place path (verifying a phone

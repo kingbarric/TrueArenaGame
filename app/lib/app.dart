@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'core/invitation.dart';
+import 'features/invitations/invitation_landing.dart';
 import 'package:flutter/material.dart';
 
 import 'core/api_client.dart';
@@ -10,10 +13,8 @@ import 'core/push_notifications.dart';
 import 'features/spectate/watch_live.dart';
 import 'features/calls/incoming_call_screen.dart';
 import 'features/shell/main_shell.dart';
-import 'features/huudspace/huud_link.dart';
 import 'features/lobby/joined_room_screen.dart';
 import 'features/onboarding/welcome_screen.dart';
-import 'features/draughts/championships_screen.dart';
 import 'theme/neon_theme.dart';
 import 'widgets/neon.dart';
 import 'widgets/gift_splash.dart';
@@ -50,25 +51,18 @@ class TrueArenaApp extends StatelessWidget {
             themeMode: state.themeMode,
             home: state.identity != Identity.anonymous
                 ? _ResumeGate(state: state)
-                : const WelcomeScreen(),
+                : state.pendingChampionshipCode != null
+                    ? InvitationLanding(invitation: Invitation(InvitationKind.championship, state.pendingChampionshipCode!))
+                    : state.pendingHuudCode != null
+                        ? InvitationLanding(invitation: Invitation(InvitationKind.huud, state.pendingHuudCode!))
+                        : const WelcomeScreen(),
             onGenerateRoute: (settings) {
-              // playhuud.com/huud/CODE (or playhuud:///huud/CODE): straight into that Huud —
-              // after signing up if need be.
-              final huud = RegExp(r'^/huud/([A-Za-z0-9]{6})/?$').firstMatch(Uri.parse(settings.name ?? '').path);
-              if (huud != null) {
-                state.pendingHuudCode = huud.group(1)!.toUpperCase();
-                return MaterialPageRoute(
-                    builder: (_) => state.identity == Identity.anonymous
-                        ? const WelcomeScreen()
-                        : HuudLinkLanding(code: state.pendingHuudCode!));
-              }
-              final match = RegExp(r'^/championships/([A-HJ-NP-Z2-9]{8})$', caseSensitive: false)
-                  .firstMatch(settings.name ?? '');
-              if (match == null) return null;
-              final code = match.group(1)!.toUpperCase();
-              state.pendingChampionshipCode = code;
-              return MaterialPageRoute(builder: (_) => state.identity == Identity.anonymous
-                  ? const WelcomeScreen() : ChampionshipsScreen(inviteCode: code));
+              final uri = Uri.tryParse(settings.name ?? '');
+              final invitation = uri == null ? null : Invitation.fromUri(uri);
+              if (invitation == null) return null;
+              unawaited(rememberInvitation(state, invitation));
+              return MaterialPageRoute(settings: settings,
+                  builder: (_) => InvitationLanding(invitation: invitation));
             },
             builder: (context, child) {
               final content = DismissKeyboardOnOutsideTap(
@@ -315,6 +309,11 @@ class _ResumeGateState extends State<_ResumeGate> {
       widget.state.pendingRoomId = null;
       if (mounted) setState(() => _checking = false);
       await PushNotifications.openRoom(pendingRoom);
+      return;
+    }
+
+    if (widget.state.pendingChampionshipCode != null || widget.state.pendingHuudCode != null) {
+      if (mounted) setState(() => _checking = false);
       return;
     }
 

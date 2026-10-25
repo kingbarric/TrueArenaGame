@@ -1,6 +1,7 @@
+import '../../core/invitation.dart';
+import '../invitations/invitation_share.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/api_client.dart';
@@ -29,14 +30,9 @@ String huudInviteText(HuudSpace huud) =>
 Future<void> shareHuud(BuildContext context, HuudSpace huud) async {
   final code = huud.code;
   if (code == null) return;
-  final box = context.findRenderObject() as RenderBox?;
-  final origin = box == null || !box.hasSize ? null : box.localToGlobal(Offset.zero) & box.size;
-  try {
-    await Share.share(huudInviteText(huud), subject: 'Join my Huud on PlayHuud', sharePositionOrigin: origin);
-  } catch (_) {
-    if (!context.mounted) return;
-    await copyHuudLink(context, huud);
-  }
+  await shareInvitation(context, InvitationArtwork(
+      invitation: Invitation(InvitationKind.huud, code), name: huud.name,
+      gameType: huud.currentGame?.gameType));
 }
 
 Future<void> copyHuudLink(BuildContext context, HuudSpace huud) async {

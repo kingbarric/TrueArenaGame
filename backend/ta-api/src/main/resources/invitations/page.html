@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{TITLE}} · PlayHuud</title>
+<meta name="description" content="{{DESCRIPTION}}">
+<meta name="robots" content="noindex,nofollow">
+<meta property="og:type" content="website"><meta property="og:site_name" content="PlayHuud">
+<meta property="og:title" content="{{TITLE}}"><meta property="og:description" content="{{DESCRIPTION}}">
+<meta property="og:url" content="{{URL}}"><meta property="og:image" content="{{IMAGE}}">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="PlayHuud · {{GAME}} invitation">
+<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="{{TITLE}}">
+<meta name="twitter:description" content="{{DESCRIPTION}}"><meta name="twitter:image" content="{{IMAGE}}">
+<link rel="icon" href="https://playhuud.com/assets/favicon.png">
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 75% 0%,#49301f 0,transparent 55%),#10131f;color:#fff8ee;font:16px/1.5 system-ui,sans-serif;display:grid;place-items:center;padding:24px}
+main{width:min(100%,540px);background:linear-gradient(145deg,#1c2533,#231824);border:1px solid #b87b3f;border-radius:28px;overflow:hidden;box-shadow:0 22px 90px #0006}.art{display:block;width:100%;aspect-ratio:1200/630;object-fit:cover}.body{padding:28px}.eyebrow{font-size:12px;letter-spacing:.15em;color:#ffc671;font-weight:800;text-transform:uppercase}h1{font-size:clamp(25px,6vw,36px);line-height:1.13;margin:12px 0}p{color:#d6cbd9}.button,button{display:block;width:100%;margin:12px 0 0;padding:15px;border:0;border-radius:14px;text-align:center;text-decoration:none;font:800 16px system-ui;cursor:pointer;background:#ffb957;color:#22140c}.secondary{background:#ffffff0c;color:#fff4e2;border:1px solid #ffffff30}button:disabled{opacity:.55;cursor:default}.small{font-size:13px}.code{font-family:ui-monospace,monospace;letter-spacing:.15em;color:#ffc671}.notice{padding:12px;border-radius:12px;background:#ffffff0a}a{color:#ffc671}#status:empty{display:none}
+</style></head><body>
+<main id="invite" data-kind="{{KIND}}" data-code="{{CODE}}" data-url="{{URL}}" data-ios="{{IOS}}" data-android="{{ANDROID}}">
+<img class="art" id="art" src="{{IMAGE}}" alt="PlayHuud · {{GAME}} invitation">
+<div class="body"><div class="eyebrow" id="game">{{GAME}} · You're invited</div>
+<h1 id="name">{{TITLE}}</h1><p id="description">{{DESCRIPTION}}</p>
+<p class="small">Invitation <span class="code" id="code">{{CODE}}</span></p>
+<a class="button" id="open" href="{{APP_URL}}">Open invitation in PlayHuud</a>
+<button class="secondary" id="install" hidden>Copy invitation &amp; install</button>
+<button class="secondary" id="copy">Copy invitation link</button>
+<p id="status" class="notice small" role="status"></p>
+<p class="small" id="install-note">Games are played in the PlayHuud app. Join as a guest or sign in. After installing, reopen this invitation if it does not appear automatically.</p>
+<a class="small" href="https://playhuud.com">About PlayHuud</a></div></main>
+<script>
+(() => {
+  const data = document.getElementById('invite').dataset;
+  const segments = location.pathname.split('/').filter(Boolean);
+  const kind = data.kind || segments[0];
+  const code = (data.code || segments.at(-1) || '').toUpperCase();
+  const valid = kind === 'huud' ? /^[A-Z0-9]{6}$/.test(code) : kind === 'championships' && /^[A-HJ-NP-Z2-9]{8}$/.test(code);
+  const url = valid ? 'https://playhuud.com/' + kind + '/' + code : '';
+  const status = document.getElementById('status');
+  const install = document.getElementById('install');
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const android = /Android/.test(navigator.userAgent);
+  let interacted = false;
+  let stores = {ios: data.ios || '', android: data.android || ''};
+  document.getElementById('code').textContent = valid ? code : 'Unavailable';
+  document.getElementById('open').href = valid ? 'playhuud:///' + kind + '/' + code : 'https://playhuud.com';
+  const storeTarget = () => {
+    const raw = ios ? stores.ios : android ? stores.android : '';
+    if (!raw) return '';
+    const target = new URL(raw);
+    if (android) target.searchParams.set('referrer', new URLSearchParams({invitation: url}).toString());
+    return target.href;
+  };
+  const configure = () => {
+    const target = storeTarget();
+    install.hidden = !valid || !target;
+    install.textContent = ios ? 'Copy invitation & install for iPhone' : 'Copy invitation & install for Android';
+    if (!ios && !android && (stores.ios || stores.android) && valid && !interacted) status.textContent = 'Open this invitation on your iPhone or Android device to install PlayHuud and join.';
+    else if (!target && valid && !interacted) status.textContent = 'The store release is in review. Already have PlayHuud? Open your invitation above, or save this link for when the app is available.';
+    else if (valid && !interacted) status.textContent = '';
+  };
+  document.getElementById('copy').onclick = async () => {
+    if (!valid) return;
+    interacted = true;
+    try { await navigator.clipboard.writeText(url); status.textContent = 'Invitation copied. Paste it to share, or keep it for after installing.'; }
+    catch (_) { status.textContent = 'Copy this invitation: ' + url; }
+  };
+  install.onclick = async () => {
+    const target = storeTarget(); if (!valid || !target) return;
+    interacted = true;
+    try { await navigator.clipboard.writeText(url); }
+    catch (_) { status.textContent = 'After installing, return to this page and tap Open invitation.'; }
+    location.assign(target);
+  };
+  configure();
+  fetch('/api/v1/invitations/stores').then(r => r.ok ? r.json() : stores).then(value => { stores = value; configure(); }).catch(() => {});
+  // Static fallback pages use the same public, non-mutating invitation preview.
+  if (valid && !data.code) {
+    const path = kind === 'huud' ? 'huud-spaces' : 'championships';
+    fetch('/api/v1/' + path + '/invite/' + code + '/preview').then(r => { if (!r.ok) throw new Error(); return r.json(); }).then(value => {
+      document.getElementById('name').textContent = value.name;
+      document.title = value.name + ' · PlayHuud';
+      document.getElementById('description').textContent = kind === 'huud' ? 'Good games. Better company. Join this Huud as a guest or sign in.' : 'Can you take the crown? Accept your championship invitation in the app. Play as a guest or sign in.';
+      const game = value.gameType || 'huud';
+      document.getElementById('art').src = 'https://playhuud.com/assets/invite-' + (['chess','draughts','slayhuud'].includes(game) ? game : 'huud') + '.png';
+    }).catch(() => { document.getElementById('name').textContent = 'Invitation unavailable'; status.textContent = 'This invitation may have expired. Ask the host for a new link.'; install.hidden = true; });
+  }
+})();
+</script></body></html>

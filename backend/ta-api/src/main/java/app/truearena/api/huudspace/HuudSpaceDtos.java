@@ -240,6 +240,6 @@ public final class HuudSpaceDtos {
                                    int currentRound, int rounds, String roundName, List<Entrant> players,
                                    boolean youAreRegistered, List<ChampionshipMatch> matches, UUID championId,
                                    UUID runnerUpId, UUID yourMatchId, String lobbyVoiceRoom, UUID createdBy,
-                                   Instant startsAt, int minPlayers) {
+                                   Instant startsAt, int minPlayers, String inviteCode, String inviteLink) {
     }
 }

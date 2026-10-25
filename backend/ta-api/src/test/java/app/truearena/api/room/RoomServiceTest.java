@@ -127,6 +127,26 @@ class RoomServiceTest {
         verify(members, never()).save(any());
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"truearena", "wordbluff", "whot", "ludo", "draughts", "chess", "goosi", "monopoly", "slayhuud"})
+    void aRealGuestCanJoinEveryGameWithoutRegistering(String game) {
+        UUID roomId = UUID.randomUUID(), host = UUID.randomUUID(), viewer = UUID.randomUUID();
+        var room = new RoomRow(roomId, "ABCDEF", null, host, "lobby", game, 0, null, false, Instant.now());
+        when(rooms.findByCode("ABCDEF")).thenReturn(Mono.just(room));
+        when(members.findByRoomIdAndUserId(roomId, viewer)).thenReturn(Mono.empty());
+        when(members.countByRoomId(roomId)).thenReturn(Mono.just(1L));
+        when(members.save(any())).thenAnswer(c -> Mono.just(c.getArgument(0)));
+        when(members.findByRoomId(roomId)).thenReturn(Flux.just(RoomMemberRow.of(roomId, viewer, "Guest")));
+        when(users.findById(viewer)).thenReturn(Mono.just(guest(viewer)));
+        when(jwt.issueAccess(viewer)).thenReturn("guest-room-token");
+        StepVerifier.create(service.join("ABCDEF", viewer, "Guest"))
+                .assertNext(view -> {
+                    assertThat(view.gameType()).isEqualTo(game);
+                    assertThat(view.members()).extracting(RoomDtos.RoomMemberView::userId).contains(viewer);
+                }).verifyComplete();
+        verify(members).save(argThat(member -> member.userId().equals(viewer)));
+    }
+
     // ---------------------------------------------------------------- create
 
     @Test

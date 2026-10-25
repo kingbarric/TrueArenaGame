@@ -1,3 +1,5 @@
+import '../../core/invitation.dart';
+import '../invitations/invitation_share.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/api_client.dart';
@@ -116,8 +118,11 @@ class HuudCup {
     this.yourMatchId,
     this.startsAt,
     this.minPlayers = 4,
+    this.inviteCode,
+    this.inviteLink,
   });
 
+  final String? inviteCode, inviteLink;
   final String id, name, gameType;
 
   /// The most players while registering; then the bracket they were drawn into.
@@ -205,6 +210,8 @@ class HuudCup {
         yourMatchId: j['yourMatchId']?.toString(),
         startsAt: DateTime.tryParse(j['startsAt']?.toString() ?? '')?.toLocal(),
         minPlayers: (j['minPlayers'] as num?)?.toInt() ?? 4,
+        inviteCode: j['inviteCode'] as String?,
+        inviteLink: j['inviteLink'] as String?,
       );
 }
 
@@ -582,6 +589,12 @@ class ChampionshipPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final children = <Widget>[
       _header(context),
+      if (youAreIn && cup.inviteCode != null && cup.registering) ...[
+        const SizedBox(height: 10),
+        InvitationShareButton(key: const ValueKey('cup-share'), data: InvitationArtwork(
+          invitation: Invitation(InvitationKind.championship, cup.inviteCode!),
+          name: cup.name, gameType: cup.gameType)),
+      ],
       const SizedBox(height: 14),
       if (cup.registering) ..._registration(context),
       if (cup.playing) ..._playing(context),

@@ -1,10 +1,12 @@
-import '../../core/share_origin.dart';
+import '../slayhuud/slay_competition_screen.dart';
+import '../../core/invitation.dart';
+import '../invitations/invitation_landing.dart';
+import '../invitations/invitation_share.dart';
 import '../../core/api_client.dart' show userErrorMessage;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../../core/app_state.dart';
 import '../../core/game_socket.dart';
@@ -60,18 +62,12 @@ class _ChampionshipsScreenState extends State<ChampionshipsScreen> {
   }
 
   Future<void> _openInvite(String code) async {
-    try {
-      final data = (await AppScope.of(context).api.get('/championships/invite/${code.trim().toUpperCase()}') as Map)
-          .cast<String, dynamic>();
-      if (!mounted) return;
-      AppScope.of(context).pendingChampionshipCode = null;
-      await Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => ChampionshipDetailScreen(id: data['id'] as String, preview: data),
-      ));
-      if (mounted) _load();
-    } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(_serverError)));
-    }
+    final invitation = Invitation.fromUri(Uri(path: '/championships/${code.trim().toUpperCase()}'));
+    if (invitation == null) return;
+    await rememberInvitation(AppScope.of(context), invitation);
+    if (!mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => InvitationLanding(invitation: invitation)));
+    if (mounted) _load();
   }
 
   Future<void> _enterCode() async {
@@ -248,6 +244,11 @@ class _ChampionshipDetailScreenState extends State<ChampionshipDetailScreen> {
     final app = AppScope.of(context);
     final people = (( _data?['participants'] as List?) ?? const []).whereType<Map>();
     final names = {for (final p in people) p['id'].toString(): p['name'].toString()};
+    if (_data?['gameType'] == 'slayhuud') {
+      await Navigator.of(context).push(MaterialPageRoute(builder: (_) => SlayCompetitionScreen(roomId: roomId)));
+      if (mounted) _load();
+      return;
+    }
     final socket = GameSocket.connect(app.api, roomId, spectate: !playing);
     await Navigator.of(context).push(MaterialPageRoute(builder: (_) => DraughtsGameScreen(
       socket: socket, selfId: app.user?.id ?? '', nicknames: names,
@@ -288,7 +289,7 @@ class _ChampionshipDetailScreenState extends State<ChampionshipDetailScreen> {
     }
     return Scaffold(appBar: AppBar(title: Text(c['name']?.toString() ?? 'Championship')),
       body: RefreshIndicator(onRefresh: _load, child: ListView(padding: const EdgeInsets.all(16), children: [
-        const Text('Draughts · single elimination · one game per pairing; draws replay'),
+        Text('${invitationGameNames[c['gameType']] ?? 'Draughts'} · single elimination · one game per pairing; draws replay'),
         const SizedBox(height: 8),
         Text('${c['joined']}/${c['size']} players · ${c['visibility']} · ${c['status']}',
           style: TextStyle(color: n.gold, fontWeight: FontWeight.bold)),
@@ -309,8 +310,9 @@ class _ChampionshipDetailScreenState extends State<ChampionshipDetailScreen> {
           _starting ? 'Starting…' : 'Start now', onPressed: _starting ? null : _startNow),
         if (_error != null) Padding(padding: const EdgeInsets.all(8), child: Text(userErrorMessage, style: TextStyle(color: n.danger))),
         if (joined) ...[
-          NeonButton('Invite Friends', onPressed: () => Share.share('${c['name']} · Draughts knockout championship\n${c['inviteLink']}\nCode: ${c['code']}',
-              sharePositionOrigin: shareOrigin(context))),
+          if (c['status'] == 'lobby') InvitationShareButton(data: InvitationArtwork(
+            invitation: Invitation(InvitationKind.championship, c['code'].toString()),
+            name: c['name'] as String? ?? 'Championship', gameType: c['gameType'] as String? ?? 'draughts')),
           TextButton.icon(onPressed: () { Clipboard.setData(ClipboardData(text: c['code'].toString()));
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Code copied'))); },
             icon: const Icon(Icons.copy), label: Text('Code ${c['code']}')),

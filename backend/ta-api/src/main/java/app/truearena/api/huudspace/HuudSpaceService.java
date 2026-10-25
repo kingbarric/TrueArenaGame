@@ -550,6 +550,24 @@ public class HuudSpaceService {
                         }));
     }
 
+    /** Explicitly accepting a shared championship code admits that invitee to
+     * its Huud. Blocks, removals and the currently active competition still win. */
+    Mono<Void> admitChampionshipInvite(UUID id, UUID championship, UUID user) {
+        return space(id).filter(s -> s.active() && s.live() && championship.equals(s.championshipId()))
+                .switchIfEmpty(Mono.error(ApiExceptions.conflict("This championship invitation is no longer active")))
+                .flatMap(s -> membership(id, user).map(Membership::removed).defaultIfEmpty(false)
+                        .zipWith(blocked(user, s.createdBy()))
+                        .flatMap(flags -> flags.getT1() || flags.getT2()
+                                ? Mono.error(ApiExceptions.forbidden("This invitation isn't available to you"))
+                                : lock("huud-space:" + id)
+                                    .then(db.sql("SELECT id FROM huud_spaces WHERE id=:id AND championship_id=:c "
+                                            + "AND status='active' AND live_since IS NOT NULL FOR UPDATE")
+                                        .bind("id", id).bind("c", championship)
+                                        .map((r, metadata) -> r.get("id", UUID.class)).one()
+                                        .switchIfEmpty(Mono.error(ApiExceptions.conflict("This championship invitation is no longer active"))))
+                                    .then(admitRow(id, user))));
+    }
+
     /** Eligibility for the preview, without entering the hangout or refreshing activity. */
     private Mono<Boolean> mayWatch(Space s, UUID user) {
         return blocked(user, s.createdBy()).flatMap(blocked -> blocked ? Mono.just(false)

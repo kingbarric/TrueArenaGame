@@ -1,3 +1,4 @@
+import '../invitations/invitation_landing.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -14,7 +15,6 @@ import '../huudspace/huud_home_screen.dart';
 import '../huudspace/huud_kit.dart' show huudIconSnack;
 import '../onboarding/guest_gate.dart';
 import '../profile/profile_screen.dart';
-import '../huudspace/huud_link.dart';
 
 /// The app's persistent nav shell. Before this, the pill nav lived only on
 /// Home and everything else was a pushed route, so reaching Chats from
@@ -78,7 +78,7 @@ class _MainShellState extends State<MainShell> {
       _onTabRequested();
       _huudEvents = AppScope.of(context).huudSpaceEvents.listen(_onHuudEvent);
       // A Huud invite link opened before signing up (or left by the invite page).
-      consumeHuudInvite(context);
+      consumeApplicationInvitation(context);
     });
   }
 

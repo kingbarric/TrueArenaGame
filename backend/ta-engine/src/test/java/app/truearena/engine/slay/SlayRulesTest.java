@@ -70,6 +70,21 @@ class SlayRulesTest {
     }
 
     @Test
+    void guestParticipationNeverChangesCompetitiveRatingEvenWithEnoughVotes() {
+        var c = battle();
+        c.requestedRanked = true;
+        c.guestMatch = true;
+        Instant now = Instant.now();
+        c.start(now);
+        c.submit(entry("a", 90), now);
+        c.submit(entry("b", 85), now);
+        for (int i = 0; i < 8; i++) c.comparisons.add(new SlayRules.Comparison("a", "b", "a"));
+        c.tick(now.plusSeconds(301));
+        assertThat(c.communityUsed).isTrue();
+        assertThat(c.eligibleRating).isFalse();
+    }
+
+    @Test
     void groupRatingRequiresEnoughExposureForEveryLook() {
         var c = new SlayCompetition();
         c.mode = "group";
