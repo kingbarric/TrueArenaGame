@@ -1,7 +1,8 @@
 # Whot dramatic effects and selectable final-card celebrations
 
 Status: implemented and verified on `codex/local-bot-gameplay`, including main
-through `362503f`. These changes have not been pushed or deployed.
+through `362503f`. Deployed to the isolated test backend and iPhone build
+`2026102508`; these changes have not been pushed.
 
 ## Goal
 
@@ -277,3 +278,15 @@ Related specifications: [The Tell](WHOT_THE_TELL.md),
   `output/whot-effects-validation/`. Your earlier local multiple-Huud plan was
   preserved in `output/merge-backups/20261025-whot-effects/` when main's updated
   tracked version was merged.
+
+## Test deployment — 25 October 2026
+
+- Fetched main and confirmed `362503f` is included in the deployed source
+  revision `9accc8b` on `codex/local-bot-gameplay`.
+- Installed and launched signed iPhone build **2026102508**, targeting the test
+  API. Confirmed the installed version and that its process remained running.
+- Matching test backend passed container health checks. Stockfish and Scan
+  each have one ready native worker and no startup failure. Production
+  container identities and start times were unchanged.
+- Build hashes, engine status, installation and launch evidence are recorded
+  in `output/phone-deploy/2026102508/manifest.json` and adjacent evidence files.
