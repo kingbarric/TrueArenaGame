@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../theme/neon_theme.dart';
 import 'huud_kit.dart';
 import '../../widgets/huud_art.dart';
+import '../../widgets/mode_art.dart';
 
 /// Whot's two ways to play, as the wire names them.
 const whotModes = ['classic', 'tell'];
@@ -76,6 +77,7 @@ class HuudModeCard extends StatelessWidget {
     required this.tagline,
     required this.points,
     this.keyPrefix = 'whot-mode',
+    this.art,
   });
 
   final String mode;
@@ -85,13 +87,14 @@ class HuudModeCard extends StatelessWidget {
   final List<String> points;
   final String keyPrefix;
 
+  /// The mode's own picture, faded behind the card's words.
+  final String? art;
+
   @override
   Widget build(BuildContext context) {
     final n = context.neon;
     final h = HuudColors.of(context);
-    return HuudCard(
-      padding: const EdgeInsets.all(16),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+    final body = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
           HuudText(emoji, style: const TextStyle(fontSize: 30)),
           const SizedBox(width: 10),
@@ -119,7 +122,16 @@ class HuudModeCard extends StatelessWidget {
           expand: true,
           onPressed: () => Navigator.of(context).pop(mode),
         ),
-      ]),
+      ]);
+    if (art == null) return HuudCard(padding: const EdgeInsets.all(16), child: body);
+    // The picture fills the card right up to its border.
+    return HuudCard(
+      padding: EdgeInsets.zero,
+      child: ModeArtBackdrop(
+        asset: art,
+        borderRadius: BorderRadius.circular(22.6),
+        child: Padding(padding: const EdgeInsets.all(16), child: body),
+      ),
     );
   }
 }

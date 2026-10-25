@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/app_state.dart';
 import '../../core/models.dart';
 import '../../theme/neon_theme.dart';
+import '../../widgets/mode_art.dart';
 import 'huud_kit.dart';
 import 'whot_mode_sheet.dart';
 
@@ -70,6 +71,7 @@ Future<String?> askTraitorsMode(BuildContext context) {
                     HuudModeCard(
                       keyPrefix: 'traitors-mode',
                       mode: p.slug!,
+                      art: traitorsModeArt[p.slug],
                       emoji: _traitorsModeEmoji[p.slug] ?? '🎭',
                       title: p.name,
                       tagline: p.tag == null ? '${p.minPlayers}–${p.maxPlayers} players' : '${p.tag} · ${p.minPlayers}–${p.maxPlayers} players',

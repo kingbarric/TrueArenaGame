@@ -1491,6 +1491,9 @@ public class GameOrchestrator {
         if (isHostOnlyAction(action) && !userId.equals(rt.hostUserId)) {
             return tellError(rt, userId, "NOT_HOST", "only the host can do that");
         }
+        if ("END_GAME".equals(action) && rt.tournament) {
+            return tellError(rt, userId, "TOURNAMENT_GAME", "a championship match plays to the end");
+        }
 
         return lock.withLock(rt.roomId, LOCK_TTL, () -> {
             if (rt.retired) return Mono.empty();
@@ -1519,7 +1522,7 @@ public class GameOrchestrator {
      */
     static boolean isHostOnlyAction(String action) {
         return switch (action) {
-            case "REVEAL_NEXT", "ADVANCE_PHASE", "CHOOSE_TIE", "AWARD_IMMUNITY", "HOST_ASSIGN_VOTE" -> true;
+            case "REVEAL_NEXT", "ADVANCE_PHASE", "CHOOSE_TIE", "AWARD_IMMUNITY", "HOST_ASSIGN_VOTE", "END_GAME" -> true;
             default -> false;
         };
     }

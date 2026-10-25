@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:truearena/core/game_music.dart';
 
@@ -10,11 +12,34 @@ void main() {
     expect(GameMusic.moodFor('draughts'), MusicMood.calm);
     expect(GameMusic.moodFor('goosi'), MusicMood.calm);
     expect(GameMusic.moodFor('wordbluff'), MusicMood.lively);
-    expect(GameMusic.moodFor('truearena'), MusicMood.lively);
+    expect(GameMusic.moodFor('truearena'), MusicMood.traitorsTable);
   });
 
-  test('the bank is the 23 tracks that ship in assets/music', () {
-    expect(GameMusic.trackCount, 23);
+  test('the bank is the 31 tracks that ship in assets/music', () {
+    expect(GameMusic.trackCount, 31);
+  });
+
+  test('Traitors music follows the game: night, table, vote, reveal', () {
+    expect(GameMusic.traitorsScene('Night'), MusicMood.traitorsNight);
+    expect(GameMusic.traitorsScene('RoundTable'), MusicMood.traitorsTable);
+    expect(GameMusic.traitorsScene('RoleReveal'), MusicMood.traitorsTable);
+    for (final phase in ['Vote', 'Revote', 'SuddenDeath', 'VoteReview', 'Defense']) {
+      expect(GameMusic.traitorsScene(phase), MusicMood.traitorsVote, reason: phase);
+    }
+    expect(GameMusic.traitorsScene('MorningReveal'), MusicMood.traitorsReveal);
+    expect(GameMusic.traitorsScene('Elimination'), MusicMood.traitorsReveal);
+  });
+
+  test('each Traitors scene plays only its own tracks — no piano — and they ship', () {
+    for (final mood in [MusicMood.traitorsNight, MusicMood.traitorsTable, MusicMood.traitorsVote, MusicMood.traitorsReveal]) {
+      final list = GameMusic.debugPlaylist(mood, seed: 3);
+      expect(list, isNotEmpty);
+      for (final track in list) {
+        expect(GameMusic.debugMoodOf(track), mood, reason: track);
+        expect(track, startsWith('traitors-'));
+        expect(File('assets/music/$track.m4a').existsSync(), isTrue, reason: track);
+      }
+    }
   });
 
   test('Monopoly keeps a cinematic soundtrack without switching to piano', () {

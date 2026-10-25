@@ -80,6 +80,8 @@ public final class TruearenaState implements GameState {
     final List<GameEvent> events;
     final long seq;
     final WinResult win;
+    /** The host ended the game early: it's over, and nobody won. */
+    final boolean endedByHost;
 
     private TruearenaState(Draft d) {
         this.phase = d.phase;
@@ -131,11 +133,12 @@ public final class TruearenaState implements GameState {
         this.events = List.copyOf(d.events);
         this.seq = d.seq;
         this.win = d.win;
+        this.endedByHost = d.endedByHost;
     }
 
     @Override public String phase() { return phase; }
     @Override public int round() { return round; }
-    @Override public boolean finished() { return win != null; }
+    @Override public boolean finished() { return win != null || endedByHost; }
     @Override public List<GameEvent> events() { return events; }
 
     boolean isTraitor(String id) {
@@ -212,6 +215,7 @@ public final class TruearenaState implements GameState {
         List<GameEvent> events = new ArrayList<>();
         long seq;
         WinResult win;
+        boolean endedByHost;
 
         Draft() {
         }
@@ -266,6 +270,7 @@ public final class TruearenaState implements GameState {
             this.events = new ArrayList<>(s.events);
             this.seq = s.seq;
             this.win = s.win;
+            this.endedByHost = s.endedByHost;
         }
 
         void emit(String type, Map<String, Object> payload) {

@@ -19,6 +19,7 @@ import java.net.URI;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Supplier;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -47,6 +48,9 @@ public final class BotRuntime {
     private final String botUserId;
     private final Difficulty difficulty;
     private final String botName;
+    /** Everyone's name at the table, looked up when the game starts. */
+    private Supplier<Mono<Map<String, String>>> names = Mono::empty;
+    private boolean namesAsked;
     private final String gameName;
     private final AgentBanter banter = new AgentBanter();
     private final BotCommunicationQueue communications = new BotCommunicationQueue();
@@ -68,6 +72,11 @@ public final class BotRuntime {
         this.picker = picker;
         this.botUserId = botUserId;
         this.difficulty = difficulty;
+    }
+
+    /** Where to look up the table's names — the room's members. */
+    void names(Supplier<Mono<Map<String, String>>> names) {
+        this.names = names;
     }
 
     public void start() {
@@ -122,6 +131,7 @@ public final class BotRuntime {
                     if ("SNAPSHOT".equals(type) || "PHASE".equals(type)) actionPending = false;
                     // Update event context immediately; only language generation is queued.
                     reactTo(type, payload, outbound);
+                    tellNames(type, payload);
                     Optional<GameBotAdapter.BotPrompt> prompt;
                     synchronized (adapter) {
                         prompt = adapter.onFrame(type, payload, botUserId, difficulty);
@@ -181,6 +191,7 @@ public final class BotRuntime {
                 .map(raw -> cleanClue(raw, p.forbidden()))
                 .onErrorReturn("")
                 .defaultIfEmpty("")
+                .delayElement(adapter.speechDelay())
                 .flatMap(line -> {
                     synchronized (adapter) {
                         if (stopped || !adapter.speechIsCurrent(p)) return Mono.empty();
@@ -249,6 +260,15 @@ public final class BotRuntime {
             return "";
         }
         return line;
+    }
+
+    /** Once the game is under way, hand the adapter everyone's name. */
+    private void tellNames(String type, Map<String, Object> payload) {
+        boolean started = "EVENT".equals(type) && "GAME_STARTED".equals(payload.get("type"))
+                || "SNAPSHOT".equals(type) && Boolean.FALSE.equals(payload.get("lobby"));
+        if (!started || namesAsked) return;
+        namesAsked = true;
+        names.get().subscribe(adapter::playerNames, e -> log.debug("bot {} has no names: {}", botUserId, e.toString()));
     }
 
     private Mono<Void> maybeSay(Sinks.Many<String> outbound, String situation) {

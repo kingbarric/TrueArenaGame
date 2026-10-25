@@ -5,8 +5,10 @@ import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Background music for a game in progress.
-/// Huudpoly uses a separately licensed cinematic track at a quieter volume;
-/// the existing piano playlists and volume for other games remain unchanged.
+/// Huudpoly uses a separately licensed cinematic track at a quieter volume.
+/// Traitors has its own dark, slow cinematic music (Kevin MacLeod, CC BY 4.0)
+/// that follows the game: hushed at night, calm but uneasy at the table,
+/// tense while the votes go in, and heavy for a reveal — see [traitorsScene].
 ///
 /// The bank is 22 public-domain solo piano recordings in `assets/music/`
 /// (see `assets/music/CREDITS.md` for every source and licence). Each
@@ -51,6 +53,15 @@ class GameMusic {
 
   static const _cinematic = <String>['drums-of-the-deep'];
 
+  /// Traitors, scene by scene. No piano: these are strings, choir, brass
+  /// and dark synths, all slow enough to talk over.
+  static const _traitors = <MusicMood, List<String>>{
+    MusicMood.traitorsNight: ['traitors-ossuary-a-beginning', 'traitors-gathering-darkness'],
+    MusicMood.traitorsTable: ['traitors-heart-of-nowhere', 'traitors-dark-times'],
+    MusicMood.traitorsVote: ['traitors-crypto', 'traitors-controlled-chaos'],
+    MusicMood.traitorsReveal: ['traitors-end-of-the-era', 'traitors-lightless-dawn'],
+  };
+
   static const _lively = <String>[
     'harlem-rag',
     'pine-apple-rag',
@@ -72,6 +83,7 @@ class GameMusic {
   static bool get enabled => _enabled;
 
   static List<String> _playlist = const [];
+  static MusicMood? _mood;
   static int _position = 0;
   static double _sessionVolume = _volume;
   static StreamSubscription<PlayerState>? _stateSub;
@@ -107,6 +119,7 @@ class GameMusic {
       {int? seed, bool autoplay = false}) async {
     await stop();
     if (autoplay) _enabled = true;
+    _mood = mood;
     _sessionVolume = mood == MusicMood.cinematic ? 0.14 : _volume;
     _playlist =
         _shuffleFor(mood, seed ?? DateTime.now().microsecondsSinceEpoch);
@@ -128,6 +141,35 @@ class GameMusic {
     });
   }
 
+  /// Moves a session on to another scene's music — Traitors' night, table,
+  /// vote and reveal — fading the current track out first rather than
+  /// cutting it. Asking for the scene already playing changes nothing.
+  static Future<void> switchTo(MusicMood mood) async {
+    if (mood == _mood && _playlist.isNotEmpty) return;
+    final token = _sessionToken;
+    if (_enabled && _player.playing) {
+      for (var step = 7; step >= 0; step--) {
+        // Another switch (or a stop) took over: let it.
+        if (token != _sessionToken) return;
+        try {
+          await _player.setVolume(_sessionVolume * step / 8);
+        } catch (_) {/* no audio device: nothing to fade */}
+        await Future<void>.delayed(const Duration(milliseconds: 140));
+      }
+    }
+    if (token != _sessionToken) return;
+    await start(mood);
+  }
+
+  /// Which Traitors scene a phase belongs to.
+  static MusicMood traitorsScene(String phase) => switch (phase) {
+        'Night' => MusicMood.traitorsNight,
+        'Vote' || 'Revote' || 'SuddenDeath' || 'HostAssignVotes' || 'VoteReview' || 'Defense' || 'HostDecision' =>
+          MusicMood.traitorsVote,
+        'MorningReveal' || 'Elimination' => MusicMood.traitorsReveal,
+        _ => MusicMood.traitorsTable,
+      };
+
   static Future<void> stop() async {
     _sessionToken++;
     await _stateSub?.cancel();
@@ -142,6 +184,7 @@ class GameMusic {
   /// scene without wandering off tone.
   static List<String> _shuffleFor(MusicMood mood, int seed) {
     if (mood == MusicMood.cinematic) return List.of(_cinematic);
+    final scene = _traitors[mood];
     // A plain LCG — the order only has to look arbitrary, and this keeps it
     // reproducible from [seed] without pulling in dart:math's generator.
     var state = seed & 0x7FFFFFFF;
@@ -161,6 +204,8 @@ class GameMusic {
       return list;
     }
 
+    // A Traitors scene keeps to its own tracks — no piano wandering in.
+    if (scene != null) return shuffled(scene);
     final primary = shuffled(mood == MusicMood.calm ? _calm : _lively);
     final secondary = shuffled(mood == MusicMood.calm ? _lively : _calm);
     return [...primary, ...secondary.take(2)].take(_playlistLength).toList();
@@ -193,6 +238,7 @@ class GameMusic {
   /// as everything else, because someone who turned the music off meant it.
   static Future<void> playOutcome({required bool won}) async {
     await stop(); // ends the playlist and its advance listener
+    _mood = null;
     if (!_enabled) return;
     try {
       await _player.setAsset('assets/music/${won ? 'victory' : 'defeat'}.m4a');
@@ -205,7 +251,7 @@ class GameMusic {
 
   /// Exposed for tests and for the settings screen's description.
   static int get trackCount =>
-      _calm.length + _lively.length + _cinematic.length;
+      _calm.length + _lively.length + _cinematic.length + _traitors.values.fold(0, (sum, l) => sum + l.length);
 
   /// The running order [start] would use, without touching the audio device
   /// — the part of this worth testing.
@@ -218,12 +264,14 @@ class GameMusic {
       ? MusicMood.cinematic
       : _calm.contains(slug)
           ? MusicMood.calm
-          : MusicMood.lively;
+          : _traitors.entries.where((e) => e.value.contains(slug)).map((e) => e.key).firstOrNull ??
+              MusicMood.lively;
 
   /// The mood a game should ask for. Kept here rather than on each screen so
   /// adding a game is one line in one place.
   static MusicMood moodFor(String gameType) => switch (gameType) {
         'monopoly' => MusicMood.cinematic,
+        'truearena' => MusicMood.traitorsTable,
         'draughts' || 'chess' || 'goosi' || 'ludo' => MusicMood.calm,
         _ => MusicMood.lively,
       };
@@ -239,4 +287,16 @@ enum MusicMood {
 
   /// Quiet cinematic percussion for Huudpoly.
   cinematic,
+
+  /// Traitors at night: hushed, eerie synths.
+  traitorsNight,
+
+  /// Traitors at the table: calm but uneasy strings and choir.
+  traitorsTable,
+
+  /// Traitors while the votes go in: tense.
+  traitorsVote,
+
+  /// Traitors' reveals: heavy brass, bells and timpani.
+  traitorsReveal,
 }

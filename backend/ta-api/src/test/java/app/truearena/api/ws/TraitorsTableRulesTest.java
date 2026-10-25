@@ -14,6 +14,7 @@ class TraitorsTableRulesTest {
     void hostAssignVoteIsHostOnly() {
         assertThat(GameOrchestrator.isHostOnlyAction("HOST_ASSIGN_VOTE")).isTrue();
         assertThat(GameOrchestrator.isHostOnlyAction("ADVANCE_PHASE")).isTrue();
+        assertThat(GameOrchestrator.isHostOnlyAction("END_GAME")).as("only the host ends a game early").isTrue();
         assertThat(GameOrchestrator.isHostOnlyAction("CAST_VOTE")).isFalse();
         assertThat(GameOrchestrator.isHostOnlyAction("NIGHT_TARGET")).isFalse();
     }

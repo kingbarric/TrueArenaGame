@@ -1,6 +1,7 @@
 import '../../widgets/match_coin_reward.dart';
 import '../../core/api_client.dart' show userErrorMessage;
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -17,6 +18,8 @@ import '../../widgets/neon_form.dart';
 import '../status/victory_status.dart';
 import '../onboarding/guest_save_session_card.dart';
 import '../huudspace/leave_game.dart';
+import 'table_ring.dart';
+import 'traitors_reveal.dart';
 import '../../widgets/huud_art.dart';
 
 /// The actual game loop — role reveal through results — driven entirely by
@@ -126,6 +129,15 @@ class _GameScreenState extends State<GameScreen> {
 
   bool get _amSpectator => !players.contains(widget.selfId);
 
+  /// The host stopped the game partway: it's over, and nobody won.
+  bool _endedByHost = false;
+
+  /// Who left the table in this phase (a murder, a banishment), for its
+  /// reveal — and whether nobody did, and whether the reveal has finished.
+  final List<RevealSubject> _revealSubjects = [];
+  bool _nobodyThisPhase = false;
+  bool _revealDone = false;
+
   bool _musicOn = GameMusic.enabled;
   bool _sfxOn = GameSfx.enabled;
 
@@ -136,8 +148,11 @@ class _GameScreenState extends State<GameScreen> {
         child: Row(children: [
           Icon(icon, size: 18, color: const Color(0xffc9b18c)),
           const SizedBox(width: 12),
-          Text(label,
-              style: const TextStyle(color: Color(0xfff0d8a8), fontSize: 13)),
+          Flexible(
+            child: Text(label,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Color(0xfff0d8a8), fontSize: 13)),
+          ),
         ]),
       );
 
@@ -194,6 +209,51 @@ class _GameScreenState extends State<GameScreen> {
     }
   }
 
+  /// The host's way out for everyone — a table that's stalled, or that
+  /// simply has to stop. Nobody wins it; everyone sees who was who.
+  Future<void> _confirmEndGame() async {
+    final end = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('End the game for everyone?'),
+        content: const Text('Nobody wins this one, and everyone sees who was who.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Keep playing')),
+          TextButton(
+              key: const ValueKey('traitors-end-confirm'),
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('End game')),
+        ],
+      ),
+    );
+    if (end == true && mounted) widget.socket.send('PLAYER_ACTION', {'action': 'END_GAME'});
+  }
+
+  /// The Traitors music is Creative Commons BY 4.0, so it's credited here.
+  void _showMusicCredits() {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Music credits'),
+        content: const SingleChildScrollView(
+          child: SelectableText(
+            key: ValueKey('traitors-music-credits'),
+            '“Ossuary 1 - A Beginning”, “Gathering Darkness”, “Heart of Nowhere”, '
+            '“Dark Times”, “Crypto”, “Controlled Chaos - no percussion”, '
+            '“End of the Era” and “Lightless Dawn”\n'
+            'Kevin MacLeod (incompetech.com)\n'
+            'Licensed under Creative Commons: By Attribution 4.0 License\n'
+            'https://creativecommons.org/licenses/by/4.0/\n\n'
+            'Source: https://incompetech.com/music/royalty-free/\n\n'
+            'Cut to two-minute excerpts, loudness normalised, faded and converted to AAC '
+            'for quiet background playback.',
+          ),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Close'))],
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -236,6 +296,7 @@ class _GameScreenState extends State<GameScreen> {
         }
       case 'SNAPSHOT':
         _applySnapshot((env['payload'] as Map).cast<String, dynamic>());
+        _sceneMusic();
       case 'PHASE':
         _applyPhase((env['payload'] as Map).cast<String, dynamic>());
       case 'EVENT':
@@ -335,17 +396,26 @@ class _GameScreenState extends State<GameScreen> {
     // else voted, and wiped the traitors' night chat on every pick.
     if (!changed) return;
     setState(() {
+      if (nextRound != round && round > 0) {
+        _tableChat.add(_ChatLine.marker('Round $nextRound'));
+        _traitorChat.add(_ChatLine.marker('Round $nextRound'));
+      }
       phase = next;
       round = nextRound;
+      _revealSubjects.clear();
+      _nobodyThisPhase = false;
+      _revealDone = false;
       _selectedTarget = null;
       _firstNightTarget = null;
       _actionLocked = false;
-      // chat is per phase and never replayed — start clean
-      _tableChat.clear();
-      _traitorChat.clear();
+      // One running conversation, as in any chat: nothing is wiped as the
+      // phases change — a new round just gets a marker (above).
       _chatExpanded = _botTextMode;
     });
-    if (changed) _restartCountdown();
+    if (changed) {
+      _restartCountdown();
+      _sceneMusic();
+    }
   }
 
   void _restartCountdown() {
@@ -405,6 +475,13 @@ class _GameScreenState extends State<GameScreen> {
     }
   }
 
+  /// The music follows the game — night, table, vote, reveal. The result has
+  /// its own stinger, and a game the host ended goes quiet.
+  void _sceneMusic() {
+    if (finished || _endedByHost) return;
+    unawaited(GameMusic.switchTo(GameMusic.traitorsScene(phase)));
+  }
+
   void _togglePause() => widget.socket.send('PAUSE_TOGGLE');
 
   void _addTime() => widget.socket.send('HOST_CONTROL', {'cmd': 'EXTEND_TIMER'});
@@ -445,14 +522,25 @@ class _GameScreenState extends State<GameScreen> {
         case 'TIE_REPLAY':
         case 'TIE_HOST_DECISION':
           _tieCandidates = ((data['tied'] as List?) ?? const []).cast<String>();
+        case 'NO_MURDER':
+        case 'NO_BANISH':
+        case 'SHIELD_BLOCKED_MURDER':
+          _nobodyThisPhase = true;
         case 'PLAYER_ELIMINATED':
           final id = data['id'] as String;
+          _revealSubjects.add(RevealSubject(
+              id: id,
+              name: id == widget.selfId ? 'You' : label(id),
+              role: data['roleShown'] == true ? data['role'] as String? : null));
           alive.remove(id);
           if (!eliminated.contains(id)) eliminated.add(id);
           causes[id] = data['cause'] as String? ?? 'unknown';
           if (data['roleShown'] == true && data['role'] != null) {
             revealedRoles[id] = data['role'] as String;
           }
+        case 'GAME_ENDED_BY_HOST':
+          _endedByHost = true;
+          unawaited(GameMusic.stop());
         case 'GAME_OVER':
           winningSide = data['winningSide'] as String?;
           GameMusic.playOutcome(won: (winningSide == 'traitors') == isTraitor);
@@ -468,8 +556,8 @@ class _GameScreenState extends State<GameScreen> {
           final from = data['from'] as String;
           final channel = data['channel']?.toString();
           final text = data['text'] as String;
-          if (channel == 'spectate' || channel == 'agent') {
-            // Watchers and agents go to the audience box.
+          if (channel == 'spectate') {
+            // Watchers go to the audience box.
             _watchFeed.insert(
                 0,
                 TableChatLine(
@@ -482,6 +570,8 @@ class _GameScreenState extends State<GameScreen> {
             _traitorChat.add(_ChatLine(
                 from: label(from), text: text, mine: from == widget.selfId));
           } else {
+            // The table — Cyber Agents included: they're players at it, so
+            // what they say sits in order with everyone else's.
             _tableChat.add(_ChatLine(
                 from: label(from), text: text, mine: from == widget.selfId));
           }
@@ -511,6 +601,8 @@ class _GameScreenState extends State<GameScreen> {
 
   String? _describe(String type, Map<String, dynamic> data) {
     switch (type) {
+      case 'GAME_ENDED_BY_HOST':
+        return 'The host ended the game.';
       case 'GAME_PAUSED':
         return 'The host paused the clock.';
       case 'GAME_RESUMED':
@@ -762,6 +854,10 @@ class _GameScreenState extends State<GameScreen> {
                     _toggleMusic();
                   case 'sfx':
                     _toggleSfx();
+                  case 'credits':
+                    _showMusicCredits();
+                  case 'end':
+                    _confirmEndGame();
                   case 'exit':
                     _confirmExit();
                 }
@@ -778,6 +874,9 @@ class _GameScreenState extends State<GameScreen> {
                     'sfx',
                     _sfxOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
                     _sfxOn ? 'Mute game sounds' : 'Play game sounds'),
+                _menuItem('credits', Icons.library_music_outlined, 'Music credits'),
+                if (widget.isHost && !finished)
+                  _menuItem('end', Icons.stop_circle_outlined, 'End game for everyone'),
                 _menuItem('exit', Icons.logout_rounded, 'Leave'),
               ],
             ),
@@ -799,7 +898,9 @@ class _GameScreenState extends State<GameScreen> {
                         key: ValueKey(phase), child: _phaseBody(n)),
                   ),
                 ),
-                if (!finished)
+                // Players already have the round-table chat on screen when it's
+                // open — one chat at a time, not two stacked boxes.
+                if (!finished && (_amSpectator || !_roundChatOnScreen))
                   TableChatPanel(
                     lines: _watchFeed,
                     controller: _watchController,
@@ -825,7 +926,7 @@ class _GameScreenState extends State<GameScreen> {
     return switch (phase) {
       'RoleReveal' => _roleReveal(n),
       'Night' => _night(n),
-      'MorningReveal' => _simpleAdvance(n, '🌅', 'Morning', extras: [
+      'MorningReveal' => _revealStage(n, 'Who was taken in the night?', extras: [
           if (_canLeaveLastWill)
             NeonButton('Leave your last will', style: NeonStyle.ghost,
                 onPressed: _actionLocked ? null : () => _sendTextAction('LAST_WILL',
@@ -847,7 +948,11 @@ class _GameScreenState extends State<GameScreen> {
             NeonButton('Reveal next vote', style: NeonStyle.ghost,
                 onPressed: _actionLocked ? null : () => _sendAction('REVEAL_NEXT')),
         ], continueLabel: 'Reveal all'),
-      'Elimination' => _simpleAdvance(n, '⚖️', 'Elimination'),
+      'Elimination' => _revealStage(n, 'The table has spoken…', extras: [
+          if (_immunityHolder == widget.selfId && !_immunitySpent)
+            NeonButton('Spend immunity coin', style: NeonStyle.ghost,
+                onPressed: _actionLocked ? null : () => _sendAction('USE_IMMUNITY')),
+        ]),
       'WinCheck' => _simpleAdvance(n, '🔎', 'Checking the table…'),
       'Results' => _results(n),
       _ => const Center(child: CircularProgressIndicator()),
@@ -1031,76 +1136,85 @@ class _GameScreenState extends State<GameScreen> {
     ]);
   }
 
+  /// Everyone around the table, the talk in the middle: who's at the table
+  /// sits on an oval ring (squashed to fit the space, so a full table of 16
+  /// still shows every face), and the middle carries what the round table is
+  /// about — the clock, the latest news, your accusation, and the host's skip.
   Widget _roundTable(NeonColors n) {
+    final twists = <Widget>[
+      if (_shieldAvailable)
+        NeonButton('Claim the mystery shield', style: NeonStyle.ghost, expand: false,
+          onPressed: _actionLocked ? null : () => _sendAction('CLAIM_SHIELD')),
+      if (_twist('confessional') && _amAlive && !_confessionalSubmitted)
+        NeonButton('Submit your confessional', style: NeonStyle.ghost, expand: false,
+          onPressed: _actionLocked ? null : () => _sendTextAction('SUBMIT_CONFESSIONAL',
+              'Confessional', 'One line — it\'s shown anonymously', maxLength: 200)),
+      if (isTraitor && _amAlive && _falseRevealUses > 0 && !_falseRevealArmed)
+        NeonButton('Hide the next banished Faithful\'s role', style: NeonStyle.ghost, expand: false,
+          onPressed: _actionLocked ? null : () => _sendAction('FALSE_REVEAL')),
+      if (_survivorsChoiceAvailable) _survivorsChoiceButton(n),
+      if (widget.isHost && _immunityAvailable)
+        NeonButton('Award challenge immunity', style: NeonStyle.ghost, expand: false,
+          onPressed: _actionLocked ? null : () => _chooseTargetAction(
+            'AWARD_IMMUNITY', alive.toList())),
+    ];
     return Column(
       children: [
         Expanded(
-          child: _centered([
-            const HuudText('🎪', style: TextStyle(fontSize: 52)),
-            const SizedBox(height: 10),
-            Text('Round table',
-                style: Theme.of(context)
-                    .textTheme
-                    .displayLarge
-                    ?.copyWith(fontSize: 28)),
-            const SizedBox(height: 6),
-            Text('Talk it out — who feels like a traitor?',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.copyWith(color: n.mid)),
-            if (_secondsLeft != null) ...[
-              const SizedBox(height: 14),
-              _countdown(n)
-            ],
-            const SizedBox(height: 18),
-            _participantStrip(n),
-            const SizedBox(height: 18),
-            _recentFeed(n, max: 3),
-            if (_canAccuse) ...[
-              const SizedBox(height: 12),
-              NeonButton('Make your accusation', style: NeonStyle.ghost,
-                onPressed: _actionLocked ? null : () => _chooseTargetAction(
-                  'ACCUSE', alive.where((id) => id != widget.selfId).toList())),
-            ],
-            if (_shieldAvailable) ...[
-              const SizedBox(height: 12),
-              NeonButton('Claim the mystery shield', style: NeonStyle.ghost,
-                onPressed: _actionLocked ? null : () => _sendAction('CLAIM_SHIELD')),
-            ],
-            if (_twist('confessional') && _amAlive && !_confessionalSubmitted) ...[
-              const SizedBox(height: 12),
-              NeonButton('Submit your confessional', style: NeonStyle.ghost,
-                onPressed: _actionLocked ? null : () => _sendTextAction('SUBMIT_CONFESSIONAL',
-                    'Confessional', 'One line — it\'s shown anonymously', maxLength: 200)),
-            ],
-            if (isTraitor && _amAlive && _falseRevealUses > 0 && !_falseRevealArmed) ...[
-              const SizedBox(height: 12),
-              NeonButton('Hide the next banished Faithful\'s role', style: NeonStyle.ghost,
-                onPressed: _actionLocked ? null : () => _sendAction('FALSE_REVEAL')),
-            ],
-            if (_survivorsChoiceAvailable) ...[
-              const SizedBox(height: 12),
-              _survivorsChoiceButton(n),
-            ],
-            if (widget.isHost && _immunityAvailable) ...[
-              const SizedBox(height: 12),
-              NeonButton('Award challenge immunity', style: NeonStyle.ghost,
-                onPressed: _actionLocked ? null : () => _chooseTargetAction(
-                  'AWARD_IMMUNITY', alive.toList())),
-            ],
-            if (widget.isHost) ...[
-              const SizedBox(height: 18),
-              NeonButton('Move to vote',
-                  style: NeonStyle.ghost,
-                  onPressed: _actionLocked ? null : _advance)
-            ],
-          ]),
+          child: TableRing(
+            players: players,
+            seat: (id, size) => _seat(n, id, size),
+            centre: (width) => _tableCentre(n, width),
+          ),
         ),
+        if (twists.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Wrap(spacing: 8, runSpacing: 8, alignment: WrapAlignment.center, children: twists),
+          ),
         _chatPanel(n),
       ],
     );
   }
+
+  /// What sits in the middle of the table.
+  Widget _tableCentre(NeonColors n, double width) => SizedBox(
+        width: math.max(width, 150),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const HuudText('🎪', style: TextStyle(fontSize: 30)),
+          const SizedBox(height: 2),
+          Text('Round table',
+              key: const ValueKey('round-table-title'),
+              style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 22)),
+          const SizedBox(height: 2),
+          Text('Talk it out — who feels like a traitor?',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: n.mid, fontSize: 12)),
+          if (_secondsLeft != null) ...[const SizedBox(height: 6), _countdown(n)],
+          if (feed.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(feed.first,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: n.mid, fontSize: 11.5)),
+          ],
+          if (_canAccuse) ...[
+            const SizedBox(height: 8),
+            NeonButton('Make your accusation', style: NeonStyle.ghost, expand: false,
+              onPressed: _actionLocked ? null : () => _chooseTargetAction(
+                'ACCUSE', alive.where((id) => id != widget.selfId).toList())),
+          ],
+          if (widget.isHost) ...[
+            const SizedBox(height: 8),
+            NeonButton('Skip to the vote',
+                key: const ValueKey('round-table-skip'),
+                style: NeonStyle.ghost,
+                expand: false,
+                onPressed: _actionLocked ? null : _advance),
+          ],
+        ]),
+      );
 
   /// Opens beneath the discussion for anyone who'd rather type than talk — a
   /// public "table" channel everyone sees, plus a "traitors" channel only
@@ -1186,6 +1300,18 @@ class _GameScreenState extends State<GameScreen> {
                       itemCount: messages.length,
                       itemBuilder: (context, i) {
                         final m = messages[messages.length - 1 - i];
+                        if (m.marker) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            child: Text(m.text.toUpperCase(),
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 1.4,
+                                    color: n.mute)),
+                          );
+                        }
                         return Align(
                           alignment: m.mine
                               ? Alignment.centerRight
@@ -1260,6 +1386,10 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
+  /// The round-table (or, at night, the traitors') chat is showing.
+  bool get _roundChatOnScreen =>
+      phase == 'RoundTable' || (phase == 'Night' && isTraitor && _amAlive && fellowTraitors.isNotEmpty);
+
   bool get _survivorsChoiceAvailable =>
       _twist('survivors_choice') && _amAlive && alive.length <= 4;
 
@@ -1310,6 +1440,40 @@ class _GameScreenState extends State<GameScreen> {
     ]);
   }
 
+  /// A murder or a banishment, revealed at the round table: a spotlight runs
+  /// round the seats, stops on whoever's gone, and then shows what they were.
+  /// The host moves on once it's all been shown (the clock still does too).
+  Widget _revealStage(NeonColors n, String heading, {List<Widget> extras = const []}) {
+    return Column(children: [
+      Expanded(
+        child: EliminationReveal(
+          key: ValueKey('reveal-$phase-$round'),
+          players: players,
+          subjects: List.of(_revealSubjects),
+          nobody: _nobodyThisPhase,
+          heading: heading,
+          seat: (id, size, spotlight) => _seat(n, id, size, spotlight: spotlight),
+          onDone: () {
+            if (mounted) setState(() => _revealDone = true);
+          },
+        ),
+      ),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          for (final w in extras) ...[w, const SizedBox(height: 8)],
+          if (widget.isHost)
+            NeonButton('Continue',
+                key: const ValueKey('reveal-continue'),
+                style: NeonStyle.ghost,
+                onPressed: !_revealDone || _actionLocked ? null : _advance)
+          else
+            _waiting(n, _movingOnLine),
+        ]),
+      ),
+    ]);
+  }
+
   Widget _simpleAdvance(NeonColors n, String emoji, String title,
       {List<Widget> extras = const [], List<Widget> hostExtras = const [], String continueLabel = 'Continue'}) {
     return _centered([
@@ -1320,8 +1484,7 @@ class _GameScreenState extends State<GameScreen> {
               Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 26)),
       const SizedBox(height: 14),
       _recentFeed(n, max: 4),
-      if ((phase == 'VoteReview' || phase == 'Elimination') &&
-          _immunityHolder == widget.selfId && !_immunitySpent) ...[
+      if (phase == 'VoteReview' && _immunityHolder == widget.selfId && !_immunitySpent) ...[
         const SizedBox(height: 12),
         NeonButton('Spend immunity coin', style: NeonStyle.ghost,
             onPressed: _actionLocked ? null : () => _sendAction('USE_IMMUNITY')),
@@ -1338,17 +1501,31 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Widget _results(NeonColors n) {
-    final won = winningSide == 'traitors' ? isTraitor : !isTraitor;
+    final ended = _endedByHost && winningSide == null;
+    final won = !ended && (winningSide == 'traitors' ? isTraitor : !isTraitor);
     return _centered([
-      HuudText(winningSide == 'traitors' ? '😈' : '😇',
+      HuudText(ended ? '🎭' : winningSide == 'traitors' ? '😈' : '😇',
           style: const TextStyle(fontSize: 64)),
       const SizedBox(height: 10),
-      Text(winningSide == 'traitors' ? 'The Traitors win' : 'The Faithful win',
+      Text(
+          ended
+              ? 'The host ended the game'
+              : winningSide == 'traitors'
+                  ? 'The Traitors win'
+                  : 'The Faithful win',
+          key: const ValueKey('traitors-result-title'),
+          textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.displayLarge?.copyWith(
               fontSize: 28,
-              color: winningSide == 'traitors' ? n.brand : n.gold)),
+              color: ended ? n.ink : winningSide == 'traitors' ? n.brand : n.gold)),
       const SizedBox(height: 6),
-      HuudText(won ? 'You won! 🎉' : 'Better luck next table.',
+      HuudText(
+          ended
+              ? "Nobody won this one — here's who was who."
+              : won
+                  ? 'You won! 🎉'
+                  : 'Better luck next table.',
+          textAlign: TextAlign.center,
           style:
               Theme.of(context).textTheme.bodyMedium?.copyWith(color: n.mid)),
       const SizedBox(height: 18),
@@ -1392,7 +1569,7 @@ class _GameScreenState extends State<GameScreen> {
         ],
       ],
       const SizedBox(height: 28),
-      if (!_amSpectator) MatchCoinReward(roomId: widget.socket.roomId),
+      if (!_amSpectator && !ended) MatchCoinReward(roomId: widget.socket.roomId),
       if (won) VictoryShareButton(roomId: widget.socket.roomId,
           gameType: 'truearena', detail: 'The ${winningSide == 'traitors' ? 'Traitors' : 'Faithful'} win'),
       NeonButton('Back to the Huud', onPressed: () {
@@ -1520,89 +1697,73 @@ class _GameScreenState extends State<GameScreen> {
   /// — is most of what there is to reason about in this game, so the
   /// eliminated stay on the list, dimmed and struck through, with whatever
   /// their role turned out to be.
-  Widget _participantStrip(NeonColors n) {
+  /// One person at the table: their face (crossed out once they're gone),
+  /// their name, and their role once it's been shown.
+  Widget _seat(NeonColors n, String id, double size, {bool spotlight = false}) {
     const alivePulse = Color(0xff4ade80);
-    return SizedBox(
-      height: 86,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        children: [
-          for (final id in players)
-            Builder(builder: (context) {
-              final isAlive = alive.contains(id);
-              final isMe = id == widget.selfId;
-              final role = revealedRoles[id] ?? allRoles?[id];
-              return Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: Opacity(
-                  opacity: isAlive ? 1 : 0.42,
-                  child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    Stack(alignment: Alignment.center, children: [
-                      Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: isAlive
-                                ? (isMe
-                                    ? alivePulse
-                                    : Colors.white.withValues(alpha: 0.18))
-                                : Colors.transparent,
-                            width: isMe && isAlive ? 2.2 : 1.2,
-                          ),
-                          boxShadow: isMe && isAlive
-                              ? [
-                                  BoxShadow(
-                                      color: alivePulse.withValues(alpha: 0.4),
-                                      blurRadius: 10,
-                                      spreadRadius: -2)
-                                ]
-                              : null,
-                        ),
-                        child: ValueListenableBuilder<Set<String>>(
-                          valueListenable: widget.socket.onlinePlayers,
-                          builder: (_, online, __) => OnlineAvatar(label(id),
-                              size: 42, imageUrl: widget.socket.memberAvatars[id], online: online.contains(id), presence: widget.socket.presenceOf(id)),
-                        ),
-                      ),
-                      if (!isAlive)
-                        const Icon(Icons.close_rounded,
-                            size: 30, color: Color(0xffe0704a)),
-                    ]),
-                    const SizedBox(height: 4),
-                    SizedBox(
-                      width: 58,
-                      child: Text(
-                        isMe ? 'You' : label(id),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w700,
-                          color: isAlive ? n.ink : n.mute,
-                          decoration:
-                              isAlive ? null : TextDecoration.lineThrough,
-                        ),
-                      ),
-                    ),
-                    if (role != null)
-                      Text(
-                        role.contains('traitor') ? 'traitor' : 'faithful',
-                        style: TextStyle(
-                          fontSize: 7.5,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.4,
-                          color: role.contains('traitor') ? n.brand : n.jade,
-                        ),
-                      ),
-                  ]),
-                ),
-              );
-            }),
-        ],
-      ),
+    final isAlive = alive.contains(id) || spotlight;
+    final isMe = id == widget.selfId;
+    final role = revealedRoles[id] ?? allRoles?[id];
+    final accused = id == _accused;
+    return Opacity(
+      opacity: isAlive ? 1 : 0.42,
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Stack(alignment: Alignment.center, children: [
+          Container(
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: spotlight
+                    ? n.gold
+                    : !isAlive
+                    ? Colors.transparent
+                    : accused
+                        ? n.brand
+                        : isMe
+                            ? alivePulse
+                            : Colors.white.withValues(alpha: 0.18),
+                width: spotlight ? 3 : (isMe || accused) && isAlive ? 2.2 : 1.2,
+              ),
+              boxShadow: spotlight
+                  ? [BoxShadow(color: n.gold.withValues(alpha: 0.75), blurRadius: 22, spreadRadius: 2)]
+                  : isMe && isAlive
+                  ? [BoxShadow(color: alivePulse.withValues(alpha: 0.4), blurRadius: 10, spreadRadius: -2)]
+                  : null,
+            ),
+            child: ValueListenableBuilder<Set<String>>(
+              valueListenable: widget.socket.onlinePlayers,
+              builder: (_, online, __) => OnlineAvatar(label(id),
+                  size: size, imageUrl: widget.socket.memberAvatars[id], online: online.contains(id),
+                  presence: widget.socket.presenceOf(id)),
+            ),
+          ),
+          if (!isAlive && !spotlight) Icon(Icons.close_rounded, size: size * 0.7, color: const Color(0xffe0704a)),
+        ]),
+        const SizedBox(height: 3),
+        Text(
+          isMe ? 'You' : label(id),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 9,
+            fontWeight: FontWeight.w700,
+            color: isAlive ? n.ink : n.mute,
+            decoration: isAlive ? null : TextDecoration.lineThrough,
+          ),
+        ),
+        if (role != null)
+          Text(
+            role.contains('traitor') ? 'traitor' : 'faithful',
+            style: TextStyle(
+              fontSize: 7.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.4,
+              color: role.contains('traitor') ? n.brand : n.jade,
+            ),
+          ),
+      ]),
     );
   }
 
@@ -1698,8 +1859,16 @@ class _GameScreenState extends State<GameScreen> {
 }
 
 class _ChatLine {
-  const _ChatLine({required this.from, required this.text, required this.mine});
+  const _ChatLine({required this.from, required this.text, required this.mine}) : marker = false;
+
+  /// "Round 2" — where one round's talk ends and the next begins.
+  const _ChatLine.marker(this.text)
+      : from = '',
+        mine = false,
+        marker = true;
+
   final String from;
   final String text;
   final bool mine;
+  final bool marker;
 }

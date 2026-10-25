@@ -163,6 +163,10 @@ public class BotService {
         };
         BotRuntime runtime = new BotRuntime(mapper, uri, adapter, picker, botId.toString(), difficulty,
                 name, gameName);
+        // So it can call people by name ("Ada, you've been quiet").
+        runtime.names(() -> members.findByRoomId(room.id())
+                .filter(m -> m.nickname() != null && !m.nickname().isBlank())
+                .collectMap(m -> m.userId().toString(), RoomMemberRow::nickname));
         registry.register(room.id(), botId, runtime);
         runtime.start();
     }

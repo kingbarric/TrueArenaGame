@@ -1,7 +1,8 @@
 # Music credits
 
-The original 22 piano tracks are public-domain recordings. Monopoly adds a
-Creative Commons BY 4.0 cinematic recording, credited in its game settings.
+The original 22 piano tracks are public-domain recordings. Monopoly and
+Traitors use Creative Commons BY 4.0 cinematic recordings, credited in each
+game's settings.
 
 ## Cinematic — Monopoly
 
@@ -17,6 +18,36 @@ https://creativecommons.org/licenses/by/4.0/
 - Prepared with loudness normalisation to −22 LUFS, short fades and 96 kbps AAC encoding.
 - Playback volume: 14%, below the existing piano bank's 22%; bundled for offline playback.
 - Attribution and the modification notice are also visible under Monopoly → Settings → Music credits.
+
+## Cinematic — Traitors, scene by scene
+
+Each Traitors scene has its own music: hushed at night, uneasy at the round
+table, tense while the votes go in and heavy for a reveal. No piano.
+
+Licensed under Creative Commons: By Attribution 4.0 License
+
+https://creativecommons.org/licenses/by/4.0/
+
+- **“Ossuary 1 - A Beginning” Kevin MacLeod (incompetech.com)** — Night  
+  `traitors-ossuary-a-beginning.m4a` · <https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1500043>
+- **“Gathering Darkness” Kevin MacLeod (incompetech.com)** — Night  
+  `traitors-gathering-darkness.m4a` · <https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100849>
+- **“Heart of Nowhere” Kevin MacLeod (incompetech.com)** — Round table  
+  `traitors-heart-of-nowhere.m4a` · <https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1400045>
+- **“Dark Times” Kevin MacLeod (incompetech.com)** — Round table  
+  `traitors-dark-times.m4a` · <https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100747>
+- **“Crypto” Kevin MacLeod (incompetech.com)** — Voting  
+  `traitors-crypto.m4a` · <https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1600013>
+- **“Controlled Chaos - no percussion” Kevin MacLeod (incompetech.com)** — Voting  
+  `traitors-controlled-chaos.m4a` · <https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1200060>
+- **“End of the Era” Kevin MacLeod (incompetech.com)** — Reveals  
+  `traitors-end-of-the-era.m4a` · <https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100452>
+- **“Lightless Dawn” Kevin MacLeod (incompetech.com)** — Reveals  
+  `traitors-lightless-dawn.m4a` · <https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100655>
+
+- Downloaded from https://incompetech.com/music/royalty-free/mp3-royaltyfree/ (the title, URL-encoded, plus `.mp3`).
+- Prepared as 120-second excerpts with a high-pass filter, loudness normalisation to −22 LUFS, short fades and 64 kbps stereo AAC encoding.
+- Attribution and the modification notice are also visible under Traitors → Settings → Music credits.
 
 ## Original piano bank
 
@@ -49,7 +80,7 @@ out over the others, faded in and out, and encoded as 48 kbps mono AAC
 - **Butterfly, Op. 43 No. 1 (1906, played by the composer)** — Edvard Grieg  
   `grieg-butterfly-1906.m4a` · Public domain · <https://commons.wikimedia.org/wiki/File%3AGrieg%2Bplays%2BGrieg%2BButterfly%2B%281906%29.ogg>
 
-## Lively — the party games (Word Bluff, Traitors)
+## Lively — the party games (Word Bluff)
 
 - **Harlem Rag (1897)** — Tom Turpin  
   `harlem-rag.m4a` · Public domain · <https://commons.wikimedia.org/wiki/File%3A%22Harlem%20Rag%22%2C%20by%20Tom%20Turpin%20%281897%29.oga>
@@ -75,6 +106,7 @@ out over the others, faded in and out, and encoded as 48 kbps mono AAC
   `canadian-capers.m4a` · Public domain · <https://commons.wikimedia.org/wiki/File%3ACanadian%20Capers%20by%20Chandler%2C%20White%20and%20Cohen%20%281921%29.oga>
 - **Topsy Turvy (1899)** — Louise V. Gustin  
   `topsy-turvy.m4a` · Public domain · <https://commons.wikimedia.org/wiki/File%3A%22Topsy%20Turvy%22%2C%20by%20Louise%20V.%20Gustin%20%281899%29.oga>
+
 ## End-of-game stingers
 
 Short excerpts cut from two of the tracks above, played once on the results
