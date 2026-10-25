@@ -451,6 +451,9 @@ public class GameOrchestrator {
                     if ("goosi".equals(room.gameType())) {
                         payload.put("mode", goosiConfigFrom(room.gameConfig()).mode());
                     }
+                    if ("whot".equals(room.gameType())) {
+                        payload.put("mode", whotConfigFrom(room.gameConfig()).mode());
+                    }
                     payload.put("members", t.getT2());
                     // So the host is told to add a player or an agent before Start, not refused after.
                     payload.put("minPlayers", app.truearena.api.room.TableSizes.minPlayers(room.gameType(), room.gameConfig()));
@@ -492,6 +495,11 @@ public class GameOrchestrator {
     }
 
     private void broadcastSpectatorState(RoomRuntime rt) {
+        // Draughts spectators use the same complete public move events as
+        // players. Pushing the post-move board before those events would
+        // both hide the animation and reduce the same move twice.
+        // Initial/reconnect HELLO still supplies an authoritative snapshot.
+        if (rt.started() && "draughts".equals(rt.module().gameType())) return;
         for (String userId : rt.spectatorUserIds) {
             sendSnapshot(rt, userId);
         }
@@ -782,12 +790,12 @@ public class GameOrchestrator {
     }
 
     /** The games whose tables show spectators' reactions floating past. */
-    static final Set<String> REACTION_GAMES = Set.of("whot", "truearena");
+    static final Set<String> REACTION_GAMES = Set.of("whot", "truearena", "draughts");
 
     private Mono<Void> handleReaction(RoomRuntime rt, String userId, Envelope in, boolean spectator) {
         if (!spectator || !rt.spectatorUserIds.contains(userId) || !rt.started()
                 || !REACTION_GAMES.contains(rt.module().gameType()))
-            return tellError(rt, userId, "SPECTATORS_ONLY", "only spectators can send reactions, in Whot and Traitors");
+            return tellError(rt, userId, "SPECTATORS_ONLY", "only spectators can send reactions at supported tables");
         if (rt.tournament) return tellError(rt, userId, "SPECTATOR_READ_ONLY", "this match is read-only for spectators");
         if (rt.spectatorsMuted) return tellError(rt, userId, "SPECTATORS_MUTED", "spectator reactions are muted");
         String emoji = String.valueOf(in.payload().get("emoji"));

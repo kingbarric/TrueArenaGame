@@ -1,3 +1,4 @@
+import '../../core/table_minimum.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -342,7 +343,9 @@ class _ChessLobbyScreenState extends State<ChessLobbyScreen> {
           ),
           const SizedBox(height: 6),
         ],
-        LobbyStartBar(isHost: isHost, onStart: () => _start(room)),
+        LobbyStartBar(isHost: isHost,
+          onStart: room.members.length == 2 ? () => _start(room) : null,
+          hint: tableStartProblem('Chess', room.members.length, 2)),
       ]),
     );
   }

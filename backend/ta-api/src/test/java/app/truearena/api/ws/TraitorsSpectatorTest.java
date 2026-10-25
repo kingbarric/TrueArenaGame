@@ -73,8 +73,8 @@ class TraitorsSpectatorTest {
 
     @Test void aGameWithoutReactionsStillTurnsThemDown() throws Exception {
         var rt = new RoomRuntime(UUID.randomUUID(), "a");
-        var module = new DraughtsModule();
-        rt.start(module, module.initialState(List.of("a", "b"), DraughtsConfig.defaults(), RandomSource.seeded(1)), UUID.randomUUID());
+        var module = new app.truearena.game.chess.ChessModule();
+        rt.start(module, module.initialState(List.of("a", "b"), app.truearena.game.chess.ChessConfig.defaults(), RandomSource.seeded(1)), UUID.randomUUID());
         rt.spectatorUserIds.add("viewer");
         var frames = listen(rt, "viewer");
         server.handleFrame(rt, "viewer", mapper.writeValueAsString(

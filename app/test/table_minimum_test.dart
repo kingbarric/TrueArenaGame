@@ -19,13 +19,14 @@ import 'whot_game_test.dart' show TestSocket;
 class _Socket extends TestSocket {
   void frame(String type, Map<String, dynamic> payload) => controller.add({'type': type, 'payload': payload});
 
-  void lobby(List<String> players, {int minPlayers = 2}) => frame('SNAPSHOT', {
+  void lobby(List<String> players, {int minPlayers = 2, String? mode}) => frame('SNAPSHOT', {
         'lobby': true,
         'roomId': roomId,
         'code': 'ABCDEF',
         'hostId': 'me',
         'status': 'lobby',
         'minPlayers': minPlayers,
+        if (mode != null) 'mode': mode,
         'members': [for (final id in players) {'userId': id, 'nickname': id, 'ready': false}],
       });
 
@@ -61,7 +62,7 @@ void main() {
     expect(defaultMinPlayers('truearena'), 6);
   });
 
-  Future<_Socket> open(WidgetTester tester) async {
+  Future<_Socket> open(WidgetTester tester, {String gameType = 'draughts'}) async {
     final socket = _Socket();
     final app = AppState(ApiClient(client: MockClient((_) async => http.Response('offline', 503))))
       ..user = const UserView(id: 'me', displayName: 'Eric', username: 'eric')
@@ -76,7 +77,7 @@ void main() {
                 huudId: 'h1',
                 startGame: true,
                 room: RoomView(
-                    id: socket.roomId, code: 'ABCDEF', hostId: 'me', status: 'lobby', gameType: 'draughts', members: const [])))));
+                    id: socket.roomId, code: 'ABCDEF', hostId: 'me', status: 'lobby', gameType: gameType, members: const [])))));
     await tester.pump();
     return socket;
   }
@@ -113,4 +114,28 @@ void main() {
     expect(find.text('Add a player or a Cyber Agent to start Draughts.'), findsWidgets);
     await tester.pumpWidget(const SizedBox());
   });
+  testWidgets('The Tell validates complete teams from the lobby mode before Huud data loads', (tester) async {
+    final socket = await open(tester, gameType: 'whot');
+    socket.lobby(['me', 'a', 'b', 'c', 'd'], minPlayers: 4, mode: 'tell');
+    await tester.pump();
+    expect(socket.started, isFalse);
+    expect(find.textContaining('4, 6 or 8'), findsOneWidget);
+    await tester.tap(find.text('Try again'));
+    await tester.pump();
+    socket.lobby(['me', 'a', 'b', 'c', 'd', 'e'], minPlayers: 4, mode: 'tell');
+    await tester.pump();
+    expect(socket.started, isTrue);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  test('SlayHuud requires contestants and, when applicable, judges', () {
+    expect(slayStartProblem('battle', 1, 0), isNotNull);
+    expect(slayStartProblem('battle', 2, 0), isNull);
+    expect(slayStartProblem('group', 3, 0), isNotNull);
+    expect(slayStartProblem('group', 4, 0), isNull);
+    expect(slayStartProblem('slay_or_pass', 3, 2), isNotNull);
+    expect(slayStartProblem('slay_or_pass', 2, 3), isNotNull);
+    expect(slayStartProblem('slay_or_pass', 3, 3), isNull);
+  });
+
 }

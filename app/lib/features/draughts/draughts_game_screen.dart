@@ -12,7 +12,8 @@ import '../../theme/neon_theme.dart';
 import '../../core/app_state.dart';
 import '../../core/game_music.dart';
 import '../../core/game_sfx.dart';
-import '../../widgets/fireworks.dart';
+import '../../widgets/spectator_reactions.dart';
+import 'draughts_effects.dart';
 import '../../widgets/how_to_play_dialog.dart';
 import '../../widgets/neon.dart';
 import '../../widgets/game_controls.dart';
@@ -94,6 +95,14 @@ class _CapturedPiece {
 }
 
 class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
+  final _effects = DraughtsEffects();
+  final _reactions = SpectatorReactions();
+  int _lastAppliedSeq = -1;
+  bool _varOpen = false, _reactionCooling = false;
+  Timer? _reactionCooldown;
+
+  void _visualChanged() { if (mounted) setState(() {}); }
+
   static const _moveDuration = Duration(milliseconds: 420);
   static const _captureFadeDuration = Duration(milliseconds: 320);
 
@@ -168,9 +177,6 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
   List<int> _seizable = const [];
   String? _seizableBy;
 
-  /// "SEIZURE!" across the board for a moment after a piece is seized.
-  bool _seizureSplash = false;
-  Timer? _splashTimer;
   bool _sfxOn = GameSfx.enabled;
 
   DraughtsThemeController? _theme;
@@ -178,6 +184,8 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
   @override
   void initState() {
     super.initState();
+    _effects.addListener(_visualChanged);
+    _reactions.addListener(_visualChanged);
     _sub = widget.socket.envelopes.listen(_onEnvelope);
     GameMusic.start(GameMusic.moodFor('draughts'));
     GameSfx.warmUp();
@@ -203,10 +211,14 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
   @override
   void dispose() {
     _sub?.cancel();
+    _effects.removeListener(_visualChanged);
+    _reactions.removeListener(_visualChanged);
+    _effects.dispose();
+    _reactions.dispose();
+    _reactionCooldown?.cancel();
     widget.socket.close();
     _ticker?.cancel();
     _reconnectTicker?.cancel();
-    _splashTimer?.cancel();
     _theme?.removeListener(_onThemeChanged);
     _chatController.dispose();
     GameMusic.stop();
@@ -371,6 +383,9 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
       case 'CONNECTION':
         final connected = (env['payload'] as Map)['connected'] == true;
         _actionLocked = false;
+        _effects.suspend();
+        _reactions.clear();
+        if (connected) widget.socket.send('HELLO', {'lastSeq': 0});
         if (mounted) {
           final messenger = ScaffoldMessenger.of(context);
           messenger.hideCurrentSnackBar();
@@ -401,11 +416,16 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
   }
 
   void _applySnapshot(Map<String, dynamic> p) {
+    final seq = (p['seq'] as num?)?.toInt() ?? widget.socket.lastSeq;
+    _lastAppliedSeq = math.max(_lastAppliedSeq, seq);
+    _effects.synchronize(seq);
+    _reactions.clear();
     setState(() {
       phase = p['phase'] as String? ?? phase;
       round = p['round'] as int? ?? round;
       playerA = p['playerA'] as String? ?? playerA;
       playerB = p['playerB'] as String? ?? playerB;
+      winningSide = p['winningSide'] as String? ?? winningSide;
       final rawBoard = p['board'] as List?;
       if (rawBoard != null) {
         _var.reset();
@@ -574,6 +594,20 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
     final type = payload['type'] as String;
     final data =
         ((payload['data'] as Map?) ?? const {}).cast<String, dynamic>();
+    if (type == 'SPECTATOR_REACTION') {
+      if (!_spectatorsMuted && !_varOpen && _effects.ready) _reactions.receive(data);
+      return;
+    }
+    final seq = (payload['seq'] as num?)?.toInt();
+    if (seq != null && seq <= _lastAppliedSeq) return;
+    if (seq != null) _lastAppliedSeq = seq;
+    final captured = data['captured'] as int?;
+    _effects.event(type, {
+      ...data,
+      if (type == 'PIECE_CAPTURED' && !data.containsKey('capturedKing'))
+        'capturedKing': captured != null && board[captured]?.endsWith('KING') == true,
+    }, seq, muted: _varOpen || _paused);
+    final liveFeedback = _effects.ready && !_varOpen && !_paused;
     if (type == 'CHAT_MESSAGE') {
       _onChat(data);
       return;
@@ -586,6 +620,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
           _applyPause(false, data);
         case 'SPECTATORS_MUTED':
           _spectatorsMuted = true;
+          _reactions.clear();
         case 'SPECTATORS_UNMUTED':
           _spectatorsMuted = false;
         case 'GAME_STARTED':
@@ -609,7 +644,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
           _pieceAt(from)?.square =
               to; // AnimatedPositioned interpolates to the new cell
           _serverLegal = null; // the board has moved on past that snapshot
-          GameSfx.move();
+          if (liveFeedback) GameSfx.move();
           activeSquare = null;
           _selected = null;
           _chain = const [];
@@ -641,9 +676,15 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
           _serverLegal = null; // the board has moved on past that snapshot
           // Taking sounds like a reward; being taken sounds like a loss.
           if ((data['side'] as String?) == mySide) {
-            GameSfx.capture();
+            if (liveFeedback) {
+              if (_effects.captureCount > 1) {
+                GameSfx.chain(_effects.captureCount);
+              } else {
+                GameSfx.capture();
+              }
+            }
           } else {
-            GameSfx.captured();
+            if (liveFeedback) GameSfx.captured();
           }
           activeSquare =
               to; // may be overridden back to null by a following TURN_STARTED
@@ -665,19 +706,14 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
           _serverLegal = null;
           _actionLocked = false;
           if (victimSide == mySide) {
-            GameSfx.captured();
+            if (liveFeedback) GameSfx.captured();
           } else {
-            GameSfx.capture();
+            if (liveFeedback) GameSfx.capture();
           }
-          _seizureSplash = true;
-          _splashTimer?.cancel();
-          _splashTimer = Timer(const Duration(milliseconds: 1800), () {
-            if (mounted) setState(() => _seizureSplash = false);
-          });
         case 'PIECE_PROMOTED':
           final sq = data['square'] as int, side = data['side'] as String;
           _var.promote(sq);
-          GameSfx.king();
+          if (liveFeedback) GameSfx.king();
           board[sq] = '${side}_KING';
           final p = _pieceAt(sq);
           if (p != null) p.type = '${side}_KING';
@@ -706,7 +742,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
           _piecesA = data['piecesA'] as int?;
           _piecesB = data['piecesB'] as int?;
           _ticker?.cancel();
-          GameMusic.playOutcome(won: winningSide == mySide);
+          if (liveFeedback) GameMusic.playOutcome(won: winningSide == mySide);
         case 'DRAW_OFFERED':
           _pendingDrawOffer = data['by']?.toString();
         case 'UNDO_REQUESTED':
@@ -976,6 +1012,9 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
   void _openVar() {
     final turn = _var.lastCompleted;
     if (turn == null || (!_amSpectator && turn.side == mySide)) return;
+    _effects.silence();
+    _reactions.clear();
+    _varOpen = true;
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -987,7 +1026,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
         flipped: mySide == 'B',
         playerName: label(_actorFor(turn.side)),
       ),
-    );
+    ).whenComplete(() { if (mounted) setState(() => _varOpen = false); });
   }
 
   /// Pausing blurs the board for *both* players (and any spectators) — it's
@@ -1366,8 +1405,9 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
           // The board doesn't snap away — it settles back and dissolves as
           // the result comes forward, so the end of a game reads as an
           // arrival rather than a screen swap.
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 620),
+          child: DraughtsEffectStage(effects: _effects, finishOnly: true,
+            child: AnimatedSwitcher(
+            duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 620),
             switchInCurve: Curves.easeOutCubic,
             switchOutCurve: Curves.easeInCubic,
             transitionBuilder: (child, animation) {
@@ -1381,13 +1421,13 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
                 ),
               );
             },
-            child: finished
+            child: finished && !_effects.holdFinalBoard
                 ? KeyedSubtree(
                     key: const ValueKey('results'),
                     child: _results(context.neon))
                 : KeyedSubtree(
                     key: const ValueKey('board'), child: _board(context.neon)),
-          ),
+          )),
         ),
       ),
     );
@@ -1407,16 +1447,22 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
           final trayHeight = math.min(26.0, constraints.maxHeight * 0.06);
           final boardSide = math.max(
               1.0,
-              math.min(constraints.maxWidth,
+              math.min(constraints.maxWidth - 48,
                   constraints.maxHeight - 2 * trayHeight));
           // The frame takes _frameInset on each side.
           final cellSize = math.max(1.0, (boardSide - 2 * _frameInset) / 10);
           final captureSize = cellSize * 0.78;
-          return Center(
+          return Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            SpectatorReactionLane(key: const ValueKey('draughts-reactions-left'),
+              reactions: _reactions.visible, side: 0, reduced: MediaQuery.disableAnimationsOf(context)),
+            Expanded(child: Center(
             child: SizedBox(
+              key: const ValueKey('draughts-board-area'),
               width: boardSide,
               height: boardSide + 2 * trayHeight,
-              child: Stack(clipBehavior: Clip.none, children: [
+              child: DraughtsEffectStage(effects: _effects, flipped: flipped,
+                inset: _frameInset, tray: trayHeight,
+                child: Stack(clipBehavior: Clip.none, children: [
                 // Top strip is the far tray (your opponent's) — it holds the
                 // count of your own men they've taken. Bottom is yours — the
                 // men you've captured from them, matching where those pieces
@@ -1473,9 +1519,12 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
                     end: _captureLanding(captured, boardSide, trayHeight),
                     arcHeight: boardSide * 0.18,
                   ),
-              ]),
+              ])),
             ),
-          );
+          )),
+          SpectatorReactionLane(key: const ValueKey('draughts-reactions-right'),
+            reactions: _reactions.visible, side: 1, reduced: MediaQuery.disableAnimationsOf(context)),
+          ]);
         }),
       ),
       if (!_amSpectator && _pendingUndo != null && _pendingUndo != widget.selfId)
@@ -1485,9 +1534,27 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
               .send('PLAYER_ACTION', {'action': yes ? 'ACCEPT_UNDO' : 'DECLINE_UNDO', 'data': {}}),
         ),
       _controls(),
+      if (_amSpectator && !widget.tournamentSpectator && widget.championshipId == null && !_spectatorsMuted) _reactionTray(),
       if (widget.championshipId == null || !_amSpectator) _chatPanel(n),
     ]);
   }
+
+  Widget _reactionTray() => SizedBox(height: 34, child: Row(
+    mainAxisAlignment: MainAxisAlignment.center,
+    children: [for (final emoji in spectatorReactions) IconButton(
+      key: ValueKey('draughts-react-$emoji'), tooltip: 'React $emoji',
+      padding: const EdgeInsets.all(3),
+      constraints: const BoxConstraints(minWidth: 38, minHeight: 30),
+      onPressed: _reactionCooling || !widget.socket.isConnected ? null : () {
+        widget.socket.send('REACTION_SEND', {'emoji': emoji});
+        setState(() => _reactionCooling = true);
+        _reactionCooldown?.cancel();
+        _reactionCooldown = Timer(const Duration(milliseconds: 1100), () {
+          if (mounted) setState(() => _reactionCooling = false);
+        });
+      }, icon: Text(emoji, style: const TextStyle(fontSize: 20)),
+    )],
+  ));
 
   /// The control row every board game shares: Undo · Draw · VAR · Rules · Resign.
   /// Spectators only get the replay and the rules.
@@ -1645,7 +1712,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
                     flipped: flipped,
                     selected: piece.square == _selected,
                     dragging: piece.square == _dragOrigin,
-                    moveDuration: _moveDuration,
+                    moveDuration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : _moveDuration,
                     fadeDuration: _captureFadeDuration,
                   ),
                 for (final sq in _seizable)
@@ -1657,8 +1724,6 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
                     height: cellSize,
                     child: IgnorePointer(child: _SeizableRing(mine: _seizableBy == mySide)),
                   ),
-                if (_seizureSplash)
-                  const Positioned.fill(child: IgnorePointer(child: _SeizureSplash())),
                 if (_dragOrigin != null &&
                     _dragPosition != null &&
                     _dragPieceType != null)
@@ -1875,9 +1940,6 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
     final accent =
         winningSide == 'A' ? const Color(0xffc9822f) : const Color(0xffe0a94a);
     return Stack(children: [
-      // Only a win gets fireworks. Losing to a celebration would be a
-      // strange thing to do to somebody.
-      if (won) const Positioned.fill(child: Fireworks()),
       Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -1886,7 +1948,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
             // movements read as one sequence rather than competing.
             TweenAnimationBuilder<double>(
               tween: Tween(begin: 0, end: 1),
-              duration: const Duration(milliseconds: 760),
+              duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 760),
               curve: Curves.elasticOut,
               builder: (_, t, child) =>
                   Transform.scale(scale: 0.5 + 0.5 * t, child: child),
@@ -2388,7 +2450,7 @@ class _CapturedPieceFlight extends StatelessWidget {
           alignment: Alignment.topLeft,
           child: TweenAnimationBuilder<double>(
             tween: Tween(begin: captured.animate ? 0 : 1, end: 1),
-            duration: captured.animate
+            duration: captured.animate && !MediaQuery.disableAnimationsOf(context)
                 ? const Duration(milliseconds: 720)
                 : Duration.zero,
             curve: Curves.easeOutCubic,
@@ -2692,38 +2754,6 @@ class _SeizableRingState extends State<_SeizableRing> with SingleTickerProviderS
                     color: const Color(0xffff3b30).withValues(alpha: 0.35 + 0.4 * _pulse.value),
                     blurRadius: 6 + 10 * _pulse.value),
             ],
-          ),
-        ),
-      );
-}
-
-/// "SEIZURE!" across the board after a piece is seized.
-class _SeizureSplash extends StatelessWidget {
-  const _SeizureSplash();
-
-  @override
-  Widget build(BuildContext context) => TweenAnimationBuilder<double>(
-        key: const ValueKey('draughts-seizure-splash'),
-        tween: Tween(begin: 0.6, end: 1),
-        duration: const Duration(milliseconds: 380),
-        curve: Curves.easeOutBack,
-        builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
-        child: Center(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
-            decoration: BoxDecoration(
-              color: const Color(0xe6b3261e),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: Colors.white, width: 2),
-            ),
-            child: const Column(mainAxisSize: MainAxisSize.min, children: [
-              Text('SEIZURE!',
-                  style: TextStyle(
-                      color: Colors.white, fontSize: 34, fontWeight: FontWeight.w900, letterSpacing: 2)),
-              SizedBox(height: 2),
-              Text('Missed an obvious kill',
-                  style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800)),
-            ]),
           ),
         ),
       );

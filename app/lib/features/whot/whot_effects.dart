@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import '../../widgets/spectator_reactions.dart';
 import 'package:flutter/material.dart';
 
 const whotFinishers = <String, String>{
@@ -9,7 +10,7 @@ const whotFinishers = <String, String>{
   'royal': 'Royal Spotlight',
   'confetti': 'Confetti Storm',
 };
-const whotReactions = ['👏', '🔥', '😂', '😮', '💔', '🎉'];
+const whotReactions = spectatorReactions;
 
 String whotMomentTitle(Map<String, dynamic> moment) {
   final debt = (moment['debt'] as num?)?.toInt() ?? 0;
@@ -317,42 +318,8 @@ class _WhotEffectPainter extends CustomPainter {
 }
 
 /// A dedicated lane OUTSIDE the board. Clips prevent emoji drifting onto cards.
-class WhotReactionLane extends StatelessWidget {
-  const WhotReactionLane(
-      {super.key,
-      required this.reactions,
-      required this.side,
-      required this.reduced});
-  final List<Map<String, dynamic>> reactions;
-  final int side;
-  final bool reduced;
-  @override
-  Widget build(BuildContext context) => SizedBox(
-      width: 24,
-      child: ClipRect(
-          child: IgnorePointer(
-        child: LayoutBuilder(
-            builder: (context, box) => Stack(children: [
-                  for (final reaction
-                      in reactions.where((r) => r['lane'] == side))
-                    TweenAnimationBuilder<double>(
-                      key: ValueKey('reaction-${reaction['id']}'),
-                      tween: Tween(begin: 0, end: 1),
-                      duration: const Duration(milliseconds: 2200),
-                      builder: (context, p, child) => Positioned(
-                          left: 1,
-                          top: reduced
-                              ? box.maxHeight * .5
-                              : box.maxHeight * (.85 - .65 * p),
-                          child: Opacity(
-                              opacity: (1 - p).clamp(0.0, 1.0), child: child)),
-                      child: SizedBox(
-                          width: 22,
-                          height: 26,
-                          child: FittedBox(
-                              child: Text('${reaction['emoji']}',
-                                  style: const TextStyle(fontSize: 20)))),
-                    ),
-                ])),
-      )));
+/// Kept as a named wrapper for existing Whot layouts.
+class WhotReactionLane extends SpectatorReactionLane {
+  const WhotReactionLane({super.key, required super.reactions,
+    required super.side, required super.reduced});
 }

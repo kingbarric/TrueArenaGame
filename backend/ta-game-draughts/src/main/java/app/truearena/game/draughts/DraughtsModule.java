@@ -69,6 +69,10 @@ public final class DraughtsModule implements GameModule {
         d.config = config;
         d.playerA = shuffled.get(0);
         d.playerB = shuffled.get(1);
+        // Cosmetic randomness is chosen once, after seat assignment. It is
+        // retained through every state transition and shared by all viewers.
+        var finishers = List.of("royal", "thunder", "fire", "neon", "confetti");
+        d.finishEffect = finishers.get(rng.nextInt(finishers.size()));
         for (int sq = 0; sq < 20; sq++) {
             d.board[sq] = Piece.A_MAN; // rows 0-3
         }
@@ -289,10 +293,12 @@ public final class DraughtsModule implements GameModule {
         require(1 + additionalAvailable == remainingNeeded, "MUST_TAKE_MAXIMUM",
                 "you must play the capture sequence that takes the most pieces");
 
+        boolean capturedKing = d.board[chosen.captured()].isKing();
         d.board = afterBoard;
         d.capturedSquares = capturedSquares;
         d.capturedSoFarThisTurn++;
-        d.emit("PIECE_CAPTURED", Map.of("from", from, "to", to, "captured", chosen.captured(), "side", side));
+        d.emit("PIECE_CAPTURED", Map.of("from", from, "to", to, "captured", chosen.captured(), "side", side,
+                "capturedKing", capturedKing, "captureCount", Long.bitCount(d.capturedSquares)));
 
         if (d.capturedSoFarThisTurn < requiredTotal) {
             d.activeSquare = to; // must continue the chain from here
@@ -316,9 +322,11 @@ public final class DraughtsModule implements GameModule {
                 .findFirst()
                 .orElseThrow(() -> new RuleViolation("ILLEGAL_MOVE", "not a legal capture"));
 
+        boolean capturedKing = d.board[chosen.captured()].isKing();
         d.board = CaptureEngine.applyCapture(d.board, from, chosen);
         d.capturedSquares |= 1L << chosen.captured();
-        d.emit("PIECE_CAPTURED", Map.of("from", from, "to", to, "captured", chosen.captured(), "side", side));
+        d.emit("PIECE_CAPTURED", Map.of("from", from, "to", to, "captured", chosen.captured(), "side", side,
+                "capturedKing", capturedKing, "captureCount", Long.bitCount(d.capturedSquares)));
 
         if (!CaptureEngine.captureLandings(d.board, to, d.capturedSquares).isEmpty()) {
             d.activeSquare = to; // still taking — same piece, keep going
@@ -374,7 +382,7 @@ public final class DraughtsModule implements GameModule {
         d.emit("PIECE_SEIZED", Map.of("square", square, "side", s.otherSide(side), "by", a.actor(),
                 "reason", "missed_capture"));
         if (d.build().pieceCount(s.otherSide(side)) == 0) {
-            finish(d, side);
+            finish(d, side, "capture");
         }
     }
 
@@ -409,7 +417,7 @@ public final class DraughtsModule implements GameModule {
 
         String next = opposite(side);
         if (!CaptureEngine.hasAnyLegalMove(d.board, next)) {
-            finish(d, side);
+            finish(d, side, countPieces(d.board, next) == 0 ? "capture" : "blocked");
             return;
         }
         // With captures optional nothing is forced, so the turn starts with
@@ -425,6 +433,10 @@ public final class DraughtsModule implements GameModule {
     }
 
     private void finish(DraughtsState.Draft d, String winningSide) {
+        finish(d, winningSide, "forfeit");
+    }
+
+    private void finish(DraughtsState.Draft d, String winningSide, String reason) {
         Map<String, String> outcome = new LinkedHashMap<>();
         outcome.put(d.playerA, DraughtsState.SIDE_A.equals(winningSide) ? "won" : "lost");
         outcome.put(d.playerB, DraughtsState.SIDE_B.equals(winningSide) ? "won" : "lost");
@@ -437,7 +449,8 @@ public final class DraughtsModule implements GameModule {
         d.emit("GAME_OVER", Map.of(
                 "winningSide", winningSide,
                 "piecesA", countPieces(d.board, DraughtsState.SIDE_A),
-                "piecesB", countPieces(d.board, DraughtsState.SIDE_B)));
+                "piecesB", countPieces(d.board, DraughtsState.SIDE_B),
+                "finishEffect", d.finishEffect, "reason", reason));
     }
 
     private static int countPieces(Piece[] board, String side) {
@@ -484,6 +497,9 @@ public final class DraughtsModule implements GameModule {
     private Map<String, Object> commonView(DraughtsState s) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("phase", s.phase);
+        m.put("seq", s.seq);
+        m.put("finishEffect", s.finishEffect);
+        m.put("winningSide", s.win == null ? null : s.win.winningSide());
         m.put("round", s.round);
         m.put("playerA", s.playerA);
         m.put("playerB", s.playerB);

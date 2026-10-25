@@ -45,6 +45,7 @@ public final class DraughtsState implements GameState {
     final List<GameEvent> events;
     final long seq;
     final WinResult win;
+    final String finishEffect;
     final String pendingDrawOffer;
 
     // Undo: the turn that's under way began from this board (a turn can be a
@@ -80,6 +81,7 @@ public final class DraughtsState implements GameState {
         this.events = List.copyOf(d.events);
         this.seq = d.seq;
         this.win = d.win;
+        this.finishEffect = d.finishEffect;
         this.pendingDrawOffer = d.pendingDrawOffer;
         this.turnStartBoard = d.turnStartBoard == null ? null : d.turnStartBoard.clone();
         this.turnStartRequired = d.turnStartRequired;
@@ -145,6 +147,7 @@ public final class DraughtsState implements GameState {
         List<GameEvent> events = new ArrayList<>();
         long seq;
         WinResult win;
+        String finishEffect = "royal";
         String pendingDrawOffer;
         Piece[] turnStartBoard;
         int turnStartRequired;
@@ -175,6 +178,7 @@ public final class DraughtsState implements GameState {
             this.events = new ArrayList<>(s.events);
             this.seq = s.seq;
             this.win = s.win;
+            this.finishEffect = s.finishEffect;
             this.pendingDrawOffer = s.pendingDrawOffer;
             this.turnStartBoard = s.turnStartBoard == null ? null : s.turnStartBoard.clone();
             this.turnStartRequired = s.turnStartRequired;

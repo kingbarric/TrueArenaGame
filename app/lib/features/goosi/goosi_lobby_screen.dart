@@ -521,7 +521,7 @@ class _GoosiLobbyScreenState extends State<GoosiLobbyScreen> {
         ],
         LobbyStartBar(
           isHost: isHost,
-          hint: ready ? null : 'Macala needs two players.',
+          hint: ready ? null : 'Add a player or a Cyber Agent to start Macala.',
           onStart: !ready
               ? null
               : () {

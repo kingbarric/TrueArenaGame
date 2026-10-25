@@ -1,3 +1,4 @@
+import '../../core/table_minimum.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -393,6 +394,9 @@ class _SlayCompetitionScreenState extends State<SlayCompetitionScreen>
   List<Widget> _content(BuildContext context) {
     final s = _state!, role = s['role'], status = s['status'];
     if (status == 'lobby') {
+      final startProblem = slayStartProblem(s['mode'] as String,
+          (s['contestants'] as num?)?.toInt() ?? 0,
+          (s['judges'] as num?)?.toInt() ?? 0);
       return [
         SlayPanel(
             child:
@@ -429,12 +433,16 @@ class _SlayCompetitionScreenState extends State<SlayCompetitionScreen>
                     ? 'You are on the judging panel.'
                     : 'Your contestant seat is reserved.',
                 style: const TextStyle(fontWeight: FontWeight.w600)),
+          if (startProblem != null) ...[
+            const SizedBox(height: 12),
+            Text(startProblem),
+          ],
           if (s['host'] == true && role != 'spectator') ...[
             const SizedBox(height: 12),
             SizedBox(
                 width: double.infinity,
                 child: SlayButton(
-                    onPressed: _busy ? null : () => _action('start'),
+                    onPressed: _busy || startProblem != null ? null : () => _action('start'),
                     child: const Text('Start the challenge')))
           ],
           const SizedBox(height: 12),

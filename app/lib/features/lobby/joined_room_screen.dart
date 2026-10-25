@@ -139,8 +139,9 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
   /// Too few at the table, or The Tell's teams not adding up. Null: it can start.
   String? get _startProblem {
     final game = _huud?.currentGame;
-    return huudStartProblem(_room.gameType, game?.mode, _room.members.length,
-        _minPlayers ?? game?.minPlayers ?? defaultMinPlayers(_room.gameType, mode: game?.mode));
+    final mode = game?.mode ?? (_room.gameType == 'whot' ? _gameMode : null);
+    return huudStartProblem(_room.gameType, mode, _room.members.length,
+        _minPlayers ?? game?.minPlayers ?? defaultMinPlayers(_room.gameType, mode: mode));
   }
 
   /// Start, or say who's missing instead of asking the server to refuse.

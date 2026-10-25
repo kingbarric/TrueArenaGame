@@ -1,3 +1,4 @@
+import '../../core/table_minimum.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -499,7 +500,9 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
           ),
           const SizedBox(height: 10),
         ],
-        LobbyStartBar(isHost: isHost, onStart: () => _start(room)),
+        LobbyStartBar(isHost: isHost,
+          onStart: room.members.length == 2 ? () => _start(room) : null,
+          hint: tableStartProblem('Draughts', room.members.length, 2)),
       ]),
     );
   }

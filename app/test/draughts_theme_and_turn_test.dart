@@ -39,8 +39,9 @@ class _Socket implements GameSocket {
   @override
   Future<void> close() => frames.close();
   void snapshot(Map<String, dynamic> payload) => frames.add({'type': 'SNAPSHOT', 'payload': payload});
+  int _seq = 0;
   void event(String type, Map<String, dynamic> data) =>
-      frames.add({'type': 'EVENT', 'payload': {'type': type, 'data': data}});
+      frames.add({'type': 'EVENT', 'payload': {'type': type, 'data': data, 'seq': ++_seq}});
 }
 
 double _contrast(Color a, Color b) {
@@ -211,11 +212,10 @@ void main() {
 
       socket.event('PIECE_SEIZED', {'square': 30, 'side': 'B', 'by': 'me', 'reason': 'missed_capture'});
       await tester.pump();
-      expect(find.text('SEIZURE!'), findsOneWidget);
-      expect(find.text('Missed an obvious kill'), findsOneWidget);
+      expect(find.byKey(const ValueKey('draughts-effect-seize')), findsOneWidget);
       expect(find.byKey(const ValueKey('seizable-30')), findsNothing);
       await tester.pump(const Duration(seconds: 2));
-      expect(find.text('SEIZURE!'), findsNothing);
+      expect(find.byKey(const ValueKey('draughts-effect-seize')), findsNothing);
     });
 
     testWidgets('without seizure there is no badge', (tester) async {

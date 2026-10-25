@@ -522,11 +522,9 @@ class _WhotLobbyScreenState extends State<WhotLobbyScreen> {
           onStart: (_mode == 'tell' ? const [4, 6, 8].contains(count) : count >= 2 && count <= 20)
               ? () => _socket!.send('GAME_START')
               : null,
-          hint: count < (_mode == 'tell' ? 4 : 2)
-              ? (_mode == 'tell'
-                  ? 'Invite players until you have 4, 6, or 8.'
-                  : 'Invite at least one more player to start.')
-              : null,
+          hint: _mode == 'tell' && !const [4, 6, 8].contains(count)
+              ? 'The Tell needs 4, 6 or 8 players. Add players or Cyber Agents to complete the teams.'
+              : count < 2 ? 'Add a player or a Cyber Agent to start Whot.' : null,
         ),
       ],
     ]);

@@ -1,3 +1,4 @@
+import '../../core/table_minimum.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -456,6 +457,7 @@ class _WordBluffLobbyScreenState extends State<WordBluffLobbyScreen> {
         ],
         LobbyStartBar(
           isHost: isHost,
+          hint: tableStartProblem('Word Bluff', room.members.length, 4),
           onStart: !enough
               ? null
               : () {
