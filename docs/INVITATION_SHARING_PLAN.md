@@ -46,7 +46,7 @@ requires published store listings and physical first-install verification.
 - Full backend `verify -DskipITs`: 923 tests across 137 suites, zero failures
   or errors; seven environment-dependent checks skipped (six native engine
   checks and one live-storage check). Docker integration tests were excluded.
-- 110 Flutter regression tests passed, plus the artwork export test. Nine
+- 110 Flutter regression tests passed, plus the artwork export test. Ten
   offline website tests cover device/store routing, encoded Play referrers,
   clipboard refusal, unpublished listings and both app-link associations.
 - New invitation components pass static analysis without issues. Android's
@@ -84,3 +84,17 @@ no browser gameplay.
 
 References: [Google Install Referrer](https://developer.android.com/google/play/installreferrer/library),
 [Apple universal links](https://developer.apple.com/documentation/xcode/allowing-apps-and-websites-to-link-to-your-content).
+
+## Isolated phone testing
+
+`PLAYHUUD_PUBLIC_INVITE_BASE` configures backend invitation links, metadata and
+cover URLs. It defaults to `https://playhuud.com`; the isolated test deployment
+uses `https://vps-8030ec94.vps.ovh.net/test`. Covers are bundled with the backend
+and publicly served through `/api/v1/invitations/covers/invite-{game}.png`.
+The phone build sets `INVITE_BASE_URL` to that same test base. Parsing still
+accepts production links and accepts only the explicitly configured test host
+and prefix. Both Huud and championship shares stay on their own database.
+
+The test host is not an iOS associated domain: its invitation page's **Open
+invitation in PlayHuud** button opens the installed app via its custom scheme.
+Production association files and store-release verification remain separate.

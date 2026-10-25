@@ -4,18 +4,18 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 const html = readFileSync(new URL('../../backend/ta-api/src/main/resources/invitations/page.html', import.meta.url), 'utf8');
 const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
-function page({kind='championships', code='ABCD2345', device='android', ios='', android='', clipboardFails=false}={}) {
+function page({kind='championships', code='ABCD2345', device='android', ios='', android='', clipboardFails=false, base='', url=''}={}) {
   const elements = new Map();
   for (const id of ['invite','install','status','code','open','copy','name','description','art']) elements.set(id, {hidden: id === 'install', textContent:'', href:''});
-  elements.get('invite').dataset = {kind, code, ios, android};
-  const copied = [], navigated = [];
+  elements.get('invite').dataset = {kind, code, ios, android, base, url};
+  const copied = [], navigated = [], fetched = [];
   const context = {document: {getElementById: id => elements.get(id)},
     location:{pathname:`/${kind}/${code}`,assign:url=>navigated.push(url)},
     navigator:{userAgent: device==='ios'?'iPhone':device==='android'?'Android':'Desktop',platform:'',maxTouchPoints:0,
       clipboard:{writeText:async value=>{if(clipboardFails)throw Error('denied');copied.push(value);}}},
-    URL, URLSearchParams, fetch:async()=>({ok:true,json:async()=>({ios,android})})};
+    URL, URLSearchParams, fetch:async url=>{fetched.push(url);return {ok:true,json:async()=>({ios,android})};}};
   vm.runInNewContext(script, context);
-  return {elements,copied,navigated};
+  return {elements,copied,navigated,fetched};
 }
 test('both invitation types open their exact app destination', () => {
   for(const [kind,code] of [['huud','ABC234'],['championships','ABCD2345']]) {
@@ -72,4 +72,13 @@ test('static fallbacks and dynamic metadata pages keep the same invitation scrip
     const page=readFileSync(new URL(`../${kind}/index.html`,import.meta.url),'utf8');
     assert.equal(page.match(/<script>([\s\S]*?)<\/script>/)[1],script);
   }
+});
+
+test('test deployment preserves its invitation and API prefix',async()=>{
+  const base='https://test.example/test';
+  const p=page({base,url:base+'/championships/ABCD2345',android:'https://play.google.com/store/apps/details?id=app.truearena.truearena'});
+  await p.elements.get('install').onclick();
+  assert.equal(p.copied[0],base+'/championships/ABCD2345');
+  assert.equal(p.fetched[0],base+'/api/v1/invitations/stores');
+  assert.equal(new URLSearchParams(new URL(p.navigated[0]).searchParams.get('referrer')).get('invitation'),p.copied[0]);
 });

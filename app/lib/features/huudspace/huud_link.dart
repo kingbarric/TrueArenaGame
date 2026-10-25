@@ -13,12 +13,13 @@ import 'huud_space_screen.dart';
 /// A Huud's invite link: playhuud.com/huud/CODE. Opens the Huud in the app
 /// (iOS universal link / Android app link); without the app the page offers
 /// it, and after sign-up the app brings you straight in.
-String huudLink(String code) => 'https://playhuud.com/huud/${code.toUpperCase()}';
+String huudLink(String code) => Invitation(InvitationKind.huud, code.toUpperCase()).url;
 
-final _linkPattern = RegExp(r'playhuud\.com/huud/([A-Za-z0-9]{6})\b');
-
-/// The code in a playhuud.com/huud/… link (or link text), if there is one.
-String? huudCodeFromLink(String? text) => text == null ? null : _linkPattern.firstMatch(text)?.group(1)?.toUpperCase();
+/// The code in a recognized Huud invitation, including the configured test host.
+String? huudCodeFromLink(String? text) {
+  final invite = Invitation.fromText(text);
+  return invite?.kind == InvitationKind.huud ? invite!.code : null;
+}
 
 /// The text a share sends: who, what, and the link.
 String huudInviteText(HuudSpace huud) =>

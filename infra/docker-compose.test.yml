@@ -78,6 +78,7 @@ services:
       APP_ENV: test
       SPRING_PROFILES_ACTIVE: test
       # Published listing URLs; empty while the stores review the release.
+      PLAYHUUD_PUBLIC_INVITE_BASE: ${PLAYHUUD_PUBLIC_INVITE_BASE:-https://vps-8030ec94.vps.ovh.net/test}
       PLAYHUUD_IOS_STORE_URL: ${PLAYHUUD_IOS_STORE_URL:-}
       PLAYHUUD_ANDROID_STORE_URL: ${PLAYHUUD_ANDROID_STORE_URL:-}
       PORT: 8080

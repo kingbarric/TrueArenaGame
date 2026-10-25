@@ -18,10 +18,15 @@ import reactor.core.publisher.Mono;
 public class InvitationPageController {
     private final ChampionshipService championships;
     private final HuudSpaceService huuds;
-    private final String template, ios, android;
+    private final String template, ios, android, publicBase;
     public InvitationPageController(ChampionshipService championships, HuudSpaceService huuds,
             @Value("${PLAYHUUD_IOS_STORE_URL:}") String ios,
-            @Value("${PLAYHUUD_ANDROID_STORE_URL:}") String android) throws IOException {
+            @Value("${PLAYHUUD_ANDROID_STORE_URL:}") String android,
+            @Value("${PLAYHUUD_PUBLIC_INVITE_BASE:https://playhuud.com}") String publicBase) throws IOException {
+        URI base = URI.create(publicBase);
+        if (!"https".equals(base.getScheme()) || base.getHost() == null || base.getUserInfo() != null || base.getQuery() != null || base.getFragment() != null)
+            throw new IllegalArgumentException("Invitation base must be an HTTPS URL");
+        this.publicBase = publicBase.replaceAll("/+$", "");
         this.championships = championships; this.huuds = huuds;
         this.ios = storeUrl(ios, "apps.apple.com"); this.android = storeUrl(android, "play.google.com");
         this.template = new ClassPathResource("invitations/page.html").getContentAsString(StandardCharsets.UTF_8);
@@ -33,6 +38,14 @@ public class InvitationPageController {
     }
     @GetMapping(value = "/api/v1/invitations/stores", produces = MediaType.APPLICATION_JSON_VALUE)
     public Map<String, String> stores() { return Map.of("ios", ios, "android", android); }
+
+    @GetMapping(value = "/api/v1/invitations/covers/{name}.png", produces = MediaType.IMAGE_PNG_VALUE)
+    public ResponseEntity<ClassPathResource> cover(@PathVariable String name) {
+        if (!java.util.Set.of("invite-huud", "invite-chess", "invite-draughts", "invite-slayhuud").contains(name))
+            return ResponseEntity.notFound().build();
+        return ResponseEntity.ok().header("Cache-Control", "public, max-age=3600")
+                .contentType(MediaType.IMAGE_PNG).body(new ClassPathResource("invitations/covers/" + name + ".png"));
+    }
 
     @GetMapping(value = "/championships/{code}", produces = MediaType.TEXT_HTML_VALUE)
     public Mono<ResponseEntity<String>> championship(@PathVariable String code) {
@@ -61,9 +74,9 @@ public class InvitationPageController {
         String cover = java.util.Set.of("chess", "draughts", "slayhuud").contains(game) ? game : "huud";
         Map<String, String> values = Map.ofEntries(Map.entry("TITLE", title), Map.entry("DESCRIPTION", description),
                 Map.entry("KIND", kind), Map.entry("CODE", code), Map.entry("GAME", gameName(game)),
-                Map.entry("URL", "https://playhuud.com/" + kind + "/" + code),
+                Map.entry("BASE", publicBase), Map.entry("URL", publicBase + "/" + kind + "/" + code),
                 Map.entry("APP_URL", "playhuud:///" + kind + "/" + code),
-                Map.entry("IMAGE", "https://playhuud.com/assets/invite-" + cover + ".png"), Map.entry("IOS", ios), Map.entry("ANDROID", android));
+                Map.entry("IMAGE", publicBase + "/api/v1/invitations/covers/invite-" + cover + ".png"), Map.entry("IOS", ios), Map.entry("ANDROID", android));
         String html = template;
         for (var e : values.entrySet()) html = html.replace("{{" + e.getKey() + "}}", escape(e.getValue()));
         return ResponseEntity.status(status).contentType(MediaType.TEXT_HTML).header("Cache-Control", "no-store").body(html);

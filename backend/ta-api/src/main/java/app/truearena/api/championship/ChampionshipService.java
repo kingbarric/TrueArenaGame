@@ -31,6 +31,8 @@ public class ChampionshipService {
     private static final SecureRandom RNG = new SecureRandom();
     private static final long GRACE_MS = Duration.ofMinutes(3).toMillis();
 
+    @org.springframework.beans.factory.annotation.Value("${PLAYHUUD_PUBLIC_INVITE_BASE:https://playhuud.com}")
+    private String publicInviteBase = "https://playhuud.com";
     private final ChampionshipRepository championships;
     private final ChampionshipMatchRepository matches;
     private final UserRepository users;
@@ -251,7 +253,7 @@ public class ChampionshipService {
         return Mono.zip(people, bracket).map(t -> new View(c.id(), c.code(), c.name(), c.gameType(), c.size(),
                 c.visibility(), c.scheduledAt(), c.creatorId(), c.status(), c.currentRound(), c.championId(),
                 t.getT1().size(), includePeople ? t.getT1() : List.of(), t.getT2(),
-                "https://playhuud.com/championships/" + c.code(), c.huudSpaceId(), c.roundTiming()));
+                publicInviteBase.replaceAll("/+$", "") + "/championships/" + c.code(), c.huudSpaceId(), c.roundTiming()));
     }
 
     private Match matchView(ChampionshipMatchRow m) {

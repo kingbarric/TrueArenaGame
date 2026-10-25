@@ -45,6 +45,8 @@ public class HuudChampionshipService implements ChampionshipEvents {
     /** The furthest ahead a start can be set. */
     static final Duration LATEST_START = Duration.ofDays(30);
 
+    @org.springframework.beans.factory.annotation.Value("${PLAYHUUD_PUBLIC_INVITE_BASE:https://playhuud.com}")
+    private String publicInviteBase = "https://playhuud.com";
     private final HuudSpaceService huuds;
     private final ChampionshipService championships;
     private final ChampionshipRepository rows;
@@ -159,7 +161,7 @@ public class HuudChampionshipService implements ChampionshipEvents {
                     c.currentRound() == 0 ? null : roundName(c.currentRound(), rounds), players,
                     players.stream().anyMatch(p -> p.userId().equals(viewer)), matches, c.championId(), runnerUp,
                     yours, HuudSpaceAccess.VOICE_PREFIX + c.huudSpaceId(), c.creatorId(), c.scheduledAt(),
-                    ChampionshipService.HUUD_MIN_PLAYERS, c.code(), "https://playhuud.com/championships/" + c.code());
+                    ChampionshipService.HUUD_MIN_PLAYERS, c.code(), publicInviteBase.replaceAll("/+$", "") + "/championships/" + c.code());
         });
     }
 

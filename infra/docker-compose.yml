@@ -55,6 +55,7 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: local
       # Published listing URLs; empty while the stores review the release.
+      PLAYHUUD_PUBLIC_INVITE_BASE: ${PLAYHUUD_PUBLIC_INVITE_BASE:-https://playhuud.com}
       PLAYHUUD_IOS_STORE_URL: ${PLAYHUUD_IOS_STORE_URL:-}
       PLAYHUUD_ANDROID_STORE_URL: ${PLAYHUUD_ANDROID_STORE_URL:-}
       PORT: 8080

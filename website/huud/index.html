@@ -34,7 +34,8 @@ main{width:min(100%,540px);background:linear-gradient(145deg,#1c2533,#231824);bo
   const kind = data.kind || segments[0];
   const code = (data.code || segments.at(-1) || '').toUpperCase();
   const valid = kind === 'huud' ? /^[A-Z0-9]{6}$/.test(code) : kind === 'championships' && /^[A-HJ-NP-Z2-9]{8}$/.test(code);
-  const url = valid ? 'https://playhuud.com/' + kind + '/' + code : '';
+  const base = data.base || 'https://playhuud.com';
+  const url = valid ? (data.url || base + '/' + kind + '/' + code) : '';
   const status = document.getElementById('status');
   const install = document.getElementById('install');
   const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -72,16 +73,16 @@ main{width:min(100%,540px);background:linear-gradient(145deg,#1c2533,#231824);bo
     location.assign(target);
   };
   configure();
-  fetch('/api/v1/invitations/stores').then(r => r.ok ? r.json() : stores).then(value => { stores = value; configure(); }).catch(() => {});
+  fetch(base + '/api/v1/invitations/stores').then(r => r.ok ? r.json() : stores).then(value => { stores = value; configure(); }).catch(() => {});
   // Static fallback pages use the same public, non-mutating invitation preview.
   if (valid && !data.code) {
     const path = kind === 'huud' ? 'huud-spaces' : 'championships';
-    fetch('/api/v1/' + path + '/invite/' + code + '/preview').then(r => { if (!r.ok) throw new Error(); return r.json(); }).then(value => {
+    fetch(base + '/api/v1/' + path + '/invite/' + code + '/preview').then(r => { if (!r.ok) throw new Error(); return r.json(); }).then(value => {
       document.getElementById('name').textContent = value.name;
       document.title = value.name + ' · PlayHuud';
       document.getElementById('description').textContent = kind === 'huud' ? 'Good games. Better company. Join this Huud as a guest or sign in.' : 'Can you take the crown? Accept your championship invitation in the app. Play as a guest or sign in.';
       const game = value.gameType || 'huud';
-      document.getElementById('art').src = 'https://playhuud.com/assets/invite-' + (['chess','draughts','slayhuud'].includes(game) ? game : 'huud') + '.png';
+      document.getElementById('art').src = base + '/api/v1/invitations/covers/invite-' + (['chess','draughts','slayhuud'].includes(game) ? game : 'huud') + '.png';
     }).catch(() => { document.getElementById('name').textContent = 'Invitation unavailable'; status.textContent = 'This invitation may have expired. Ask the host for a new link.'; install.hidden = true; });
   }
 })();

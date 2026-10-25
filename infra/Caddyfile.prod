@@ -33,7 +33,7 @@ playhuud.com {
 
 	@admin_api path /api/v1/admin/*
 	reverse_proxy @admin_api backend:8080
-	@championship_preview path /api/v1/championships/invite/*/preview /api/v1/invitations/stores
+	@championship_preview path /api/v1/championships/invite/*/preview /api/v1/invitations/stores /api/v1/invitations/covers/*
 	reverse_proxy @championship_preview backend:8080
 	@championship_invite path /championships/*
 	reverse_proxy @championship_invite backend:8080

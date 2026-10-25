@@ -28,6 +28,7 @@ public class SecurityConfig {
             "/api/v1/auth/**",
             "/api/v1/championships/invite/*/preview",
             "/api/v1/invitations/stores",
+            "/api/v1/invitations/covers/*",
             "/api/v1/huud-spaces/invite/*/preview",
             "/api/v1/config/presets", "/api/v1/config/twists", "/api/v1/config/validate",
             "/api/v1/dev/**", "/ws/**",

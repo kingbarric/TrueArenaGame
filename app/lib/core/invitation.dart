@@ -8,18 +8,27 @@ class Invitation {
   final String code;
   String get path =>
       '/${kind == InvitationKind.huud ? 'huud' : 'championships'}/$code';
-  String get url => 'https://playhuud.com$path';
+  static const publicBase = String.fromEnvironment('INVITE_BASE_URL',
+      defaultValue: 'https://playhuud.com');
+  String get url => '$publicBase$path';
   String get appUrl => 'playhuud://$path';
 
   static Invitation? fromUri(Uri uri) {
     if (uri.scheme.isEmpty && uri.host.isNotEmpty) return null;
-    if (uri.scheme.isNotEmpty &&
-        uri.scheme != 'playhuud' &&
-        !((uri.scheme == 'https' || uri.scheme == 'http') &&
-            ['playhuud.com', 'www.playhuud.com'].contains(uri.host))) {
-      return null;
-    }
     var path = uri.path;
+    if (uri.scheme.isNotEmpty && uri.scheme != 'playhuud') {
+      if (!['http', 'https'].contains(uri.scheme) || uri.userInfo.isNotEmpty) {
+        return null;
+      }
+      final configured = Uri.parse(publicBase);
+      if (uri.origin == configured.origin &&
+          configured.path.isNotEmpty &&
+          path.startsWith('${configured.path}/')) {
+        path = path.substring(configured.path.length);
+      } else if (!['playhuud.com', 'www.playhuud.com'].contains(uri.host)) {
+        return null;
+      }
+    }
     if (uri.scheme == 'playhuud' && uri.host.isNotEmpty) {
       path = '/${uri.host}$path';
     }
@@ -41,15 +50,14 @@ class Invitation {
     final uri = Uri.tryParse(text.trim());
     final direct = uri == null ? null : fromUri(uri);
     if (direct != null) return direct;
-    for (final match in RegExp(
-            r'https://(?:www\.)?playhuud\.com/(?:huud|championships)/[A-Za-z0-9]+/?',
-            caseSensitive: false)
+    for (final match in RegExp(r'https://[^\s<>"\x27]+', caseSensitive: false)
         .allMatches(text)) {
       if (match.start > 0 &&
           RegExp(r'[\w./-]').hasMatch(text[match.start - 1])) {
         continue;
       }
-      final invite = fromUri(Uri.parse(match[0]!));
+      final invite =
+          fromUri(Uri.parse(match[0]!.replaceFirst(RegExp(r'[.,!?)]+$'), '')));
       if (invite != null) return invite;
     }
     return null;

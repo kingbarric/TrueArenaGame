@@ -28,6 +28,16 @@ void main() {
     expect(Invitation.fromUri(Uri.parse('playhuud://huud/ABC234'))!.kind,
         InvitationKind.huud);
   });
+  test('configured deployment links round trip and retain their prefix', () {
+    const invite = Invitation(InvitationKind.huud, 'ABC234');
+    expect(Invitation.fromText(invite.url), invite);
+    expect(Invitation.fromText('Come join! ${invite.url}.'), invite);
+    final base = Uri.parse(Invitation.publicBase);
+    if (base.path.isNotEmpty) {
+      expect(Invitation.fromText('${base.origin}/huud/ABC234'), isNull);
+      expect(Invitation.fromText('${base.origin}/other/huud/ABC234'), isNull);
+    }
+  });
   test('foreign hosts and malformed codes cannot become invitations', () {
     for (final text in [
       'https://evil.example/huud/ABC234',
@@ -73,6 +83,6 @@ void main() {
     expect(data.shareText, contains('Chess championship'));
     expect(data.shareText, contains('Play as a guest'));
     expect(data.shareText,
-        contains('https://playhuud.com/championships/ABCD2345'));
+        contains('${Invitation.publicBase}/championships/ABCD2345'));
   });
 }
