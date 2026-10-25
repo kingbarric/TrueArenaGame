@@ -25,6 +25,7 @@ import app.truearena.game.goosi.GoosiConfig;
 import app.truearena.game.goosi.GoosiModule;
 import app.truearena.game.whot.WhotConfig;
 import app.truearena.game.whot.WhotModule;
+import app.truearena.game.whot.WhotState;
 import app.truearena.game.ludo.LudoConfig;
 import app.truearena.game.ludo.LudoModule;
 import app.truearena.game.truearena.ConfigValidator;
@@ -283,6 +284,7 @@ public class GameOrchestrator {
 
     public Mono<Void> onSpectatorDisconnect(RoomRuntime rt, String userId) {
         rt.spectatorUserIds.remove(userId);
+        rt.spectatorReactionAt.remove(userId);
         boolean wasSpeaker = rt.spectatorVoiceSpeakers.remove(userId);
         rt.spectatorVoiceRequests.remove(userId);
         rt.mutedSpectatorVoiceSpeakers.remove(userId);
@@ -348,7 +350,7 @@ public class GameOrchestrator {
         }
         if (spectator
                 && in.type() != MessageType.HELLO && in.type() != MessageType.PING
-                && in.type() != MessageType.CHAT_SEND
+                && in.type() != MessageType.CHAT_SEND && in.type() != MessageType.REACTION_SEND
                 && in.type() != MessageType.SPECTATOR_VOICE_REQUEST) {
             return tellError(rt, userId, "SPECTATOR_READ_ONLY", "spectators can watch and comment, but cannot control the game");
         }
@@ -361,6 +363,7 @@ public class GameOrchestrator {
                 case GAME_START -> handleGameStart(rt, userId, in.payload());
                 case PLAYER_ACTION -> handlePlayerAction(rt, userId, in);
                 case CHAT_SEND -> handleChat(rt, userId, in, spectator);
+                case REACTION_SEND -> handleReaction(rt, userId, in, spectator);
                 case PAUSE_TOGGLE -> handlePauseToggle(rt, userId);
                 case HOST_CONTROL -> handleHostControl(rt, userId, in);
                 case MUTE_SPECTATORS_TOGGLE -> handleMuteSpectatorsToggle(rt, userId);
@@ -776,6 +779,25 @@ public class GameOrchestrator {
         rt.bus.tryEmitNext(new LobbyBroadcast(
                 rt.spectatorsMuted ? "SPECTATORS_MUTED" : "SPECTATORS_UNMUTED", Map.of("by", userId)));
         return Mono.empty();
+    }
+
+    private Mono<Void> handleReaction(RoomRuntime rt, String userId, Envelope in, boolean spectator) {
+        if (!spectator || !rt.spectatorUserIds.contains(userId) || !rt.started() || !"whot".equals(rt.module().gameType()))
+            return tellError(rt, userId, "SPECTATORS_ONLY", "only Whot spectators can send reactions");
+        if (rt.tournament) return tellError(rt, userId, "SPECTATOR_READ_ONLY", "this match is read-only for spectators");
+        if (rt.spectatorsMuted) return tellError(rt, userId, "SPECTATORS_MUTED", "spectator reactions are muted");
+        String emoji = String.valueOf(in.payload().get("emoji"));
+        if (!Set.of("👏", "🔥", "😂", "😮", "💔", "🎉").contains(emoji))
+            return tellError(rt, userId, "BAD_REACTION", "choose a reaction from the tray");
+        long now = System.currentTimeMillis();
+        boolean[] accepted = {false};
+        rt.spectatorReactionAt.compute(userId, (id, before) -> {
+            if (before == null || now - before >= 1000) { accepted[0] = true; return now; }
+            return before;
+        });
+        if (!accepted[0]) return tellError(rt, userId, "REACTION_RATE", "wait a moment before reacting again");
+        return broadcastLobby(rt, "SPECTATOR_REACTION", Map.of("id", UUID.randomUUID().toString(),
+                "from", userId, "emoji", emoji, "sentAtMs", now));
     }
 
     private Mono<Void> handleSpectatorVoiceRequest(RoomRuntime rt, String userId, boolean spectator) {
@@ -1499,6 +1521,8 @@ public class GameOrchestrator {
 
         return lock.withLock(rt.roomId, LOCK_TTL, () -> {
             if (rt.retired) return Mono.empty();
+            if (rt.paused && rt.state() instanceof WhotState && !Set.of("FORFEIT", "SELECT_FINISH_EFFECT").contains(action))
+                return tellError(rt, userId, "GAME_PAUSED", "resume the table to play");
             if (rt.paused && rt.state() instanceof MonopolyState && !"FORFEIT".equals(action))
                 return tellError(rt, userId, "GAME_PAUSED", "the game is paused — resume it to move");
             GameRunner runner = new GameRunner(rt.module());

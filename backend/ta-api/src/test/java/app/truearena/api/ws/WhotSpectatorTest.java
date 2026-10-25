@@ -125,4 +125,30 @@ class WhotSpectatorTest {
             subscription.dispose();
         }
     }
+    @Test void spectatorsReactThroughAnAllowlistedRateLimitedEphemeralChannel() throws Exception {
+        var rt = table(); rt.spectatorUserIds.add("viewer");
+        var messages = new ArrayList<LobbyBroadcast>();
+        var subscription = rt.bus.asFlux().ofType(LobbyBroadcast.class).subscribe(messages::add);
+        var errors = new ArrayList<Envelope>();
+        var sink = Sinks.many().unicast().onBackpressureBuffer(); rt.unicast.put("viewer", sink);
+        var replies = sink.asFlux().cast(Envelope.class).subscribe(errors::add);
+        var before = rt.state();
+        try {
+            String reaction = mapper.writeValueAsString(Envelope.of(MessageType.REACTION_SEND, Map.of("emoji", "🔥")));
+            server.handleFrame(rt, "viewer", reaction, true).block();
+            assertThat(messages).hasSize(1); assertThat(messages.getFirst().type()).isEqualTo("SPECTATOR_REACTION");
+            server.handleFrame(rt, "viewer", reaction, true).block();
+            assertThat(messages).hasSize(1); assertThat(errors.getLast().payload().get("code")).isEqualTo("REACTION_RATE");
+            server.handleFrame(rt, "viewer", mapper.writeValueAsString(Envelope.of(MessageType.REACTION_SEND, Map.of("emoji", "injected text"))), true).block();
+            assertThat(errors.getLast().payload().get("code")).isEqualTo("BAD_REACTION");
+            rt.spectatorsMuted = true;
+            server.handleFrame(rt, "viewer", reaction, true).block();
+            assertThat(errors.getLast().payload().get("code")).isEqualTo("SPECTATORS_MUTED");
+            rt.spectatorsMuted = false; rt.tournament = true;
+            server.handleFrame(rt, "viewer", reaction, true).block();
+            assertThat(errors.getLast().payload().get("code")).isEqualTo("SPECTATOR_READ_ONLY");
+            assertThat(messages).hasSize(1); assertThat(rt.state()).isSameAs(before);
+        } finally { subscription.dispose(); replies.dispose(); }
+    }
+
 }

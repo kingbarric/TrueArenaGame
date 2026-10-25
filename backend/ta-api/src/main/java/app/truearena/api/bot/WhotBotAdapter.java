@@ -43,6 +43,8 @@ public final class WhotBotAdapter implements GameBotAdapter {
         }
         // The updated private hand arrives in a snapshot after public turn events.
         if (!"SNAPSHOT".equals(type) || paused || finished) return Optional.empty();
+        if (view.get("pendingUndo") instanceof String requester && !requester.isEmpty())
+            return undoResponse(botId).isPresent() ? Optional.of(new BotPrompt("", "undo response")) : Optional.empty();
         if (tellMode() && !tell.active(view, botId)) return Optional.empty();
         boolean signalAction = tellMode() && tell.action(view, botId, false).isPresent();
         if (!signalAction && (!("Turn".equals(phase) || "Waiting".equals(phase))
@@ -115,6 +117,7 @@ public final class WhotBotAdapter implements GameBotAdapter {
     @Override
     public Optional<PlayerAction> fallbackAction(String botId) {
         if (paused || finished) return Optional.empty();
+        if (view.get("pendingUndo") instanceof String requester && !requester.isEmpty()) return undoResponse(botId);
         if (tellMode()) {
             if (!tell.active(view, botId)) return Optional.empty();
             var signal = tell.action(view, botId, true);
@@ -131,6 +134,7 @@ public final class WhotBotAdapter implements GameBotAdapter {
 
     @Override public Optional<PlayerAction> decideLocally(String botId, Difficulty level) {
         if (paused || finished) return Optional.empty();
+        if (view.get("pendingUndo") instanceof String requester && !requester.isEmpty()) return undoResponse(botId);
         if (tellMode()) {
             if (!tell.active(view, botId)) return Optional.empty();
             var signal = tell.action(view, botId, true);
@@ -201,6 +205,12 @@ public final class WhotBotAdapter implements GameBotAdapter {
         }
         return best;
     }
+    private Optional<PlayerAction> undoResponse(String bot) {
+        if (!(view.get("undoResponders") instanceof List<?> voters) || !voters.contains(bot)
+                || (view.get("undoAccepted") instanceof java.util.Collection<?> accepted && accepted.contains(bot))) return Optional.empty();
+        return Optional.of(PlayerAction.of(bot, "ACCEPT_UNDO", Map.of()));
+    }
+
     private boolean tellMode() { return "tell".equals(view.get("mode")); }
     private boolean on(String key) { return Boolean.TRUE.equals(rules.get(key)); }
     private static int number(Object x) { return x instanceof Number n ? n.intValue() : 0; }

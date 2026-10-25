@@ -144,4 +144,14 @@ class WhotTellBotAdapterTest {
                     .filteredOn("won"::equals).hasSize(2);
         }
     }
+    @Test void agentsAcceptATakeBackOnceAndWaitForTheRemainingHumanVotes() {
+        var bot = new WhotBotAdapter(); var v = view("Turn"); v.put("turnPlayer", "bot");
+        v.put("pendingUndo", "partner"); v.put("undoResponders", List.of("bot", "a", "b")); v.put("undoAccepted", List.of());
+        assertThat(bot.onFrame("SNAPSHOT", v, "bot", Difficulty.HARD)).isPresent();
+        assertThat(bot.decideLocally("bot", Difficulty.HARD).orElseThrow().type()).isEqualTo("ACCEPT_UNDO");
+        v.put("undoAccepted", List.of("bot"));
+        assertThat(bot.onFrame("SNAPSHOT", v, "bot", Difficulty.HARD)).isEmpty();
+        assertThat(bot.decideLocally("bot", Difficulty.HARD)).isEmpty();
+    }
+
 }
