@@ -648,6 +648,11 @@ relays inbound frames to a `GameBotAdapter` and sends back the resulting
   uses public accusations, revealed votes/roles and participation plus its own
   legitimate role knowledge. Word Bluff guesses from public clues using the
   offline clue matcher and describes with the curated clue book.
+- **Whot · The Tell** supports Cyber Agents in any of its 4, 6 or 8 seats.
+  Bots agree private signals, signal whole-hand sets and buzz their partner off
+  turn. Pro/Legend use team-aware Monte Carlo card search; Rookie uses local
+  team heuristics. Qualification, elimination and fresh-final signals are
+  handled through the same player-visible protocol as human players.
 - **LLMs are optional communication only.** The legacy `LlmMovePicker` provider
   interface remains, but neither its response parser nor model-generated move
   JSON is used by the gameplay path. `BotLlmConfig` selects Gemini when
@@ -689,7 +694,7 @@ relays inbound frames to a `GameBotAdapter` and sends back the resulting
 - **Flutter**: every supported game's lobby shares one `AddCyberAgentSheet`
   (`widgets/cyber_agent_sheet.dart`) — an "Add a Cyber Agent" button
   (host-only, hidden once the room is full or in example/guest mode) opens a
-  name + difficulty (Amateur/Pro/Legend) sheet, then `POST`s straight to the
+  name + difficulty (Rookie/Pro/Legend) sheet, then `POST`s straight to the
   bot endpoint. It does not fetch or manage a saved roster. As many bots as
   there are open seats can be added this way —
   Draughts caps at exactly two players so the button disappears once full;

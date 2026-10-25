@@ -41,7 +41,30 @@ Limits are ceilings: search stops earlier when necessary. Discard memory
 resets on a market reshuffle, a shrinking pile or contradictory overlapping
 snapshots; repeated snapshots do not duplicate known cards. On reconnect,
 unobserved discards remain unknown. Incomplete or inconsistent snapshots retain
-the existing legal heuristic. Classic rollouts do not apply to The Tell.
+the existing legal heuristic.
+
+### The Tell
+
+Cyber Agents can fill any of the 4, 6 or 8 seats, including a human's partner.
+The first member of an all-agent pair proposes a private random symbol; the
+other confirms it. Agents accept a human partner's choice and reconfirm when
+it changes. Finalists choose fresh symbols for the final.
+
+An agent signals a valid whole-hand shape/value set using the host's rule and
+minimum, even off turn. It can buzz its partner's agreed symbol within the
+three-second window, and ignores different symbols, expired signals and
+obviously undersized hands. It trusts the partner's agreed symbol without
+seeing their cards. Opponent signals are not blindly buzzed; this policy does
+not yet learn opponent tells or generate decoys.
+
+Rookie uses team-aware legal heuristics, preferring moves that leave a Tell
+set and avoiding attacks on its partner. Pro/Legend use the same bounded
+Monte Carlo limits above, with the actual Tell reducer, public team membership,
+qualification/elimination state and team win evaluation. Rollouts model card
+play and value possible sets; live signaling and buzzing use the separate
+local signal strategy. No other player's hand, opponent secret signal, actual
+market order or server-only signal-validity flag enters a decision. LLMs have
+no role in card plays, signal agreement or buzz decisions.
 
 ## Ludo
 
@@ -98,3 +121,22 @@ enabled the real Stockfish executable and rebuilt the backend jar. Docker
 integration tests were skipped. `git diff --check` passed. The later current-main
 integration and deployment checks are recorded in
 [Scan verification](SCAN_INTEGRATION.md#verification).
+
+The Tell integration includes main through `ab315c5`. Full backend
+`verify -DskipITs` completes with **883 tests, zero failures or errors and seven
+skipped tests** (six require local native-engine executables; one requires live
+object-storage credentials). All **116 selected Flutter tests** pass, including
+Whot, Huud rosters, difficulty selection and the latest main UI changes. Tests
+cover bot-filled 4/6/8-seat games through a fresh final, human/bot signal
+agreement, off-turn signaling and buzzing, host rules, stale/decoy signals,
+private-information boundaries and starting a human-hosted room with bots.
+
+The test VPS image passes real Stockfish and Scan container smoke checks and
+startup validation against the existing test database. The test backend was
+updated successfully with both native workers ready; production container
+identities and start times were unchanged. Build and deployment metadata is
+recorded in `output/phone-deploy/2026102505/manifest.json`.
+
+Signed iOS build `2026102505` was installed on the connected iPhone. Automatic
+launch was blocked because the phone was locked. GitHub main was verified at
+`299e68e`, which includes this integration.

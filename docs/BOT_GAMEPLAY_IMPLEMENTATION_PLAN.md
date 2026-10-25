@@ -65,7 +65,7 @@ International / Optional capture choices in setup.
   chain previews, including public mid-chain state for reconnects. Expose both
   named modes while preserving the existing settings and ranked constraints.
 - [x] Complete full backend verification with real Scan and Stockfish and
-  record results. Current-main integration passes 859 backend tests and 110 targeted Flutter tests.
+  record results. Current-main integration passes 883 backend tests (seven skipped) and 116 selected Flutter tests.
 
 ## Difficulty and follow-ups
 
@@ -125,3 +125,19 @@ in [SCAN_INTEGRATION.md](SCAN_INTEGRATION.md).
 - The three positions are named Rookie, Pro and Legend. "Classic" is avoided
   because it can be mistaken for a game mode. The selected title sits above
   its highlighted dot; users can tap a position or drag along the control.
+
+## Whot · The Tell follow-up
+
+Cyber Agents now fill Tell seats and handle private symbol agreement, valid
+whole-hand signals, off-turn teammate buzzing and fresh-final confirmation.
+Rookie uses team-aware heuristics; Pro/Legend use bounded team-aware Monte
+Carlo over the actual Tell reducer. Client and server people-only checks are
+removed; the 4/6/8-seat rule is retained. Main through `ab315c5` is integrated,
+and GitHub main subsequently advanced to the combined code at `299e68e`.
+
+The final backend check reports 883 tests with zero failures/errors and seven
+skips (six local native-executable checks and one live-storage test). All 116
+selected Flutter tests pass. The updated test backend is healthy, with real
+Stockfish/Scan container checks passing, and iOS build `2026102505` is installed.
+The phone was locked, so automatic launch was blocked. Evidence is recorded in
+`output/phone-deploy/2026102505/manifest.json`.
