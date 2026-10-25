@@ -1349,7 +1349,7 @@ public class GameOrchestrator {
         return rooms.findById(rt.roomId)
                 .map(room -> whotConfigFrom(room.gameConfig()))
                 .defaultIfEmpty(WhotConfig.defaults())
-                .flatMap(cfg -> startWhotWith(rt, userId, playerIds, cfg));
+                .flatMap(cfg -> startWhotGame(rt, userId, playerIds, cfg));
     }
 
     private Mono<Void> startLudo(RoomRuntime rt, String userId, List<String> playerIds,
@@ -1424,18 +1424,6 @@ public class GameOrchestrator {
             log.warn("unreadable whot config, using defaults: {}", e.toString());
             return WhotConfig.defaults();
         }
-    }
-
-    private Mono<Void> startWhotWith(RoomRuntime rt, String userId, List<String> playerIds, WhotConfig cfg) {
-        if (cfg.tell()) {
-            return Flux.fromIterable(playerIds)
-                    .concatMap(id -> users.findById(UUID.fromString(id)))
-                    .any(UserRow::isBot)
-                    .flatMap(hasBot -> hasBot
-                            ? tellError(rt, userId, "TELL_NEEDS_PLAYERS", "The Tell needs human teammates for private signals")
-                            : startWhotGame(rt, userId, playerIds, cfg));
-        }
-        return startWhotGame(rt, userId, playerIds, cfg);
     }
 
     private Mono<Void> startWhotGame(RoomRuntime rt, String userId, List<String> playerIds, WhotConfig cfg) {

@@ -26,7 +26,7 @@ class HuudRoster extends StatefulWidget {
     this.onChanged,
   });
 
-  /// Whot's The Tell: pairs of people only, so no Cyber Agents.
+  /// Whot's The Tell: show the team and player-count reminder.
   final bool tell;
 
   final HuudSpace huud;
@@ -291,7 +291,7 @@ class _HuudRosterState extends State<HuudRoster> {
           decoration: BoxDecoration(
               color: h.orangeSoft, borderRadius: BorderRadius.circular(14)),
           child: HuudText(
-              '🤫 The Tell · teams of two · 4, 6 or 8 players · people only',
+              '🤫 The Tell · teams of two · 4, 6 or 8 players · Cyber Agents can play',
               style: TextStyle(
                   fontSize: 13.5,
                   fontWeight: FontWeight.w800,
@@ -318,7 +318,7 @@ class _HuudRosterState extends State<HuudRoster> {
           onTap: host ? () => _removeAgent(b) : null,
           busy: _busy == 'p-${b.userId}',
         ),
-      if (host && !full && !widget.tell) ...[
+      if (host && !full) ...[
         const SizedBox(height: 8),
         Text('BOT LEVEL',
             style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.5, color: n.mute)),

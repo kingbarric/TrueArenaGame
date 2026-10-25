@@ -28,6 +28,7 @@ public final class WhotBotAdapter implements GameBotAdapter {
     private boolean paused;
     private Map<String, Object> handSizes = Map.of();
     private Map<String, Object> view = Map.of();
+    private final WhotTellBotStrategy tell = new WhotTellBotStrategy();
     private final WhotDiscardMemory discardMemory = new WhotDiscardMemory();
 
     @Override public String gameType() { return "whot"; }
@@ -41,8 +42,11 @@ public final class WhotBotAdapter implements GameBotAdapter {
             default -> { return Optional.empty(); }
         }
         // The updated private hand arrives in a snapshot after public turn events.
-        if (!"SNAPSHOT".equals(type) || paused || finished || !("Turn".equals(phase) || "Waiting".equals(phase))
-                || !botId.equals(turnPlayer)) return Optional.empty();
+        if (!"SNAPSHOT".equals(type) || paused || finished) return Optional.empty();
+        if (tellMode() && !tell.active(view, botId)) return Optional.empty();
+        boolean signalAction = tellMode() && tell.action(view, botId, false).isPresent();
+        if (!signalAction && (!("Turn".equals(phase) || "Waiting".equals(phase))
+                || !botId.equals(turnPlayer))) return Optional.empty();
         return Optional.of(new BotPrompt(
                 "You are playing Whot. Match the top card by shape or number. If a 2 is owed, "
                         + "only answer with a 2 when stacking is enabled. Whot is wild and needs a shape. "
@@ -54,6 +58,7 @@ public final class WhotBotAdapter implements GameBotAdapter {
     @SuppressWarnings("unchecked")
     private void applySnapshot(Map<String, Object> p) {
         view = p;
+        tell.observe(p);
         discardMemory.observe(p);
         phase = String.valueOf(p.getOrDefault("phase", phase));
         turnPlayer = string(p.get("turnPlayer"));
@@ -75,7 +80,7 @@ public final class WhotBotAdapter implements GameBotAdapter {
     private void applyEvent(Map<String, Object> envelope) {
         String type = String.valueOf(envelope.get("type"));
         Map<String, Object> d = envelope.get("data") instanceof Map<?, ?> map ? (Map<String, Object>) map : Map.of();
-        if ("GAME_STARTED".equals(type)) { phase = "Deal"; discardMemory.reset(); }
+        if ("GAME_STARTED".equals(type)) { phase = "Deal"; discardMemory.reset(); tell.reset(); }
         if ("MARKET_RESHUFFLED".equals(type)) discardMemory.reset();
         if ("TURN_STARTED".equals(type)) {
             phase = "Turn"; turnPlayer = string(d.get("player"));
@@ -109,7 +114,13 @@ public final class WhotBotAdapter implements GameBotAdapter {
 
     @Override
     public Optional<PlayerAction> fallbackAction(String botId) {
-        if (paused || finished || !botId.equals(turnPlayer)) return Optional.empty();
+        if (paused || finished) return Optional.empty();
+        if (tellMode()) {
+            if (!tell.active(view, botId)) return Optional.empty();
+            var signal = tell.action(view, botId, true);
+            if (signal.isPresent()) return signal;
+        }
+        if (!("Turn".equals(phase) || "Waiting".equals(phase)) || !botId.equals(turnPlayer)) return Optional.empty();
         List<String> legal = legalCards();
         if (legal.isEmpty()) return Optional.of(PlayerAction.of(botId, "DRAW", Map.of()));
         String card = legal.get(RNG.nextInt(legal.size()));
@@ -119,7 +130,13 @@ public final class WhotBotAdapter implements GameBotAdapter {
     }
 
     @Override public Optional<PlayerAction> decideLocally(String botId, Difficulty level) {
-        if (paused || finished || !botId.equals(turnPlayer)) return Optional.empty();
+        if (paused || finished) return Optional.empty();
+        if (tellMode()) {
+            if (!tell.active(view, botId)) return Optional.empty();
+            var signal = tell.action(view, botId, true);
+            if (signal.isPresent()) return signal;
+        }
+        if (!("Turn".equals(phase) || "Waiting".equals(phase)) || !botId.equals(turnPlayer)) return Optional.empty();
         List<String> legal = legalCards();
         if (legal.isEmpty()) return Optional.of(PlayerAction.of(botId, "DRAW", Map.of()));
         if (level != Difficulty.EASY) {
@@ -149,8 +166,31 @@ public final class WhotBotAdapter implements GameBotAdapter {
         double special = (value == 2 && on("pickTwo")) || (value == 14 && on("generalMarket")) ? 20
                 : (value == 1 && on("holdOn")) || (value == 8 && on("suspension")) ? 15 : 0;
         boolean opponentClose = handSizes.entrySet().stream()
-                .anyMatch(e -> !e.getKey().equals(botId) && number(e.getValue()) <= 2);
-        return continuity + special * (opponentClose ? 2 : 1) + (wild ? -25 : value * .2);
+                .anyMatch(e -> !e.getKey().equals(botId) && (!tellMode()
+                        || WhotTellBotStrategy.team(view, e.getKey()) != WhotTellBotStrategy.team(view, botId))
+                        && number(e.getValue()) <= 2);
+        double score = continuity + special * (opponentClose ? 2 : 1) + (wild ? -25 : value * .2);
+        if (tellMode()) {
+            List<String> after = new ArrayList<>(hand); after.remove(card);
+            int minimum = rules.get("tellMinCards") instanceof Number n ? n.intValue() : 3;
+            String rule = String.valueOf(rules.getOrDefault("tellRule", "either"));
+            if (after.size() >= minimum) {
+                boolean sameShape = after.stream().map(c -> c.split("-")[0]).distinct().count() == 1;
+                boolean sameValue = after.stream().map(c -> c.substring(c.lastIndexOf('-') + 1)).distinct().count() == 1;
+                if ((sameShape && !"value".equals(rule)) || (sameValue && !"shape".equals(rule))) score += 1000;
+            }
+            int at = players.indexOf(botId);
+            for (int offset = 1; offset < players.size(); offset++) {
+                String next = players.get((at + offset) % players.size());
+                if (!tell.active(view, next)) continue;
+                if (WhotTellBotStrategy.team(view, next) == WhotTellBotStrategy.team(view, botId)) {
+                    if (value == 2 && on("pickTwo")) score -= 60;
+                    if (value == 8 && on("suspension")) score -= 45;
+                }
+                break;
+            }
+        }
+        return score;
     }
 
     private String bestShape() {
@@ -161,6 +201,7 @@ public final class WhotBotAdapter implements GameBotAdapter {
         }
         return best;
     }
+    private boolean tellMode() { return "tell".equals(view.get("mode")); }
     private boolean on(String key) { return Boolean.TRUE.equals(rules.get(key)); }
     private static int number(Object x) { return x instanceof Number n ? n.intValue() : 0; }
     private static String string(Object x) { return x == null ? null : String.valueOf(x); }

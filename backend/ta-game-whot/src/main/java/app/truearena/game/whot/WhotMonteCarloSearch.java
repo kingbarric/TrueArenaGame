@@ -18,19 +18,27 @@ public final class WhotMonteCarloSearch {
         }
     }
 
+    public record TellTable(List<List<String>> teams, List<Integer> qualified, List<Integer> eliminated, String stage) {
+        public TellTable {
+            teams = teams.stream().map(List::copyOf).toList();
+            qualified = List.copyOf(qualified); eliminated = List.copyOf(eliminated);
+        }
+    }
+
     public record Decision(Optional<PlayerAction> action, int completedSamples, int transitions) {}
 
     /** Only allowlisted fields are read: never accepts a server WhotState, other hands or a deck order. */
     public record Observation(List<String> players, List<WhotCard> hand, Map<String, Integer> handSizes,
                               List<WhotCard> knownDiscards, int discardCount, int marketLeft,
-                              WhotCard top, WhotCard.Shape activeShape, int pendingPick, WhotConfig config) {
+                              WhotCard top, WhotCard.Shape activeShape, int pendingPick, WhotConfig config, TellTable tell) {
         public Observation {
             players = List.copyOf(players); hand = List.copyOf(hand); handSizes = Map.copyOf(handSizes);
             knownDiscards = List.copyOf(knownDiscards);
         }
 
         public static Optional<Observation> fromView(Map<String, Object> view, List<String> discards, String player) {
-            if (!"classic".equals(view.getOrDefault("mode", "classic"))) return Optional.empty();
+            String mode = String.valueOf(view.getOrDefault("mode", "classic"));
+            if (!List.of("classic", "tell").contains(mode)) return Optional.empty();
             if (!(view.get("players") instanceof List<?> ps) || !(view.get("yourHand") instanceof List<?> cards)
                     || !(view.get("handSizes") instanceof Map<?, ?> sizes) || !player.equals(view.get("turnPlayer")))
                 return Optional.empty();
@@ -42,13 +50,37 @@ public final class WhotMonteCarloSearch {
                 Map<String, Integer> counts = new LinkedHashMap<>();
                 for (String p : players) {
                     int count = number(sizes.get(p));
-                    if (count < 1 || count > 1000) return Optional.empty();
+                    if (count < ("tell".equals(mode) ? 0 : 1) || count > 1000) return Optional.empty();
                     counts.put(p, count);
                 }
-                if (counts.get(player) != hand.size()) return Optional.empty();
+                if (hand.isEmpty() || counts.get(player) != hand.size()) return Optional.empty();
                 Map<?, ?> rules = view.get("rules") instanceof Map<?, ?> r ? r : Map.of();
                 var config = new WhotConfig(60, 5, on(rules, "includeWhot"), on(rules, "pickTwo"),
-                        on(rules, "pickTwoStacking"), on(rules, "generalMarket"), on(rules, "holdOn"), on(rules, "suspension"));
+                        on(rules, "pickTwoStacking"), on(rules, "generalMarket"), on(rules, "holdOn"), on(rules, "suspension"), mode,
+                        rules.get("tellRule") instanceof String rule ? rule : "either",
+                        rules.get("tellMinCards") instanceof Number minimum ? minimum.intValue() : 3);
+                TellTable tell = null;
+                if (config.tell()) {
+                    if (!(view.get("teams") instanceof List<?> rawTeams)) return Optional.empty();
+                    List<List<String>> teams = new ArrayList<>();
+                    for (Object raw : rawTeams) {
+                        if (!(raw instanceof List<?> pair) || pair.size() != 2) return Optional.empty();
+                        teams.add(pair.stream().map(String::valueOf).toList());
+                    }
+                    List<String> seats = teams.stream().flatMap(List::stream).toList();
+                    if (teams.size() < 2 || teams.size() > 4 || seats.size() != players.size()
+                            || !new HashSet<>(seats).equals(new HashSet<>(players))) return Optional.empty();
+                    List<Integer> qualified = indices(view.get("qualifiedTeams"));
+                    List<Integer> eliminated = indices(view.get("eliminatedTeams"));
+                    if (java.util.stream.Stream.concat(qualified.stream(), eliminated.stream())
+                            .anyMatch(i -> i < 0 || i >= teams.size())) return Optional.empty();
+                    int mine = -1;
+                    for (int i = 0; i < teams.size(); i++) if (teams.get(i).contains(player)) mine = i;
+                    if (qualified.contains(mine) || eliminated.contains(mine)) return Optional.empty();
+                    String stage = String.valueOf(view.get("stage"));
+                    if (!List.of("final", "qualification").contains(stage)) return Optional.empty();
+                    tell = new TellTable(teams, qualified, eliminated, stage);
+                }
                 WhotCard top = WhotCard.parse(String.valueOf(view.get("topCard")));
                 var active = WhotCard.Shape.valueOf(String.valueOf(view.get("activeShape")).toUpperCase(Locale.ROOT));
                 int discardCount = number(view.get("discardCount")), market = number(view.get("marketLeft"));
@@ -57,8 +89,8 @@ public final class WhotMonteCarloSearch {
                         || active == WhotCard.Shape.WHOT) return Optional.empty();
                 List<WhotCard> known = discards.stream().map(WhotCard::parse).toList();
                 if (known.isEmpty() || !known.getLast().equals(top) || known.size() > discardCount) known = List.of(top);
-                return Optional.of(new Observation(players, hand, counts, known, discardCount, market, top, active, pending, config));
-            } catch (IllegalArgumentException e) {
+                return Optional.of(new Observation(players, hand, counts, known, discardCount, market, top, active, pending, config, tell));
+            } catch (IllegalArgumentException | ClassCastException e) {
                 return Optional.empty(); // Incomplete/imported snapshots retain the adapter's legal heuristic.
             }
         }
@@ -141,6 +173,10 @@ public final class WhotMonteCarloSearch {
         List<WhotCard> shuffled = new ArrayList<>(unknown);
         Collections.shuffle(shuffled, random);
         var draft = new WhotState.Draft();
+        if (o.tell() != null) {
+            draft.teams.addAll(o.tell().teams()); draft.qualifiedTeams.addAll(o.tell().qualified());
+            draft.eliminatedTeams.addAll(o.tell().eliminated()); draft.stage = o.tell().stage();
+        }
         draft.config = o.config(); draft.players = new ArrayList<>(o.players());
         draft.turnIndex = o.players().indexOf(player); draft.pendingPick = o.pendingPick();
         draft.demandedShape = o.top().isWhot() ? o.activeShape() : null;
@@ -159,6 +195,7 @@ public final class WhotMonteCarloSearch {
     }
 
     static List<PlayerAction> actions(WhotState state) {
+        if (state.finished() || !("Turn".equals(state.phase) || "Waiting".equals(state.phase))) return List.of();
         String actor = state.currentPlayer();
         List<PlayerAction> legal = new ArrayList<>();
         for (WhotCard card : new LinkedHashSet<>(state.handOf(actor))) {
@@ -188,14 +225,70 @@ public final class WhotMonteCarloSearch {
         if (card.number() == 8 && state.config.suspension()) score += 16;
         if (card.number() == 14 && state.config.generalMarket()) score += 22;
         if (card.number() == 2 && state.config.pickTwo()) score += 20;
+        if (state.config.tell()) {
+            List<WhotCard> after = new ArrayList<>(hand); after.remove(card);
+            score += setPotential(after, state.config);
+            String next = nextActive(state, action.actor());
+            if (teamOf(state, next) == teamOf(state, action.actor())) {
+                if (card.number() == 2 && state.config.pickTwo()) score -= 50;
+                if (card.number() == 8 && state.config.suspension()) score -= 40;
+            }
+        }
         return score;
     }
 
     private static double evaluate(WhotState state, String player) {
+        if (state.config.tell()) {
+            int team = teamOf(state, player);
+            if (state.finished()) return state.win.winningSide().equals("team-" + team) ? 10000 : -10000;
+            if (state.eliminatedTeams.contains(team)) return -10000;
+            if (state.qualifiedTeams.contains(team)) return 5000;
+            if ("Signals".equals(state.phase) && "final".equals(state.stage)) return 5000;
+            int mine = state.teams.get(team).stream().mapToInt(p -> state.handOf(p).size()).min().orElse(0);
+            int closest = state.players.stream().filter(p -> teamOf(state, p) != team && active(state, p))
+                    .mapToInt(p -> state.handOf(p).size()).min().orElse(mine);
+            double potential = state.teams.get(team).stream().mapToDouble(p -> setPotential(state.handOf(p), state.config)).max().orElse(0);
+            return (closest - mine) * 80 - mine * 2 + potential;
+        }
         if (state.finished()) return state.win.winningSide().equals(player) ? 10000 : -10000;
         int mine = state.handOf(player).size();
         int closest = state.players.stream().filter(p -> !p.equals(player)).mapToInt(p -> state.handOf(p).size()).min().orElse(mine);
         return Math.max(-1000, Math.min(1000, (closest - mine) * 80 - mine * 2 + (state.currentPlayer().equals(player) ? 5 : 0)));
+    }
+
+    private static double setPotential(List<WhotCard> hand, WhotConfig config) {
+        if (hand.size() < config.tellMinCards()) return 0;
+        if (WhotModule.hasSet(hand, config)) return 650;
+        int match = 0;
+        for (WhotCard card : hand) {
+            if (!"value".equals(config.tellRule())) match = Math.max(match, (int) hand.stream().filter(c -> c.shape() == card.shape()).count());
+            if (!"shape".equals(config.tellRule())) match = Math.max(match, (int) hand.stream().filter(c -> c.number() == card.number()).count());
+        }
+        return match >= config.tellMinCards() ? 30.0 * match / hand.size() : 0;
+    }
+
+    private static int teamOf(WhotState state, String player) {
+        for (int i = 0; i < state.teams.size(); i++) if (state.teams.get(i).contains(player)) return i;
+        return -1;
+    }
+
+    private static boolean active(WhotState state, String player) {
+        int team = teamOf(state, player);
+        return !state.qualifiedTeams.contains(team) && !state.eliminatedTeams.contains(team);
+    }
+
+    private static String nextActive(WhotState state, String actor) {
+        int at = state.players.indexOf(actor);
+        for (int offset = 1; offset < state.players.size(); offset++) {
+            String player = state.players.get((at + offset) % state.players.size());
+            if (active(state, player)) return player;
+        }
+        return actor;
+    }
+
+    private static List<Integer> indices(Object raw) {
+        if (!(raw instanceof List<?> list)) return List.of();
+        return list.stream().map(x -> ((Number) x).intValue()).toList();
     }
 
     private WhotState play(WhotState state, PlayerAction action) {

@@ -10,11 +10,9 @@ const whotModes = ['classic', 'tell'];
 /// "Whot", or "Whot · The Tell" — what a Huud calls its Whot game.
 String whotModeName(String? mode) => mode == 'tell' ? 'Whot · The Tell' : 'Whot';
 
-/// The Tell plays in pairs, so it starts only with 4, 6 or 8 people — no
-/// Cyber Agents, since partners agree a secret signal. Null when it can start.
-String? tellStartProblem(int people, int agents) {
-  if (agents > 0) return 'The Tell is people only — take out the Cyber Agents';
-  if (![4, 6, 8].contains(people)) return 'The Tell needs 4, 6 or 8 players — teams of two';
+/// The Tell starts with 4, 6 or 8 players, including Cyber Agents.
+String? tellStartProblem(int players) {
+  if (![4, 6, 8].contains(players)) return 'The Tell needs 4, 6 or 8 players — teams of two';
   return null;
 }
 
@@ -58,7 +56,7 @@ Future<String?> askWhotMode(BuildContext context) => showHuudSheet<String>(
                   'Play normal Whot. When every card left in your hand matches — same shape or same number, 3 or more — flash your signal.',
                   'Your partner taps it to buzz and your team wins. Opponents can tap it first to steal the win.',
                   'Send decoys to bluff — but a wrong buzz knocks your team out.',
-                  '4, 6 or 8 players · people only. With 6 or 8, the first two teams through play a fresh final.',
+                  '4, 6 or 8 players · Cyber Agents can play. With 6 or 8, the first two teams through play a fresh final.',
                 ],
               ),
             ]),

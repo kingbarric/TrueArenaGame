@@ -274,7 +274,7 @@ public final class WhotModule implements GameModule {
     }
 
     /** Every remaining card must share one value or one printed shape. */
-    private static boolean hasSet(List<WhotCard> hand, WhotConfig config) {
+    static boolean hasSet(List<WhotCard> hand, WhotConfig config) {
         if (hand == null || hand.size() < config.tellMinCards()) return false;
         boolean sameValue = hand.stream().allMatch(card -> card.number() == hand.get(0).number());
         boolean sameShape = hand.stream().allMatch(card -> card.shape() == hand.get(0).shape());
@@ -832,6 +832,8 @@ public final class WhotModule implements GameModule {
         m.put("generalMarket", c.generalMarket());
         m.put("holdOn", c.holdOn());
         m.put("suspension", c.suspension());
+        m.put("tellRule", c.tellRule());
+        m.put("tellMinCards", c.tellMinCards());
         return m;
     }
 

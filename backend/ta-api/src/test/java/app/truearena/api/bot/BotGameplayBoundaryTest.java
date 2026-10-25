@@ -84,6 +84,27 @@ class BotGameplayBoundaryTest {
         } finally { runtime.stop(); }
     }
 
+    @Test void theTellConfirmsAndBuzzesOffTurnWithoutWaitingForLanguageGeneration() throws Exception {
+        BotRuntime runtime = runtime(new WhotBotAdapter(), (system, user, level) -> Mono.never());
+        Sinks.Many<String> outbound = Sinks.many().unicast().onBackpressureBuffer();
+        List<String> sent = new CopyOnWriteArrayList<>(); outbound.asFlux().subscribe(sent::add);
+        var view = new java.util.HashMap<String, Object>();
+        view.put("mode", "tell"); view.put("phase", "Signals"); view.put("turnPlayer", "partner");
+        view.put("players", List.of("partner", "bot", "a", "b"));
+        view.put("teams", List.of(List.of("partner", "bot"), List.of("a", "b")));
+        view.put("yourSignal", "🪐"); view.put("yourSignalConfirmed", false);
+        view.put("yourHand", List.of("circle-3", "triangle-7", "cross-2"));
+        view.put("handSizes", Map.of("partner", 3));
+        try {
+            frame(runtime, outbound, "SNAPSHOT", view);
+            assertThat(sent).anySatisfy(message -> assertThat(message).contains("CHOOSE_SIGNAL"));
+            view.put("phase", "Waiting"); view.put("yourSignalConfirmed", true);
+            view.put("signal", Map.of("id", 9, "by", "partner", "symbol", "🪐", "sentAtMs", System.currentTimeMillis()));
+            frame(runtime, outbound, "SNAPSHOT", view);
+            assertThat(sent).anySatisfy(message -> assertThat(message).contains("BUZZ", "signalId"));
+        } finally { runtime.stop(); }
+    }
+
     @Test void failedModelDoesNotPreventLudoRolling() throws Exception {
         BotRuntime runtime = runtime(new LudoBotAdapter(), (system, user, level) -> Mono.error(new IllegalStateException("offline")));
         Sinks.Many<String> outbound = Sinks.many().unicast().onBackpressureBuffer();

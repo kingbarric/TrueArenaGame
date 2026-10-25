@@ -129,7 +129,69 @@ class WhotMonteCarloSearchTest {
         } finally { Thread.interrupted(); }
     }
 
-    @Test void invalidCardCountsAndTheTellDoNotEnterClassicRollouts() {
+    private WhotState tellTable(int count) {
+        var d = new WhotState.Draft();
+        d.config = new WhotConfig(60, 5, true, true, true, true, true, true, "tell", "shape", 4);
+        d.players.add("bot");
+        for (int i = 1; i < count; i++) d.players.add("p" + i);
+        for (int i = 0; i < count; i += 2) d.teams.add(List.of(d.players.get(i), d.players.get(i + 1)));
+        d.stage = count == 4 ? "final" : "qualification";
+        d.market.addAll(WhotModule.singleDeck(d.config));
+        d.hands.put("bot", new ArrayList<>(List.of(WhotCard.parse("circle-1"), WhotCard.parse("circle-7"))));
+        for (WhotCard card : d.hands.get("bot")) d.market.remove(card);
+        d.pile.add(WhotCard.parse("circle-5")); d.market.remove(d.pile.getFirst());
+        for (int i = 1; i < count; i++) {
+            var hand = new ArrayList<WhotCard>();
+            for (int card = 0; card < 3; card++) hand.add(d.market.removeLast());
+            d.hands.put(d.players.get(i), hand);
+        }
+        return d.build();
+    }
+
+    @Test void tellRolloutsPreserveTeamsAndPrivateInformationBoundaries() {
+        for (int count : List.of(4, 6, 8)) {
+            WhotState state = tellTable(count);
+            Map<String, Object> view = new HashMap<>(game.visibleStateFor(state, "bot").data());
+            var clean = WhotMonteCarloSearch.Observation.fromView(view, List.of("circle-5"), "bot").orElseThrow();
+            assertThat(clean.config().tellRule()).isEqualTo("shape");
+            assertThat(clean.config().tellMinCards()).isEqualTo(4);
+            view.put("hands", Map.of("p1", List.of("circle-14")));
+            view.put("teamSignals", Map.of(1, "secret")); view.put("signalValid", true); view.put("market", List.of("whot-20"));
+            assertThat(WhotMonteCarloSearch.Observation.fromView(view, List.of("circle-5"), "bot")).contains(clean);
+            var sampled = WhotMonteCarloSearch.sample(clean, "bot", WhotMonteCarloSearch.unknownCards(clean), new Random(9));
+            assertThat(sampled.teams).isEqualTo(state.teams);
+            assertThat(sampled.stage).isEqualTo(state.stage);
+            assertThat(sampled.teamSignals).isEmpty();
+            var decision = WhotMonteCarloSearch.choose(clean, "bot", generous, new Random(7));
+            assertThat(decision.completedSamples()).isPositive();
+            assertThat(decision.transitions()).isLessThanOrEqualTo(generous.transitions());
+            WhotState after = (WhotState) game.onPlayerAction(state, decision.action().orElseThrow());
+            assertThat(after.handOf("bot")).hasSize(1);
+        }
+    }
+
+    @Test void tellSearchValuesAWinForTheWholeTeam() {
+        WhotState state = tellTable(4);
+        var decision = WhotMonteCarloSearch.choose(observation(state, List.of("circle-5")), "bot", generous, new Random(7));
+        assertThat(decision.action().orElseThrow().data()).containsEntry("card", "circle-1");
+        var after = (WhotState) game.onPlayerAction(state, decision.action().orElseThrow());
+        after = (WhotState) game.onPlayerAction(after, PlayerAction.of("bot", "PLAY", Map.of("card", "circle-7")));
+        assertThat(after.win.winningSide()).isEqualTo("team-0");
+        assertThat(after.win.perPlayerOutcome()).containsEntry("bot", "won").containsEntry("p1", "won");
+    }
+
+    @Test void finalRolloutsAcceptTheEmptyHandsOfEliminatedTeams() {
+        var d = new WhotState.Draft(tellTable(8)); d.stage = "final";
+        d.eliminatedTeams.addAll(List.of(2, 3));
+        for (String player : List.of("p4", "p5", "p6", "p7")) { d.market.addAll(d.hands.get(player)); d.hands.get(player).clear(); }
+        var o = observation(d.build(), List.of("circle-5"));
+        var sampled = WhotMonteCarloSearch.sample(o, "bot", WhotMonteCarloSearch.unknownCards(o), new Random(3));
+        assertThat(sampled.eliminatedTeams).containsExactly(2, 3);
+        assertThat(sampled.handOf("p4")).isEmpty();
+        assertThat(WhotMonteCarloSearch.choose(o, "bot", generous, new Random(4)).action()).isPresent();
+    }
+
+    @Test void invalidCardCountsAndIncompleteTellTablesDoNotEnterRollouts() {
         WhotState state = table(WhotConfig.defaults(), List.of("circle-1", "circle-7"), List.of("circle-2"), "circle-5", 1);
         Map<String, Object> view = new HashMap<>(game.visibleStateFor(state, "bot").data());
         view.put("mode", "tell");
