@@ -85,7 +85,8 @@ rebuilt. The macOS universal test archive was verified against SHA-256
 `a1f0e3bcc5a6927a11fe6fc8e54a779754645f3c2bae2cf13420fd1957adaa77`.
 Shell syntax checks and `git diff --check` passed. Docker image building and
 Docker integration tests were not verified: the local Docker server returned
-HTTP 500 even on version queries. Nothing was deployed.
+HTTP 500 even on version queries. For the later current-main image checks and
+phone build, see [Scan verification](SCAN_INTEGRATION.md#verification).
 
 ## Draughts is a separate engine
 

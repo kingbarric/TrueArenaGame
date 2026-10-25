@@ -95,4 +95,6 @@ production concurrency still need match testing. No Elo rating is claimed.
 Full offline backend `verify -DskipITs` passed after this change: **760 tests
 across 100 suites, zero failures, errors or skipped unit tests**. That run also
 enabled the real Stockfish executable and rebuilt the backend jar. Docker
-integration tests were skipped; nothing was deployed. `git diff --check` passed.
+integration tests were skipped. `git diff --check` passed. The later current-main
+integration and deployment checks are recorded in
+[Scan verification](SCAN_INTEGRATION.md#verification).

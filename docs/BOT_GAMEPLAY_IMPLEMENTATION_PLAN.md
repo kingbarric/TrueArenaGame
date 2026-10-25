@@ -65,7 +65,7 @@ International / Optional capture choices in setup.
   chain previews, including public mid-chain state for reconnects. Expose both
   named modes while preserving the existing settings and ranked constraints.
 - [x] Complete full backend verification with real Scan and Stockfish and
-  record results. 775 backend tests and 49 targeted Flutter tests pass.
+  record results. Current-main integration passes 859 backend tests and 110 targeted Flutter tests.
 
 ## Difficulty and follow-ups
 
@@ -78,11 +78,14 @@ follow-ups.
 
 ## Validation
 
-- Latest full backend `verify` after Scan integration and capture-rule alignment completed
-  successfully with `-DskipITs` and the real Stockfish executable enabled:
-  **775 tests across 104 suites, zero failures or errors**. Real Scan and
-  Stockfish tests were enabled. Docker integration tests were not run;
-  the local Docker server returns HTTP 500, so image building remains unverified.
+- Current main (`1ff71d5`) is merged into `codex/local-bot-gameplay`, preserving
+  the newer Huud roster, rewards, age safety and Draughts seizure behavior.
+- Full backend `verify -DskipITs` passes with real Scan and Stockfish enabled:
+  **859 tests across 125 suites, zero failures or errors**. One live storage
+  test is skipped because `R2_ENDPOINT` is not configured.
+- All **110 targeted Flutter tests** pass. Signed iOS build `2026102504` builds
+  successfully. The test VPS image passes both native-engine smoke checks and
+  startup validation against the existing database.
 - Verification used Maven offline, the cached Byte Buddy 1.14.19 agent explicitly
   at JVM startup (the sandbox blocks Mockito self-attachment), and permission
   for localhost-only test servers used by the existing email tests.
@@ -92,7 +95,8 @@ follow-ups.
 - Runtime regression tests cover an unavailable model, a hung model during a
   vote, stale phase replies, one-shot rejection recovery, and cancellation on
   explicit stop or remote WebSocket closure.
-- `git diff --check` passes. No app installation, deployment or remote changes.
+- `git diff origin/main --check` passes. Deployment evidence is recorded in
+  `output/phone-deploy/2026102504/manifest.json`.
 
 ## Implementation notes
 

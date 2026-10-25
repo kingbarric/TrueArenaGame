@@ -7,7 +7,7 @@ The Draughts setup sheet offers two explicit choices:
   operational fallback.
 - **Optional capture:** a player may choose a quiet move even when a capture
   exists. Cyber Agents use the current Java search, which understands this
-  house rule. Scan is never sent these positions.
+  house rule, including main’s optional seizure rule. Scan is never sent these positions.
 
 The existing casual default remains Optional capture; ranked matches remain
 locked to International by the client and server. This does not change bot
@@ -109,15 +109,23 @@ server-approved play at all three difficulty levels, flying-king blockers, path 
 mid-chain snapshots, selected difficulty and mode routing, fallback, process
 reuse, crash recovery, timeouts, pool saturation, shutdown and Spring wiring.
 
-Full backend `verify -DskipITs` passed with both real native engines enabled:
-**775 tests across 104 suites, zero failures, errors or skipped unit tests**.
-The backend jar was rebuilt with the Scan engine and status wiring included.
+After merging current main (`1ff71d5`), full backend `verify -DskipITs`
+passed with real Scan and Stockfish enabled: **859 tests across 125 suites,
+zero failures or errors**. One live object-storage test was skipped because
+`R2_ENDPOINT` was not configured. The new seizure regressions check that a bot
+can seize a piece and then continue its turn without a stale board.
 
-All **49 targeted Flutter tests** pass, including both mode choices, ranked
-locking, capture chains, mirrored rules and replay/turn UI. Flutter analysis
-found no errors or warnings; it reports five existing brace-style informational
-notices on unchanged lines in the lobby screen.
+All **110 targeted Flutter tests** pass, covering the difficulty selector,
+current Huud roster, both capture modes, ranked locking, capture chains,
+replay and turn UI. The signed iOS release build is `2026102504`.
 
-Docker remains unavailable locally (HTTP 500 on `docker version`), so the image
-build and Docker integration tests remain unverified. Installer shell syntax
-checks pass. Nothing was deployed.
+The backend Docker image was built on the test VPS. Both native engines pass
+smoke checks as the image's unprivileged user, and the candidate successfully
+starts against the existing test database with both engines ready. Local Docker
+integration tests remain skipped because the local Docker service is unavailable.
+
+Build `2026102504` was installed and launched on the connected iPhone. The test
+backend cutover completed with Stockfish and Scan both reporting one ready
+worker and no startup failure. Production container identities and start times
+were unchanged. Deployment metadata is in
+`output/phone-deploy/2026102504/manifest.json`.
