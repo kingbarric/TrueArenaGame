@@ -449,6 +449,8 @@ public class GameOrchestrator {
                         payload.put("mode", goosiConfigFrom(room.gameConfig()).mode());
                     }
                     payload.put("members", t.getT2());
+                    // So the host is told to add a player or an agent before Start, not refused after.
+                    payload.put("minPlayers", app.truearena.api.room.TableSizes.minPlayers(room.gameType(), room.gameConfig()));
                     payload.put("spectatorCount", rt.spectatorUserIds.size());
                     rt.tellUser(userId, Envelope.of(MessageType.SNAPSHOT, payload));
                 })

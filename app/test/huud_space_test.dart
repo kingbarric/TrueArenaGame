@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:clock/clock.dart';
 import 'package:truearena/features/huudspace/huud_lounge.dart';
+import 'package:truearena/features/huudspace/huud_kit.dart' show HuudButton;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -1242,6 +1243,38 @@ void main() {
     }
     expect(find.text('Waiting for the host to start'), findsOneWidget);
     expect(find.byKey(const ValueKey('lobby-start')), findsNothing);
+  });
+
+  testWidgets('a host alone at the table is told to add a player or an agent instead of a Start that fails',
+      (tester) async {
+    Map<String, dynamic> game(String type, int players, int min, {String? mode}) => {
+          'roomId': 'room1', 'code': 'AB12CD', 'gameType': type, if (mode != null) 'mode': mode,
+          'status': 'waiting', 'players': players, 'seats': 16, 'minPlayers': min,
+          'playerIds': ['me', for (var i = 1; i < players; i++) 'p$i'], 'youArePlaying': true,
+          'table': [
+            {'userId': 'me', 'displayName': 'Eric', 'bot': false, 'ready': false},
+            for (var i = 1; i < players; i++) {'userId': 'p$i', 'displayName': 'P$i', 'bot': true, 'ready': false},
+          ],
+        };
+    Future<void> showCard(Map<String, dynamic> g) async {
+      await tester.pumpWidget(const SizedBox());
+      await pump(tester, const HuudSpaceScreen(id: 'h1'), (r) async => _json(_huud(game: g)));
+      await tester.drag(find.byType(CustomScrollView).first, const Offset(0, -400));
+      await tester.pumpAndSettle();
+    }
+
+    await showCard(game('draughts', 1, 2));
+    expect(find.text('Add a player or a Cyber Agent to start Draughts.'), findsOneWidget);
+    expect(tester.widget<HuudButton>(find.byKey(const ValueKey('huud-open-game'))).onPressed, isNull);
+    expect(find.byKey(const ValueKey('roster-add-agent')), findsOneWidget);
+
+    await showCard(game('truearena', 3, 8, mode: 'blood_moon'));
+    expect(find.text('Traitors · Blood Moon needs at least 8 players. Add 5 more — players or Cyber Agents.'),
+        findsOneWidget);
+
+    await showCard(game('draughts', 2, 2));
+    expect(find.byKey(const ValueKey('huud-start-problem')), findsNothing);
+    expect(tester.widget<HuudButton>(find.byKey(const ValueKey('huud-open-game'))).onPressed, isNotNull);
   });
 
   test('The Tell starts with 4, 6 or 8 total seats including Cyber Agents', () {

@@ -144,7 +144,7 @@ public final class HuudSpaceDtos {
      */
     public record CurrentGame(UUID roomId, String code, String gameType, String status, int players,
                               int seats, List<UUID> playerIds, boolean youArePlaying, List<UUID> readyIds,
-                              List<Seat> table, String mode) {
+                              List<Seat> table, String mode, int minPlayers) {
     }
 
     /** Someone at the table — a person from the Huud or a Cyber Agent — and whether they're ready. */

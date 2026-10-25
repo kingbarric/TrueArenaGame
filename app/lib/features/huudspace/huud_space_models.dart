@@ -3,6 +3,8 @@
 /// inside it comes and goes, the Huud stays.
 library;
 
+import '../../core/table_minimum.dart';
+
 enum HuudPrivacy { friends, private, public }
 
 extension HuudPrivacyInfo on HuudPrivacy {
@@ -90,10 +92,14 @@ class HuudGame {
     this.readyIds = const [],
     this.table = const [],
     this.mode,
+    this.minPlayers = 2,
   });
 
-  /// Whot's "classic" or "tell"; null for every other game.
+  /// Whot's "classic" or "tell", the Traitors mode; null for every other game.
   final String? mode;
+
+  /// The fewest at the table — people and Cyber Agents — before it can start.
+  final int minPlayers;
 
   bool get tell => gameType == 'whot' && mode == 'tell';
 
@@ -141,6 +147,8 @@ class HuudGame {
             HuudSeat.fromJson((t as Map).cast<String, dynamic>()),
         ],
         mode: j['mode'] as String?,
+        minPlayers: (j['minPlayers'] as num?)?.toInt() ??
+            defaultMinPlayers(j['gameType'] as String? ?? 'draughts', mode: j['mode'] as String?),
       );
 }
 

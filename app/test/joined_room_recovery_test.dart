@@ -129,7 +129,10 @@ void main() {
     final (socket, app) = await open(tester, huud: true, start: true);
     final lobby = <String, dynamic>{
       'lobby': true, 'roomId': 'room', 'code': 'ABCDEF', 'hostId': 'me',
-      'status': 'lobby', 'members': [{'userId': 'me', 'nickname': 'Player'}],
+      'status': 'lobby', 'minPlayers': 2, 'members': [
+        {'userId': 'me', 'nickname': 'Player'},
+        {'userId': 'agent', 'nickname': 'Nova'},
+      ],
     };
     socket.emit('SNAPSHOT', lobby);
     socket.emit('SNAPSHOT', lobby);
@@ -141,6 +144,10 @@ void main() {
     socket.emit('ERROR', {'message': 'Add another player to start'});
     await tester.pump();
     await tester.tap(find.text('Try again'));
+    await tester.pump();
+    // The retry starts from a fresh roster, not the one that was turned down.
+    expect(socket.sent.last, {'type': 'HELLO', 'payload': {'lastSeq': 0}});
+    socket.emit('SNAPSHOT', lobby);
     await tester.pump();
     expect(socket.sent.where((e) => e['type'] == 'GAME_START'), hasLength(2));
     expect(find.text('Starting the game…'), findsOneWidget);

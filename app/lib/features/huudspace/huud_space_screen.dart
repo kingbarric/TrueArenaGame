@@ -17,6 +17,7 @@ import '../lobby/joined_room_screen.dart';
 import '../spectate/spectate_screen.dart';
 import 'huud_championship.dart';
 import 'go_live_sheet.dart';
+import 'huud_start_check.dart';
 import 'huud_kit.dart';
 import 'huud_link.dart';
 import 'huud_voice.dart';
@@ -27,7 +28,6 @@ import 'huud_roster.dart';
 import 'huud_lounge.dart';
 import 'huud_avatar_motion.dart';
 import 'huud_game_modes.dart';
-import 'whot_mode_sheet.dart';
 import 'safety_sheet.dart';
 import '../../core/keep_awake.dart';
 import '../competitive/player_profile_screen.dart';
@@ -2082,8 +2082,11 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                     : note('Join the Huud to ask to play'),
       ];
     }
-    final tellProblem = game.waiting && game.tell
-        ? tellStartProblem(game.players) : null;
+    // Too few at the table, or The Tell's teams not adding up: the host is
+    // told who to add rather than refused after tapping Start.
+    final startProblem = game.waiting && huud.youAreHost
+        ? huudStartProblem(game.gameType, game.mode, game.players, game.minPlayers)
+        : null;
     final main = game.youArePlaying ||
             (huud.youAreHost && game.waiting && game.gameType == 'monopoly')
         ? HuudButton(
@@ -2097,7 +2100,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
             big: true,
             expand: true,
             busy: _busy == 'open',
-            onPressed: tellProblem == null ? () => _openGame(game) : null,
+            onPressed: startProblem == null ? () => _openGame(game) : null,
           )
         : game.playing
             ? HuudButton(
@@ -2132,7 +2135,10 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
             'You\'re playing 🎮 — waiting for ${huud.host?.handle ?? 'the host'} to start'),
         const SizedBox(height: 10),
       ],
-      if (tellProblem != null) ...[note(tellProblem), const SizedBox(height: 10)],
+      if (startProblem != null) ...[
+        KeyedSubtree(key: const ValueKey('huud-start-problem'), child: note(startProblem)),
+        const SizedBox(height: 10),
+      ],
       main,
       if (huud.youAreHost && game.waiting) ...[
         const SizedBox(height: 10),

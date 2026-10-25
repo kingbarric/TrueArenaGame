@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:truearena/core/api_client.dart';
 import 'package:truearena/core/game_socket.dart';
+import 'package:truearena/core/table_minimum.dart';
 
 void main() {
   test('game ERROR frames retain codes but strip internal messages', () async {
@@ -23,6 +24,30 @@ void main() {
     try {
       final error = await socket.envelopes.firstWhere((f) => f['type']=='ERROR').timeout(const Duration(seconds:5));
       expect(error['payload'],{'code':'ACTION','message':userRetryMessage});
+    } finally {
+      await socket.close();
+      for (final peer in peers) { await peer.close(); }
+      await listener.cancel();
+      await server.close(force:true);
+    }
+  });
+
+  test('a Start turned down for too few players says to add one, not to try again', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final peers = <WebSocket>[];
+    final listener = server.listen((request) async {
+      final peer = await WebSocketTransformer.upgrade(request);
+      peers.add(peer);
+      peer.listen((raw) {
+        if ((jsonDecode(raw as String) as Map)['type'] == 'HELLO') {
+          peer.add(jsonEncode({'type':'ERROR','payload':{'code':'NEEDS_TWO_PLAYERS','message':'Draughts is 1v1 — needs exactly 2 players'}}));
+        }
+      });
+    });
+    final socket = GameSocket.connect(ApiClient()..bearer='test-token','room',baseUrl:'http://127.0.0.1:${server.port}');
+    try {
+      final error = await socket.envelopes.firstWhere((f) => f['type']=='ERROR').timeout(const Duration(seconds:5));
+      expect(error['payload'],{'code':'NEEDS_TWO_PLAYERS','message':tableTooSmallMessage});
     } finally {
       await socket.close();
       for (final peer in peers) { await peer.close(); }

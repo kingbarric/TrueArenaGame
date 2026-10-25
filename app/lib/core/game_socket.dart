@@ -7,6 +7,7 @@ import 'package:flutter/widgets.dart';
 
 import 'api_client.dart';
 import 'keep_awake.dart';
+import 'table_minimum.dart';
 import '../widgets/neon.dart' show Presence;
 
 /// A room connection that survives short network outages. A reconnect sends
@@ -152,7 +153,12 @@ class GameSocket {
         final frame = jsonDecode(raw as String) as Map<String, dynamic>;
         if (frame['type'] == 'ERROR') {
           // A refused move or action: friendly, and never the word "error".
-          frame['payload'] = {...?(frame['payload'] as Map?)?.cast<String, dynamic>(), 'message': userRetryMessage};
+          // Too few at the table to start is said as what to do about it.
+          final payload = (frame['payload'] as Map?)?.cast<String, dynamic>();
+          frame['payload'] = {
+            ...?payload,
+            'message': tableTooSmallCodes.contains(payload?['code']) ? tableTooSmallMessage : userRetryMessage,
+          };
         }
         _updatePresence(frame);
         if (frame['type'] == 'PONG') _lastPong = DateTime.now();

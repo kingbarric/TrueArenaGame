@@ -1383,7 +1383,7 @@ public class HuudSpaceService {
                                             CurrentGame game = t.getT2().map(g -> host || g.youArePlaying() ? g
                                                     : new CurrentGame(g.roomId(), null, g.gameType(), g.status(), g.players(),
                                                             g.seats(), g.playerIds(), false, g.readyIds(), g.table(),
-                                                            g.mode())).orElse(null);
+                                                            g.mode(), g.minPlayers())).orElse(null);
                                             int liveCount = (int) people.stream().filter(Person::here).count();
                                             return new HuudSpaceView(now.id(), member ? now.code() : null, now.name(), now.privacy(),
                                                     now.status(), hostPerson, people, game, member, host,
@@ -1562,11 +1562,12 @@ public class HuudSpaceService {
                     UUID[] ready = r.get("ready", UUID[].class);
                     List<UUID> ids = players == null ? List.of() : List.of(players);
                     String type = r.get("game_type", String.class);
-                    String mode = modeOf(type, r.get("game_config", String.class));
+                    String config = r.get("game_config", String.class);
+                    String mode = modeOf(type, config);
                     return new CurrentGame(r.get("id", UUID.class), r.get("code", String.class), type,
                             gameStatus(r.get("status", String.class)), ids.size(), seatsFor(type, mode),
                             ids, viewer != null && ids.contains(viewer), ready == null ? List.of() : List.of(ready),
-                            List.<HuudSpaceDtos.Seat>of(), mode);
+                            List.<HuudSpaceDtos.Seat>of(), mode, app.truearena.api.room.TableSizes.minPlayers(type, config));
                 })
                 .one()
                 .flatMap(game -> db.sql("SELECT u.id, u.display_name, u.avatar_url, u.is_bot, rm.ready_state "
@@ -1578,7 +1579,7 @@ public class HuudSpaceService {
                         .all().collectList()
                         .map(table -> new CurrentGame(game.roomId(), game.code(), game.gameType(), game.status(),
                                 game.players(), game.seats(), game.playerIds(), game.youArePlaying(), game.readyIds(), table,
-                                game.mode())));
+                                game.mode(), game.minPlayers())));
     }
 
     /** Words the app can show as they are: waiting → playing → finished. */

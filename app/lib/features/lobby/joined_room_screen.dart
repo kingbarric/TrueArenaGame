@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../../core/app_state.dart';
 import '../../core/game_socket.dart';
 import '../../core/models.dart';
+import '../../core/table_minimum.dart';
 import '../../widgets/pending_huud.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/neon.dart';
@@ -21,7 +22,7 @@ import '../ludo/ludo_game_screen.dart';
 import '../wordbluff/wordbluff_game_screen.dart';
 import '../huudspace/huud_roster.dart';
 import '../huudspace/huud_space_models.dart';
-import '../huudspace/whot_mode_sheet.dart';
+import '../huudspace/huud_start_check.dart';
 import '../huudspace/leave_game.dart';
 import '../../widgets/lobby_start_bar.dart';
 
@@ -44,8 +45,14 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
   GameSocket? _socket;
   StreamSubscription? _sub;
   bool _handedOff = false;
-  bool _startSent = false;
+
+  /// The host wants the game started: it is, once a fresh roster shows
+  /// enough at the table — so someone leaving at the last moment counts.
+  late bool _startWanted = widget.startGame;
   String? _startError;
+
+  /// The fewest players this table starts with, as the server reckons it.
+  int? _minPlayers;
   bool _gameUnavailable = false;
   String _gameMode = 'relay';
   late AppState _app;
@@ -99,9 +106,9 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
           final p = (env['payload'] as Map).cast<String, dynamic>();
           if (p['lobby'] == true) {
             _applyLobbySnapshot(p);
-            if (widget.startGame && p['hostId'] == _selfId() && !_startSent) {
-              _startSent = true;
-              socket.send('GAME_START');
+            if (_startWanted && p['hostId'] == _selfId()) {
+              _startWanted = false;
+              _startIfReady();
             }
           }
           if (p['lobby'] == false) {
@@ -114,7 +121,11 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
           // authoritative snapshot, cached by GameSocket for the new screen.
           socket.send('HELLO', {'lastSeq': 0});
         case 'ERROR':
-          final msg = (env['payload'] as Map)['message']?.toString();
+          final payload = env['payload'] as Map;
+          // Turned down for the table's size — someone left just as Start
+          // went: say who to add, from the roster as it is now.
+          final tooSmall = tableTooSmallCodes.contains(payload['code']) || payload['code'] == 'BAD_CONFIG';
+          final msg = (tooSmall ? _startProblem : null) ?? payload['message']?.toString();
           if (msg != null && mounted) {
             setState(() { _startError = msg; });
             ScaffoldMessenger.of(context)
@@ -123,6 +134,21 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
       }
     });
     socket.send('HELLO', {'lastSeq': 0});
+  }
+
+  /// Too few at the table, or The Tell's teams not adding up. Null: it can start.
+  String? get _startProblem {
+    final game = _huud?.currentGame;
+    return huudStartProblem(_room.gameType, game?.mode, _room.members.length,
+        _minPlayers ?? game?.minPlayers ?? defaultMinPlayers(_room.gameType, mode: game?.mode));
+  }
+
+  /// Start, or say who's missing instead of asking the server to refuse.
+  void _startIfReady() {
+    if (!mounted) return;
+    final problem = _startProblem;
+    setState(() => _startError = problem);
+    if (problem == null) _socket?.send('GAME_START');
   }
 
   Future<void> _loadHuud() async {
@@ -162,6 +188,7 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
       // in-memory match was lost. Keep the exit/retry controls available.
       _gameUnavailable = p['status'] == 'in_game';
       _gameMode = p['mode'] as String? ?? _gameMode;
+      _minPlayers = (p['minPlayers'] as num?)?.toInt() ?? _minPlayers;
       _room = RoomView(
         id: p['roomId'] as String,
         code: p['code'] as String,
@@ -390,7 +417,8 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
           textAlign: TextAlign.center),
       if (_startError != null) TextButton(onPressed: () {
         setState(() => _startError = null);
-        if (widget.startGame) _socket?.send('GAME_START');
+        // Starts again from a fresh roster, not the one that fell short.
+        _startWanted = widget.startGame;
         _socket?.send('HELLO', {'lastSeq': 0});
       }, child: const Text('Try again')),
       const SizedBox(height: 12),
@@ -500,10 +528,8 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
   Widget _bottomBar() {
     final n = context.neon;
     final isHost = _room.hostId == _selfId();
-    // The Tell starts with 4, 6 or 8 players, including Cyber Agents.
-    final tellProblem = _huud?.currentGame?.tell == true
-        ? tellStartProblem(_room.members.length)
-        : null;
+    // Enough at the table — people and Cyber Agents — and The Tell's teams.
+    final problem = _startProblem;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
       decoration: BoxDecoration(
@@ -512,9 +538,8 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
         // One big Start for the host; nobody has to "ready up".
         LobbyStartBar(
             isHost: isHost,
-            onStart:
-                tellProblem == null ? () => _socket?.send('GAME_START') : null,
-            hint: tellProblem),
+            onStart: problem == null ? _startIfReady : null,
+            hint: isHost ? problem : null),
       ]),
     );
   }

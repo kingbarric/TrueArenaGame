@@ -7,6 +7,7 @@ import '../../core/api_client.dart';
 import '../../core/app_state.dart';
 import '../../core/game_socket.dart';
 import '../../core/models.dart';
+import '../../core/table_minimum.dart';
 import '../../widgets/pending_huud.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/cyber_agent_sheet.dart';
@@ -40,6 +41,9 @@ class _LobbyScreenState extends State<LobbyScreen> {
   GameSocket? _socket;
   StreamSubscription? _sub;
   bool _handedOff = false;
+
+  /// The fewest players this table starts with, as the server reckons it.
+  int? _minPlayers;
   late AppState _app;
 
   @override
@@ -138,6 +142,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
       );
       final me = _room!.members.where((m) => m.userId == _selfId(_app));
       if (me.isNotEmpty) _ready = me.first.ready;
+      _minPlayers = (p['minPlayers'] as num?)?.toInt() ?? _minPlayers;
     });
   }
 
@@ -425,6 +430,10 @@ class _LobbyScreenState extends State<LobbyScreen> {
     final app = AppScope.of(context);
     final isHost = _example || room.hostId == app.user?.id;
     final full = room.members.length >= p.maxPlayers;
+    // Too few to deal the roles: who to add, before Start is pressed.
+    final problem = _example
+        ? null
+        : tableStartProblem('Traitors · ${p.name}', room.members.length, _minPlayers ?? p.minPlayers);
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
       decoration: BoxDecoration(
@@ -473,7 +482,8 @@ class _LobbyScreenState extends State<LobbyScreen> {
         ],
         LobbyStartBar(
           isHost: isHost,
-          onStart: () {
+          hint: isHost ? problem : null,
+          onStart: problem != null ? null : () {
             if (_example) {
               ScaffoldMessenger.of(context)
                   .showSnackBar(const SnackBar(content: Text('Add an account to host a game.')));
