@@ -55,6 +55,12 @@ public final class WhotState implements GameState {
     final long signalSentAtMs;
     final boolean signalValid;
     final boolean signalOpen;
+    /** One bounded private checkpoint; never exposed in a view or event. */
+    final WhotState undoState;
+    final String lastMover, lastMoveId, pendingUndo, lastActionId, lastActionType;
+    final Set<String> undoAccepted;
+    final Map<String, String> finishEffects;
+    final List<Map<String, Object>> recentPlays;
     final Set<String> appliedActionIds;
     final List<GameEvent> events;
     final long seq;
@@ -85,6 +91,12 @@ public final class WhotState implements GameState {
         this.signalSentAtMs = d.signalSentAtMs;
         this.signalValid = d.signalValid;
         this.signalOpen = d.signalOpen;
+        this.undoState = d.undoState;
+        this.lastActionId = d.lastActionId; this.lastActionType = d.lastActionType;
+        this.lastMover = d.lastMover; this.lastMoveId = d.lastMoveId; this.pendingUndo = d.pendingUndo;
+        this.undoAccepted = Set.copyOf(d.undoAccepted);
+        this.finishEffects = Map.copyOf(d.finishEffects);
+        this.recentPlays = d.recentPlays.stream().map(Map::copyOf).toList();
         this.appliedActionIds = Set.copyOf(d.appliedActionIds);
         this.events = List.copyOf(d.events);
         this.seq = d.seq;
@@ -145,6 +157,11 @@ public final class WhotState implements GameState {
         long signalSentAtMs;
         boolean signalValid;
         boolean signalOpen;
+        WhotState undoState;
+        String lastMover, lastMoveId, pendingUndo, lastActionId, lastActionType;
+        Set<String> undoAccepted = new LinkedHashSet<>();
+        Map<String, String> finishEffects = new LinkedHashMap<>();
+        List<Map<String, Object>> recentPlays = new ArrayList<>();
         Set<String> appliedActionIds = new LinkedHashSet<>();
         List<GameEvent> events = new ArrayList<>();
         long seq;
@@ -177,6 +194,12 @@ public final class WhotState implements GameState {
             this.signalSentAtMs = s.signalSentAtMs;
             this.signalValid = s.signalValid;
             this.signalOpen = s.signalOpen;
+            this.undoState = s.undoState;
+            this.lastActionId = s.lastActionId; this.lastActionType = s.lastActionType;
+            this.lastMover = s.lastMover; this.lastMoveId = s.lastMoveId; this.pendingUndo = s.pendingUndo;
+            this.undoAccepted = new LinkedHashSet<>(s.undoAccepted);
+            this.finishEffects = new LinkedHashMap<>(s.finishEffects);
+            this.recentPlays = new ArrayList<>(s.recentPlays);
             this.appliedActionIds = new LinkedHashSet<>(s.appliedActionIds);
             this.events = new ArrayList<>(s.events);
             this.seq = s.seq;

@@ -42,6 +42,7 @@ public final class RoomRuntime {
 
     /** Read-only viewers — never in {@link #connectedUserIds}, never gated by room membership. */
     public final Set<String> spectatorUserIds = ConcurrentHashMap.newKeySet();
+    public final Map<String, Long> spectatorReactionAt = new ConcurrentHashMap<>();
 
     /** Room-level, not game-state — a pause is a transport/UI concern, not something any {@code GameModule} needs to know about. */
     public volatile boolean paused;

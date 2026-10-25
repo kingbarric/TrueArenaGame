@@ -711,8 +711,9 @@ an unstaked room; friends join through the existing room-code or invitation flow
 The game table supports 2–20 players, a private scrolling hand, dealer shuffle/deal/
 start controls, matching-card selection, wild-card shape choice, pick-two penalties,
 turn countdowns, pause/resume, reconnection, and a winner restored from snapshots.
-Cyber Agents are available for Whot Classic. The Tell remains human-only
-because its private signal agreement and real-time calls require people.
+Cyber Agents are available for both Whot Classic and The Tell, including as a
+human player's partner. They choose/confirm private symbols and signal or buzz
+off turn using local strategies.
 
 The server sends each player an authoritative private snapshot after every action.
 The UI never reconstructs a hand from public events. Turn timers are keyed by phase
@@ -726,12 +727,18 @@ Snapshots expose market/discard counts and the last three face-up discard cards
 for the table's stack display; they never expose the market order.
 
 Whot offers two modes, **Classic** (individual play) and **The Tell** (teams
-on the same Whot engine). The Tell supports 4, 6, or 8 human players, 30
+on the same Whot engine). The Tell supports 4, 6, or 8 players, including Cyber Agents, 30
 private signal choices, three-second public signals with tap-to-buzz, and
 server-ordered qualification and finals. The host configures Same Value,
 Same Shape, or Either for Tell matching and a 2–12 card minimum (default 3).
 The server redeals any initial hand that already satisfies the Tell rule.
 See [WHOT_THE_TELL.md](WHOT_THE_TELL.md).
+
+Planned attack/counter animations, last-card warnings, selectable final-card
+celebrations and Tell outcome effects are specified in
+[WHOT_DRAMATIC_EFFECTS_PLAN.md](WHOT_DRAMATIC_EFFECTS_PLAN.md). It includes
+VAR replay, consent-based take-backs and spectator reactions confined to side
+lanes. Implementation and verification status are recorded in that plan.
 
 Verification:
 

@@ -108,8 +108,8 @@ animates that recycle and displays the real market/discard counts.
   or a new Huud's first game) asks **Which Whot?** with a short briefing of
   each mode before anyone is seated. `POST /huud-spaces/{id}/game` takes
   `mode` (`classic` default, `tell`); the Huud's current game reports it, The
-  Tell gets 8 seats, a rematch keeps the mode, Cyber Agents can't be added, and
-  the lobby's Start waits for 4, 6 or 8 people.
+  Tell gets 8 seats, a rematch keeps the mode, Cyber Agents can be added, and
+  the lobby's Start waits for 4, 6 or 8 total players, including agents.
 - Reuse the current Whot deck, `WhotConfig` house rules, card legality,
   special-card effects, draw/market behaviour, and private-hand snapshots.
   Add The Tell's mode config and team/tournament state around these rules.
@@ -152,5 +152,15 @@ animates that recycle and displays the real market/discard counts.
 - A buzz on a live decoy or a genuine signal without a valid Tell eliminates
   the caller's team. Server action order resolves a play and buzz racing each
   other.
-- Cyber Agents cannot start The Tell because its private signal agreement
-  requires a human teammate.
+- Cyber Agents support private signal agreement, off-turn signaling and teammate
+  buzzing, including human/agent pairs and all-agent pairs. Their card strategy
+  understands teams, qualification and fresh finals. See
+  [WHOT bot search](WHOT_LUDO_BOT_SEARCH.md#the-tell).
+
+## Planned presentation effects
+
+Signal countdown rings, interception celebrations and stage-specific last-card
+finishers are documented in
+[Whot dramatic effects](WHOT_DRAMATIC_EFFECTS_PLAN.md). These are planned
+presentation changes; the three-second buzz deadline and server acceptance
+order remain authoritative.

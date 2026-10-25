@@ -44,6 +44,8 @@ public final class WhotModule implements GameModule {
             "🪄", "🕳️", "🛸", "👁️", "🗿", "🧬", "🌀", "⚗️", "💠", "🧩");
 
     /** Spare cards a deal wants on top of everyone's hand, so the market isn't bare. */
+    public static final Set<String> FINISH_EFFECTS = Set.of("classic", "thunder", "fire", "neon", "royal", "confetti");
+
     private static final int MARKET_HEADROOM = 24;
 
     /** Maximum startup pause before the table deals itself in and opens play. */
@@ -184,8 +186,27 @@ public final class WhotModule implements GameModule {
         }
         WhotState.Draft d = new WhotState.Draft(s);
         d.appliedActionIds.add(action.actionId());
+        d.lastActionId = action.actionId(); d.lastActionType = action.type();
 
+        boolean cardTurn = "PLAY".equals(action.type()) || "DRAW".equals(action.type());
+        if (cardTurn) {
+            expireUndo(d, action.actor());
+            WhotState.Draft checkpoint = new WhotState.Draft(s);
+            clearUndo(checkpoint); checkpoint.events.clear(); checkpoint.appliedActionIds.clear();
+            d.undoState = checkpoint.build(); d.lastMover = action.actor(); d.lastMoveId = action.actionId();
+        } else if (Set.of("SIGNAL", "BUZZ", "CHOOSE_SIGNAL", "FORFEIT", "SHUFFLE", "DEAL", "START").contains(action.type())) {
+            expireUndo(d, action.actor());
+        }
         switch (action.type()) {
+            case "SELECT_FINISH_EFFECT" -> {
+                require(s.players.contains(action.actor()), "NOT_A_PLAYER", "only a player can choose an effect");
+                String effect = String.valueOf(action.data().get("effect"));
+                require(FINISH_EFFECTS.contains(effect), "BAD_EFFECT", "choose an available final-card effect");
+                d.finishEffects.put(action.actor(), effect);
+            }
+            case "REQUEST_UNDO" -> requestUndo(d, s, action);
+            case "ACCEPT_UNDO" -> d = answerUndo(d, s, action, true);
+            case "DECLINE_UNDO" -> d = answerUndo(d, s, action, false);
             case "SHUFFLE" -> shuffleAction(d, s, action);
             case "DEAL" -> dealAction(d, s, action);
             case "START" -> startAction(d, s, action);
@@ -197,7 +218,97 @@ public final class WhotModule implements GameModule {
             case "FORFEIT" -> forfeit(d, s, action);
             default -> throw new RuleViolation("UNKNOWN_ACTION", "no handler for " + action.type());
         }
+        if (cardTurn) recordCardMoment(d, s, action);
+        if (d.win != null || !isPlayableTurn(d.phase) || !d.qualifiedTeams.equals(s.qualifiedTeams)
+                || !d.eliminatedTeams.equals(s.eliminatedTeams)) clearUndo(d);
         return d.build();
+    }
+
+    private static void clearUndo(WhotState.Draft d) {
+        d.undoState = null; d.lastMover = null; d.lastMoveId = null; d.pendingUndo = null; d.undoAccepted.clear();
+    }
+
+    private static void expireUndo(WhotState.Draft d, String actor) {
+        if (d.pendingUndo != null) d.emit("UNDO_DECLINED", Map.of("by", actor, "reason", "play_continued"));
+        clearUndo(d);
+    }
+
+    private void requestUndo(WhotState.Draft d, WhotState s, PlayerAction action) {
+        require(s.undoState != null && action.actor().equals(s.lastMover) && isPlayableTurn(s.phase),
+                "NOTHING_TO_UNDO", "only the last player can ask before another play");
+        require(s.pendingUndo == null, "UNDO_ALREADY_ASKED", "wait for the table to answer");
+        require(!s.signalOpen || System.currentTimeMillis() - s.signalSentAtMs > 3000,
+                "SIGNAL_OPEN", "wait until the live signal has resolved or expired");
+        d.pendingUndo = action.actor(); d.undoAccepted.clear();
+        d.emit("UNDO_REQUESTED", Map.of("by", action.actor()));
+    }
+
+    private WhotState.Draft answerUndo(WhotState.Draft d, WhotState s, PlayerAction action, boolean allow) {
+        require(s.pendingUndo != null && !s.pendingUndo.equals(action.actor()) && s.players.contains(action.actor())
+                        && (!s.config.tell() || active(s, action.actor())),
+                "NO_UNDO_REQUEST", "only the other active players can answer");
+        if (!allow) {
+            d.emit("UNDO_DECLINED", Map.of("by", action.actor(), "reason", "declined")); clearUndo(d); return d;
+        }
+        d.undoAccepted.add(action.actor());
+        d.emit("UNDO_APPROVED", Map.of("by", action.actor()));
+        if (!activePlayers(d).stream().filter(p -> !p.equals(s.pendingUndo)).allMatch(d.undoAccepted::contains)) return d;
+        WhotState.Draft restored = new WhotState.Draft(s.undoState);
+        restored.events = d.events; restored.seq = d.seq; restored.appliedActionIds = d.appliedActionIds;
+        restored.finishEffects = d.finishEffects;
+        restored.lastActionId = d.lastActionId; restored.lastActionType = d.lastActionType;
+        restored.recentPlays = new ArrayList<>();
+        for (Map<String, Object> play : d.recentPlays) {
+            Map<String, Object> entry = new LinkedHashMap<>(play);
+            if (s.lastMoveId.equals(entry.get("actionId"))) entry.put("undone", true);
+            restored.recentPlays.add(Map.copyOf(entry));
+        }
+        restored.phase = "Turn"; restored.round = s.round + 1;
+        restored.signalOpen = false;
+        clearUndo(restored);
+        restored.emit("UNDO_ACCEPTED", Map.of("by", action.actor(), "requester", s.pendingUndo));
+        announceTurn(restored);
+        return restored;
+    }
+
+    private void recordCardMoment(WhotState.Draft d, WhotState before, PlayerAction action) {
+        Map<String, Object> moment = new LinkedHashMap<>();
+        moment.put("id", d.seq + 1); moment.put("actionId", action.actionId()); moment.put("by", action.actor());
+        moment.put("round", d.round); moment.put("stage", d.stage);
+        moment.put("pendingBefore", before.pendingPick); moment.put("debt", d.pendingPick);
+        moment.put("target", d.currentPlayer());
+        moment.put("handSizes", Map.copyOf(handSizes(d)));
+        moment.put("topBefore", before.topCard() == null ? "" : before.topCard().code());
+        String kind = "draw";
+        if ("PLAY".equals(action.type())) {
+            WhotCard card = WhotCard.parse(String.valueOf(action.data().get("card")));
+            moment.put("card", card.code());
+            if (before.handOf(action.actor()).size() == 1) kind = d.win != null ? "finish" : "qualified";
+            else if (card.number() == 2 && d.config.pickTwo()) kind = "pickTwo";
+            else if (card.number() == 14 && d.config.generalMarket()) kind = "generalMarket";
+            else if (card.number() == 1 && d.config.holdOn()) kind = "holdOn";
+            else if (card.number() == 8 && d.config.suspension()) {
+                kind = "skip";
+                List<String> active = activePlayers(new WhotState.Draft(before));
+                moment.put("skipped", active.get((active.indexOf(action.actor()) + 1) % active.size()));
+            } else kind = card.isWhot() ? "wild" : "play";
+            moment.put("shape", card.isWhot() ? String.valueOf(action.data().get("shape")) : card.shape().name().toLowerCase());
+        } else {
+            moment.put("count", Math.max(1, before.pendingPick));
+            if (before.pendingPick > 0) {
+                kind = "market";
+                if (!before.recentPlays.isEmpty() && "pickTwo".equals(before.recentPlays.getLast().get("kind")))
+                    moment.put("stacker", before.recentPlays.getLast().get("by"));
+            }
+        }
+        moment.put("kind", kind);
+        moment.put("returned", "pickTwo".equals(kind) && before.pendingPick > 0
+                && activePlayers(new WhotState.Draft(before)).size() == 2);
+        moment.put("effect", d.finishEffects.getOrDefault(action.actor(), "classic"));
+        moment.put("team", teamOf(before, action.actor()));
+        d.emit("WHOT_MOMENT", moment);
+        d.recentPlays.add(Map.copyOf(moment));
+        if (d.recentPlays.size() > 24) d.recentPlays.remove(0);
     }
 
     /** Whoever sits first deals — they shuffle, deal, and call the start. */
@@ -546,6 +657,7 @@ public final class WhotModule implements GameModule {
         // Keep the same player and the same hand. Entering an awaiting-resume
         // phase makes the orchestrator pause the room until somebody resumes,
         // matching the Draughts timeout behaviour.
+        expireUndo(d, d.currentPlayer());
         d.phase = "Waiting";
         d.round++;
         d.emit("TURN_PAUSED", Map.of("player", s.currentPlayer()));
@@ -777,6 +889,16 @@ public final class WhotModule implements GameModule {
             } else m.put("winner", s.win.winningSide());
         }
         m.put("mode", s.config.mode());
+        m.put("stateSeq", s.seq);
+        m.put("ackActionId", s.lastActionId == null ? "" : s.lastActionId);
+        m.put("lastActionType", s.lastActionType == null ? "" : s.lastActionType);
+        m.put("finishEffects", s.finishEffects);
+        m.put("recentPlays", s.recentPlays);
+        m.put("undoableBy", s.undoState == null ? "" : s.lastMover);
+        m.put("pendingUndo", s.pendingUndo == null ? "" : s.pendingUndo);
+        m.put("undoAccepted", s.undoAccepted);
+        m.put("undoResponders", s.pendingUndo == null ? List.of() : s.players.stream()
+                .filter(p -> !p.equals(s.pendingUndo) && (!s.config.tell() || active(s, p))).toList());
         if (s.config.tell()) {
             m.put("stage", s.stage);
             m.put("teams", s.teams);
