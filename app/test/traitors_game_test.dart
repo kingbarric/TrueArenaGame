@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:truearena/widgets/neon.dart' show Presence;
+import 'package:truearena/widgets/neon.dart' show NeonButton, Presence;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -11,6 +11,7 @@ import 'package:truearena/core/app_state.dart';
 import 'package:truearena/core/game_socket.dart';
 import 'package:truearena/features/game/game_screen.dart';
 import 'package:truearena/theme/neon_theme.dart';
+import 'package:truearena/widgets/table_chat.dart';
 
 /// Records what the screen sends so tests can assert on actions and their data.
 class _Socket implements GameSocket {
@@ -263,5 +264,163 @@ void main() {
     socket.event('GAME_RESUMED', {'reason': 'pause_limit', 'secondsLeft': 18});
     await tester.pump();
     expect(find.text('Moving on in 18 s'), findsOneWidget);
+  });
+
+  testWidgets('round table: everyone sits around the table, the talk and the skip in the middle', (tester) async {
+    final table = [for (var i = 1; i <= 14; i++) 'p$i'];
+    final socket = await open(tester, {
+      'phase': 'RoundTable', 'round': 1, 'players': table, 'alive': table.sublist(0, 12),
+      'yourRole': 'faithful', 'rules': const {'twists': []}, 'secondsLeft': 120,
+    }, host: true);
+    final seats = [for (final id in table) tester.getRect(find.byKey(ValueKey('table-seat-$id')))];
+    final screen = Offset.zero & tester.view.physicalSize / tester.view.devicePixelRatio;
+    for (final seat in seats) {
+      expect(screen.contains(seat.topLeft) && screen.contains(seat.bottomRight), isTrue, reason: '$seat');
+    }
+    for (var i = 0; i < seats.length; i++) {
+      for (var j = i + 1; j < seats.length; j++) {
+        expect(seats[i].deflate(4).overlaps(seats[j].deflate(4)), isFalse, reason: 'seat $i and seat $j overlap');
+      }
+    }
+    // The talk sits in the middle, ringed by the seats.
+    final title = tester.getCenter(find.byKey(const ValueKey('round-table-title')));
+    final top = seats.first.center, bottom = seats[7].center;
+    expect(title.dy, inExclusiveRange(top.dy, bottom.dy));
+    expect((title.dx - screen.width / 2).abs(), lessThan(24));
+
+    await tester.tap(find.byKey(const ValueKey('round-table-skip')));
+    await tester.pump();
+    expect(socket.actions('ADVANCE_PHASE'), hasLength(1));
+  });
+
+  testWidgets('players other than the host have no skip', (tester) async {
+    await open(tester, _snap('RoundTable'));
+    expect(find.byKey(const ValueKey('round-table-skip')), findsNothing);
+    expect(find.byKey(const ValueKey('round-table-title')), findsOneWidget);
+  });
+
+  testWidgets('table chat is one conversation in order — agents too — kept across rounds', (tester) async {
+    final socket = await open(tester, _snap('RoundTable', extra: {'botTextMode': true}));
+    socket.event('CHAT_MESSAGE', {'from': 'p2', 'channel': 'agent', 'text': 'I have a bad feeling about Chidi.'});
+    socket.event('CHAT_MESSAGE', {'from': 'p1', 'channel': 'table', 'text': 'Why Chidi?'});
+    socket.event('CHAT_MESSAGE', {'from': 'p3', 'channel': 'agent', 'text': 'Bola is deflecting.'});
+    await tester.pump();
+    final first = tester.getTopLeft(find.text('I have a bad feeling about Chidi.')).dy;
+    final second = tester.getTopLeft(find.text('Why Chidi?')).dy;
+    final third = tester.getTopLeft(find.text('Bola is deflecting.')).dy;
+    expect(first, lessThan(second));
+    expect(second, lessThan(third), reason: 'the newest message is at the bottom');
+    // One chat on screen, not a second audience box.
+    expect(find.byType(TableChatPanel), findsNothing);
+
+    socket.phase('Vote');
+    await tester.pump();
+    socket.phase('RoundTable', round: 2);
+    await tester.pump();
+    expect(find.text('Bola is deflecting.'), findsOneWidget, reason: 'nothing is wiped between phases');
+    expect(find.text('ROUND 2'), findsOneWidget);
+  });
+
+  testWidgets('the host can end the game for everyone: nobody wins, and every role is shown', (tester) async {
+    final socket = await open(tester, _snap('RoundTable'), host: true);
+    await tester.tap(find.byTooltip('Game settings'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('End game for everyone'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('traitors-end-confirm')));
+    await tester.pumpAndSettle();
+    expect(socket.sent.last.type, 'PLAYER_ACTION');
+    expect(socket.sent.last.payload, {'action': 'END_GAME'});
+
+    socket.event('GAME_ENDED_BY_HOST', {'round': 1});
+    socket.event('FULL_REVEAL', {'roles': {for (final p in _players) p: p == 'p2' ? 'traitor' : 'faithful'}});
+    socket.phase('Results');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('The host ended the game'), findsOneWidget);
+    expect(find.text('FULL REVEAL'), findsOneWidget);
+    expect(find.text('You won! 🎉'), findsNothing);
+  });
+
+  testWidgets('only the host has End game', (tester) async {
+    await open(tester, _snap('RoundTable'));
+    await tester.tap(find.byTooltip('Game settings'));
+    await tester.pumpAndSettle();
+    expect(find.text('End game for everyone'), findsNothing);
+  });
+
+  testWidgets('the Traitors music is credited in settings', (tester) async {
+    await open(tester, _snap('RoundTable'));
+    await tester.tap(find.byTooltip('Game settings'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Music credits'));
+    await tester.pumpAndSettle();
+    final credits = tester.widget<SelectableText>(find.byKey(const ValueKey('traitors-music-credits'))).data!;
+    expect(credits, contains('Kevin MacLeod (incompetech.com)'));
+    expect(credits, contains('https://creativecommons.org/licenses/by/4.0/'));
+    for (final title in ['Heart of Nowhere', 'Lightless Dawn', 'Crypto', 'Gathering Darkness']) {
+      expect(credits, contains(title));
+    }
+  });
+
+  Future<void> seconds(WidgetTester tester, int n) async {
+    for (var i = 0; i < n * 4; i++) {
+      await tester.pump(const Duration(milliseconds: 250));
+    }
+  }
+
+  testWidgets('a murder is revealed at the table: 5 seconds, the name, 3 seconds, then Faithful — sadly', (tester) async {
+    final socket = await open(tester, _snap('MorningReveal', extra: {'secondsLeft': 30}), host: true);
+    socket.event('MORNING_REVEAL', {'round': 1, 'eliminated': 'p3'});
+    socket.event('PLAYER_ELIMINATED', {'id': 'p3', 'cause': 'murdered', 'roleShown': true, 'role': 'faithful'});
+    await tester.pump();
+    expect(find.text('Who was taken in the night?'), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const ValueKey('reveal-count')), matching: find.text('5')), findsOneWidget);
+    expect(find.byKey(const ValueKey('table-seat-p3')), findsOneWidget, reason: 'it happens at the round table');
+    expect(tester.widget<NeonButton>(find.byKey(const ValueKey('reveal-continue'))).onPressed, isNull,
+        reason: 'the host waits for the reveal');
+
+    await seconds(tester, 5);
+    expect(find.byKey(const ValueKey('reveal-name')), findsOneWidget);
+    expect(find.text('Chidi'), findsWidgets);
+    expect(find.text('was…'), findsOneWidget);
+    expect(find.text('FAITHFUL'), findsNothing);
+
+    await seconds(tester, 3);
+    expect(find.text('FAITHFUL'), findsOneWidget);
+    expect(find.text('An innocent soul is gone.'), findsOneWidget);
+
+    await seconds(tester, 4);
+    await tester.tap(find.byKey(const ValueKey('reveal-continue')));
+    await tester.pump();
+    expect(socket.actions('ADVANCE_PHASE'), hasLength(1));
+  });
+
+  testWidgets('a banished Traitor is a celebration', (tester) async {
+    final socket = await open(tester, _snap('Elimination'));
+    socket.event('BANISHED', {'id': 'p2', 'votes': 4});
+    socket.event('PLAYER_ELIMINATED', {'id': 'p2', 'cause': 'banished', 'roleShown': true, 'role': 'traitor'});
+    await tester.pump();
+    expect(find.text('The table has spoken…'), findsOneWidget);
+    await seconds(tester, 8);
+    expect(find.text('A TRAITOR!'), findsOneWidget);
+    expect(find.text('One less Traitor at the table.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a hidden role stays hidden, and a quiet night says nobody left', (tester) async {
+    final socket = await open(tester, _snap('Elimination'));
+    socket.event('PLAYER_ELIMINATED', {'id': 'p4', 'cause': 'banished', 'roleShown': false});
+    await tester.pump();
+    await seconds(tester, 8);
+    expect(find.text('Their role stays hidden'), findsOneWidget);
+    expect(find.text('A TRAITOR!'), findsNothing);
+    expect(find.text('FAITHFUL'), findsNothing);
+
+    socket.phase('MorningReveal', round: 2);
+    socket.event('NO_MURDER', {'round': 2, 'reason': 'skipped'});
+    await tester.pump();
+    await seconds(tester, 5);
+    expect(find.text('Nobody left the table'), findsOneWidget);
   });
 }

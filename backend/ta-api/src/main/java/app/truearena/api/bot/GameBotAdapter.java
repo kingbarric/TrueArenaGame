@@ -61,6 +61,17 @@ public interface GameBotAdapter {
     default String fallbackSpeech(BotPrompt prompt) { return ""; }
 
     /**
+     * A beat before saying something, like a person typing — zero (the
+     * default) speaks as soon as the line is ready. When it's set, the line
+     * is said on its own timer and the agent keeps following the game
+     * meanwhile.
+     */
+    default java.time.Duration speechDelay() { return java.time.Duration.ZERO; }
+
+    /** Everyone's name at the table, by player id, as the room knows them. */
+    default void playerNames(Map<String, String> names) { }
+
+    /**
      * After the agent's said a clue through {@link #speechAction}: which
      * word it was about, for {@link #followUp} to check it's still current.
      * Negative when there's nothing to follow up.
@@ -87,10 +98,20 @@ public interface GameBotAdapter {
      * <p>{@code forbidden} is the one word that must never appear in a
      * spoken answer. Saying it would hand the round away, so the runtime
      * drops any line containing it rather than trusting the model.
+     *
+     * <p>{@code channel} is where a spoken answer goes, and {@code fallback}
+     * what to say when the model says nothing — both fixed when the prompt
+     * is made, so a line that arrives a few seconds later still goes to the
+     * right place.
      */
-    record BotPrompt(String systemPrompt, String userPrompt, boolean speak, String forbidden) {
+    record BotPrompt(String systemPrompt, String userPrompt, boolean speak, String forbidden,
+                     String channel, String fallback) {
         BotPrompt(String systemPrompt, String userPrompt) {
-            this(systemPrompt, userPrompt, false, null);
+            this(systemPrompt, userPrompt, false, null, null, null);
+        }
+
+        BotPrompt(String systemPrompt, String userPrompt, boolean speak, String forbidden) {
+            this(systemPrompt, userPrompt, speak, forbidden, null, null);
         }
     }
 }

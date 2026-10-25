@@ -18,6 +18,7 @@ import java.net.URI;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Supplier;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -46,6 +47,9 @@ public final class BotRuntime {
     private final String botUserId;
     private final Difficulty difficulty;
     private final String botName;
+    /** Everyone's name at the table, looked up when the game starts. */
+    private Supplier<Mono<Map<String, String>>> names = Mono::empty;
+    private boolean namesAsked;
     private final String gameName;
     private final AgentBanter banter = new AgentBanter();
 
@@ -64,6 +68,11 @@ public final class BotRuntime {
         this.picker = picker;
         this.botUserId = botUserId;
         this.difficulty = difficulty;
+    }
+
+    /** Where to look up the table's names — the room's members. */
+    void names(Supplier<Mono<Map<String, String>>> names) {
+        this.names = names;
     }
 
     public void start() {
@@ -110,6 +119,7 @@ public final class BotRuntime {
                     }
 
                     Mono<Void> reaction = reactTo(type, payload, outbound);
+                    tellNames(type, payload);
 
                     Optional<GameBotAdapter.BotPrompt> prompt = adapter.onFrame(type, payload, botUserId, difficulty);
                     if (prompt.isEmpty()) {
@@ -173,6 +183,20 @@ public final class BotRuntime {
      * of the turn, which is exactly how its turns used to pass in silence.
      */
     private Mono<Void> describeAloud(GameBotAdapter.BotPrompt p, Sinks.Many<String> outbound) {
+        Duration beat = adapter.speechDelay();
+        if (adapter.speaksThroughActions() && !beat.isZero()) {
+            // Said on its own timer, like someone typing — the agent keeps
+            // following the game in the meantime rather than going deaf.
+            picker.pickMove(p.systemPrompt(), p.userPrompt(), difficulty)
+                    .map(raw -> cleanClue(raw, p.forbidden()))
+                    .onErrorReturn("")
+                    .defaultIfEmpty("")
+                    .map(line -> line.isBlank() ? cleanClue(adapter.fallbackSpeech(p), p.forbidden()) : line)
+                    .delayElement(beat)
+                    .subscribe(line -> adapter.speechAction(p, line, botUserId).ifPresent(a -> sendAction(outbound, a)),
+                            e -> log.debug("bot {} said nothing: {}", botUserId, e.toString()));
+            return Mono.empty();
+        }
         return picker.pickMove(p.systemPrompt(), p.userPrompt(), difficulty)
                 .map(raw -> cleanClue(raw, p.forbidden()))
                 .onErrorReturn("")
@@ -236,6 +260,15 @@ public final class BotRuntime {
             return "";
         }
         return line;
+    }
+
+    /** Once the game is under way, hand the adapter everyone's name. */
+    private void tellNames(String type, Map<String, Object> payload) {
+        boolean started = "EVENT".equals(type) && "GAME_STARTED".equals(payload.get("type"))
+                || "SNAPSHOT".equals(type) && Boolean.FALSE.equals(payload.get("lobby"));
+        if (!started || namesAsked) return;
+        namesAsked = true;
+        names.get().subscribe(adapter::playerNames, e -> log.debug("bot {} has no names: {}", botUserId, e.toString()));
     }
 
     private Mono<Void> maybeSay(Sinks.Many<String> outbound, String situation) {
