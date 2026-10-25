@@ -785,6 +785,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(calls.where((c) => c.contains('/bots {"name":"Cyber 1","difficulty":"medium"}')), hasLength(1));
     expect(find.textContaining('is playing'), findsNothing);
+
+    await tester.ensureVisible(find.byKey(const ValueKey('segment-hard')));
+    await tester.tap(find.byKey(const ValueKey('segment-hard')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const ValueKey('roster-add-agent')));
+    await tester.tap(find.byKey(const ValueKey('roster-add-agent')));
+    await tester.pumpAndSettle();
+    expect(calls.where((c) => c.contains('/bots {"name":"Cyber 1","difficulty":"hard"}')), hasLength(1));
   });
 
   testWidgets('Monopoly organiser can give up their seat and still open the game to start', (tester) async {

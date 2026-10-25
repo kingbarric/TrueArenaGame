@@ -1,11 +1,9 @@
 package app.truearena.api.bot;
 
 /**
- * Amateur/Pro/Legend from the player's perspective — Easy/Medium/Hard in
- * code. What actually changes per level is entirely up to the
- * {@link LlmMovePicker} implementation (a cheaper model and a bare prompt
- * for Easy, the strongest model and a fuller strategic prompt for Hard) —
- * nothing here dictates that, it's just the label threaded through.
+ * Rookie/Pro/Legend in the app; Easy/Medium/Hard on the wire. Local game
+ * strategies set their own evaluation, search budgets and legal randomness.
+ * Optional communication may also vary by level. These are not rated strengths.
  */
 public enum Difficulty {
     EASY, MEDIUM, HARD;

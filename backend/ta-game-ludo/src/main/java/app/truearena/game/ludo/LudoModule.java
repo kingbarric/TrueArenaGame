@@ -125,12 +125,32 @@ public final class LudoModule implements GameModule {
         // Clients cannot choose a value. Replaying a session yields the same dice.
         SplittableRandom random = new SplittableRandom(s.seed() ^ (0x9E3779B97F4A7C15L * (s.rollCount() + 1L)));
         List<Integer> rolled = List.of(random.nextInt(1, 7), random.nextInt(1, 7));
+        return applyRolledDice(s, action.actionId(), rolled);
+    }
+
+    /** Internal chance branch shared with bot search; clients still only have the seed-driven ROLL action. */
+    LudoState applyRolledDice(LudoState s, String actionId, List<Integer> rolled) {
+        if (!s.dice().isEmpty() || rolled.size() != 2 || rolled.stream().anyMatch(d -> d < 1 || d > 6))
+            throw new IllegalArgumentException("Invalid chance branch");
         // Keep both dice: a six can release a token and make the other die playable.
         boolean anyMove = rolled.stream().anyMatch(die -> hasMove(s, s.turnPlayer(), die));
         int bonus = rolled.get(0) == 6 && rolled.get(1) == 6 ? 1 : 0;
-        LudoState next = changed(s, action.actionId(), s.pieces(), s.turnIndex(), anyMove ? rolled : List.of(),
-                s.rollCount() + 1, bonus, null, "DICE_ROLLED", Map.of("player", action.actor(), "dice", rolled));
+        LudoState next = changed(s, actionId, s.pieces(), s.turnIndex(), anyMove ? rolled : List.of(),
+                s.rollCount() + 1, bonus, null, "DICE_ROLLED", Map.of("player", s.turnPlayer(), "dice", rolled));
         return anyMove ? next : finishDice(next);
+    }
+
+    List<PlayerAction> searchMoves(LudoState s) {
+        List<PlayerAction> moves = new ArrayList<>();
+        Set<String> equivalent = new HashSet<>();
+        for (int die : s.dice()) {
+            for (int token = 0; token < s.pieces().get(s.turnPlayer()).size(); token++) {
+                int progress = s.pieces().get(s.turnPlayer()).get(token);
+                if (legal(s, s.turnPlayer(), token, die) && equivalent.add(progress + ":" + die))
+                    moves.add(new PlayerAction("simulation", s.turnPlayer(), "MOVE", Map.of("token", token, "die", die)));
+            }
+        }
+        return moves;
     }
 
     private LudoState move(LudoState s, PlayerAction action) {

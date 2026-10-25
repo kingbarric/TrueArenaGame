@@ -26,6 +26,8 @@ with zipfile.ZipFile(sys.argv[1]) as archive:
     assert archive.testzip() is None, 'Corrupt runtime jar'
 PY
 cp backend/Dockerfile.runtime "$context/Dockerfile"
+cp -R backend/stockfish "$context/stockfish"
+cp -R backend/scan "$context/scan"
 docker build -q --label "org.opencontainers.image.revision=$revision" -t truearena-backend:test "$context"
 cd infra
 docker compose -f docker-compose.test.yml --env-file .env up -d --wait --wait-timeout 180

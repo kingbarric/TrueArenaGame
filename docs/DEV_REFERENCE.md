@@ -627,32 +627,58 @@ relays inbound frames to a `GameBotAdapter` and sends back the resulting
     development (`DraughtsBotAdapter` briefly decided moves off stale board
     state) — see the tests asserting a bare `PHASE` frame alone never
     produces a prompt.
-- **LLM calls go through `LlmMovePicker`** (swappable bean, `BotLlmConfig`).
-  `GroqMovePicker` (free tier, no card, at console.groq.com) is now wired in
-  and becomes the active bean automatically once `GROQ_API_KEY` is set
-  (`llama-3.1-8b-instant` for Easy/Medium, `llama-3.3-70b-versatile` for
-  Hard). Leaving it unset keeps `StubMovePicker` active — it always returns
-  `""`, routing every bot decision through `GameBotAdapter.fallbackAction`
-  (a random legal move) instead. This was deliberate: the whole pipeline —
-  bot creation, WS connection, auto-ready, turn detection, prompt building,
-  the parse-or-fallback path, sending the action, and the illegal-move
-  retry — was built and verified end-to-end with the stub (plus a manual
-  live run over real WS: a real human move handed the turn to a bot, which
-  replied with a legal move within milliseconds) *before* wiring in a real
-  model, so a bad/failed API call degrades to "plays randomly" rather than
-  stalling a game.
-- **Difficulty (Easy/Medium/Hard, shown to players as Amateur/Pro/Legend)**
-  is threaded through to the picker/prompt as a plain enum
-  (`app.truearena.api.bot.Difficulty`) — the intended design (not yet
-  exercised, since the stub never really calls a model) is a cheaper
-  model + bare prompt for Easy, and the strongest model + fuller strategic
-  prompt (multi-ply lookahead described in text) for Hard, rather than a
-  separate search engine per level.
-- **Mandatory-capture retry loop**: if the model (or its fallback) proposes
-  an illegal move, the server rejects it with a normal `RuleViolation` →
-  `ERROR` frame; `BotRuntime` catches that specifically and immediately
-  tries `fallbackAction` once more so a bad model response can never stall
-  the game.
+- **Gameplay is local for every registered game.** `BotRuntime` calls
+  `GameBotAdapter.decideLocally` on a worker thread, then sends ordinary,
+  server-validated actions. Chess uses Stockfish 19 through a bounded UCI process
+  pool, with its existing Java search as operational fallback; the server
+  validates returned moves. Both backend Dockerfiles bundle a checksum-pinned
+  official release, source and licence. See [Stockfish integration](STOCKFISH_INTEGRATION.md)
+  for configuration and `/actuator/info` status. Draughts uses Scan 3.1 for
+  International mode, validating complete capture paths through the reducer;
+  Optional capture and failures use local alpha-beta. Both named modes are
+  selectable before hosting; ranked games keep mandatory captures. Captured
+  squares remain blocked until the capture sequence ends, including in Dart
+  previews and reconnect state. See [Scan integration](SCAN_INTEGRATION.md).
+  Macala uses bounded alpha-beta over the real relay/Oware reducers. Ludo uses bounded expectimax
+  over the remaining dice and probability-weighted future rolls on Pro/Legend;
+  WHOT uses sampled-hand Monte Carlo rollouts and public discard memory on
+  those levels. Rookie keeps the immediate legal-action heuristics. See
+  [WHOT/Ludo search](WHOT_LUDO_BOT_SEARCH.md) for horizons, budgets and limits.
+  Huudpoly uses its purchase/trade/debt utility strategy. Traitors
+  uses public accusations, revealed votes/roles and participation plus its own
+  legitimate role knowledge. Word Bluff guesses from public clues using the
+  offline clue matcher and describes with the curated clue book.
+- **LLMs are optional communication only.** The legacy `LlmMovePicker` provider
+  interface remains, but neither its response parser nor model-generated move
+  JSON is used by the gameplay path. `BotLlmConfig` selects Gemini when
+  `GEMINI_API_KEY` is configured, otherwise Groq when `GROQ_API_KEY` is configured,
+  otherwise the silent stub. Missing keys change communication, never strategy.
+  Word Bluff clues remain verbatim curated text, not model rephrasings.
+- **Communication runs independently.** Each runtime has a bounded serial
+  dialogue queue (eight waiting messages) and a four-second generation timeout.
+  Slow/failed calls cannot block incoming game frames. Obsolete Traitors replies
+  are discarded after a phase change; Word Bluff follow-ups validate the current
+  word token. Stopping a runtime cancels queued dialogue and pending clue timers.
+  Speech contains only the information needed for that channel, never the bot's
+  private role or fellow-traitor list in public dialogue prompts.
+- **Difficulty (Easy/Medium/Hard, shown as Rookie/Pro/Legend)** controls local
+  heuristics, legal randomness and search budgets rather than outsourcing
+  strategy to a larger model. Draughts local fallback and Macala use depth 1/3/5 and nominal
+  30/100/250 ms budgets, with a shared search node cap. These are initial
+  settings, not calibrated skill ratings; playing-strength calibration remains
+  necessary. Optional communication still uses provider-specific model levels.
+  Word Bluff uses 1/2/8 clues of memory and a stricter match threshold on Easy.
+  Hard Traitors additionally weighs revealed-vote evidence; Medium uses simpler
+  public accusation/participation signals. The shared Add Cyber Agent sheet and
+  Huud roster expose a three-dot Rookie/Pro/Legend control, defaulting to Pro;
+  selection applies when the next agent is added.
+  Chess maps the three levels to Stockfish Skill Level 2/10/20, with a default
+  1500 ms search cap further bounded by the player's clock. Fallback retains
+  the corresponding Java engine difficulty. These settings are not Elo ratings.
+- **Rejected-action recovery:** a server `ERROR` after a submitted gameplay
+  action triggers at most one local fallback retry before fresh state is needed.
+  WHOT waits for the updated private snapshot before deciding, rather than
+  choosing a card from a stale hand on a public turn event.
 - **Runtime lifecycle**: a bot's `BotRuntime`
   doesn't survive a server restart (no reconnect-on-crash — same in-memory,
   single-pod scope as `RoomRuntime`/`RoomRuntimeRegistry`, see §7); a bot

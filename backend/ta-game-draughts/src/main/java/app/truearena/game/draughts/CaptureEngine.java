@@ -31,6 +31,11 @@ public final class CaptureEngine {
 
     /** Every single-jump capture available from `from` on the current board. */
     public static List<Landing> captureLandings(Piece[] board, int from) {
+        return captureLandings(board, from, 0L);
+    }
+
+    /** Captured pieces remain impassable until this turn's complete capture sequence ends. */
+    public static List<Landing> captureLandings(Piece[] board, int from, long capturedSquares) {
         Piece piece = board[from];
         List<Landing> out = new ArrayList<>();
         if (piece == null) {
@@ -38,40 +43,40 @@ public final class CaptureEngine {
         }
         for (int[] dir : Board.DIRECTIONS) {
             if (piece.isKing()) {
-                addKingCaptureLandings(board, from, dir, piece.side(), out);
+                addKingCaptureLandings(board, from, dir, piece.side(), capturedSquares, out);
             } else {
-                addManCaptureLanding(board, from, dir, piece.side(), out);
+                addManCaptureLanding(board, from, dir, piece.side(), capturedSquares, out);
             }
         }
         return out;
     }
 
-    private static void addManCaptureLanding(Piece[] board, int from, int[] dir, String side, List<Landing> out) {
+    private static void addManCaptureLanding(Piece[] board, int from, int[] dir, String side, long capturedSquares, List<Landing> out) {
         int adjacent = Board.step(from, dir[0], dir[1]);
-        if (adjacent < 0 || board[adjacent] == null || board[adjacent].side().equals(side)) {
+        if (adjacent < 0 || blocked(capturedSquares, adjacent) || board[adjacent] == null || board[adjacent].side().equals(side)) {
             return;
         }
         int landing = Board.step(adjacent, dir[0], dir[1]);
-        if (landing >= 0 && board[landing] == null) {
+        if (landing >= 0 && !blocked(capturedSquares, landing) && board[landing] == null) {
             out.add(new Landing(adjacent, landing));
         }
     }
 
-    private static void addKingCaptureLandings(Piece[] board, int from, int[] dir, String side, List<Landing> out) {
+    private static void addKingCaptureLandings(Piece[] board, int from, int[] dir, String side, long capturedSquares, List<Landing> out) {
         int cur = from;
         while (true) {
             cur = Board.step(cur, dir[0], dir[1]);
-            if (cur < 0 || board[cur] != null) {
+            if (cur < 0 || blocked(capturedSquares, cur) || board[cur] != null) {
                 break; // off board, or the first occupied square in this direction
             }
         }
-        if (cur < 0 || board[cur].side().equals(side)) {
+        if (cur < 0 || blocked(capturedSquares, cur) || board[cur].side().equals(side)) {
             return; // ran off the edge, or the blocker is our own piece — no capture this way
         }
         int captured = cur;
         // every empty square beyond the captured piece is a legal landing spot
         int landing = Board.step(captured, dir[0], dir[1]);
-        while (landing >= 0 && board[landing] == null) {
+        while (landing >= 0 && !blocked(capturedSquares, landing) && board[landing] == null) {
             out.add(new Landing(captured, landing));
             landing = Board.step(landing, dir[0], dir[1]);
         }
@@ -113,13 +118,19 @@ public final class CaptureEngine {
 
     /** Max total pieces capturable in one turn if this chain starts at `from`. 0 if none. */
     public static int maxCaptureCount(Piece[] board, int from) {
+        return maxCaptureCount(board, from, 0L);
+    }
+
+    public static int maxCaptureCount(Piece[] board, int from, long capturedSquares) {
         int best = 0;
-        for (Landing landing : captureLandings(board, from)) {
+        for (Landing landing : captureLandings(board, from, capturedSquares)) {
             Piece[] after = applyCapture(board, from, landing);
-            best = Math.max(best, 1 + maxCaptureCount(after, landing.to()));
+            best = Math.max(best, 1 + maxCaptureCount(after, landing.to(), capturedSquares | (1L << landing.captured())));
         }
         return best;
     }
+
+    private static boolean blocked(long mask, int square) { return (mask & (1L << square)) != 0; }
 
     /** The board-wide max capture count for `side` this turn — 0 means no capture is available. */
     public static int requiredCaptureCount(Piece[] board, String side) {

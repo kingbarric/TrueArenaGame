@@ -510,6 +510,7 @@ public final class ChessModule implements GameModule {
         m.put("board", boardSnapshot(p));
         m.put("inCheck", !s.finished() && p.inCheck());
         m.put("moves", s.sanMoves);
+        m.put("uciMoves", s.uciMoves); // Repetition-aware native-engine analysis; all chess moves are public.
         m.put("lastMove", s.lastMoveFrom == null ? null
                 : Map.of("from", Square.name(s.lastMoveFrom), "to", Square.name(s.lastMoveTo)));
         m.put("capturedByWhite", s.capturedByWhite);

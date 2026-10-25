@@ -4,6 +4,7 @@ import '../../core/api_client.dart';
 import '../../core/app_state.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/neon.dart';
+import '../../widgets/cyber_agent_difficulty.dart';
 import 'huud_kit.dart';
 import 'huud_space_models.dart';
 
@@ -41,6 +42,7 @@ class HuudRoster extends StatefulWidget {
 
 class _HuudRosterState extends State<HuudRoster> {
   String? _busy;
+  String _agentDifficulty = 'medium';
 
   String? get _me => AppScope.of(context).user?.id;
 
@@ -54,7 +56,7 @@ class _HuudRosterState extends State<HuudRoster> {
     } on ApiException catch (e) {
       if (mounted) huudSnack(context, e.message);
     } catch (_) {
-      if (mounted) huudSnack(context, "Error has occurred, try again later.");
+      if (mounted) huudSnack(context, 'Error has occurred, try again later.');
     } finally {
       if (mounted) setState(() => _busy = null);
     }
@@ -90,11 +92,11 @@ class _HuudRosterState extends State<HuudRoster> {
     await _run('p-${bot.userId}', (api) => api.delete('/rooms/${widget.roomId}/bots/${bot.userId}'));
   }
 
-  /// One tap, one agent: named Cyber 1, Cyber 2… at medium — no questions, no banner.
+  /// One tap seats an agent at the selected level, without opening another sheet.
   Future<void> _addAgent() async {
     final bots = widget.seated.where((s) => s.bot).length;
     await _run('agent',
-        (api) => api.post('/rooms/${widget.roomId}/bots', {'name': 'Cyber ${bots + 1}', 'difficulty': 'medium'}));
+        (api) => api.post('/rooms/${widget.roomId}/bots', {'name': 'Cyber ${bots + 1}', 'difficulty': _agentDifficulty}));
   }
 
   @override
@@ -220,7 +222,15 @@ class _HuudRosterState extends State<HuudRoster> {
           onTap: host ? () => _removeAgent(b) : null,
           busy: _busy == 'p-${b.userId}',
         ),
-      if (host && !full && !widget.tell)
+      if (host && !full && !widget.tell) ...[
+        const SizedBox(height: 8),
+        Text('BOT LEVEL',
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.5, color: n.mute)),
+        const SizedBox(height: 8),
+        CyberAgentDifficulty(
+          value: _agentDifficulty,
+          onChanged: _busy == null ? (value) => setState(() => _agentDifficulty = value) : null,
+        ),
         Padding(
           padding: const EdgeInsets.only(top: 4),
           child: HuudButton(
@@ -233,6 +243,7 @@ class _HuudRosterState extends State<HuudRoster> {
             onPressed: _addAgent,
           ),
         ),
+      ],
     ]);
   }
 }

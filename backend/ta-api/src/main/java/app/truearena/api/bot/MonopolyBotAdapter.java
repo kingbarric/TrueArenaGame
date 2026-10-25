@@ -58,6 +58,13 @@ public final class MonopolyBotAdapter implements GameBotAdapter {
         return choices.stream().max(Comparator.comparingDouble(this::score)).map(c -> action(botId, c));
     }
 
+    @Override public Optional<PlayerAction> decideLocally(String botId, Difficulty difficulty) {
+        if (!botId.equals(actor) || choices.isEmpty()) return Optional.empty();
+        level = difficulty;
+        // Never randomise forced debt settlement or bankruptcy ahead of a solvent action.
+        return Optional.of(action(botId, choices.stream().max(Comparator.comparingDouble(this::score)).orElseThrow()));
+    }
+
     @SuppressWarnings("unchecked")
     private PlayerAction action(String id, Map<String, Object> c) {
         return PlayerAction.of(id, (String) c.get("action"), (Map<String, Object>) c.get("data"));
@@ -72,7 +79,7 @@ public final class MonopolyBotAdapter implements GameBotAdapter {
         Map<?, ?> deed = board(number(data.get("property")));
         return switch (kind) {
             case "PAY_DEBT" -> 1000;
-            case "BANKRUPT" -> 900;
+            case "BANKRUPT" -> -10000; // Exhaust legal ways to raise cash before conceding.
             case "USE_JAIL_CARD" -> 200;
             case "PAY_JAIL" -> cash >= reserve + 50 ? 150 : 5;
             case "ROLL" -> 100;

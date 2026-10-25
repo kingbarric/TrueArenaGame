@@ -48,6 +48,7 @@ public final class WordBluffBotAdapter implements GameBotAdapter {
     private boolean textMode;
     private int wordIndex;
     private String pendingClue;
+    private Difficulty level = Difficulty.MEDIUM;
     private int pendingGuessIndex;
     private final List<String> clueHistory = new ArrayList<>();
 
@@ -62,6 +63,7 @@ public final class WordBluffBotAdapter implements GameBotAdapter {
     @Override
     @SuppressWarnings("unchecked")
     public synchronized Optional<BotPrompt> onFrame(String frameType, Map<String, Object> payload, String botUserId, Difficulty difficulty) {
+        level = difficulty;
         switch (frameType) {
             case "SNAPSHOT" -> applySnapshot(payload);
             case "EVENT" -> applyEvent((Map<String, Object>) payload.getOrDefault("data", Map.of()),
@@ -146,7 +148,7 @@ public final class WordBluffBotAdapter implements GameBotAdapter {
                 system,
                 "The word is \"%s\" (category: %s). Describe it.".formatted(word, category),
                 true,
-                word));
+                word, Map.of("wordIndex", wordIndex)));
     }
 
     @SuppressWarnings("unchecked")
@@ -301,7 +303,9 @@ public final class WordBluffBotAdapter implements GameBotAdapter {
     @Override
     public synchronized Optional<PlayerAction> fallbackAction(String botUserId) {
         if (pendingClue != null) {
-            var offline = WordBluffTextHints.guess(String.join(" ", clueHistory), category);
+            int memory = level == Difficulty.EASY ? 1 : level == Difficulty.MEDIUM ? 2 : 8;
+            List<String> clues = clueHistory.subList(Math.max(0, clueHistory.size() - memory), clueHistory.size());
+            var offline = WordBluffTextHints.guess(String.join(" ", clues), category, level == Difficulty.EASY ? 3 : 2);
             pendingClue = null;
             if (offline.isPresent()) return Optional.of(PlayerAction.of(botUserId, "TEXT_GUESS",
                     Map.of("text", offline.get(), "wordIndex", pendingGuessIndex)));
@@ -311,7 +315,18 @@ public final class WordBluffBotAdapter implements GameBotAdapter {
         return currentDeterministicAction(botUserId);
     }
 
+    @Override public synchronized Optional<PlayerAction> decideLocally(String botUserId, Difficulty difficulty) {
+        level = difficulty;
+        return fallbackAction(botUserId);
+    }
+
     @Override public boolean speaksThroughActions() { return textMode; }
+    @Override public boolean usesModelForSpeech() { return false; }
+
+    @Override public synchronized boolean speechIsCurrent(BotPrompt prompt) {
+        return !finished && "Turn".equals(phase) && word != null && word.equals(prompt.forbidden())
+                && (!prompt.context().containsKey("wordIndex") || prompt.context().get("wordIndex").equals(wordIndex));
+    }
 
     @Override public synchronized Optional<PlayerAction> speechAction(BotPrompt p, String text, String botUserId) {
         if (!"Turn".equals(phase) || !botUserId.equals(describer)

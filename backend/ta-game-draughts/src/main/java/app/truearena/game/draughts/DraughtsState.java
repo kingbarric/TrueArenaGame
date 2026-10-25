@@ -38,6 +38,7 @@ public final class DraughtsState implements GameState {
     /** How many captures this turn must total before it can end; 0 = no capture forced. */
     final int requiredCaptureCount;
     final int capturedSoFarThisTurn;
+    final long capturedSquares;
 
     final DraughtsConfig config;
     final Set<String> appliedActionIds;
@@ -68,6 +69,7 @@ public final class DraughtsState implements GameState {
         this.activeSquare = d.activeSquare;
         this.requiredCaptureCount = d.requiredCaptureCount;
         this.capturedSoFarThisTurn = d.capturedSoFarThisTurn;
+        this.capturedSquares = d.capturedSquares;
         this.config = d.config;
         this.appliedActionIds = Set.copyOf(d.appliedActionIds);
         this.events = List.copyOf(d.events);
@@ -130,6 +132,7 @@ public final class DraughtsState implements GameState {
         Integer activeSquare;
         int requiredCaptureCount;
         int capturedSoFarThisTurn;
+        long capturedSquares;
         DraughtsConfig config;
         Set<String> appliedActionIds = new LinkedHashSet<>();
         List<GameEvent> events = new ArrayList<>();
@@ -157,6 +160,7 @@ public final class DraughtsState implements GameState {
             this.activeSquare = s.activeSquare;
             this.requiredCaptureCount = s.requiredCaptureCount;
             this.capturedSoFarThisTurn = s.capturedSoFarThisTurn;
+            this.capturedSquares = s.capturedSquares;
             this.config = s.config;
             this.appliedActionIds = new LinkedHashSet<>(s.appliedActionIds);
             this.events = new ArrayList<>(s.events);

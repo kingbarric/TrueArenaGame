@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -52,6 +53,11 @@ public final class TrueArenaBotAdapter implements GameBotAdapter {
     private final List<String> discussion = new ArrayList<>();
     private int discussionReplies;
     private String speechChannel;
+    private int speechEpoch;
+    private final Map<String, Double> suspicion = new HashMap<>();
+    private final Map<String, Double> voteEvidence = new HashMap<>();
+    private final Map<String, Integer> participation = new HashMap<>();
+    private final Map<String, String> revealedVotes = new HashMap<>();
 
     @Override
     public String gameType() {
@@ -70,14 +76,7 @@ public final class TrueArenaBotAdapter implements GameBotAdapter {
             // GameOrchestrator.afterMutation). Track it, but decide only once an
             // EVENT (or a fresh SNAPSHOT) confirms we're caught up.
             case "PHASE" -> {
-                String newPhase = String.valueOf(payload.get("phase"));
-                if (!newPhase.equals(phase)) {
-                    actedInPhase = null;
-                    discussionReplies = 0;
-                    speechChannel = null;
-                    if ("RoundTable".equals(newPhase)) discussion.clear();
-                }
-                phase = newPhase;
+                setPhase(String.valueOf(payload.get("phase")));
                 return Optional.empty();
             }
             default -> { /* ERROR and anything else: nothing to update here */ }
@@ -92,13 +91,14 @@ public final class TrueArenaBotAdapter implements GameBotAdapter {
             return Optional.of(new BotPrompt(
                     "You are a Traitors player starting the public discussion. Ask one short question about "
                     + "who seems suspicious. Do not reveal hidden roles or invent evidence.",
-                    "Living players: " + alive, true, null));
+                    "Living players: " + alive, true, null, Map.of("channel", speechChannel, "epoch", speechEpoch)));
         }
         if ("EVENT".equals(frameType) && "CHAT_MESSAGE".equals(payload.get("type"))) {
             Map<String, Object> data = (Map<String, Object>) payload.getOrDefault("data", Map.of());
             String channel = String.valueOf(data.get("channel"));
             String from = String.valueOf(data.get("from"));
             if ("table".equals(channel)) {
+                participation.merge(from, 1, Integer::sum);
                 discussion.add(from + ": " + data.get("text"));
                 if (discussion.size() > 12) discussion.remove(0);
             }
@@ -114,7 +114,7 @@ public final class TrueArenaBotAdapter implements GameBotAdapter {
                         + "Use one short sentence to discuss suspicion, ask a question or defend yourself. "
                         + "Never claim you saw hidden roles. Never disclose private information at the public table.",
                         "Channel: " + channel + "\nPlayer says: " + data.get("text")
-                                + "\nPublic discussion: " + discussion, true, null));
+                                + "\nPublic discussion: " + discussion, true, null, Map.of("channel", speechChannel, "epoch", speechEpoch)));
             }
         }
         if (phase.equals(actedInPhase)) return Optional.empty();
@@ -140,7 +140,7 @@ public final class TrueArenaBotAdapter implements GameBotAdapter {
     @SuppressWarnings("unchecked")
     private void applySnapshot(Map<String, Object> p) {
         Object ph = p.get("phase");
-        if (ph != null) phase = String.valueOf(ph);
+        if (ph != null) setPhase(String.valueOf(ph));
         Object al = p.get("alive");
         if (al instanceof List<?> list) {
             alive.clear();
@@ -173,7 +173,18 @@ public final class TrueArenaBotAdapter implements GameBotAdapter {
                 if (ids instanceof List<?> list) for (Object o : list) fellowTraitors.add(String.valueOf(o));
             }
             case "RECRUITED_AS_TRAITOR" -> myRole = RECRUITED;
-            case "PLAYER_ELIMINATED" -> alive.remove(String.valueOf(data.get("id")));
+            case "VOTE_REVEALED" -> revealedVotes.put(String.valueOf(data.get("voter")), String.valueOf(data.get("target")));
+            case "PUBLIC_ACCUSATION" -> suspicion.merge(String.valueOf(data.get("accused")), 1.0, Double::sum);
+            case "PLAYER_ELIMINATED" -> {
+                String eliminated = String.valueOf(data.get("id"));
+                alive.remove(eliminated);
+                if (Boolean.TRUE.equals(data.get("roleShown"))) {
+                    boolean traitor = TRAITOR.equals(data.get("role")) || RECRUITED.equals(data.get("role"));
+                    revealedVotes.forEach((voter, target) -> {
+                        if (target.equals(eliminated)) voteEvidence.merge(voter, traitor ? -3.0 : 2.0, Double::sum);
+                    });
+                }
+            }
             case "GAME_OVER" -> finished = true;
             default -> { /* NIGHT_FALLS, MORNING_REVEAL, MICS_FORCE_MUTED etc. carry nothing this bot needs to track */ }
         }
@@ -208,16 +219,49 @@ public final class TrueArenaBotAdapter implements GameBotAdapter {
     @Override public boolean speaksThroughActions() { return true; }
 
     @Override public String fallbackSpeech(BotPrompt prompt) {
-        return "traitors".equals(speechChannel)
+        return "traitors".equals(prompt.context().get("channel"))
                 ? "Who should we choose tonight? Let's agree on one target."
                 : "What makes you suspicious of them? Let's hear their explanation before voting.";
     }
 
+    @Override public boolean speechIsCurrent(BotPrompt prompt) {
+        return !finished && prompt.context().get("epoch") instanceof Integer epoch && epoch == speechEpoch
+                && ("RoundTable".equals(phase) || (isTraitor() && "Night".equals(phase)));
+    }
+
     @Override public Optional<PlayerAction> speechAction(BotPrompt prompt, String text, String botUserId) {
-        String channel = speechChannel;
-        speechChannel = null;
-        if (text.isBlank() || channel == null || !alive.contains(botUserId)) return Optional.empty();
+        if (!speechIsCurrent(prompt) || text.isBlank() || !alive.contains(botUserId)) return Optional.empty();
+        String channel = String.valueOf(prompt.context().get("channel"));
+        if ("traitors".equals(channel) && !isTraitor()) return Optional.empty();
         return Optional.of(PlayerAction.of(botUserId, "CHAT_SEND", Map.of("channel", channel, "text", text)));
+    }
+
+    private void setPhase(String next) {
+        if (!next.equals(phase)) {
+            speechEpoch++;
+            actedInPhase = null;
+            discussionReplies = 0;
+            speechChannel = null;
+            if ("RoundTable".equals(next)) discussion.clear();
+        }
+        phase = next;
+    }
+
+    @Override public Optional<PlayerAction> decideLocally(String botId, Difficulty level) {
+        if (finished || !alive.contains(botId) || !("Vote".equals(phase) || "Night".equals(phase))) return Optional.empty();
+        if ("Night".equals(phase) && !isTraitor()) return Optional.empty();
+        List<String> candidates = alive.stream().filter(id -> !id.equals(botId))
+                .filter(id -> !isTraitor() || !isFellowTraitor(id)).toList();
+        if (candidates.isEmpty()) return Optional.empty();
+        String target = BotChoices.choose(candidates, level, id -> {
+            if (level == Difficulty.EASY) return 0;
+            double evidence = suspicion.getOrDefault(id, 0.0)
+                    + (level == Difficulty.HARD ? voteEvidence.getOrDefault(id, 0.0) : 0);
+            if ("Night".equals(phase)) return participation.getOrDefault(id, 0) * 8
+                    - (level == Difficulty.HARD ? evidence * 4 : 0);
+            return evidence * 10;
+        });
+        return Optional.of(PlayerAction.of(botId, "Night".equals(phase) ? "NIGHT_TARGET" : "CAST_VOTE", Map.of("target", target)));
     }
 
     private BotPrompt votePrompt(List<String> targets, Difficulty difficulty) {
@@ -254,7 +298,8 @@ public final class TrueArenaBotAdapter implements GameBotAdapter {
 
     @Override
     public Optional<PlayerAction> fallbackAction(String botUserId) {
-        if ("Night".equals(phase)) {
+        if (finished || !alive.contains(botUserId)) return Optional.empty();
+        if ("Night".equals(phase) && isTraitor()) {
             List<String> candidates = alive.stream().filter(id -> !isFellowTraitor(id) && !id.equals(botUserId)).toList();
             if (candidates.isEmpty()) {
                 return Optional.empty();

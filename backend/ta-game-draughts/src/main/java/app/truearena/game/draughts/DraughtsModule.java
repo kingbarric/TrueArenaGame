@@ -81,6 +81,7 @@ public final class DraughtsModule implements GameModule {
                 "playerA", d.playerA,
                 "playerB", d.playerB,
                 "board", boardSnapshot(d.board),
+                "mandatoryCapture", config.mandatoryCapture(),
                 "turnSeconds", config.turnSeconds()));
         return d.build();
     }
@@ -193,7 +194,7 @@ public final class DraughtsModule implements GameModule {
         int requiredTotal = d.requiredCaptureCount;
         if (requiredTotal > 0) {
             captureMove(d, side, from, to, requiredTotal);
-        } else if (isCaptureLanding(d.board, from, to)) {
+        } else if (d.activeSquare != null || isCaptureLanding(d.board, from, to, d.capturedSquares)) {
             // Captures aren't forced in this room, so this one was a choice
             // — but having chosen it, the sequence still has to be finished.
             optionalCaptureMove(d, side, from, to);
@@ -257,6 +258,7 @@ public final class DraughtsModule implements GameModule {
         d.round = s.undoRound;
         d.activeSquare = null;
         d.capturedSoFarThisTurn = 0;
+        d.capturedSquares = 0;
         d.pendingDrawOffer = null;
         // One step back only — no undoing the undo, or going further.
         d.undoBoard = null;
@@ -267,18 +269,20 @@ public final class DraughtsModule implements GameModule {
     }
 
     private void captureMove(DraughtsState.Draft d, String side, int from, int to, int requiredTotal) {
-        CaptureEngine.Landing chosen = CaptureEngine.captureLandings(d.board, from).stream()
+        CaptureEngine.Landing chosen = CaptureEngine.captureLandings(d.board, from, d.capturedSquares).stream()
                 .filter(l -> l.to() == to)
                 .findFirst()
                 .orElseThrow(() -> new RuleViolation("MUST_CAPTURE", "a capture is available and mandatory"));
 
         Piece[] afterBoard = CaptureEngine.applyCapture(d.board, from, chosen);
         int remainingNeeded = requiredTotal - d.capturedSoFarThisTurn;
-        int additionalAvailable = CaptureEngine.maxCaptureCount(afterBoard, to);
+        long capturedSquares = d.capturedSquares | (1L << chosen.captured());
+        int additionalAvailable = CaptureEngine.maxCaptureCount(afterBoard, to, capturedSquares);
         require(1 + additionalAvailable == remainingNeeded, "MUST_TAKE_MAXIMUM",
                 "you must play the capture sequence that takes the most pieces");
 
         d.board = afterBoard;
+        d.capturedSquares = capturedSquares;
         d.capturedSoFarThisTurn++;
         d.emit("PIECE_CAPTURED", Map.of("from", from, "to", to, "captured", chosen.captured(), "side", side));
 
@@ -289,8 +293,8 @@ public final class DraughtsModule implements GameModule {
         }
     }
 
-    private static boolean isCaptureLanding(Piece[] board, int from, int to) {
-        return CaptureEngine.captureLandings(board, from).stream().anyMatch(l -> l.to() == to);
+    private static boolean isCaptureLanding(Piece[] board, int from, int to, long capturedSquares) {
+        return CaptureEngine.captureLandings(board, from, capturedSquares).stream().anyMatch(l -> l.to() == to);
     }
 
     /**
@@ -299,15 +303,16 @@ public final class DraughtsModule implements GameModule {
      * what stops a chain being abandoned half way for advantage.
      */
     private void optionalCaptureMove(DraughtsState.Draft d, String side, int from, int to) {
-        CaptureEngine.Landing chosen = CaptureEngine.captureLandings(d.board, from).stream()
+        CaptureEngine.Landing chosen = CaptureEngine.captureLandings(d.board, from, d.capturedSquares).stream()
                 .filter(l -> l.to() == to)
                 .findFirst()
                 .orElseThrow(() -> new RuleViolation("ILLEGAL_MOVE", "not a legal capture"));
 
         d.board = CaptureEngine.applyCapture(d.board, from, chosen);
+        d.capturedSquares |= 1L << chosen.captured();
         d.emit("PIECE_CAPTURED", Map.of("from", from, "to", to, "captured", chosen.captured(), "side", side));
 
-        if (CaptureEngine.maxCaptureCount(d.board, to) > 0) {
+        if (!CaptureEngine.captureLandings(d.board, to, d.capturedSquares).isEmpty()) {
             d.activeSquare = to; // still taking — same piece, keep going
         } else {
             endTurn(d, side, to);
@@ -334,6 +339,7 @@ public final class DraughtsModule implements GameModule {
         }
         d.activeSquare = null;
         d.capturedSoFarThisTurn = 0;
+        d.capturedSquares = 0;
         // Remember this turn so its player can ask to take it back.
         d.undoBoard = d.turnStartBoard;
         d.undoRequired = d.turnStartRequired;
@@ -423,6 +429,9 @@ public final class DraughtsModule implements GameModule {
         m.put("turnSide", s.turnSide());
         m.put("board", boardSnapshot(s.board));
         m.put("activeSquare", s.activeSquare);
+        m.put("capturedSquares", java.util.stream.IntStream.range(0, Board.SIZE)
+                .filter(square -> (s.capturedSquares & (1L << square)) != 0).boxed().toList());
+        m.put("remainingCaptures", Math.max(0, s.requiredCaptureCount - s.capturedSoFarThisTurn));
         m.put("mustCapture", s.requiredCaptureCount > 0);
         m.put("mandatoryCapture", s.config.mandatoryCapture());
         m.put("pendingDrawOffer", s.pendingDrawOffer);
@@ -445,14 +454,15 @@ public final class DraughtsModule implements GameModule {
         if (s.activeSquare != null && s.requiredCaptureCount == 0) {
             // Mid-chain in an optional-capture room: any continuing jump goes.
             out.put(String.valueOf(s.activeSquare),
-                    CaptureEngine.captureLandings(s.board, s.activeSquare).stream()
+                    CaptureEngine.captureLandings(s.board, s.activeSquare, s.capturedSquares).stream()
                             .map(CaptureEngine.Landing::to)
                             .toList());
             return out;
         }
         if (s.activeSquare != null) {
-            List<Integer> landings = CaptureEngine.captureLandings(s.board, s.activeSquare).stream()
-                    .filter(l -> 1 + CaptureEngine.maxCaptureCount(CaptureEngine.applyCapture(s.board, s.activeSquare, l), l.to())
+            List<Integer> landings = CaptureEngine.captureLandings(s.board, s.activeSquare, s.capturedSquares).stream()
+                    .filter(l -> 1 + CaptureEngine.maxCaptureCount(CaptureEngine.applyCapture(s.board, s.activeSquare, l), l.to(),
+                            s.capturedSquares | (1L << l.captured()))
                             == s.requiredCaptureCount - s.capturedSoFarThisTurn)
                     .map(CaptureEngine.Landing::to)
                     .toList();
@@ -468,7 +478,7 @@ public final class DraughtsModule implements GameModule {
             List<Integer> dest;
             if (s.requiredCaptureCount > 0) {
                 dest = CaptureEngine.captureLandings(s.board, from).stream()
-                        .filter(l -> 1 + CaptureEngine.maxCaptureCount(CaptureEngine.applyCapture(s.board, from, l), l.to())
+                        .filter(l -> 1 + CaptureEngine.maxCaptureCount(CaptureEngine.applyCapture(s.board, from, l), l.to(), 1L << l.captured())
                                 == s.requiredCaptureCount)
                         .map(CaptureEngine.Landing::to)
                         .toList();

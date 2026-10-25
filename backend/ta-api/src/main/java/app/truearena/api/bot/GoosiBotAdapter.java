@@ -1,6 +1,7 @@
 package app.truearena.api.bot;
 
 import app.truearena.engine.PlayerAction;
+import app.truearena.game.goosi.GoosiBotSearch;
 
 import java.security.SecureRandom;
 import java.util.ArrayList;
@@ -27,6 +28,8 @@ public final class GoosiBotAdapter implements GameBotAdapter {
     private String phase = "TurnP0";
     private String mode = "relay";
     private boolean finished;
+    private boolean paused;
+    private final Map<String, Integer> scores = new java.util.HashMap<>();
 
     @Override
     public String gameType() {
@@ -49,7 +52,9 @@ public final class GoosiBotAdapter implements GameBotAdapter {
             }
             default -> { /* ERROR and anything else: nothing to update here */ }
         }
-        if (finished || players.isEmpty()) {
+        if ("EVENT".equals(frameType) && !List.of("GAME_STARTED", "TURN_STARTED", "GAME_RESUMED")
+                .contains(String.valueOf(payload.get("type")))) return Optional.empty();
+        if (paused || finished || players.isEmpty()) {
             return Optional.empty();
         }
         int myIndex = players.indexOf(botUserId);
@@ -66,6 +71,9 @@ public final class GoosiBotAdapter implements GameBotAdapter {
     private void applySnapshot(Map<String, Object> p) {
         Object ph = p.get("phase");
         if (ph != null) phase = String.valueOf(ph);
+        finished = "Results".equals(phase);
+        paused = Boolean.TRUE.equals(p.get("paused"));
+        applyScores(p);
         Object rawMode = p.get("mode");
         if (rawMode != null) mode = String.valueOf(rawMode);
         Object pl = p.get("players");
@@ -93,6 +101,7 @@ public final class GoosiBotAdapter implements GameBotAdapter {
 
     @SuppressWarnings("unchecked")
     private void applyEvent(Map<String, Object> data, String type) {
+        applyScores(data);
         switch (type) {
             case "GAME_STARTED" -> {
                 Object rawMode = data.get("mode");
@@ -130,6 +139,8 @@ public final class GoosiBotAdapter implements GameBotAdapter {
                 }
             }
             case "GAME_OVER" -> finished = true;
+            case "GAME_PAUSED" -> paused = true;
+            case "GAME_RESUMED" -> paused = false;
             default -> { /* TURN_STARTED carries nothing this bot needs beyond the PHASE frame */ }
         }
     }
@@ -213,11 +224,27 @@ public final class GoosiBotAdapter implements GameBotAdapter {
 
     @Override
     public Optional<PlayerAction> fallbackAction(String botUserId) {
+        if (finished || paused || !players.contains(botUserId)) return Optional.empty();
         List<Integer> legal = legalPits(botUserId);
         if (legal.isEmpty()) {
             return Optional.empty();
         }
         int pit = legal.get(RNG.nextInt(legal.size()));
         return Optional.of(PlayerAction.of(botUserId, "SOW", Map.of("pit", pit)));
+    }
+
+    @Override public Optional<PlayerAction> decideLocally(String botUserId, Difficulty level) {
+        if (finished || paused || !players.contains(botUserId)
+                || !("TurnP" + players.indexOf(botUserId)).equals(phase)) return Optional.empty();
+        if (level == Difficulty.EASY && RNG.nextInt(4) == 0) return fallbackAction(botUserId);
+        int depth = level == Difficulty.EASY ? 1 : level == Difficulty.MEDIUM ? 3 : 5;
+        long millis = level == Difficulty.EASY ? 30 : level == Difficulty.MEDIUM ? 100 : 250;
+        return GoosiBotSearch.choose(pits, owner, players, scores, mode, botUserId, depth, millis);
+    }
+
+    private void applyScores(Map<String, Object> payload) {
+        if (payload.get("scores") instanceof Map<?, ?> values) values.forEach((id, value) -> {
+            if (value instanceof Number n) scores.put(String.valueOf(id), n.intValue());
+        });
     }
 }

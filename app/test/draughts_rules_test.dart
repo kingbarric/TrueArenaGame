@@ -7,6 +7,19 @@ import 'package:truearena/features/draughts/draughts_rules.dart';
 void main() {
   List<String?> emptyBoard() => List<String?>.filled(boardSize, null);
 
+  test('a captured piece blocks a king reversing across it in the same turn', () {
+    final board = emptyBoard();
+    final king = squareOf(4, 5), victim = squareOf(3, 4);
+    board[king] = 'A_KING';
+    board[victim] = 'B_MAN';
+    board[squareOf(5, 6)] = 'B_MAN';
+    expect(maxCaptureCount(board, king), 1);
+    final to = squareOf(2, 3);
+    final after = applyCaptureTo(board, king, Landing(victim, to));
+    expect(captureLandings(after, to), isNotEmpty);
+    expect(captureLandings(after, to, capturedSquares: {victim}), isEmpty);
+  });
+
   test('exactly 50 playable squares', () {
     var count = 0;
     for (var row = 0; row < 10; row++) {

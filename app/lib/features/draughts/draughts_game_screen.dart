@@ -222,6 +222,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
   /// nothing, and swallowed every tap until the turn timer ran out.
   int _turnRequired = 0;
   int _capturedSoFar = 0;
+  Set<int> _capturedSquares = {};
 
   /// The destinations the server published in the last snapshot, used
   /// verbatim while they're still current. This is what makes reconnecting
@@ -238,7 +239,14 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
     final server = _serverLegal;
     if (server != null) return server[from] ?? const <int>[];
     if (_remainingRequired > 0) {
-      return legalDestinationsFrom(board, from, _remainingRequired);
+      return legalDestinationsFrom(board, from, _remainingRequired,
+          capturedSquares: _capturedSquares);
+    }
+    if (activeSquare != null) {
+      return from == activeSquare
+          ? captureLandings(board, from, capturedSquares: _capturedSquares)
+              .map((l) => l.to).toList()
+          : const [];
     }
     final open = List<int>.of(simpleLandings(board, from));
     // With captures optional, a jump is simply one more move on offer.
@@ -253,24 +261,27 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
   /// rather than kept as a parallel copy, so it can't drift out of step with
   /// the real board; a chain that no longer fits (a snapshot landed while it
   /// was being built) collapses back to nothing chosen.
-  (List<String?>, int)? _simulated() {
+  (List<String?>, int, Set<int>)? _simulated() {
     final origin = _selected;
     if (origin == null) return null;
     var b = board;
     var head = origin;
+    final capturedSquares = {..._capturedSquares};
     for (final to in _chain) {
       final landings =
-          captureLandings(b, head).where((l) => l.to == to).toList();
+          captureLandings(b, head, capturedSquares: capturedSquares)
+              .where((l) => l.to == to).toList();
       if (landings.isNotEmpty) {
         b = applyCaptureTo(b, head, landings.first);
+        capturedSquares.add(landings.first.captured);
       } else if (simpleLandings(b, head).contains(to)) {
         b = applySimpleMoveTo(b, head, to);
       } else {
-        return (board, origin);
+        return (board, origin, {..._capturedSquares});
       }
       head = to;
     }
-    return (b, head);
+    return (b, head, capturedSquares);
   }
 
   /// How many captures the sequence still owes. The server only accepts one
@@ -282,7 +293,8 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
   bool get _chainIsCapture =>
       _chain.isNotEmpty &&
       _selected != null &&
-      captureLandings(board, _selected!).any((l) => l.to == _chain.first);
+      captureLandings(board, _selected!, capturedSquares: _capturedSquares)
+          .any((l) => l.to == _chain.first);
 
   bool get _chainComplete {
     if (_chain.isEmpty) return false;
@@ -296,19 +308,21 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
   List<int> _nextSteps() {
     final sim = _simulated();
     if (sim == null) return const [];
-    final (b, head) = sim;
+    final (b, head, capturedSquares) = sim;
     if (_remainingRequired == 0) {
       if (_chain.isEmpty) return _destinationsFrom(head);
       // A jump you chose must be played out; an ordinary move is one step.
       if (!_chainIsCapture) return const [];
-      return captureLandings(b, head).map((l) => l.to).toList();
+      return captureLandings(b, head, capturedSquares: capturedSquares)
+          .map((l) => l.to).toList();
     }
     if (_chainRemaining <= 0) return const [];
     // First jump: the server already published exactly what it will accept.
     if (_chain.isEmpty) return _destinationsFrom(head);
-    return captureLandings(b, head)
+    return captureLandings(b, head, capturedSquares: capturedSquares)
         .where((l) =>
-            1 + maxCaptureCount(applyCaptureTo(b, head, l), l.to) ==
+            1 + maxCaptureCount(applyCaptureTo(b, head, l), l.to,
+                    capturedSquares: {...capturedSquares, l.captured}) ==
             _chainRemaining)
         .map((l) => l.to)
         .toList();
@@ -322,6 +336,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
   /// Recomputed only when the board is settled between turns, which is the
   /// one moment a board-wide scan gives the right answer.
   void _beginTurnFor(String side) {
+    _capturedSquares = {};
     // Nothing is owed when the room doesn't force captures.
     _turnRequired = _mandatoryCapture ? requiredCaptureCount(board, side) : 0;
     _capturedSoFar = 0;
@@ -376,6 +391,8 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
         _syncCapturedFromBoard();
       }
       activeSquare = p['activeSquare'] as int?;
+      _capturedSquares = (p['capturedSquares'] as List? ?? const [])
+          .whereType<int>().toSet();
       // The server publishes the legal destinations it will actually accept.
       // Prefer them over anything computed here — they're the authority, and
       // they already account for a capture chain in progress.
@@ -388,7 +405,12 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
                     .map((v) => v as int)
                     .toList(),
             };
-      _turnRequired = requiredCaptureCount(board, turnSide);
+      _mandatoryCapture = p['mandatoryCapture'] as bool? ?? _mandatoryCapture;
+      _turnRequired = _mandatoryCapture
+          ? (p['remainingCaptures'] as int? ??
+              (activeSquare == null ? requiredCaptureCount(board, turnSide)
+                  : maxCaptureCount(board, activeSquare!, capturedSquares: _capturedSquares)))
+          : 0;
       _capturedSoFar = 0;
       _paused = p['paused'] as bool? ?? _paused;
       final left = p['secondsLeft'] as int?;
@@ -585,6 +607,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
                 animate: true));
           }
           _capturedSoFar++;
+          _capturedSquares.add(captured);
           _serverLegal = null; // the board has moved on past that snapshot
           // Taking sounds like a reward; being taken sounds like a loss.
           if ((data['side'] as String?) == mySide) {

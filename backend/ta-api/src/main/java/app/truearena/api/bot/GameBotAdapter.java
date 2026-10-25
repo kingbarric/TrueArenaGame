@@ -4,6 +4,7 @@ import app.truearena.engine.PlayerAction;
 
 import java.util.Map;
 import java.util.Optional;
+import java.time.Duration;
 
 /**
  * The only per-game piece of the whole bot system — {@link BotRuntime} knows
@@ -21,26 +22,25 @@ public interface GameBotAdapter {
 
     /**
      * Feed one inbound WS frame (`type` is "SNAPSHOT"/"EVENT"/"PHASE"/"ERROR",
-     * `payload` its raw payload map). Returns a prompt to send to the model
+     * `payload` its raw payload map). Returns a turn marker (or a communication prompt)
      * if — after applying this frame — it's now this bot's turn to act;
      * empty otherwise (including: it's not this bot's game yet, the game
      * already ended, or it's the other player's turn).
      */
     Optional<BotPrompt> onFrame(String frameType, Map<String, Object> payload, String botUserId, Difficulty difficulty);
 
-    /** Turns the model's raw text response into a concrete action, or empty if it couldn't be parsed as one. */
+    /** Legacy response parser, retained for compatibility tests. The runtime never uses it for gameplay. */
     Optional<PlayerAction> parseAction(String rawResponse, String botUserId);
 
-    /** A safe, always-legal move for when the model fails, times out, or is a stub — the game must never stall on a bot. */
+    /** A safe local move if the normal strategy cannot produce an action — the game must never stall on a bot. */
     Optional<PlayerAction> fallbackAction(String botUserId);
 
     /**
-     * True for games with a real engine of their own (chess): the runtime
-     * calls {@link #decideLocally} instead of asking a model, on a worker
-     * thread since searching takes real CPU time.
+     * All supported games decide locally. The runtime never sends gameplay
+     * prompts to the communication model.
      */
     default boolean decidesLocally() {
-        return false;
+        return true;
     }
 
     /**
@@ -49,8 +49,11 @@ public interface GameBotAdapter {
      * it knows how much clock it can spend.
      */
     default Optional<PlayerAction> decideLocally(String botUserId, Difficulty difficulty) {
-        return Optional.empty();
+        return fallbackAction(botUserId);
     }
+
+    /** Brief cosmetic pacing, independent of model latency. Clock-aware engines can override it. */
+    default Duration actionDelay() { return Duration.ofMillis(400); }
 
     default boolean speaksThroughActions() { return false; }
 
@@ -59,6 +62,12 @@ public interface GameBotAdapter {
     }
 
     default String fallbackSpeech(BotPrompt prompt) { return ""; }
+
+    /** Word puzzles use their curated clue verbatim; arbitrary rephrasing changes the puzzle. */
+    default boolean usesModelForSpeech() { return true; }
+
+    /** Checked before submitting asynchronous speech; adapters can reject obsolete contexts. */
+    default boolean speechIsCurrent(BotPrompt prompt) { return true; }
 
     /**
      * After the agent's said a clue through {@link #speechAction}: which
@@ -78,8 +87,9 @@ public interface GameBotAdapter {
     /**
      * What to ask the model for.
      *
-     * <p>Usually the answer is a move, parsed by {@link #parseAction}. When
-     * {@code speak} is set the answer is something the agent says out loud
+     * <p>Only markers with {@code speak} set may reach the communication model.
+     * Other prompt text is legacy diagnostic context, never a model request.
+     * With {@code speak} set the answer is something the agent says out loud
      * instead — a Word Bluff describer's clue — which the runtime posts to
      * the table and then follows with {@link #fallbackAction} once the
      * table has had a moment with it.
@@ -88,7 +98,11 @@ public interface GameBotAdapter {
      * spoken answer. Saying it would hand the round away, so the runtime
      * drops any line containing it rather than trusting the model.
      */
-    record BotPrompt(String systemPrompt, String userPrompt, boolean speak, String forbidden) {
+    record BotPrompt(String systemPrompt, String userPrompt, boolean speak, String forbidden,
+                     Map<String, Object> context) {
+        BotPrompt(String systemPrompt, String userPrompt, boolean speak, String forbidden) {
+            this(systemPrompt, userPrompt, speak, forbidden, Map.of());
+        }
         BotPrompt(String systemPrompt, String userPrompt) {
             this(systemPrompt, userPrompt, false, null);
         }

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/neon_theme.dart';
 import 'neon.dart';
-import 'neon_form.dart';
+import 'cyber_agent_difficulty.dart';
 
 /// Room-scoped choices for one reusable system Cyber Agent.
 class AgentChoice {
@@ -78,12 +78,7 @@ class _AddCyberAgentSheetState extends State<AddCyberAgentSheet> {
                     .labelSmall
                     ?.copyWith(color: n.mute, letterSpacing: 2)),
             const SizedBox(height: 8),
-            NeonSegmented<String>(
-              options: const [
-                SegOption('easy', 'Amateur'),
-                SegOption('medium', 'Pro'),
-                SegOption('hard', 'Legend'),
-              ],
+            CyberAgentDifficulty(
               value: _difficulty,
               onChanged: (value) => setState(() => _difficulty = value),
             ),

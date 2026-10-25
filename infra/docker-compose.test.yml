@@ -78,7 +78,10 @@ services:
       APP_ENV: test
       SPRING_PROFILES_ACTIVE: test
       PORT: 8080
-      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=75
+      # Native engine memory is outside the Java heap; leave room within the 1 GB container.
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=40
+      STOCKFISH_PROCESSES: 1
+      SCAN_PROCESSES: 1
       R2DBC_URL: r2dbc:postgresql://test-postgres:5432/truearena
       JDBC_URL: jdbc:postgresql://test-postgres:5432/truearena
       DB_USERNAME: truearena
