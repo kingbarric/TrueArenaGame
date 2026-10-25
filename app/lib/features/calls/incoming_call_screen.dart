@@ -1,3 +1,4 @@
+import '../../core/api_client.dart' show userRetryMessage;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -10,6 +11,7 @@ import '../../core/call_ringer.dart';
 import '../../core/e2e_crypto.dart';
 import '../../widgets/neon.dart';
 import 'call_screen.dart';
+import '../../widgets/huud_art.dart';
 
 /// Shows a ringing screen whenever a friend calls, wherever you are in the
 /// app. Fed by the inbox socket (`CALL_INCOMING` / `CALL_CANCELLED`) while
@@ -57,7 +59,7 @@ class IncomingCalls {
                 } catch (_) {
                   if (ctx.mounted)
                     ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
-                        content: Text('Error has occurred, try again later.')));
+                        content: Text(userRetryMessage)));
                 }
               }),
         ));
@@ -76,7 +78,7 @@ class IncomingCalls {
     final ctx = TrueArenaApp.navigatorKey.currentContext;
     if (ctx == null || !ctx.mounted) return;
     ScaffoldMessenger.maybeOf(ctx)?.showSnackBar(SnackBar(
-      content: Text('👋 $fromName nudged you — they want you to play!'),
+      content: HuudText('👋 $fromName nudged you — they want you to play!'),
       duration: const Duration(seconds: 4),
     ));
   }
@@ -222,7 +224,7 @@ class _IncomingCallScreenState extends State<IncomingCallScreen>
       if (!mounted) return;
       setState(() {
         _answering = false;
-        _status = 'Error has occurred, try again later.';
+        _status = userRetryMessage;
       });
     }
   }

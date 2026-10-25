@@ -1,0 +1,5 @@
+
+# Keep third-party and generated graphics code separate in source reviews.
+app/vendor/flutter_inappwebview_android/** linguist-vendored whitespace=-trailing-space,-blank-at-eof
+app/assets/slay_renderer/index.html linguist-generated whitespace=-trailing-space
+app/assets/slay_renderer/basis/** linguist-vendored

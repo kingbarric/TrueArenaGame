@@ -90,6 +90,10 @@ public class GameOrchestrator {
 
     private static final Logger log = LoggerFactory.getLogger(GameOrchestrator.class);
     private static final Duration LOCK_TTL = Duration.ofSeconds(10);
+    /** What one tap of the Traitors host's "+2 min" adds to the running clock. */
+    static final int EXTEND_SECONDS = 120;
+    /** The longest a Traitors host's pause holds before the clock starts again by itself. */
+    Duration hostPauseLimit = Duration.ofMinutes(10);
 
     private final RoomRuntimeRegistry registry;
     private final RoomLock lock;
@@ -169,7 +173,7 @@ public class GameOrchestrator {
         }
         return parsed.flatMap(a -> members.findByRoomIdAndUserId(a.roomId(), UUID.fromString(a.userId()))
                 .map(m -> a)
-                // Monopoly's organiser may deliberately give their seat to another player.
+                // Huudpoly's organiser may deliberately give their seat to another player.
                 // Only that room's host can keep the control socket without a game seat.
                 .switchIfEmpty(Mono.defer(() -> rooms.findById(a.roomId())
                         .filter(room -> "monopoly".equals(room.gameType())
@@ -214,7 +218,7 @@ public class GameOrchestrator {
                 })
                 .switchIfEmpty(Mono.defer(() -> monopolyStore.returnInterruptedToSetup(room.id())
                         .then(eventLog.clear(room.id()))
-                        .doOnSuccess(ignored -> log.info("Monopoly room {} returned to setup: pre-checkpoint runtime was interrupted", room.id()))
+                        .doOnSuccess(ignored -> log.info("Huudpoly room {} returned to setup: pre-checkpoint runtime was interrupted", room.id()))
                         .thenReturn(rt)))
                 .flatMap(recovered -> members.findByRoomId(room.id())
                         .filter(member -> member.botDifficulty() != null)
@@ -335,6 +339,7 @@ public class GameOrchestrator {
     }
 
     public Mono<Void> handleFrame(RoomRuntime rt, String userId, String text, boolean spectator) {
+        if (rt.retired) return Mono.empty();
         Envelope in;
         try {
             in = mapper.readValue(text, Envelope.class);
@@ -357,6 +362,7 @@ public class GameOrchestrator {
                 case PLAYER_ACTION -> handlePlayerAction(rt, userId, in);
                 case CHAT_SEND -> handleChat(rt, userId, in, spectator);
                 case PAUSE_TOGGLE -> handlePauseToggle(rt, userId);
+                case HOST_CONTROL -> handleHostControl(rt, userId, in);
                 case MUTE_SPECTATORS_TOGGLE -> handleMuteSpectatorsToggle(rt, userId);
                 case SPECTATOR_VOICE_REQUEST -> handleSpectatorVoiceRequest(rt, userId, spectator);
                 case SPECTATOR_VOICE_APPROVE -> handleSpectatorVoiceApprove(rt, userId, in);
@@ -404,7 +410,7 @@ public class GameOrchestrator {
                     .doOnNext(status -> rt.tellUser(userId, Envelope.of(MessageType.EVENT,
                             Map.of("type", "RECONNECT_WAIT", "data", status)))).then();
         }
-        // Monopoly clients render authoritative snapshots, rather than reducing
+        // Huudpoly clients render authoritative snapshots, rather than reducing
         // economic events. Reopen/reconnect must refresh the complete board.
         if ("monopoly".equals(rt.module().gameType())) {
             sendSnapshot(rt, userId);
@@ -503,6 +509,7 @@ public class GameOrchestrator {
         // spectator) immediately knows the room is paused and how many are watching.
         view.put("paused", rt.paused);
         view.put("secondsLeft", secondsLeft(rt));
+        if (rt.paused && rt.pauseLimitDeadlineMs > 0) view.put("pauseResumesInSeconds", pauseSecondsLeft(rt));
         // Millisecond precision for per-player clocks, where the final seconds matter.
         liveClockMs(rt).ifPresent(ms -> view.put("clockMsLeft", ms));
         view.put("spectatorCount", rt.spectatorUserIds.size());
@@ -612,7 +619,7 @@ public class GameOrchestrator {
     }
 
     private Mono<Void> togglePause(RoomRuntime rt, String userId) {
-        if (rt.started() && "monopoly".equals(rt.module().gameType()) && monopolyStore != null)
+        if (rt.started() && ("monopoly".equals(rt.module().gameType()) && monopolyStore != null || hostRunsClock(rt)))
             return lock.withLock(rt.roomId, LOCK_TTL, () -> togglePauseLocked(rt, userId));
         return togglePauseLocked(rt, userId);
     }
@@ -624,17 +631,27 @@ public class GameOrchestrator {
         if (!rt.connectedUserIds.contains(userId)) {
             return tellError(rt, userId, "SPECTATORS_CANT_PAUSE", "only players can pause the game");
         }
+        // A Traitors pause is the moderator's call: in a player's hands it would
+        // let a Traitor stop the clock on a vote that was about to catch them.
+        if (hostRunsClock(rt) && !userId.equals(rt.hostUserId)) {
+            return tellError(rt, userId, "NOT_HOST", "only the host can pause the clock");
+        }
         rt.paused = !rt.paused;
         if (rt.paused) {
             freezeTimer(rt);
         } else {
             thawTimer(rt);
         }
+        if (hostRunsClock(rt)) {
+            if (rt.paused) armPauseLimit(rt);
+            else rt.cancelPauseLimit();
+        }
         // Per-player clocks freeze with the timer (they're the same deadline),
         // and carry the exact figure so both screens stop on the same tenth.
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("by", userId);
         data.put("secondsLeft", secondsLeft(rt));
+        if (rt.paused && rt.pauseLimitDeadlineMs > 0) data.put("resumesInSeconds", pauseSecondsLeft(rt));
         liveClockMs(rt).ifPresent(ms -> data.put("clockMsLeft", ms));
         Mono<Void> persist = monopolyStore == null ? Mono.empty() : monopolyStore.save(rt);
         return persist.doOnSuccess(ignored -> {
@@ -644,6 +661,102 @@ public class GameOrchestrator {
                 broadcastSpectatorState(rt);
             }
         });
+    }
+
+    /**
+     * Games whose host is a moderator who paces the table — Traitors. Only that
+     * host may pause or add time there; every other game keeps its
+     * either-player pause and has no extend control.
+     */
+    private static boolean hostRunsClock(RoomRuntime rt) {
+        return rt.started() && TrueArenaModule.GAME_TYPE.equals(rt.module().gameType());
+    }
+
+    /**
+     * A host's pause holds for {@link #hostPauseLimit} and then lets the clock go
+     * again — a host who pauses and walks away would otherwise leave the whole
+     * table stuck. Pausing again starts a fresh limit.
+     */
+    private void armPauseLimit(RoomRuntime rt) {
+        rt.cancelPauseLimit();
+        rt.pauseLimitDeadlineMs = System.currentTimeMillis() + hostPauseLimit.toMillis();
+        rt.pauseLimit = Mono.delay(hostPauseLimit).subscribe(x -> pauseLimitReached(rt));
+    }
+
+    private void pauseLimitReached(RoomRuntime rt) {
+        lock.withLock(rt.roomId, LOCK_TTL, () -> {
+            // Cleared, not disposed: this is the subscription that's running.
+            rt.pauseLimit = null;
+            rt.pauseLimitDeadlineMs = 0;
+            if (!rt.paused || !rt.started() || rt.state().finished()) return Mono.empty();
+            rt.paused = false;
+            thawTimer(rt);
+            rt.bus.tryEmitNext(new LobbyBroadcast("GAME_RESUMED",
+                    Map.of("reason", "pause_limit", "secondsLeft", secondsLeft(rt))));
+            return Mono.empty();
+        }).subscribe(v -> { }, e -> log.warn("pause limit failed for room {}: {}", rt.roomId, e.toString()));
+    }
+
+    private int pauseSecondsLeft(RoomRuntime rt) {
+        long ms = rt.pauseLimitDeadlineMs - System.currentTimeMillis();
+        return (int) Math.max(0, Math.round(ms / 1000.0));
+    }
+
+    /**
+     * Moderator controls that aren't moves in the game. {@code EXTEND_TIMER}
+     * gives the table {@link #EXTEND_SECONDS} more on the clock — the host
+     * wants the conversation to run on. The amount is the server's, not the
+     * client's, so a crafted frame can't add an hour.
+     */
+    private Mono<Void> handleHostControl(RoomRuntime rt, String userId, Envelope in) {
+        Object cmd = in.payload().get("cmd");
+        if (!"EXTEND_TIMER".equals(cmd)) {
+            return tellError(rt, userId, "UNSUPPORTED", "unknown host control");
+        }
+        if (!rt.started() || rt.state().finished()) {
+            return tellError(rt, userId, "NOT_STARTED", "there's no game running");
+        }
+        if (!hostRunsClock(rt)) {
+            return tellError(rt, userId, "UNSUPPORTED", "this game's clock can't be extended");
+        }
+        if (rt.tournament) return tellError(rt, userId, "TOURNAMENT_CLOCK", "the tournament controls the game clock");
+        if (!userId.equals(rt.hostUserId)) {
+            return tellError(rt, userId, "NOT_HOST", "only the host can add time");
+        }
+        return lock.withLock(rt.roomId, LOCK_TTL, () -> {
+            if (!extendTimer(rt, EXTEND_SECONDS * 1000L)) {
+                return tellError(rt, userId, "NO_CLOCK", "there's no clock running to add time to");
+            }
+            rt.bus.tryEmitNext(new LobbyBroadcast("TIMER_EXTENDED", Map.of("by", userId,
+                    "addedSeconds", EXTEND_SECONDS, "secondsLeft", secondsLeft(rt), "paused", rt.paused)));
+            return Mono.empty();
+        });
+    }
+
+    /**
+     * Adds time to the phase clock — the running one, or the banked remainder
+     * while paused. False when the phase has no clock to add to.
+     */
+    private boolean extendTimer(RoomRuntime rt, long ms) {
+        String phase = rt.state().phase();
+        boolean timed = rt.module().definePhases(rt.config).stream()
+                .anyMatch(p -> p.name().equals(phase) && p.timed());
+        if (!timed) return false;
+        if (rt.paused) {
+            rt.timerRemainingMs = Math.max(0, rt.timerRemainingMs) + ms;
+            return true;
+        }
+        if (rt.timerDeadlineMs <= 0) return false;
+        int round = rt.state().round();
+        long remaining = Math.max(0, rt.timerDeadlineMs - System.currentTimeMillis()) + ms;
+        rt.cancelTimer();
+        // Same phase, same round: put the bookkeeping back so rescheduleTimer
+        // doesn't mistake this for a new phase and restart it from full.
+        rt.timerForPhase = phase;
+        rt.timerForRound = round;
+        rt.timerDeadlineMs = System.currentTimeMillis() + remaining;
+        rt.timer = Mono.delay(Duration.ofMillis(remaining)).subscribe(x -> triggerElapse(rt, phase, round));
+        return true;
     }
 
     /**
@@ -830,6 +943,7 @@ public class GameOrchestrator {
                         case "goosi" -> startGoosi(rt, userId, playerIds);
                         case "whot" -> startWhot(rt, userId, playerIds);
                         case "ludo" -> startLudo(rt, userId, playerIds, options);
+                        case "slayhuud" -> tellError(rt,userId,"SLAY_STUDIO","Start this challenge from the SlayHuud runway screen");
                         case "monopoly" -> startMonopoly(rt, userId, playerIds);
                         default -> startTrueArena(rt, userId, playerIds, t.getT1().gameConfig());
                     };
@@ -914,7 +1028,8 @@ public class GameOrchestrator {
             // Missing rules use the casual default. An explicit true keeps
             // compulsory captures available for hosts who choose them.
             boolean mandatory = Boolean.TRUE.equals(raw.get("mandatoryCapture"));
-            return new DraughtsConfig(turnSeconds, mandatory);
+            boolean seizure = Boolean.TRUE.equals(raw.get("seizure"));
+            return new DraughtsConfig(turnSeconds, mandatory, seizure);
         } catch (Exception e) {
             log.warn("unreadable draughts config, using defaults: {}", e.toString());
             return DraughtsConfig.defaults();
@@ -1251,7 +1366,8 @@ public class GameOrchestrator {
             } catch (Exception e) {
                 raw = Map.of();
             }
-            int storedPieces = raw.get("twoPlayerPieces") instanceof Number n ? n.intValue() : 4;
+            // A Huud starts Ludo without asking: two players get eight pieces each.
+            int storedPieces = raw.get("twoPlayerPieces") instanceof Number n ? n.intValue() : 8;
             int chosenPieces = playerIds.size() == 2
                     ? requested instanceof Number n ? n.intValue() : storedPieces
                     : 4;
@@ -1259,7 +1375,7 @@ public class GameOrchestrator {
             try {
                 return new LudoConfig(turnSeconds, chosenPieces);
             } catch (IllegalArgumentException e) {
-                return new LudoConfig(60, requested instanceof Number n ? n.intValue() : 4);
+                return new LudoConfig(60, requested instanceof Number n ? n.intValue() : 8);
             }
         }).defaultIfEmpty(LudoConfig.defaults()).flatMap(cfg -> {
             LudoModule module = new LudoModule();
@@ -1360,6 +1476,7 @@ public class GameOrchestrator {
     }
 
     private Mono<Void> handlePlayerAction(RoomRuntime rt, String userId, Envelope in) {
+        if (rt.retired) return Mono.empty();
         if (!rt.started()) {
             return tellError(rt, userId, "NOT_STARTED", "this huud hasn't started a game yet");
         }
@@ -1388,6 +1505,7 @@ public class GameOrchestrator {
         }
 
         return lock.withLock(rt.roomId, LOCK_TTL, () -> {
+            if (rt.retired) return Mono.empty();
             if (rt.paused && rt.state() instanceof MonopolyState && !"FORFEIT".equals(action))
                 return tellError(rt, userId, "GAME_PAUSED", "the game is paused — resume it to move");
             GameRunner runner = new GameRunner(rt.module());
@@ -1483,6 +1601,7 @@ public class GameOrchestrator {
     // ---------------------------------------------------------------- shared post-mutation pipeline
 
     private Mono<Void> afterMutation(RoomRuntime rt, List<GameEvent> newEvents) {
+        if (rt.retired) return Mono.empty();
         recomputeRoles(rt);
         Mono<Void> appendAndBroadcast = Flux.fromIterable(newEvents)
                 .concatMap(ge -> eventLog.append(rt.roomId, writeJson(ge)).doOnSuccess(v -> rt.bus.tryEmitNext(ge)))
@@ -1673,13 +1792,11 @@ public class GameOrchestrator {
         Mono<Void> endRoom = updateRoomStatus(rt.roomId, "ended");
         Mono<Void> stats = win == null ? Mono.empty() : updateStats(rt, win.perPlayerOutcome());
         Mono<Void> coinRewards = win == null ? Mono.empty() : awardCoins(rt, win.perPlayerOutcome());
-        Mono<Void> stakePayout = win == null ? Mono.empty()
-                : rooms.findById(rt.roomId).flatMap(room -> payoutStake(room, win.perPlayerOutcome())).then();
         Mono<Void> tournament = championships == null || win == null ? Mono.empty()
                 : championships.gameFinished(rt.roomId, rt.gameSessionId, win.perPlayerOutcome());
         Mono<Void> competitive = win == null ? Mono.empty() : recordCompetitive(rt, win);
         return saveResult.then(flushEvents).then(endSession).then(endRoom).then(stats).then(coinRewards)
-                .then(stakePayout).then(tournament).then(competitive).then(releaseAgents(rt.roomId));
+                .then(tournament).then(competitive).then(releaseAgents(rt.roomId));
     }
 
     /**
@@ -1717,118 +1834,17 @@ public class GameOrchestrator {
                 .then();
     }
 
-    /**
-     * The staked pot (stake × player count) splits evenly among winners —
-     * "won" and "tied" both count as a winner here (a module reports "tied"
-     * for a genuine joint win, e.g. Goosi's shared high score or an agreed
-     * Draughts draw). A no-op
-     * for an unstaked room ({@code stakeCoins == 0}), and never blocks or
-     * undoes the participation-coin rewards above if it fails.
-     */
-    private Mono<Void> payoutStake(RoomRow room, Map<String, String> perPlayerOutcome) {
-        if (room.stakeCoins() <= 0) {
-            return Mono.empty();
-        }
-        List<String> winners = perPlayerOutcome.entrySet().stream()
-                .filter(e -> "won".equals(e.getValue()) || "tied".equals(e.getValue()))
-                .map(Map.Entry::getKey)
-                .toList();
-        if (winners.isEmpty()) {
-            return Mono.empty();
-        }
-        long pot = room.stakeCoins() * perPlayerOutcome.size();
-        long share = pot / winners.size();
-        long remainder = pot - share * winners.size(); // integer-division leftover — first winner gets the odd coin, nothing is lost
-        return Flux.fromIterable(winners)
-                .index()
-                .flatMap(t -> {
-                    UUID userId;
-                    try {
-                        userId = UUID.fromString(t.getT2());
-                    } catch (IllegalArgumentException ex) {
-                        return Mono.empty();
-                    }
-                    long amount = share + (t.getT1() == 0 ? remainder : 0);
-                    if (amount <= 0) {
-                        return Mono.empty();
-                    }
-                    return coins.credit(userId, amount, CoinService.REASON_MATCH_STAKE_PAYOUT, room.id())
-                            .onErrorResume(err -> {
-                                log.warn("stake payout failed for user {} in room {}: {}", userId, room.id(), err.toString());
-                                return Mono.empty();
-                            });
-                })
-                .then();
-    }
+    @org.springframework.beans.factory.annotation.Autowired
+    private app.truearena.api.coins.MatchRewardService matchRewards;
 
-    /**
-     * A flat participation/result reward, generic across every game type —
-     * built straight off {@code WinResult.perPlayerOutcome()} (every module
-     * produces this the same shape) rather than {@code roleRows}, which is
-     * TrueArena-specific and empty for Draughts/Word Bluff/Goosi. Best-
-     * effort per player: one payout failing (e.g. a bot's row, or any
-     * transient error) never undoes the result/session writes above, and
-     * never blocks the others.
-     */
-    /**
-     * Pays out at the end of a match — but only a match against another
-     * person. Cyber Agents are a free, always-available shared pool (see
-     * {@code BotService}), so a match against one pays nothing at all, win
-     * or lose: any positive payout there would make grinding the nearest
-     * free agent a zero-cost, zero-risk way to mint coins. See the class
-     * doc on {@link CoinService}. Agents themselves are never paid either —
-     * they have nothing to spend it on, and a bot's balance would only
-     * muddy the ledger.
-     *
-     * <p>Each player is told what they earned (zero, against an agent) so
-     * the results screen can show it, rather than the number quietly
-     * changing — or conspicuously not changing — in their wallet.
-     */
     private Mono<Void> awardCoins(RoomRuntime rt, Map<String, String> perPlayerOutcome) {
-        List<UUID> ids = perPlayerOutcome.keySet().stream()
-                .map(GameOrchestrator::parseUuid)
-                .filter(Objects::nonNull)
-                .toList();
-        if (ids.isEmpty()) {
-            return Mono.empty();
-        }
-        return Flux.fromIterable(ids)
-                .concatMap(users::findById)
-                .collectList()
-                .flatMapMany(rows -> {
-                    boolean vsAgent = rows.stream().anyMatch(UserRow::isBot);
-                    return Flux.fromIterable(rows)
-                            .filter(u -> !u.isBot())
-                            .concatMap(u -> {
-                                if (vsAgent) {
-                                    rt.tellUser(u.id().toString(), Envelope.of(MessageType.EVENT, Map.of(
-                                            "type", "COINS_AWARDED",
-                                            "data", Map.of("amount", 0L, "vsAgent", true))));
-                                    return Mono.<Void>empty();
-                                }
-                                String outcome = perPlayerOutcome.getOrDefault(u.id().toString(), "lost");
-                                long amount = switch (outcome) {
-                                    case "won" -> CoinService.WIN_VS_PERSON;
-                                    case "tied" -> CoinService.TIE_VS_PERSON;
-                                    default -> CoinService.LOSS_VS_PERSON;
-                                };
-                                String reason = switch (outcome) {
-                                    case "won" -> CoinService.REASON_MATCH_WIN;
-                                    case "tied" -> CoinService.REASON_MATCH_TIE;
-                                    default -> CoinService.REASON_MATCH_LOSS;
-                                };
-                                return coins.credit(u.id(), amount, reason, null)
-                                        .doOnSuccess(balance -> rt.tellUser(u.id().toString(),
-                                                Envelope.of(MessageType.EVENT, Map.of(
-                                                        "type", "COINS_AWARDED",
-                                                        "data", Map.of("amount", amount, "vsAgent", false)))))
-                                        .onErrorResume(err -> {
-                                            log.warn("coin reward failed for user {}: {}", u.id(), err.toString());
-                                            return Mono.empty();
-                                        });
-                            });
-                })
-                .then();
+        return matchRewards.award(rt.gameSessionId)
+                .doOnNext(reward -> rt.tellUser(reward.userId().toString(),
+                        Envelope.of(MessageType.EVENT, Map.of("type", "COINS_AWARDED", "data", reward))))
+                .then().onErrorResume(error -> {
+                    log.warn("match rewards pending for session {}: {}", rt.gameSessionId, error.toString());
+                    return Mono.empty();
+                });
     }
 
     private static UUID parseUuid(String raw) {

@@ -63,6 +63,21 @@ class DraughtsBotAdapterTest {
         assertThat(calls).hasValue(1);
     }
 
+    @Test void seizureRemovesThePieceAndTheBotContinuesItsTurn() {
+        List<Object> board = new ArrayList<>(java.util.Collections.nCopies(50, null));
+        board.set(15, "A_MAN"); board.set(30, "B_KING"); board.set(40, "B_MAN");
+        var adapter = new DraughtsBotAdapter();
+        adapter.onFrame("SNAPSHOT", Map.of("phase", "TurnA", "playerA", PLAYER_A, "playerB", PLAYER_B,
+                "board", board, "mandatoryCapture", false, "seizure", true, "seizable", List.of(30)), PLAYER_A, Difficulty.EASY);
+        var action = adapter.decideLocally(PLAYER_A, Difficulty.EASY).orElseThrow();
+        assertThat(action.type()).isEqualTo("SEIZE");
+        assertThat(action.data()).containsEntry("square", 30);
+        var prompt = adapter.onFrame("EVENT", eventEnvelope("PIECE_SEIZED",
+                Map.of("square", 30, "side", "B", "by", PLAYER_A)), PLAYER_A, Difficulty.EASY).orElseThrow();
+        assertThat(prompt.userPrompt()).contains("30:empty");
+        assertThat(adapter.decideLocally(PLAYER_A, Difficulty.EASY).orElseThrow().type()).isEqualTo("MOVE");
+    }
+
     private static final String PLAYER_A = "alice";
     private static final String PLAYER_B = "bot-1";
 

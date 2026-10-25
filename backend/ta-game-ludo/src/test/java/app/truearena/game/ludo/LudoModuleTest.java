@@ -16,9 +16,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class LudoModuleTest {
     private final LudoModule module = new LudoModule();
 
+    /** Four pieces each, so the rule tests read the same at every table size. */
     private LudoState start(int players) {
         return (LudoState) module.initialState(List.of("red", "green", "yellow", "blue").subList(0, players),
-                LudoConfig.defaults(), RandomSource.seeded(41));
+                new LudoConfig(60, 4), RandomSource.seeded(41));
     }
 
     private LudoState state(LudoState base, Map<String, List<Integer>> pieces, List<Integer> dice) {
@@ -35,6 +36,16 @@ class LudoModuleTest {
         assertThat(module.broadcastState(start(3)).data().get("seats")).isEqualTo(List.of(0, 1, 2));
         assertThat(module.broadcastState(start(4)).data().get("seats")).isEqualTo(List.of(0, 1, 2, 3));
         assertThatThrownBy(() -> start(1)).isInstanceOf(RuleViolation.class);
+    }
+
+    @Test void twoPlayersGetEightPiecesEachUnlessTheyChooseFour() {
+        LudoState two = (LudoState) module.initialState(List.of("red", "yellow"), LudoConfig.defaults(),
+                RandomSource.seeded(41));
+        assertThat(two.pieces().get("red")).hasSize(8);
+        assertThat(two.pieces().get("yellow")).hasSize(8);
+        LudoState four = (LudoState) module.initialState(List.of("red", "green", "yellow", "blue"),
+                LudoConfig.defaults(), RandomSource.seeded(41));
+        assertThat(four.pieces().get("red")).hasSize(4);
     }
 
     @Test void twoPlayersMayChooseEightPiecesWhileLargerTablesUseFour() {

@@ -1,3 +1,4 @@
+import '../../core/share_origin.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:flutter_contacts/flutter_contacts.dart' as fc show PermissionStatus;
@@ -163,6 +164,7 @@ class _InviteContactsScreenState extends State<InviteContactsScreen> {
     Share.share(
       'Hey ${c.name.split(' ').first}, come play on PlayHuud with me! 🎲',
       subject: 'Join me on PlayHuud',
+      sharePositionOrigin: shareOrigin(context),
     );
   }
 

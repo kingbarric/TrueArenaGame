@@ -709,10 +709,17 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     await _completeSignIn(AuthTokens.fromJson(res));
   }
 
-  Future<void> signOut() async {
-    await HangoutState.instance.leave?.call();
-    if (HangoutState.instance.active) return;
-    if (onSignedOut != null) await onSignedOut!(); // before api.bearer is cleared below
+  Future<void> signOut({bool accountDeleted = false}) async {
+    if (accountDeleted) {
+      try { await HangoutState.instance.room?.disconnect(); } catch (_) {}
+      HangoutState.instance.clear();
+    } else {
+      await HangoutState.instance.leave?.call();
+      if (HangoutState.instance.active) return;
+    }
+    if (onSignedOut != null) {
+      try { await onSignedOut!(); } catch (_) { if (!accountDeleted) rethrow; }
+    }
     try {
       await _googleClient?.signOut();
     } catch (_) {
@@ -738,6 +745,18 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     await _deleteSessionSecret(_kRefresh, prefs);
     await prefs.remove(_kCachedUser);
     notifyListeners();
+  }
+
+  Future<void> deleteAccount(Map<String, dynamic> confirmation) async {
+    await api.delete('/me/account', confirmation);
+    await signOut(accountDeleted: true);
+    try { await E2eCrypto.forgetKeyPair(); } catch (_) {}
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kAvatarImage);
+    await prefs.remove(_kAvatarEmoji);
+    avatarImagePath = null;
+    avatarEmoji = null;
+    api.deviceId = await DeviceId.rotate();
   }
 
   @override

@@ -54,7 +54,7 @@
 
 <main class="wrap">
   <h1>Privacy Policy</h1>
-  <p class="updated">Last updated: 2 October 2026</p>
+  <p class="updated">Last updated: 18 October 2026</p>
 
   <p>PlayHuud (the "app") is developed and operated by Eric Baridule Barima ("we", "us"). This policy explains what information PlayHuud collects, how it's used, and the choices you have. It covers the PlayHuud app on iOS and Android and the services it talks to at playhuud.com.</p>
 
@@ -69,20 +69,25 @@
 
   <h2>Finding friends from your contacts</h2>
   <p>If you choose to use "Invite from contacts," PlayHuud asks your device for permission to read your contacts. This is entirely optional and only requested when you tap that feature.</p>
-  <p>When you use it, we send the phone numbers from your contact list (never names) to our server over an encrypted connection, purely to check which of them already have a PlayHuud account. We don't keep a copy of the phone numbers you searched with — we only return the matches. Any contact that isn't a PlayHuud user never leaves your device.</p>
+  <p>When you use it, we send the phone numbers from your contact list (never names) to our server over an encrypted connection to check which numbers match PlayHuud accounts. This includes numbers that do not match an account. We do not retain the submitted number list after processing the request. Your friend relationships are stored so you can connect and play together.</p>
+
+  <h2>Profiles, photos and gameplay</h2>
+  <p>We store the profile photo you upload, posts and other content you share, game participation, results, ratings, achievements and virtual coin history. If you choose a country, region or city for your competitive profile, we store that approximate location to provide rankings and the profile information you choose to display. We do not request precise device location for these features.</p>
+  <p>Public posts and live Huud previews can be visible to other users. Publishing a public game invitation makes its preview discoverable even when the Huud is private; the host must approve a request before that visitor joins the game.</p>
 
   <h2>Messages and calls</h2>
   <p>Direct messages between two people are end-to-end encrypted once both of you have exchanged device keys inside the app — meaning the content is unreadable to our servers, which only ever see and store an encrypted blob. Group chat messages, and direct messages sent before that key exchange has happened, are not end-to-end encrypted and are stored on our servers in the same way most messaging apps handle messages, protected by encryption in transit (TLS) and standard access controls.</p>
   <p>One-to-one voice calls get an additional layer of end-to-end encryption on top of standard call security once a key exchange has happened; group calls are protected by standard transport encryption (DTLS-SRTP) only. All calls run on voice infrastructure we operate ourselves — we don't send your call data to a third-party calling vendor.</p>
 
   <h2>Microphone use in Word Bluff</h2>
-  <p>Word Bluff's optional voice-detection feature uses your device's own built-in speech recognizer. Your voice audio, and anything it transcribes, is processed entirely on your device and is never sent to our servers — the app only sends a simple "guessed correctly" signal as part of normal gameplay.</p>
+  <p>Word Bluff's optional voice-detection feature uses the operating system's speech-recognition service. Depending on your device and the service's settings and capabilities, recognition may use on-device processing or the operating system provider's service. PlayHuud does not send the recognition audio or transcript to its own servers; it sends a correct-guess gameplay signal. You can disable voice matching in PlayHuud settings and change speech-recognition permission in your device settings.</p>
 
   <h2>Coins and the in-game wallet</h2>
-  <p>PlayHuud games use an in-game virtual currency ("coins") that you earn by playing matches. Coins cannot be purchased with real money, and cannot be withdrawn, exchanged, cashed out, or redeemed for real money or anything of monetary value — they exist only inside the app, for gameplay. Some game rooms let players optionally wager coins against each other, with the winner taking the pot; this never involves real money in either direction. We keep a ledger of your coin balance and history tied to your account.</p>
+  <p>PlayHuud games use an in-game virtual currency ("coins") that you earn by playing matches. Coins cannot be purchased with real money, and cannot be withdrawn, exchanged, cashed out, or redeemed for real money or anything of monetary value — they exist only inside the app, for gameplay. Games are free to enter: players do not stake coins or lose coins for losing a match. New accounts receive 100 free coins. Eligible completed matches award coins based on the result and server-recorded duration; gifts transfer existing coins between players. We keep a ledger of your coin balance and history tied to your account.</p>
 
   <h2>Device and diagnostic information</h2>
-  <p>We collect basic technical information needed to run the app reliably, such as your device model and operating system version. We do not use any third-party analytics, advertising, or crash-reporting services — PlayHuud has no ad trackers.</p>
+  <p>We use account and device identifiers to operate sign-in and notifications. Our own services record sign-in events, gameplay activity and operational errors to understand usage and keep the service working. These records may be linked to your account. We do not integrate third-party advertising or analytics trackers.</p>
+  <p>Service providers support infrastructure, uploaded-file delivery, email-code delivery and push notifications. These include our hosting and storage providers, Brevo for email delivery when configured, and Firebase Cloud Messaging with Apple's notification service for iOS push notifications. Google or Apple handles sign-in when you choose its sign-in option.</p>
 
   <h2>How we use your information</h2>
   <ul>
@@ -96,17 +101,24 @@
   <h2>Your choices</h2>
   <ul>
     <li>Contacts, microphone, and other device permissions are optional and can be changed any time in your device's app settings.</li>
-    <li>You can ask us to access, correct, or delete your account data by emailing us at the address below.</li>
+    <li>You can permanently delete your account, including a guest account, in PlayHuud under Settings → Delete account. You must confirm the deletion. Apple-linked accounts also require confirmation through Apple so we can revoke their Apple authorization.</li>
+    <li>Deletion removes your profile, contact details, friend relationships, messages and posts you authored, personal game records and virtual-coin balance. Groups and Huuds you host are removed and affected games end. Other players retain their own accounts and rating records without your player identity. Historical ownership may be displayed as “Deleted player”.</li>
+    <li>Stored outfit images are queued for removal, with retries if storage is temporarily unavailable. Restricted infrastructure backups may retain earlier copies pending backup rotation; they are not used to restore individual deleted accounts. Copies already held by other people or their devices cannot be recalled.</li>
+    <li>You can also <a href="/delete-account/">request account deletion without the app</a>, or contact us about access and correction using the email address below. Signing in after deletion creates a new account; it does not recover the deleted account.</li>
   </ul>
 
-  <h2>Children's privacy</h2>
-  <p>PlayHuud is not directed at children under 13, and we don't knowingly collect personal information from children under that age. If you believe a child has provided us with personal information, contact us and we'll remove it.</p>
+  <h2>Private age settings</h2>
+  <p>Where the app offers age settings, we ask for your age range and country of residence to assess access under our age policy. We store the range rather than your date of birth, along with the time and privacy-notice version acknowledged. These details are private and are not included in your public player profile. They are self-declared, not proof of identity, verified location or parental consent.</p>
+  <p>Age details cannot be edited in the app to bypass a restriction. Contact us to request a correction. They are removed when your account is deleted, subject to the restricted-backup handling described above. Providing an age range does not by itself enable teen access or parental approval.</p>
+
+  <h2>Age suitability</h2>
+  <p>PlayHuud is intended for people aged 13 and over and is not directed at children under 13. A store or region may apply a higher minimum age. This audience setting is not a claim that PlayHuud verifies every user's age. If you believe a child under 13 has provided personal information, contact us so we can investigate and address the request.</p>
 
   <h2>Changes to this policy</h2>
   <p>We may update this policy as the app changes. We'll update the date at the top of this page when we do.</p>
 
   <h2>Contact us</h2>
-  <p>Questions about this policy, or requests about your data, can be sent to <a href="mailto:barric3g@gmail.com">barric3g@gmail.com</a>.</p>
+  <p>Questions about this policy, or requests about your data, can be sent to <a href="mailto:kingbarric@yahoo.com">kingbarric@yahoo.com</a>. You can also visit our <a href="../support/">support page</a>.</p>
 </main>
 
 <footer>

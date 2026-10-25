@@ -75,6 +75,7 @@ class HuudSpaceIT {
     @Autowired app.truearena.api.auth.JwtService jwt;
     @Autowired GameOrchestrator games;
     @Autowired app.truearena.room.RoomRuntimeRegistry runtimes;
+    @Autowired app.truearena.room.RoomEventLog eventLog;
     @Autowired com.fasterxml.jackson.databind.ObjectMapper mapper;
     @Autowired HuudSpaceService huuds;
     @Autowired HuudSpaceRequestService requests;
@@ -82,6 +83,7 @@ class HuudSpaceIT {
     @Autowired SafetyService safety;
     @Autowired HuudService feed;
     @Autowired HuudSpaceAccess access;
+    @Autowired app.truearena.api.huudspace.HuudPreviewService previews;
     @Autowired FeedPostService posts;
     @Autowired AdminReportsController adminReports;
     @Autowired UserRepository users;
@@ -135,7 +137,7 @@ class HuudSpaceIT {
         String before=mapper.writeValueAsString(rt.module().visibleStateFor(rt.state(),host.toString()).data());
         games.handleFrame(rt,host.toString(),mapper.writeValueAsString(app.truearena.ws.contract.Envelope.of(
                 app.truearena.ws.contract.MessageType.PLAYER_ACTION,java.util.Map.of("action","END_TURN","actionId","paused-move","data",java.util.Map.of()))),false).block();
-        assertThat(mapper.writeValueAsString(rt.module().visibleStateFor(rt.state(),host.toString()).data())).isEqualTo(before);
+        assertThat(mapper.readTree(mapper.writeValueAsString(rt.module().visibleStateFor(rt.state(),host.toString()).data()))).isEqualTo(mapper.readTree(before));
         UUID session=rt.gameSessionId; long remaining=rt.timerRemainingMs;
         assertThat(db.sql("SELECT runtime_state IS NOT NULL AS saved FROM game_sessions WHERE id=:id").bind("id",session).map((r,m)->r.get("saved",Boolean.class)).one().block()).isTrue();
         rt.cancelTimer();runtimes.remove(room.id());
@@ -143,7 +145,7 @@ class HuudSpaceIT {
         assertThat(recovered).isNotSameAs(rt);assertThat(recovered.gameSessionId).isEqualTo(session);
         assertThat(recovered.paused).isTrue();assertThat(recovered.timer).isNull();
         assertThat(recovered.timerRemainingMs).isEqualTo(remaining);
-        assertThat(mapper.writeValueAsString(recovered.module().visibleStateFor(recovered.state(),host.toString()).data())).isEqualTo(before);
+        assertThat(mapper.readTree(mapper.writeValueAsString(recovered.module().visibleStateFor(recovered.state(),host.toString()).data()))).isEqualTo(mapper.readTree(before));
         var publicView=mapper.convertValue(recovered.module().broadcastState(recovered.state()).data(),java.util.Map.class);
         assertThat(publicView).doesNotContainKeys("seed","chance","chest","tradeOffers","legalActions");
         assertThat(huuds.view(huud.id(),host).block().currentGame().status()).isEqualTo("playing");
@@ -287,11 +289,67 @@ class HuudSpaceIT {
         assertThatThrownBy(() -> huuds.joinByCode(friend, huud.code()).block()).isInstanceOf(ResponseStatusException.class);
     }
 
+    @Test void liveCardsTellTheGameMoveByMoveAndKeepTheChatForMembers() throws Exception {
+        UUID host = person("Moments host"), member = person("Moments member"), stranger = person("Moments stranger");
+        var huud = huuds.create(host, "Moments night", "public").block();
+        huuds.join(member, huud.id()).block();
+        var room = huuds.addGame(host, huud.id(), "whot").block();
+        db.sql("UPDATE rooms SET status='in_game' WHERE id=:id").bind("id", room.id()).fetch().rowsUpdated().block();
+        eventLog.clear(room.id()).block();
+        eventLog.append(room.id(), mapper.writeValueAsString(app.truearena.engine.GameEvent.pub(1, "GENERAL_MARKET",
+                java.util.Map.of("by", member.toString())))).block();
+        // A hand is private: it must never become a line on the card.
+        eventLog.append(room.id(), mapper.writeValueAsString(app.truearena.engine.GameEvent.toPlayer(2, "YOUR_HAND",
+                java.util.Map.of("cards", List.of("star-7")), member.toString()))).block();
+        chat.send(member, huud.id(), "Who took my last card?").block();
+
+        var mine = huuds.live(member).filter(h -> h.id().equals(huud.id())).blockFirst();
+        assertThat(mine.moments()).isNotEmpty();
+        assertThat(mine.moments().getFirst().kind()).isEqualTo("play");
+        assertThat(mine.moments().getFirst().text()).isEqualTo("called General Market. Everyone picks one");
+        assertThat(mine.moments().getFirst().who().userId()).isEqualTo(member);
+        assertThat(mine.moments().getFirst().at()).isNull();
+        assertThat(mine.moments()).extracting("kind").contains("chat");
+        assertThat(mine.moments()).hasSizeLessThanOrEqualTo(3);
+        assertThat(mine.recentMessages()).isEqualTo(1);
+        assertThat(mine.background()).isEqualTo("blank");
+
+        // Someone outside sees the game and who came in — never the chat itself.
+        var theirs = huuds.live(stranger).filter(h -> h.id().equals(huud.id())).blockFirst();
+        assertThat(theirs.moments()).extracting("kind").contains("play").doesNotContain("chat");
+        assertThat(theirs.moments()).extracting("text").doesNotContain("Who took my last card?");
+        assertThat(theirs.recentMessages()).isEqualTo(1);
+    }
+
     @Test void publicHuudsLetAnyoneIn() {
         var open = huuds.create(person("Public host"), null, "public").block();
         UUID stranger = person("Stranger");
         assertThat(huuds.live(stranger).collectList().block()).extracting("id").contains(open.id());
         assertThat(huuds.joinByCode(stranger, open.code()).block().youAreIn()).isTrue();
+    }
+
+    @Test void aLiveHuudNobodyHasTheAppOpenInGoesQuietAndLeavesTheLiveList() {
+        UUID owner = person("Quiet host"), stranger = person("Passer-by");
+        var huud = huuds.create(owner, null, "public").block();
+        assertThat(huuds.live(stranger).collectList().block()).extracting("id").contains(huud.id());
+        assertThat(huuds.view(huud.id(), owner).block().quiet()).isFalse();
+
+        // Twenty minutes since the app last said it was open — though a voice link
+        // or socket left running in the background still keeps last_seen_at fresh.
+        db.sql("UPDATE huud_space_members SET app_seen_at=now()-interval '20 minutes', last_seen_at=now() "
+                + "WHERE huud_space_id=:id").bind("id", huud.id()).fetch().rowsUpdated().block();
+
+        assertThat(huuds.live(stranger).collectList().block()).extracting("id").doesNotContain(huud.id());
+        var mine = huuds.mine(owner).collectList().block();
+        assertThat(mine).singleElement().satisfies(h -> {
+            assertThat(h.live()).as("still on until its owner ends it").isTrue();
+            assertThat(h.quiet()).isTrue();
+        });
+
+        // The owner opening the app again brings it straight back.
+        huuds.heartbeat(owner).block();
+        assertThat(huuds.live(stranger).collectList().block()).extracting("id").contains(huud.id());
+        assertThat(huuds.mine(owner).collectList().block().get(0).quiet()).isFalse();
     }
 
     @Test void theOwnerCantLeaveTheirOwnHuudButMembersCanAndThenHearNothingMore() {
@@ -642,6 +700,55 @@ class HuudSpaceIT {
         assertThat(huuds.joinByCode(friend, other.code()).block().youAreIn()).isTrue();
     }
 
+    @Test void publicInviteMakesPrivateGameDiscoverableWithoutAdmittingStrangers() {
+        UUID host = person("Invite host"), stranger = person("New player"), other = person("Other");
+        var huud = huuds.create(host, "Private chess", "private", "chess", null, false).block();
+        assertThatThrownBy(() -> huuds.findPlayers(stranger, huud.id()).block()).isInstanceOf(ResponseStatusException.class);
+        var invited = huuds.findPlayers(host, huud.id()).block();
+        assertThat(invited.findingPlayers()).isTrue();
+        assertThat(invited.privacy()).isEqualTo("private");
+        assertThat(huuds.live(stranger).collectList().block()).filteredOn(h -> h.id().equals(huud.id()))
+                .allMatch(h -> h.findingPlayers()).hasSize(1);
+        assertThat(feed.feed(stranger, HuudDtos.Tab.FOR_YOU, HuudDtos.Filter.ALL).collectList().block())
+                .filteredOn(i -> i.huud() != null && i.huud().huudSpaceId().equals(huud.id()))
+                .allMatch(i -> i.huud().findingPlayers()).hasSize(1);
+        var preview = huuds.view(huud.id(), stranger).block();
+        assertThat(preview.youAreIn()).isFalse();
+        assertThat(preview.code()).isNull();
+        var asked = requests.askFromPublicInvite(stranger, huud.id()).block();
+        assertThat(asked.youAreIn()).isFalse();
+        assertThat(asked.playRequest()).isEqualTo("pending");
+        assertThat(asked.currentGame().players()).isEqualTo(1);
+        assertThat(access.canTalk(stranger, huud.voiceRoom()).block()).isFalse();
+        requests.answer(host, huud.id(), stranger, "play", true).block();
+        var accepted = huuds.view(huud.id(), stranger).block();
+        assertThat(accepted.youAreIn()).isTrue();
+        assertThat(accepted.currentGame().youArePlaying()).isTrue();
+        assertThat(accepted.findingPlayers()).isFalse();
+        assertThatThrownBy(() -> requests.askFromPublicInvite(other, huud.id()).block()).isInstanceOf(ResponseStatusException.class);
+        assertThat(feed.feed(other, HuudDtos.Tab.FOR_YOU, HuudDtos.Filter.ALL).collectList().block())
+                .noneMatch(i -> i.huud() != null && i.huud().huudSpaceId().equals(huud.id()));
+    }
+
+    @Test void publicInviteClosesOnCancelStartAndGameChangeAndHonoursBlocks() {
+        UUID host = person("Host"), stranger = person("Stranger");
+        var huud = huuds.create(host, "Draughts", "private", "draughts", null, false).block();
+        huuds.findPlayers(host, huud.id()).block();
+        safety.block(host, stranger).block();
+        assertThatThrownBy(() -> requests.askFromPublicInvite(stranger, huud.id()).block()).isInstanceOf(ResponseStatusException.class);
+        assertThat(huuds.live(stranger).collectList().block()).noneMatch(h -> h.id().equals(huud.id()));
+        huuds.stopFindingPlayers(host, huud.id()).block();
+        assertThat(huuds.view(huud.id(), host).block().findingPlayers()).isFalse();
+        huuds.findPlayers(host, huud.id()).block();
+        huuds.clearGame(host, huud.id()).block();
+        huuds.addGame(host, huud.id(), "chess").block();
+        assertThat(huuds.view(huud.id(), host).block().findingPlayers()).isFalse();
+        huuds.findPlayers(host, huud.id()).block();
+        var room = huuds.view(huud.id(), host).block().currentGame().roomId();
+        db.sql("UPDATE rooms SET status='in_game' WHERE id=:id").bind("id", room).fetch().rowsUpdated().block();
+        assertThat(huuds.view(huud.id(), host).block().findingPlayers()).isFalse();
+    }
+
     @Test void aSharedHuudShowsOnTheFeedWithItsLineAndSeats() {
         UUID host = person("Eric"), friend = person("Friend"), stranger = person("Stranger");
         befriend(host, friend);
@@ -694,6 +801,60 @@ class HuudSpaceIT {
         assertThatThrownBy(() -> huuds.watch(viewer, secret.id()).block()).isInstanceOf(ResponseStatusException.class);
     }
 
+    @Test void previewAudioRespectsPrivacyBlocksRemovalAndNeverEntersALiveSeat() {
+        UUID host = person("Audio host"), viewer = person("Audio viewer"), stranger = person("Audio stranger");
+        var huud = huuds.create(host, "Listen here", "friends").block();
+        assertThatThrownBy(() -> previews.listen(stranger, huud.id()).block()).isInstanceOf(ResponseStatusException.class);
+        befriend(host, viewer);
+        var token = previews.listen(viewer, huud.id()).block();
+        assertThat(token.roomName()).isEqualTo("huud-" + huud.id());
+        assertThat(huuds.watch(viewer, huud.id()).block().youAreIn()).isFalse();
+        assertThat(access.canTalk(viewer, token.roomName()).block()).isFalse();
+        assertThat(access.canSpeak(viewer, token.roomName()).block()).isFalse();
+        huuds.join(viewer, huud.id()).block();
+        db.sql("UPDATE huud_space_members SET live_at=NULL WHERE huud_space_id=:id AND user_id=:user")
+                .bind("id", huud.id()).bind("user", viewer).fetch().rowsUpdated().block();
+        previews.listen(viewer, huud.id()).block();
+        assertThat(access.canTalk(viewer, token.roomName()).block()).isFalse();
+        huuds.remove(host, huud.id(), viewer).block();
+        assertThatThrownBy(() -> previews.listen(viewer, huud.id()).block()).isInstanceOf(ResponseStatusException.class);
+        huuds.update(host, huud.id(), null, "public").block();
+        previews.listen(stranger, huud.id()).block();
+        safety.block(host, stranger).block();
+        assertThatThrownBy(() -> previews.listen(stranger, huud.id()).block()).isInstanceOf(ResponseStatusException.class);
+        huuds.endLive(host, huud.id()).block();
+        assertThatThrownBy(() -> previews.listen(host, huud.id()).block()).isInstanceOf(ResponseStatusException.class);
+    }
+
+    @Test void privatePreviewNeedsMembershipOrAnAcceptedRequestAndCleanupIsSessionSpecific() {
+        UUID host = person("Private audio host"), viewer = person("Private audio viewer");
+        var huud = huuds.create(host, "Secret audio", "private").block();
+        assertThatThrownBy(() -> previews.listen(viewer, huud.id()).block()).isInstanceOf(ResponseStatusException.class);
+        huuds.join(viewer, huud.id()).block();
+        assertThatThrownBy(() -> previews.listen(viewer, huud.id()).block()).isInstanceOf(ResponseStatusException.class);
+        requests.answer(host, huud.id(), viewer, "join", true).block();
+        var first = previews.listen(viewer, huud.id()).block();
+        var next = previews.listen(viewer, huud.id()).block();
+        clearInvocations(livekit);
+        huuds.stopPreview(viewer, huud.id(), first.previewId()).block();
+        verify(livekit).remove(first.roomName(), HuudSpaceService.previewIdentity(viewer, first.previewId()));
+        verify(livekit, never()).remove(next.roomName(), HuudSpaceService.previewIdentity(viewer, next.previewId()));
+        verify(livekit, never()).remove(first.roomName(), viewer.toString());
+    }
+
+    @Test void endingLiveAndChangingPrivacyDropAllPreviewConnections() {
+        UUID host = person("Preview lifecycle host"), viewer = person("Preview lifecycle viewer");
+        var huud = huuds.create(host, "Preview lifecycle", "public").block();
+        String room = "huud-" + huud.id();
+        String identity = HuudSpaceService.previewIdentity(viewer, UUID.randomUUID());
+        when(livekit.participantIds(room)).thenReturn(Mono.just(java.util.Set.of(identity)));
+        huuds.update(host, huud.id(), null, "private").block();
+        verify(livekit).remove(room, identity);
+        clearInvocations(livekit);
+        huuds.endLive(host, huud.id()).block();
+        verify(livekit).remove(room, identity);
+    }
+
     @Test void rematchSeatsTheSamePlayersAgain() {
         UUID host = person("Host"), ada = person("Ada"), chidi = person("Chidi"), late = person("Late");
         var huud = huuds.create(host, null, "public", "whot", null, false).block();
@@ -712,6 +873,21 @@ class HuudSpaceIT {
         // Chidi left the Huud, so only Ada comes back with the host.
         assertThat(game.playerIds()).containsExactlyInAnyOrder(host, ada);
         assertThat(huuds.view(huud.id(), late).block().currentGame().youArePlaying()).isFalse();
+    }
+
+    @Test void whotRulesAreStoredOnFirstCreateAndSurviveHuudRematch() {
+        UUID host = person("RulesHost");
+        var rules = java.util.Map.<String, Object>of("pickTwo", false, "holdOn", false, "startingHand", 7, "turnSeconds", 90);
+        var huud = huuds.create(host, "Rule test", "public", "whot", "classic", null, false, rules).block();
+        UUID roomId = huud.currentGame().roomId();
+        String original = db.sql("SELECT game_config FROM rooms WHERE id=:id").bind("id", roomId)
+                .map((r,m) -> r.get("game_config", String.class)).one().block();
+        assertThat(original.replace(" ", "")).contains("\"pickTwo\":false", "\"holdOn\":false", "\"startingHand\":7");
+        db.sql("UPDATE rooms SET status='ended' WHERE id=:id").bind("id", roomId).fetch().rowsUpdated().block();
+        var again = huuds.addGame(host, huud.id(), "whot", true).block();
+        String repeated = db.sql("SELECT game_config FROM rooms WHERE id=:id").bind("id", again.id())
+                .map((r,m) -> r.get("game_config", String.class)).one().block();
+        assertThat(repeated).isEqualTo(original);
     }
 
     @Test void whotInAHuudIsClassicOrTheTellAndARematchKeepsTheMode() {
@@ -833,7 +1009,7 @@ class HuudSpaceIT {
         UUID host = person("Host"), friend = person("Friend");
         var huud = huuds.create(host, null, "public").block();
         huuds.joinByCode(friend, huud.code()).block();
-        assertThat(huud.background()).isNull();
+        assertThat(huud.background()).isEqualTo("blank");
         assertThat(huuds.update(host, huud.id(), null, null, "club").block().background()).isEqualTo("club");
         assertThat(huuds.view(huud.id(), friend).block().background()).isEqualTo("club");
         // Changing the name leaves the backdrop alone; "default" clears it.
@@ -899,25 +1075,37 @@ class HuudSpaceIT {
                 .bind("w", wins).bind("l", losses).bind("d", draws).fetch().rowsUpdated().block();
     }
 
-    @Test void allTimeRankingsOrderEveryoneByStrengthPerGameAndOverall() {
+    @Test void activityTotalsAloneCannotManufactureSkillOrPublicRanks() {
         String game = "zz" + UUID.randomUUID().toString().substring(0, 6); // a board of our own
         UUID ada = person("Ada Obi");
         UUID tobi = person("Tobi Ade");
         UUID zara = person("Zara Bello");
         UUID bot = guest("Guest");
-        played(ada, game, 3, 0, 1);   // 63
-        played(tobi, game, 1, 2, 5);  // 51
-        played(zara, game, 4, 0, 0);  // 80
+        played(ada, game, 3, 0, 1);
+        played(tobi, game, 1, 2, 5);
+        played(zara, game, 4, 0, 0);
         played(bot, game, 50, 0, 0);  // guests aren't ranked
 
         var board = rankings.ranking(game, tobi).block();
-        assertThat(board.top()).extracting("userId").containsExactly(zara, ada, tobi);
-        assertThat(board.top()).extracting("strength").containsExactly(80L, 63L, 51L);
-        assertThat(board.you().rank()).isEqualTo(3);
-
+        // Imported/legacy activity totals without real human match evidence
+        // cannot manufacture skill or a public place.
+        assertThat(board.top()).isEmpty();
+        assertThat(board.you().rank()).isZero();
+        assertThat(board.you().strength()).isZero();
         var overall = rankings.ranking(null, ada).block();
-        assertThat(overall.top()).hasSizeLessThanOrEqualTo(20);
-        assertThat(overall.you().strength()).isGreaterThanOrEqualTo(63L);
+        assertThat(overall.you().strength()).isZero();
+    }
+
+    @Test void chessAndOfficialDraughtsRequestCompetitiveRatingsWithoutChangingCasualRules() {
+        for (String mode : List.of("chess", "official", "casual")) {
+            UUID host = person("Rating " + mode);
+            var huud = huuds.create(host, "Rating room", "friends").block();
+            var room = huuds.addGame(host, huud.id(), mode.equals("chess") ? "chess" : "draughts",
+                    mode.equals("chess") ? null : mode, false).block();
+            Boolean ranked = db.sql("SELECT ranked FROM rooms WHERE id=:id").bind("id",room.id())
+                    .map(r->r.get("ranked",Boolean.class)).one().block();
+            assertThat(ranked).isEqualTo(!mode.equals("casual"));
+        }
     }
 
     @Test void anInviteLinkShowsTheHuudsNameOwnerAndHowManyAreInIt() {

@@ -51,7 +51,7 @@ public class HuudSpaceController {
     @Operation(summary = "Make a Huud (name + privacy; optionally a first game and a feed share), or reopen yours")
     public Mono<HuudSpaceView> create(@Valid @RequestBody CreateRequest body) {
         return CurrentUser.id().flatMap(user -> huuds.create(user, body.name(), body.privacy(), body.gameType(),
-                body.mode(), body.message(), Boolean.TRUE.equals(body.share())));
+                body.mode(), body.message(), Boolean.TRUE.equals(body.share()), body.gameConfig()));
     }
 
     @GetMapping("/current")
@@ -139,6 +139,21 @@ public class HuudSpaceController {
     @Operation(summary = "Host only: free someone's seat before the game starts")
     public Mono<HuudSpaceView> unpick(@PathVariable UUID id, @PathVariable UUID userId) {
         return CurrentUser.id().flatMap(user -> requests.unpick(user, id, userId));
+    }
+
+    @PostMapping("/{id}/public-invite")
+    public Mono<HuudSpaceView> findPlayers(@PathVariable UUID id) {
+        return CurrentUser.id().flatMap(user -> huuds.findPlayers(user, id));
+    }
+
+    @DeleteMapping("/{id}/public-invite")
+    public Mono<HuudSpaceView> stopFindingPlayers(@PathVariable UUID id) {
+        return CurrentUser.id().flatMap(user -> huuds.stopFindingPlayers(user, id));
+    }
+
+    @PostMapping("/{id}/public-invite/play")
+    public Mono<HuudSpaceView> joinToPlay(@PathVariable UUID id) {
+        return CurrentUser.id().flatMap(user -> requests.askFromPublicInvite(user, id));
     }
 
     @PostMapping("/{id}/play")
@@ -235,7 +250,7 @@ public class HuudSpaceController {
     @Operation(summary = "Host only: set up the next game in the Huud")
     public Mono<RoomView> addGame(@PathVariable UUID id, @Valid @RequestBody AddGameRequest body) {
         return CurrentUser.id().flatMap(user -> huuds.addGame(user, id, body.gameType(), body.mode(),
-                Boolean.TRUE.equals(body.rematch())));
+                Boolean.TRUE.equals(body.rematch()), body.gameConfig()));
     }
 
     @DeleteMapping("/{id}/game")

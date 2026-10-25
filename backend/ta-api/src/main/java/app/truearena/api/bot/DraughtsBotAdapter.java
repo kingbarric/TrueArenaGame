@@ -28,6 +28,8 @@ public final class DraughtsBotAdapter implements GameBotAdapter {
     private String playerB;
     private boolean finished;
     private boolean mandatoryCapture;
+    private boolean seizure;
+    private List<Integer> seizable = List.of();
     private boolean paused;
     private Integer activeSquare;
     private long capturedSquares;
@@ -63,7 +65,7 @@ public final class DraughtsBotAdapter implements GameBotAdapter {
         }
         if ("EVENT".equals(frameType)) {
             String event = String.valueOf(payload.get("type"));
-            if (!List.of("GAME_STARTED", "TURN_STARTED", "GAME_RESUMED").contains(event)
+            if (!List.of("GAME_STARTED", "TURN_STARTED", "GAME_RESUMED", "PIECE_SEIZED").contains(event)
                     && !("PIECE_CAPTURED".equals(event) && activeSquare != null)) return Optional.empty();
         }
         if (paused || finished || playerA == null || playerB == null) {
@@ -83,6 +85,8 @@ public final class DraughtsBotAdapter implements GameBotAdapter {
         finished = "Results".equals(phase);
         paused = Boolean.TRUE.equals(p.get("paused"));
         mandatoryCapture = Boolean.TRUE.equals(p.get("mandatoryCapture"));
+        seizure = Boolean.TRUE.equals(p.get("seizure"));
+        seizable = seizure ? squaresOf(p.get("seizable")) : List.of();
         if (!mandatoryCapture) planned.clear();
         activeSquare = p.get("activeSquare") instanceof Number n ? n.intValue() : null;
         capturedSquares = 0;
@@ -112,7 +116,8 @@ public final class DraughtsBotAdapter implements GameBotAdapter {
         Map<String, Object> data = (Map<String, Object>) payload.getOrDefault("data", Map.of());
         switch (type) {
             case "GAME_STARTED" -> {
-                planned.clear(); capturedSquares = 0; finished = false;
+                planned.clear(); capturedSquares = 0; finished = false; seizable = List.of();
+                seizure = Boolean.TRUE.equals(data.get("seizure"));
                 if (data.containsKey("mandatoryCapture")) mandatoryCapture = Boolean.TRUE.equals(data.get("mandatoryCapture"));
                 playerA = String.valueOf(data.get("playerA"));
                 playerB = String.valueOf(data.get("playerB"));
@@ -138,17 +143,30 @@ public final class DraughtsBotAdapter implements GameBotAdapter {
                 String side = String.valueOf(data.get("side"));
                 board[sq] = "A".equals(side) ? Piece.A_KING : Piece.B_KING;
             }
+            case "PIECE_SEIZED" -> {
+                board[intOf(data.get("square"))] = null;
+                seizable = List.of(); planned.clear();
+            }
             case "GAME_OVER" -> finished = true;
-            case "TURN_STARTED" -> { activeSquare = null; capturedSquares = 0; planned.clear(); }
+            case "TURN_STARTED" -> {
+                activeSquare = null; capturedSquares = 0; planned.clear();
+                seizable = seizure ? squaresOf(data.get("seizable")) : List.of();
+            }
             case "UNDO_ACCEPTED" -> {
                 if (data.get("board") instanceof List<?> list) applyBoardSnapshot((List<Object>) list);
                 activeSquare = null;
-                capturedSquares = 0; planned.clear();
+                capturedSquares = 0; planned.clear(); seizable = List.of();
             }
             case "GAME_PAUSED" -> paused = true;
             case "GAME_RESUMED" -> paused = false;
             default -> { /* TURN_STARTED needs no local state beyond `phase`, which PHASE frames already carry */ }
         }
+    }
+
+    private static List<Integer> squaresOf(Object raw) {
+        if (!(raw instanceof List<?> squares)) return List.of();
+        return squares.stream().filter(Number.class::isInstance).map(Number.class::cast)
+                .map(Number::intValue).filter(square -> square >= 0 && square < Board.SIZE).toList();
     }
 
     private static int intOf(Object o) {
@@ -261,7 +279,7 @@ public final class DraughtsBotAdapter implements GameBotAdapter {
         int depth = difficulty == Difficulty.EASY ? 1 : difficulty == Difficulty.MEDIUM ? 3 : 5;
         long millis = difficulty == Difficulty.EASY ? 30 : difficulty == Difficulty.MEDIUM ? 100 : 250;
         return DraughtsBotSearch.choose(board, playerA, playerB, botUserId, activeSquare, capturedSquares,
-                mandatoryCapture, depth, millis);
+                mandatoryCapture, seizure, seizable, depth, millis);
     }
 
     private Optional<PlayerAction> nextPlanned(String player) {

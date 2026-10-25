@@ -46,10 +46,16 @@ management:
         enabled: true
 
 truearena:
+  safety:
+    age-enforcement-enabled: ${AGE_ENFORCEMENT_ENABLED:false}
   email:
     brevo-api-key: ${BREVO_API_KEY:}
     sender-address: verify@playhuud.com
   auth:
+    # Dedicated store-review account only. All fields required; disabled by default.
+    reviewer-email: ${REVIEWER_EMAIL:}
+    reviewer-code-sha256: ${REVIEWER_CODE_SHA256:}
+    reviewer-expires-at: ${REVIEWER_EXPIRES_AT:}
     jwt-secret: ${JWT_SECRET:dev-only-change-me-0000000000000000000000000000}
     access-ttl: 15m
     refresh-ttl: 30d
@@ -58,6 +64,9 @@ truearena:
     google-client-id: ${GOOGLE_CLIENT_ID:26187322342-o2squi475tmt3ubs8k9rh2d2b7pfivgf.apps.googleusercontent.com}
     # Native iOS Sign in with Apple ID-token audience (the app's bundle ID).
     apple-client-id: ${APPLE_CLIENT_ID:app.truearena.truearena}
+    apple-team-id: ${APPLE_SIGN_IN_TEAM_ID:}
+    apple-key-id: ${APPLE_SIGN_IN_KEY_ID:}
+    apple-private-key-base64: ${APPLE_SIGN_IN_PRIVATE_KEY_BASE64:}
   livekit:
     url: ${LIVEKIT_URL:ws://localhost:7880}
     api-key: ${LIVEKIT_API_KEY:devkey}
@@ -76,7 +85,7 @@ truearena:
   competitive:
     # Games with a skill rating + leaderboards (comma-separated). Adding a game
     # here is all it takes once its GameModule exists — see CompetitiveSettings.
-    rated-game-types: ${COMPETITIVE_RATED_GAMES:draughts}
+    rated-game-types: ${COMPETITIVE_RATED_GAMES:draughts,chess}
     # Rated games before a player stops being provisional and can appear on a board.
     placement-games: 10
     # Rated games one pair of accounts can play against each other per 24h
@@ -86,6 +95,19 @@ truearena:
     # this long; past max-location-changes it needs support.
     location-cooldown-days: 30
     max-location-changes: 3
+  slay:
+    # Where SlayHuud art is downloaded from (content-hashed files, see
+    # slay-renderer/scripts/publish-assets.mjs). Blank uses the manifest's
+    # default, https://playhuud.com/slay-assets/.
+    asset-base: ${SLAY_ASSET_BASE:}
+  storage:
+    # Cloudflare R2 (S3 API) for files PlayHuud writes: SlayHuud look
+    # snapshots under slay/looks/. Blank keys keep them in the database.
+    r2:
+      endpoint: ${R2_ENDPOINT:}
+      bucket: ${R2_BUCKET:playhuud-assets}
+      access-key: ${R2_ACCESS_KEY_ID:}
+      secret-key: ${R2_SECRET_ACCESS_KEY:}
 
 bots:
   draughts:

@@ -6,6 +6,7 @@ import '../../core/app_state.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/neon.dart';
 import '../competitive/competitive_setup_screen.dart';
+import '../../widgets/huud_art.dart';
 
 /// Shown once, right after a brand-new account's first OTP verify (see
 /// `AuthTokens.newAccount`). A username already exists at this point — the
@@ -46,7 +47,7 @@ class _UsernameSetupScreenState extends State<UsernameSetupScreen> {
       }
       _goHome();
     } catch (e) {
-      setState(() => _error = e.toString().contains('409') ? 'That username is taken' : 'Error has occurred, try again later.');
+      setState(() => _error = e.toString().contains('409') ? 'That username is taken' : userErrorMessage);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -71,7 +72,7 @@ class _UsernameSetupScreenState extends State<UsernameSetupScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Spacer(),
-              const Text('🎭', style: TextStyle(fontSize: 48), textAlign: TextAlign.center),
+              const HuudText('🎭', style: TextStyle(fontSize: 48), textAlign: TextAlign.center),
               const SizedBox(height: 14),
               Text('Pick your username', textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 28)),

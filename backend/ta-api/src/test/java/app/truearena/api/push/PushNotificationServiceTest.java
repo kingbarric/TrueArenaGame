@@ -47,28 +47,16 @@ class PushNotificationServiceTest {
     }
 
     @Test
-    void registerToken_savesANewRowWhenTheTokenIsUnseen() {
-        UUID userId = UUID.randomUUID();
-        when(tokens.findByToken("tok")).thenReturn(Mono.empty());
-        when(tokens.save(any(DeviceTokenRow.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
-
-        StepVerifier.create(service.registerToken(userId, DeviceTokenRow.ANDROID, "tok")).verifyComplete();
-
-        verify(tokens).save(org.mockito.ArgumentMatchers.argThat(
-                row -> row.userId().equals(userId) && row.platform().equals(DeviceTokenRow.ANDROID)));
-    }
-
-    @Test
-    void registerToken_reassignsAnExistingTokenToTheNewUser() {
-        UUID oldOwner = UUID.randomUUID();
-        UUID newOwner = UUID.randomUUID();
-        DeviceTokenRow existing = DeviceTokenRow.of(oldOwner, DeviceTokenRow.IOS, "tok");
-        when(tokens.findByToken("tok")).thenReturn(Mono.just(existing));
-        when(tokens.save(any(DeviceTokenRow.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
-
-        StepVerifier.create(service.registerToken(newOwner, DeviceTokenRow.IOS, "tok")).verifyComplete();
-
-        verify(tokens).save(org.mockito.ArgumentMatchers.argThat(row -> row.userId().equals(newOwner)));
+    void registrationAndAccountSwitchUseOneAtomicOperation() {
+        UUID first=UUID.randomUUID(), second=UUID.randomUUID();
+        when(tokens.register(any(), org.mockito.ArgumentMatchers.eq(DeviceTokenRow.ANDROID),
+                org.mockito.ArgumentMatchers.eq("tok"))).thenReturn(Mono.just(1));
+        StepVerifier.create(service.registerToken(first, DeviceTokenRow.ANDROID, "tok")).verifyComplete();
+        StepVerifier.create(service.registerToken(second, DeviceTokenRow.ANDROID, "tok")).verifyComplete();
+        verify(tokens).register(first, DeviceTokenRow.ANDROID, "tok");
+        verify(tokens).register(second, DeviceTokenRow.ANDROID, "tok");
+        verify(tokens, never()).findByToken(any());
+        verify(tokens, never()).save(any());
     }
 
     @Test
@@ -98,4 +86,23 @@ class PushNotificationServiceTest {
         service.sendToUsers(Set.of(), "title", "body", Map.of());
         verify(tokens, never()).findByUserIdIn(any());
     }
+    @Test void testProfileBlocksAllPushAndCallsUnlessRecipientIsExplicitlyAllowed() {
+        var env=new org.springframework.mock.env.MockEnvironment();env.setActiveProfiles("test");
+        UUID allowed=UUID.randomUUID(), blocked=UUID.randomUUID();
+        var disabled=new PushNotificationService(tokens,history,inbox,new ObjectMapper(),env);
+        disabled.sendToUsers(Set.of(allowed),"title","body",Map.of());
+        disabled.sendCallAlert(allowed,"title","body",Map.of());
+        verify(tokens,never()).findByUserIdIn(any());
+        env.setProperty("TEST_PUSH_ALLOWED_USER_IDS",allowed.toString());
+        var restricted=new PushNotificationService(tokens,history,inbox,new ObjectMapper(),env);
+        when(tokens.findByUserIdIn(java.util.List.of(allowed))).thenReturn(reactor.core.publisher.Flux.empty());
+        restricted.sendToUsers(Set.of(allowed,blocked),"title","body",Map.of());
+        restricted.sendCallAlert(blocked,"title","body",Map.of());
+        verify(tokens,timeout(1000)).findByUserIdIn(java.util.List.of(allowed));
+        verify(tokens,never()).findByUserIdIn(Set.of(blocked));
+        when(tokens.findAll()).thenReturn(reactor.core.publisher.Flux.just(DeviceTokenRow.of(blocked,DeviceTokenRow.IOS,"blocked-token")));
+        StepVerifier.create(restricted.sendToAll("title","body")).expectNext(true).verifyComplete();
+        verify(history,never()).save(any());
+    }
+
 }

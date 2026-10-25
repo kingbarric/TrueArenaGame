@@ -14,7 +14,6 @@ import '../../widgets/copyable_huud_code.dart';
 import '../../widgets/invite_players_sheet.dart';
 import '../../widgets/neon.dart';
 import '../../widgets/watching_eye.dart';
-import '../../widgets/stake_picker_sheet.dart';
 import 'goosi_game_screen.dart';
 import '../../widgets/lobby_start_bar.dart';
 
@@ -63,7 +62,7 @@ class _GoosiLobbyScreenState extends State<GoosiLobbyScreen> {
     } catch (_) {
       if (mounted)
         setState(
-            () => _error = 'Error has occurred, try again later.');
+            () => _error = userErrorMessage);
       return;
     }
     final chosenMode = await _chooseMode();
@@ -80,26 +79,10 @@ class _GoosiLobbyScreenState extends State<GoosiLobbyScreen> {
       });
       return;
     }
-    int stake = 0;
-    try {
-      final wallet = await app.fetchWallet();
-      if (!mounted) return;
-      final picked =
-          await showStakePicker(context, currentBalance: wallet.balance);
-      if (!mounted) return;
-      if (picked == null) {
-        Navigator.of(context).pop();
-        return;
-      }
-      stake = picked;
-    } catch (_) {
-      // no balance to stake against — fall through to an unstaked room
-    }
     try {
       final res = await app.api.post('/rooms', {
         'gameType': 'goosi',
         'gameConfig': {'mode': _mode},
-        if (stake > 0) 'stake': stake,
       }) as Map<String, dynamic>;
       if (!mounted) return;
       final room = RoomView.fromJson(res);
@@ -204,7 +187,6 @@ class _GoosiLobbyScreenState extends State<GoosiLobbyScreen> {
         status: p['status'] as String? ?? 'lobby',
         gameType: 'goosi',
         members: members,
-        stakeCoins: _room?.stakeCoins ?? 0,
       );
       final me = _room!.members.where((m) => m.userId == _selfId(_app));
       if (me.isNotEmpty) _ready = me.first.ready;
@@ -266,7 +248,7 @@ class _GoosiLobbyScreenState extends State<GoosiLobbyScreen> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Error has occurred, try again later.')));
+            const SnackBar(content: Text(userRetryMessage)));
       }
     } finally {
       if (mounted) setState(() => _addingBot = false);
@@ -360,9 +342,6 @@ class _GoosiLobbyScreenState extends State<GoosiLobbyScreen> {
                           _chip(n,
                               _mode == 'oware' ? 'Oware Abapa' : 'Relay Four'),
                           _chip(n, 'no extra turns'),
-                          if (room.stakeCoins > 0)
-                            _chip(n,
-                                '🪙 ${room.stakeCoins} stake · ${room.stakeCoins * room.members.length} pot'),
                         ]),
                       ]),
                 ),

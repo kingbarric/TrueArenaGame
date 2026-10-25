@@ -81,7 +81,7 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
               ? 'This huud is full'
               : e.message);
     } catch (_) {
-      setState(() => _error = 'Error has occurred, try again later.');
+      setState(() => _error = userErrorMessage);
     } finally {
       if (mounted) setState(() => _joining = false);
     }

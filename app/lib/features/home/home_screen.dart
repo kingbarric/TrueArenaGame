@@ -20,6 +20,7 @@ import '../profile/profile_screen.dart';
 import '../wordbluff/wordbluff_lobby_screen.dart';
 import '../whot/whot_lobby_screen.dart';
 import '../ludo/ludo_lobby_screen.dart';
+import '../slayhuud/slay_hub_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -150,10 +151,10 @@ class HomeScreen extends StatelessWidget {
                   runSpacing: 12,
                   alignment: WrapAlignment.center,
                   children: [
-                for (final game in gameCatalog)
-                  SizedBox(
-                      width: tileWidth, child: _gameTile(context, n, game)),
-              ]);
+                    for (final game in gameCatalog)
+                      SizedBox(
+                          width: tileWidth, child: _gameTile(context, n, game)),
+                  ]);
             }),
           ),
           if (isGuest) ...[
@@ -245,9 +246,7 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  /// Same tap behavior as `GameSelectScreen`'s tiles — duplicated rather than
-  /// shared because it's four lines and pulling it into a third place would
-  /// cost more than it saves.
+  /// Opens the same destination as the game picker.
   Future<void> _openGame(BuildContext context, GameCatalogEntry g) async {
     if (!g.available) {
       ScaffoldMessenger.of(context)
@@ -258,7 +257,7 @@ class HomeScreen extends StatelessWidget {
     // (and anyone signed out) keep the quick lobby: bots, a friend's code.
     final app = AppScope.of(context);
     if (app.identity == Identity.account && huudGameNames.containsKey(_huudType(g.id))) {
-      await openHuudForGame(context, _huudType(g.id), quickPlay: () => _openQuickLobby(context, g));
+      await openHuudForGame(context, _huudType(g.id), quickPlay: g.id == 'slayhuud' ? () => _openQuickLobby(context, g) : null);
       return;
     }
     await _openQuickLobby(context, g);
@@ -268,6 +267,11 @@ class HomeScreen extends StatelessWidget {
 
   /// The game's own lobby: play a bot, open a quick table, join by code.
   Future<void> _openQuickLobby(BuildContext context, GameCatalogEntry g) async {
+    if (g.id == 'slayhuud') {
+      // Solo and guests: career, Daily Slay and the SlayHuud hub.
+      await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SlayHubScreen()));
+      return;
+    }
     if (g.id == 'monopoly') {
       await openHuudForGame(context, 'monopoly');
       return;

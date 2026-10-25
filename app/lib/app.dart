@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'core/api_client.dart';
+import 'features/settings/age_safety_screen.dart';
 import 'core/app_state.dart';
 import 'core/hangout_state.dart';
 import 'widgets/persistent_hangout.dart';
@@ -77,13 +78,14 @@ class TrueArenaApp extends StatelessWidget {
                           child: HuudMicRequestHost(
                             state: state, navigatorKey: navigatorKey,
                             child: _GameInviteOverlay(state: state, child: child ?? const SizedBox.shrink())))));
-              if (state.visualTheme == VisualTheme.palmWine) return content;
+              final gated = AgeSafetyGate(state: state, child: content);
+              if (state.visualTheme == VisualTheme.palmWine) return gated;
               final design = context.neonDesign.kind;
               return DecoratedBox(
                 decoration: BoxDecoration(
                     gradient: NeonTheme.backdrop(
                         design, Theme.of(context).brightness)),
-                child: content,
+                child: gated,
               );
             },
           );
@@ -351,7 +353,7 @@ class _ResumeGateState extends State<_ResumeGate> {
           if (roomId == null) {
             _checking = false;
           } else {
-            _error = 'Error has occurred, try again later.';
+            _error = userErrorMessage;
           }
         });
       }
@@ -361,7 +363,7 @@ class _ResumeGateState extends State<_ResumeGate> {
           if (roomId == null) {
             _checking = false;
           } else {
-            _error = 'Error has occurred, try again later.';
+            _error = userErrorMessage;
           }
         });
       }

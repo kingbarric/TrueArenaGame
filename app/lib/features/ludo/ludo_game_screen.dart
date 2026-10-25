@@ -1,4 +1,5 @@
-import '../../core/api_client.dart' show userErrorMessage;
+import '../../widgets/match_coin_reward.dart';
+import '../../core/api_client.dart' show userErrorMessage, userRetryMessage;
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -16,10 +17,12 @@ import '../../widgets/game_voice_control.dart';
 import '../../widgets/how_to_play_dialog.dart';
 import '../../widgets/table_chat.dart';
 import '../huudspace/leave_game.dart';
+import '../status/victory_status.dart';
 import '../../widgets/game_controls.dart';
 import '../../widgets/turn_ring.dart';
 import '../../widgets/neon.dart' show OnlineAvatar;
 import '../../widgets/worn_look.dart';
+import '../../widgets/huud_art.dart';
 
 enum _LudoBoardTheme { classic, glass, wood }
 
@@ -78,6 +81,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
   final _chatController = TextEditingController();
   final _chat = <TableChatLine>[];
   Map<String, dynamic> _state = {};
+  bool _resultShown = false, _showSummary = false;
   int _seconds = 60;
   int? _selectedDie;
   List<int> _lastRolled = [];
@@ -284,6 +288,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
           _noMoveRoll = false;
           if (!_dice.contains(_selectedDie)) _selectedDie = _dice.firstOrNull;
         });
+        if (_finished && !_resultShown) _announceResult();
       case 'PHASE':
         setState(() =>
             _seconds = (payload['secondsLeft'] as num?)?.toInt() ?? _seconds);
@@ -376,7 +381,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                 'This match is no longer running. Start a new HUUD to play.';
           } else {
             _error =
-                payload['message']?.toString() ?? 'Error has occurred, try again later.';
+                payload['message']?.toString() ?? userErrorMessage;
           }
         });
     }
@@ -491,7 +496,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
       } catch (_) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('Error has occurred, try again later.')));
+              content: Text(userRetryMessage)));
         }
       }
     }
@@ -653,8 +658,125 @@ class _LudoGameScreenState extends State<LudoGameScreen>
         ),
       );
 
+  String? get _winner => _state['winner']?.toString();
+  bool get _won => _winner == widget.selfId;
+  int _home(String player) =>
+      ((_state['pieces'] as Map?)?[player] as List? ?? const [])
+          .where((p) => p == 56)
+          .length;
+
+  /// The game is over: say who won, then show the summary. Without this
+  /// both players were left looking at "waiting" rings.
+  void _announceResult() {
+    _resultShown = true;
+    _rollTimer?.cancel();
+    _cup.stop();
+    if (!widget.spectating) GameMusic.playOutcome(won: _won);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => AlertDialog(
+          key: const ValueKey('ludo-game-over-dialog'),
+          backgroundColor: _panel,
+          title: const Text('GAME OVER',
+              style: TextStyle(color: _gold, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
+          content: Text(
+            widget.spectating || _winner == null
+                ? '${_name(_winner ?? '')} wins the game.'
+                : _won
+                    ? 'Victory! All your pieces made it home.'
+                    : '${_name(_winner!)} got all their pieces home first.',
+            style: const TextStyle(color: _cream),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('View summary'),
+            ),
+          ],
+        ),
+      );
+      if (mounted) setState(() => _showSummary = true);
+    });
+  }
+
+  Widget _summary(BuildContext context) {
+    final winner = _winner ?? '';
+    return Scaffold(
+      key: const ValueKey('ludo-summary'),
+      backgroundColor: _bg,
+      body: SafeArea(
+        child: Column(children: [
+          Expanded(
+            child: ListView(padding: const EdgeInsets.fromLTRB(20, 30, 20, 12), children: [
+              Icon(_won ? Icons.emoji_events_rounded : Icons.flag_rounded, color: _gold, size: 56),
+              const SizedBox(height: 12),
+              Text(
+                  widget.spectating
+                      ? 'GAME OVER'
+                      : _won
+                          ? 'VICTORY!'
+                          : 'DEFEAT',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                      color: _cream, fontSize: 34, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
+              const SizedBox(height: 6),
+              Text('${_name(winner)} won Ludo',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: _gold, fontSize: 18, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                    color: _panel, borderRadius: BorderRadius.circular(20), border: Border.all(color: _gold)),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('PIECES HOME',
+                      style: TextStyle(color: _gold, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+                  const SizedBox(height: 12),
+                  for (final p in _players_)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(children: [
+                        Expanded(
+                            child: Text(p == widget.selfId ? 'You' : _name(p),
+                                style: const TextStyle(color: _cream, fontWeight: FontWeight.w700))),
+                        Text('${_home(p)} / ${(_state['pieceCount'] as num?)?.toInt() ?? 4}',
+                            style: const TextStyle(color: _gold, fontWeight: FontWeight.w900)),
+                      ]),
+                    ),
+                ]),
+              ),
+            ]),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 22),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              if (!widget.spectating) MatchCoinReward(roomId: widget.socket.roomId),
+              if (_won)
+                VictoryShareButton(
+                    roomId: widget.socket.roomId, gameType: 'ludo', detail: '${_name(winner)} won Ludo'),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  key: const ValueKey('ludo-back-to-huud'),
+                  style: FilledButton.styleFrom(backgroundColor: _gold, foregroundColor: _bg),
+                  onPressed: () => leaveGame(context, widget.socket.roomId),
+                  child: const Text('Back to the Huud', style: TextStyle(fontWeight: FontWeight.w900)),
+                ),
+              ),
+            ]),
+          ),
+        ]),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_showSummary) return _summary(context);
     return PopScope(
         canPop: _finished || widget.spectating || _matchUnavailable,
         onPopInvokedWithResult: (didPop, _) {
@@ -902,7 +1024,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                     alignment: Alignment(2 * (turnIndex + 1) / (n + 1) - 1, -0.15),
                     child: const Padding(
                       padding: EdgeInsets.only(left: 52),
-                      child: Text('✋', key: ValueKey('turn-hand'), style: TextStyle(fontSize: 20)),
+                      child: HuudText('✋', key: ValueKey('turn-hand'), style: TextStyle(fontSize: 20)),
                     ),
                   ),
                 ),

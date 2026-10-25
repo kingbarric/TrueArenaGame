@@ -76,8 +76,11 @@ public class CompetitiveController {
     @GetMapping("/me/matches")
     @Operation(summary = "Your match history, ranked and casual, newest first, with rating changes")
     public Mono<List<MatchHistoryView>> myMatches(@RequestParam(required = false) String gameType,
-                                                  @RequestParam(defaultValue = "20") int limit) {
-        return CurrentUser.id().flatMap(id -> profiles.matchesOf(id, blankToNull(gameType), limit));
+                                                  @RequestParam(defaultValue = "20") int limit,
+                                                  @RequestParam(required = false) String opponent,
+                                                  @RequestParam(required = false) java.time.Instant from,
+                                                  @RequestParam(required = false) java.time.Instant until) {
+        return CurrentUser.id().flatMap(id -> profiles.matchesOf(id, blankToNull(gameType), limit, opponent, from, until));
     }
 
     @GetMapping("/players/{username}/matches")

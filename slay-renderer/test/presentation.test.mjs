@@ -1,0 +1,70 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { Group, Mesh, BoxGeometry, MeshStandardMaterial, Texture, Color } from 'three';
+import { presentBody, presentFace, presentEyes } from '../src/presentation.ts';
+
+test('equipped eye colours replace the base eyes and removing them restores the base', () => {
+  const body = new Group(), eyes = new Mesh(), brows = new Mesh();
+  eyes.name = 'face_eyes'; brows.name = 'face_brows'; body.add(eyes, brows);
+  presentEyes(body, true);
+  assert.equal(eyes.visible, false); assert.equal(brows.visible, true);
+  presentEyes(body, false);
+  assert.equal(eyes.visible, true);
+});
+
+test('grouped skin receives tint without changing shared wardrobe material', () => {
+  const body = new Group(), region = new Group(); region.name = 'region_head';
+  const original = new MeshStandardMaterial({color: '#ffffff'});
+  const skin = new Mesh(new BoxGeometry(), [original, original]);
+  region.add(skin); body.add(region);
+  const outfit = new Mesh(new BoxGeometry(), original); body.add(outfit);
+  presentBody(body, '#623a27', new Set());
+  assert.equal(skin.material[0].color.getHexString(), '623a27');
+  assert.equal(skin.material[1].color.getHexString(), '623a27');
+  assert.equal(outfit.material.color.getHexString(), 'ffffff');
+  const firstMaterial = skin.material[0];
+  presentBody(body, '#abcdef', new Set());
+  assert.equal(skin.material[0], firstMaterial, 'reuse isolated material rather than leak one per change');
+  assert.equal(firstMaterial.color.getHexString(), 'abcdef');
+});
+
+test('every mesh/group with a covered region is hidden and restored on unequip', () => {
+  const body = new Group();
+  const regions = [new Group(), new Mesh(new BoxGeometry(), new MeshStandardMaterial())];
+  for (const region of regions) { region.name = 'region_arms'; body.add(region); }
+  presentBody(body, '#623a27', new Set(['arms']));
+  assert.ok(regions.every(region => !region.visible));
+  presentBody(body, '#623a27', new Set());
+  assert.ok(regions.every(region => region.visible));
+});
+
+test('face presets and expressions stay synchronized across avatar and makeup overlays', () => {
+  const root = new Group();
+  const meshes = [new Mesh(), new Mesh()];
+  for (const mesh of meshes) {
+    mesh.morphTargetDictionary = {face_classic: 0, face_soft: 1, expression_smile: 2, other: 3};
+    mesh.morphTargetInfluences = [1, 0, 0, .3]; root.add(mesh);
+  }
+  presentFace(root, 'soft', 'confident');
+  assert.deepEqual(meshes.map(mesh => mesh.morphTargetInfluences), [[0, 1, 1, .3], [0, 1, 1, .3]]);
+  presentFace(root, 'classic', 'signature');
+  assert.deepEqual(meshes.map(mesh => mesh.morphTargetInfluences), [[1, 0, 0, .3], [1, 0, 0, .3]]);
+});
+
+test('licensed skin uses its own baked tone and preserves non-skin materials', () => {
+  const root=new Group(),skin=new Mesh(new BoxGeometry(),new MeshStandardMaterial({map:new Texture()}));skin.name='region_head_1';skin.userData.slayRegion='head';
+  skin.material.userData.slaySkinBase='#c79782';
+  const lashes=skin.material.clone();lashes.userData.slaySkinTint=false;skin.material=[skin.material,lashes];root.add(skin);
+  presentBody(root,'#c79782',new Set(['head']));
+  assert.equal(skin.visible,false);assert.equal(skin.material[0].color.getHexString(),'ffffff');
+  presentBody(root,'#623a27',new Set());
+  const chosen=new Color('#623a27'),base=new Color('#c79782');
+  assert.ok(Math.abs(skin.material[0].color.r-chosen.r/base.r)<1e-8);
+  assert.equal(skin.material[1].color.getHexString(),'ffffff');assert.equal(skin.visible,true);
+});
+
+test('separate purchased eye meshes all restore when eye accessories are removed', () => {
+  const root=new Group();for(const name of ['face_eyes','face_eyes_1']){const eye=new Mesh();eye.name=name;eye.userData.slayEye=true;root.add(eye);}
+  presentEyes(root,true);assert.ok(root.children.every(o=>!o.visible));
+  presentEyes(root,false);assert.ok(root.children.every(o=>o.visible));
+});

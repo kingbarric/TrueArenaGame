@@ -11,6 +11,9 @@ package app.truearena.api.competitive;
  * from the PlayHuud number.
  */
 public enum AchievementType {
+    SLAY_FIVE_WINS("Five Style Battle Wins", "✨", 220, "rare", true),
+    SLAY_TOP_THREE("Style Podium", "👗", 240, "rare", true),
+    SLAY_CHAMPION("SlayHuud Champion", "👑", 720, "legendary", true),
     FOUNDING_100("Founding 100", "👑", 1000, "legendary", false),
     FOUNDING_1000("Founding 1,000", "💎", 900, "epic", false),
     FOUNDING_10000("Founding 10,000", "⭐", 800, "rare", false),

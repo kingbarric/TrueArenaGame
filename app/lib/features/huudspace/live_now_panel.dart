@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import '../../core/api_client.dart';
 import '../../core/app_state.dart';
 import '../../theme/neon_theme.dart';
-import '../../widgets/neon.dart';
 import '../spectate/spectate_screen.dart';
 import '../spectate/spectator_discovery_screen.dart' show DiscoverableRoom;
 import 'create_huud_sheet.dart';
@@ -13,9 +12,13 @@ import 'huud_kit.dart';
 import 'huud_space_models.dart';
 import 'huud_space_screen.dart';
 import 'huud_swipe_screen.dart';
+import 'live_moment_card.dart';
+import '../../widgets/huud_art.dart';
 
 /// The Live tab's first page: Huuds going on right now (yours, your friends'
-/// and public ones) and games you can watch.
+/// and public ones), each with what's happening in it, and games you can
+/// watch. A card is opened by tapping it — the look-in lets you listen
+/// before you join.
 class LiveNowPanel extends StatefulWidget {
   const LiveNowPanel({super.key, this.bottomPadding = 130});
   final double bottomPadding;
@@ -28,7 +31,6 @@ class _LiveNowPanelState extends State<LiveNowPanel> {
   List<LiveHuud>? _huuds;
   List<DiscoverableRoom> _games = const [];
   String? _error;
-  String? _joining;
   StreamSubscription? _events;
   Timer? _poll;
   bool _started = false;
@@ -79,34 +81,14 @@ class _LiveNowPanelState extends State<LiveNowPanel> {
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted) setState(() => _error = "Error has occurred, try again later.");
+      if (mounted) setState(() => _error = userErrorMessage);
     }
   }
 
-  Future<void> _enter(LiveHuud huud) async {
-    if (huud.youAreIn) {
-      await openHuudSpace(context, huud.id);
-      if (mounted) _load();
-      return;
-    }
-    setState(() => _joining = huud.id);
-    try {
-      final raw = await AppScope.of(context).api.post('/huud-spaces/${huud.id}/join') as Map<String, dynamic>;
-      if (!mounted) return;
-      setState(() => _joining = null);
-      final joined = HuudSpace.fromJson(raw);
-      if (!joined.youAreIn) huudSnack(context, "Asked the host — you'll get in when they say yes ⏳");
-      await openHuudSpace(context, joined.id, initial: joined);
-    } on ApiException catch (e) {
-      if (mounted) huudSnack(context, e.message);
-    } catch (_) {
-      if (mounted) huudSnack(context, "Error has occurred, try again later.");
-    } finally {
-      if (mounted) {
-        setState(() => _joining = null);
-        _load();
-      }
-    }
+  /// Into the full-screen look-in, which can swipe on to the others.
+  Future<void> _open(List<LiveHuud> huuds, int index) async {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => HuudSwipeScreen(huuds: huuds, start: index)));
+    if (mounted) _load();
   }
 
   void _watch(DiscoverableRoom room) => Navigator.of(context).push(MaterialPageRoute(
@@ -124,11 +106,20 @@ class _LiveNowPanelState extends State<LiveNowPanel> {
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
             sliver: SliverToBoxAdapter(
-              child: HuudSectionTitle('Huuds on now',
-                  emoji: '🔴',
-                  trailing: huuds == null || huuds.isEmpty ? null : HuudLiveChip(label: '${huuds.length} live')),
+              child: Padding(padding: const EdgeInsets.only(bottom: 12), child: Row(children: [
+                const HuudSymbol('📡', size: 22), const SizedBox(width: 8),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Huuds on now', maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 18, height: 1.2, fontWeight: FontWeight.w800, color: n.ink)),
+                  if (huuds != null && huuds.isNotEmpty)
+                    Text('Tap a Huud to listen in', maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 12, height: 1.3, color: n.mute)),
+                ])),
+                if (huuds != null && huuds.isNotEmpty) Text('${huuds.length} live',
+                    style: TextStyle(fontSize: 12, height: 1.2, color: HuudColors.of(context).live)),
+              ])),
             ),
           ),
           if (huuds == null)
@@ -168,25 +159,7 @@ class _LiveNowPanelState extends State<LiveNowPanel> {
           else
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              sliver: SliverGrid(
-                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: 440,
-                  mainAxisSpacing: 14,
-                  crossAxisSpacing: 14,
-                  mainAxisExtent: 196,
-                ),
-                delegate: SliverChildBuilderDelegate(
-                  (context, i) => _LiveHuudCard(
-                    huud: huuds[i],
-                    busy: _joining == huuds[i].id,
-                    onEnter: () => _enter(huuds[i]),
-                    onPeek: () => Navigator.of(context)
-                        .push(MaterialPageRoute(builder: (_) => HuudSwipeScreen(huuds: huuds, start: i)))
-                        .then((_) => _load()),
-                  ),
-                  childCount: huuds.length,
-                ),
-              ),
+              sliver: SliverToBoxAdapter(child: LiveMomentWall(huuds: huuds, onOpen: (i) => _open(huuds, i))),
             ),
           if (_games.isNotEmpty) ...[
             const SliverPadding(
@@ -236,8 +209,8 @@ class _LiveNowPanelState extends State<LiveNowPanel> {
   }
 }
 
-class _LiveHuudCard extends StatelessWidget {
-  const _LiveHuudCard({required this.huud, required this.busy, required this.onEnter, required this.onPeek});
+class LiveHuudCard extends StatelessWidget {
+  const LiveHuudCard({super.key, required this.huud, required this.busy, required this.onEnter, required this.onPeek});
   final LiveHuud huud;
   final bool busy;
   final VoidCallback onEnter;
@@ -255,61 +228,55 @@ class _LiveHuudCard extends StatelessWidget {
             ? 'Hanging out 💬'
             : switch (huud.gameStatus) {
                 'playing' => 'Playing ${huudGameName(game)}',
-                'waiting' => 'Getting ready for ${huudGameName(game)}',
+                'waiting' => huud.findingPlayers ? '${huudGameName(game)} · Join to play' : 'Getting ready for ${huudGameName(game)}',
                 _ => 'Just played ${huudGameName(game)}',
               };
-    return HuudCard(
+    return Material(
       key: ValueKey('live-huud-${huud.id}'),
-      onTap: onPeek,
-      highlight: huud.youAreIn,
-      padding: const EdgeInsets.all(14),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Row(children: [
-          Avatar(huud.host?.name ?? huud.name, size: 44, imageUrl: huud.host?.avatarUrl),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(huud.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: n.ink)),
-              Text(huud.host == null ? '' : 'Host: ${huud.host!.handle}',
-                  maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 14, color: n.mid)),
-            ]),
-          ),
-          const HuudLiveChip(),
-        ]),
-        const SizedBox(height: 12),
-        Row(children: [
-          if (game != null) ...[HuudGameArt(game, size: 34), const SizedBox(width: 10)],
-          Expanded(
-            child: Text(doing,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: h.orangeText)),
-          ),
-          HuudChip(huud.privacy.label, emoji: huud.privacy.emoji),
-        ]),
-        const Spacer(),
-        Row(children: [
-          HuudAvatarStack(people: huud.members, total: huud.memberCount, size: 30, max: 4),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-                (huud.memberCount == 1 ? '1 in here' : '${huud.memberCount} in here') +
-                    (huud.watching > 0 ? ' · ${huud.watching} 👀' : ''),
-                maxLines: 1,
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: n.mid)),
-          ),
-          HuudButton(
-            key: ValueKey('live-enter-${huud.id}'),
-            label: huud.youAreIn ? 'Go in' : 'Join',
-            icon: huud.youAreIn ? Icons.arrow_forward_rounded : Icons.login_rounded,
-            busy: busy,
-            onPressed: onEnter,
-          ),
-        ]),
-      ]),
+      color: n.panel,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: huud.youAreIn ? h.orange : n.line, width: huud.youAreIn ? 1.5 : 1)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: busy ? null : onPeek,
+        child: Padding(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          child: Row(children: [
+            Expanded(child: Column(mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(huud.name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 18, height: 1.2, fontWeight: FontWeight.w900, color: n.ink)),
+                if (huud.host != null) Text('Host: ${huud.host!.handle} · ${huud.privacy.label}',
+                    maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, height: 1.2, color: n.mute)),
+                const SizedBox(height: 6),
+                Wrap(spacing: 6, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+                  HuudAvatarStack(key: ValueKey('live-members-${huud.id}'),
+                      people: huud.members, total: huud.memberCount, max: 3, size: 26),
+                  HuudText(doing, maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12, height: 1.2, fontWeight: FontWeight.w600, color: h.orangeText)),
+                ]),
+              ],
+            )),
+            const SizedBox(width: 6),
+            SizedBox(width: 82, child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Text('${huud.memberCount} in here${huud.watching > 0 ? ' · ${huud.watching} watching' : ''}',
+                  maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.right,
+                  style: TextStyle(fontSize: 11, height: 1.2, color: n.mute)),
+              const SizedBox(height: 3),
+              ConstrainedBox(constraints: const BoxConstraints(minHeight: 44), child: FilledButton(
+                key: ValueKey('live-enter-${huud.id}'),
+                style: FilledButton.styleFrom(backgroundColor: h.buttonFill, foregroundColor: h.onOrange,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  minimumSize: const Size(54, 44), padding: const EdgeInsets.symmetric(horizontal: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
+                  textStyle: const TextStyle(fontSize: 12, height: 1.1, fontWeight: FontWeight.w800)),
+                onPressed: busy ? null : onEnter,
+                child: busy ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: h.onOrange))
+                    : Text(huud.findingPlayers ? 'Join to play' : huud.youAreIn ? 'Go in' : 'Join', textAlign: TextAlign.center),
+              )),
+            ])),
+          ]),
+        ),
+      ),
     );
   }
 }

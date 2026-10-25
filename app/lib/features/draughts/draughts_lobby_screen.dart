@@ -14,7 +14,6 @@ import '../../widgets/copyable_huud_code.dart';
 import '../../widgets/invite_players_sheet.dart';
 import '../../widgets/neon.dart';
 import '../../widgets/watching_eye.dart';
-import '../../widgets/stake_picker_sheet.dart';
 import 'draughts_game_screen.dart';
 import '../../widgets/lobby_start_bar.dart';
 
@@ -64,7 +63,7 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
     } catch (_) {
       if (mounted)
         setState(
-            () => _error = 'Error has occurred, try again later.');
+            () => _error = userErrorMessage);
       return;
     }
     if (app.identity == Identity.anonymous) {
@@ -73,23 +72,6 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
         _room = _exampleRoom(app);
       });
       return;
-    }
-    int stake = 0;
-    try {
-      final wallet = await app.fetchWallet();
-      if (!mounted) return;
-      final picked =
-          await showStakePicker(context, currentBalance: wallet.balance);
-      if (!mounted) return;
-      if (picked == null) {
-        Navigator.of(context)
-            .pop(); // dismissed the picker — back out of the lobby entirely
-        return;
-      }
-      stake = picked;
-    } catch (_) {
-      // Couldn't load a balance to stake against — fall through and just
-      // host an unstaked room rather than blocking on it.
     }
     try {
       // Ranked/casual and house rules are settled before the first move.
@@ -100,9 +82,8 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
       if (!mounted) return;
       final res = await app.api.post('/rooms', {
         'gameType': 'draughts',
-        if (stake > 0) 'stake': stake,
         if (setup.ranked) 'ranked': true,
-        'gameConfig': {'mandatoryCapture': setup.mandatoryCapture},
+        'gameConfig': {'mandatoryCapture': setup.mandatoryCapture, 'seizure': setup.seizure},
       }) as Map<String, dynamic>;
       if (!mounted) return;
       final room = RoomView.fromJson(res);
@@ -171,8 +152,6 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
         status: p['status'] as String? ?? 'lobby',
         gameType: 'draughts',
         members: members,
-        stakeCoins: _room?.stakeCoins ??
-            0, // not carried on the WS snapshot — keep whatever the REST create/join response gave us
         ranked: _room?.ranked ?? false, // likewise REST-only
       );
       _spectatorCount = p['spectatorCount'] as int? ?? _spectatorCount;
@@ -225,7 +204,7 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
     } catch (_) {
       if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Error has occurred, try again later.')));
+            const SnackBar(content: Text(userRetryMessage)));
     } finally {
       if (mounted) setState(() => _addingBot = false);
     }
@@ -343,9 +322,6 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
                               WatchingEye(count: _spectatorCount),
                               _chip(n, '1v1'),
                               _chip(n, 'international rules'),
-                              if (room.stakeCoins > 0)
-                                _chip(n,
-                                    '🪙 ${room.stakeCoins} stake · ${room.stakeCoins * 2} pot'),
                             ]),
                       ]),
                 ),
@@ -549,10 +525,13 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
 /// What the host chose before opening the room.
 class DraughtsMatchSetup {
   const DraughtsMatchSetup(
-      {this.ranked = false, this.mandatoryCapture = false});
+      {this.ranked = false, this.mandatoryCapture = false, this.seizure = false});
 
   final bool ranked;
   final bool mandatoryCapture;
+
+  /// A missed capture can cost the piece — only with captures optional.
+  final bool seizure;
 }
 
 /// `canRank` is false for guests — a rated game needs a verified account on
@@ -579,6 +558,7 @@ class _DraughtsRulesSheet extends StatefulWidget {
 class _DraughtsRulesSheetState extends State<_DraughtsRulesSheet> {
   bool _ranked = false;
   bool _mandatoryCapture = false;
+  bool _seizure = false;
 
   /// Every rated game is played under the same, official rules — a rating
   /// earned with optional captures wouldn't mean the same thing.
@@ -675,12 +655,34 @@ class _DraughtsRulesSheetState extends State<_DraughtsRulesSheet> {
                         ]),
                   ),
                 ]),
+                if (!_capturesCompulsory) ...[
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text('Seizure', style: t.bodyMedium),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Miss an obvious capture and your opponent can seize the piece that should have taken.',
+                          style: t.labelSmall?.copyWith(color: n.mute, height: 1.3),
+                        ),
+                      ]),
+                    ),
+                    Switch(
+                      key: const ValueKey('draughts-seizure-switch'),
+                      value: _seizure,
+                      onChanged: (v) => setState(() => _seizure = v),
+                    ),
+                  ]),
+                ],
               ]),
             ),
             const SizedBox(height: 18),
             NeonButton(_ranked ? 'Start ranked huud' : 'Start the huud',
                 onPressed: () => Navigator.of(context).pop(DraughtsMatchSetup(
-                    ranked: _ranked, mandatoryCapture: _capturesCompulsory))),
+                    ranked: _ranked,
+                    mandatoryCapture: _capturesCompulsory,
+                    seizure: _seizure && !_capturesCompulsory))),
           ],
         ),
       ),

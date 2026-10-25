@@ -94,7 +94,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
 
-    expect(find.text(userErrorMessage), findsOneWidget);
+    expect(find.text(userRetryMessage), findsOneWidget);
     expect(find.byType(SpectateScreen), findsNothing);
   });
 }

@@ -1,3 +1,4 @@
+import '../../core/api_client.dart' show userRetryMessage;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -12,6 +13,9 @@ import '../competitive/competitive_setup_screen.dart';
 import '../competitive/player_profile_screen.dart' show ProfileVisibilitySwitch, locationLine;
 import '../notifications/notifications_screen.dart';
 import '../onboarding/sign_out.dart';
+import 'delete_account_screen.dart';
+import '../../widgets/huud_art.dart';
+import 'age_safety_screen.dart';
 
 /// Everything about you and your device: edit profile (photo, username,
 /// where you compete, who can see your cards), appearance, sound,
@@ -60,7 +64,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Error has occurred, try again later.')));
+            content: Text(userRetryMessage)));
       }
     }
   }
@@ -81,7 +85,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Error has occurred, try again later.')));
+            const SnackBar(content: Text(userRetryMessage)));
       }
     } finally {
       if (mounted) setState(() => _picking = false);
@@ -176,6 +180,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
               const SizedBox(height: 28),
             ],
+            ListTile(leading: const Icon(Icons.shield_outlined), title: const Text('Age and privacy'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AgeSafetyScreen()))),
+            const SizedBox(height: 16),
             Text('NOTIFICATIONS',
                 style: Theme.of(context)
                     .textTheme
@@ -366,6 +374,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               style: NeonStyle.ghost,
               onPressed: () => confirmSignOut(context, app),
             ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const DeleteAccountScreen())),
+              child: Text('Delete account', style: TextStyle(color: n.danger)),
+            ),
           ],
         ),
       ),
@@ -536,7 +550,7 @@ class _PresetTile extends StatelessWidget {
               : null,
         ),
         alignment: Alignment.center,
-        child: Text(emoji, style: const TextStyle(fontSize: 22)),
+        child: HuudText(emoji, style: const TextStyle(fontSize: 22)),
       ),
     );
   }

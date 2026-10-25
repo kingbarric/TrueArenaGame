@@ -4,6 +4,7 @@ import '../../core/api_client.dart';
 import '../../core/app_state.dart';
 import '../../theme/neon_theme.dart';
 import 'huud_kit.dart';
+import '../../widgets/huud_art.dart';
 
 /// Report or block someone, in words a ten-year-old can follow. Reports go to
 /// the PlayHuud team with whatever message they were about; blocking keeps
@@ -66,7 +67,7 @@ class _SafetySheetState extends State<_SafetySheet> {
     } on ApiException catch (e) {
       if (mounted) huudSnack(context, e.message);
     } catch (_) {
-      if (mounted) huudSnack(context, "Error has occurred, try again later.");
+      if (mounted) huudSnack(context, userErrorMessage);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -91,7 +92,7 @@ class _SafetySheetState extends State<_SafetySheet> {
     } on ApiException catch (e) {
       if (mounted) huudSnack(context, e.message);
     } catch (_) {
-      if (mounted) huudSnack(context, "Error has occurred, try again later.");
+      if (mounted) huudSnack(context, userErrorMessage);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -141,7 +142,7 @@ class _SafetySheetState extends State<_SafetySheet> {
                     border: Border.all(color: _reason == wire ? h.orange : n.line, width: _reason == wire ? 2.4 : 1.4),
                   ),
                   child: Row(children: [
-                    Text(emoji, style: const TextStyle(fontSize: 24)),
+                    HuudText(emoji, style: const TextStyle(fontSize: 24)),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(label, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: n.ink)),
@@ -163,7 +164,7 @@ class _SafetySheetState extends State<_SafetySheet> {
             if (_reason == 'unsafe')
               Padding(
                 padding: const EdgeInsets.only(bottom: 10),
-                child: Text('💛 If someone makes you feel unsafe, tell a grown-up you trust too.',
+                child: HuudText('💛 If someone makes you feel unsafe, tell a grown-up you trust too.',
                     style: TextStyle(fontSize: 14, height: 1.35, color: n.mid)),
               ),
             HuudButton(

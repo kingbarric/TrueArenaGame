@@ -1,4 +1,5 @@
-import '../../core/api_client.dart' show userErrorMessage;
+import '../../widgets/match_coin_reward.dart';
+import '../../core/api_client.dart' show userErrorMessage, userRetryMessage;
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -13,10 +14,10 @@ import '../../widgets/neon.dart';
 import '../../widgets/table_chat.dart';
 import '../../widgets/game_voice_control.dart';
 import '../status/victory_status.dart';
-import 'whot_lobby_screen.dart';
 import 'whot_card.dart';
 import '../huudspace/leave_game.dart';
 import '../../widgets/worn_look.dart';
+import '../../widgets/huud_art.dart';
 
 class WhotGameScreen extends StatefulWidget {
   const WhotGameScreen(
@@ -773,7 +774,7 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
           _leaving = false;
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Error has occurred, try again later.')),
+              const SnackBar(content: Text(userRetryMessage)),
             );
           }
           return;
@@ -1336,7 +1337,7 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
             style: const TextStyle(
                 color: _gold, fontSize: 18, fontWeight: FontWeight.w900)),
         const SizedBox(height: 8),
-        Text(
+        HuudText(
             selected.isEmpty
                 ? 'Choose a secret symbol. Your teammate will see it privately and tap to confirm.'
                 : confirmed
@@ -1367,7 +1368,7 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
                     side:
                         BorderSide(color: symbol == selected ? _gold : _cream),
                   ),
-                  child: Text(symbol, style: const TextStyle(fontSize: 25)),
+                  child: HuudText(symbol, style: const TextStyle(fontSize: 25)),
                 ),
               ),
           ],
@@ -1397,7 +1398,7 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
                   onPressed: _canAct
                       ? () => _action('SIGNAL', {'symbol': symbol})
                       : null,
-                  icon: Text(symbol, style: const TextStyle(fontSize: 23)),
+                  icon: HuudText(symbol, style: const TextStyle(fontSize: 23)),
                 );
               },
             ),
@@ -1434,7 +1435,7 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 17),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Text('${_name(sender)} → ${signal['symbol']}',
+              HuudText('${_name(sender)} → ${signal['symbol']}',
                   style: const TextStyle(
                       color: _cream,
                       fontSize: 30,
@@ -1937,19 +1938,13 @@ class _WhotGameScreenState extends State<WhotGameScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 22),
             child: Column(children: [
+              if (!widget.spectating) MatchCoinReward(roomId: widget.socket.roomId),
               if (won)
                 VictoryShareButton(
                     roomId: widget.roomId,
                     gameType: 'whot',
                     detail: '$_winnerLabel won Whot'),
-              if (!widget.spectating) ...[
-                NeonButton('Play again',
-                    onPressed: () => Navigator.of(context).pushReplacement(
-                        MaterialPageRoute(
-                            builder: (_) => const WhotLobbyScreen()))),
-                const SizedBox(height: 8),
-              ],
-              NeonButton('Play another game',
+              NeonButton('Back to the Huud',
                   style: NeonStyle.ghost,
                   onPressed: () => leaveGame(context, widget.roomId)),
             ]),

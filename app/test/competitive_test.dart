@@ -13,6 +13,7 @@ import 'package:truearena/core/app_state.dart';
 import 'package:truearena/features/competitive/competitive_models.dart';
 import 'package:truearena/features/competitive/leaderboard_screen.dart';
 import 'package:truearena/features/competitive/card_share.dart';
+import 'package:truearena/features/competitive/all_time_rankings_screen.dart';
 import 'package:truearena/features/competitive/player_card.dart';
 import 'package:truearena/features/competitive/player_profile_screen.dart';
 import 'package:truearena/features/draughts/draughts_lobby_screen.dart';
@@ -39,11 +40,13 @@ Map<String, dynamic> _profileJson({bool complete = false, bool rated = true}) =>
       },
       'profileComplete': complete,
       'locationLockedUntil': null,
+      'strength': {'score': rated ? 63 : 0, 'basis': 'glicko2', 'games': rated ? 100 : 0, 'ranks': {'global': {'rank': 23, 'status':'ranked'}, 'country': {'rank':13,'status':'ranked'}, 'region': {'rank':2,'status':'ranked'}}},
       'games': [
         if (rated)
           {
             'gameType': 'draughts',
             'rating': 1842,
+            'strength': {'score':63,'basis':'glicko2','games':100,'ranks': {'global':{'rank':23,'status':'ranked'},'country':{'rank':13,'status':'ranked'},'region':{'rank':2,'status':'ranked'}}},
             'peakRating': 1917,
             'ratingDeviation': 62,
             'provisional': false,
@@ -133,42 +136,70 @@ void main() {
   }
 
   group('player cards', () {
+    test('rank ordinals and all three location lines are readable', () {
+      expect([1,2,3,11,12,13,21,23].map(ordinal), ['1st','2nd','3rd','11th','12th','13th','21st','23rd']);
+      final card = buildPlayerCards(CompetitiveProfile.fromJson(_profileJson(complete:true)))[1];
+      expect(card.stats.map((s)=>'${s.value} ${s.label}'),
+        ['428 played','291 won','68% win rate','23rd on PlayHuud','13th in NG','2nd in Rivers']);
+      expect(card.competitiveRating,1842);
+      expect(card.bigValue,'63');
+    });
+
+    testWidgets('a compact card shows both numbers and all three readable ranks without overflow', (tester) async {
+      final card = buildPlayerCards(CompetitiveProfile.fromJson(_profileJson(complete:true)))[1];
+      await tester.pumpWidget(MaterialApp(theme:NeonTheme.dark,
+        builder:(context,child)=>MediaQuery(data:MediaQuery.of(context).copyWith(textScaler:const TextScaler.linear(1.8)),child:child!),
+        home:Scaffold(body:Center(child:SizedBox(width:280,child:PlayerCard(data:card))))));
+      await tester.pumpAndSettle();
+      expect(find.text('/100'),findsOneWidget);
+      expect(find.text('Competitive rating 1,842'),findsOneWidget);
+      expect(find.text('23rd'),findsOneWidget);
+      expect(find.text('in Rivers'),findsOneWidget);
+      final rating = tester.getRect(find.byKey(const ValueKey('card-rating-DRAUGHTS')));
+      expect(tester.getRect(find.text('ERIC')).bottom,lessThan(rating.top));
+      expect(rating.bottom,lessThan(tester.getRect(find.text('played')).top));
+      expect(tester.takeException(),isNull);
+    });
+
     test('an unrated game you have played shows your strength in it', () {
       final json = _profileJson(rated: false);
       (json['games'] as List).add({
         'gameType': 'whot',
+        'strength': {'score':14,'basis':'estimate','games':3},
         'ranks': const <String, dynamic>{},
         'stats': {'gamesPlayed': 3, 'wins': 2, 'losses': 1, 'draws': 0, 'winRate': 0.67},
       });
       final whot = buildPlayerCards(CompetitiveProfile.fromJson(json)).firstWhere((c) => c.title == 'WHOT');
       expect(whot.blank, isFalse);
-      expect(whot.bigValue, '43'); // 2 × 20 + 1 × 3
+      expect(whot.bigValue, '14'); // Canonical server score, not activity points.
       expect(whot.bigLabel, 'STRENGTH');
     });
 
-    test('Overall leads with your strength — every finished game adds to it', () {
+    test('cards show server strength, readable totals and actual geographic ranks', () {
       final cards = buildPlayerCards(CompetitiveProfile.fromJson(_profileJson()));
       // Overall, then the ranked game, then every other game — played or not.
       expect(cards.map((c) => c.title),
-          ['OVERALL', 'DRAUGHTS', 'MONOPOLY', 'TRAITORS', 'WORD BLUFF', 'CHESS', 'WHOT', 'LUDO', 'MACALA']);
+          ['OVERALL', 'DRAUGHTS', 'TRAITORS', 'SLAYHUUD', 'WORD BLUFF', 'HUUDPOLY', 'CHESS', 'LUDO', 'WHOT', 'MACALA']);
       final overall = cards.first;
       // 291 wins × 20 + 13 draws × 8 + 124 losses × 3.
-      expect(overall.bigValue, '6,296');
+      expect(overall.bigValue, '63');
       expect(overall.bigLabel, 'STRENGTH');
       expect(overall.stats.map((s) => '${s.value} ${s.label}'),
-          ['428 GMS', '68% WIN', '3 TTL', '19 BST', '1 BDG', '#127 RNK']);
+          ['428 played', '291 won', '68% win rate', '23rd on PlayHuud', '13th in NG']);
       final draft = cards[1];
-      expect(draft.bigLabel, 'NG #127');
+      expect(draft.bigLabel, 'STRENGTH');
+      expect(draft.competitiveRating,1842);
+      expect(draft.strengthStatus,'Rated');
       expect(draft.theme.accent, PlayerCardTheme.forGame('draughts').accent);
       expect(draft.theme.accent, isNot(PlayerCardTheme.overall.accent)); // each game has its own livery
     });
 
     test('a player with nothing rated still gets every card, blank', () {
       final cards = buildPlayerCards(CompetitiveProfile.fromJson(_profileJson(rated: false)));
-      expect(cards, hasLength(9));
+      expect(cards, hasLength(10));
       expect(cards.every((c) => c.blank), isTrue);
-      expect(cards[1].bigValue, '—');
-      expect(cards[1].bigLabel, 'UNRATED');
+      expect(cards[1].bigValue, '0');
+      expect(cards[1].bigLabel, 'STRENGTH');
     });
 
     test('every card has its own colours', () {
@@ -186,7 +217,7 @@ void main() {
       final cards = buildPlayerCards(CompetitiveProfile.fromJson(_profileJson()));
       expect(playerCardShareText(cards[0]), 'My PlayHuud player card #000127. Come play me: https://playhuud.com');
       expect(playerCardShareText(cards[1]),
-          'My Draughts card on PlayHuud — rating 1842, NG #127. Find me: #000127 https://playhuud.com');
+          'My Draughts card on PlayHuud — strength 63/100, competitive rating 1842. Find me: #000127 https://playhuud.com');
       expect(playerCardShareText(cards.firstWhere((c) => c.title == 'WHOT')),
           'Come play Whot with me on PlayHuud #000127: https://playhuud.com');
     });
@@ -207,7 +238,8 @@ void main() {
       game['provisional'] = true;
       game['placementGamesPlayed'] = 5;
       final cards = buildPlayerCards(CompetitiveProfile.fromJson(json));
-      expect(cards[1].bigLabel, 'PROV 5/10');
+      expect(cards[1].competitiveRating, 1842);
+      expect(cards[1].bigLabel, 'STRENGTH');
     });
   });
 
@@ -267,7 +299,7 @@ void main() {
     expect(find.byKey(const ValueKey('complete-player-profile')), findsNothing);
     expect(find.byKey(const ValueKey('profile-public-switch')), findsNothing);
     expect(find.text('10 Match Win Streak'), findsOneWidget);
-    expect(tester.widget<Text>(find.byKey(const ValueKey('card-big-OVERALL'))).data, '6,296');
+    expect(tester.widget<Text>(find.byKey(const ValueKey('card-big-OVERALL'))).data, '63');
   });
 
   testWidgets('swiping brings the next game card to the front; tapping it opens that game', (tester) async {
@@ -292,9 +324,9 @@ void main() {
     expect(find.byType(GameCompetitiveScreen), findsOneWidget);
   });
 
-  testWidgets('a game without rankings says so instead of opening an empty page', (tester) async {
+  testWidgets('a game without a Glicko rating opens its result-based strength board', (tester) async {
     phone(tester);
-    final state = AppState(ApiClient(client: MockClient((_) async => _json([]))));
+    final state = AppState(ApiClient(client: MockClient((_) async => _json({'top': [], 'you': null}))));
     final profile = CompetitiveProfile.fromJson(_profileJson());
     await tester.pumpWidget(_app(
         state, Scaffold(body: SingleChildScrollView(child: CompetitiveRecordSection(profile: profile, own: false)))));
@@ -308,7 +340,7 @@ void main() {
     await tester.tapAt(tester.getCenter(find.byKey(const ValueKey('player-card-carousel'))));
     await tester.pumpAndSettle();
     expect(find.byType(GameCompetitiveScreen), findsNothing);
-    expect(find.text('Rankings for Traitors are coming soon.'), findsOneWidget);
+    expect(find.byType(AllTimeRankingsScreen), findsOneWidget);
   });
 
   testWidgets('a private profile shows who they are and nothing more', (tester) async {
@@ -450,7 +482,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final switches = find.byType(Switch);
-    expect(switches, findsOneWidget); // ranked
+    expect(switches, findsNWidgets(2)); // ranked
     expect(tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Optional capture')).selected, isTrue);
 
     await tester.tap(switches.at(0));
@@ -481,7 +513,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Ranked'), findsNothing);
-    expect(find.byType(Switch), findsNothing);
+    expect(find.byType(Switch), findsOneWidget); // seizure
     expect(find.byType(ChoiceChip), findsNWidgets(2));
   });
 

@@ -1,3 +1,4 @@
+import '../../core/share_origin.dart';
 import '../../core/api_client.dart' show userErrorMessage;
 import 'dart:async';
 
@@ -11,8 +12,9 @@ import '../../theme/neon_theme.dart';
 import '../../widgets/neon.dart';
 import '../onboarding/guest_gate.dart';
 import 'draughts_game_screen.dart';
+import '../../widgets/huud_art.dart';
 
-const _serverError = 'Server error';
+const _serverError = userErrorMessage;
 
 /// Championship discovery, invitations, roster, live bracket and history.
 class ChampionshipsScreen extends StatefulWidget {
@@ -299,7 +301,7 @@ class _ChampionshipDetailScreenState extends State<ChampionshipDetailScreen> {
                   : 'Starts when full in ${left.inHours}h ${left.inMinutes.remainder(60)}m ${left.inSeconds.remainder(60)}s'),
         ],
         if (c['status'] == 'completed') Padding(padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Text(c['championId'] == null ? 'Finished without a champion' : '🏆 ${names[c['championId']] ?? 'Champion'} · permanent badge',
+          child: HuudText(c['championId'] == null ? 'Finished without a champion' : '🏆 ${names[c['championId']] ?? 'Champion'} · permanent badge',
             style: Theme.of(context).textTheme.titleLarge)),
         const SizedBox(height: 16),
         if (!joined && c['status'] == 'lobby') NeonButton(_joining ? 'Joining…' : 'Join Championship', onPressed: _joining ? null : _join),
@@ -307,7 +309,8 @@ class _ChampionshipDetailScreenState extends State<ChampionshipDetailScreen> {
           _starting ? 'Starting…' : 'Start now', onPressed: _starting ? null : _startNow),
         if (_error != null) Padding(padding: const EdgeInsets.all(8), child: Text(userErrorMessage, style: TextStyle(color: n.danger))),
         if (joined) ...[
-          NeonButton('Invite Friends', onPressed: () => Share.share('${c['name']} · Draughts knockout championship\n${c['inviteLink']}\nCode: ${c['code']}')),
+          NeonButton('Invite Friends', onPressed: () => Share.share('${c['name']} · Draughts knockout championship\n${c['inviteLink']}\nCode: ${c['code']}',
+              sharePositionOrigin: shareOrigin(context))),
           TextButton.icon(onPressed: () { Clipboard.setData(ClipboardData(text: c['code'].toString()));
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Code copied'))); },
             icon: const Icon(Icons.copy), label: Text('Code ${c['code']}')),

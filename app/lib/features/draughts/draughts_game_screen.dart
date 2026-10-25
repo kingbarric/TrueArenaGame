@@ -1,3 +1,5 @@
+import '../../widgets/match_coin_reward.dart';
+import '../../core/api_client.dart' show userErrorMessage, userRetryMessage;
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -24,6 +26,7 @@ import 'draughts_rules.dart';
 import 'draughts_theme.dart';
 import 'draughts_var.dart';
 import '../huudspace/leave_game.dart';
+import '../../widgets/huud_art.dart';
 
 /// International (10x10, 20-piece) Draughts — driven by the same
 /// SNAPSHOT/PHASE/EVENT-in, PLAYER_ACTION-out contract as the other two
@@ -51,7 +54,9 @@ class DraughtsGameScreen extends StatefulWidget {
       required this.nicknames,
       this.championshipId,
       this.tournamentSpectator = false,
-      this.spectating = false});
+      this.spectating = false,
+      this.title,
+      this.subtitle});
 
   final GameSocket socket;
   final String selfId;
@@ -59,6 +64,10 @@ class DraughtsGameScreen extends StatefulWidget {
   final String? championshipId;
   final bool tournamentSpectator;
   final bool spectating;
+
+  /// What the top bar says above the game's own round — a championship's
+  /// name, and which round of it this is.
+  final String? title, subtitle;
 
   @override
   State<DraughtsGameScreen> createState() => _DraughtsGameScreenState();
@@ -104,7 +113,6 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
   /// arrive with the final events and are shown on the results screen.
   int? _piecesA;
   int? _piecesB;
-  int? _coinsAwarded;
   int turnSeconds = 60;
   int? _secondsLeft;
   final List<TableChatLine> feed = [];
@@ -135,6 +143,9 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
 
   /// Who may ask for an undo right now — whoever just moved, until the other side plays.
   String? _undoableBy;
+
+  /// The TURN_STARTED after an accepted undo gives nobody a new undo.
+  bool _undoJustAccepted = false;
   String? _awayPlayer;
   int? _reconnectSeconds;
 
@@ -149,6 +160,17 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
   /// Whether this room forces captures. Off is a house rule the host can
   /// pick when making the room — see DraughtsConfig.
   bool _mandatoryCapture = false;
+
+  /// Seizure is on: a missed capture can cost the piece that missed it.
+  bool _seizure = false;
+
+  /// Pieces the side on turn may seize, and which side that is.
+  List<int> _seizable = const [];
+  String? _seizableBy;
+
+  /// "SEIZURE!" across the board for a moment after a piece is seized.
+  bool _seizureSplash = false;
+  Timer? _splashTimer;
   bool _sfxOn = GameSfx.enabled;
 
   DraughtsThemeController? _theme;
@@ -184,6 +206,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
     widget.socket.close();
     _ticker?.cancel();
     _reconnectTicker?.cancel();
+    _splashTimer?.cancel();
     _theme?.removeListener(_onThemeChanged);
     _chatController.dispose();
     GameMusic.stop();
@@ -366,7 +389,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
         _applyEvent((env['payload'] as Map).cast<String, dynamic>());
       case 'ERROR':
         final msg = (env['payload'] as Map)['message']?.toString() ??
-            'Error has occurred, try again later.';
+            userErrorMessage;
         _actionLocked = false;
         _selected = null;
         _chain = const [];
@@ -418,6 +441,9 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
       _spectatorsMuted = p['spectatorsMuted'] as bool? ?? _spectatorsMuted;
       _spectatorCount = p['spectatorCount'] as int? ?? _spectatorCount;
       _mandatoryCapture = p['mandatoryCapture'] as bool? ?? _mandatoryCapture;
+      _seizure = p['seizure'] as bool? ?? _seizure;
+      _seizable = ((p['seizable'] as List?) ?? const []).map((e) => e as int).toList();
+      _seizableBy = p['seizableBy'] as String?;
       _pendingDrawOffer = p['pendingDrawOffer'] as String?;
       _pendingUndo = p['pendingUndo'] as String?;
       _undoableBy = p['undoableBy'] as String?;
@@ -574,6 +600,8 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
           _restartCountdown();
         case 'PIECE_MOVED':
           _pendingDrawOffer = null;
+          _undoableBy = null; // set again by the TURN_STARTED that follows
+          _seizable = const []; // they moved instead of seizing
           final from = data['from'] as int, to = data['to'] as int;
           _var.move(board, data['side'] as String, from, to);
           board[to] = board[from];
@@ -587,6 +615,8 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
           _chain = const [];
         case 'PIECE_CAPTURED':
           _pendingDrawOffer = null;
+          _undoableBy = null; // the other side has started: too late to undo
+          _seizable = const [];
           final from = data['from'] as int,
               to = data['to'] as int,
               captured = data['captured'] as int;
@@ -619,6 +649,31 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
               to; // may be overridden back to null by a following TURN_STARTED
           _selected = to;
           _chain = const [];
+        case 'PIECE_SEIZED':
+          final square = data['square'] as int;
+          final victimSide = data['side'] as String? ?? '';
+          _var.seize(board, victimSide == 'A' ? 'B' : 'A', square);
+          final victim = _pieceAt(square);
+          final victimType = victim?.type ?? board[square];
+          board[square] = null;
+          if (victim != null) _pieces.remove(victim);
+          if (victimType != null) {
+            _capturedPieces.add(_CapturedPiece(_nextCapturedId++, square, victimType, animate: true));
+          }
+          _seizable = const [];
+          _seizableBy = null;
+          _serverLegal = null;
+          _actionLocked = false;
+          if (victimSide == mySide) {
+            GameSfx.captured();
+          } else {
+            GameSfx.capture();
+          }
+          _seizureSplash = true;
+          _splashTimer?.cancel();
+          _splashTimer = Timer(const Duration(milliseconds: 1800), () {
+            if (mounted) setState(() => _seizureSplash = false);
+          });
         case 'PIECE_PROMOTED':
           final sq = data['square'] as int, side = data['side'] as String;
           _var.promote(sq);
@@ -628,7 +683,14 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
           if (p != null) p.type = '${side}_KING';
         case 'TURN_STARTED':
           _var.complete();
-          _beginTurnFor(data['side'] as String? ?? turnSide);
+          final nextSide = data['side'] as String? ?? turnSide;
+          // Whoever just finished their turn may ask to take it back until
+          // the other side moves — except straight after an accepted undo.
+          _undoableBy = _undoJustAccepted ? null : _actorFor(nextSide == 'A' ? 'B' : 'A');
+          _undoJustAccepted = false;
+          _seizable = ((data['seizable'] as List?) ?? const []).map((e) => e as int).toList();
+          _seizableBy = _seizable.isEmpty ? null : nextSide;
+          _beginTurnFor(nextSide);
           activeSquare = null;
           _selected = null;
           _chain = const [];
@@ -638,8 +700,6 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
           _graceSeconds = data['seconds'] as int? ?? 0;
           _selected = null;
           _chain = const [];
-        case 'COINS_AWARDED':
-          _coinsAwarded = data['amount'] as int?;
         case 'GAME_OVER':
           _var.complete();
           winningSide = data['winningSide'] as String?;
@@ -661,6 +721,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
         case 'UNDO_ACCEPTED':
           _pendingUndo = null;
           _undoableBy = null;
+          _undoJustAccepted = true;
           board = (data['board'] as List).map((e) => e as String?).toList();
           _serverLegal = null;
           _selected = null;
@@ -739,8 +800,30 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
   ///
   /// Tapping the last chosen box while the sequence is unfinished takes that
   /// jump back — the only way to change your mind mid-sequence.
+  bool _canSeize(int square) =>
+      _seizableBy == mySide && myTurn && activeSquare == null && _seizable.contains(square);
+
+  /// Take the opponent's piece that missed an obvious capture. The turn
+  /// carries on: the move still has to be played afterwards.
+  void _seize(int square) {
+    if (!widget.socket.isConnected) return;
+    GameSfx.select();
+    setState(() {
+      _actionLocked = true;
+      _clearSelection();
+    });
+    widget.socket.send('PLAYER_ACTION', {
+      'action': 'SEIZE',
+      'data': {'square': square}
+    });
+  }
+
   void _tap(int square) {
     if (!myTurn || _actionLocked || _paused) return;
+    if (_canSeize(square)) {
+      _seize(square);
+      return;
+    }
     final forced = activeSquare;
 
     if (_selected == null) {
@@ -1113,7 +1196,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
           _leaving = false;
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Error has occurred, try again later.')),
+              const SnackBar(content: Text(userRetryMessage)),
             );
           }
           return;
@@ -1162,7 +1245,21 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
       child: Scaffold(
         backgroundColor: const Color(0xff1c130a),
         appBar: AppBar(
-          title: Text(finished ? 'Results' : 'Round $round'),
+          title: widget.title == null
+              ? Text(finished ? 'Results' : 'Round $round')
+              : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(widget.title!,
+                      key: const ValueKey('draughts-title'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                  Text(
+                      [if (widget.subtitle != null) widget.subtitle!, finished ? 'Results' : 'Round $round']
+                          .join(' · '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xffc9ab78))),
+                ]),
           automaticallyImplyLeading:
               finished || widget.tournamentSpectator || widget.spectating,
           backgroundColor: const Color(0xff241708),
@@ -1303,6 +1400,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
 
     return Column(children: [
       _statusBar(n),
+      if (_seizure) _seizureBadge(),
       Expanded(
         child: LayoutBuilder(builder: (context, constraints) {
           // Slim trays, so the board gets the room.
@@ -1550,6 +1648,17 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
                     moveDuration: _moveDuration,
                     fadeDuration: _captureFadeDuration,
                   ),
+                for (final sq in _seizable)
+                  Positioned(
+                    key: ValueKey('seizable-$sq'),
+                    left: colOf(sq) * cellSize,
+                    top: (flipped ? rowOf(sq) : 9 - rowOf(sq)) * cellSize,
+                    width: cellSize,
+                    height: cellSize,
+                    child: IgnorePointer(child: _SeizableRing(mine: _seizableBy == mySide)),
+                  ),
+                if (_seizureSplash)
+                  const Positioned.fill(child: IgnorePointer(child: _SeizureSplash())),
                 if (_dragOrigin != null &&
                     _dragPosition != null &&
                     _dragPieceType != null)
@@ -1621,6 +1730,25 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
         ),
       ),
     ]);
+  }
+
+  /// Written boldly while seizure is on, and louder when you may seize.
+  Widget _seizureBadge() {
+    final yours = _seizableBy == mySide && myTurn && _seizable.isNotEmpty;
+    return Container(
+      key: const ValueKey('draughts-seizure-badge'),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      color: yours ? const Color(0xffb3261e) : const Color(0xff3a1410),
+      child: Text(
+        yours
+            ? 'SEIZE! TAP A GLOWING PIECE — IT MISSED A KILL'
+            : 'SEIZURE ON · MISS A CAPTURE, LOSE THE PIECE',
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+            color: Colors.white, fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 1.1),
+      ),
+    );
   }
 
   Widget _statusBar(NeonColors n) {
@@ -1715,10 +1843,6 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
         chips.add(_statChip(Icons.trending_up_rounded, 'by $margin'));
       }
     }
-    if (_coinsAwarded != null) {
-      chips.add(_statChip(Icons.monetization_on_rounded,
-          '+$_coinsAwarded ${_coinsAwarded == 1 ? 'coin' : 'coins'}'));
-    }
     if (chips.isEmpty) return const SizedBox.shrink();
 
     return Wrap(
@@ -1766,7 +1890,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
               curve: Curves.elasticOut,
               builder: (_, t, child) =>
                   Transform.scale(scale: 0.5 + 0.5 * t, child: child),
-              child: const Text('🏆', style: TextStyle(fontSize: 64)),
+              child: const HuudText('🏆', style: TextStyle(fontSize: 64)),
             ),
             const SizedBox(height: 10),
             Text(
@@ -1778,7 +1902,7 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
                     .displayLarge
                     ?.copyWith(fontSize: 26, color: accent)),
             const SizedBox(height: 6),
-            Text(
+            HuudText(
                 winningSide == 'draw'
                     ? 'This pairing will replay.'
                     : (won ? 'You won! 🎉' : 'Better luck next game.'),
@@ -1789,12 +1913,13 @@ class _DraughtsGameScreenState extends State<DraughtsGameScreen> {
             const SizedBox(height: 16),
             _resultStats(won),
             const SizedBox(height: 24),
+            if (!widget.spectating) MatchCoinReward(roomId: widget.socket.roomId, foregroundColor: const Color(0xffe8d2ac)),
             if (won)
               VictoryShareButton(
                   roomId: widget.socket.roomId, gameType: 'draughts'),
             NeonButton(
                 widget.championshipId == null
-                    ? 'Back to home'
+                    ? 'Back to the Huud'
                     : 'Back to championship', onPressed: () {
               if (widget.championshipId != null) {
                 Navigator.of(context).pop();
@@ -1947,6 +2072,9 @@ class _VarReplaySheetState extends State<_VarReplaySheet> {
   bool _paused = false;
   double _speed = 1;
 
+  /// Shown while a seizure step plays.
+  bool _seizing = false;
+
   @override
   void initState() {
     super.initState();
@@ -2005,7 +2133,10 @@ class _VarReplaySheetState extends State<_VarReplaySheet> {
       final move = widget.turn.steps[_step];
       final piece = _pieces.where((p) => p.square == move.from).firstOrNull;
       if (piece == null) break;
-      setState(() => piece.square = move.to);
+      setState(() {
+        piece.square = move.to;
+        _seizing = move.seized;
+      });
       await Future<void>.delayed(
           Duration(milliseconds: (560 / _speed).round()));
       if (!mounted || token != _playToken) return;
@@ -2019,7 +2150,12 @@ class _VarReplaySheetState extends State<_VarReplaySheet> {
       await Future<void>.delayed(
           Duration(milliseconds: (180 / _speed).round()));
     }
-    if (mounted && token == _playToken) setState(() => _playing = false);
+    if (mounted && token == _playToken) {
+      setState(() {
+        _playing = false;
+        _seizing = false;
+      });
+    }
   }
 
   @override
@@ -2051,6 +2187,19 @@ class _VarReplaySheetState extends State<_VarReplaySheet> {
                   style:
                       const TextStyle(color: Color(0xffc9b18c), fontSize: 12)),
             ),
+            if (_seizing || widget.turn.steps.any((s) => s.seized))
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                    _seizing
+                        ? 'SEIZURE — missed an obvious kill'
+                        : 'This turn opened with a seizure',
+                    key: const ValueKey('draughts-var-seizure'),
+                    style: TextStyle(
+                        color: _seizing ? const Color(0xffff6b5e) : const Color(0xffc9b18c),
+                        fontSize: _seizing ? 15 : 12,
+                        fontWeight: FontWeight.w900)),
+              ),
             const SizedBox(height: 14),
             Expanded(
               child: LayoutBuilder(builder: (context, limits) {
@@ -2504,6 +2653,78 @@ class _BoardThemeSheet extends StatelessWidget {
           shape: BoxShape.circle,
           border: Border.all(color: Colors.white70, width: 1.6),
           gradient: RadialGradient(colors: [top, mid]),
+        ),
+      );
+}
+
+/// Red pulse round a piece that missed an obvious capture.
+class _SeizableRing extends StatefulWidget {
+  const _SeizableRing({required this.mine});
+  final bool mine;
+
+  @override
+  State<_SeizableRing> createState() => _SeizableRingState();
+}
+
+class _SeizableRingState extends State<_SeizableRing> with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse =
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 900))..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+        animation: _pulse,
+        builder: (context, _) => Container(
+          margin: const EdgeInsets.all(2),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+                color: const Color(0xffff3b30).withValues(alpha: widget.mine ? 1 : 0.6),
+                width: widget.mine ? 3.5 : 2),
+            boxShadow: [
+              if (widget.mine)
+                BoxShadow(
+                    color: const Color(0xffff3b30).withValues(alpha: 0.35 + 0.4 * _pulse.value),
+                    blurRadius: 6 + 10 * _pulse.value),
+            ],
+          ),
+        ),
+      );
+}
+
+/// "SEIZURE!" across the board after a piece is seized.
+class _SeizureSplash extends StatelessWidget {
+  const _SeizureSplash();
+
+  @override
+  Widget build(BuildContext context) => TweenAnimationBuilder<double>(
+        key: const ValueKey('draughts-seizure-splash'),
+        tween: Tween(begin: 0.6, end: 1),
+        duration: const Duration(milliseconds: 380),
+        curve: Curves.easeOutBack,
+        builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
+        child: Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+            decoration: BoxDecoration(
+              color: const Color(0xe6b3261e),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.white, width: 2),
+            ),
+            child: const Column(mainAxisSize: MainAxisSize.min, children: [
+              Text('SEIZURE!',
+                  style: TextStyle(
+                      color: Colors.white, fontSize: 34, fontWeight: FontWeight.w900, letterSpacing: 2)),
+              SizedBox(height: 2),
+              Text('Missed an obvious kill',
+                  style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800)),
+            ]),
+          ),
         ),
       );
 }

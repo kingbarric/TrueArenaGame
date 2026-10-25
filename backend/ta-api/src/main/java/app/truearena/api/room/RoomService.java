@@ -72,7 +72,13 @@ public class RoomService {
         this.games = games;
     }
 
-    private static final java.util.Set<String> GAME_TYPES = java.util.Set.of("truearena", "wordbluff", "draughts", "goosi", "whot", "ludo", "chess", "monopoly");
+    private static int slaySeats(String config) {
+        try { Object n = new com.fasterxml.jackson.databind.ObjectMapper().readValue(config, Map.class).get("seats");
+            return n instanceof Number number ? Math.min(22, Math.max(2, number.intValue())) : 2;
+        } catch (Exception e) { return 2; }
+    }
+
+    private static final java.util.Set<String> GAME_TYPES = java.util.Set.of("truearena", "wordbluff", "draughts", "goosi", "whot", "ludo", "chess", "monopoly", "slayhuud");
 
     /** A guest can join any room, but hosting (creating) one needs a real
      * account — otherwise there's no way to reach them again if the app is
@@ -97,11 +103,9 @@ public class RoomService {
         if (!GAME_TYPES.contains(type)) {
             return Mono.error(ApiExceptions.badRequest("unknown gameType: " + type));
         }
-        // Staking is opt-in per room, never required — a null/omitted stake
-        // (the common case) is a perfectly ordinary unstaked room.
-        long stakeCoins = stake == null ? 0 : stake;
-        if (stakeCoins < 0) {
-            return Mono.error(ApiExceptions.badRequest("stake can't be negative"));
+        long stakeCoins = 0;
+        if (stake != null && stake != 0) {
+            return Mono.error(ApiExceptions.badRequest("Coin wagering is no longer supported; games are free to enter"));
         }
         return rooms.lockHostedLobby(hostId + ":" + type)
                 .then(rooms.findHostedLobby(hostId, type))
@@ -114,7 +118,6 @@ public class RoomService {
                                 .flatMap(code -> rooms.save(RoomRow.create(code, groupId, hostId, type, stakeCoins,
                                         writeConfig(ranked ? withRankedRules(type, gameConfig) : gameConfig), ranked)))
                                 .flatMap(room -> members.save(RoomMemberRow.of(room.id(), hostId, host.username())).thenReturn(room))
-                                .flatMap(room -> escrowStake(room, hostId))
                                 .flatMap(room -> voiceSessions == null ? Mono.just(room) : voiceSessions.linkGame(hostId,room.id()).thenReturn(room))
                                 .flatMap(room -> notifyCallCompanions(room, host.displayName()).thenReturn(room))
                                 .flatMap(room -> view(room, hostId)))));
@@ -148,26 +151,6 @@ public class RoomService {
         } catch (Exception e) {
             return null;
         }
-    }
-
-    /**
-     * Debits the stake from whoever just joined (host at creation, or any
-     * later joiner) — on failure the just-added membership (and the room
-     * itself, if they were its only member) is rolled back, so a declined
-     * stake never leaves a half-joined room sitting around. A no-op for an
-     * unstaked room.
-     */
-    private Mono<RoomRow> escrowStake(RoomRow room, UUID userId) {
-        if (room.stakeCoins() <= 0) {
-            return Mono.just(room);
-        }
-        return coins.debit(userId, room.stakeCoins(), CoinService.REASON_MATCH_STAKE_ESCROW, room.id())
-                .thenReturn(room)
-                .onErrorResume(err -> members.deleteByRoomIdAndUserId(room.id(), userId)
-                        .then(members.countByRoomId(room.id()))
-                        .flatMap(count -> count == 0 ? rooms.deleteById(room.id()) : Mono.empty())
-                        .then(Mono.error(ApiExceptions.conflict(
-                                "not enough coins to stake " + room.stakeCoins()))));
     }
 
     /**
@@ -214,12 +197,11 @@ public class RoomService {
                                 // which sent people to watch something that wasn't live.
                                 ? Mono.error(ApiExceptions.conflict("this huud has already ended"))
                                 : members.countByRoomId(room.id())
-                                .flatMap(count -> count >= (switch (room.gameType()) { case "draughts", "chess", "goosi" -> 2; case "ludo" -> 4; case "monopoly" -> app.truearena.game.monopoly.MonopolyConfig.MAX_PLAYERS; default -> MAX_PLAYERS; })
+                                .flatMap(count -> count >= (switch (room.gameType()) { case "draughts", "chess", "goosi" -> 2; case "ludo" -> 4; case "slayhuud" -> slaySeats(room.gameConfig()); case "monopoly" -> app.truearena.game.monopoly.MonopolyConfig.MAX_PLAYERS; default -> MAX_PLAYERS; })
                                         ? Mono.error(ApiExceptions.conflict("huud is full"))
                                         : resolvedNickname(userId, nickname)
                                         .flatMap(resolved -> members.save(RoomMemberRow.of(room.id(), userId, resolved)))
                                         .thenReturn(room)
-                                        .flatMap(r -> escrowStake(r, userId))
                                         .then(view(room, userId))))));
     }
 
@@ -245,12 +227,8 @@ public class RoomService {
     }
 
     /**
-     * Leave a lobby before the game starts — refunds every staked member's
-     * escrow and deletes the room. Only the host can call this, and only
-     * while nothing's actually running yet (no live runtime, or one that
-     * exists but never started); once a game is underway this is refused —
-     * that's what forfeit/quitting mid-game is for, and it settles the
-     * stake through the normal win/loss payout instead of a refund.
+     * Leaving a lobby never moves coins. Started games use the normal
+     * forfeit flow; the host may cancel an unstarted lobby.
      */
     @org.springframework.transaction.annotation.Transactional
     /**
@@ -263,7 +241,7 @@ public class RoomService {
                 .switchIfEmpty(Mono.error(ApiExceptions.notFound("huud not found")))
                 .flatMap(room -> {
                     if (!room.hostId().equals(hostId)) return Mono.error(ApiExceptions.forbidden("only the host can do that"));
-                    if (room.hostId().equals(userId) && (!"monopoly".equals(room.gameType()) || room.stakeCoins() > 0))
+                    if (room.hostId().equals(userId) && !"monopoly".equals(room.gameType()))
                         return Mono.error(ApiExceptions.badRequest("the host keeps their seat"));
                     boolean started = runtimes.find(roomId).map(RoomRuntime::started).orElse(false);
                     if (started || !"lobby".equals(room.status())) {
@@ -289,8 +267,7 @@ public class RoomService {
                         return Mono.error(ApiExceptions.conflict("the game has already started — forfeit instead"));
                     }
                     return members.findByRoomId(roomId).map(RoomMemberRow::userId).collectList()
-                            .flatMap(ids -> refundStakes(room)
-                                    .then(members.deleteByRoomId(roomId))
+                            .flatMap(ids -> members.deleteByRoomId(roomId)
                                     .then(rooms.deleteById(roomId))
                                     .doOnSuccess(ignored -> {
                                         runtimes.find(roomId).ifPresent(rt -> rt.bus.tryEmitNext(
@@ -327,8 +304,7 @@ public class RoomService {
                                                     ? abandon(roomId, callerId).thenReturn(true)
                                                     : games.forfeitBotDraughtsRoom(roomId, callerId)
                                                             .flatMap(forfeited -> forfeited ? Mono.just(true)
-                                                                    : refundStakes(room)
-                                                                            .then(rooms.save(room.withStatus("ended")))
+                                                                    : rooms.save(room.withStatus("ended"))
                                                                             .thenReturn(true));
                                             return end.doOnSuccess(ended -> {
                                                 if (ended) {
@@ -405,8 +381,7 @@ public class RoomService {
                                                     .flatMap(forfeited -> forfeited
                                                             && (!"ludo".equals(gameType) || runtimes.find(roomId)
                                                             .map(rt -> rt.state().finished()).orElse(false))
-                                                            ? Mono.just(true) : refundStakes(room)
-                                                                    .then(rooms.save(room.withStatus("ended")))
+                                                            ? Mono.just(true) : rooms.save(room.withStatus("ended"))
                                                                     .thenReturn(true));
                                     return end.doOnSuccess(ended -> {
                                         if (ended) {
@@ -418,16 +393,6 @@ public class RoomService {
                                 });
                     });
                 });
-    }
-
-    private Mono<Void> refundStakes(RoomRow room) {
-        if (room.stakeCoins() <= 0) {
-            return Mono.empty();
-        }
-        return members.findByRoomId(room.id())
-                .flatMap(m -> coins.credit(m.userId(), room.stakeCoins(), CoinService.REASON_MATCH_STAKE_REFUND, room.id())
-                        .onErrorResume(err -> Mono.empty())) // best-effort — never blocks the room from being torn down
-                .then();
     }
 
     /**
@@ -445,12 +410,16 @@ public class RoomService {
                 .map(row -> row.otherUser(selfId))
                 .collect(Collectors.toSet())
                 .flatMapMany(friendIds -> {
-                    return Flux.fromIterable(runtimes.all())
+                    Flux<DiscoverableRoomView> regular = Flux.fromIterable(runtimes.all())
                             .filter(RoomService::watchable)
                             .filter(rt -> friendIds.contains(UUID.fromString(rt.hostUserId)))
                             .concatMap(rt -> championships == null ? discoverableView(rt)
                                     : championships.spectatorAllowed(rt.roomId, selfId)
                                             .flatMapMany(allowed -> allowed ? discoverableView(rt) : Flux.empty()));
+                    Flux<DiscoverableRoomView> styling = rooms.findLiveSlayRooms().filter(r->friendIds.contains(r.hostId()))
+                        .concatMap(r->(championships==null?Mono.just(true):championships.spectatorAllowed(r.id(),selfId))
+                            .flatMap(ok->ok?users.findById(r.hostId()).map(host->new DiscoverableRoomView(r.id(),r.code(),r.gameType(),host.displayName(),runtimes.find(r.id()).map(rt->rt.connectedUserIds.size()).orElse(0))):Mono.empty()));
+                    return Flux.merge(regular,styling).distinct(DiscoverableRoomView::roomId);
                 });
     }
 

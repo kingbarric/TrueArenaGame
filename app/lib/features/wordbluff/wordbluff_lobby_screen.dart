@@ -61,7 +61,7 @@ class _WordBluffLobbyScreenState extends State<WordBluffLobbyScreen> {
     } catch (_) {
       if (mounted)
         setState(
-            () => _error = 'Error has occurred, try again later.');
+            () => _error = userErrorMessage);
       return;
     }
     if (app.identity == Identity.anonymous) {
@@ -183,7 +183,7 @@ class _WordBluffLobbyScreenState extends State<WordBluffLobbyScreen> {
     } catch (_) {
       if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Error has occurred, try again later.')));
+            const SnackBar(content: Text(userRetryMessage)));
     } finally {
       if (mounted) setState(() => _addingBot = false);
     }

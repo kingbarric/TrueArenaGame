@@ -8,6 +8,7 @@ import 'package:http/testing.dart';
 import 'package:truearena/core/api_client.dart';
 import 'package:truearena/core/app_state.dart';
 import 'package:truearena/features/home/home_screen.dart';
+import 'package:truearena/features/games/game_select_screen.dart';
 import 'package:truearena/features/goosi/goosi_lobby_screen.dart';
 import 'package:truearena/theme/neon_theme.dart';
 import 'package:truearena/widgets/neon.dart';
@@ -87,7 +88,7 @@ void main() {
 
     for (final theme in [NeonTheme.nebulaDark, NeonTheme.nebulaLight]) {
       await show(theme);
-      expect(find.byType(NeonCard), findsNWidgets(8));
+      expect(find.byType(NeonCard), findsNWidgets(gameCatalog.length));
       final tile = tester.widget<AnimatedContainer>(find
           .descendant(
             of: find.byType(NeonCard).first,
@@ -99,7 +100,7 @@ void main() {
 
     for (final theme in [NeonTheme.supercarDark, NeonTheme.supercarLight]) {
       await show(theme);
-      expect(find.byType(NeonCard), findsNWidgets(8));
+      expect(find.byType(NeonCard), findsNWidgets(gameCatalog.length));
       final tile = tester.widget<AnimatedContainer>(find
           .descendant(
             of: find.byType(NeonCard).first,

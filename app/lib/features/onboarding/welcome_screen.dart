@@ -11,7 +11,7 @@ import '../../widgets/neon.dart';
 import '../../widgets/playhuud_logo.dart';
 import '../shell/main_shell.dart';
 import 'email_screen.dart';
-import 'username_setup_screen.dart';
+import 'avatar_setup_screen.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -158,11 +158,12 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
   Future<void> _google(BuildContext context) async {
     setState(() => _googleBusy = true);
     final app = AppScope.of(context);
+    final upgradingGuest = app.identity == Identity.guest;
     try {
       final tokens = await app.signInWithGoogle();
       if (tokens == null || !context.mounted) return; // cancelled the picker
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => tokens.newAccount ? const UsernameSetupScreen() : const MainShell()),
+        MaterialPageRoute(builder: (_) => (tokens.newAccount || upgradingGuest) ? const AvatarSetupScreen() : const MainShell()),
         (route) => false,
       );
     } on ApiException catch (e) {
@@ -179,22 +180,23 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
   Future<void> _apple(BuildContext context) async {
     setState(() => _appleBusy = true);
     final app = AppScope.of(context);
+    final upgradingGuest = app.identity == Identity.guest;
     try {
       final tokens = await app.signInWithApple();
       if (!context.mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => tokens.newAccount ? const UsernameSetupScreen() : const MainShell()),
+        MaterialPageRoute(builder: (_) => (tokens.newAccount || upgradingGuest) ? const AvatarSetupScreen() : const MainShell()),
         (route) => false,
       );
     } on SignInWithAppleAuthorizationException catch (e) {
       if (e.code != AuthorizationErrorCode.canceled && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error has occurred, try again later.')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(userRetryMessage)));
       }
     } on ApiException catch (e) {
       if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } catch (_) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error has occurred, try again later.')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(userRetryMessage)));
       }
     } finally {
       if (mounted) setState(() => _appleBusy = false);
@@ -221,7 +223,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
       if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } catch (_) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error has occurred, try again later.')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(userRetryMessage)));
       }
     }
   }

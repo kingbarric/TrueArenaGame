@@ -5,7 +5,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Background music for a game in progress.
-/// Monopoly uses a separately licensed cinematic track at a quieter volume;
+/// Huudpoly uses a separately licensed cinematic track at a quieter volume;
 /// the existing piano playlists and volume for other games remain unchanged.
 ///
 /// The bank is 22 public-domain solo piano recordings in `assets/music/`
@@ -237,6 +237,6 @@ enum MusicMood {
   /// Ragtime and 1900s piano rolls — for the loud, chatty party games.
   lively,
 
-  /// Quiet cinematic percussion for Monopoly.
+  /// Quiet cinematic percussion for Huudpoly.
   cinematic,
 }

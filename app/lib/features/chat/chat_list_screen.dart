@@ -1,3 +1,4 @@
+import '../../widgets/huud_art.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -116,7 +117,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
     } on ApiException catch (e) {
       if (mounted && !silent) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted && !silent) setState(() => _error = 'Error has occurred, try again later.');
+      if (mounted && !silent) setState(() => _error = userErrorMessage);
     } finally {
       if (mounted && !silent) setState(() => _loading = false);
     }
@@ -191,7 +192,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
                                       ),
                                 title: Text(c.title, maxLines: 1, overflow: TextOverflow.ellipsis,
                                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
-                                subtitle: Text(c.preview, maxLines: 1, overflow: TextOverflow.ellipsis,
+                                subtitle: HuudText(c.preview, artwork: c.lastMessageIsInvite || (c.lastMessageText?.startsWith('e2e1:') ?? false), maxLines: 1, overflow: TextOverflow.ellipsis,
                                     style: Theme.of(context).textTheme.labelSmall?.copyWith(color: n.mute)),
                               );
                             },

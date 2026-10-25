@@ -17,6 +17,7 @@ import app.truearena.persistence.UserRepository;
 import app.truearena.room.RoomRuntimeRegistry;
 import app.truearena.api.bot.BotRuntimeRegistry;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import app.truearena.game.truearena.Presets;
 import app.truearena.voice.LiveKitRoomAdmin;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.r2dbc.core.DatabaseClient;
@@ -75,6 +76,14 @@ public class HuudSpaceService {
     private final RoomRuntimeRegistry runtimes;
     private final BotRuntimeRegistry bots;
     private final HuudSpaceAccess access;
+    private final HuudMoments moments;
+    /**
+     * A Live Huud nobody in the hangout has had the app open in for this long
+     * drops out of the Live list and reads as quiet (amber) — it stays Live
+     * until its owner ends it or the 24-hour sweep does.
+     */
+    @Value("${huud.live-idle:PT15M}")
+    Duration liveIdle = Duration.ofMinutes(15);
 
     public HuudSpaceService(DatabaseClient db, ReactiveTransactionManager manager, InboxRegistry inbox,
                             RoomService rooms, UserRepository users, VoiceSessionService voiceSessions,
@@ -82,7 +91,7 @@ public class HuudSpaceService {
                             @Value("${huud.host-grace:PT5M}") Duration hostGrace,
                             @Value("${huud.member-timeout:PT10M}") Duration memberTimeout,
                             @Value("${huud.inactivity-timeout:PT24H}") Duration inactivityTimeout,
-                            RoomRuntimeRegistry runtimes, BotRuntimeRegistry bots) {
+                            RoomRuntimeRegistry runtimes, BotRuntimeRegistry bots, HuudMoments moments) {
         this.db = db;
         this.tx = TransactionalOperator.create(manager);
         this.inbox = inbox;
@@ -99,12 +108,13 @@ public class HuudSpaceService {
         this.runtimes = runtimes;
         this.bots = bots;
         this.access = access;
+        this.moments = moments;
     }
 
     /** {@code ownerId}: running it now; {@code createdBy}: the owner. */
     record Space(UUID id, String code, String name, String privacy, UUID ownerId, UUID createdBy,
                  String status, UUID currentRoomId, String feedMessage, Instant sharedAt, String background,
-                 Instant liveSince, Instant createdAt, Instant endedAt, UUID championshipId) {
+                 Instant liveSince, Instant createdAt, Instant endedAt, UUID championshipId, boolean findingPlayers) {
         boolean active() {
             return "active".equals(status);
         }
@@ -141,6 +151,11 @@ public class HuudSpaceService {
 
     public Mono<HuudSpaceView> create(UUID user, String requestedName, String requestedPrivacy,
                                       String gameType, String mode, String message, boolean share) {
+        return create(user, requestedName, requestedPrivacy, gameType, mode, message, share, null);
+    }
+
+    public Mono<HuudSpaceView> create(UUID user, String requestedName, String requestedPrivacy,
+                                      String gameType, String mode, String message, boolean share, Map<String, Object> gameConfig) {
         String privacy = privacyOrDefault(requestedPrivacy);
         return users.findById(user)
                 .switchIfEmpty(Mono.error(ApiExceptions.unauthorized("unknown user")))
@@ -153,15 +168,15 @@ public class HuudSpaceService {
                     return tx.transactional(lock("huud-space-owner:" + user)
                             .then(ownedId(user))
                             .switchIfEmpty(Mono.defer(() -> freshCode().flatMap(code -> db.sql(
-                                            "INSERT INTO huud_spaces(code,name,privacy,owner_id,created_by,live_since) "
-                                                    + "VALUES(:code,:name,:privacy,:user,:user,now()) RETURNING id")
+                                            "INSERT INTO huud_spaces(code,name,privacy,owner_id,created_by,live_since,background) "
+                                                    + "VALUES(:code,:name,:privacy,:user,:user,now(),'blank') RETURNING id")
                                     .bind("code", code).bind("name", name).bind("privacy", privacy).bind("user", user)
                                     .map((r, m) -> r.get("id", UUID.class)).one()
                                     .flatMap(id -> admitRow(id, user).then(enterLive(id, user)).thenReturn(id))))));
                 })
                 .flatMap(id -> space(id).flatMap(s -> !s.live() || gameType == null || gameType.isBlank()
                                 || s.currentRoomId() != null ? Mono.<Void>empty()
-                                : addGame(user, id, gameType, mode, false).then())
+                                : addGame(user, id, gameType, mode, false, gameConfig).then())
                         .then(share ? space(id).filter(Space::live).flatMap(s -> share(user, id, message)).then()
                                 : Mono.<Void>empty())
                         .then(view(id, user)));
@@ -303,7 +318,8 @@ public class HuudSpaceService {
                                 .bind("id", id).fetch().rowsUpdated())
                         .then(endChampionshipWithLive(id))))
                 .doOnSuccess(n -> people.forEach(p -> notify(p, id, "live-ended", by)))
-                .then(Flux.fromIterable(people).concatMap(p -> dropFromVoice(id, p)).then()));
+                .then(Flux.fromIterable(people).concatMap(p -> dropFromVoice(id, p)).then())
+                .then(dropPreviewListeners(id)));
     }
 
     /**
@@ -330,7 +346,8 @@ public class HuudSpaceService {
      */
     Mono<Void> enterLive(UUID id, UUID user) {
         return tx.transactional(lock("huud-space:" + id).then(db.sql(
-                        "UPDATE huud_space_members m SET live_at=COALESCE(m.live_at, now()), last_seen_at=now() "
+                        "UPDATE huud_space_members m SET live_at=COALESCE(m.live_at, now()), last_seen_at=now(), "
+                        + "app_seen_at=now() "
                         + "FROM huud_spaces s WHERE s.id=m.huud_space_id AND m.huud_space_id=:id AND m.user_id=:user "
                         + "AND s.live_since IS NOT NULL AND m.left_at IS NULL AND NOT m.removed RETURNING (m.live_at = m.last_seen_at) AS fresh")
                 .bind("id", id).bind("user", user)
@@ -383,23 +400,75 @@ public class HuudSpaceService {
                         }));
     }
 
-    /**
-     * Look into a Live Huud without joining: see who's there and watch the
-     * game — no chat, voice or seat. Counts towards "watching" while called.
-     */
+    /** Eligibility for the preview, without entering the hangout or refreshing activity. */
+    private Mono<Boolean> mayWatch(Space s, UUID user) {
+        return blocked(user, s.createdBy()).flatMap(blocked -> blocked ? Mono.just(false)
+                : membership(s.id(), user).map(Optional::of).defaultIfEmpty(Optional.empty())
+                .flatMap(member -> member.isPresent() && member.get().removed() ? Mono.just(false)
+                        : member.isPresent() && member.get().in() ? Mono.just(true)
+                        : canSee(s, user).flatMap(see -> see ? Mono.just(true)
+                        : request(s.id(), user, "join").map("accepted"::equals).defaultIfEmpty(false))));
+    }
+
+    /** Look in and listen without joining, chatting, publishing or taking a seat. */
     public Mono<HuudSpaceView> watch(UUID user, UUID id) {
         return space(id).filter(Space::live)
                 .switchIfEmpty(Mono.error(ApiExceptions.notFound("This Huud isn't live right now")))
-                .flatMap(s -> blocked(user, s.createdBy()).flatMap(b -> b ? Mono.just(false) : canSee(s, user)
-                        .flatMap(see -> see ? Mono.just(true)
-                                : request(id, user, "join").map("accepted"::equals).defaultIfEmpty(false))))
-                .flatMap(ok -> ok ? Mono.just(true)
-                        : membership(id, user).map(Membership::in).defaultIfEmpty(false))
+                .flatMap(s -> mayWatch(s, user))
                 .flatMap(ok -> !ok ? Mono.error(ApiExceptions.forbidden("This Huud isn't open to you"))
                         : tx.transactional(lock("huud-space:" + id).then(db.sql(
                                 "INSERT INTO huud_space_viewers(huud_space_id,user_id) VALUES(:id,:user) "
                                         + "ON CONFLICT(huud_space_id,user_id) DO UPDATE SET last_seen_at=now()")
-                                .bind("id", id).bind("user", user).fetch().rowsUpdated()))).then(view(id, user));
+                                .bind("id", id).bind("user", user).fetch().rowsUpdated()))).then(view(id, user, false));
+    }
+
+    public static String previewIdentity(UUID user, UUID preview) { return "preview-" + user + "-" + preview; }
+
+    /** A stale swipe must never disconnect a newer preview of the same Huud. */
+    public Mono<Void> stopPreview(UUID user, UUID id, UUID preview) {
+        return voice.remove(HuudSpaceAccess.VOICE_PREFIX + id, previewIdentity(user, preview));
+    }
+
+    private Mono<Void> dropUserPreviews(UUID id, UUID user) {
+        String room = HuudSpaceAccess.VOICE_PREFIX + id;
+        return voice.participantIds(room).flatMapMany(Flux::fromIterable)
+                .filter(identity -> identity.startsWith("preview-" + user + "-"))
+                .concatMap(identity -> voice.remove(room, identity)).then().onErrorResume(e -> Mono.empty());
+    }
+
+    private Mono<Void> dropPreviewListeners(UUID id) {
+        String room = HuudSpaceAccess.VOICE_PREFIX + id;
+        return voice.participantIds(room).flatMapMany(Flux::fromIterable)
+                .filter(identity -> identity.startsWith("preview-"))
+                .concatMap(identity -> voice.remove(room, identity)).then().onErrorResume(e -> Mono.empty());
+    }
+
+    /** A live preview needs a fresh viewer lease and must still pass the privacy rules. */
+    private Mono<Void> prunePreviewListeners(UUID id) {
+        String room = HuudSpaceAccess.VOICE_PREFIX + id;
+        return voice.participantIds(room).flatMapMany(Flux::fromIterable)
+                .filter(identity -> identity.startsWith("preview-"))
+                .concatMap(identity -> {
+                    UUID user;
+                    try { user = UUID.fromString(identity.substring("preview-".length(), "preview-".length() + 36)); }
+                    catch (IllegalArgumentException | IndexOutOfBoundsException e) { return voice.remove(room, identity); }
+                    return db.sql("SELECT EXISTS(SELECT 1 FROM huud_space_viewers WHERE huud_space_id=:id "
+                                    + "AND user_id=:user AND last_seen_at > now()-interval '60 seconds') AS ok")
+                            .bind("id", id).bind("user", user)
+                            .map((r, m) -> Boolean.TRUE.equals(r.get("ok", Boolean.class))).one()
+                            .flatMap(fresh -> fresh ? space(id).flatMap(s -> mayWatch(s, user)) : Mono.just(false))
+                            .flatMap(ok -> ok ? Mono.empty() : voice.remove(room, identity));
+                }).then();
+    }
+
+    /** Blocking also stops either person's preview of the other's hosted Huud. */
+    public Mono<Void> stopBlockedPreviews(UUID a, UUID b) {
+        return db.sql("SELECT id,created_by FROM huud_spaces WHERE status='active' AND live_since IS NOT NULL "
+                        + "AND created_by IN (:a,:b)")
+                .bind("a", a).bind("b", b)
+                .map((r, m) -> Map.entry(r.get("id", UUID.class), r.get("created_by", UUID.class))).all()
+                .concatMap(s -> dropUserPreviews(s.getKey(), s.getValue().equals(a) ? b : a).onErrorResume(e -> Mono.empty()))
+                .then();
     }
 
     /** People looking in right now who aren't in the Live hangout. */
@@ -499,7 +568,7 @@ public class HuudSpaceService {
     }
 
     Mono<Boolean> canSee(Space s, UUID user) {
-        if (s.createdBy().equals(user) || "public".equals(s.privacy())) return Mono.just(true);
+        if (s.createdBy().equals(user) || "public".equals(s.privacy()) || s.findingPlayers()) return Mono.just(true);
         if (!"friends".equals(s.privacy())) return Mono.just(false);
         return friends(user, s.createdBy());
     }
@@ -600,7 +669,9 @@ public class HuudSpaceService {
             var sql = db.sql("UPDATE huud_spaces SET name=:name,privacy=:privacy,background=:background WHERE id=:id")
                     .bind("name", nextName).bind("privacy", nextPrivacy).bind("id", id);
             return (nextBackground == null ? sql.bindNull("background", String.class) : sql.bind("background", nextBackground))
-                    .fetch().rowsUpdated();
+                    .fetch().rowsUpdated()
+                    .flatMap(n -> nextPrivacy.equals(s.privacy()) ? Mono.just(n)
+                            : dropPreviewListeners(id).thenReturn(n));
         }).doOnSuccess(n -> notifyMembers(id, "updated", host)).then(view(id, host));
     }
 
@@ -636,7 +707,7 @@ public class HuudSpaceService {
                         + "AND m.left_at IS NULL AND NOT m.removed")
                 .bind("user", user).map((r, m) -> r.get("id", UUID.class)).all()
                 .concatMap(id -> tx.transactional(lock("huud-space:" + id).then(db.sql(
-                        "UPDATE huud_space_members m SET last_seen_at=now() FROM huud_spaces s "
+                        "UPDATE huud_space_members m SET last_seen_at=now(), app_seen_at=now() FROM huud_spaces s "
                         + "WHERE s.id=m.huud_space_id AND s.live_since IS NOT NULL AND m.user_id=:user "
                         + "AND s.id=:id AND m.left_at IS NULL AND NOT m.removed")
                         .bind("user", user).bind("id", id).fetch().rowsUpdated())))
@@ -652,7 +723,7 @@ public class HuudSpaceService {
     public Mono<Void> expire() {
         return db.sql("SELECT id FROM huud_spaces WHERE status='active' AND live_since IS NOT NULL")
                 .map((r, m) -> r.get("id", UUID.class)).all()
-                .concatMap(this::refreshConnectedActivity).then()
+                .concatMap(id -> refreshConnectedActivity(id).then(prunePreviewListeners(id))).then()
                 .thenMany(db.sql("UPDATE huud_space_members SET live_at=NULL, can_speak=false WHERE live_at IS NOT NULL "
                         + "AND last_seen_at < now() - make_interval(secs => :secs) RETURNING huud_space_id, user_id")
                 .bind("secs", (double) memberTimeout.toSeconds())
@@ -673,6 +744,28 @@ public class HuudSpaceService {
                         .map((r, m) -> r.get("id", UUID.class)).all())
                 .concatMap(this::endIfInactive)
                 .then();
+    }
+
+    /**
+     * Someone in the hangout has had the app open within {@link #liveIdle} — the
+     * app's own heartbeat or walking in, not a socket or voice link left running
+     * in the background. Binds {@code :liveIdle}.
+     */
+    static String inUseSql(String s) {
+        return "EXISTS(SELECT 1 FROM huud_space_members a JOIN users au ON au.id=a.user_id "
+                + "WHERE a.huud_space_id=" + s + ".id AND a.live_at IS NOT NULL AND a.left_at IS NULL "
+                + "AND NOT a.removed AND NOT au.is_bot AND a.app_seen_at > now() - make_interval(secs => :liveIdle))";
+    }
+
+    /** Live, but quiet: still on, just nobody using it. Binds {@code :liveIdle}. */
+    static String quietSql(String s) {
+        return "(" + s + ".live_since IS NOT NULL AND NOT " + inUseSql(s) + ")";
+    }
+
+    private Mono<Boolean> quiet(UUID id) {
+        return db.sql("SELECT " + quietSql("s") + " AS quiet FROM huud_spaces s WHERE s.id=:id")
+                .bind("id", id).bind("liveIdle", (double) liveIdle.toSeconds())
+                .map((r, m) -> Boolean.TRUE.equals(r.get("quiet", Boolean.class))).one().defaultIfEmpty(false);
     }
 
     /** Persistent activity evidence survives a server restart; stale seats/room statuses don't count as presence. */
@@ -783,15 +876,25 @@ public class HuudSpaceService {
      * anyone missing just leaves a free seat for the queue.
      */
     public Mono<RoomView> addGame(UUID host, UUID id, String gameType, String mode, boolean rematch) {
+        return addGame(host, id, gameType, mode, rematch, null);
+    }
+
+    public Mono<RoomView> addGame(UUID host, UUID id, String gameType, String mode, boolean rematch,
+                                  Map<String, Object> requestedConfig) {
         Mono<Optional<CurrentGame>> last = !rematch ? Mono.just(Optional.empty())
                 : space(id).flatMap(s -> currentGame(s.currentRoomId(), null)).map(Optional::of)
                         .defaultIfEmpty(Optional.empty());
         return last.flatMap(game -> {
+            Mono<Map<String, Object>> previous = rematch && game.isPresent() && game.get().gameType().equals(gameType)
+                    ? db.sql("SELECT game_config FROM rooms WHERE id=:id").bind("id", game.get().roomId())
+                        .map((r, m) -> readRules(r.get("game_config", String.class))).one().defaultIfEmpty(Map.of())
+                    : Mono.just(Map.of());
+            return previous.flatMap(savedConfig -> {
             String chosen = mode != null || game.isEmpty() || !game.get().gameType().equals(gameType)
                     ? mode : game.get().mode();
             Map<String, Object> config;
             try {
-                config = gameConfigFor(gameType, chosen);
+                config = gameConfigFor(gameType, chosen, requestedConfig == null ? savedConfig : requestedConfig);
             } catch (IllegalArgumentException e) {
                 return Mono.error(ApiExceptions.badRequest(e.getMessage()));
             }
@@ -804,11 +907,54 @@ public class HuudSpaceService {
                     .flatMap(room -> Flux.fromIterable(players)
                             .concatMap(p -> rooms.join(room.code(), p, null).onErrorResume(e -> Mono.empty()))
                             .then(rooms.get(room.id(), host))));
+            });
         });
+    }
+
+    private static Map<String, Object> readRules(String json) {
+        try {
+            return json == null || json.isBlank() ? Map.of() : JSON.readValue(json, new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+        } catch (Exception e) {
+            throw new IllegalArgumentException("The previous game rules could not be read");
+        }
+    }
+
+    static Map<String, Object> gameConfigFor(String gameType, String mode, Map<String, Object> requested) {
+        Map<String, Object> base = gameConfigFor(gameType, mode);
+        if (!"whot".equals(gameType) || requested == null || requested.isEmpty()) return base;
+        var defaults = app.truearena.game.whot.WhotConfig.defaults();
+        Map<String, Object> config = new java.util.LinkedHashMap<>(Map.of(
+                "turnSeconds", defaults.turnSeconds(), "startingHand", defaults.startingHand(),
+                "includeWhot", defaults.includeWhot(), "pickTwo", defaults.pickTwo(),
+                "pickTwoStacking", defaults.pickTwoStacking(), "generalMarket", defaults.generalMarket(),
+                "holdOn", defaults.holdOn(), "suspension", defaults.suspension(),
+                "tellRule", defaults.tellRule(), "tellMinCards", defaults.tellMinCards()));
+        for (var entry : requested.entrySet()) {
+            if ("mode".equals(entry.getKey())) continue; // The explicit chosen mode remains authoritative.
+            if (!config.containsKey(entry.getKey())) throw new IllegalArgumentException("Unknown Whot rule: " + entry.getKey());
+            Object prior = config.get(entry.getKey());
+            Object value = entry.getValue();
+            if (prior instanceof Boolean && !(value instanceof Boolean)
+                    || prior instanceof Integer && (!(value instanceof Number n) || n.doubleValue() != n.intValue())
+                    || prior instanceof String && !(value instanceof String)) {
+                throw new IllegalArgumentException("Invalid Whot rule: " + entry.getKey());
+            }
+            config.put(entry.getKey(), value);
+        }
+        config.put("mode", base.get("mode"));
+        try {
+            JSON.convertValue(config, app.truearena.game.whot.WhotConfig.class);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid Whot rules: check cards, turn time and Tell settings");
+        }
+        return config;
     }
 
     /** The room's rules for a Huud game: only Whot has a choice to make — Classic or The Tell. */
     static Map<String, Object> gameConfigFor(String gameType, String mode) {
+        if ("slayhuud".equals(gameType)) return slayConfigFor(mode);
+        if ("truearena".equals(gameType)) return traitorsConfigFor(mode);
+        if ("draughts".equals(gameType)) return draughtsConfigFor(mode);
         if (!"whot".equals(gameType)) return null;
         String m = mode == null || mode.isBlank() ? "classic" : mode.trim().toLowerCase();
         if (!WHOT_MODES.contains(m)) throw new IllegalArgumentException("Whot mode must be classic or tell");
@@ -819,20 +965,93 @@ public class HuudSpaceService {
     private static final Set<String> WHOT_MODES = Set.of("classic", "tell");
     private static final int TELL_SEATS = 8;
 
+    /**
+     * SlayHuud in a Huud: a Style Battle for two, or a Group Show that starts
+     * with 4 and seats up to 8. SlayHuud picks the theme when the room opens.
+     */
+    private static final Set<String> SLAY_MODES = Set.of("battle", "group");
+    private static final int SLAY_SHOW_SEATS = 8;
+
+    static Map<String, Object> slayConfigFor(String mode) {
+        String m = mode == null || mode.isBlank() ? "battle" : mode.trim().toLowerCase();
+        if (!SLAY_MODES.contains(m)) throw new IllegalArgumentException("SlayHuud mode must be battle or group");
+        return Map.of("mode", m, "seats", "group".equals(m) ? SLAY_SHOW_SEATS : 2);
+    }
+
+    /**
+     * Traitors in a Huud plays one of the five built-in modes, rules and all;
+     * the table seats that mode's most players. No mode keeps the old default.
+     */
+    @SuppressWarnings("unchecked")
+    static Map<String, Object> traitorsConfigFor(String mode) {
+        if (mode == null || mode.isBlank()) return null;
+        Presets.Mode preset = Presets.bySlug(mode.trim());
+        if (preset == null) throw new IllegalArgumentException("Pick one of the Traitors modes");
+        return JSON.convertValue(preset.config(), Map.class);
+    }
+
+    /**
+     * Draughts' rules in a Huud: "casual" (captures optional), "seizure"
+     * (optional, but a missed capture can cost the piece) or "official"
+     * (captures forced, the most pieces). No mode keeps the casual default.
+     */
+    private static final Set<String> DRAUGHTS_MODES = Set.of("casual", "seizure", "official");
+
+    static Map<String, Object> draughtsConfigFor(String mode) {
+        if (mode == null || mode.isBlank()) return null;
+        String m = mode.trim().toLowerCase();
+        if (!DRAUGHTS_MODES.contains(m)) throw new IllegalArgumentException("Draughts rules must be casual, seizure or official");
+        return Map.of("mandatoryCapture", "official".equals(m), "seizure", "seizure".equals(m));
+    }
+
     static int seatsFor(String gameType, String mode) {
-        return "whot".equals(gameType) && "tell".equals(mode) ? TELL_SEATS : HuudService.seatsFor(gameType);
+        if ("truearena".equals(gameType) && mode != null && Presets.bySlug(mode) != null) {
+            return Presets.bySlug(mode).config().table().maxPlayers();
+        }
+        if ("whot".equals(gameType) && "tell".equals(mode)) return TELL_SEATS;
+        if ("slayhuud".equals(gameType) && "group".equals(mode)) return SLAY_SHOW_SEATS;
+        return HuudService.seatsFor(gameType);
     }
 
     private static final ObjectMapper JSON = new ObjectMapper();
 
-    /** Whot's mode from the room's stored rules — "classic" when none was chosen; null for other games. */
+    /** Draughts' rules from the room's stored config: casual unless set otherwise. */
+    private static String draughtsModeOf(String gameConfig) {
+        try {
+            Map<?, ?> raw = gameConfig == null || gameConfig.isBlank() ? Map.of() : JSON.readValue(gameConfig, Map.class);
+            if (Boolean.TRUE.equals(raw.get("mandatoryCapture"))) return "official";
+            return Boolean.TRUE.equals(raw.get("seizure")) ? "seizure" : "casual";
+        } catch (Exception e) {
+            return "casual";
+        }
+    }
+
+    /** The Traitors mode a room was set up with, when it's one of the built-in ones. */
+    private static String traitorsModeOf(String gameConfig) {
+        try {
+            Object preset = gameConfig == null || gameConfig.isBlank() ? null
+                    : JSON.readValue(gameConfig, Map.class).get("preset");
+            return preset instanceof String slug && Presets.bySlug(slug) != null ? slug : null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * The mode from the room's stored rules: Whot's "classic" or "tell",
+     * SlayHuud's "battle" or "group"; null for games without one.
+     */
     static String modeOf(String gameType, String gameConfig) {
-        if (!"whot".equals(gameType)) return null;
+        boolean slay = "slayhuud".equals(gameType);
+        if ("truearena".equals(gameType)) return traitorsModeOf(gameConfig);
+        if ("draughts".equals(gameType)) return draughtsModeOf(gameConfig);
+        if (!"whot".equals(gameType) && !slay) return null;
         try {
             Object mode = gameConfig == null || gameConfig.isBlank() ? null : JSON.readValue(gameConfig, Map.class).get("mode");
+            if (slay) return "group".equals(mode) ? "group" : "battle";
             return "tell".equals(mode) ? "tell" : "classic";
         } catch (Exception e) {
-            return "classic";
+            return slay ? "battle" : "classic";
         }
     }
 
@@ -850,7 +1069,8 @@ public class HuudSpaceService {
                             }
                             return Mono.just(s);
                         }).defaultIfEmpty(s))
-                .flatMap(s -> rooms.create(host, null, gameType, null, config, false))
+                .flatMap(s -> rooms.create(host, null, gameType, null, config, "chess".equals(gameType)
+                        || ("draughts".equals(gameType) && config != null && Boolean.TRUE.equals(config.get("mandatoryCapture")))))
                 .flatMap(room -> db.sql("UPDATE rooms SET huud_space_id=:id WHERE id=:room")
                         .bind("id", id).bind("room", room.id()).fetch().rowsUpdated()
                         .then(db.sql("UPDATE huud_spaces SET current_room_id=:room WHERE id=:id")
@@ -894,6 +1114,37 @@ public class HuudSpaceService {
                 .bind("id", id).fetch().rowsUpdated().then();
     }
 
+    /** Availability is evaluated on every read, including stale invitation links. */
+    public static String publicInviteSql(String s) {
+        return "(" + s + ".status='active' AND " + s + ".live_since IS NOT NULL AND "
+                + s + ".public_invite_host_id=" + s + ".owner_id AND EXISTS(SELECT 1 FROM rooms pi WHERE pi.id="
+                + s + ".public_invite_room_id AND pi.id=" + s + ".current_room_id AND pi.status='lobby' "
+                + "AND (SELECT count(*) FROM room_members pim WHERE pim.room_id=pi.id)<" + s + ".public_invite_seats))";
+    }
+
+    public Mono<HuudSpaceView> findPlayers(UUID host, UUID id) {
+        return requireHost(id, host).filter(Space::live)
+                .switchIfEmpty(Mono.error(ApiExceptions.conflict("Go live before inviting players")))
+                .flatMap(s -> currentGame(s.currentRoomId())
+                        .filter(g -> "waiting".equals(g.status()) && g.players() < g.seats())
+                        .switchIfEmpty(Mono.error(ApiExceptions.conflict("Choose a game with a free seat first")))
+                        .flatMap(g -> db.sql("UPDATE huud_spaces SET public_invite_room_id=:room, "
+                                        + "public_invite_host_id=:host, public_invite_seats=:seats, "
+                                        + "public_invite_at=CASE WHEN public_invite_room_id=:room THEN public_invite_at ELSE now() END WHERE id=:id")
+                                .bind("room", g.roomId()).bind("host", host).bind("seats", g.seats()).bind("id", id)
+                                .fetch().rowsUpdated()))
+                .doOnSuccess(v -> notifyMembers(id, "game", host))
+                .then(view(id, host));
+    }
+
+    public Mono<HuudSpaceView> stopFindingPlayers(UUID host, UUID id) {
+        return requireHost(id, host)
+                .then(db.sql("UPDATE huud_spaces SET public_invite_room_id=NULL, public_invite_at=NULL WHERE id=:id")
+                        .bind("id", id).fetch().rowsUpdated())
+                .doOnSuccess(v -> notifyMembers(id, "game", host))
+                .then(view(id, host));
+    }
+
     // ------------------------------------------------------------ the feed
 
     /** Host only: put the Huud on the feed, with an optional line like "Who wants to play Whot?". */
@@ -935,6 +1186,10 @@ public class HuudSpaceService {
     // ------------------------------------------------------------ reading
 
     public Mono<HuudSpaceView> view(UUID id, UUID viewer) {
+        return view(id, viewer, true);
+    }
+
+    private Mono<HuudSpaceView> view(UUID id, UUID viewer, boolean enter) {
         return space(id)
                 .switchIfEmpty(Mono.error(ApiExceptions.notFound("That Huud isn't here any more")))
                 .flatMap(s -> membership(id, viewer).map(Optional::of).defaultIfEmpty(Optional.empty())
@@ -947,11 +1202,11 @@ public class HuudSpaceService {
                                     : !s.active() ? Mono.just(false)
                                     : blocked(viewer, s.createdBy()).flatMap(b -> b ? Mono.just(false)
                                             : canSee(s, viewer).flatMap(see -> see ? Mono.just(true)
-                                            : request(id, viewer, "join").map(r -> true).defaultIfEmpty(false)));
+                                            : request(id, viewer, "join").map(r -> true).switchIfEmpty(request(id, viewer, "play").map(r -> true)).defaultIfEmpty(false)));
                             return allowed.flatMap(ok -> {
                                 if (!ok) return Mono.error(ApiExceptions.forbidden("This Huud isn't open to you"));
                                 // Opening a Live Huud you belong to is walking into the hangout.
-                                Mono<Void> walkIn = member && s.live() ? enterLive(id, viewer) : Mono.empty();
+                                Mono<Void> walkIn = enter && member && s.live() ? enterLive(id, viewer) : Mono.empty();
                                 return walkIn.then(space(id)).flatMap(now -> membership(id, viewer)
                                         .map(Optional::of).defaultIfEmpty(Optional.empty())
                                         .flatMap(me -> Mono.zip(
@@ -960,7 +1215,8 @@ public class HuudSpaceService {
                                                 myRequests(id, viewer),
                                                 pendingRequests(id).collectList(),
                                                 watching(id),
-                                                micApprovers(id).any(viewer::equals))
+                                                micApprovers(id).any(viewer::equals),
+                                                quiet(id))
                                         .map(t -> {
                                             boolean host = now.active() && now.ownerId().equals(viewer);
                                             boolean owner = now.active() && now.createdBy().equals(viewer);
@@ -982,7 +1238,8 @@ public class HuudSpaceService {
                                                     t.getT4().stream().filter(request -> host || (t.getT6() && "mic".equals(request.kind()))).toList(), now.sharedAt() != null, now.feedMessage(), t.getT5(),
                                                     now.background(), now.createdAt(), now.endedAt(),
                                                     now.live(), owner, me.map(Membership::muted).orElse(false),
-                                                    people.size(), liveCount, now.championshipId(), t.getT6());
+                                                    people.size(), liveCount, now.championshipId(), t.getT6(), now.findingPlayers(),
+                                                    now.live() && t.getT7());
                                         })));
                             });
                         }));
@@ -995,39 +1252,55 @@ public class HuudSpaceService {
                 .flatMap(id -> view(id, viewer));
     }
 
-    /** Live Huuds you can look into: yours, your friends' and public ones. */
+    /** Live Huuds you can look into: yours, your friends' and public ones — each with what's going on in it. */
     public Flux<LiveHuud> live(UUID viewer) {
-        return db.sql("SELECT s.id, s.name, s.privacy, s.created_at, r.game_type, r.status AS room_status, "
+        return db.sql("SELECT s.id, s.name, s.privacy, s.created_at, s.background, r.id AS room_id, r.game_type, r.status AS room_status, "
                         + CUP_COLUMNS + ", "
                         + "EXISTS(SELECT 1 FROM huud_space_members me WHERE me.huud_space_id=s.id AND me.user_id=:user AND me.left_at IS NULL) AS mine, "
                         + "(SELECT count(*) FROM huud_space_members c WHERE c.huud_space_id=s.id AND c.live_at IS NOT NULL) AS present, "
-                        + watchingSql("s.id") + " AS watching "
+                        + "(SELECT count(*) FROM match_records mr JOIN rooms gr ON gr.id=mr.room_id "
+                        + "  WHERE gr.huud_space_id=s.id AND mr.completed_at >= s.live_since) AS games_played, "
+                        + "(SELECT count(*) FROM huud_space_messages hm WHERE hm.huud_space_id=s.id "
+                        + "  AND hm.created_at > now()-interval '30 minutes') AS recent_messages, "
+                        + watchingSql("s.id") + " AS watching, " + publicInviteSql("s") + " AS finding_players "
                         + "FROM huud_spaces s LEFT JOIN rooms r ON r.id=s.current_room_id " + CUP_JOIN
                         + "WHERE s.status='active' AND s.live_since IS NOT NULL "
                         + "AND NOT EXISTS(SELECT 1 FROM huud_space_members x WHERE x.huud_space_id=s.id AND x.user_id=:user AND x.removed) "
                         + "AND NOT " + blockedSql("s.created_by", ":user") + " "
-                        + "AND EXISTS(SELECT 1 FROM huud_space_members p WHERE p.huud_space_id=s.id AND p.live_at IS NOT NULL) "
-                        + "AND (s.privacy='public' "
+                        // On, but nobody's had the app open in it lately: it shows as quiet in
+                        // the members' own Huud list, not here.
+                        + "AND " + inUseSql("s") + " "
+                        + "AND (s.privacy='public' OR " + publicInviteSql("s") + " "
                         + "  OR EXISTS(SELECT 1 FROM huud_space_members me WHERE me.huud_space_id=s.id AND me.user_id=:user AND me.left_at IS NULL) "
                         + "  OR EXISTS(SELECT 1 FROM huud_space_requests q WHERE q.huud_space_id=s.id AND q.user_id=:user AND q.kind='join' AND q.status='accepted') "
                         + "  OR (s.privacy='friends' AND EXISTS(SELECT 1 FROM friends f WHERE f.status='accepted' "
                         + "      AND f.low_user_id=LEAST(s.created_by,:user) AND f.high_user_id=GREATEST(s.created_by,:user)))) "
                         + "ORDER BY mine DESC, present DESC, s.created_at DESC LIMIT " + LIST_LIMIT)
-                .bind("user", viewer)
-                .map((r, m) -> new Object[]{r.get("id", UUID.class), r.get("name", String.class),
-                        r.get("privacy", String.class), instant(r.get("created_at")), r.get("game_type", String.class),
-                        r.get("room_status", String.class), Boolean.TRUE.equals(r.get("mine", Boolean.class)),
+                .bind("user", viewer).bind("liveIdle", (double) liveIdle.toSeconds())
+                .map((r, m) -> new LiveRow(r.get("id", UUID.class), r.get("name", String.class),
+                        r.get("privacy", String.class), instant(r.get("created_at")), r.get("background", String.class),
+                        r.get("room_id", UUID.class), r.get("game_type", String.class), r.get("room_status", String.class),
+                        Boolean.TRUE.equals(r.get("mine", Boolean.class)),
                         ((Number) r.get("present")).intValue(), ((Number) r.get("watching")).intValue(),
+                        ((Number) r.get("games_played")).intValue(), ((Number) r.get("recent_messages")).intValue(),
                         championshipLine(r.get("cup_name", String.class), r.get("cup_game", String.class),
                                 r.get("cup_status", String.class), r.get("cup_size", Integer.class),
-                                r.get("cup_round", Integer.class))})
+                                r.get("cup_round", Integer.class)), Boolean.TRUE.equals(r.get("finding_players", Boolean.class))))
                 .all()
-                .concatMap(row -> members((UUID) row[0]).collectList().map(people -> new LiveHuud(
-                        (UUID) row[0], (String) row[1], (String) row[2],
-                        people.stream().filter(Person::host).findFirst().orElse(null),
-                        (int) row[7], people.stream().filter(Person::here).limit(6).toList(), (String) row[4],
-                        row[5] == null ? null : gameStatus((String) row[5]), (boolean) row[6], (int) row[8],
-                        (Instant) row[3], (HuudSpaceDtos.ChampionshipLine) row[9])));
+                .concatMap(row -> Mono.zip(members(row.id()).collectList(),
+                                moments.forCard(row.id(), row.roomId(), row.gameType(), "in_game".equals(row.roomStatus()), viewer, row.mine()))
+                        .map(t -> new LiveHuud(row.id(), row.name(), row.privacy(),
+                                t.getT1().stream().filter(Person::host).findFirst().orElse(null),
+                                row.present(), t.getT1().stream().filter(Person::here).limit(6).toList(), row.gameType(),
+                                row.roomStatus() == null ? null : gameStatus(row.roomStatus()), row.mine(), row.watching(),
+                                row.createdAt(), row.championship(), row.findingPlayers(),
+                                row.background(), t.getT2(), row.gamesPlayed(), row.recentMessages())));
+    }
+
+    private record LiveRow(UUID id, String name, String privacy, Instant createdAt, String background, UUID roomId,
+                           String gameType, String roomStatus, boolean mine, int present, int watching,
+                           int gamesPlayed, int recentMessages, HuudSpaceDtos.ChampionshipLine championship,
+                           boolean findingPlayers) {
     }
 
     /**
@@ -1035,13 +1308,14 @@ public class HuudSpaceService {
      * then the rest by when they were last Live.
      */
     public Flux<MyHuud> mine(UUID viewer) {
-        return db.sql("SELECT s.*, m.muted, r.game_type, r.status AS room_status, " + CUP_COLUMNS + " FROM huud_spaces s "
+        return db.sql("SELECT s.*, m.muted, r.game_type, r.status AS room_status, " + quietSql("s") + " AS quiet, "
+                        + CUP_COLUMNS + " FROM huud_spaces s "
                         + "JOIN huud_space_members m ON m.huud_space_id=s.id LEFT JOIN rooms r ON r.id=s.current_room_id "
                         + CUP_JOIN
                         + "WHERE m.user_id=:user AND m.left_at IS NULL AND NOT m.removed AND s.status='active' "
                         + "ORDER BY (s.created_by=:user) DESC, (s.live_since IS NOT NULL) DESC, "
                         + "COALESCE(s.live_since, s.created_at) DESC LIMIT " + LIST_LIMIT)
-                .bind("user", viewer).fetch().all()
+                .bind("user", viewer).bind("liveIdle", (double) liveIdle.toSeconds()).fetch().all()
                 .concatMap(row -> {
                     Space s = toSpace(row);
                     return members(s.id()).collectList().map(people -> new MyHuud(s.id(), s.name(), s.privacy(), s.live(),
@@ -1053,7 +1327,8 @@ public class HuudSpaceService {
                             s.background(), Boolean.TRUE.equals(row.get("muted")), s.liveSince(),
                             s.live() ? championshipLine((String) row.get("cup_name"), (String) row.get("cup_game"),
                                     (String) row.get("cup_status"), (Integer) row.get("cup_size"),
-                                    (Integer) row.get("cup_round")) : null));
+                                    (Integer) row.get("cup_round")) : null,
+                            s.live() && Boolean.TRUE.equals(row.get("quiet"))));
                 });
     }
 
@@ -1101,19 +1376,19 @@ public class HuudSpaceService {
      * hangout, then everyone else in the order they joined.
      */
     Flux<Person> members(UUID id) {
-        return db.sql("SELECT m.user_id, m.joined_at, (m.live_at IS NOT NULL AND s.live_since IS NOT NULL) AS here, "
+        return db.sql("SELECT m.user_id, m.joined_at, (m.live_at IS NOT NULL AND s.live_since IS NOT NULL AND m.last_seen_at > now()-interval '75 seconds') AS here, "
                         + "(s.owner_id=m.user_id) AS host, (s.created_by=m.user_id) AS owner, "
-                        + "(s.owner_id=m.user_id OR m.can_speak) AS can_speak, u.display_name, u.username, u.avatar_url "
-                        + "FROM huud_space_members m JOIN users u ON u.id=m.user_id JOIN huud_spaces s ON s.id=m.huud_space_id "
+                        + "(s.owner_id=m.user_id OR m.can_speak) AS can_speak, u.display_name, u.username, u.avatar_url, a.avatar_id, a.outfit_id "
+                        + "FROM huud_space_members m JOIN users u ON u.id=m.user_id JOIN huud_spaces s ON s.id=m.huud_space_id LEFT JOIN user_huud_avatars a ON a.user_id=m.user_id "
                         + "WHERE m.huud_space_id=:id AND NOT m.removed AND m.left_at IS NULL "
                         + "ORDER BY (s.owner_id=m.user_id) DESC, (m.live_at IS NOT NULL) DESC, m.joined_at")
                 .bind("id", id)
                 .map((r, m) -> new Person(r.get("user_id", UUID.class), r.get("display_name", String.class),
                         r.get("username", String.class), r.get("avatar_url", String.class),
                         Boolean.TRUE.equals(r.get("host", Boolean.class)),
-                        Boolean.TRUE.equals(r.get("here", Boolean.class)),
+                        Boolean.TRUE.equals(r.get("here", Boolean.class)) && !inbox.isBackgrounded(r.get("user_id", UUID.class)),
                         Boolean.TRUE.equals(r.get("can_speak", Boolean.class)), instant(r.get("joined_at")),
-                        Boolean.TRUE.equals(r.get("owner", Boolean.class))))
+                        Boolean.TRUE.equals(r.get("owner", Boolean.class)), r.get("avatar_id", String.class), r.get("outfit_id", String.class)))
                 .all();
     }
 
@@ -1169,7 +1444,7 @@ public class HuudSpaceService {
     }
 
     Mono<Space> space(UUID id) {
-        return db.sql("SELECT * FROM huud_spaces WHERE id=:id").bind("id", id).fetch().one().map(HuudSpaceService::toSpace);
+        return db.sql("SELECT s.*, " + publicInviteSql("s") + " AS finding_players FROM huud_spaces s WHERE s.id=:id").bind("id", id).fetch().one().map(HuudSpaceService::toSpace);
     }
 
     Mono<Membership> membership(UUID id, UUID user) {
@@ -1197,7 +1472,7 @@ public class HuudSpaceService {
                 (String) row.get("status"), (UUID) row.get("current_room_id"),
                 (String) row.get("feed_message"), instant(row.get("shared_at")), (String) row.get("background"),
                 instant(row.get("live_since")), instant(row.get("created_at")), instant(row.get("ended_at")),
-                (UUID) row.get("championship_id"));
+                (UUID) row.get("championship_id"), Boolean.TRUE.equals(row.get("finding_players")));
     }
 
     static Instant instant(Object value) {
@@ -1214,8 +1489,9 @@ public class HuudSpaceService {
      */
     private Mono<Void> dropFromVoice(UUID id, UUID user) {
         return access.voiceRooms(id).concatMap(room -> voice.remove(room, user.toString()).onErrorResume(e -> Mono.empty())
+
                         .then(voiceSessions.removeMembership(user, room).onErrorResume(e -> Mono.empty())))
-                .then();
+                .then(dropUserPreviews(id, user));
     }
 
     Mono<Void> lock(String key) {

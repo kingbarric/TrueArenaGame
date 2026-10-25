@@ -7,6 +7,7 @@ import '../../widgets/neon.dart';
 import '../shell/main_shell.dart';
 import 'competitive_api.dart';
 import 'competitive_models.dart';
+import '../../widgets/huud_art.dart';
 
 /// Where you compete: country, state, optional city.
 ///
@@ -72,7 +73,7 @@ class _CompetitiveSetupScreenState extends State<CompetitiveSetupScreen> {
       if (mounted) {
         setState(() {
           _loading = false;
-          _error = 'Error has occurred, try again later.';
+          _error = userErrorMessage;
         });
       }
     }
@@ -153,7 +154,7 @@ class _CompetitiveSetupScreenState extends State<CompetitiveSetupScreen> {
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Error has occurred, try again later.');
+      if (mounted) setState(() => _error = userErrorMessage);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -181,7 +182,7 @@ class _CompetitiveSetupScreenState extends State<CompetitiveSetupScreen> {
             : ListView(padding: const EdgeInsets.all(22), children: [
                 if (widget.onboarding) ...[
                   const SizedBox(height: 12),
-                  const Text('🏆', style: TextStyle(fontSize: 46), textAlign: TextAlign.center),
+                  const HuudText('🏆', style: TextStyle(fontSize: 46), textAlign: TextAlign.center),
                   const SizedBox(height: 10),
                   Text('Where do you compete?', style: t.headlineSmall, textAlign: TextAlign.center),
                   const SizedBox(height: 18),

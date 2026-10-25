@@ -54,6 +54,8 @@ public class PushNotificationService {
     private final InboxRegistry inbox;
     private final ObjectMapper mapper;
     private final boolean local;
+    private final boolean testProfile;
+    private final Set<UUID> testRecipients;
 
     @Autowired(required = false)
     private FirebaseMessaging messaging;
@@ -65,6 +67,11 @@ public class PushNotificationService {
         this.inbox = inbox;
         this.mapper = mapper;
         this.local = environment.acceptsProfiles(Profiles.of("local"));
+        this.testProfile = environment.acceptsProfiles(Profiles.of("test"));
+        String recipients = environment.getProperty("TEST_PUSH_ALLOWED_USER_IDS", "");
+        this.testRecipients = recipients == null || recipients.isBlank() ? Set.of() :
+                java.util.Arrays.stream(recipients.split(",")).map(String::trim).map(UUID::fromString)
+                        .collect(java.util.stream.Collectors.toUnmodifiableSet());
     }
 
     /** Upserts on the token itself — see the device_tokens migration for why. */
@@ -72,10 +79,7 @@ public class PushNotificationService {
         if (!DeviceTokenRow.IOS.equals(platform) && !DeviceTokenRow.ANDROID.equals(platform)) {
             return Mono.error(ApiExceptions.badRequest("platform must be 'ios' or 'android'"));
         }
-        return tokens.findByToken(token)
-                .flatMap(existing -> tokens.save(existing.reassignedTo(userId)))
-                .switchIfEmpty(Mono.defer(() -> tokens.save(DeviceTokenRow.of(userId, platform, token))))
-                .then();
+        return tokens.register(userId, platform, token).then();
     }
 
     public Mono<Void> unregisterToken(UUID userId, String token) {
@@ -90,8 +94,9 @@ public class PushNotificationService {
 
     /** Unconditional — used for turn reminders (which use room-socket presence, not inbox presence) and broadcasts. */
     public void sendToUsers(Collection<UUID> userIds, String title, String body, Map<String, String> data) {
-        if (userIds.isEmpty()) return;
-        tokens.findByUserIdIn(userIds)
+        Collection<UUID> recipients = testProfile ? userIds.stream().filter(testRecipients::contains).toList() : userIds;
+        if (recipients.isEmpty()) return;
+        tokens.findByUserIdIn(recipients)
                 .collectList()
                 .subscribeOn(Schedulers.boundedElastic())
                 .subscribe(rows -> sendTo(rows, title, body, data),
@@ -107,6 +112,7 @@ public class PushNotificationService {
      * not something to read later.
      */
     public void sendCallAlert(UUID userId, String title, String body, Map<String, String> data) {
+        if (testProfile && !testRecipients.contains(userId)) return;
         tokens.findByUserIdIn(Set.of(userId))
                 .collectList()
                 .subscribeOn(Schedulers.boundedElastic())
@@ -173,6 +179,7 @@ public class PushNotificationService {
     }
 
     private boolean sendTo(List<DeviceTokenRow> rows, String title, String body, Map<String, String> data) {
+        if (testProfile) rows = rows.stream().filter(row -> testRecipients.contains(row.userId())).toList();
         if (rows.isEmpty()) return true;
         recordHistory(rows, title, body, data);
         if (messaging == null) {

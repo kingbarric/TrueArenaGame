@@ -151,7 +151,8 @@ class GameSocket {
       try {
         final frame = jsonDecode(raw as String) as Map<String, dynamic>;
         if (frame['type'] == 'ERROR') {
-          frame['payload'] = {...?(frame['payload'] as Map?)?.cast<String, dynamic>(), 'message': userErrorMessage};
+          // A refused move or action: friendly, and never the word "error".
+          frame['payload'] = {...?(frame['payload'] as Map?)?.cast<String, dynamic>(), 'message': userRetryMessage};
         }
         _updatePresence(frame);
         if (frame['type'] == 'PONG') _lastPong = DateTime.now();

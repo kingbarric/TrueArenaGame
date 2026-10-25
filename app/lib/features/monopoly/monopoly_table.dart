@@ -1,3 +1,4 @@
+import '../../widgets/match_coin_reward.dart';
 import 'package:flutter/material.dart';
 import 'monopoly_board.dart';
 import '../../widgets/table_chat.dart';
@@ -20,6 +21,7 @@ class MonopolyTable extends StatefulWidget {
       required this.messages,
       required this.onSendChat,
       required this.onBack,
+      this.roomId,
       this.huudName = 'Your Huud',
       this.voice,
       this.rollPending = false,
@@ -41,6 +43,7 @@ class MonopolyTable extends StatefulWidget {
       this.speaking = const {}});
   final Map<String, dynamic> state;
   final String selfId, huudName;
+  final String? roomId;
   final Map<String, String> names;
   final MonopolyAction onAction;
   final VoidCallback onProperties, onTrade, onSendChat, onBack;
@@ -151,7 +154,7 @@ class _MonopolyTableState extends State<MonopolyTable> {
                                 fontSize: 16)),
                         Text(
                             widget.connected
-                                ? 'MONOPOLY · ${widget.state['paused'] == true ? 'PAUSED' : '${widget.seconds}s'}'
+                                ? 'HUUDPOLY · ${widget.state['paused'] == true ? 'PAUSED' : '${widget.seconds}s'}'
                                 : 'OFFLINE • saved board',
                             style: const TextStyle(
                                 color: monopolyGold,
@@ -334,11 +337,11 @@ class _MonopolyTableState extends State<MonopolyTable> {
       'jail' =>
         'Just visiting unless you were sent to jail. Leave by paying \$50, using a jail card or rolling doubles.',
       'parking' => 'A resting space. No reward or fee.',
-      'goToJail' => 'Go directly to jail. Do not collect a GO salary.',
+      'goToJail' => 'Go directly to jail. Do not collect a Hub salary.',
       'tax' => 'Pay the bank \$${id == 4 ? 200 : 100}.',
-      'chance' => 'Draw the next Chance card. Only the drawn card is revealed.',
+      'chance' => 'Draw the next Opportunity card. Only the drawn card is revealed.',
       'chest' =>
-        'Draw the next Community Chest card. Only the drawn card is revealed.',
+        'Draw the next Neighbourhood card. Only the drawn card is revealed.',
       'railroad' => 'Rent: 1 railroad \$25 • 2 \$50 • 3 \$100 • 4 \$200.',
       'utility' => 'Rent: one utility 4× dice; both utilities 10× dice.',
       _ => rents.length == 6
@@ -416,7 +419,7 @@ class _MonopolyTableState extends State<MonopolyTable> {
             ? 'PAYMENT DUE'
             : _phase == 'Auction'
                 ? '${tile['name'] ?? 'Property'} — AUCTION'
-                : tile['name']?.toString() ?? 'MONOPOLY';
+                : tile['name']?.toString() ?? 'HUUDPOLY';
     return Container(
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
@@ -462,6 +465,7 @@ class _MonopolyTableState extends State<MonopolyTable> {
                               fontWeight: FontWeight.w800,
                               fontSize: 13))),
                 if (winner != null) ...[
+                  if (!widget.spectating && widget.roomId != null) MatchCoinReward(roomId: widget.roomId!),
                   Text('${name(winner)} is the last player standing',
                       style: const TextStyle(
                           color: monopolyInk, fontWeight: FontWeight.w800)),

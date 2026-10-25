@@ -1,3 +1,4 @@
+import '../../core/api_client.dart' show userErrorMessage;
 import 'package:flutter/material.dart';
 
 import '../../core/app_state.dart';
@@ -9,11 +10,14 @@ import '../onboarding/guest_save_session_card.dart';
 import '../settings/settings_screen.dart';
 import '../shell/main_shell.dart';
 import '../wallet/wallet_screen.dart';
-import '../draughts/championships_screen.dart';
+import '../competitive/champion_badges.dart';
 import '../competitive/competitive_api.dart';
 import '../competitive/competitive_models.dart';
 import '../competitive/all_time_rankings_screen.dart';
 import '../competitive/player_profile_screen.dart';
+import 'huud_avatar_screen.dart';
+import 'match_history_box.dart';
+import '../../widgets/huud_art.dart';
 
 /// Reached from Home by tapping the avatar/name row. Appearance is available
 /// here, with the rest of the device preferences in [SettingsScreen].
@@ -27,10 +31,10 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   StatsView? _stats;
   String? _statsError;
-  List<Map<String, dynamic>> _championshipBadges = const [];
+  List<ChampionBadgeData> _championshipBadges = const [];
   CompetitiveProfile? _competitive;
   List<String> _ratedGames = const ['draughts'];
-  List<MatchHistoryEntry>? _matches;
+  final _history = GlobalKey<MatchHistoryBoxState>();
 
   @override
   void initState() {
@@ -69,24 +73,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (_) {/* optional section */}
   }
 
-  /// Your last games of every kind, newest first.
-  Future<void> _loadMatches() async {
-    final app = AppScope.of(context);
-    if (app.identity == Identity.anonymous) return;
-    try {
-      final matches = await CompetitiveApi(app.api).myMatches(limit: 15);
-      if (mounted) setState(() => _matches = matches);
-    } catch (_) {
-      if (mounted) setState(() => _matches = const []);
-    }
-  }
+  Future<void> _loadMatches() async { await _history.currentState?.reload(); }
 
   Future<void> _loadBadges() async {
     try {
-      final rows = await AppScope.of(context).api.get('/championships/badges/mine') as List;
-      if (mounted) {
-        setState(() => _championshipBadges = rows.map((e) => (e as Map).cast<String, dynamic>()).toList());
-      }
+      final badges = ChampionBadgeData.listFrom(await AppScope.of(context).api.get('/championships/badges/mine'));
+      if (mounted) setState(() => _championshipBadges = badges);
     } catch (_) {/* Badges do not block the rest of the profile. */}
   }
 
@@ -97,7 +89,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final stats = await app.fetchStats();
       if (mounted) setState(() => _stats = stats);
     } catch (_) {
-      if (mounted) setState(() => _statsError = 'Error has occurred, try again later.');
+      if (mounted) setState(() => _statsError = userErrorMessage);
     }
   }
 
@@ -131,9 +123,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: ListView(
             padding: const EdgeInsets.all(20),
             children: [
+              NeonCard(key: const ValueKey('profile-huud-avatar'), accent: n.jade,
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const HuudAvatarScreen())),
+                child: Row(children: [Icon(Icons.accessibility_new_rounded, color: n.jade), const SizedBox(width: 12),
+                  const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Huud avatar', style: TextStyle(fontWeight: FontWeight.w800)),
+                    Text('Choose your avatar and outfit')
+                  ])), Icon(Icons.chevron_right, color: n.mute)])),
+              const SizedBox(height: 16),
               // Order: the player cards, then "complete your profile", then the
               // wallet, then everything else. (Photo, username, theme and sign
-              // out live in Settings.)
+              // out live in Settings.) Champion badges, when you have any, go first.
+              if (_championshipBadges.isNotEmpty) ...[
+                ChampionBadgesShelf(
+                    key: const ValueKey('profile-champion-badges'),
+                    badges: _championshipBadges,
+                    handle: _competitive?.username ?? app.user?.username ?? '',
+                    own: true),
+                const SizedBox(height: 20),
+              ],
               if (_competitive != null)
                 CompetitiveRecordSection(
                   key: const ValueKey('profile-competitive-record'),
@@ -194,7 +202,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onTap: () =>
                     Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AllTimeRankingsScreen())),
                 child: Row(children: [
-                  const Text('🏆', style: TextStyle(fontSize: 22)),
+                  const HuudText('🏆', style: TextStyle(fontSize: 22)),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -208,18 +216,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ]),
               ),
               const SizedBox(height: 28),
-              if (_championshipBadges.isNotEmpty) ...[
-                Text('CHAMPIONSHIP BADGES', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: n.gold)),
-                const SizedBox(height: 8),
-                ..._championshipBadges.map((badge) => Card(
-                        child: ListTile(
-                      leading: const Text('🏆', style: TextStyle(fontSize: 25)),
-                      title: Text('${badge['name']} Champion'),
-                      onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                          builder: (_) => ChampionshipDetailScreen(id: badge['championshipId'] as String))),
-                    ))),
-                const SizedBox(height: 16),
-              ],
               Text('MATCH HISTORY', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: n.gold)),
               const SizedBox(height: 12),
               if (isGuest) ...[
@@ -242,17 +238,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               else
                 _statsGrid(n, _stats!),
               const SizedBox(height: 14),
-              if (_matches == null)
-                const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator()))
-              else if (_matches!.isEmpty)
-                Text('No games yet — your games will show up here.',
-                    key: const ValueKey('profile-no-matches'), style: TextStyle(color: n.mute))
-              else
-                for (final m in _matches!)
-                  Padding(
-                      key: ValueKey('profile-match-${m.matchId}'),
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: MatchRow(match: m)),
+              MatchHistoryBox(key: _history),
             ],
           ),
         ),

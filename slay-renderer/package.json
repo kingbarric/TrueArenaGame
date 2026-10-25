@@ -1,0 +1,27 @@
+{
+  "name": "slayhuud-renderer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "assets:validate": "node --experimental-strip-types scripts/validate-assets.mjs",
+    "build": "tsc --noEmit && vite build && vite build --config vite.lounge.config.ts && node scripts/bundle-lounge.mjs && node scripts/sync-stage-wardrobe.mjs && node scripts/group-wardrobe.mjs && node scripts/bundle.mjs",
+    "test": "node --experimental-strip-types --test test/*.test.mjs",
+    "fits:audit": "node --experimental-strip-types scripts/audit-wardrobe-fits.mjs",
+    "assets:repair-coverage": "node scripts/repair-wardrobe-coverage.mjs"
+  },
+  "dependencies": {
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "@gltf-transform/core": "^4.2.1",
+    "@gltf-transform/extensions": "^4.2.1",
+    "@gltf-transform/functions": "^4.2.1",
+    "@types/three": "^0.180.0",
+    "meshoptimizer": "^0.22.0",
+    "sharp": "^0.35.5",
+    "typescript": "^5.9.0",
+    "vite": "^7.1.0"
+  }
+}

@@ -38,6 +38,16 @@ public class RoomEventLog {
         return redis.opsForList().range(key(roomId), Math.max(lastSeq, 0), -1);
     }
 
+    /** The newest {@code count} events, oldest first. */
+    public Flux<String> latest(UUID roomId, int count) {
+        return redis.opsForList().range(key(roomId), -Math.max(count, 1), -1);
+    }
+
+    /** The game's opening event — it names who plays which side. */
+    public Mono<String> first(UUID roomId) {
+        return redis.opsForList().index(key(roomId), 0);
+    }
+
     public Mono<Long> size(UUID roomId) {
         return redis.opsForList().size(key(roomId));
     }

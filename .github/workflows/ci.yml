@@ -82,59 +82,58 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: pip install jsonschema
+      - run: pip install jsonschema pyyaml
       - name: Validate contract test vectors against the schema
         run: ./tools/check_contract.sh
+      - name: Validate production release packaging
+        run: |
+          python3 tools/test_release_bundle.py
+          bash -n infra/deploy-production-ci.sh infra/ci-deploy-production-restricted.sh
+          python3 -c "import yaml; yaml.safe_load(open('infra/docker-compose.prod.yml')); yaml.safe_load(open('.github/workflows/ci.yml'))"
 
   docker-build:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
-    outputs:
-      image: ${{ steps.tags.outputs.image }}
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
-      - name: Compute lowercase image ref (GHCR requires lowercase)
-        id: tags
-        run: echo "image=ghcr.io/${GITHUB_REPOSITORY,,}-backend" >> "$GITHUB_OUTPUT"
-      - name: Log in to GHCR
-        if: github.event_name == 'push' && github.ref == 'refs/heads/release'
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build backend image
+      - name: Verify the backend Docker build
         uses: docker/build-push-action@v6
         with:
           context: ./backend
-          # Only release publishes production images. Main/PR builds verify
-          # the image without moving the production :latest tag.
-          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/release' }}
-          tags: |
-            ${{ steps.tags.outputs.image }}:${{ github.sha }}
-            ${{ steps.tags.outputs.image }}:latest
+          # Production receives the tested runtime artifact through its scoped key.
+          push: false
+          tags: truearena-backend:ci-${{ github.sha }}
 
   deploy:
     needs: [backend-build, backend-integration, secret-data-guarantee, flutter, contract-codegen-check, docker-build]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/release' && vars.DEPLOY_HOST != ''
+    if: github.event_name == 'push' && github.ref == 'refs/heads/release'
     runs-on: ubuntu-latest
     environment: production
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
-      - name: Pull the new image, restart the stack, and smoke-check it
-        uses: appleboy/ssh-action@v1
+      - uses: actions/download-artifact@v4
         with:
-          host: ${{ vars.DEPLOY_HOST }}
-          username: ${{ vars.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          script: |
-            cd ${{ vars.DEPLOY_PATH || '~/truearena' }}
-            docker compose -f infra/docker-compose.prod.yml pull
-            docker compose -f infra/docker-compose.prod.yml up -d
-            ./infra/smoke.sh
+          name: backend-runtime
+          path: backend/ta-app/target
+      - name: Configure the production-only deployment connection
+        env:
+          PROD_SSH_KEY: ${{ secrets.PROD_DEPLOY_SSH_KEY }}
+          PROD_KNOWN_HOSTS: ${{ vars.PROD_DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$PROD_SSH_KEY" > ~/.ssh/production_deploy
+          chmod 600 ~/.ssh/production_deploy
+          printf '%s\n' "$PROD_KNOWN_HOSTS" > ~/.ssh/known_hosts
+      - name: Deploy the verified release artifact and public configuration
+        env:
+          PROD_DEPLOY_HOST: ${{ vars.PROD_DEPLOY_HOST }}
+          PROD_DEPLOY_USER: ${{ vars.PROD_DEPLOY_USER }}
+        run: bash infra/deploy-production-ci.sh
 
   deploy-test:
     needs: [backend-build, flutter, contract-codegen-check]

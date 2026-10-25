@@ -16,8 +16,8 @@ public final class RoomDtos {
      * groupId is optional — null creates an ad-hoc / web-funnel room. gameType is
      * optional too — null/blank defaults to {@code "truearena"}; the only other
      * value today is {@code "wordbluff"} (see {@code GameOrchestrator}).
-     * stake is optional — null/omitted means an unstaked room (the default,
-     * and the common case): staking is opt-in per room, never required.
+     * The legacy stake field is accepted only when absent or zero; any nonzero
+     * value is rejected before creating or reusing a room.
      */
     public record CreateRoomRequest(UUID groupId, String gameType, Long stake,
                                     java.util.Map<String, Object> gameConfig,

@@ -1,18 +1,24 @@
-import '../../core/api_client.dart' show userErrorMessage;
+import 'dart:async';
+
+import '../../core/api_client.dart' show userErrorMessage, userRetryMessage;
 import 'package:flutter/material.dart';
 
 import '../../core/app_state.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/game_badge.dart';
 import '../../widgets/neon.dart';
+import '../huudspace/huud_kit.dart' show HuudGameArt;
 import 'competitive_api.dart';
 import 'competitive_models.dart';
 import 'competitive_setup_screen.dart';
 import 'competitive_widgets.dart';
 import 'leaderboard_screen.dart';
 import 'card_share.dart';
+import 'all_time_rankings_screen.dart';
+import 'champion_badges.dart';
 import 'player_card.dart';
 import '../status/victory_status.dart';
+import '../../widgets/huud_art.dart';
 
 /// `NG -> 🇳🇬`, from the two regional-indicator code points.
 String flagEmoji(String? countryCode) {
@@ -84,6 +90,7 @@ class PlayerProfileScreen extends StatefulWidget {
 class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
   late final CompetitiveApi _api = CompetitiveApi(AppScope.of(context).api);
   CompetitiveProfile? _profile;
+  List<ChampionBadgeData> _badges = const [];
   List<String> _ratedGames = const ['draughts'];
   String? _error;
 
@@ -106,9 +113,19 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
           _ratedGames = rated;
         });
       }
+      if (!p.restricted) unawaited(_loadBadges(p.userId));
     } catch (_) {
-      if (mounted) setState(() => _error = 'Error has occurred, try again later.');
+      if (mounted) setState(() => _error = userErrorMessage);
     }
+  }
+
+  /// Their championship wins. Never blocks the profile.
+  Future<void> _loadBadges(String userId) async {
+    try {
+      final badges = ChampionBadgeData.listFrom(
+          await AppScope.of(context).api.get('/championships/badges/user/$userId'));
+      if (mounted) setState(() => _badges = badges);
+    } catch (_) {/* optional section */}
   }
 
   @override
@@ -156,8 +173,18 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
                           ]),
                         ),
                       )
-                    else
+                    else ...[
+                      if (_badges.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                          child: ChampionBadgesShelf(
+                              key: const ValueKey('player-champion-badges'),
+                              badges: _badges,
+                              handle: p.username,
+                              own: false),
+                        ),
                       CompetitiveRecordSection(profile: p, own: false, ratedGames: _ratedGames),
+                    ],
                   ]),
       ),
     );
@@ -211,12 +238,12 @@ class CompetitiveRecordSection extends StatelessWidget {
         cards: cards,
         onOpen: (card) {
           final game = card.gameType;
-          if (game == null) return;
+          if (game == null) {
+            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AllTimeRankingsScreen()));
+            return;
+          }
           if (!card.ranked) {
-            // Only some games have ratings so far; the card is there (in its
-            // colours) so the set is complete, but there's no page behind it yet.
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text('Rankings for ${gameDisplayName(game)} are coming soon.')));
+            Navigator.of(context).push(MaterialPageRoute(builder: (_) => AllTimeRankingsScreen(initialGame: game)));
             return;
           }
           Navigator.of(context)
@@ -230,7 +257,7 @@ class CompetitiveRecordSection extends StatelessWidget {
           } catch (_) {
             if (context.mounted) {
               ScaffoldMessenger.of(context)
-                  .showSnackBar(const SnackBar(content: Text('Error has occurred, try again later.')));
+                  .showSnackBar(const SnackBar(content: Text(userRetryMessage)));
             }
           }
         },
@@ -310,7 +337,7 @@ class _ProfileVisibilitySwitchState extends State<ProfileVisibilitySwitch> {
       if (mounted) {
         setState(() => _public = !value);
         ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Error has occurred, try again later.')));
+            .showSnackBar(const SnackBar(content: Text(userRetryMessage)));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -512,7 +539,7 @@ class _GameCompetitiveScreenState extends State<GameCompetitiveScreen> {
           ),
           if (s.top100Wins > 0 || s.casualGames > 0) ...[
             const SizedBox(height: 8),
-            Text(
+            HuudText(
               [
                 if (s.top100Wins > 0) '⚔ ${s.top100Wins} wins over Top-100 players',
                 if (s.casualGames > 0) '${s.casualGames} casual games',
@@ -594,6 +621,8 @@ class MatchRow extends StatelessWidget {
             RatingDelta(m.ratingDelta),
             if (m.ratingAfter != null) Text('${m.ratingAfter}', style: t.labelSmall?.copyWith(color: n.mute)),
           ]),
+        const SizedBox(width: 10),
+        HuudGameArt(m.gameType, key: ValueKey('match-game-${m.matchId}'), size: 36),
       ]),
     );
   }

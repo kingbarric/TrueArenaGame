@@ -1,3 +1,5 @@
+import '../../widgets/match_coin_reward.dart';
+import '../../core/api_client.dart' show userRetryMessage;
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -19,6 +21,7 @@ import '../../widgets/how_to_play_dialog.dart';
 import '../onboarding/guest_save_session_card.dart';
 import '../status/victory_status.dart';
 import '../huudspace/leave_game.dart';
+import '../../widgets/huud_art.dart';
 
 /// The 20 wheel categories, in the exact order the backend's `Category` enum
 /// declares them (`ta-game-wordbluff/.../Category.java`) — the wheel's slice
@@ -755,7 +758,7 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
         child: Row(children: [
           Icon(icon, size: 18, color: n.gold),
           const SizedBox(width: 12),
-          Text(label, style: TextStyle(color: n.ink, fontSize: 13)),
+          HuudText(label, style: TextStyle(color: n.ink, fontSize: 13)),
         ]),
       );
 
@@ -917,7 +920,7 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
         _leaving = false;
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Error has occurred, try again later.')),
+            const SnackBar(content: Text(userRetryMessage)),
           );
         }
         return;
@@ -1149,7 +1152,7 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
       return SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
         child: Column(children: [
-          Text(
+          HuudText(
             mine
                 ? 'Your turn to describe'
                 : '${label(describer ?? "")} is spinning…',
@@ -1215,13 +1218,28 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
                       : _wheelAngle;
                   return Transform.rotate(
                     angle: angle,
-                    child: CustomPaint(
-                      size: Size(size, size),
-                      painter: _WheelPainter(
-                          categories: _kCategories,
-                          panel: n.panel,
-                          line: kCabinetInk,
-                          ink: n.ink),
+                    child: SizedBox(
+                      width: size,
+                      height: size,
+                      child: Stack(children: [
+                        CustomPaint(
+                          size: Size(size, size),
+                          painter: _WheelPainter(
+                              categories: _kCategories,
+                              panel: n.panel,
+                              line: kCabinetInk,
+                              ink: n.ink),
+                        ),
+                        for (var i = 0; i < _kCategories.length; i++)
+                          Positioned(
+                            left: size / 2 + math.cos(i * 2 * math.pi / _kCategories.length - math.pi / 2) * size * .1775 - size * .0275,
+                            top: size / 2 + math.sin(i * 2 * math.pi / _kCategories.length - math.pi / 2) * size * .1775 - size * .0275,
+                            child: Transform.rotate(
+                              angle: i * 2 * math.pi / _kCategories.length - math.pi / 2,
+                              child: HuudSymbol(_kCategories[i].$3, size: size * .055, decorative: true),
+                            ),
+                          ),
+                      ]),
                     ),
                   );
                 },
@@ -1288,7 +1306,7 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
           ]),
         ),
         const SizedBox(height: 8),
-        Text(label,
+        HuudText(label,
             style: Theme.of(context)
                 .textTheme
                 .labelSmall
@@ -1303,7 +1321,7 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
         .$3;
     if (amDescriber) {
       return _centered([
-        Text(emoji, style: const TextStyle(fontSize: 56)),
+        HuudText(emoji, style: const TextStyle(fontSize: 56)),
         const SizedBox(height: 10),
         Text(categoryName ?? '',
             style: Theme.of(context)
@@ -1320,13 +1338,13 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
       ]);
     }
     return _centered([
-      Text(emoji, style: const TextStyle(fontSize: 56)),
+      HuudText(emoji, style: const TextStyle(fontSize: 56)),
       const SizedBox(height: 10),
       Text(categoryName ?? '',
           style:
               Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 26)),
       const SizedBox(height: 8),
-      Text('${label(describer ?? "")} is about to describe…',
+      HuudText('${label(describer ?? "")} is about to describe…',
           style:
               Theme.of(context).textTheme.bodyMedium?.copyWith(color: n.mid)),
     ]);
@@ -1340,7 +1358,7 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
       orElse: () => ('', categoryName ?? '', '🎲'),
     );
     return _centered([
-      Text(
+      HuudText(
           amDescriber
               ? 'YOU ARE DESCRIBING'
               : '${label(describer ?? "")} IS DESCRIBING',
@@ -1358,9 +1376,9 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
         builder: (_, t, child) =>
             Transform.scale(scale: 0.7 + 0.3 * t, child: child),
         child: Column(children: [
-          Text(cat.$3, style: const TextStyle(fontSize: 64)),
+          HuudText(cat.$3, style: const TextStyle(fontSize: 64)),
           const SizedBox(height: 10),
-          Text(cat.$2,
+          HuudText(cat.$2,
               textAlign: TextAlign.center,
               style: Theme.of(context)
                   .textTheme
@@ -1470,7 +1488,7 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
       ]);
     }
     return _centered([
-      const Text('🤔', style: TextStyle(fontSize: 56)),
+      const HuudText('🤔', style: TextStyle(fontSize: 56)),
       const SizedBox(height: 12),
       Text(
           onMyTeam
@@ -1479,7 +1497,7 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
           style:
               Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 22)),
       const SizedBox(height: 8),
-      Text(
+      HuudText(
           '${label(describer ?? "")} is describing a ${categoryName ?? ''} word.',
           textAlign: TextAlign.center,
           style:
@@ -1554,7 +1572,7 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
       ],
       if (lastResolved != null) ...[
         const SizedBox(height: 14),
-        Text(
+        HuudText(
             switch (lastResolved) {
               'correct' => '✅ Correct!',
               'wrong' => '❌ Not it',
@@ -1702,7 +1720,7 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
         (winningTeam == 'A' ? teamA : teamB).contains(widget.selfId);
     final accent = winningTeam == 'A' ? n.gold : n.brand;
     return _centered([
-      const Text('🏆', style: TextStyle(fontSize: 64)),
+      const HuudText('🏆', style: TextStyle(fontSize: 64)),
       const SizedBox(height: 10),
       Text('Team ${winningTeam ?? '?'} wins',
           style: Theme.of(context)
@@ -1710,7 +1728,7 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
               .displayLarge
               ?.copyWith(fontSize: 28, color: accent)),
       const SizedBox(height: 6),
-      Text(
+      HuudText(
           _amSpectator
               ? 'Final score'
               : won
@@ -1727,12 +1745,13 @@ class _WordBluffGameScreenState extends State<WordBluffGameScreen>
             active: winningTeam == 'B', accent: n.brand),
       ]),
       const SizedBox(height: 28),
+      if (!widget.spectating) MatchCoinReward(roomId: widget.socket.roomId),
       if (won)
         VictoryShareButton(
             roomId: widget.socket.roomId,
             gameType: 'wordbluff',
             detail: 'Team $winningTeam wins'),
-      NeonButton(widget.spectating ? 'Close' : 'Back to home', onPressed: () {
+      NeonButton(widget.spectating ? 'Close' : 'Back to the Huud', onPressed: () {
         if (widget.spectating) {
           Navigator.of(context).pop();
         } else {
@@ -1860,19 +1879,14 @@ class _WheelPainter extends CustomPainter {
       canvas.drawPath(path, paint);
       canvas.drawPath(path, rimPaint);
 
-      // Emoji and name run outward along the slice, so each one is
+      // Huud artwork and name run outward along the slice, so each one is
       // readable rather than a row of anonymous symbols.
       final mid = start + sliceAngle / 2;
       canvas.save();
       canvas.translate(center.dx, center.dy);
       canvas.rotate(mid);
 
-      final emoji = TextPainter(
-        text: TextSpan(
-            text: categories[i].$3, style: TextStyle(fontSize: radius * 0.085)),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      emoji.paint(canvas, Offset(radius * 0.30, -emoji.height / 2));
+      final artworkWidth = radius * .11;
 
       final name = TextPainter(
         text: TextSpan(
@@ -1889,7 +1903,7 @@ class _WheelPainter extends CustomPainter {
         ellipsis: '…',
       )..layout(maxWidth: radius * 0.42);
       name.paint(
-          canvas, Offset(radius * 0.30 + emoji.width + 6, -name.height / 2));
+          canvas, Offset(radius * 0.30 + artworkWidth + 6, -name.height / 2));
       canvas.restore();
     }
 
@@ -1898,5 +1912,5 @@ class _WheelPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _WheelPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _WheelPainter oldDelegate) => oldDelegate.panel != panel || oldDelegate.line != line || oldDelegate.ink != ink;
 }

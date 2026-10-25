@@ -60,7 +60,7 @@ class _WhotLobbyScreenState extends State<WhotLobbyScreen> {
       } catch (_) {
         if (mounted)
           setState(
-              () => _error = 'Error has occurred, try again later.');
+              () => _error = userErrorMessage);
       }
     });
   }
@@ -101,7 +101,7 @@ class _WhotLobbyScreenState extends State<WhotLobbyScreen> {
       _showCreateError(e.message);
     } catch (_) {
       _showCreateError(
-          'Error has occurred, try again later.');
+          userErrorMessage);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -150,7 +150,7 @@ class _WhotLobbyScreenState extends State<WhotLobbyScreen> {
         socket.send('HELLO', {'lastSeq': 0});
       } else if (env['type'] == 'ERROR') {
         setState(() => _error =
-            p['message']?.toString() ?? 'Error has occurred, try again later.');
+            p['message']?.toString() ?? userErrorMessage);
       }
     }, onDone: () {
       if (mounted && !_handedOff) {
@@ -219,7 +219,7 @@ class _WhotLobbyScreenState extends State<WhotLobbyScreen> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Error has occurred, try again later.')));
+            const SnackBar(content: Text(userRetryMessage)));
       }
     } finally {
       if (mounted) setState(() => _addingBot = false);

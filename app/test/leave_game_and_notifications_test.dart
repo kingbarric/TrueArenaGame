@@ -10,6 +10,7 @@ import 'package:truearena/core/app_state.dart';
 import 'package:truearena/core/models.dart';
 import 'package:truearena/features/huudspace/huud_space_screen.dart';
 import 'package:truearena/features/huudspace/huud_voice.dart';
+import 'package:truearena/features/huudspace/huud_lounge.dart';
 import 'package:truearena/core/hangout_state.dart';
 import 'package:truearena/features/huudspace/leave_game.dart';
 import 'package:truearena/features/notifications/notifications_screen.dart';
@@ -42,6 +43,8 @@ final _navKey = GlobalKey<NavigatorState>();
 void main() {
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
+    HuudLounge.debugScenePlaceholder = true;
+    addTearDown(() => HuudLounge.debugScenePlaceholder = false);
     HuudVoice.instance.reset();
     HangoutState.instance.clear();
   });
@@ -91,6 +94,7 @@ void main() {
     expect(calls, contains('GET /api/v1/huud-spaces/by-room/room1'));
     expect(find.byKey(const ValueKey('game-over')), findsNothing);
     expect(find.byType(HuudSpaceScreen), findsOneWidget);
+    expect(tester.getSemantics(find.byKey(const ValueKey('huud-tab-play'))), isSemantics(isSelected: true));
     expect(find.text("Ada's Whot Club"), findsWidgets);
   });
 

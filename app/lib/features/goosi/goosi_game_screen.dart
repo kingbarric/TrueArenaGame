@@ -1,3 +1,5 @@
+import '../../widgets/match_coin_reward.dart';
+import '../../core/api_client.dart' show userRetryMessage;
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -18,6 +20,7 @@ import '../status/victory_status.dart';
 import '../onboarding/guest_save_session_card.dart';
 import 'goosi_theme.dart';
 import '../huudspace/leave_game.dart';
+import '../../widgets/huud_art.dart';
 
 /// Macala has twelve houses and two players. A move relay-sows around the
 /// board and collects any house brought to exactly four seeds. See `GoosiModule`
@@ -70,7 +73,6 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
   Map<String, int> scores = {};
   int pitsPerPlayer = 6;
   String? winningSide;
-  int? _coinsAwarded;
   List<String> winners = [];
   int turnSeconds = 45;
   String mode = 'relay';
@@ -365,8 +367,6 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
             0,
             TableChatLine.system(
                 '${label(data['player']?.toString() ?? '')} ran out of chances and lost the turn.'));
-      case 'COINS_AWARDED':
-        setState(() => _coinsAwarded = data['amount'] as int?);
       case 'SPECTATOR_COUNT':
         setState(
             () => _spectatorCount = data['count'] as int? ?? _spectatorCount);
@@ -897,7 +897,7 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
         _leaving = false;
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Error has occurred, try again later.')),
+            const SnackBar(content: Text(userRetryMessage)),
           );
         }
         return;
@@ -1420,9 +1420,6 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
           _statChip(
               Icons.circle_outlined, '$mine ${mine == 1 ? 'seed' : 'seeds'}'),
           if (margin > 0) _statChip(Icons.trending_up_rounded, 'by $margin'),
-          if (_coinsAwarded != null)
-            _statChip(Icons.monetization_on_rounded,
-                '+$_coinsAwarded ${_coinsAwarded == 1 ? 'coin' : 'coins'}'),
         ]);
   }
 
@@ -1464,7 +1461,7 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
               builder: (_, t, child) =>
                   Transform.scale(scale: 0.5 + 0.5 * t, child: child),
               child:
-                  Text(tie ? '🤝' : '🏆', style: const TextStyle(fontSize: 64)),
+                  HuudText(tie ? '🤝' : '🏆', style: const TextStyle(fontSize: 64)),
             ),
             const SizedBox(height: 10),
             Text(
@@ -1487,7 +1484,7 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
                         ?.copyWith(color: n.mid)),
               ),
             const SizedBox(height: 6),
-            Text(
+            HuudText(
                 won
                     ? 'You won! 🎉'
                     : (tie ? 'Close one.' : 'Better luck next game.'),
@@ -1498,12 +1495,13 @@ class _GoosiGameScreenState extends State<GoosiGameScreen> {
             const SizedBox(height: 16),
             _resultStats(),
             const SizedBox(height: 24),
+            if (!widget.spectating) MatchCoinReward(roomId: widget.socket.roomId, foregroundColor: _cream),
             if (won && !tie)
               VictoryShareButton(
                   roomId: widget.socket.roomId,
                   gameType: 'goosi',
                   detail: '${scores[widget.selfId] ?? 0} points'),
-            NeonButton('Back to home', onPressed: () {
+            NeonButton('Back to the Huud', onPressed: () {
               leaveGame(context, widget.socket.roomId);
             }),
             const GuestSaveSessionCard(),

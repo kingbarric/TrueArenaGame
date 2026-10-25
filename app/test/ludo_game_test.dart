@@ -49,12 +49,14 @@ class _Socket implements GameSocket {
       int pieceCount = 4,
       String? pendingUndo,
       String? undoableBy,
+      String? winner,
       String turn = 'me'}) {
     frames.add({
       'type': 'SNAPSHOT',
       'payload': {
         'lobby': false,
-        'phase': 'Turn',
+        'phase': winner == null ? 'Turn' : 'Results',
+        if (winner != null) 'winner': winner,
         'players': players,
         'seats': seats,
         'pieces': pieces,
@@ -104,6 +106,30 @@ void main() {
     await tester.pump();
     return socket;
   }
+
+  testWidgets('a finished game says who won, then shows the summary', (tester) async {
+    final socket = await open(tester);
+    socket.snapshot(
+        players: ['me', 'friend'],
+        seats: [0, 2],
+        pieces: {
+          'me': [56, 56, 56, 12],
+          'friend': [56, 56, 56, 56]
+        },
+        winner: 'friend',
+        turn: 'friend');
+    await tester.pump();
+    await tester.pump();
+    expect(find.byKey(const ValueKey('ludo-game-over-dialog')), findsOneWidget);
+    expect(find.text('Ama got all their pieces home first.'), findsOneWidget);
+    await tester.tap(find.text('View summary'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('ludo-summary')), findsOneWidget);
+    expect(find.text('Ama won Ludo'), findsOneWidget);
+    expect(find.text('3 / 4'), findsOneWidget);
+    expect(find.text('4 / 4'), findsOneWidget);
+    expect(find.byKey(const ValueKey('ludo-back-to-huud')), findsOneWidget);
+  });
 
   testWidgets('tapping the huud code copies it and confirms', (tester) async {
     String? copiedText;

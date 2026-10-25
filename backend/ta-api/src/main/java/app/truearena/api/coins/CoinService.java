@@ -11,21 +11,7 @@ import reactor.core.publisher.Mono;
 
 import java.util.UUID;
 
-/**
- * The coin ledger — free/earned only, no real-money purchase and no cash-out
- * anywhere in this app, so no payment integration and no gambling-law
- * surface even though match stakes let players wager it (coins in, coins
- * out, never real money either direction). Every balance change is atomic
- * at the DB level ({@code UserRepository#adjustCoins}, a single conditional
- * UPDATE...RETURNING) and paired with an append-only {@code
- * coin_transactions} row — never just the balance alone.
- *
- * <p>Covers earning (match participation/win rewards, wired into {@code
- * GameOrchestrator.finishGame}) and match-stake escrow/payout/refund (wired
- * into {@code RoomService.create}/{@code join}/{@code abandon} and {@code
- * GameOrchestrator.payoutStake}). Cosmetic-unlock purchases are still the
- * natural next step, not built yet.
- */
+/** Free earned coins. Match entry never costs coins; coins cannot be purchased or cashed out. */
 @Service
 public class CoinService {
 
@@ -45,7 +31,7 @@ public class CoinService {
      * to afford an opponent because you lost to one is exactly the wrong
      * place for that wall to be.
      */
-    public static final long WIN_VS_PERSON = 30;
+    public static final long WIN_VS_PERSON = 50;
     public static final long LOSS_VS_PERSON = 10;
     public static final long TIE_VS_PERSON = 15;
 
@@ -54,8 +40,8 @@ public class CoinService {
     public static final String REASON_MATCH_TIE = "match_tie";
     public static final String REASON_WELCOME = "welcome_grant";
 
-    /** What a brand-new account starts with, enough to join a small staked game. */
-    public static final long WELCOME_GRANT = 120;
+    /** What a brand-new account starts with, a free welcome gift. */
+    public static final long WELCOME_GRANT = 100;
     public static final String REASON_MATCH_STAKE_ESCROW = "match_stake_escrow";
     public static final String REASON_MATCH_STAKE_PAYOUT = "match_stake_payout";
     public static final String REASON_MATCH_STAKE_REFUND = "match_stake_refund";

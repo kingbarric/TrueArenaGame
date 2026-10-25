@@ -43,7 +43,7 @@ Future<bool> watchHuudByCode(
   } on ApiException catch (e) {
     msg?.showSnackBar(SnackBar(content: Text(e.message)));
   } catch (_) {
-    msg?.showSnackBar(const SnackBar(content: Text('Error has occurred, try again later.')));
+    msg?.showSnackBar(const SnackBar(content: Text(userRetryMessage)));
   }
   return false;
 }

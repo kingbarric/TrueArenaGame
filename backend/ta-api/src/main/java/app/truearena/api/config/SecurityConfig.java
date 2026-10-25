@@ -1,6 +1,8 @@
 package app.truearena.api.config;
 
 import app.truearena.api.auth.JwtService;
+import app.truearena.api.safety.AgeSafetyService;
+import app.truearena.api.auth.AccountSessionGuard;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
@@ -34,7 +36,7 @@ public class SecurityConfig {
     };
 
     @Bean
-    SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http, JwtService jwt) {
+    SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http, JwtService jwt, AccountSessionGuard accounts, AgeSafetyService ages) {
         return http
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .httpBasic(ServerHttpSecurity.HttpBasicSpec::disable)
@@ -44,7 +46,7 @@ public class SecurityConfig {
                         .pathMatchers(PUBLIC).permitAll()
                         .pathMatchers("/api/**").authenticated()
                         .anyExchange().permitAll())
-                .addFilterAt(bearerFilter(jwt), SecurityWebFiltersOrder.AUTHENTICATION)
+                .addFilterAt(bearerFilter(jwt, accounts, ages), SecurityWebFiltersOrder.AUTHENTICATION)
                 .exceptionHandling(e -> e.authenticationEntryPoint((exchange, ex) -> {
                     exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
                     return exchange.getResponse().setComplete();
@@ -52,7 +54,7 @@ public class SecurityConfig {
                 .build();
     }
 
-    private WebFilter bearerFilter(JwtService jwt) {
+    private WebFilter bearerFilter(JwtService jwt, AccountSessionGuard accounts, AgeSafetyService ages) {
         return (exchange, chain) -> {
             String header = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
             if (header == null || !header.startsWith("Bearer ")) {
@@ -61,8 +63,13 @@ public class SecurityConfig {
             try {
                 UUID userId = jwt.parseAccess(header.substring(7));
                 var auth = new UsernamePasswordAuthenticationToken(userId.toString(), null, List.of());
-                return chain.filter(exchange)
-                        .contextWrite(ReactiveSecurityContextHolder.withAuthentication(auth));
+                return accounts.exists(userId).flatMap(exists -> exists
+                        ? (exchange.getRequest().getPath().value().startsWith("/api/v1/")
+                            && !exchange.getRequest().getPath().value().startsWith("/api/v1/auth/")
+                            && !AgeSafetyService.recoveryRoute(exchange.getRequest().getMethod().name(),exchange.getRequest().getPath().value())
+                            ? ages.requireAccess(userId).then(Mono.defer(()->chain.filter(exchange)))
+                            : chain.filter(exchange)).contextWrite(ReactiveSecurityContextHolder.withAuthentication(auth))
+                        : chain.filter(exchange));
             } catch (RuntimeException invalid) {
                 return chain.filter(exchange);
             }

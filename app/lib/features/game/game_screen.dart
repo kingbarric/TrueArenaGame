@@ -1,3 +1,5 @@
+import '../../widgets/match_coin_reward.dart';
+import '../../core/api_client.dart' show userErrorMessage;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -15,6 +17,7 @@ import '../../widgets/neon_form.dart';
 import '../status/victory_status.dart';
 import '../onboarding/guest_save_session_card.dart';
 import '../huudspace/leave_game.dart';
+import '../../widgets/huud_art.dart';
 
 /// The actual game loop — role reveal through results — driven entirely by
 /// server frames over the socket the lobby already opened. This screen holds
@@ -97,6 +100,12 @@ class _GameScreenState extends State<GameScreen> {
   int _defenseSeconds = 60;
   static const night = 'night', roundTable = 'roundTable', vote = 'vote';
   int? _secondsLeft;
+
+  /// The host stopped the clock (`PAUSE_TOGGLE`). Talk goes on; nothing times out.
+  bool _paused = false;
+
+  /// Seconds until a host's pause gives up and the clock runs again.
+  int? _pauseResumesIn;
 
   // Discussion-only chat (see docs/DEV_REFERENCE.md — GameOrchestrator.handleChat):
   // ephemeral, not replayed on reconnect, so a fresh list per round table is correct.
@@ -233,7 +242,7 @@ class _GameScreenState extends State<GameScreen> {
         _applyEvent((env['payload'] as Map).cast<String, dynamic>());
       case 'ERROR':
         final msg = (env['payload'] as Map)['message']?.toString() ??
-            'Error has occurred, try again later.';
+            userErrorMessage;
         _actionLocked = false;
         if (mounted) {
           ScaffoldMessenger.of(context)
@@ -244,6 +253,8 @@ class _GameScreenState extends State<GameScreen> {
 
   void _applySnapshot(Map<String, dynamic> p) {
     final serverSeconds = p['secondsLeft'] as int?;
+    _paused = p['paused'] == true;
+    _pauseResumesIn = p['pauseResumesInSeconds'] as int?;
     final phaseChanged = p['phase'] != null && p['phase'] != phase;
     setState(() {
       phase = p['phase'] as String? ?? phase;
@@ -361,10 +372,52 @@ class _GameScreenState extends State<GameScreen> {
     _ticker = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted) return t.cancel();
       setState(() {
+        // A paused clock holds still; only the pause's own limit counts down.
+        if (_paused) {
+          if ((_pauseResumesIn ?? 0) > 0) _pauseResumesIn = _pauseResumesIn! - 1;
+          return;
+        }
         _secondsLeft = (_secondsLeft ?? 1) - 1;
         if (_secondsLeft! <= 0) t.cancel();
       });
     });
+  }
+
+  /// Room-level clock news from the server — the host pausing, resuming or
+  /// adding time, or a pause running out by itself.
+  void _applyClockEvent(String type, Map<String, dynamic> data) {
+    final seconds = data['secondsLeft'] as int?;
+    switch (type) {
+      case 'GAME_PAUSED':
+        setState(() {
+          _paused = true;
+          _pauseResumesIn = data['resumesInSeconds'] as int?;
+        });
+        _startCountdown(seconds ?? _secondsLeft ?? 0);
+      case 'GAME_RESUMED':
+        setState(() {
+          _paused = false;
+          _pauseResumesIn = null;
+        });
+        if (seconds != null && seconds > 0) _startCountdown(seconds);
+      case 'TIMER_EXTENDED':
+        if (seconds != null) _startCountdown(seconds);
+    }
+  }
+
+  void _togglePause() => widget.socket.send('PAUSE_TOGGLE');
+
+  void _addTime() => widget.socket.send('HOST_CONTROL', {'cmd': 'EXTEND_TIMER'});
+
+  static String _clock(int seconds) => seconds >= 60
+      ? '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}'
+      : '$seconds s';
+
+  /// What a player who isn't the host sees on a reveal screen.
+  String get _movingOnLine {
+    if (_paused) return 'The host paused the clock';
+    final left = _secondsLeft;
+    return left != null && left > 0 ? 'Moving on in ${_clock(left)}' : 'Waiting for the host…';
   }
 
   void _applyEvent(Map<String, dynamic> payload) {
@@ -438,6 +491,7 @@ class _GameScreenState extends State<GameScreen> {
         if (line != null) feed.insert(0, line);
       }
     });
+    _applyClockEvent(type, data);
   }
 
   void _sendWatchChat() {
@@ -457,6 +511,15 @@ class _GameScreenState extends State<GameScreen> {
 
   String? _describe(String type, Map<String, dynamic> data) {
     switch (type) {
+      case 'GAME_PAUSED':
+        return 'The host paused the clock.';
+      case 'GAME_RESUMED':
+        return data['reason'] == 'pause_limit'
+            ? 'The pause ran out — the clock is running again.'
+            : 'The clock is running again.';
+      case 'TIMER_EXTENDED':
+        final added = data['addedSeconds'] as int? ?? 120;
+        return 'The host added ${added ~/ 60} minutes.';
       case 'NIGHT_FALLS':
         return 'Night ${data['round']} falls.';
       case 'NO_MURDER':
@@ -728,6 +791,7 @@ class _GameScreenState extends State<GameScreen> {
             SafeArea(
               // Laid out under the stage rather than floating over it.
               child: Column(children: [
+                _clockBar(n),
                 Expanded(
                   child: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 260),
@@ -796,7 +860,7 @@ class _GameScreenState extends State<GameScreen> {
     final traitor = isTraitor;
     final color = traitor ? n.brand : n.gold;
     return _centered([
-      Text(traitor ? '😈' : '😇', style: const TextStyle(fontSize: 64)),
+      HuudText(traitor ? '😈' : '😇', style: const TextStyle(fontSize: 64)),
       const SizedBox(height: 14),
       Text(traitor ? 'You are a Traitor' : 'You are Faithful',
           style: Theme.of(context)
@@ -837,7 +901,7 @@ class _GameScreenState extends State<GameScreen> {
         NeonButton('Everyone knows their role',
             onPressed: _actionLocked ? null : _advance)
       else
-        _waiting(n, 'Waiting for the host…'),
+        _waiting(n, _movingOnLine),
     ]);
   }
 
@@ -847,7 +911,7 @@ class _GameScreenState extends State<GameScreen> {
         .toList();
     if (!isTraitor || !_amAlive) {
       return _centered([
-        const Text('🌙', style: TextStyle(fontSize: 56)),
+        const HuudText('🌙', style: TextStyle(fontSize: 56)),
         const SizedBox(height: 14),
         Text('The town sleeps…',
             style: Theme.of(context)
@@ -913,7 +977,7 @@ class _GameScreenState extends State<GameScreen> {
   Widget _defense(NeonColors n) {
     final trial = _tieCandidates.isNotEmpty;
     return _centered([
-      const Text('🗣️', style: TextStyle(fontSize: 52)),
+      const HuudText('🗣️', style: TextStyle(fontSize: 52)),
       const SizedBox(height: 10),
       Text(trial ? 'Trial of two' : 'The defense',
           style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 26)),
@@ -940,7 +1004,7 @@ class _GameScreenState extends State<GameScreen> {
   /// count as abstentions. This phase used to render as an endless spinner.
   Widget _hostAssignVotes(NeonColors n) {
     return _centered([
-      const Text('🗳️', style: TextStyle(fontSize: 52)),
+      const HuudText('🗳️', style: TextStyle(fontSize: 52)),
       const SizedBox(height: 10),
       Text('Missing votes', style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 26)),
       const SizedBox(height: 8),
@@ -972,7 +1036,7 @@ class _GameScreenState extends State<GameScreen> {
       children: [
         Expanded(
           child: _centered([
-            const Text('🎪', style: TextStyle(fontSize: 52)),
+            const HuudText('🎪', style: TextStyle(fontSize: 52)),
             const SizedBox(height: 10),
             Text('Round table',
                 style: Theme.of(context)
@@ -1071,9 +1135,11 @@ class _GameScreenState extends State<GameScreen> {
             onTap: () => setState(() => _chatExpanded = !_chatExpanded),
             pressScale: 0.99,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+              // 14 + 24 (icon) + 14 fills the collapsed 54px panel less its
+              // 2px top border exactly; 15 overflowed it by two pixels.
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
               child: Row(children: [
-                Text(onTraitorChannel ? '🎭' : '💬',
+                HuudText(onTraitorChannel ? '🎭' : '💬',
                     style: const TextStyle(fontSize: 16)),
                 const SizedBox(width: 8),
                 Text(onTraitorChannel ? 'Traitors only' : 'Round table chat',
@@ -1206,7 +1272,7 @@ class _GameScreenState extends State<GameScreen> {
     if (!_amAlive) {
       // Eliminated players and spectators watch; the picker only produced errors for them.
       return _centered([
-        const Text('🗳️', style: TextStyle(fontSize: 52)),
+        const HuudText('🗳️', style: TextStyle(fontSize: 52)),
         const SizedBox(height: 10),
         Text('The table is voting', style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 26)),
         const SizedBox(height: 8),
@@ -1247,7 +1313,7 @@ class _GameScreenState extends State<GameScreen> {
   Widget _simpleAdvance(NeonColors n, String emoji, String title,
       {List<Widget> extras = const [], List<Widget> hostExtras = const [], String continueLabel = 'Continue'}) {
     return _centered([
-      Text(emoji, style: const TextStyle(fontSize: 52)),
+      HuudText(emoji, style: const TextStyle(fontSize: 52)),
       const SizedBox(height: 10),
       Text(title,
           style:
@@ -1267,14 +1333,14 @@ class _GameScreenState extends State<GameScreen> {
         NeonButton(continueLabel,
             style: NeonStyle.ghost, onPressed: _actionLocked ? null : _advance),
       ] else
-        _waiting(n, 'Waiting for the host…'),
+        _waiting(n, _movingOnLine),
     ]);
   }
 
   Widget _results(NeonColors n) {
     final won = winningSide == 'traitors' ? isTraitor : !isTraitor;
     return _centered([
-      Text(winningSide == 'traitors' ? '😈' : '😇',
+      HuudText(winningSide == 'traitors' ? '😈' : '😇',
           style: const TextStyle(fontSize: 64)),
       const SizedBox(height: 10),
       Text(winningSide == 'traitors' ? 'The Traitors win' : 'The Faithful win',
@@ -1282,7 +1348,7 @@ class _GameScreenState extends State<GameScreen> {
               fontSize: 28,
               color: winningSide == 'traitors' ? n.brand : n.gold)),
       const SizedBox(height: 6),
-      Text(won ? 'You won! 🎉' : 'Better luck next table.',
+      HuudText(won ? 'You won! 🎉' : 'Better luck next table.',
           style:
               Theme.of(context).textTheme.bodyMedium?.copyWith(color: n.mid)),
       const SizedBox(height: 18),
@@ -1326,9 +1392,10 @@ class _GameScreenState extends State<GameScreen> {
         ],
       ],
       const SizedBox(height: 28),
+      if (!_amSpectator) MatchCoinReward(roomId: widget.socket.roomId),
       if (won) VictoryShareButton(roomId: widget.socket.roomId,
           gameType: 'truearena', detail: 'The ${winningSide == 'traitors' ? 'Traitors' : 'Faithful'} win'),
-      NeonButton('Back to home', onPressed: () {
+      NeonButton('Back to the Huud', onPressed: () {
         leaveGame(context, widget.socket.roomId);
       }),
       const GuestSaveSessionCard(),
@@ -1358,7 +1425,7 @@ class _GameScreenState extends State<GameScreen> {
         Padding(
           padding: EdgeInsets.fromLTRB(20, compact ? 8 : 18, 20, compact ? 2 : 6),
           child: Column(children: [
-            Text(compact && countdown && _secondsLeft != null ? '$title · $_secondsLeft s' : title,
+            Text(compact && countdown && _secondsLeft != null ? '$title · ${_clock(_secondsLeft!)}' : title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context)
@@ -1368,7 +1435,7 @@ class _GameScreenState extends State<GameScreen> {
                 textAlign: TextAlign.center),
             if (!compact) ...[
               const SizedBox(height: 6),
-              Text(subtitle,
+              HuudText(subtitle,
                   textAlign: TextAlign.center,
                   style: Theme.of(context)
                       .textTheme
@@ -1556,7 +1623,63 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  Widget _countdown(NeonColors n) => Text('$_secondsLeft s',
+  /// The host's hand on the clock — pause it for a longer talk, or add two
+  /// minutes — and, for everyone, word that the clock is paused.
+  /// Screens that already put their own countdown on the stage.
+  bool get _phaseShowsClock =>
+      const {'Night', 'RoundTable', 'Vote', 'Revote', 'SuddenDeath', 'Defense'}.contains(phase);
+
+  Widget _clockBar(NeonColors n) {
+    final left = _secondsLeft;
+    final hostControls = widget.isHost && !_amSpectator && left != null && !finished;
+    if (finished || (!_paused && !hostControls)) return const SizedBox.shrink();
+    final style = Theme.of(context).textTheme.labelSmall;
+    final resumes = _pauseResumesIn;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+      child: Row(children: [
+        Icon(_paused ? Icons.pause_circle_rounded : Icons.timer_outlined,
+            size: 16, color: _paused ? n.gold : n.jade),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            _paused
+                ? (resumes != null && resumes > 0
+                    ? 'Clock paused · runs again in ${_clock(resumes)}'
+                    : 'Clock paused')
+                : (_phaseShowsClock ? '' : _clock(left ?? 0)),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: style?.copyWith(
+                color: _paused ? n.gold : n.jade,
+                fontWeight: FontWeight.w800,
+                fontFeatures: const [FontFeature.tabularFigures()]),
+          ),
+        ),
+        if (hostControls) ...[
+          TextButton.icon(
+            key: const ValueKey('traitors-pause'),
+            onPressed: _togglePause,
+            icon: Icon(_paused ? Icons.play_arrow_rounded : Icons.pause_rounded, size: 16),
+            label: Text(_paused ? 'Resume' : 'Pause'),
+            style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact, foregroundColor: n.gold),
+          ),
+          TextButton.icon(
+            key: const ValueKey('traitors-add-time'),
+            onPressed: _addTime,
+            icon: const Icon(Icons.more_time_rounded, size: 16),
+            label: const Text('+2 min'),
+            style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact, foregroundColor: n.jade),
+          ),
+        ],
+      ]),
+    );
+  }
+
+  Widget _countdown(NeonColors n) => Text(
+      _paused ? '⏸ ${_clock(_secondsLeft ?? 0)}' : _clock(_secondsLeft ?? 0),
       style: TextStyle(
           color: n.jade,
           fontWeight: FontWeight.w800,

@@ -60,13 +60,20 @@ services:
       - ./livekit.prod.yaml:/etc/livekit.yaml:ro
 
   backend:
+    env_file:
+      - path: reviewer.env
+        required: false
     image: ${BACKEND_IMAGE:?set BACKEND_IMAGE, e.g. ghcr.io/<owner>/<repo>-backend:latest}
     restart: unless-stopped
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
     environment:
+      # Remains off until age-assurance and teen communication work is reviewed.
+      AGE_ENFORCEMENT_ENABLED: ${AGE_ENFORCEMENT_ENABLED:-false}
       APP_ENV: production
+      SPRING_PROFILES_ACTIVE: production
+      LOGGING_LEVEL_APP_TRUEARENA: ${LOGGING_LEVEL_APP_TRUEARENA:-INFO}
       PORT: 8080
       R2DBC_URL: r2dbc:postgresql://postgres:5432/truearena
       JDBC_URL: jdbc:postgresql://postgres:5432/truearena
@@ -75,10 +82,18 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       LIVEKIT_URL: ${LIVEKIT_URL:?set LIVEKIT_URL, e.g. wss://your-domain}
+      LIVEKIT_API_URL: http://livekit:7880
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:?set LIVEKIT_API_KEY}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:?set LIVEKIT_API_SECRET}
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
       BREVO_API_KEY: ${BREVO_API_KEY:-}
+      APPLE_SIGN_IN_TEAM_ID: ${APPLE_SIGN_IN_TEAM_ID:-}
+      APPLE_SIGN_IN_KEY_ID: ${APPLE_SIGN_IN_KEY_ID:-}
+      APPLE_SIGN_IN_PRIVATE_KEY_BASE64: ${APPLE_SIGN_IN_PRIVATE_KEY_BASE64:-}
+      # Optional dedicated review account; blank leaves reviewer access disabled.
+      REVIEWER_EMAIL: ${REVIEWER_EMAIL:-}
+      REVIEWER_CODE_SHA256: ${REVIEWER_CODE_SHA256:-}
+      REVIEWER_EXPIRES_AT: ${REVIEWER_EXPIRES_AT:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       FIREBASE_CREDENTIALS_BASE64: ${FIREBASE_CREDENTIALS_BASE64:-}
@@ -86,6 +101,14 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-26187322342-o2squi475tmt3ubs8k9rh2d2b7pfivgf.apps.googleusercontent.com}
       # Shared secret for the /notvisible/analytics admin dashboard (X-Admin-Key header).
       ADMIN_API_KEY: ${ADMIN_API_KEY:?set ADMIN_API_KEY}
+      # SlayHuud art and look snapshots: Cloudflare R2, bucket playhuud-assets.
+      # LATER: point SLAY_ASSET_BASE at a custom domain (assets.playhuud.com, needs
+      # playhuud.com DNS on Cloudflare) — r2.dev is rate-limited — and give prod its
+      # own R2 token instead of sharing test's.
+      SLAY_ASSET_BASE: ${SLAY_ASSET_BASE:-https://pub-add3eaff74154969a3810cabdb63ef40.r2.dev/slay/}
+      R2_ENDPOINT: ${R2_ENDPOINT:-}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
     ports: ["8080:8080"]
 
   # Reverse proxy + automatic Let's Encrypt. Needs DOMAIN set to a real hostname that

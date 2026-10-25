@@ -1,3 +1,4 @@
+import '../../widgets/huud_art.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -278,7 +279,7 @@ class _CallScreenState extends State<CallScreen> {
         setState(() {
           _connecting = false;
           _error =
-              'Error has occurred, try again later.';
+              userErrorMessage;
         });
       }
     }
@@ -556,7 +557,7 @@ class _CallScreenState extends State<CallScreen> {
       _leaving = false;
       _note(error is ApiException
           ? error.message
-          : 'Error has occurred, try again later.');
+          : userRetryMessage);
     } finally {
       _leavingPrompt = false;
     }
@@ -570,7 +571,7 @@ class _CallScreenState extends State<CallScreen> {
       HangoutState.instance.clear();
     } catch (error) {
       _leaving = false;
-      _note(error is ApiException ? error.message : 'Error has occurred, try again later.');
+      _note(error is ApiException ? error.message : userRetryMessage);
     }
   }
 
@@ -624,7 +625,7 @@ class _CallScreenState extends State<CallScreen> {
                             await _refreshSession();
                             if (ctx.mounted) Navigator.of(ctx).pop();
                           } catch (_) {
-                            _note('Error has occurred, try again later.');
+                            _note(userRetryMessage);
                           }
                         },
                         child: const Text('Save')),
@@ -676,7 +677,7 @@ class _CallScreenState extends State<CallScreen> {
           '/calls/sessions/requests/$userId/answer', {'approved': approved});
       await _refreshSession();
     } catch (_) {
-      _note('Error has occurred, try again later.');
+      _note(userRetryMessage);
     }
   }
 
@@ -684,7 +685,7 @@ class _CallScreenState extends State<CallScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(text)));
+      ..showSnackBar(SnackBar(content: HuudText(text)));
   }
 
   Future<void> _manage(lk.RemoteParticipant p, String action) async {
@@ -696,7 +697,7 @@ class _CallScreenState extends State<CallScreen> {
     } on ApiException catch (e) {
       _note(e.message);
     } catch (_) {
-      _note('Error has occurred, try again later.');
+      _note(userRetryMessage);
     }
   }
 
@@ -781,7 +782,7 @@ class _CallScreenState extends State<CallScreen> {
           (f as Map).cast<String, dynamic>()
       ];
     } catch (_) {
-      _note('Error has occurred, try again later.');
+      _note(userRetryMessage);
       return;
     }
     final here = {
@@ -856,7 +857,7 @@ class _CallScreenState extends State<CallScreen> {
     } on ApiException catch (e) {
       _note(e.message);
     } catch (_) {
-      _note('Error has occurred, try again later.');
+      _note(userRetryMessage);
     }
   }
 

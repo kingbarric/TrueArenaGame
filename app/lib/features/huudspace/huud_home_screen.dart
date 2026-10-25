@@ -13,7 +13,9 @@ import 'create_huud_sheet.dart';
 import 'go_live_sheet.dart';
 import 'huud_kit.dart';
 import 'huud_space_models.dart';
+import 'huud_discover_sliver.dart';
 import 'huud_space_screen.dart';
+import '../../widgets/huud_art.dart';
 
 /// The Huud tab: your Huud (Go Live, or step back in), a box for a friend's
 /// code, and every Huud you belong to — Live ones first. A Huud stays; going
@@ -29,6 +31,8 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
   List<MyHuud>? _huuds;
   String? _error;
   bool _loading = false;
+  bool _showDiscover = false;
+  final _discover = GlobalKey<HuudDiscoverSliverState>();
   final _code = TextEditingController();
   bool _joining = false;
   String? _goingLive;
@@ -68,7 +72,7 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted) setState(() => _error = "Error has occurred, try again later.");
+      if (mounted) setState(() => _error = userErrorMessage);
     } finally {
       _loading = false;
     }
@@ -142,7 +146,10 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
     return Scaffold(
       body: SafeArea(
         child: RefreshIndicator(
-          onRefresh: _load,
+          onRefresh: () async {
+            await Future.wait([_load(), if (_showDiscover && _discover.currentState != null)
+              _discover.currentState!.refresh()]);
+          },
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
@@ -169,25 +176,61 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
                   const SizedBox(height: 14),
                   _codeCard(n),
                   const SizedBox(height: 28),
-                  HuudSectionTitle("Huuds you're in",
-                      emoji: '🏠',
-                      trailing: others.isEmpty
-                          ? null
-                          : HuudChip('${others.length}', color: HuudColors.of(context).orangeText)),
-                  if (_huuds != null && others.isEmpty)
-                    const HuudFriendlyState(
-                      emoji: '🌱',
-                      title: 'None yet',
-                      message: "Join a friend's Huud with their code. You'll hear from it whenever it goes Live.",
-                    ),
-                  for (final h in others) ...[_otherHuud(n, h), const SizedBox(height: 12)],
+                  _listTabs(n, others.length),
                 ]),
               ),
+              if (_showDiscover)
+                HuudDiscoverSliver(key: _discover, excludeIds: huuds.map((h) => h.id).toSet(), onJoined: _load)
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  sliver: SliverList.list(children: [
+                    if (_huuds != null && others.isEmpty)
+                      const HuudFriendlyState(
+                        emoji: '🌱',
+                        title: 'None yet',
+                        message: "Join a friend's Huud with their code, or try Discover to find somewhere new.",
+                      ),
+                    for (final h in others) ...[_otherHuud(n, h), const SizedBox(height: 12)],
+                  ]),
+                ),
               // Clear of the shell's floating nav.
               const SliverToBoxAdapter(child: SizedBox(height: 130)),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _listTabs(NeonColors n, int count) {
+    final h = HuudColors.of(context);
+    Widget tab(String key, String label, bool selected, bool discover) => Expanded(
+      child: Semantics(selected: selected, child: TextButton(
+        key: ValueKey(key),
+        style: TextButton.styleFrom(
+          foregroundColor: selected ? h.orangeText : n.mute,
+          backgroundColor: selected ? h.orangeSoft : Colors.transparent,
+          minimumSize: const Size(0, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+        ),
+        onPressed: () => setState(() => _showDiscover = discover),
+        child: Text(label, textAlign: TextAlign.center),
+      )),
+    );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(color: n.panel, borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: n.line)),
+        child: Row(children: [
+          tab('huud-list-joined', "Huuds you're in${count > 0 ? ' ($count)' : ''}", !_showDiscover, false),
+          const SizedBox(width: 4),
+          tab('huud-list-discover', 'Discover', _showDiscover, true),
+        ]),
       ),
     );
   }
@@ -225,14 +268,17 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
         memberCount: h.memberCount,
         game: h.gameType == null ? null : huudGameName(h.gameType),
         gameStatus: h.gameStatus,
-        championship: h.championship);
+        championship: h.championship,
+        quiet: h.quiet);
     return HuudBackdrop(
       background: 'blank', // the card on the Huud tab stays plain
       child: HuudHeroCard(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Wrap(spacing: 8, runSpacing: 8, children: [
             h.live
-                ? const HuudChip('Live', emoji: '🔴', onOrange: true)
+                ? (h.quiet
+                    ? const HuudChip('Quiet', emoji: '😴', onOrange: true)
+                    : const HuudChip('Live', emoji: '🔴', onOrange: true))
                 : const HuudChip('Offline', emoji: '🌙', onOrange: true),
             HuudChip(h.privacy.label, emoji: h.privacy.emoji, onOrange: true),
             const HuudChip('Yours', emoji: '👑', onOrange: true),
@@ -244,7 +290,7 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: kCabinetInk, height: 1.1)),
           const SizedBox(height: 6),
-          Text(status, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: kCabinetInk)),
+          HuudText(status, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: kCabinetInk)),
           const SizedBox(height: 12),
           HuudAvatarStack(people: h.members, total: h.memberCount, size: 34),
           const SizedBox(height: 16),
@@ -278,15 +324,14 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
         memberCount: h.memberCount,
         game: h.gameType == null ? null : huudGameName(h.gameType),
         gameStatus: h.gameStatus,
-        championship: h.championship);
+        championship: h.championship,
+        quiet: h.quiet);
     return HuudCard(
       key: ValueKey('member-huud-${h.id}'),
-      highlight: h.live,
+      highlight: h.live && !h.quiet,
       onTap: () => _open(h.id),
       padding: const EdgeInsets.all(14),
       child: Row(children: [
-        Avatar(h.host?.name ?? h.name, size: 46, imageUrl: h.host?.avatarUrl),
-        const SizedBox(width: 12),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
@@ -294,19 +339,19 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
                 child: Text(h.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: n.ink)),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: n.ink)),
               ),
-              if (h.muted) ...[const SizedBox(width: 6), const Text('🔕', style: TextStyle(fontSize: 14))],
+              if (h.muted) ...[const SizedBox(width: 6), const HuudText('🔕', style: TextStyle(fontSize: 14))],
             ]),
             const SizedBox(height: 2),
-            Text(status,
+            HuudText(status,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: h.live ? hc.orangeText : n.mute)),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: h.live && !h.quiet ? hc.orangeText : n.mute)),
           ]),
         ),
         const SizedBox(width: 8),
-        h.live ? const HuudLiveChip() : Icon(Icons.chevron_right_rounded, color: n.mute, size: 28),
+        h.live ? HuudLiveChip(quiet: h.quiet) : Icon(Icons.chevron_right_rounded, color: n.mute, size: 28),
       ]),
     );
   }
@@ -316,7 +361,7 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
     return HuudCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
-          const Text('🔑', style: TextStyle(fontSize: 24)),
+          const HuudText('🔑', style: TextStyle(fontSize: 24)),
           const SizedBox(width: 8),
           Text('Got a code?', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: n.ink)),
         ]),
@@ -356,6 +401,7 @@ class _HuudHomeScreenState extends State<HuudHomeScreen> {
           HuudButton(
             key: const ValueKey('huud-code-join'),
             label: 'Join',
+            kind: HuudButtonKind.lightOrange,
             icon: Icons.login_rounded,
             busy: _joining,
             onPressed: _code.text.length == 6 ? _joinWithCode : null,

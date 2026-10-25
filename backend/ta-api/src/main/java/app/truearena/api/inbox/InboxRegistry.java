@@ -68,6 +68,10 @@ public class InboxRegistry {
      * exclusively by {@code PushNotificationService} to decide whether an
      * in-app live frame is enough on its own or an OS push is also needed.
      */
+    public boolean isBackgrounded(UUID userId) {
+        return backgrounded.contains(userId);
+    }
+
     public boolean isOnline(UUID userId) {
         return sockets.containsKey(userId) && !backgrounded.contains(userId);
     }
@@ -89,6 +93,13 @@ public class InboxRegistry {
                 }
             }
         }
+    }
+
+    public void erase(UUID userId) {
+        leaveCall(userId);
+        backgrounded.remove(userId);
+        var sink=sockets.remove(userId);
+        if (sink != null) sink.tryEmitComplete();
     }
 
     /** Everyone currently on the same call as {@code userId}, excluding themself — empty if they're not on one. */

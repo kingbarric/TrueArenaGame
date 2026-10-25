@@ -8,6 +8,7 @@ import '../../widgets/neon.dart';
 import '../calls/call_screen.dart';
 import '../chat/conversation_screen.dart';
 import '../friends/friends_screen.dart';
+import '../../widgets/huud_art.dart';
 
 class GroupSummary {
   const GroupSummary({required this.id, required this.name, this.avatarEmoji});
@@ -53,7 +54,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Error has occurred, try again later.');
+      if (mounted) setState(() => _error = userErrorMessage);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -66,7 +67,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
       final res = await app.api.get('/friends') as List;
       friends = res.map((e) => FriendUser.fromJson((e as Map).cast<String, dynamic>())).toList();
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error has occurred, try again later.')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(userRetryMessage)));
       return;
     }
     if (!mounted) return;
@@ -89,7 +90,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
     } on ApiException catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error has occurred, try again later.')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(userRetryMessage)));
     } finally {
       if (mounted) setState(() => _creating = false);
     }
@@ -125,7 +126,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
     } on ApiException catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error has occurred, try again later.')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(userRetryMessage)));
     }
   }
 
@@ -339,7 +340,7 @@ class _EmojiTile extends StatelessWidget {
           border: Border.all(color: selected ? n.jade : n.line, width: selected ? 2 : 1),
         ),
         alignment: Alignment.center,
-        child: Text(emoji, style: const TextStyle(fontSize: 20)),
+        child: HuudText(emoji, style: const TextStyle(fontSize: 20)),
       ),
     );
   }

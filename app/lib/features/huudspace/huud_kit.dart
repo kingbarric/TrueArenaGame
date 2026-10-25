@@ -6,6 +6,7 @@ import '../../widgets/game_badge.dart';
 import '../../widgets/neon.dart';
 import '../huud/huud_models.dart';
 import 'huud_space_models.dart';
+import '../../widgets/huud_art.dart';
 
 export '../../theme/huud_colors.dart';
 
@@ -19,9 +20,8 @@ const huudIcon = 'assets/images/branding/huud_icon.png';
 /// Backdrops a host can give their Huud: (wire, label, picture). The first
 /// is the default — no picture at all.
 const huudBackgrounds = <(String?, String, String?)>[
-  // Not picked yet = the disco floor; "Blank" is no picture at all.
-  (null, 'Disco', 'assets/images/huud_backgrounds/disco.jpg'),
   ('blank', 'Blank', null),
+  ('disco', 'Disco', 'assets/images/huud_backgrounds/disco.jpg'),
   ('lounge', 'Lounge', 'assets/images/huud_backgrounds/lounge.jpg'),
   ('poolside', 'Poolside', 'assets/images/huud_backgrounds/poolside.jpg'),
   ('club', 'Club', 'assets/images/huud_backgrounds/club.jpg'),
@@ -63,10 +63,12 @@ class HuudBackdrop extends StatelessWidget {
   }
 }
 
-const huudGameOrder = ['whot', 'draughts', 'chess', 'ludo', 'wordbluff', 'truearena', 'goosi', 'monopoly'];
+// Same order as the games grid.
+const huudGameOrder = ['truearena', 'slayhuud', 'wordbluff', 'monopoly', 'chess', 'draughts', 'ludo', 'whot', 'goosi'];
 
 const huudGameEmoji = {
   'truearena': '🕵️',
+  'slayhuud': '✨',
   'wordbluff': '🤫',
   'draughts': '⚫',
   'chess': '♟️',
@@ -108,8 +110,10 @@ class HuudButton extends StatelessWidget {
     final n = context.neon;
     final h = HuudColors.of(context);
     final disabled = onPressed == null || busy;
+    final raised = kind == HuudButtonKind.orange || kind == HuudButtonKind.lightOrange;
     final (Color fill, Color fg, Color edge) = switch (kind) {
-      HuudButtonKind.orange => (h.orange, h.onOrange, kCabinetInk),
+      HuudButtonKind.orange => (h.buttonFill, h.onOrange, kCabinetInk),
+      HuudButtonKind.lightOrange => (const Color(0xFFFFE0B8), kCabinetInk, kCabinetInk),
       HuudButtonKind.soft => (h.orangeSoft, h.orangeText, h.orangeText.withValues(alpha: 0.35)),
       HuudButtonKind.plain => (n.panel, n.ink, n.line),
       HuudButtonKind.danger => (n.danger.withValues(alpha: 0.12), n.danger, n.danger.withValues(alpha: 0.5)),
@@ -149,8 +153,8 @@ class HuudButton extends StatelessWidget {
             decoration: BoxDecoration(
               color: fill,
               borderRadius: BorderRadius.circular(height / 2),
-              border: Border.all(color: edge, width: kind == HuudButtonKind.orange ? 2.4 : 1.6),
-              boxShadow: kind == HuudButtonKind.orange
+              border: Border.all(color: edge, width: raised ? 2.4 : 1.6),
+              boxShadow: raised
                   ? const [BoxShadow(color: Colors.black26, blurRadius: 0, offset: Offset(2, 3))]
                   : null,
             ),
@@ -162,7 +166,7 @@ class HuudButton extends StatelessWidget {
   }
 }
 
-enum HuudButtonKind { orange, soft, plain, danger }
+enum HuudButtonKind { orange, lightOrange, soft, plain, danger }
 
 /// A round icon button with its word underneath — the quick-action row.
 class HuudRoundAction extends StatelessWidget {
@@ -173,6 +177,8 @@ class HuudRoundAction extends StatelessWidget {
     required this.onTap,
     this.active = false,
     this.danger = false,
+    this.size = 58,
+    this.onOrange = false,
   });
 
   final IconData icon;
@@ -180,12 +186,14 @@ class HuudRoundAction extends StatelessWidget {
   final VoidCallback? onTap;
   final bool active;
   final bool danger;
+  final double size;
+  final bool onOrange;
 
   @override
   Widget build(BuildContext context) {
     final n = context.neon;
     final h = HuudColors.of(context);
-    final fg = danger ? n.danger : (active ? h.onOrange : h.orangeText);
+    final fg = danger ? n.danger : (onOrange ? kCabinetInk : active ? h.onOrange : h.orangeText);
     return Semantics(
       button: true,
       label: label,
@@ -193,28 +201,31 @@ class HuudRoundAction extends StatelessWidget {
       child: Bouncy(
         onTap: onTap,
         child: SizedBox(
-          width: 76,
+          width: size + 18,
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              width: 58,
-              height: 58,
+              width: size,
+              height: size,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: active ? h.orange : (danger ? n.danger.withValues(alpha: 0.12) : h.orangeSoft),
+                color: onOrange ? const Color(0xFFFFF8EF) : active ? h.orange : (danger ? n.danger.withValues(alpha: 0.12) : h.orangeSoft),
                 border: Border.all(
-                    color: active
+                    color: onOrange || active
                         ? kCabinetInk
                         : (danger ? n.danger.withValues(alpha: 0.5) : h.orangeText.withValues(alpha: 0.3)),
-                    width: active ? 2.4 : 1.4),
+                    width: onOrange ? 1.8 : active ? 2.4 : 1.4),
+                boxShadow: onOrange
+                    ? const [BoxShadow(color: Color(0x40000000), offset: Offset(0, 2))]
+                    : null,
               ),
-              child: Icon(icon, color: fg, size: 26),
+              child: Icon(icon, color: fg, size: onOrange ? size * .55 : size * 26 / 58),
             ),
             const SizedBox(height: 6),
             Text(label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: danger ? n.danger : n.ink)),
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: onOrange ? fg : danger ? n.danger : n.ink)),
           ]),
         ),
       ),
@@ -294,17 +305,22 @@ class HuudChip extends StatelessWidget {
         border: Border.all(color: onOrange ? kCabinetInk.withValues(alpha: 0.35) : tint.withValues(alpha: 0.35)),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        if (emoji != null) ...[Text(emoji!, style: const TextStyle(fontSize: 13)), const SizedBox(width: 5)],
-        Text(text, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: onOrange ? kCabinetInk : tint)),
+        if (emoji != null) ...[HuudText(emoji!, style: const TextStyle(fontSize: 13)), const SizedBox(width: 5)],
+        HuudText(text, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: onOrange ? kCabinetInk : tint)),
       ]),
     );
   }
 }
 
-/// A pulsing green dot + "Live".
+/// A pulsing green dot + "Live" — or, for a Live Huud nobody is using right
+/// now, a steady amber dot + "Quiet".
 class HuudLiveChip extends StatefulWidget {
-  const HuudLiveChip({super.key, this.label = 'Live'});
+  const HuudLiveChip({super.key, this.label = 'Live', this.quiet = false});
   final String label;
+  final bool quiet;
+
+  /// The same amber as a player who has stepped away from a game.
+  static const quietAmber = Color(0xfff5a524);
 
   @override
   State<HuudLiveChip> createState() => _HuudLiveChipState();
@@ -333,20 +349,20 @@ class _HuudLiveChipState extends State<HuudLiveChip> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     final h = HuudColors.of(context);
+    final tint = widget.quiet ? HuudLiveChip.quietAmber : h.live;
+    final dot = Container(width: 9, height: 9, decoration: BoxDecoration(color: tint, shape: BoxShape.circle));
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: h.live.withValues(alpha: 0.14),
+        color: tint.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: h.live.withValues(alpha: 0.45)),
+        border: Border.all(color: tint.withValues(alpha: 0.45)),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        FadeTransition(
-          opacity: Tween(begin: 0.35, end: 1.0).animate(_pulse),
-          child: Container(width: 9, height: 9, decoration: BoxDecoration(color: h.live, shape: BoxShape.circle)),
-        ),
+        widget.quiet ? dot : FadeTransition(opacity: Tween(begin: 0.35, end: 1.0).animate(_pulse), child: dot),
         const SizedBox(width: 6),
-        Text(widget.label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: h.live)),
+        Text(widget.quiet ? 'Quiet' : widget.label,
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: tint)),
       ]),
     );
   }
@@ -416,7 +432,8 @@ class HuudAvatarStack extends StatelessWidget {
     final shown = people.take(max).toList();
     final extra = (total ?? people.length) - shown.length;
     final step = size * 0.68;
-    final width = shown.isEmpty ? 0.0 : size + step * (shown.length - 1) + (extra > 0 ? step : 0);
+    final slots = shown.length + (extra > 0 ? 1 : 0);
+    final width = slots == 0 ? 0.0 : size + step * (slots - 1);
     return SizedBox(
       width: width,
       height: size,
@@ -459,13 +476,13 @@ class HuudGameArt extends StatelessWidget {
         color: n.plate,
         alignment: Alignment.center,
         child: art == null
-            ? Text(huudGameEmoji[gameType] ?? '🎮', style: TextStyle(fontSize: size * 0.5))
+            ? HuudText(huudGameEmoji[gameType] ?? '🎮', style: TextStyle(fontSize: size * 0.5))
             : Image.asset(art,
                 width: size,
                 height: size,
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) =>
-                    Text(huudGameEmoji[gameType] ?? '🎮', style: TextStyle(fontSize: size * 0.5))),
+                    HuudText(huudGameEmoji[gameType] ?? '🎮', style: TextStyle(fontSize: size * 0.5))),
       ),
     );
   }
@@ -516,9 +533,9 @@ class HuudSectionTitle extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(children: [
-        if (emoji != null) ...[Text(emoji!, style: const TextStyle(fontSize: 22)), const SizedBox(width: 8)],
+        if (emoji != null) ...[HuudText(emoji!, style: const TextStyle(fontSize: 22)), const SizedBox(width: 8)],
         Expanded(
-          child: Text(title, style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900, color: n.ink)),
+          child: HuudText(title, style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900, color: n.ink)),
         ),
         if (trailing != null) trailing!,
       ]),
@@ -547,12 +564,12 @@ class HuudFriendlyState extends StatelessWidget {
     return HuudCard(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
       child: Column(children: [
-        Text(emoji, style: const TextStyle(fontSize: 44)),
+        HuudText(emoji, style: const TextStyle(fontSize: 44)),
         const SizedBox(height: 10),
-        Text(title,
+        HuudText(title,
             textAlign: TextAlign.center, style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: n.ink)),
         const SizedBox(height: 6),
-        Text(message, textAlign: TextAlign.center, style: TextStyle(fontSize: 15, height: 1.35, color: n.mid)),
+        HuudText(message, textAlign: TextAlign.center, style: TextStyle(fontSize: 15, height: 1.35, color: n.mid)),
         if (action != null) ...[const SizedBox(height: 16), action!],
       ]),
     );
@@ -596,12 +613,12 @@ Future<bool> confirmHuud(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text(emoji, textAlign: TextAlign.center, style: const TextStyle(fontSize: 44)),
+            HuudText(emoji, textAlign: TextAlign.center, style: const TextStyle(fontSize: 44)),
             const SizedBox(height: 8),
-            Text(title,
+            HuudText(title,
                 textAlign: TextAlign.center, style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900, color: n.ink)),
             const SizedBox(height: 6),
-            Text(message, textAlign: TextAlign.center, style: TextStyle(fontSize: 15, height: 1.35, color: n.mid)),
+            HuudText(message, textAlign: TextAlign.center, style: TextStyle(fontSize: 15, height: 1.35, color: n.mid)),
             const SizedBox(height: 20),
             HuudButton(
               label: yes,
@@ -631,7 +648,7 @@ SnackBar huudIconSnack(String message, {SnackBarAction? action}) => SnackBar(
       content: Row(children: [
         Image.asset(huudIcon, width: 26, height: 26),
         const SizedBox(width: 10),
-        Expanded(child: Text(message, style: const TextStyle(fontSize: 15))),
+        Expanded(child: HuudText(message, style: const TextStyle(fontSize: 15))),
       ]),
       action: action,
     );
@@ -640,5 +657,5 @@ void huudSnack(BuildContext context, String message) {
   if (!context.mounted) return;
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(message, style: const TextStyle(fontSize: 15))));
+    ..showSnackBar(SnackBar(content: HuudText(message, style: const TextStyle(fontSize: 15))));
 }

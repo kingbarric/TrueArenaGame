@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/neon_theme.dart';
+import 'huud_art.dart';
 
 /// A short, numbered rules card — same shape for every game, just different
 /// words. Meant to answer "wait, how do I play this?" in under a minute, not
@@ -17,7 +18,7 @@ Future<void> showHowToPlay(
     context: context,
     builder: (ctx) => AlertDialog(
       title: Row(children: [
-        Text(emoji, style: const TextStyle(fontSize: 26)),
+        HuudText(emoji, style: const TextStyle(fontSize: 26)),
         const SizedBox(width: 10),
         Expanded(child: Text('How to play $title')),
       ]),

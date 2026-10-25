@@ -19,6 +19,7 @@ class GameBadge extends StatelessWidget {
     'bluff': Color(0xff0e2a3a),
     'draughts': Color(0xff3a2408),
     'chess': Color(0xff24133a),
+    'slayhuud': Color(0xff8e1f3d),
     'goosi': Color(0xff0e2e1c),
     'whot': Color(0xff52202b),
     'ludo': Color(0xff351639),
@@ -30,6 +31,7 @@ class GameBadge extends StatelessWidget {
     'bluff': Color(0xff6ee7ff),
     'draughts': Color(0xffffd24d),
     'chess': Color(0xffffcf66),
+    'slayhuud': Color(0xffd9a441),
     'goosi': Color(0xff5eead4),
     'whot': Color(0xffe9b963),
     'ludo': Color(0xffffcf66),
@@ -41,10 +43,11 @@ class GameBadge extends StatelessWidget {
     'bluff': 'WORD BLUFF',
     'draughts': 'DRAUGHTS',
     'chess': 'CHESS',
+    'slayhuud': 'SLAY',
     'goosi': 'MACALA',
     'whot': 'WHOT',
     'ludo': 'LUDO',
-    'monopoly': 'MONOPOLY',
+    'monopoly': 'HUUDPOLY',
   };
 
   static const _artwork = {
@@ -55,7 +58,8 @@ class GameBadge extends StatelessWidget {
     'whot': 'assets/images/game_icons/whot.png',
     'ludo': 'assets/images/game_icons/ludo.png',
     'chess': 'assets/images/game_icons/chess.png',
-    'monopoly': 'assets/images/game_icons/monopoly.png',
+    'slayhuud': 'assets/images/game_icons/slayhuud.png',
+    'monopoly': 'assets/images/game_icons/huudpoly.png',
   };
 
   static String? artworkFor(String gameId) => _artwork[gameId];

@@ -1,0 +1,117 @@
+import 'dart:convert';
+import 'dart:io';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:truearena/features/slayhuud/slay_models.dart';
+
+void main() {
+  test(
+      'character persists through dressing, recolouring and legacy look reload',
+      () {
+    final legacy = SlayLook.fromJson(SlayLook.initial().toJson());
+    expect(legacy.avatarId, isNull);
+    var look = legacy.copy(avatarId: 'girl02');
+    look = look.equip({'id': 'chosen-top', 'category': 'tops'});
+    look = look.copy(itemColours: {'tops': 'red'}, pose: 'confident');
+    final restored = SlayLook.fromJson(jsonDecode(jsonEncode(look.toJson())));
+    expect(restored.avatarId, 'girl02');
+    expect(restored.items['tops'], 'chosen-top');
+    expect(restored.itemColours['tops'], 'red');
+    expect(restored.pose, 'confident');
+    expect(SlayLook.initial('male').avatarId, isNull);
+  });
+  final wardrobe =
+      (jsonDecode(File('assets/slay_renderer/catalog.json').readAsStringSync())[
+              'items'] as List)
+          .cast<Map>();
+
+  test('shirts and trousers are chosen separately from the underwear start',
+      () {
+    for (final shirt
+        in wardrobe.where((i) => i['id'].toString().startsWith('male-tee-'))) {
+      final start = SlayLook.initial('male');
+      expect(start.items, {'hair': 'male-hair-0'});
+      expect(start.isDressed, isFalse);
+      final look = start.equip(shirt);
+      expect(look.items['shirts'], shirt['id']);
+      expect(look.items.containsKey('trousers'), isFalse);
+      expect(look.isDressed, isFalse);
+      final dressed = look.equip(
+          wardrobe.firstWhere((i) => i['id'] == 'male-trousers-classic'));
+      expect(dressed.isDressed, isTrue);
+      expect(look.items.containsKey('outfit'), isFalse);
+      expect(look.items.containsKey('shoes'), isFalse);
+      final restored =
+          look.equip(wardrobe.firstWhere((i) => i['id'] == 'male-dinner-suit'));
+      expect(restored.items.containsKey('shirts'), isFalse);
+      expect(restored.items.containsKey('trousers'), isFalse);
+    }
+  });
+
+  test('changing a shirt preserves selected bottoms and optional accessories',
+      () {
+    final look = SlayLook.initial('male').copy(items: {
+      'tops': 'old-top',
+      'skirts': 'chosen-bottom',
+      'watches': 'watch-gold'
+    }).equip(wardrobe.firstWhere((i) => i['id'] == 'male-tee-polo'),
+        wardrobe: wardrobe);
+    expect(look.items['skirts'], 'chosen-bottom');
+    expect(look.items['watches'], 'watch-gold');
+    expect(look.items.containsKey('trousers'), isFalse);
+    expect(look.items.containsKey('tops'), isFalse);
+  });
+
+  test('female sets include ten extra choices with both free and priced items',
+      () {
+    for (final category in ['dress', 'skirts', 'tops', 'trousers']) {
+      final choices = wardrobe
+          .where((i) =>
+              i['id'].toString().startsWith('female-$category-collection-'))
+          .toList();
+      expect(choices, hasLength(10));
+      expect(choices.where((i) => i['isDefault'] == true), hasLength(4));
+      expect(
+          choices.where(
+              (i) => i['isDefault'] == false && (i['coinCost'] as int) > 0),
+          hasLength(6));
+      expect(choices.every((i) => i['assetUrl'] != null), isTrue);
+      expect(
+          choices.every(
+              (i) => slayStyleGroups.keys.any((g) => slayMatchesStyle(i, g))),
+          isTrue);
+    }
+    final top =
+        wardrobe.firstWhere((i) => i['id'] == 'female-tops-collection-1');
+    final skirt =
+        wardrobe.firstWhere((i) => i['id'] == 'female-skirts-collection-1');
+    final look = SlayLook.initial().equip(top).equip(skirt);
+    expect(look.isDressed, isTrue);
+    expect(slayMatchesStyle(top, 'Casual'), isTrue);
+    expect(slayMatchesStyle(top, 'Corporate'), isFalse);
+    expect(slayMatchesStyle(top, 'All'), isFalse);
+  });
+
+  test('optional beauty and accessories survive a look save and reload', () {
+    var look = SlayLook.initial();
+    for (final id in [
+      'female-hair-ponytail',
+      'female-eyes-green',
+      'female-lipstick-coral',
+      'female-earrings-pearls',
+      'female-nose-ring-gold',
+      'female-bag-handbag',
+      'watch-smart'
+    ]) {
+      look = look.equip(wardrobe.firstWhere((i) => i['id'] == id));
+    }
+    final restored = SlayLook.fromJson(jsonDecode(jsonEncode(look.toJson())));
+    expect(restored.items, look.items);
+    final removed = restored.copy(items: {...restored.items}..remove('eyes'));
+    expect(removed.items.containsKey('eyes'), isFalse);
+    expect(removed.items['makeup'], 'female-lipstick-coral');
+    expect(restored.items['hair'], 'female-hair-ponytail');
+    expect(restored.items['jewellery'], 'female-earrings-pearls');
+    expect(restored.items['accessories'], 'female-nose-ring-gold');
+    expect(restored.items['eyes'], 'female-eyes-green');
+  });
+}

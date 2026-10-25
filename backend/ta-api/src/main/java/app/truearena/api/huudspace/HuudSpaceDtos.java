@@ -20,7 +20,7 @@ public final class HuudSpaceDtos {
      * line to share it to the feed with.
      */
     public record CreateRequest(@Size(max = 40) String name, String privacy, String gameType,
-                                @Size(max = 140) String message, Boolean share, String mode) {
+                                @Size(max = 140) String message, Boolean share, String mode, java.util.Map<String, Object> gameConfig) {
     }
 
     public record ShareRequest(@Size(max = 140) String message) {
@@ -50,7 +50,7 @@ public final class HuudSpaceDtos {
     }
 
     /** Pickable backdrops; none chosen ("default", stored as null) is the disco floor, "blank" is no picture. */
-    public static final List<String> BACKGROUNDS = List.of("blank", "lounge", "poolside", "club");
+    public static final List<String> BACKGROUNDS = List.of("blank", "disco", "lounge", "poolside", "club");
 
     /** What an invite link's web page may show — nothing beyond the name and how busy it is. */
     public record InvitePreview(String code, String name, String owner, boolean live, int members) {
@@ -63,7 +63,7 @@ public final class HuudSpaceDtos {
      * {@code rematch}: seat the last game's players again (whoever's still in the Huud),
      * in the same mode. {@code mode}: Whot's "classic" (the default) or "tell".
      */
-    public record AddGameRequest(@NotBlank String gameType, Boolean rematch, String mode) {
+    public record AddGameRequest(@NotBlank String gameType, Boolean rematch, String mode, java.util.Map<String, Object> gameConfig) {
     }
 
     /**
@@ -71,7 +71,12 @@ public final class HuudSpaceDtos {
      * running it right now; {@code owner}: whose Huud it is, for good.
      */
     public record Person(UUID userId, String displayName, String username, String avatarUrl,
-                         boolean host, boolean here, boolean canSpeak, Instant joinedAt, boolean owner) {
+                         boolean host, boolean here, boolean canSpeak, Instant joinedAt, boolean owner, String huudAvatarId, String huudOutfitId) {
+
+        public Person(UUID userId, String displayName, String username, String avatarUrl,
+                      boolean host, boolean here, boolean canSpeak, Instant joinedAt, boolean owner) {
+            this(userId,displayName,username,avatarUrl,host,here,canSpeak,joinedAt,owner,null,null);
+        }
 
         public Person(UUID userId, String displayName, String username, String avatarUrl,
                       boolean host, boolean here, boolean canSpeak, Instant joinedAt) {
@@ -89,11 +94,13 @@ public final class HuudSpaceDtos {
     /**
      * A Huud you belong to, for the Huud tab: yours first, live ones on top.
      * {@code liveCount}: people in the Live hangout now; {@code memberCount}: everyone.
+     * {@code quiet}: still Live, but nobody in it has had the app open for 15
+     * minutes — it shows amber here and is kept off the Live tab.
      */
     public record MyHuud(UUID id, String name, String privacy, boolean live, boolean youOwn, boolean youAreHost,
                          Person host, int memberCount, int liveCount, List<Person> members, String gameType,
                          String gameStatus, String background, boolean muted, Instant liveSince,
-                         ChampionshipLine championship) {
+                         ChampionshipLine championship, boolean quiet) {
     }
 
     /**
@@ -128,6 +135,7 @@ public final class HuudSpaceDtos {
      * {@code joinRequest} / {@code playRequest} / {@code micRequest} are your own
      * asks ("pending", "accepted", "declined" or null); {@code requests} is what
      * the host has to answer; eligible mic cover sees mic requests only.
+     * {@code quiet}: Live, but nobody in the hangout has had the app open lately.
      */
     public record HuudSpaceView(UUID id, String code, String name, String privacy, String status,
                                 Person host, List<Person> members, CurrentGame currentGame,
@@ -136,24 +144,46 @@ public final class HuudSpaceDtos {
                                 List<PendingRequest> requests, boolean shared, String feedMessage,
                                 int watching, String background, Instant createdAt, Instant endedAt,
                                 boolean live, boolean youOwn, boolean muted, int memberCount, int liveCount,
-                                UUID championshipId, boolean youCanManageMic) {
+                                UUID championshipId, boolean youCanManageMic, boolean findingPlayers, boolean quiet) {
     }
 
-    /** A card on the Live tab. The code stays out: only people inside see it. */
+    /**
+     * A card on the Live tab. The code stays out: only people inside see it.
+     * {@code moments}: what's going on in there, newest first;
+     * {@code gamesPlayed} since it went Live; {@code recentMessages} in the
+     * last half hour (a count — the chat itself stays with its members).
+     */
     public record LiveHuud(UUID id, String name, String privacy, Person host, int memberCount,
                            List<Person> members, String gameType, String gameStatus,
-                           boolean youAreIn, int watching, Instant createdAt, ChampionshipLine championship) {
+                           boolean youAreIn, int watching, Instant createdAt, ChampionshipLine championship, boolean findingPlayers,
+                           String background, List<Moment> moments, int gamesPlayed, int recentMessages) {
+    }
+
+    /**
+     * Something that just happened in a Live Huud. {@code kind}: play (a move
+     * in the game on now), win, joined, live (went Live), chat — chat only
+     * reaches the Huud's own members. {@code who} is empty for the game
+     * itself ("Nobody was murdered last night"); {@code at} is empty for a
+     * play, which is happening now.
+     */
+    public record Moment(String kind, Person who, String text, Instant at) {
     }
 
     // ------------------------------------------------------------ championships
 
     /**
      * Start a championship in the Huud. Everything has a default: Chess or
-     * Draughts (required), 8 players, simultaneous rounds, watching allowed,
-     * 3 minutes to come back after a disconnect.
+     * Draughts (required), up to 8 players, simultaneous rounds, watching
+     * allowed, 3 minutes to come back after a disconnect, named after the
+     * game, starting in 15 minutes.
      */
     public record ChampionshipRequest(@NotBlank String gameType, Integer size, String roundTiming,
-                                      Boolean spectatorsAllowed, Integer graceMinutes, @Size(max = 80) String name) {
+                                      Boolean spectatorsAllowed, Integer graceMinutes, @Size(max = 80) String name,
+                                      Instant startsAt) {
+        public ChampionshipRequest(String gameType, Integer size, String roundTiming, Boolean spectatorsAllowed,
+                                   Integer graceMinutes, String name) {
+            this(gameType, size, roundTiming, spectatorsAllowed, graceMinutes, name, null);
+        }
     }
 
     /** Someone in the bracket. {@code out}: knocked out. */
@@ -173,12 +203,16 @@ public final class HuudSpaceDtos {
     /**
      * A Huud's championship as everyone in the Huud sees it. {@code status}:
      * registering → playing → finished (or cancelled). {@code lobbyVoiceRoom}
-     * is the Huud's own voice room, the championship lobby.
+     * is the Huud's own voice room, the championship lobby. {@code startsAt}:
+     * when it starts by itself; the host can start it sooner once
+     * {@code minPlayers} have registered. {@code size} is the most players
+     * while registering, then the bracket they were drawn into.
      */
     public record HuudChampionship(UUID id, UUID huudSpaceId, String name, String gameType, int size,
                                    String status, String roundTiming, boolean spectatorsAllowed, int graceSeconds,
                                    int currentRound, int rounds, String roundName, List<Entrant> players,
                                    boolean youAreRegistered, List<ChampionshipMatch> matches, UUID championId,
-                                   UUID runnerUpId, UUID yourMatchId, String lobbyVoiceRoom, UUID createdBy) {
+                                   UUID runnerUpId, UUID yourMatchId, String lobbyVoiceRoom, UUID createdBy,
+                                   Instant startsAt, int minPlayers) {
     }
 }

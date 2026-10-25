@@ -12,6 +12,7 @@ import '../../theme/neon_theme.dart';
 import '../../widgets/neon.dart';
 import '../../widgets/copyable_huud_code.dart';
 import '../chess/chess_game_screen.dart';
+import '../slayhuud/slay_competition_screen.dart';
 import '../draughts/draughts_game_screen.dart';
 import '../game/game_screen.dart';
 import '../goosi/goosi_game_screen.dart';
@@ -21,16 +22,17 @@ import '../wordbluff/wordbluff_game_screen.dart';
 import '../huudspace/huud_roster.dart';
 import '../huudspace/huud_space_models.dart';
 import '../huudspace/whot_mode_sheet.dart';
+import '../huudspace/leave_game.dart';
 import '../../widgets/lobby_start_bar.dart';
 
-/// The lobby for a room this device *joined* rather than created — same live
-/// roster/ready/socket wiring as `LobbyScreen`/`WordBluffLobbyScreen`, but
-/// generic across both game types (it doesn't know which one until the
-/// `POST /rooms/join` response says so) and never posts `GAME_START` itself
-/// since a joiner is essentially never the host.
+/// Connects a seated Huud player directly to the match. The host's Start game
+/// action waits for a live lobby snapshot before sending GAME_START. Guest
+/// rooms without a Huud retain their standalone waiting lobby.
 class JoinedRoomScreen extends StatefulWidget {
-  const JoinedRoomScreen({super.key, required this.room, this.socket});
+  const JoinedRoomScreen({super.key, required this.room, this.socket, this.huudId, this.startGame = false});
   final RoomView room;
+  final String? huudId;
+  final bool startGame;
   final GameSocket? socket;
 
   @override
@@ -42,6 +44,9 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
   GameSocket? _socket;
   StreamSubscription? _sub;
   bool _handedOff = false;
+  bool _startSent = false;
+  String? _startError;
+  bool _gameUnavailable = false;
   String _gameMode = 'relay';
   late AppState _app;
 
@@ -79,6 +84,10 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
   }
 
   void _connect() {
+    if (_room.gameType == 'slayhuud') {
+      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => SlayCompetitionScreen(roomId: _room.id)));
+      return;
+    }
     _app = AppScope.of(context);
     final socket = widget.socket ?? GameSocket.connect(_app.api, _room.id);
     _socket = socket;
@@ -86,29 +95,28 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
       if (!mounted) return;
       if (handleCancelledHuud(context, env, _room.id)) return;
       switch (env['type']) {
-        case 'CONNECTION':
-          // A resume already knows from GET /rooms/{id} that the match is in
-          // progress. Hand the live socket to the game immediately, before its
-          // HELLO response arrives, so the game screen receives the first
-          // snapshot itself instead of briefly rendering an empty board.
-          final payload = (env['payload'] as Map?)?.cast<String, dynamic>();
-          if (payload?['connected'] == true && _room.status == 'in_game' &&
-              _room.gameType != 'monopoly') {
-            _handOffToGame();
-          }
         case 'SNAPSHOT':
           final p = (env['payload'] as Map).cast<String, dynamic>();
-          if (p['lobby'] == true) _applyLobbySnapshot(p);
+          if (p['lobby'] == true) {
+            _applyLobbySnapshot(p);
+            if (widget.startGame && p['hostId'] == _selfId() && !_startSent) {
+              _startSent = true;
+              socket.send('GAME_START');
+            }
+          }
           if (p['lobby'] == false) {
             _handOffToGame();
           }
         case 'EVENT':
           socket.send('HELLO', {'lastSeq': 0});
         case 'PHASE':
-          _handOffToGame();
+          // A phase or REST status cannot supply a board. Wait for the
+          // authoritative snapshot, cached by GameSocket for the new screen.
+          socket.send('HELLO', {'lastSeq': 0});
         case 'ERROR':
           final msg = (env['payload'] as Map)['message']?.toString();
           if (msg != null && mounted) {
+            setState(() { _startError = msg; });
             ScaffoldMessenger.of(context)
                 .showSnackBar(SnackBar(content: Text(msg)));
           }
@@ -122,6 +130,9 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
       final raw = await _app.api.get('/huud-spaces/by-room/${_room.id}');
       if (!mounted || raw is! Map || raw.isEmpty) return;
       setState(() => _huud = HuudSpace.fromJson(raw.cast<String, dynamic>()));
+      if (widget.huudId == null && _room.status == 'lobby' && mounted) {
+        await leaveGame(context, _room.id);
+      }
     } catch (_) {
       // Not a Huud game — the ordinary lobby it is.
     }
@@ -147,6 +158,9 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
       return;
     }
     setState(() {
+      // A server restart can leave a legacy room marked in_game after its
+      // in-memory match was lost. Keep the exit/retry controls available.
+      _gameUnavailable = p['status'] == 'in_game';
       _gameMode = p['mode'] as String? ?? _gameMode;
       _room = RoomView(
         id: p['roomId'] as String,
@@ -252,7 +266,7 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
           'chess' => 'Chess',
           'goosi' => 'Macala',
           'whot' => 'Whot',
-          'monopoly' => 'Monopoly',
+          'monopoly' => 'Huudpoly',
           'ludo' => 'Ludo',
           _ => 'Traitors',
         }),
@@ -270,7 +284,7 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
         ],
       ),
       body: SafeArea(
-        child: Column(
+        child: _gameUnavailable ? _unavailableGame() : (widget.huudId != null || _huud != null) ? _gameBridge() : Column(
           children: [
             MarqueeBar(_room.gameType == 'goosi'
                 ? _gameMode == 'oware'
@@ -297,9 +311,9 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
                     ],
                     seats: _huud!.currentGame?.seats ?? _room.members.length,
                     tell: _huud!.currentGame?.tell ?? false,
-                    onChanged: () {
+                    onChanged: () async {
                       _socket?.send('HELLO', {'lastSeq': 0});
-                      _loadHuud();
+                      await _loadHuud();
                     },
                   ),
                 ),
@@ -367,6 +381,49 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
       ),
     );
   }
+
+  Widget _gameBridge() => Center(child: Padding(
+    padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: [
+      if (_startError == null) const CircularProgressIndicator(),
+      const SizedBox(height: 18),
+      Text(_startError ?? (widget.startGame ? 'Starting the game…' : 'Waiting for the host to start'),
+          textAlign: TextAlign.center),
+      if (_startError != null) TextButton(onPressed: () {
+        setState(() => _startError = null);
+        if (widget.startGame) _socket?.send('GAME_START');
+        _socket?.send('HELLO', {'lastSeq': 0});
+      }, child: const Text('Try again')),
+      const SizedBox(height: 12),
+      TextButton(onPressed: () => leaveGame(context, _room.id), child: const Text('Back to the Huud')),
+    ]),
+  ));
+
+  Widget _unavailableGame() => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.cloud_off_outlined, size: 40),
+              const SizedBox(height: 16),
+              Text('This game is unavailable',
+                  style: Theme.of(context).textTheme.titleLarge,
+                  textAlign: TextAlign.center),
+              const SizedBox(height: 12),
+              const Text(
+                  'The server could not restore this match. Try again, or return to your Huud to start a new game.',
+                  textAlign: TextAlign.center),
+              const SizedBox(height: 20),
+              FilledButton(
+                  onPressed: () => _socket?.send('HELLO', {'lastSeq': 0}),
+                  child: const Text('Try again')),
+              TextButton(
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  child: const Text('Back to Huud')),
+            ],
+          ),
+        ),
+      );
 
   Widget _memberTile(RoomMember m, String hostId) {
     final n = context.neon;

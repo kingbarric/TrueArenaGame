@@ -5,6 +5,7 @@ import '../../core/app_state.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/neon.dart';
 import 'email_screen.dart';
+import 'avatar_setup_screen.dart';
 import '../shell/main_shell.dart';
 import '../../core/api_client.dart';
 
@@ -47,10 +48,11 @@ class GuestSaveSessionCard extends StatelessWidget {
             style: NeonStyle.gold,
             onPressed: () async {
               try {
+                final upgradingGuest = app.identity == Identity.guest;
                 final tokens = await app.signInWithGoogle();
                 if (tokens == null || !context.mounted) return;
                 Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const MainShell()), (route) => false);
+                  MaterialPageRoute(builder: (_) => (tokens.newAccount || upgradingGuest) ? const AvatarSetupScreen() : const MainShell()), (route) => false);
               } on ApiException catch (error) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message)));
@@ -58,7 +60,7 @@ class GuestSaveSessionCard extends StatelessWidget {
               } catch (_) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Error has occurred, try again later.')));
+                    const SnackBar(content: Text(userRetryMessage)));
                 }
               }
             },
@@ -70,14 +72,15 @@ class GuestSaveSessionCard extends StatelessWidget {
               child: SignInWithAppleButton(
                 onPressed: () async {
                   try {
-                    await app.signInWithApple();
+                    final upgradingGuest = app.identity == Identity.guest;
+                    final tokens = await app.signInWithApple();
                     if (!context.mounted) return;
                     Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(builder: (_) => const MainShell()), (route) => false);
+                      MaterialPageRoute(builder: (_) => (tokens.newAccount || upgradingGuest) ? const AvatarSetupScreen() : const MainShell()), (route) => false);
                   } on SignInWithAppleAuthorizationException catch (error) {
                     if (error.code != AuthorizationErrorCode.canceled && context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Error has occurred, try again later.')));
+                        const SnackBar(content: Text(userRetryMessage)));
                     }
                   } on ApiException catch (error) {
                     if (context.mounted) {
@@ -86,7 +89,7 @@ class GuestSaveSessionCard extends StatelessWidget {
                   } catch (_) {
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Error has occurred, try again later.')));
+                        const SnackBar(content: Text(userRetryMessage)));
                     }
                   }
                 },

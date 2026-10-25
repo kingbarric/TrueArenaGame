@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'huud_art.dart';
 
 /// Whose turn it is, on the players themselves: a bold green ring and glow
 /// round the player to move, amber round the one waiting. The ✋ hand
@@ -60,7 +61,7 @@ class TurnHand extends StatelessWidget {
         child: AnimatedOpacity(
           duration: const Duration(milliseconds: 240),
           opacity: visible ? 1 : 0,
-          child: Text('✋', key: visible ? const ValueKey('turn-hand') : null, style: TextStyle(fontSize: size)),
+          child: HuudText('✋', key: visible ? const ValueKey('turn-hand') : null, style: TextStyle(fontSize: size)),
         ),
       ),
     );
@@ -84,7 +85,7 @@ extension TurnHandBar on Widget {
                 child: AnimatedOpacity(
                   duration: const Duration(milliseconds: 200),
                   opacity: visible ? 1 : 0,
-                  child: const Text('✋', key: ValueKey('turn-hand'), style: TextStyle(fontSize: 24)),
+                  child: const HuudText('✋', key: ValueKey('turn-hand'), style: TextStyle(fontSize: 24)),
                 ),
               ),
             ),

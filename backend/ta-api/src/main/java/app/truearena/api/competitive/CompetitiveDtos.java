@@ -61,7 +61,7 @@ public final class CompetitiveDtos {
             int placementGamesRequired,
             RanksView ranks,
             GameStatsView stats,
-            Instant lastRatedAt) {
+            Instant lastRatedAt, StrengthService.StrengthView strength) {
     }
 
     public record AchievementView(String type, String label, String icon, String gameType,
@@ -90,7 +90,7 @@ public final class CompetitiveDtos {
              */
             boolean restricted,
             List<GameRecordView> games,
-            List<AchievementView> achievements) {
+            List<AchievementView> achievements, StrengthService.StrengthView strength) {
     }
 
     public record UpdateLocationRequest(

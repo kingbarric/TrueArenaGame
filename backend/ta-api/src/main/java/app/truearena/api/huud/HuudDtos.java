@@ -53,7 +53,7 @@ public final class HuudDtos {
      * game being set up or played, when there is one.
      */
     public record SharedHuud(UUID huudSpaceId, String name, String privacy, int people, String gameStatus,
-                             int players, int seats, String access) {
+                             int players, int seats, String access, boolean findingPlayers) {
     }
 
     /**

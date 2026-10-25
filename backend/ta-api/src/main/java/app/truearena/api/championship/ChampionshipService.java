@@ -39,6 +39,7 @@ public class ChampionshipService {
     private final RoomRuntimeRegistry runtimes;
     private final DatabaseClient db;
     private final ObjectProvider<GameOrchestrator> games;
+    @org.springframework.beans.factory.annotation.Autowired private ObjectProvider<app.truearena.api.slay.SlayService> slay;
     private final ObjectProvider<ChampionshipEvents> events;
 
     public ChampionshipService(ChampionshipRepository championships, ChampionshipMatchRepository matches,
@@ -59,6 +60,12 @@ public class ChampionshipService {
     /** Games a bracket can be played in — two players, one winner, draws replay. */
     public static final List<String> GAMES = List.of("draughts", "chess");
 
+    /** How many players a Huud championship can have — a full bracket, no byes in round one. */
+    public static final List<Integer> HUUD_SIZES = List.of(4, 8, 16, 32, 64);
+
+    /** The fewest players a Huud championship starts with: Semi Finals, then the Final. */
+    public static final int HUUD_MIN_PLAYERS = 4;
+
     public record Person(UUID id, String name, int slot) {}
     public record Match(UUID id, int round, int position, UUID playerA, UUID playerB,
                         UUID winnerId, String status, UUID roomId, int gameNumber,
@@ -70,13 +77,15 @@ public class ChampionshipService {
                        UUID huudSpaceId, String roundTiming) {}
     public record Invitation(UUID id, String code, String name, String gameType, int size,
                              String visibility, Instant scheduledAt, String status, int joined) {}
-    public record Badge(UUID championshipId, String name, Instant awardedAt) {}
+    /** A champion's badge: the game and the size of the field go on the shield. */
+    public record Badge(UUID championshipId, String name, Instant awardedAt, String gameType, int size) {}
 
     public Flux<Badge> badges(UUID user) {
-        return db.sql("SELECT b.championship_id,c.name,b.awarded_at FROM championship_badges b "
+        return db.sql("SELECT b.championship_id,c.name,b.awarded_at,c.game_type,c.size FROM championship_badges b "
                         + "JOIN championships c ON c.id=b.championship_id WHERE b.user_id=:u ORDER BY b.awarded_at DESC")
                 .bind("u", user).map((r, m) -> new Badge(r.get("championship_id", UUID.class),
-                        r.get("name", String.class), r.get("awarded_at", Instant.class))).all();
+                        r.get("name", String.class), r.get("awarded_at", Instant.class),
+                        r.get("game_type", String.class), r.get("size", Integer.class))).all();
     }
 
     public Mono<Invitation> publicInvitation(String code) {
@@ -89,14 +98,19 @@ public class ChampionshipService {
     }
 
     public Mono<View> create(UUID creator, String name, int size, String visibility, Instant start) {
-        if (name == null || name.isBlank() || name.length() > 80 || !List.of(4, 8, 16, 32).contains(size))
-            return Mono.error(ApiExceptions.badRequest("name and a size of 4, 8, 16 or 32 are required"));
+        return create(creator,name,size,visibility,start,"draughts");
+    }
+    public Mono<View> create(UUID creator, String name, int size, String visibility, Instant start, String requestedGame) {
+        String gameType=requestedGame==null?"draughts":requestedGame;
+        if(!List.of("draughts","slayhuud").contains(gameType))return Mono.error(ApiExceptions.badRequest("Unsupported championship game"));
+        if (name == null || name.isBlank() || name.length() > 80 || !List.of(4, 8, 16, 32, 64, 128).contains(size))
+            return Mono.error(ApiExceptions.badRequest("name and a size of 4, 8, 16, 32, 64 or 128 are required"));
         if (!List.of("public", "private").contains(visibility) || start == null || !start.isAfter(Instant.now()))
             return Mono.error(ApiExceptions.badRequest("choose visibility and a future start time"));
         return users.findById(creator)
                 .filter(u -> !u.isBot() && !u.isGuest())
                 .switchIfEmpty(Mono.error(ApiExceptions.forbidden("an account is required to create a championship")))
-                .flatMap(u -> championships.save(ChampionshipRow.create(code(), name.trim(), size, visibility, start, creator)))
+                .flatMap(u -> championships.save(ChampionshipRow.create(code(), name.trim(), size, visibility, start, creator, gameType)))
                 .flatMap(c -> db.sql("INSERT INTO championship_participants(championship_id,user_id,slot) VALUES(:c,:u,1)")
                         .bind("c", c.id()).bind("u", creator).fetch().rowsUpdated().thenReturn(c))
                 .flatMap(c -> detail(c.id(), creator));
@@ -115,11 +129,12 @@ public class ChampionshipService {
      * the place, the start and the bracket are decided here.
      */
     public Mono<ChampionshipRow> createInHuud(UUID creator, UUID huudSpaceId, String name, String gameType, int size,
-                                              String roundTiming, boolean spectatorsAllowed, int graceSeconds) {
+                                              String roundTiming, boolean spectatorsAllowed, int graceSeconds,
+                                              Instant startsAt) {
         if (!GAMES.contains(gameType))
             return Mono.error(ApiExceptions.badRequest("Championships are for Chess or Draughts"));
-        if (!List.of(4, 8, 16).contains(size))
-            return Mono.error(ApiExceptions.badRequest("A championship has 4, 8 or 16 players"));
+        if (!HUUD_SIZES.contains(size))
+            return Mono.error(ApiExceptions.badRequest("A championship has 4, 8, 16, 32 or 64 players"));
         if (!List.of("simultaneous", "sequential").contains(roundTiming))
             return Mono.error(ApiExceptions.badRequest("Rounds are simultaneous or sequential"));
         if (graceSeconds < 60 || graceSeconds > 600)
@@ -127,12 +142,15 @@ public class ChampionshipService {
         if (name == null || name.isBlank() || name.strip().length() > 80)
             return Mono.error(ApiExceptions.badRequest("Give the championship a name"));
         return championships.save(ChampionshipRow.inHuud(code(), name.strip(), gameType, size, huudSpaceId, creator,
-                        roundTiming, spectatorsAllowed, graceSeconds))
+                        roundTiming, spectatorsAllowed, graceSeconds, startsAt))
                 .onErrorMap(org.springframework.dao.DataIntegrityViolationException.class,
                         e -> ApiExceptions.conflict("There's already a championship in this Huud"));
     }
 
-    /** Take a place. Filling the last one locks registration and starts the draw. */
+    /**
+     * Take a place. Filling the last one locks registration and starts the
+     * draw — once the start time has come, for a Huud championship.
+     */
     public Mono<Void> register(ChampionshipRow c, UUID user) {
         UUID id = c.id();
         return users.findById(user)
@@ -260,11 +278,22 @@ public class ChampionshipService {
                 });
     }
 
+    /**
+     * The Huud's host starts the championship before its set time. Needs
+     * {@link #HUUD_MIN_PLAYERS}; the places nobody took become byes.
+     */
+    public Mono<Void> startHuudNow(ChampionshipRow c) {
+        if (!"lobby".equals(c.status())) return Mono.error(ApiExceptions.conflict("The championship has already started"));
+        return start(c, true).flatMap(started -> started ? Mono.<Void>empty()
+                : Mono.error(ApiExceptions.conflict("A championship needs at least " + HUUD_MIN_PLAYERS + " players")));
+    }
+
     private Mono<Void> tryStart(ChampionshipRow c) {
         return start(c, false).then();
     }
 
     private Mono<Boolean> start(ChampionshipRow c, boolean manual) {
+        if (c.huudSpaceId() != null) return startInHuud(c, manual);
         return db.sql("UPDATE championships SET status='running',current_round=1 WHERE id=:id AND status='lobby' "
                         + "AND (:manual OR scheduled_at<=now()) "
                         + "AND size=(SELECT count(*) FROM championship_participants WHERE championship_id=:id)")
@@ -272,6 +301,54 @@ public class ChampionshipService {
                 .flatMap(n -> n == 0 ? Mono.just(false)
                         : draw(c.id()).then(ensureRound(c.id(), 1)).then(Mono.fromRunnable(() -> changed(c.id())))
                                 .thenReturn(true));
+    }
+
+    /**
+     * A Huud championship starts at its set time, or when the host says so,
+     * with whoever has registered — {@link #HUUD_MIN_PLAYERS} at least. The
+     * bracket becomes the smallest one they fit ({@link #fieldFor}); the
+     * places left over are byes. The count is checked again as it locks, so
+     * someone registering at that moment can't end up outside the bracket.
+     */
+    private Mono<Boolean> startInHuud(ChampionshipRow c, boolean manual) {
+        return db.sql("SELECT count(*) AS n FROM championship_participants WHERE championship_id=:id")
+                .bind("id", c.id()).map((r, m) -> r.get("n", Long.class)).one()
+                .flatMap(count -> count < HUUD_MIN_PLAYERS ? Mono.just(false)
+                        : db.sql("UPDATE championships SET status='running',current_round=1,size=:field "
+                                        + "WHERE id=:id AND status='lobby' AND (:manual OR scheduled_at<=now()) "
+                                        + "AND (SELECT count(*) FROM championship_participants WHERE championship_id=:id)=:count")
+                                .bind("id", c.id()).bind("manual", manual).bind("count", count)
+                                .bind("field", fieldFor(count.intValue())).fetch().rowsUpdated()
+                                .flatMap(n -> n == 0 ? Mono.just(false)
+                                        : draw(c.id()).then(ensureRound(c.id(), 1))
+                                                .then(Mono.fromRunnable(() -> changed(c.id()))).thenReturn(true)));
+    }
+
+    /** The smallest bracket {@code players} fit: 5 players play in an 8, 17 in a 32. */
+    public static int fieldFor(int players) {
+        return Math.max(2, Integer.highestOneBit(players - 1) << 1);
+    }
+
+    /**
+     * Round one's seats, two per board. With fewer players than places, the
+     * empty seats (byes) go to boards in bit-reversed order (0, 2, 1, 3 of
+     * four) so they spread across both halves of the bracket instead of
+     * meeting each other in round two. Never two on one board: there are
+     * always more players than boards.
+     */
+    static List<UUID> seatWithByes(List<UUID> players, int field) {
+        if (players.size() >= field) return players;
+        int boards = field / 2;
+        int bits = Integer.numberOfTrailingZeros(boards);
+        int byes = field - players.size();
+        List<UUID> seats = new ArrayList<>(field);
+        var next = players.iterator();
+        for (int board = 0; board < boards; board++) {
+            int order = bits == 0 ? 0 : Integer.reverse(board) >>> (32 - bits);
+            seats.add(next.next());
+            seats.add(order < byes ? null : next.next());
+        }
+        return seats;
     }
 
     /**
@@ -293,6 +370,7 @@ public class ChampionshipService {
         Mono<List<UUID>> entrants = round == 1
                 ? db.sql("SELECT user_id FROM championship_participants WHERE championship_id=:c ORDER BY slot")
                     .bind("c", id).map((r, m) -> r.get("user_id", UUID.class)).all().collectList()
+                    .zipWith(championships.findById(id), (players, c) -> seatWithByes(players, c.size()))
                 : matches.findByChampionshipIdAndRoundOrderByPositionAsc(id, round - 1).collectList()
                     .map(previous -> previous.stream().map(ChampionshipMatchRow::winnerId).toList());
         return entrants.flatMap(players -> {
@@ -356,8 +434,8 @@ public class ChampionshipService {
     }
 
     private Mono<Void> createMatchRoom(ChampionshipMatchRow m, String gameType, UUID huudSpaceId) {
-        if (m.roomId() != null) return games.getObject().startTournamentRoom(m.roomId());
-        return rooms.save(RoomRow.create(code(), null, m.playerA(), gameType, 0, null, true))
+        if (m.roomId() != null) return startMatchAdapter(m.roomId());
+        return rooms.save(RoomRow.create(code(), null, m.playerA(), gameType, 0, slayBattleConfig(m, gameType), true))
                 .flatMap(room -> members.save(RoomMemberRow.of(room.id(), m.playerA(), null))
                         .then(members.save(RoomMemberRow.of(room.id(), m.playerB(), null)))
                         .then(db.sql("UPDATE championship_matches SET room_id=:room,status='active',started_at=now(), "
@@ -365,7 +443,7 @@ public class ChampionshipService {
                                         + "WHERE id=:id AND status='pending'")
                                 .bind("room", room.id()).bind("id", m.id()).fetch().rowsUpdated())
                         .flatMap(n -> n == 0 ? Mono.empty() : linkToHuud(room.id(), huudSpaceId)
-                                .then(games.getObject().startTournamentRoom(room.id()))
+                                .then(startMatchAdapter(room.id()))
                                 .then(syncPause(room.id()))
                                 .then(Mono.fromRunnable(() -> matchReady(m)))));
     }
@@ -386,6 +464,24 @@ public class ChampionshipService {
         } catch (RuntimeException e) {
             log.warn("championship listener failed {}: {}", m.championshipId(), e.toString());
         }
+    }
+
+    /** A SlayHuud match is a two-seat style battle; the theme steps up with each round. */
+    private static String slayBattleConfig(ChampionshipMatchRow m, String gameType) {
+        if (!"slayhuud".equals(gameType)) return null;
+        String theme = List.of("wedding-guest", "first-date", "night-out", "african-royalty").get(Math.min(m.round() - 1, 3));
+        return "{\"mode\":\"battle\",\"seats\":2,\"themeId\":\"" + theme + "\"}";
+    }
+
+    private Mono<Void> startMatchAdapter(UUID roomId) {
+        return rooms.findById(roomId).flatMap(r->"slayhuud".equals(r.gameType())
+            ? slay.getObject().startTournament(roomId) : games.getObject().startTournamentRoom(roomId));
+    }
+
+    /** Persistent styling deadline expired with no submissions from either entrant. */
+    public Mono<Void> stylingNoShow(UUID roomId) {
+        return matches.findByRoomId(roomId).filter(m -> "active".equals(m.status()))
+            .flatMap(m -> completeWithoutGame(m, null, "no_winner"));
     }
 
     /** Called by the game adapter after persisting a server-computed result. */
@@ -616,7 +712,7 @@ public class ChampionshipService {
                 .thenMany(championships.findAll().filter(c -> "running".equals(c.status())))
                 .concatMap(c -> recover(c).onErrorResume(e -> { log.warn("championship recovery failed {}: {}", c.id(), e.toString()); return Mono.empty(); }))
                 .thenMany(db.sql("SELECT id,room_id,player_a,player_b,a_remaining_ms,b_remaining_ms,a_absent_since,b_absent_since "
-                                + "FROM championship_matches WHERE status='active' AND room_id IS NOT NULL")
+                                + "FROM championship_matches WHERE status='active' AND room_id IS NOT NULL AND room_id NOT IN (SELECT id FROM rooms WHERE game_type='slayhuud')")
                         .map((r, meta) -> new Absence(r.get("id", UUID.class), r.get("room_id", UUID.class),
                                 r.get("player_a", UUID.class), r.get("player_b", UUID.class),
                                 r.get("a_remaining_ms", Long.class), r.get("b_remaining_ms", Long.class),
@@ -644,12 +740,12 @@ public class ChampionshipService {
                             .flatMap(fresh -> {
                                 var existing = runtimes.find(fresh.roomId());
                                 if (existing.map(RoomRuntime::started).orElse(false)) return Mono.empty();
-                                if (existing.isPresent()) return games.getObject().startTournamentRoom(fresh.roomId())
+                                if (existing.isPresent()) return startMatchAdapter(fresh.roomId())
                                         .then(syncPause(fresh.roomId()));
                                 return db.sql("UPDATE championship_matches SET a_absent_since=COALESCE(a_absent_since,now()), "
                                                 + "b_absent_since=COALESCE(b_absent_since,now()) WHERE id=:id")
                                         .bind("id", fresh.id()).fetch().rowsUpdated()
-                                        .then(games.getObject().startTournamentRoom(fresh.roomId()));
+                                        .then(startMatchAdapter(fresh.roomId()));
                             }));
                 }).then();
     }

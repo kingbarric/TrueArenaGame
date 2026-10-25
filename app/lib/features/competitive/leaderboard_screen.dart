@@ -10,6 +10,7 @@ import 'competitive_models.dart';
 import 'competitive_setup_screen.dart';
 import 'competitive_widgets.dart';
 import 'player_profile_screen.dart';
+import '../../widgets/huud_art.dart';
 
 /// One game's rankings — Global, your country, your state, your friends.
 /// Every board ranks the same per-game rating; location only decides which
@@ -64,7 +65,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       if (mounted) {
         setState(() {
           _loading = false;
-          _error = 'Error has occurred, try again later.';
+          _error = userErrorMessage;
         });
       }
     }
@@ -272,7 +273,7 @@ class LeaderboardRow extends StatelessWidget {
               if (e.founding != null) ...[const SizedBox(width: 6), FoundingBadge(e.founding!, compact: true)],
             ]),
             const SizedBox(height: 2),
-            Text(
+            HuudText(
               [
                 if (e.playhuudId != null) e.playhuudId!,
                 '${e.gamesPlayed} games',

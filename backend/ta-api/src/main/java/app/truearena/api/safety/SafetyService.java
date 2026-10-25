@@ -44,7 +44,7 @@ public class SafetyService {
                                 + "WHERE s.created_by=:me AND s.status='active' AND m.user_id=:them AND m.left_at IS NULL")
                         .bind("me", me).bind("them", them).map((r, m) -> r.get("id", UUID.class)).one()
                         .flatMap(huud -> huuds.remove(me, huud, them).onErrorResume(e -> Mono.empty())))
-                .then();
+                .then(huuds.stopBlockedPreviews(me, them));
     }
 
     public Mono<Void> unblock(UUID me, UUID them) {

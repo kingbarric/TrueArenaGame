@@ -40,6 +40,9 @@ class HuudColors {
   static HuudColors of(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark ? _dark : _light;
 
+  /// A small reduction in button saturation; artwork and status accents stay vivid.
+  Color get buttonFill => Color.lerp(orange, const Color(0xFFFFE0B8), .18)!;
+
   LinearGradient get glow => LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,

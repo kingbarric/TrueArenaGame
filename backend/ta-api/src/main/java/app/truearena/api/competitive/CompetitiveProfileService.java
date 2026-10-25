@@ -55,6 +55,7 @@ public class CompetitiveProfileService {
     private final PlayerAchievementRepository achievements;
     private final LeaderboardService leaderboards;
     private final CompetitiveSettings settings;
+    private final StrengthService strength;
     private final LocationChangePolicy locationPolicy;
     private final DatabaseClient db;
     private final ObjectMapper mapper;
@@ -62,7 +63,7 @@ public class CompetitiveProfileService {
     public CompetitiveProfileService(UserRepository users, CompetitiveProfileRepository profiles,
                                      PlayerGameRatingRepository ratings, PlayerGameStatsRepository stats,
                                      PlayerAchievementRepository achievements, LeaderboardService leaderboards,
-                                     CompetitiveSettings settings, DatabaseClient db, ObjectMapper mapper) {
+                                     CompetitiveSettings settings, DatabaseClient db, ObjectMapper mapper, StrengthService strength) {
         this.users = users;
         this.profiles = profiles;
         this.ratings = ratings;
@@ -70,6 +71,7 @@ public class CompetitiveProfileService {
         this.achievements = achievements;
         this.leaderboards = leaderboards;
         this.settings = settings;
+        this.strength = strength;
         this.locationPolicy = new LocationChangePolicy(settings);
         this.db = db;
         this.mapper = mapper;
@@ -104,12 +106,13 @@ public class CompetitiveProfileService {
                         return Mono.just(new CompetitiveProfileView(
                                 user.id(), user.username(), user.displayName(), user.avatarUrl(),
                                 playhuudNumber, FoundingTier.formatNumber(playhuudNumber), FoundingView.of(tier),
-                                null, false, null, false, true, List.of(), achievementViews(tier, List.of())));
+                                null, false, null, false, true, List.of(), achievementViews(tier, List.of()), null));
                     }
-                    Mono<List<GameRecordView>> games = gameRecords(user.id());
+                    Mono<Map<String, StrengthService.StrengthView>> strengths = strength.forUser(user.id()).cache();
+                    Mono<List<GameRecordView>> games = gameRecords(user.id(), strengths);
                     Mono<List<PlayerAchievementRow>> earned = achievements
                             .findByUserIdOrderByDisplayPriorityDescEarnedAtDesc(user.id()).collectList();
-                    return Mono.zip(games, earned).map(g -> new CompetitiveProfileView(
+                    return Mono.zip(games, earned, strengths).map(g -> new CompetitiveProfileView(
                             user.id(), user.username(), user.displayName(), user.avatarUrl(),
                             playhuudNumber, FoundingTier.formatNumber(playhuudNumber), FoundingView.of(tier),
                             location(p, own),
@@ -119,7 +122,7 @@ public class CompetitiveProfileService {
                             p.profilePublic(),
                             false,
                             g.getT1(),
-                            achievementViews(tier, g.getT2())));
+                            achievementViews(tier, g.getT2()), g.getT3().get("overall")));
                 });
     }
 
@@ -133,7 +136,7 @@ public class CompetitiveProfileService {
      * rating first. A game with casual play but no rated games still appears
      * (as unrated) so the profile reflects everything they play.
      */
-    private Mono<List<GameRecordView>> gameRecords(UUID userId) {
+    private Mono<List<GameRecordView>> gameRecords(UUID userId, Mono<Map<String, StrengthService.StrengthView>> strengths) {
         Mono<Map<String, PlayerGameRatingRow>> ratingRows = ratings.findByUserId(userId)
                 .collectMap(PlayerGameRatingRow::gameType);
         Mono<Map<String, PlayerGameStatsRow>> statRows = stats.findByUserId(userId)
@@ -144,7 +147,7 @@ public class CompetitiveProfileService {
                 .map(row -> Map.entry(row.get("game_type", String.class), row.get("n", Long.class)))
                 .all().collectMap(Map.Entry::getKey, Map.Entry::getValue);
 
-        return Mono.zip(ratingRows, statRows, tournamentWins).flatMap(t -> {
+        return Mono.zip(ratingRows, statRows, tournamentWins, strengths).flatMap(t -> {
             Set<String> gameTypes = new LinkedHashSet<>(t.getT1().keySet());
             gameTypes.addAll(t.getT2().keySet());
             gameTypes.addAll(t.getT3().keySet());
@@ -154,7 +157,7 @@ public class CompetitiveProfileService {
                         PlayerGameRatingRow r = t.getT1().get(g);
                         PlayerGameStatsRow s = t.getT2().get(g);
                         int tWins = t.getT3().getOrDefault(g, 0L).intValue();
-                        return leaderboards.ranksOf(r).map(ranks -> gameRecord(g, r, s, tWins, ranks));
+                        return leaderboards.ranksOf(r).map(ranks -> gameRecord(g, r, s, tWins, ranks, t.getT4().get(g)));
                     })
                     .collectList()
                     .map(list -> {
@@ -167,7 +170,7 @@ public class CompetitiveProfileService {
     }
 
     private GameRecordView gameRecord(String gameType, PlayerGameRatingRow r, PlayerGameStatsRow s, int tournamentWins,
-                                      CompetitiveDtos.RanksView ranks) {
+                                      CompetitiveDtos.RanksView ranks, StrengthService.StrengthView strengthView) {
         int rated = r == null ? 0 : r.ratedGamesPlayed();
         GameStatsView statsView = s == null
                 ? new GameStatsView(0, 0, 0, 0, 0.0, 0, 0, 0, tournamentWins, 0)
@@ -183,7 +186,7 @@ public class CompetitiveProfileService {
                 settings.placementGames(),
                 ranks,
                 statsView,
-                r == null ? null : r.lastRatedAt());
+                r == null ? null : r.lastRatedAt(), strengthView);
     }
 
     private List<AchievementView> achievementViews(FoundingTier tier, List<PlayerAchievementRow> rows) {
@@ -280,6 +283,15 @@ public class CompetitiveProfileService {
     // ---------------------------------------------------------------- match history
 
     public Mono<List<MatchHistoryView>> matchesOf(UUID userId, String gameType, int limit) {
+        return matchesOf(userId, gameType, limit, null, null, null);
+    }
+
+    public Mono<List<MatchHistoryView>> matchesOf(UUID userId, String gameType, int limit, String opponent,
+                                                java.time.Instant from, java.time.Instant until) {
+        String search = opponent == null ? "" : opponent.trim();
+        if (search.length() > 80 || from != null && until != null && !from.isBefore(until)) {
+            return Mono.error(ApiExceptions.badRequest("Invalid match history filters"));
+        }
         int pageSize = Math.max(1, Math.min(limit, 50));
         String sql = "SELECT m.id, m.game_type, m.ranked, m.unranked_reason, m.draw, m.completed_at, m.duration_ms, "
                 + "m.championship_id, p.outcome, p.rating_before, p.rating_after, p.rating_delta, "
@@ -290,9 +302,16 @@ public class CompetitiveProfileService {
                 + "  WHERE o.match_id = m.id AND o.user_id <> :uid) AS opponents "
                 + "FROM match_participants p JOIN match_records m ON m.id = p.match_id "
                 + "WHERE p.user_id = :uid " + (gameType == null ? "" : "AND m.game_type = :g ")
-                + "ORDER BY m.completed_at DESC LIMIT :limit";
+                + (search.isEmpty() ? "" : "AND EXISTS (SELECT 1 FROM match_participants fp JOIN users fu ON fu.id=fp.user_id "
+                    + "WHERE fp.match_id=m.id AND fp.user_id<>:uid AND (fu.username ILIKE :opponent OR fu.display_name ILIKE :opponent)) ")
+                + (from == null ? "" : "AND m.completed_at >= :from ")
+                + (until == null ? "" : "AND m.completed_at < :until ")
+                + "ORDER BY m.completed_at DESC, m.id DESC LIMIT :limit";
         var spec = db.sql(sql).bind("uid", userId).bind("limit", pageSize);
         if (gameType != null) spec = spec.bind("g", gameType);
+        if (!search.isEmpty()) spec = spec.bind("opponent", "%" + search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%");
+        if (from != null) spec = spec.bind("from", from);
+        if (until != null) spec = spec.bind("until", until);
         return spec.map(row -> new MatchHistoryView(
                         row.get("id", UUID.class),
                         row.get("game_type", String.class),

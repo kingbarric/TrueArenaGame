@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../theme/neon_theme.dart';
+import 'huud_art.dart';
 
 enum NeonStyle { go, gold, danger, ghost }
 
@@ -238,7 +239,7 @@ class _NeonButtonState extends State<NeonButton> {
                 alignment: Alignment.center,
                 padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 22),
                 decoration: decoration,
-                child: Text(widget.label,
+                child: HuudText(widget.label,
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                         color: foreground,
                         fontSize: 16,
@@ -277,7 +278,7 @@ class _NeonButtonState extends State<NeonButton> {
                   borderRadius: BorderRadius.circular(NeonRadius.control),
                   border: Border.all(color: n.brand, width: 2),
                 ),
-                child: Text(
+                child: HuudText(
                   widget.label,
                   style: Theme.of(context)
                       .textTheme
@@ -317,7 +318,7 @@ class _NeonButtonState extends State<NeonButton> {
               front: front,
               offset: offset,
               expand: widget.expand,
-              child: Text(
+              child: HuudText(
                 widget.label,
                 style: Theme.of(context)
                     .textTheme
@@ -615,7 +616,7 @@ class _MarqueeBarState extends State<MarqueeBar>
         child: reduce
             ? Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(line, style: style))
+                child: HuudText(line, style: style))
             : AnimatedBuilder(
                 animation: _c,
                 builder: (context, _) {
@@ -624,10 +625,10 @@ class _MarqueeBarState extends State<MarqueeBar>
                   return Stack(children: [
                     Positioned(
                         left: dx,
-                        child: Text(line * 6, maxLines: 1, style: style)),
+                        child: HuudText(line * 6, maxLines: 1, style: style)),
                     Positioned(
                         left: dx + w * 6,
-                        child: Text(line * 6, maxLines: 1, style: style)),
+                        child: HuudText(line * 6, maxLines: 1, style: style)),
                   ]);
                 },
               ),
@@ -704,7 +705,7 @@ class Avatar extends StatelessWidget {
         ),
       );
     } else if (emoji != null && emoji!.isNotEmpty) {
-      content = Text(emoji!, style: TextStyle(fontSize: size * 0.55));
+      content = HuudText(emoji!, style: TextStyle(fontSize: size * 0.55));
     } else {
       content = Text(
         name.isEmpty ? '?' : name.characters.first.toUpperCase(),

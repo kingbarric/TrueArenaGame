@@ -231,4 +231,37 @@ void main() {
     expect(find.text('Ada → Bola'), findsOneWidget);
     expect(find.text('Ada → Dayo'), findsNothing, reason: 'unveiled rounds were already shown live');
   });
+  testWidgets('the host can pause the clock and add two minutes', (tester) async {
+    final socket = await open(tester, _snap('RoundTable', extra: {'secondsLeft': 90}), host: true);
+    expect(find.text('1:30'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('traitors-add-time')));
+    await tester.tap(find.byKey(const ValueKey('traitors-pause')));
+    await tester.pump();
+    expect(socket.sent.map((s) => s.type), containsAllInOrder(['HOST_CONTROL', 'PAUSE_TOGGLE']));
+    expect(socket.sent.firstWhere((s) => s.type == 'HOST_CONTROL').payload, {'cmd': 'EXTEND_TIMER'});
+
+    socket.event('GAME_PAUSED', {'by': 'p1', 'secondsLeft': 210, 'resumesInSeconds': 600});
+    await tester.pump();
+    expect(find.text('Clock paused · runs again in 10:00'), findsOneWidget);
+    expect(find.text('Resume'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+    expect(find.text('Clock paused · runs again in 9:57'), findsOneWidget);
+    expect(find.text('⏸ 3:30'), findsWidgets, reason: 'a paused clock holds still');
+  });
+
+  testWidgets('players see the reveal moving on by itself, and no clock controls', (tester) async {
+    final socket = await open(tester, _snap('Elimination', extra: {'secondsLeft': 20}));
+    expect(find.text('Moving on in 20 s'), findsOneWidget);
+    expect(find.byKey(const ValueKey('traitors-pause')), findsNothing);
+    expect(find.byKey(const ValueKey('traitors-add-time')), findsNothing);
+
+    socket.event('GAME_PAUSED', {'by': 'p2', 'secondsLeft': 18, 'resumesInSeconds': 600});
+    await tester.pump();
+    expect(find.text('The host paused the clock'), findsOneWidget);
+
+    socket.event('GAME_RESUMED', {'reason': 'pause_limit', 'secondsLeft': 18});
+    await tester.pump();
+    expect(find.text('Moving on in 18 s'), findsOneWidget);
+  });
 }

@@ -8,6 +8,7 @@ import '../../widgets/neon.dart' show Avatar;
 import '../games/game_select_screen.dart' show gameCatalog;
 import 'competitive_models.dart';
 import 'competitive_widgets.dart';
+import '../../widgets/huud_art.dart';
 
 /// Each game's card livery. Overall is black and gold; every game gets its
 /// own pair so a player's cards read as a set, not as one card recoloured.
@@ -37,6 +38,7 @@ class PlayerCardTheme {
       secondary: Color(0xff8a6d1f), ink: Colors.white, icon: '👑');
 
   static const _byGame = <String, PlayerCardTheme>{
+    'slayhuud': PlayerCardTheme(top: Color(0xff8e1f3d), bottom: Color(0xff241517), accent: Color(0xffd9a441), secondary: Color(0xffd6bfb6), ink: Colors.white, icon: '✨'),
     // Teal and electric yellow.
     'draughts': PlayerCardTheme(
         top: Color(0xff12606a), bottom: Color(0xff062a30), accent: Color(0xfff2e41a),
@@ -95,6 +97,8 @@ class PlayerCardData {
     this.founding,
     this.blank = false,
     this.ranked = false,
+    this.strengthStatus = 'Getting started',
+    this.competitiveRating,
   });
 
   /// "OVERALL", "DRAFT"…
@@ -123,17 +127,12 @@ class PlayerCardData {
   /// The game has a skill rating and rankings (only some do so far), so the
   /// card can open a detail page. Overall is always openable-free.
   final bool ranked;
+  final String strengthStatus;
+  final int? competitiveRating;
 }
 
-/// The cards for a profile: Overall first, then one per rated game.
-///
-/// Overall is deliberately NOT a blended skill rating — there is no universal
-/// rating by design. Its corner shows your strength (see [GameStats.strength]),
-/// which every finished game adds to, and the rest is career totals.
-///
-/// Every game gets a card, played or not — a game with no data shows its
-/// card blank, in its own colours. Ranked games come first (Draughts leads),
-/// then the rest in catalog order.
+/// Overall and per-game cards use the same server strength as the boards.
+/// Competitive ratings remain separate: a score /100 is not a Glicko rating.
 List<PlayerCardData> buildPlayerCards(CompetitiveProfile p,
     {List<String> ratedGames = const ['draughts'], List<String>? allGames, String? avatarUrl, String? avatarPath}) {
   final photo = avatarUrl ?? p.avatarUrl;
@@ -153,22 +152,12 @@ List<PlayerCardData> buildPlayerCards(CompetitiveProfile p,
   final name = p.displayName;
 
   final games = records.fold<int>(0, (s, r) => s + r.stats.gamesPlayed);
-  final strength = records.fold<int>(0, (s, r) => s + r.stats.strength);
   final wins = records.fold<int>(0, (s, r) => s + r.stats.wins);
-  final titles = records.fold<int>(0, (s, r) => s + r.stats.tournamentWins);
-  final bestStreak = records.fold<int>(0, (s, r) => math.max(s, r.stats.bestWinStreak));
-  final badges = p.achievements.where((a) => !a.isFounding).length;
-  int? bestCountryRank;
-  for (final r in records) {
-    final rank = r.ranks.country.isRanked ? r.ranks.country.rank : null;
-    if (rank != null && (bestCountryRank == null || rank < bestCountryRank)) bestCountryRank = rank;
-  }
-
-  // The corner is your strength: every game you finish adds to it.
   final overall = PlayerCardData(
     title: 'OVERALL',
     theme: PlayerCardTheme.overall,
-    bigValue: games == 0 ? '—' : _compact(strength),
+    bigValue: '${p.strength.score}',
+    strengthStatus: p.strength.status,
     bigLabel: 'STRENGTH',
     name: name,
     avatarUrl: photo,
@@ -177,12 +166,10 @@ List<PlayerCardData> buildPlayerCards(CompetitiveProfile p,
     founding: p.founding,
     blank: games == 0,
     stats: [
-      CardStat(games == 0 ? '—' : _compact(games), 'GMS'),
-      CardStat(games == 0 ? '—' : '${(wins * 100 / games).round()}%', 'WIN'),
-      CardStat(titles == 0 ? '—' : '$titles', 'TTL'),
-      CardStat(bestStreak == 0 ? '—' : '$bestStreak', 'BST'),
-      CardStat(badges == 0 ? '—' : '$badges', 'BDG'),
-      CardStat(bestCountryRank == null ? '—' : '#${_compact(bestCountryRank)}', 'RNK'),
+      CardStat(_compact(games), 'played'),
+      CardStat(_compact(wins), 'won'),
+      CardStat('${games == 0 ? 0 : (wins * 100 / games).round()}%', 'win rate'),
+      ..._rankStats(p.strength.ranks, p.location, p.strength.games),
     ],
   );
 
@@ -199,27 +186,15 @@ List<PlayerCardData> buildPlayerCards(CompetitiveProfile p,
 PlayerCardData _gameCard(CompetitiveProfile p, GameRecord r, String name,
     {required bool ranked, String? photo, String? photoPath}) {
   final s = r.stats;
-  final String label;
-  if (!r.hasRating) {
-    label = 'UNRATED';
-  } else if (r.provisional) {
-    label = 'PROV ${r.placementGamesPlayed}/${r.placementGamesRequired}';
-  } else if (r.ranks.country.isRanked && p.location?.countryCode != null) {
-    label = '${p.location!.countryCode} #${_compact(r.ranks.country.rank!)}';
-  } else if (r.ranks.global.isRanked) {
-    label = 'GLB #${_compact(r.ranks.global.rank!)}';
-  } else {
-    label = 'RATED';
-  }
   final played = s.gamesPlayed > 0;
-  // A rated game shows its rating; every other game shows your strength in it.
-  final showRating = r.hasRating;
   return PlayerCardData(
     title: r.name.toUpperCase(),
     theme: PlayerCardTheme.forGame(r.gameType),
     gameType: r.gameType,
-    bigValue: showRating ? r.rating.toString() : (played ? _compact(s.strength) : '—'),
-    bigLabel: showRating || !played ? label : 'STRENGTH',
+    bigValue: '${r.strength.score}',
+    bigLabel: 'STRENGTH',
+    strengthStatus: r.strength.status,
+    competitiveRating: r.rating,
     name: name,
     avatarUrl: photo,
     avatarPath: photoPath,
@@ -228,14 +203,30 @@ PlayerCardData _gameCard(CompetitiveProfile p, GameRecord r, String name,
     blank: !r.hasRating && !played,
     ranked: ranked,
     stats: [
-      CardStat(played ? _compact(s.gamesPlayed) : '—', 'GMS'),
-      CardStat(played ? '${(s.winRate * 100).round()}%' : '—', 'WIN'),
-      CardStat(played ? '${s.currentWinStreak}' : '—', 'STK'),
-      CardStat(r.peakRating?.toString() ?? '—', 'PEK'),
-      CardStat(played ? '${s.bestWinStreak}' : '—', 'BST'),
-      CardStat(s.tournamentWins == 0 ? '—' : '${s.tournamentWins}', 'TTL'),
+      CardStat(_compact(s.gamesPlayed), 'played'),
+      CardStat(_compact(s.wins), 'won'),
+      CardStat('${s.gamesPlayed == 0 ? 0 : (s.wins * 100 / s.gamesPlayed).round()}%', 'win rate'),
+      ..._rankStats(r.strength.ranks, p.location, r.strength.games),
     ],
   );
+}
+
+String ordinal(int n) {
+  final teen = n % 100;
+  final suffix = teen >= 11 && teen <= 13 ? 'th' : switch(n % 10) {1 => 'st', 2 => 'nd', 3 => 'rd', _ => 'th'};
+  return '${groupedNumber(n)}$suffix';
+}
+
+List<CardStat> _rankStats(GameRanks ranks, CompetitiveLocation? location, int games) {
+  CardStat rank(RankInfo r, String where) => r.rank != null
+      ? CardStat(ordinal(r.rank!), where)
+      : CardStat('Not ranked', where);
+  return [
+    rank(ranks.global, 'on PlayHuud'),
+    if (location?.countryCode != null) rank(ranks.country, 'in ${location!.countryCode}'),
+    if (location?.regionCode != null || (location?.cityPublic == true && location?.city != null))
+      rank(ranks.region, 'in ${location!.regionName ?? location.regionCode ?? location.city}'),
+  ];
 }
 
 /// 127 -> "127", 12421 -> "12.4K", 1250000 -> "1.3M".
@@ -305,8 +296,10 @@ class PlayerCard extends StatelessWidget {
                 width: w * 0.32,
                 child: Column(crossAxisAlignment: CrossAxisAlignment.center, children: [
                   FittedBox(
-                    child: Text(data.bigValue,
-                        key: ValueKey('card-big-${data.title}'), style: numberStyle.copyWith(fontSize: w * 0.17)),
+                    child: Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
+                      Text(data.bigValue, key: ValueKey('card-big-${data.title}'), style: numberStyle.copyWith(fontSize: w * 0.17)),
+                      Text('/100', key: ValueKey('card-scale-${data.title}'), style: numberStyle.copyWith(fontSize: w * 0.055)),
+                    ]),
                   ),
                   SizedBox(height: h * 0.006),
                   FittedBox(
@@ -314,8 +307,10 @@ class PlayerCard extends StatelessWidget {
                         style: TextStyle(
                             color: t.accent, fontWeight: FontWeight.w800, fontSize: w * 0.058, letterSpacing: 0.5)),
                   ),
-                  SizedBox(height: h * 0.012),
-                  Text(t.icon, style: TextStyle(fontSize: w * 0.07)),
+                  SizedBox(height: h * 0.007),
+                  FittedBox(child: Text(data.strengthStatus, style: TextStyle(color: t.ink, fontSize: w * .04))),
+                  SizedBox(height: h * 0.008),
+                  HuudText(t.icon, style: TextStyle(fontSize: w * 0.07)),
                   if (data.founding != null) ...[
                     SizedBox(height: h * 0.01),
                     _FoundingMark(label: data.founding!.label, theme: t, width: w * 0.28,
@@ -348,9 +343,9 @@ class PlayerCard extends StatelessWidget {
               Positioned(
                 left: w * 0.08,
                 right: w * 0.08,
-                top: h * 0.55,
+                top: h * 0.51,
                 child: Column(children: [
-                  FittedBox(
+                  SizedBox(height: h * .07, child: FittedBox(fit: BoxFit.scaleDown,
                     child: Text(data.name.toUpperCase(),
                         maxLines: 1,
                         style: TextStyle(
@@ -359,22 +354,28 @@ class PlayerCard extends StatelessWidget {
                             fontSize: w * 0.105,
                             letterSpacing: 1.2,
                             shadows: [Shadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 6)])),
-                  ),
+                  )),
                   SizedBox(height: h * 0.008),
                   Container(height: 1.4, color: t.accent.withValues(alpha: 0.55)),
                 ]),
               ),
+              Positioned(left: w * .08, right: w * .08, top: h * .605, height: h * .04,
+                child: FittedBox(fit: BoxFit.scaleDown, child: Text(
+                  data.gameType == null ? 'Competitive ratings on each game' : data.competitiveRating == null
+                    ? 'Competitive rating · not rated' : 'Competitive rating ${groupedNumber(data.competitiveRating!)}',
+                  key: ValueKey('card-rating-${data.title}'),
+                  style: TextStyle(color: t.ink, fontWeight: FontWeight.w700, fontSize: w * .047)))),
               // Stats: two columns of three, split by a hairline.
               Positioned(
                 left: w * 0.1,
                 right: w * 0.1,
-                top: h * 0.66,
-                height: h * 0.19,
+                top: h * 0.65,
+                height: h * 0.20,
                 child: Row(children: [
                   Expanded(child: _statColumn(data.stats.take(3).toList(), numberStyle, w, t)),
                   Container(width: 1.2, margin: EdgeInsets.symmetric(horizontal: w * 0.03),
                       color: t.accent.withValues(alpha: 0.45)),
-                  Expanded(child: _statColumn(data.stats.skip(3).take(3).toList(), numberStyle, w, t)),
+                  Expanded(child: _statColumn(data.stats.skip(3).take(3).toList(), numberStyle, w, t, ranks: true)),
                 ]),
               ),
               // Footer: the PlayHuud number as one compact pill. The shield
@@ -420,23 +421,26 @@ class PlayerCard extends StatelessWidget {
     );
   }
 
-  Widget _statColumn(List<CardStat> stats, TextStyle numberStyle, double w, PlayerCardTheme t) {
+  Widget _statColumn(List<CardStat> stats, TextStyle numberStyle, double w, PlayerCardTheme t, {bool ranks = false}) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         for (final s in stats)
-          FittedBox(
+          Expanded(child: Align(alignment: Alignment.centerLeft, child: FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
+            child: ranks ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(s.value, style: numberStyle.copyWith(fontSize: w * .057, color: t.ink)),
+              Text(s.label, style: TextStyle(color: t.accent, fontSize: w * .036, height: 1)),
+            ]) : Row(mainAxisSize: MainAxisSize.min, children: [
               Text(s.value, style: numberStyle.copyWith(fontSize: w * 0.068, color: t.ink)),
               SizedBox(width: w * 0.02),
               Text(s.label,
                   style: TextStyle(
                       color: t.accent, fontWeight: FontWeight.w800, fontSize: w * 0.06, letterSpacing: 0.5)),
             ]),
-          ),
+          ))),
       ],
     );
   }

@@ -35,7 +35,7 @@ public final class MonopolyBotAdapter implements GameBotAdapter {
         if (choices.isEmpty()) return Optional.empty();
         try {
             return Optional.of(new BotPrompt(
-                    "You are a Monopoly Cyber Agent at " + difficulty + " difficulty. Buy useful properties, "
+                    "You are a Huudpoly Cyber Agent at " + difficulty + " difficulty. Buy useful properties, "
                     + "complete colour groups, build evenly, keep a cash reserve, bid sensibly, resolve debts, "
                     + "and accept only fair trades. Choose exactly one indexed legal action. Reply JSON {\"index\":0}. "
                     + "No invented actions. This is game state only, not social chat.",

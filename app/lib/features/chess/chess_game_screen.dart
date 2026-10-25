@@ -1,3 +1,5 @@
+import '../../widgets/match_coin_reward.dart';
+import '../../core/api_client.dart' show userRetryMessage;
 import 'dart:async';
 import 'dart:ui' as ui;
 
@@ -21,6 +23,7 @@ import 'chess_piece.dart';
 import 'chess_var.dart';
 import 'chess_view.dart';
 import '../huudspace/leave_game.dart';
+import '../../widgets/huud_art.dart';
 
 /// Standard chess, played against the server's `ChessModule`. The same
 /// SNAPSHOT/PHASE/EVENT-in, PLAYER_ACTION-out contract as Draughts and Macala.
@@ -44,6 +47,8 @@ class ChessGameScreen extends StatefulWidget {
     this.agents = const {},
     this.spectating = false,
     this.championship = false,
+    this.title,
+    this.subtitle,
   });
 
   final GameSocket socket;
@@ -59,6 +64,10 @@ class ChessGameScreen extends StatefulWidget {
   /// A championship match: the bracket runs the clock (no pausing), and a
   /// player who drops out has a set time to come back before losing.
   final bool championship;
+
+  /// What the top of the board says instead of "CHESS" — a championship's
+  /// name, with its round underneath.
+  final String? title, subtitle;
 
   @override
   State<ChessGameScreen> createState() => _ChessGameScreenState();
@@ -106,7 +115,6 @@ class _ChessGameScreenState extends State<ChessGameScreen>
   final TextEditingController _chatController = TextEditingController();
   int _spectatorCount = 0;
   bool _spectatorsMuted = false;
-  int? _coinsAwarded;
   bool _showResults = true;
   bool _musicOn = GameMusic.enabled;
   bool _sfxOn = GameSfx.enabled;
@@ -315,8 +323,6 @@ class _ChessGameScreenState extends State<ChessGameScreen>
             ? 'Draw · ${describeResult(data['reason']?.toString())}'
             : '${_label(_view.playerFor(winner ?? 'white'))} wins · '
                 '${describeResult(data['reason']?.toString())}');
-      case 'COINS_AWARDED':
-        setState(() => _coinsAwarded = data['amount'] as int?);
       case 'SPECTATOR_COUNT':
         setState(
             () => _spectatorCount = data['count'] as int? ?? _spectatorCount);
@@ -611,7 +617,7 @@ class _ChessGameScreenState extends State<ChessGameScreen>
         _leaving = false;
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Error has occurred, try again later.')));
+              const SnackBar(content: Text(userRetryMessage)));
         }
         return;
       }
@@ -868,16 +874,25 @@ class _ChessGameScreenState extends State<ChessGameScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('CHESS',
+              Text(widget.title?.toUpperCase() ?? 'CHESS',
+                  key: const ValueKey('chess-title'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: _gold,
-                    fontSize: 22,
+                    fontSize: widget.title == null ? 22 : 18,
                     fontWeight: FontWeight.w700,
-                    letterSpacing: 4,
+                    letterSpacing: widget.title == null ? 4 : 1.6,
                     fontFamily: 'Georgia',
-                    fontFamilyFallback: ['Times New Roman', 'serif'],
+                    fontFamilyFallback: const ['Times New Roman', 'serif'],
                     height: 1.05,
                   )),
+              if (widget.subtitle != null)
+                Text(widget.subtitle!.toUpperCase(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        color: _mute, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.4)),
               if (widget.roomCode.isNotEmpty)
                 CopyableHuudCode(
                   code: widget.roomCode,
@@ -1547,7 +1562,7 @@ class _ChessGameScreenState extends State<ChessGameScreen>
               ],
             ),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Text(draw ? '🤝' : (won || _amSpectator ? '🏆' : '♚'),
+              HuudText(draw ? '🤝' : (won || _amSpectator ? '🏆' : '♚'),
                   style: const TextStyle(fontSize: 44, color: _cream)),
               const SizedBox(height: 6),
               Text(title,
@@ -1568,13 +1583,8 @@ class _ChessGameScreenState extends State<ChessGameScreen>
                       fontSize: 18,
                       fontWeight: FontWeight.w900,
                       fontFeatures: [ui.FontFeature.tabularFigures()])),
-              if (_coinsAwarded != null) ...[
-                const SizedBox(height: 8),
-                Text('+$_coinsAwarded ${_coinsAwarded == 1 ? 'coin' : 'coins'}',
-                    style: const TextStyle(
-                        color: _gold, fontWeight: FontWeight.w800)),
-              ],
               const SizedBox(height: 14),
+              if (!widget.spectating) MatchCoinReward(roomId: widget.socket.roomId, foregroundColor: _cream),
               if (won)
                 VictoryShareButton(
                     roomId: widget.socket.roomId, gameType: 'chess'),
@@ -1595,7 +1605,7 @@ class _ChessGameScreenState extends State<ChessGameScreen>
                           backgroundColor: _gold,
                           foregroundColor: const Color(0xff2a1600)),
                       onPressed: _leave,
-                      child: Text(_amSpectator ? 'Done' : 'Back to home',
+                      child: Text(_amSpectator ? 'Done' : 'Back to the Huud',
                           style: const TextStyle(fontWeight: FontWeight.w900)),
                     ),
                   ]),

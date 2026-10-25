@@ -60,6 +60,11 @@ public final class DraughtsState implements GameState {
     /** The player asking to take back their last turn, waiting on the other's answer. */
     final String pendingUndo;
 
+    // Seizure: pieces of the side that just moved which could have captured
+    // but didn't — the side now on turn may seize one before moving.
+    final Set<Integer> seizable;
+    final boolean seizedThisTurn;
+
     private DraughtsState(Draft d) {
         this.phase = d.phase;
         this.round = d.round;
@@ -84,6 +89,8 @@ public final class DraughtsState implements GameState {
         this.undoRound = d.undoRound;
         this.lastMover = d.lastMover;
         this.pendingUndo = d.pendingUndo;
+        this.seizable = Set.copyOf(d.seizable);
+        this.seizedThisTurn = d.seizedThisTurn;
     }
 
     @Override public String phase() { return phase; }
@@ -147,6 +154,8 @@ public final class DraughtsState implements GameState {
         int undoRound;
         String lastMover;
         String pendingUndo;
+        Set<Integer> seizable = new LinkedHashSet<>();
+        boolean seizedThisTurn;
 
         Draft() {
         }
@@ -175,6 +184,8 @@ public final class DraughtsState implements GameState {
             this.undoRound = s.undoRound;
             this.lastMover = s.lastMover;
             this.pendingUndo = s.pendingUndo;
+            this.seizable = new LinkedHashSet<>(s.seizable);
+            this.seizedThisTurn = s.seizedThisTurn;
         }
 
         DraughtsState build() {

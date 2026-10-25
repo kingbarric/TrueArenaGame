@@ -22,14 +22,19 @@ void main() {
       }
     }
   });
+  test('no public message ever says "error"', () {
+    expect(userErrorMessage.toLowerCase(), isNot(contains('error')));
+    expect(userRetryMessage.toLowerCase(), isNot(contains('error')));
+  });
   test('network failures use the same message', () async {
     final api = ApiClient(client: MockClient((_) async => throw const SocketException('internal hostname')));
     await expectLater(api.get('/me'), throwsA(isA<ApiException>().having((e) => e.message, 'message', userErrorMessage)));
   });
   test('machine outcome codes remain available without displaying server text', () async {
     final api = ApiClient(client: MockClient((_) async => http.Response('{"message":"hidden","code":"ALREADY_PLAYING"}',409)));
+    // A refused request gets the friendly "try again" line, never the server's words.
     await expectLater(api.get('/me'), throwsA(isA<ApiException>()
-      .having((e) => e.message, 'message',userErrorMessage)
+      .having((e) => e.message, 'message',userRetryMessage)
       .having((e) => e.diagnosticMessage, 'code', 'ALREADY_PLAYING')));
   });
 }

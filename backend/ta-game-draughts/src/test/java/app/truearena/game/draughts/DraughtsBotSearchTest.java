@@ -21,6 +21,17 @@ class DraughtsBotSearchTest {
         new DraughtsModule().onPlayerAction(d.build(), action); // authoritative chain constraint
     }
 
+    @Test void seizureCanWinAndUsesTheAuthoritativeReducer() {
+        DraughtsState.Draft d = new DraughtsState.Draft();
+        d.playerA = "a"; d.playerB = "b"; d.phase = "TurnA"; d.round = 1;
+        d.config = new DraughtsConfig(60, false, true);
+        d.board[15] = Piece.A_MAN; d.board[30] = Piece.B_KING; d.seizable.add(30);
+        PlayerAction action = DraughtsBotSearch.choose(d.board, "a", "b", "a", null, 0L,
+                false, true, java.util.List.of(30), 3, 100).orElseThrow();
+        assertThat(action.type()).isEqualTo("SEIZE");
+        assertThat(new DraughtsModule().onPlayerAction(d.build(), action).finished()).isTrue();
+    }
+
     @Test void mandatoryCaptureChoosesTheLongestChain() {
         DraughtsState.Draft d = new DraughtsState.Draft();
         d.playerA = "a"; d.playerB = "b"; d.phase = "TurnA"; d.round = 1;

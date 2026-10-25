@@ -8,7 +8,8 @@ import 'go_live_sheet.dart';
 import 'huud_kit.dart';
 import 'huud_space_models.dart';
 import 'huud_space_screen.dart';
-import 'whot_mode_sheet.dart';
+import 'huud_game_modes.dart';
+import '../../widgets/huud_art.dart';
 
 /// Opens the "Make a Huud" sheet and, once made, walks straight into it.
 /// Hosting a Huud already? The server hands that one back instead of making
@@ -25,7 +26,8 @@ Future<void> startHuud(BuildContext context, {String? gameType, bool share = fal
     builder: (_) => CreateHuudSheet(gameType: gameType, share: share, onQuickPlay: onQuickPlay),
   );
   if (made == null || !context.mounted) return;
-  await openHuudSpace(context, made.id, initial: made);
+  await openHuudSpace(context, made.id, initial: made,
+      startOnGame: gameType != null || made.currentGame != null);
 }
 
 /// Two questions — what's it called, and who can join — then two optional
@@ -47,8 +49,9 @@ class _CreateHuudSheetState extends State<CreateHuudSheet> {
   HuudPrivacy _privacy = HuudPrivacy.friends;
   late String? _game = widget.gameType;
 
-  /// Whot's "classic" or "tell", asked when Whot is picked.
-  String? _whotMode;
+  /// Whot's "classic" or "tell", SlayHuud's "battle" or "group" — asked when the game is picked.
+  String? _mode;
+  Map<String, dynamic>? _gameConfig;
   late bool _share = widget.share;
   bool _busy = false;
   String? _error;
@@ -74,11 +77,12 @@ class _CreateHuudSheetState extends State<CreateHuudSheet> {
 
   Future<void> _create() async {
     if (_busy) return;
-    // Whot came already picked: still ask which one.
-    if (_game == 'whot' && _whotMode == null) {
-      final mode = await askWhotMode(context);
-      if (mode == null || !mounted) return;
-      setState(() => _whotMode = mode);
+    // A game with modes came already picked: still ask which one.
+    final game = _game;
+    if (game != null && huudGameHasModes(game) && _mode == null) {
+      final setup = await askHuudGameSetup(context, game);
+      if (setup == null || !mounted) return;
+      setState(() { _mode = setup.mode; _gameConfig = setup.gameConfig; });
     }
     setState(() {
       _busy = true;
@@ -89,7 +93,8 @@ class _CreateHuudSheetState extends State<CreateHuudSheet> {
         'name': _name.text.trim(),
         'privacy': _privacy.wire,
         if (_game != null) 'gameType': _game,
-        if (_game == 'whot' && _whotMode != null) 'mode': _whotMode,
+        if (huudGameHasModes(_game) && _mode != null) 'mode': _mode,
+        if (_gameConfig != null) 'gameConfig': _gameConfig,
         if (_share) 'share': true,
         if (_share && _message.text.trim().isNotEmpty) 'message': _message.text.trim(),
       }) as Map<String, dynamic>;
@@ -98,7 +103,7 @@ class _CreateHuudSheetState extends State<CreateHuudSheet> {
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted) setState(() => _error = "Error has occurred, try again later.");
+      if (mounted) setState(() => _error = userErrorMessage);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -163,7 +168,7 @@ class _CreateHuudSheetState extends State<CreateHuudSheet> {
             if (_privacy == HuudPrivacy.public)
               Padding(
                 padding: const EdgeInsets.only(bottom: 10),
-                child: Text('🛡️ Anyone can come in. Be kind, and never share your address or phone number.',
+                child: HuudText('🛡️ Anyone can come in. Be kind, and never share your address or phone number.',
                     style: TextStyle(fontSize: 14, height: 1.35, color: n.mid)),
               ),
             const SizedBox(height: 8),
@@ -235,18 +240,23 @@ class _CreateHuudSheetState extends State<CreateHuudSheet> {
     ]);
   }
 
-  /// Whot is two games: ask which as it's picked.
+  /// Whot and SlayHuud are two games each: ask which as it's picked.
   Future<void> _pick(String? game) async {
-    if (game == 'whot') {
-      final mode = await askWhotMode(context);
-      if (mode == null || !mounted) return;
+    if (game != null && huudGameHasModes(game)) {
+      final setup = await askHuudGameSetup(context, game);
+      if (setup == null || !mounted) return;
       setState(() {
         _game = game;
-        _whotMode = mode;
+        _mode = setup.mode;
+        _gameConfig = setup.gameConfig;
       });
       return;
     }
-    setState(() => _game = game);
+    setState(() {
+      _game = game;
+      _mode = null;
+      _gameConfig = null;
+    });
   }
 
   Widget _gamePicker(NeonColors n) {
@@ -275,15 +285,17 @@ class _CreateHuudSheetState extends State<CreateHuudSheet> {
               child: Column(children: [
                 game == null
                     ? const SizedBox(
-                        width: 44, height: 44, child: Center(child: Text('💬', style: TextStyle(fontSize: 26))))
+                        width: 44, height: 44, child: Center(child: HuudText('💬', style: TextStyle(fontSize: 26))))
                     : HuudGameArt(game, size: 44),
                 const SizedBox(height: 4),
                 Text(
                     game == null
                         ? 'No game yet'
-                        : game == 'whot' && on && _whotMode == 'tell'
+                        : game == 'whot' && on && _mode == 'tell'
                             ? 'The Tell'
-                            : huudGameName(game),
+                            : game == 'slayhuud' && on && _mode == 'group'
+                                ? 'Group Show'
+                                : huudGameName(game),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: n.ink)),
@@ -298,7 +310,10 @@ class _CreateHuudSheetState extends State<CreateHuudSheet> {
       height: 92,
       child: ListView(scrollDirection: Axis.horizontal, children: [
         tile(null),
-        for (final g in huudGameOrder) tile(g),
+        // The game the Huud was opened for leads, so it's in view already picked.
+        if (huudGameOrder.contains(widget.gameType)) tile(widget.gameType),
+        for (final g in huudGameOrder)
+          if (g != widget.gameType) tile(g),
       ]),
     );
   }
@@ -315,7 +330,7 @@ class _CreateHuudSheetState extends State<CreateHuudSheet> {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
-          const Text('📣', style: TextStyle(fontSize: 22)),
+          const HuudText('📣', style: TextStyle(fontSize: 22)),
           const SizedBox(width: 10),
           Expanded(
             child: Text(_share ? 'People will see it on the feed' : 'Keep it off the feed',
@@ -380,7 +395,7 @@ class _PrivacyChoice extends StatelessWidget {
             border: Border.all(color: selected ? h.orange : n.line, width: selected ? 2.6 : 1.4),
           ),
           child: Row(children: [
-            Text(privacy.emoji, style: const TextStyle(fontSize: 28)),
+            HuudText(privacy.emoji, style: const TextStyle(fontSize: 28)),
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -430,22 +445,31 @@ Future<void> openHuudForGame(BuildContext context, String gameType, {VoidCallbac
     // Your Huud is offline — Go Live first, then the game goes on.
     final live = await goLive(context, huud.id);
     if (!context.mounted) return;
-    if (live == null) {
-      await openHuudSpace(context, huud.id, initial: huud);
-      return;
-    }
+    if (live == null) return;
     huud = live;
   }
   final game = huud.currentGame;
   if (game == null || game.finished) {
+    // Which Traitors, Whot or SlayHuud — asked before the table is set.
+    HuudGameSetup? setup;
+    if (huudGameHasModes(gameType)) {
+      setup = await askHuudGameSetup(context, gameType);
+      if (setup == null || !context.mounted) return;
+    }
     try {
-      await api.post('/huud-spaces/${huud.id}/game', {'gameType': gameType});
+      await api.post('/huud-spaces/${huud.id}/game', {'gameType': gameType, if (setup != null) 'mode': setup.mode,
+          if (setup?.gameConfig != null) 'gameConfig': setup!.gameConfig});
       huud = HuudSpace.fromJson((await api.get('/huud-spaces/${huud.id}') as Map).cast<String, dynamic>());
     } on ApiException catch (e) {
       if (context.mounted) huudSnack(context, e.message);
-    } catch (_) {}
-  } else if (game.gameType != gameType) {
-    huudSnack(context, '${huudGameName(game.gameType)} is on in your Huud — finish it first');
+      return;
+    } catch (_) {
+      if (context.mounted) huudSnack(context, userErrorMessage);
+      return;
+    }
   }
-  if (context.mounted) await openHuudSpace(context, huud.id, initial: huud);
+  final notice = game != null && !game.finished && game.gameType != gameType
+      ? 'You already have ${huudGameName(game.gameType)} open. End it or put it away from this Games tab before choosing ${huudGameName(gameType)}.'
+      : null;
+  if (context.mounted) await openHuudSpace(context, huud.id, initial: huud, startOnGame: true, gameNotice: notice);
 }
