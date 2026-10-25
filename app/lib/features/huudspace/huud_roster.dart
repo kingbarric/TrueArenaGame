@@ -4,6 +4,7 @@ import '../../core/api_client.dart';
 import '../../core/app_state.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/neon.dart';
+import '../../widgets/cyber_agent_difficulty.dart';
 import 'huud_kit.dart';
 import 'huud_space_models.dart';
 import '../../widgets/huud_art.dart';
@@ -25,7 +26,7 @@ class HuudRoster extends StatefulWidget {
     this.onChanged,
   });
 
-  /// Whot's The Tell: pairs of people only, so no Cyber Agents.
+  /// Whot's The Tell: show the team and player-count reminder.
   final bool tell;
 
   final HuudSpace huud;
@@ -58,6 +59,7 @@ class _HuudRosterState extends State<HuudRoster> {
           .removeWhere((id, _) => widget.seated.any((s) => s.userId == id));
     }
   }
+  String _agentDifficulty = 'medium';
 
   String? get _me => AppScope.of(context).user?.id;
 
@@ -113,14 +115,14 @@ class _HuudRosterState extends State<HuudRoster> {
     });
   }
 
-  /// One tap, one agent: named Cyber 1, Cyber 2… at medium — no questions, no banner.
+  /// One tap seats an agent at the selected level, without opening another sheet.
   Future<void> _addAgent() async {
     if (_seated.length >= widget.seats) return;
     final bots = _seated.where((s) => s.bot).length;
     final roomId = widget.roomId;
     await _run('agent', (api) async {
       final raw = await api.post('/rooms/$roomId/bots',
-          {'name': 'Cyber ${bots + 1}', 'difficulty': 'medium'});
+          {'name': 'Cyber ${bots + 1}', 'difficulty': _agentDifficulty});
       // Show the confirmed seat even if the lobby socket is delayed.
       if (mounted &&
           widget.roomId == roomId &&
@@ -289,7 +291,7 @@ class _HuudRosterState extends State<HuudRoster> {
           decoration: BoxDecoration(
               color: h.orangeSoft, borderRadius: BorderRadius.circular(14)),
           child: HuudText(
-              '🤫 The Tell · teams of two · 4, 6 or 8 players · people only',
+              '🤫 The Tell · teams of two · 4, 6 or 8 players · Cyber Agents can play',
               style: TextStyle(
                   fontSize: 13.5,
                   fontWeight: FontWeight.w800,
@@ -316,7 +318,15 @@ class _HuudRosterState extends State<HuudRoster> {
           onTap: host ? () => _removeAgent(b) : null,
           busy: _busy == 'p-${b.userId}',
         ),
-      if (host && !full && !widget.tell)
+      if (host && !full) ...[
+        const SizedBox(height: 8),
+        Text('BOT LEVEL',
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.5, color: n.mute)),
+        const SizedBox(height: 8),
+        CyberAgentDifficulty(
+          value: _agentDifficulty,
+          onChanged: _busy == null ? (value) => setState(() => _agentDifficulty = value) : null,
+        ),
         Padding(
           padding: const EdgeInsets.only(top: 4),
           child: HuudButton(
@@ -329,6 +339,7 @@ class _HuudRosterState extends State<HuudRoster> {
             onPressed: _addAgent,
           ),
         ),
+      ],
       if (host && (!full || widget.huud.findingPlayers))
         Align(
             alignment: Alignment.centerLeft,

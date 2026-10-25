@@ -29,11 +29,15 @@ final class WordBluffTextHints {
 
     /** A guess from the clues said so far, from the words on the wheel's category ({@code null}: any). */
     static Optional<String> guess(String publicClue, String categoryName) {
+        return guess(publicClue, categoryName, 2);
+    }
+
+    static Optional<String> guess(String publicClue, String categoryName, int minimumOverlap) {
         Category category = WordClues.categoryNamed(categoryName);
         Map<String, List<String>> book = WordClues.byCategory(category == null ? Category.MIXED : category);
         Set<String> words = tokens(publicClue);
         String best = null;
-        int bestScore = 1;
+        int bestScore = minimumOverlap - 1;
         boolean tied = false;
         for (var entry : book.entrySet()) {
             int score = (int) tokens(String.join(" ", entry.getValue())).stream().filter(words::contains).count();

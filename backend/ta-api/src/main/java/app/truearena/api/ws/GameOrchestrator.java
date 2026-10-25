@@ -1349,7 +1349,7 @@ public class GameOrchestrator {
         return rooms.findById(rt.roomId)
                 .map(room -> whotConfigFrom(room.gameConfig()))
                 .defaultIfEmpty(WhotConfig.defaults())
-                .flatMap(cfg -> startWhotWith(rt, userId, playerIds, cfg));
+                .flatMap(cfg -> startWhotGame(rt, userId, playerIds, cfg));
     }
 
     private Mono<Void> startLudo(RoomRuntime rt, String userId, List<String> playerIds,
@@ -1426,18 +1426,6 @@ public class GameOrchestrator {
         }
     }
 
-    private Mono<Void> startWhotWith(RoomRuntime rt, String userId, List<String> playerIds, WhotConfig cfg) {
-        if (cfg.tell()) {
-            return Flux.fromIterable(playerIds)
-                    .concatMap(id -> users.findById(UUID.fromString(id)))
-                    .any(UserRow::isBot)
-                    .flatMap(hasBot -> hasBot
-                            ? tellError(rt, userId, "TELL_NEEDS_PLAYERS", "The Tell needs human teammates for private signals")
-                            : startWhotGame(rt, userId, playerIds, cfg));
-        }
-        return startWhotGame(rt, userId, playerIds, cfg);
-    }
-
     private Mono<Void> startWhotGame(RoomRuntime rt, String userId, List<String> playerIds, WhotConfig cfg) {
         WhotModule module = new WhotModule();
         long seed = ThreadLocalRandom.current().nextLong();
@@ -1503,6 +1491,9 @@ public class GameOrchestrator {
         if (isHostOnlyAction(action) && !userId.equals(rt.hostUserId)) {
             return tellError(rt, userId, "NOT_HOST", "only the host can do that");
         }
+        if ("END_GAME".equals(action) && rt.tournament) {
+            return tellError(rt, userId, "TOURNAMENT_GAME", "a championship match plays to the end");
+        }
 
         return lock.withLock(rt.roomId, LOCK_TTL, () -> {
             if (rt.retired) return Mono.empty();
@@ -1531,7 +1522,7 @@ public class GameOrchestrator {
      */
     static boolean isHostOnlyAction(String action) {
         return switch (action) {
-            case "REVEAL_NEXT", "ADVANCE_PHASE", "CHOOSE_TIE", "AWARD_IMMUNITY", "HOST_ASSIGN_VOTE" -> true;
+            case "REVEAL_NEXT", "ADVANCE_PHASE", "CHOOSE_TIE", "AWARD_IMMUNITY", "HOST_ASSIGN_VOTE", "END_GAME" -> true;
             default -> false;
         };
     }

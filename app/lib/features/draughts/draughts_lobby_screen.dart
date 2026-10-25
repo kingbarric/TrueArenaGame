@@ -611,7 +611,7 @@ class _DraughtsRulesSheetState extends State<_DraughtsRulesSheet> {
               ),
               const SizedBox(height: 18),
             ],
-            Text('HOUSE RULES', style: t.labelLarge?.copyWith(color: n.gold)),
+            Text('GAME MODE', style: t.labelLarge?.copyWith(color: n.gold)),
             const SizedBox(height: 4),
             Text(
                 _ranked
@@ -621,12 +621,29 @@ class _DraughtsRulesSheetState extends State<_DraughtsRulesSheet> {
             const SizedBox(height: 16),
             NeonCard(
               child: Column(children: [
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 8,
+                  children: [
+                    ChoiceChip(
+                      label: const Text('International'),
+                      selected: _capturesCompulsory,
+                      onSelected: _ranked ? null : (_) => setState(() => _mandatoryCapture = true),
+                    ),
+                    ChoiceChip(
+                      label: const Text('Optional capture'),
+                      selected: !_capturesCompulsory,
+                      onSelected: _ranked ? null : (_) => setState(() => _mandatoryCapture = false),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
                 Row(children: [
                   Expanded(
                     child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Captures are compulsory', style: t.bodyMedium),
+                          Text(_capturesCompulsory ? 'International rules' : 'Optional captures', style: t.bodyMedium),
                           const SizedBox(height: 2),
                           Text(
                             _capturesCompulsory
@@ -636,12 +653,6 @@ class _DraughtsRulesSheetState extends State<_DraughtsRulesSheet> {
                                 ?.copyWith(color: n.mute, height: 1.3),
                           ),
                         ]),
-                  ),
-                  Switch(
-                    value: _capturesCompulsory,
-                    onChanged: _ranked
-                        ? null
-                        : (v) => setState(() => _mandatoryCapture = v),
                   ),
                 ]),
                 if (!_capturesCompulsory) ...[

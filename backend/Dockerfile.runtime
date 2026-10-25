@@ -1,9 +1,27 @@
 # The Java jar is built and tested on the developer machine, avoiding a Maven
 # compile on the VPS that shares CPU with production. Used by deploy-test.sh.
+FROM eclipse-temurin:21-jre AS stockfish
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+COPY stockfish/install.sh /tmp/install-stockfish.sh
+RUN sh /tmp/install-stockfish.sh /opt/stockfish
+
+FROM eclipse-temurin:21-jre AS scan
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates unzip g++ make \
+    && rm -rf /var/lib/apt/lists/*
+COPY scan/install.sh /tmp/install-scan.sh
+RUN sh /tmp/install-scan.sh /opt/scan
+
 FROM eclipse-temurin:21-jre
+RUN apt-get update && apt-get install -y --no-install-recommends libstdc++6 \
+    && rm -rf /var/lib/apt/lists/*
 RUN useradd -r -u 10001 appuser
 WORKDIR /app
 COPY ta-app/target/truearena-backend.jar app.jar
+COPY --from=stockfish /opt/stockfish /opt/stockfish
+ENV STOCKFISH_PATH=/opt/stockfish/stockfish
+COPY --from=scan /opt/scan /opt/scan
+ENV SCAN_PATH=/opt/scan/scan SCAN_DIRECTORY=/opt/scan
 USER appuser
 EXPOSE 8080
 HEALTHCHECK --interval=10s --timeout=3s --retries=12 \

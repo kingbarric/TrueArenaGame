@@ -192,6 +192,7 @@ public final class TrueArenaModule implements GameModule {
             case "LAST_WILL" -> submitLastWill(d, s, action);
             case "HOST_ASSIGN_VOTE" -> hostAssignVote(d, s, action);
             case "ADVANCE_PHASE" -> advance(d, d.phase);
+            case "END_GAME" -> endByHost(d);
             default -> throw new RuleViolation("UNKNOWN_ACTION", "no handler for " + action.type());
         }
         return d.build();
@@ -803,6 +804,17 @@ public final class TrueArenaModule implements GameModule {
         d.emit("HIDDEN_LEGACY", Map.of("triggered", true)); // no identity in the public payload
     }
 
+    /**
+     * The host stops the game partway: it's over, with no winner — so no
+     * result, rating, stats or coins — and everyone sees who was who.
+     */
+    private void endByHost(TruearenaState.Draft d) {
+        d.endedByHost = true;
+        d.phase = "Results";
+        d.emit("GAME_ENDED_BY_HOST", Map.of("round", d.round));
+        d.emit("FULL_REVEAL", reveal(d));
+    }
+
     private void finish(TruearenaState.Draft d, String side) {
         Map<String, String> outcome = new LinkedHashMap<>();
         for (String id : d.players) {
@@ -813,6 +825,11 @@ public final class TrueArenaModule implements GameModule {
         d.win = new WinResult(side, outcome);
         d.phase = "Results";
         d.emit("GAME_OVER", Map.of("winningSide", side, "rounds", d.round));
+        d.emit("FULL_REVEAL", reveal(d));
+    }
+
+    /** Everything that was hidden: who was who, how each one went, every ballot. */
+    private static Map<String, Object> reveal(TruearenaState.Draft d) {
         Map<String, Object> reveal = new LinkedHashMap<>();
         reveal.put("roles", new LinkedHashMap<>(d.roles));
         reveal.put("eliminated", List.copyOf(d.eliminatedLog));
@@ -824,7 +841,7 @@ public final class TrueArenaModule implements GameModule {
             shield.put("poisoned", d.shieldPoisoned);
             reveal.put("shield", shield);
         }
-        d.emit("FULL_REVEAL", reveal);
+        return reveal;
     }
 
     private void eliminate(TruearenaState.Draft d, String id, String cause) {

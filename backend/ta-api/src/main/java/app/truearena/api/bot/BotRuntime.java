@@ -10,6 +10,7 @@ import org.springframework.web.reactive.socket.WebSocketSession;
 import org.springframework.web.reactive.socket.client.ReactorNettyWebSocketClient;
 import org.springframework.web.reactive.socket.client.WebSocketClient;
 import reactor.core.Disposable;
+import reactor.core.Disposables;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Schedulers;
@@ -18,6 +19,7 @@ import java.net.URI;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Supplier;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -46,8 +48,14 @@ public final class BotRuntime {
     private final String botUserId;
     private final Difficulty difficulty;
     private final String botName;
+    /** Everyone's name at the table, looked up when the game starts. */
+    private Supplier<Mono<Map<String, String>>> names = Mono::empty;
+    private boolean namesAsked;
     private final String gameName;
     private final AgentBanter banter = new AgentBanter();
+    private final BotCommunicationQueue communications = new BotCommunicationQueue();
+    private final Disposable.Swap followUp = Disposables.swap();
+    private volatile boolean stopped;
 
     private volatile Disposable subscription;
     private volatile boolean actionPending;
@@ -66,21 +74,31 @@ public final class BotRuntime {
         this.difficulty = difficulty;
     }
 
+    /** Where to look up the table's names — the room's members. */
+    void names(Supplier<Mono<Map<String, String>>> names) {
+        this.names = names;
+    }
+
     public void start() {
         subscription = client.execute(uri, this::handle)
+                .doFinally(signal -> stop())
                 .subscribe(
                         v -> { },
                         err -> log.warn("bot {} disconnected: {}", botUserId, err.toString()));
     }
 
     public void stop() {
+        if (stopped) return;
+        stopped = true;
+        communications.close();
+        followUp.dispose();
         Disposable s = subscription;
         if (s != null) {
             s.dispose();
         }
     }
 
-    private Mono<Void> handle(WebSocketSession session) {
+    Mono<Void> handle(WebSocketSession session) {
         Sinks.Many<String> outbound = Sinks.many().unicast().onBackpressureBuffer();
         emit(outbound, "HELLO", Map.of("lastSeq", 0));
         emit(outbound, "READY_SET", Map.of("ready", true));
@@ -88,67 +106,62 @@ public final class BotRuntime {
         Mono<Void> inbound = session.receive()
                 .map(WebSocketMessage::getPayloadAsText)
                 .concatMap(text -> onFrame(text, outbound))
-                .then();
+                .then()
+                .doFinally(signal -> {
+                    synchronized (outbound) { outbound.tryEmitComplete(); }
+                });
         Mono<Void> outboundDone = session.send(outbound.asFlux().map(session::textMessage));
-        return Mono.when(inbound, outboundDone);
+        return Mono.when(inbound, outboundDone).doFinally(signal -> stop());
     }
 
     @SuppressWarnings("unchecked")
-    private Mono<Void> onFrame(String text, Sinks.Many<String> outbound) {
+    Mono<Void> onFrame(String text, Sinks.Many<String> outbound) {
         return Mono.fromCallable(() -> mapper.readValue(text, MAP_TYPE))
                 .flatMap(envelope -> {
                     String type = String.valueOf(envelope.get("type"));
                     Map<String, Object> payload = (Map<String, Object>) envelope.getOrDefault("payload", Map.of());
 
                     if ("ERROR".equals(type) && actionPending) {
-                        // the model (or its fallback) proposed something the
-                        // server rejected — try the fallback once so the game
-                        // never stalls on this bot's turn.
+                        // Retry a rejected local decision once, then wait for fresh state.
                         actionPending = false;
-                        adapter.fallbackAction(botUserId).ifPresent(a -> sendAction(outbound, a));
+                        synchronized (adapter) { adapter.fallbackAction(botUserId).ifPresent(a -> sendAction(outbound, a)); }
                         return Mono.empty();
                     }
 
-                    Mono<Void> reaction = reactTo(type, payload, outbound);
-
-                    Optional<GameBotAdapter.BotPrompt> prompt = adapter.onFrame(type, payload, botUserId, difficulty);
-                    if (prompt.isEmpty()) {
-                        return reaction;
+                    if ("SNAPSHOT".equals(type) || "PHASE".equals(type)) actionPending = false;
+                    // Update event context immediately; only language generation is queued.
+                    reactTo(type, payload, outbound);
+                    tellNames(type, payload);
+                    Optional<GameBotAdapter.BotPrompt> prompt;
+                    synchronized (adapter) {
+                        prompt = adapter.onFrame(type, payload, botUserId, difficulty);
                     }
+                    if (prompt.isEmpty()) return Mono.empty();
                     GameBotAdapter.BotPrompt p = prompt.get();
                     if (p.speak()) {
-                        return describeAloud(p, outbound).then(reaction);
+                        if (adapter.usesModelForSpeech()) communications.offer(() -> describeAloud(p, outbound));
+                        else return describeAloud(p, outbound); // Curated clues need no network call.
+                        return Mono.empty();
                     }
                     actionPending = true;
-                    if (adapter.decidesLocally()) {
-                        return Mono.fromCallable(() -> adapter.decideLocally(botUserId, difficulty)
-                                        .or(() -> adapter.fallbackAction(botUserId))
-                                        .orElse(null))
-                                .subscribeOn(Schedulers.boundedElastic())
-                                .flatMap(action -> {
-                                    sendAction(outbound, action);
-                                    return maybeSay(outbound, describeOwnMove(action));
-                                })
-                                .switchIfEmpty(Mono.fromRunnable(() -> actionPending = false))
-                                .then(reaction);
-                    }
-                    return picker.pickMove(p.systemPrompt(), p.userPrompt(), difficulty)
-                            .flatMap(raw -> {
-                                PlayerAction action = adapter.parseAction(raw, botUserId)
-                                        .or(() -> adapter.fallbackAction(botUserId))
-                                        .orElse(null);
-                                if (action == null) {
-                                    actionPending = false;
-                                    return Mono.empty();
+                    return Mono.fromCallable(() -> {
+                                synchronized (adapter) {
+                                    return adapter.decideLocally(botUserId, difficulty)
+                                            .or(() -> adapter.fallbackAction(botUserId));
                                 }
-                                // A real opponent doesn't move the instant it's their turn —
-                                // pause as if "thinking" before committing, so the bot feels
-                                // present rather than mechanical. Purely cosmetic: the move
-                                // itself was already decided above.
-                                return Mono.delay(thinkingDelay(difficulty))
-                                        .doOnNext(t -> sendAction(outbound, action))
-                                        .then(maybeSay(outbound, describeOwnMove(action)));
-                            });
+                            })
+                            .subscribeOn(Schedulers.boundedElastic())
+                            .delayElement(adapter.actionDelay())
+                            .doOnNext(action -> {
+                                actionPending = false;
+                                if (stopped) return;
+                                action.ifPresent(move -> {
+                                    sendAction(outbound, move);
+                                    actionPending = true;
+                                    String situation = describeOwnMove(move);
+                                    communications.offer(() -> maybeSay(outbound, situation));
+                                });
+                            }).then();
                 })
                 .onErrorResume(e -> {
                     log.warn("bot {} could not process a frame: {}", botUserId, e.toString());
@@ -156,11 +169,6 @@ public final class BotRuntime {
                 });
     }
 
-    /**
-     * Table talk about something that just happened. Fire-and-forget by
-     * design: a failed or unusable line means the agent simply says nothing,
-     * which must never delay or block its actual move.
-     */
     /** How long the table gets with a clue before the agent moves on. */
     private static final Duration CLUE_DWELL = Duration.ofSeconds(11);
 
@@ -173,27 +181,40 @@ public final class BotRuntime {
      * of the turn, which is exactly how its turns used to pass in silence.
      */
     private Mono<Void> describeAloud(GameBotAdapter.BotPrompt p, Sinks.Many<String> outbound) {
-        return picker.pickMove(p.systemPrompt(), p.userPrompt(), difficulty)
+        synchronized (adapter) {
+            if (stopped || !adapter.speechIsCurrent(p)) return Mono.empty();
+        }
+        Mono<String> words = adapter.usesModelForSpeech()
+                ? picker.pickMove(p.systemPrompt(), p.userPrompt(), difficulty).timeout(Duration.ofSeconds(4))
+                : Mono.fromSupplier(() -> adapter.fallbackSpeech(p));
+        return words
                 .map(raw -> cleanClue(raw, p.forbidden()))
                 .onErrorReturn("")
                 .defaultIfEmpty("")
+                .delayElement(adapter.speechDelay())
                 .flatMap(line -> {
-                    if (line.isBlank()) line = cleanClue(adapter.fallbackSpeech(p), p.forbidden());
-                    if (adapter.speaksThroughActions()) {
-                        adapter.speechAction(p, line, botUserId).ifPresent(a -> sendAction(outbound, a));
-                        // Keep receiving typed guesses instead of blocking the
-                        // inbound queue; the next clue (or a skip) runs on its own timer.
-                        followUpLater(outbound, adapter.describingToken());
+                    synchronized (adapter) {
+                        if (stopped || !adapter.speechIsCurrent(p)) return Mono.empty();
+                        if (line.isBlank()) line = cleanClue(adapter.fallbackSpeech(p), p.forbidden());
+                        if (adapter.speaksThroughActions()) {
+                            adapter.speechAction(p, line, botUserId).ifPresent(a -> sendAction(outbound, a));
+                            // Keep receiving typed guesses instead of blocking the
+                            // inbound queue; the next clue (or a skip) runs on its own timer.
+                            followUpLater(outbound, adapter.describingToken());
+                            return Mono.empty();
+                        }
+                        if (!line.isBlank()) {
+                            log.debug("clue bot={} says '{}'", botUserId, line);
+                            if (!stopped) emit(outbound, "CHAT_SEND", Map.of("channel", "agent", "text", line));
+                        }
+                        followUp.update(Mono.delay(CLUE_DWELL).subscribe(x -> {
+                            synchronized (adapter) {
+                                if (!stopped && adapter.speechIsCurrent(p)) adapter.fallbackAction(botUserId)
+                                        .ifPresent(a -> sendAction(outbound, a));
+                            }
+                        }));
                         return Mono.empty();
                     }
-                    if (!line.isBlank()) {
-                        log.debug("clue bot={} says '{}'", botUserId, line);
-                        emit(outbound, "CHAT_SEND", Map.of("channel", "agent", "text", line));
-                    }
-                    return Mono.delay(CLUE_DWELL)
-                            .doOnNext(x -> adapter.fallbackAction(botUserId)
-                                    .ifPresent(a -> sendAction(outbound, a)))
-                            .then();
                 });
     }
 
@@ -207,12 +228,15 @@ public final class BotRuntime {
      */
     private void followUpLater(Sinks.Many<String> outbound, int token) {
         if (token < 0) return;
-        Mono.delay(FOLLOW_UP_AFTER)
-                .map(t -> adapter.followUp(botUserId, token))
-                .subscribe(next -> next.ifPresent(a -> {
+        followUp.update(Mono.delay(FOLLOW_UP_AFTER).subscribe(t -> {
+            synchronized (adapter) {
+                if (stopped) return;
+                adapter.followUp(botUserId, token).ifPresent(a -> {
                     sendAction(outbound, a);
                     if ("TEXT_CLUE".equals(a.type())) followUpLater(outbound, token);
-                }), e -> log.debug("bot {} follow-up failed: {}", botUserId, e.toString()));
+                });
+            }
+        }, e -> log.debug("bot {} follow-up failed: {}", botUserId, e.toString())));
     }
 
     /**
@@ -238,6 +262,15 @@ public final class BotRuntime {
         return line;
     }
 
+    /** Once the game is under way, hand the adapter everyone's name. */
+    private void tellNames(String type, Map<String, Object> payload) {
+        boolean started = "EVENT".equals(type) && "GAME_STARTED".equals(payload.get("type"))
+                || "SNAPSHOT".equals(type) && Boolean.FALSE.equals(payload.get("lobby"));
+        if (!started || namesAsked) return;
+        namesAsked = true;
+        names.get().subscribe(adapter::playerNames, e -> log.debug("bot {} has no names: {}", botUserId, e.toString()));
+    }
+
     private Mono<Void> maybeSay(Sinks.Many<String> outbound, String situation) {
         if (situation == null) {
             return Mono.empty();
@@ -251,13 +284,14 @@ public final class BotRuntime {
         }
         return picker.pickMove(banter.systemPrompt(botName, gameName, difficulty),
                         banter.userPrompt(situation), difficulty)
+                .timeout(Duration.ofSeconds(4))
                 .mapNotNull(banter::accept)
                 // A beat after the move, so it reads as a reaction rather
                 // than something said simultaneously with playing.
                 .delayElement(Duration.ofMillis(ThreadLocalRandom.current().nextInt(600, 1500)))
                 .doOnNext(line -> {
                     log.debug("banter bot={} says '{}'", botUserId, line);
-                    emit(outbound, "CHAT_SEND", Map.of("channel", "agent", "text", line));
+                    if (!stopped) emit(outbound, "CHAT_SEND", Map.of("channel", "agent", "text", line));
                 })
                 .onErrorResume(e -> {
                     log.debug("bot {} had nothing to say: {}", botUserId, e.toString());
@@ -268,9 +302,9 @@ public final class BotRuntime {
 
     /** Turns an inbound event into a one-line description worth reacting to, or null. */
     @SuppressWarnings("unchecked")
-    private Mono<Void> reactTo(String type, Map<String, Object> payload, Sinks.Many<String> outbound) {
+    private void reactTo(String type, Map<String, Object> payload, Sinks.Many<String> outbound) {
         if (!"EVENT".equals(type)) {
-            return Mono.empty();
+            return;
         }
         String eventType = String.valueOf(payload.get("type"));
         Map<String, Object> data = (Map<String, Object>) payload.getOrDefault("data", Map.of());
@@ -293,7 +327,7 @@ public final class BotRuntime {
             case "GAME_OVER" -> "the game just ended";
             default -> null;
         };
-        return maybeSay(outbound, situation);
+        if (situation != null) communications.offer(() -> maybeSay(outbound, situation));
     }
 
     /** What we just did, in plain words — never notation, which the model would parrot. */
@@ -311,21 +345,6 @@ public final class BotRuntime {
         };
     }
 
-    /** A believable-but-bounded "thinking" pause, longer for harder bots. */
-    private static Duration thinkingDelay(Difficulty difficulty) {
-        int minMs = switch (difficulty) {
-            case EASY -> 500;
-            case MEDIUM -> 900;
-            case HARD -> 1400;
-        };
-        int maxMs = switch (difficulty) {
-            case EASY -> 1100;
-            case MEDIUM -> 1800;
-            case HARD -> 2600;
-        };
-        return Duration.ofMillis(ThreadLocalRandom.current().nextInt(minMs, maxMs + 1));
-    }
-
     private void sendAction(Sinks.Many<String> outbound, PlayerAction action) {
         actionPending = false;
         if ("CHAT_SEND".equals(action.type())) {
@@ -339,7 +358,7 @@ public final class BotRuntime {
         try {
             String json = mapper.writeValueAsString(Map.of(
                     "v", 1, "type", type, "ts", System.currentTimeMillis(), "payload", payload));
-            outbound.tryEmitNext(json);
+            synchronized (outbound) { outbound.tryEmitNext(json); }
         } catch (Exception e) {
             log.warn("bot {} failed to encode a {} frame: {}", botUserId, type, e.toString());
         }

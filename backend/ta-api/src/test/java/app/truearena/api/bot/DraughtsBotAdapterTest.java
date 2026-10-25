@@ -19,6 +19,65 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class DraughtsBotAdapterTest {
 
+    @Test void optionalCaptureNeverCallsScanAndStandardModeUsesTheSelectedDifficulty() {
+        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        var adapter = new DraughtsBotAdapter((board, side, level, budget) -> {
+            calls.incrementAndGet();
+            assertThat(side).isEqualTo("A"); assertThat(level).isEqualTo(Difficulty.HARD);
+            return Optional.of(List.of(new app.truearena.game.draughts.ScanMoveCodec.Move(19, 24)));
+        });
+        Map<String, Object> view = new java.util.HashMap<>(Map.of("phase", "TurnA", "playerA", PLAYER_A,
+                "playerB", PLAYER_B, "board", startingBoard(), "mandatoryCapture", false));
+        adapter.onFrame("SNAPSHOT", view, PLAYER_A, Difficulty.HARD);
+        assertThat(adapter.decideLocally(PLAYER_A, Difficulty.HARD)).isPresent();
+        assertThat(calls).hasValue(0);
+        view.put("mandatoryCapture", true);
+        adapter.onFrame("SNAPSHOT", view, PLAYER_A, Difficulty.HARD);
+        assertThat(adapter.decideLocally(PLAYER_A, Difficulty.HARD).orElseThrow().data()).containsEntry("from", 19).containsEntry("to", 24);
+        adapter.fallbackAction(PLAYER_A);
+        assertThat(calls).hasValue(1);
+    }
+
+    @Test void scanCapturePlanContinuesAcrossSnapshotsWithoutStartingAnotherSearch() {
+        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        List<Object> board = new ArrayList<>(java.util.Collections.nCopies(50, null));
+        int from = app.truearena.game.draughts.Board.squareOf(2, 1);
+        int pivot = app.truearena.game.draughts.Board.squareOf(4, 3);
+        int to = app.truearena.game.draughts.Board.squareOf(6, 5);
+        int first = app.truearena.game.draughts.Board.squareOf(3, 2);
+        int second = app.truearena.game.draughts.Board.squareOf(5, 4);
+        board.set(from, "A_MAN"); board.set(first, "B_MAN"); board.set(second, "B_MAN");
+        var adapter = new DraughtsBotAdapter((position, side, level, budget) -> {
+            calls.incrementAndGet();
+            return Optional.of(List.of(new app.truearena.game.draughts.ScanMoveCodec.Move(from, pivot),
+                    new app.truearena.game.draughts.ScanMoveCodec.Move(pivot, to)));
+        });
+        Map<String, Object> view = new java.util.HashMap<>(Map.of("phase", "TurnA", "playerA", PLAYER_A,
+                "playerB", PLAYER_B, "board", board, "mandatoryCapture", true));
+        adapter.onFrame("SNAPSHOT", view, PLAYER_A, Difficulty.HARD);
+        assertThat(adapter.decideLocally(PLAYER_A, Difficulty.HARD).orElseThrow().data()).containsEntry("to", pivot);
+        board.set(from, null); board.set(first, null); board.set(pivot, "A_MAN");
+        view.put("activeSquare", pivot); view.put("capturedSquares", List.of(first));
+        adapter.onFrame("SNAPSHOT", view, PLAYER_A, Difficulty.HARD);
+        assertThat(adapter.decideLocally(PLAYER_A, Difficulty.HARD).orElseThrow().data()).containsEntry("from", pivot).containsEntry("to", to);
+        assertThat(calls).hasValue(1);
+    }
+
+    @Test void seizureRemovesThePieceAndTheBotContinuesItsTurn() {
+        List<Object> board = new ArrayList<>(java.util.Collections.nCopies(50, null));
+        board.set(15, "A_MAN"); board.set(30, "B_KING"); board.set(40, "B_MAN");
+        var adapter = new DraughtsBotAdapter();
+        adapter.onFrame("SNAPSHOT", Map.of("phase", "TurnA", "playerA", PLAYER_A, "playerB", PLAYER_B,
+                "board", board, "mandatoryCapture", false, "seizure", true, "seizable", List.of(30)), PLAYER_A, Difficulty.EASY);
+        var action = adapter.decideLocally(PLAYER_A, Difficulty.EASY).orElseThrow();
+        assertThat(action.type()).isEqualTo("SEIZE");
+        assertThat(action.data()).containsEntry("square", 30);
+        var prompt = adapter.onFrame("EVENT", eventEnvelope("PIECE_SEIZED",
+                Map.of("square", 30, "side", "B", "by", PLAYER_A)), PLAYER_A, Difficulty.EASY).orElseThrow();
+        assertThat(prompt.userPrompt()).contains("30:empty");
+        assertThat(adapter.decideLocally(PLAYER_A, Difficulty.EASY).orElseThrow().type()).isEqualTo("MOVE");
+    }
+
     private static final String PLAYER_A = "alice";
     private static final String PLAYER_B = "bot-1";
 

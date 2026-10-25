@@ -511,7 +511,7 @@ class _WhotLobbyScreenState extends State<WhotLobbyScreen> {
               style: NeonStyle.ghost,
               onPressed: () =>
                   showInvitePlayersSheet(context, roomId: room.id)),
-        if (_mode == 'classic' && count < 20) ...[
+        if (count < (_mode == 'tell' ? 8 : 20)) ...[
           const SizedBox(height: 8),
           NeonButton(_addingBot ? 'Adding Cyber Agent…' : 'Add Cyber Agent',
               style: NeonStyle.ghost, onPressed: _addingBot ? null : _addBot),

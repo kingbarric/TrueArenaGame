@@ -16,9 +16,9 @@ import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * The chess Cyber Agent. Unlike the other games' agents it never asks a
- * language model for a move — models play chess badly and slowly — but
- * searches with {@link ChessEngine} on the real rules engine.
+ * The chess Cyber Agent: Stockfish chooses moves when available, with the
+ * built-in {@link ChessEngine} as a bounded operational fallback. Every
+ * proposed move is checked against the server's legal moves.
  *
  * <p>It reads the server's own view of the game: chess pushes every player
  * a full snapshot after each move ({@code ChessModule.hasPrivatePlayerState}),
@@ -32,6 +32,14 @@ public final class ChessBotAdapter implements GameBotAdapter {
     private enum Pending { NONE, MOVE, ANSWER_DRAW }
 
     private final ChessEngine engine = new ChessEngine(new SecureRandom());
+    private final ChessMoveSource primary;
+    private List<String> uciHistory = List.of();
+    private Difficulty lastDifficulty = Difficulty.MEDIUM;
+
+    /** Standalone adapters/tests need no native binary; Spring's factory injects Stockfish. */
+    public ChessBotAdapter() { this((position, history, level, budget) -> Optional.empty()); }
+
+    public ChessBotAdapter(ChessMoveSource primary) { this.primary = primary; }
 
     private String white;
     private String black;
@@ -68,6 +76,8 @@ public final class ChessBotAdapter implements GameBotAdapter {
     public boolean decidesLocally() {
         return true;
     }
+
+    @Override public java.time.Duration actionDelay() { return java.time.Duration.ZERO; }
 
     @Override
     @SuppressWarnings("unchecked")
@@ -124,6 +134,8 @@ public final class ChessBotAdapter implements GameBotAdapter {
         if (p.get("moves") instanceof List<?> moves) {
             ply = moves.size();
         }
+        uciHistory = p.get("uciMoves") instanceof List<?> moves
+                ? moves.stream().map(String::valueOf).toList() : List.of();
         pendingDrawOffer = p.get("pendingDrawOffer") == null ? null : String.valueOf(p.get("pendingDrawOffer"));
         canClaimDraw = Boolean.TRUE.equals(p.get("canClaimThreefold")) || Boolean.TRUE.equals(p.get("canClaimFiftyMove"));
         whiteMs = longOr(p.get("whiteMs"), whiteMs);
@@ -135,6 +147,7 @@ public final class ChessBotAdapter implements GameBotAdapter {
 
     @Override
     public Optional<PlayerAction> decideLocally(String botUserId, Difficulty difficulty) {
+        lastDifficulty = difficulty;
         return switch (pending) {
             case ANSWER_DRAW -> {
                 answeredOfferOnPly = ply;
@@ -148,7 +161,11 @@ public final class ChessBotAdapter implements GameBotAdapter {
     }
 
     private Optional<PlayerAction> move(String botUserId, Difficulty difficulty, boolean paced) {
-        if (!myTurn(botUserId) || finished) {
+        return move(botUserId, difficulty, paced, true);
+    }
+
+    private Optional<PlayerAction> move(String botUserId, Difficulty difficulty, boolean paced, boolean usePrimary) {
+        if (!myTurn(botUserId) || finished || paused || Thread.currentThread().isInterrupted()) {
             return Optional.empty();
         }
         movedOnPly = ply;
@@ -156,16 +173,29 @@ public final class ChessBotAdapter implements GameBotAdapter {
             return Optional.of(PlayerAction.of(botUserId, "CLAIM_DRAW", Map.of()));
         }
         long clock = myClockMs(botUserId);
-        long budget = Math.min(thinkCapMs, Math.max(100, clock / 30 + incrementMs * 3 / 4));
-        long started = System.currentTimeMillis();
-        Optional<ChessEngine.Result> result = engine.choose(position, history, levelFor(difficulty), budget);
+        // Leave clock overhead for transport and a quick fallback if the external process fails.
+        long budget = Math.min(thinkCapMs, Math.max(1, clock / 30 + incrementMs * 3 / 4));
+        budget = Math.min(budget, Math.max(1, clock - Math.min(100, clock / 10)));
+        long started = System.nanoTime();
+        List<Move> legal = position.legalMoves();
+        if (legal.isEmpty()) return Optional.empty();
+        long reserve = Math.min(100, Math.max(5, budget / 5));
+        Optional<Move> result = usePrimary && budget > reserve + 20
+                ? primary.choose(position, uciHistory, difficulty, budget - reserve).filter(legal::contains)
+                : Optional.empty();
+        if (Thread.currentThread().isInterrupted()) return Optional.empty();
+        if (result.isEmpty()) {
+            long left = budget - java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started);
+            result = left < 50 ? Optional.of(legal.getFirst())
+                    : engine.choose(position, history, levelFor(difficulty), left).map(ChessEngine.Result::move);
+        }
         if (result.isEmpty()) {
             return Optional.empty();
         }
         if (paced) {
-            pace(difficulty, System.currentTimeMillis() - started, clock);
+            pace(difficulty, java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started), clock);
         }
-        Move m = result.get().move();
+        Move m = result.get();
         Map<String, Object> data = new HashMap<>();
         data.put("from", Square.name(m.from()));
         data.put("to", Square.name(m.to()));
@@ -237,7 +267,8 @@ public final class ChessBotAdapter implements GameBotAdapter {
             return Optional.empty();
         }
         movedOnPly = -1;
-        return move(botUserId, Difficulty.EASY, false);
+        // Do not call the same failed/rejected external engine again for this retry.
+        return move(botUserId, lastDifficulty, false, false);
     }
 
     private static String stringOr(Object v, String fallback) {

@@ -21,6 +21,7 @@ import 'package:truearena/features/huudspace/live_now_panel.dart';
 import 'package:truearena/features/huudspace/safety_sheet.dart';
 import 'package:truearena/features/huudspace/huud_swipe_screen.dart';
 import 'package:truearena/widgets/talking_row.dart';
+import 'package:truearena/widgets/cyber_agent_difficulty.dart';
 import 'package:truearena/widgets/mic_button.dart';
 import 'package:truearena/widgets/gift_splash.dart';
 import 'package:truearena/features/huudspace/huud_link.dart';
@@ -1081,6 +1082,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(calls.where((c) => c.contains('/bots {"name":"Cyber 1","difficulty":"medium"}')), hasLength(1));
     expect(find.textContaining('is playing'), findsNothing);
+
+    await tester.ensureVisible(find.byKey(const ValueKey('segment-hard')));
+    await tester.tap(find.byKey(const ValueKey('segment-hard')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const ValueKey('roster-add-agent')));
+    await tester.tap(find.byKey(const ValueKey('roster-add-agent')));
+    await tester.pumpAndSettle();
+    expect(calls.where((c) => c.contains('/bots {"name":"Cyber 1","difficulty":"hard"}')), hasLength(1));
   });
 
   testWidgets('present players precede away players even when away players are seated', (tester) async {
@@ -1163,7 +1172,7 @@ void main() {
     expect(find.byKey(const ValueKey('lobby-start')), findsNothing);
   });
 
-  testWidgets('The Tell in a Huud: its name on the card, pairs of people only, Start waits for 4, 6 or 8',
+  testWidgets('The Tell in a Huud: its name on the card, Cyber Agents can play, Start waits for 4, 6 or 8',
       (tester) async {
     await pump(
         tester,
@@ -1188,7 +1197,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('2 / 8 playing'), findsOneWidget);
     expect(find.byKey(const ValueKey('roster-tell-note')), findsOneWidget);
-    expect(find.byKey(const ValueKey('roster-add-agent')), findsNothing);
+    expect(find.byKey(const ValueKey('roster-add-agent')), findsOneWidget);
+    expect(find.byType(CyberAgentDifficulty), findsOneWidget);
 
     await pump(
         tester,
@@ -1216,12 +1226,13 @@ void main() {
     expect(find.byKey(const ValueKey('lobby-start')), findsNothing);
   });
 
-  test('The Tell starts only with 4, 6 or 8 people', () {
-    expect(tellStartProblem(4, 0), isNull);
-    expect(tellStartProblem(6, 0), isNull);
-    expect(tellStartProblem(8, 0), isNull);
-    expect(tellStartProblem(5, 0), isNotNull);
-    expect(tellStartProblem(4, 1), contains('Cyber Agents'));
+  test('The Tell starts with 4, 6 or 8 total seats including Cyber Agents', () {
+    expect(tellStartProblem(4), isNull);
+    expect(tellStartProblem(6), isNull);
+    expect(tellStartProblem(8), isNull);
+    expect(tellStartProblem(5), isNotNull);
+    expect(tellStartProblem(3), isNotNull);
+    expect(tellStartProblem(9), isNotNull);
   });
 
   testWidgets('a picked player is told to open the game', (tester) async {

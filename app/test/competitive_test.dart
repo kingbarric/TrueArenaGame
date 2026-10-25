@@ -482,14 +482,15 @@ void main() {
     await tester.pumpAndSettle();
 
     final switches = find.byType(Switch);
-    expect(switches, findsNWidgets(3)); // ranked, captures, seizure (offered while captures are optional)
-    expect(tester.widget<Switch>(switches.at(1)).value, isFalse); // casual default: optional captures
+    expect(switches, findsNWidgets(2)); // ranked
+    expect(tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Optional capture')).selected, isTrue);
 
     await tester.tap(switches.at(0));
     await tester.pumpAndSettle();
-    final captures = tester.widget<Switch>(switches.at(1));
-    expect(captures.value, isTrue);
-    expect(captures.onChanged, isNull); // can't be switched off while ranked
+    final international = tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'International'));
+    expect(international.selected, isTrue);
+    expect(international.onSelected, isNull);
+    expect(tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Optional capture')).onSelected, isNull);
 
     await tester.ensureVisible(find.text('Start ranked huud')); // the sheet scrolls on short screens
     await tester.pumpAndSettle();
@@ -512,6 +513,35 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Ranked'), findsNothing);
-    expect(find.byType(Switch), findsNWidgets(2)); // captures, seizure
+    expect(find.byType(Switch), findsOneWidget); // seizure
+    expect(find.byType(ChoiceChip), findsNWidgets(2));
+  });
+
+  testWidgets('Draughts hosts can choose International or Optional capture explicitly', (tester) async {
+    DraughtsMatchSetup? result;
+    await tester.pumpWidget(MaterialApp(
+      theme: NeonTheme.light,
+      home: Builder(builder: (context) => Scaffold(body: TextButton(
+        onPressed: () async => result = await showDraughtsRulesSheet(context),
+        child: const Text('open'),
+      ))),
+    ));
+    for (final international in [true, false]) {
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      if (international) {
+        await tester.tap(find.widgetWithText(ChoiceChip, 'International'));
+      } else {
+        await tester.tap(find.widgetWithText(ChoiceChip, 'International'));
+        await tester.pump();
+        await tester.tap(find.widgetWithText(ChoiceChip, 'Optional capture'));
+      }
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.widgetWithText(NeonButton, 'Start the huud'));
+      await tester.tap(find.widgetWithText(NeonButton, 'Start the huud'));
+      await tester.pumpAndSettle();
+      expect(result?.mandatoryCapture, international);
+      expect(result?.ranked, isFalse);
+    }
   });
 }

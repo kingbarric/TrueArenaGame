@@ -2083,7 +2083,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
       ];
     }
     final tellProblem = game.waiting && game.tell
-        ? tellStartProblem(game.players, game.table.where((p) => p.bot).length) : null;
+        ? tellStartProblem(game.players) : null;
     final main = game.youArePlaying ||
             (huud.youAreHost && game.waiting && game.gameType == 'monopoly')
         ? HuudButton(

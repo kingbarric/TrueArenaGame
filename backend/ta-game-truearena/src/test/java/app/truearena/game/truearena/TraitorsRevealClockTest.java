@@ -4,6 +4,7 @@ import app.truearena.engine.GameConfig;
 import app.truearena.engine.GameRunner;
 import app.truearena.engine.GameState;
 import app.truearena.engine.Phase;
+import app.truearena.engine.PlayerAction;
 import app.truearena.engine.RandomSource;
 import org.junit.jupiter.api.Test;
 
@@ -63,5 +64,25 @@ class TraitorsRevealClockTest {
         GameState next = new GameRunner(module).elapse(s, "RoleReveal").state();
 
         assertThat(next.phase()).isEqualTo("Night");
+    }
+
+    @Test
+    void theHostCanEndTheGameEarlyWithNoWinnerAndEveryRoleShown() {
+        GameConfig config = Presets.BLOOD_MOON.config();
+        GameRunner runner = new GameRunner(module);
+        GameState s = module.initialState(List.of("p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8"), config,
+                RandomSource.seeded(5));
+        s = runner.elapse(s, "RoleReveal").state();
+
+        GameRunner.Step ended = runner.apply(s, PlayerAction.of("p1", "END_GAME", Map.of()));
+
+        assertThat(ended.state().finished()).isTrue();
+        assertThat(ended.state().phase()).isEqualTo("Results");
+        assertThat(module.checkWinCondition(ended.state())).as("no winner, so no result or rewards").isEmpty();
+        assertThat(ended.events()).extracting(e -> e.type()).containsExactly("GAME_ENDED_BY_HOST", "FULL_REVEAL");
+        assertThat((Map<?, ?>) ended.events().get(1).payload().get("roles")).hasSize(8);
+        // Over is over: nothing moves it on again.
+        assertThat(runner.apply(ended.state(), PlayerAction.of("p1", "ADVANCE_PHASE", Map.of())).state().phase())
+                .isEqualTo("Results");
     }
 }

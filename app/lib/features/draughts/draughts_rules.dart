@@ -46,43 +46,44 @@ class Landing {
   final int to;
 }
 
-List<Landing> captureLandings(List<String?> board, int from) {
+List<Landing> captureLandings(List<String?> board, int from,
+    {Set<int> capturedSquares = const {}}) {
   final piece = DraughtsPiece.parse(board[from]);
   final out = <Landing>[];
   if (piece == null) return out;
   for (final (dRow, dCol) in directions) {
     if (piece.isKing) {
-      _addKingCaptureLandings(board, from, dRow, dCol, piece.side, out);
+      _addKingCaptureLandings(board, from, dRow, dCol, piece.side, capturedSquares, out);
     } else {
-      _addManCaptureLanding(board, from, dRow, dCol, piece.side, out);
+      _addManCaptureLanding(board, from, dRow, dCol, piece.side, capturedSquares, out);
     }
   }
   return out;
 }
 
-void _addManCaptureLanding(List<String?> board, int from, int dRow, int dCol, String side, List<Landing> out) {
+void _addManCaptureLanding(List<String?> board, int from, int dRow, int dCol, String side, Set<int> capturedSquares, List<Landing> out) {
   final adjacent = step(from, dRow, dCol);
-  if (adjacent < 0) return;
+  if (adjacent < 0 || capturedSquares.contains(adjacent)) return;
   final adjacentPiece = DraughtsPiece.parse(board[adjacent]);
   if (adjacentPiece == null || adjacentPiece.side == side) return;
   final landing = step(adjacent, dRow, dCol);
-  if (landing >= 0 && board[landing] == null) {
+  if (landing >= 0 && !capturedSquares.contains(landing) && board[landing] == null) {
     out.add(Landing(adjacent, landing));
   }
 }
 
-void _addKingCaptureLandings(List<String?> board, int from, int dRow, int dCol, String side, List<Landing> out) {
+void _addKingCaptureLandings(List<String?> board, int from, int dRow, int dCol, String side, Set<int> capturedSquares, List<Landing> out) {
   var cur = from;
   while (true) {
     cur = step(cur, dRow, dCol);
-    if (cur < 0 || board[cur] != null) break;
+    if (cur < 0 || capturedSquares.contains(cur) || board[cur] != null) break;
   }
-  if (cur < 0) return;
+  if (cur < 0 || capturedSquares.contains(cur)) return;
   final blocker = DraughtsPiece.parse(board[cur]);
   if (blocker == null || blocker.side == side) return;
   final captured = cur;
   var landing = step(captured, dRow, dCol);
-  while (landing >= 0 && board[landing] == null) {
+  while (landing >= 0 && !capturedSquares.contains(landing) && board[landing] == null) {
     out.add(Landing(captured, landing));
     landing = step(landing, dRow, dCol);
   }
@@ -135,11 +136,13 @@ List<String?> _applyCapture(List<String?> board, int from, Landing landing) {
   return copy;
 }
 
-int maxCaptureCount(List<String?> board, int from) {
+int maxCaptureCount(List<String?> board, int from,
+    {Set<int> capturedSquares = const {}}) {
   var best = 0;
-  for (final landing in captureLandings(board, from)) {
+  for (final landing in captureLandings(board, from, capturedSquares: capturedSquares)) {
     final after = _applyCapture(board, from, landing);
-    final total = 1 + maxCaptureCount(after, landing.to);
+    final total = 1 + maxCaptureCount(after, landing.to,
+        capturedSquares: {...capturedSquares, landing.captured});
     if (total > best) best = total;
   }
   return best;
@@ -159,10 +162,12 @@ int requiredCaptureCount(List<String?> board, String side) {
 
 /// Legal destinations for a tap on `from`, already filtered to the maximal
 /// capture sequences when a capture is mandatory this turn.
-List<int> legalDestinationsFrom(List<String?> board, int from, int requiredTotal) {
+List<int> legalDestinationsFrom(List<String?> board, int from, int requiredTotal,
+    {Set<int> capturedSquares = const {}}) {
   if (requiredTotal > 0) {
-    return captureLandings(board, from)
-        .where((l) => 1 + maxCaptureCount(_applyCapture(board, from, l), l.to) == requiredTotal)
+    return captureLandings(board, from, capturedSquares: capturedSquares)
+        .where((l) => 1 + maxCaptureCount(_applyCapture(board, from, l), l.to,
+            capturedSquares: {...capturedSquares, l.captured}) == requiredTotal)
         .map((l) => l.to)
         .toList();
   }

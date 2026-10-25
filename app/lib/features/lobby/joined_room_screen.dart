@@ -500,10 +500,9 @@ class _JoinedRoomScreenState extends State<JoinedRoomScreen> {
   Widget _bottomBar() {
     final n = context.neon;
     final isHost = _room.hostId == _selfId();
-    // The Tell can only start with pairs of people.
+    // The Tell starts with 4, 6 or 8 players, including Cyber Agents.
     final tellProblem = _huud?.currentGame?.tell == true
-        ? tellStartProblem(_room.members.where((m) => !m.isBot).length,
-            _room.members.where((m) => m.isBot).length)
+        ? tellStartProblem(_room.members.length)
         : null;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),

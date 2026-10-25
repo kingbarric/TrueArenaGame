@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../theme/neon_theme.dart';
 import 'huud_kit.dart';
 import '../../widgets/huud_art.dart';
+import '../../widgets/mode_art.dart';
 
 /// Whot's two ways to play, as the wire names them.
 const whotModes = ['classic', 'tell'];
@@ -10,11 +11,9 @@ const whotModes = ['classic', 'tell'];
 /// "Whot", or "Whot · The Tell" — what a Huud calls its Whot game.
 String whotModeName(String? mode) => mode == 'tell' ? 'Whot · The Tell' : 'Whot';
 
-/// The Tell plays in pairs, so it starts only with 4, 6 or 8 people — no
-/// Cyber Agents, since partners agree a secret signal. Null when it can start.
-String? tellStartProblem(int people, int agents) {
-  if (agents > 0) return 'The Tell is people only — take out the Cyber Agents';
-  if (![4, 6, 8].contains(people)) return 'The Tell needs 4, 6 or 8 players — teams of two';
+/// The Tell starts with 4, 6 or 8 players, including Cyber Agents.
+String? tellStartProblem(int players) {
+  if (![4, 6, 8].contains(players)) return 'The Tell needs 4, 6 or 8 players — teams of two';
   return null;
 }
 
@@ -58,7 +57,7 @@ Future<String?> askWhotMode(BuildContext context) => showHuudSheet<String>(
                   'Play normal Whot. When every card left in your hand matches — same shape or same number, 3 or more — flash your signal.',
                   'Your partner taps it to buzz and your team wins. Opponents can tap it first to steal the win.',
                   'Send decoys to bluff — but a wrong buzz knocks your team out.',
-                  '4, 6 or 8 players · people only. With 6 or 8, the first two teams through play a fresh final.',
+                  '4, 6 or 8 players · Cyber Agents can play. With 6 or 8, the first two teams through play a fresh final.',
                 ],
               ),
             ]),
@@ -78,6 +77,7 @@ class HuudModeCard extends StatelessWidget {
     required this.tagline,
     required this.points,
     this.keyPrefix = 'whot-mode',
+    this.art,
   });
 
   final String mode;
@@ -87,13 +87,14 @@ class HuudModeCard extends StatelessWidget {
   final List<String> points;
   final String keyPrefix;
 
+  /// The mode's own picture, faded behind the card's words.
+  final String? art;
+
   @override
   Widget build(BuildContext context) {
     final n = context.neon;
     final h = HuudColors.of(context);
-    return HuudCard(
-      padding: const EdgeInsets.all(16),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+    final body = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
           HuudText(emoji, style: const TextStyle(fontSize: 30)),
           const SizedBox(width: 10),
@@ -121,7 +122,16 @@ class HuudModeCard extends StatelessWidget {
           expand: true,
           onPressed: () => Navigator.of(context).pop(mode),
         ),
-      ]),
+      ]);
+    if (art == null) return HuudCard(padding: const EdgeInsets.all(16), child: body);
+    // The picture fills the card right up to its border.
+    return HuudCard(
+      padding: EdgeInsets.zero,
+      child: ModeArtBackdrop(
+        asset: art,
+        borderRadius: BorderRadius.circular(22.6),
+        child: Padding(padding: const EdgeInsets.all(16), child: body),
+      ),
     );
   }
 }

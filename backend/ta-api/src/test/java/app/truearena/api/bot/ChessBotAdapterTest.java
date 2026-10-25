@@ -157,4 +157,40 @@ class ChessBotAdapterTest {
         assertThat(adapter).isInstanceOf(ChessBotAdapter.class);
         assertThat(adapter.decidesLocally()).isTrue();
     }
+
+    @Test
+    void prefersPrimaryEngineAndDoesNotRetryItForRejectedActions() {
+        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        ChessBotAdapter bot = new ChessBotAdapter((position, history, level, budget) -> {
+            calls.incrementAndGet();
+            assertThat(level).isEqualTo(Difficulty.HARD);
+            assertThat(budget).isPositive().isLessThan(150L);
+            return position.legalMoves().stream().filter(move -> move.uci().equals("e2e4")).findFirst();
+        });
+        bot.pacing = false;
+        bot.thinkCapMs = 150;
+        GameState state = startWithBotAs(true);
+        assertThat(bot.onFrame("SNAPSHOT", snapshot(state), BOT, Difficulty.HARD)).isPresent();
+        PlayerAction action = bot.decideLocally(BOT, Difficulty.HARD).orElseThrow();
+        assertThat(action.data()).containsEntry("from", "e2").containsEntry("to", "e4");
+        module.onPlayerAction(state, action);
+        module.onPlayerAction(state, bot.fallbackAction(BOT).orElseThrow());
+        assertThat(calls).hasValue(1);
+    }
+
+    @Test
+    void unavailableOrIllegalPrimaryMoveStillProducesServerApprovedMove() {
+        for (boolean illegal : List.of(false, true)) {
+            ChessBotAdapter bot = new ChessBotAdapter((position, history, level, budget) -> illegal
+                    ? java.util.Optional.of(new app.truearena.game.chess.Move(
+                            app.truearena.game.chess.Square.parse("e2"), app.truearena.game.chess.Square.parse("e5"), null,
+                            app.truearena.game.chess.Move.Flag.NORMAL))
+                    : java.util.Optional.empty());
+            bot.pacing = false;
+            bot.thinkCapMs = 150;
+            GameState state = startWithBotAs(true);
+            bot.onFrame("SNAPSHOT", snapshot(state), BOT, Difficulty.HARD);
+            module.onPlayerAction(state, bot.decideLocally(BOT, Difficulty.HARD).orElseThrow());
+        }
+    }
 }

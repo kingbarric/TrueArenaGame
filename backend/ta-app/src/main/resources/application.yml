@@ -109,9 +109,27 @@ truearena:
       access-key: ${R2_ACCESS_KEY_ID:}
       secret-key: ${R2_SECRET_ACCESS_KEY:}
 
-# Cyber Agent brains. Both read from the environment only — never paste a
+bots:
+  draughts:
+    scan:
+      enabled: ${SCAN_ENABLED:true}
+      path: ${SCAN_PATH:scan}
+      directory: ${SCAN_DIRECTORY:.}
+      processes: ${SCAN_PROCESSES:2}
+      tt-size: ${SCAN_TT_SIZE:20}
+      max-think-ms: ${SCAN_MAX_THINK_MS:1200}
+  chess:
+    stockfish:
+      enabled: ${STOCKFISH_ENABLED:true}
+      path: ${STOCKFISH_PATH:stockfish}
+      processes: ${STOCKFISH_PROCESSES:2}
+      hash-mb: ${STOCKFISH_HASH_MB:16}
+      max-think-ms: ${STOCKFISH_MAX_THINK_MS:1500}
+      restart-backoff-ms: 1000
+
+# Optional Cyber Agent communication. Both read from the environment only — never paste a
 # key here. Gemini wins when both are present (see BotLlmConfig); with
-# neither set, agents fall back to random legal moves and still play.
+# neither set, agents use template/curated communication. Gameplay is always local.
 gemini:
   api:
     key: ${GEMINI_API_KEY:}

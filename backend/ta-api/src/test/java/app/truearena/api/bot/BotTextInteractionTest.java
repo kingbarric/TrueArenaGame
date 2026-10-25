@@ -99,12 +99,27 @@ class BotTextInteractionTest {
         assertThat(missed).isLessThan(100);
     }
 
-    @Test void traitorsRespondToHumanDiscussionAndUseItForTheirVoteWithoutBotReplyLoops() {
-        var bot = new TrueArenaBotAdapter();
+    /** An agent at the round table with Ada (a person), and agents Nova (itself) and Rex. */
+    private TrueArenaBotAdapter agentAtTable(java.util.Random random) {
+        var bot = new TrueArenaBotAdapter(random);
+        bot.onFrame("SNAPSHOT", Map.of("lobby", true, "members", List.of(
+                Map.of("userId", "human", "nickname", "Ada"), Map.of("userId", "bot", "nickname", "Nova"),
+                Map.of("userId", "other", "nickname", "Rex"))), "bot", Difficulty.MEDIUM);
         bot.onFrame("SNAPSHOT", Map.of("phase", "RoundTable", "yourRole", "faithful",
                 "alive", List.of("human", "bot", "other"), "botPlayerIds", List.of("bot", "other")), "bot", Difficulty.MEDIUM);
+        return bot;
+    }
+
+    private static java.util.Random always(double roll) {
+        return new java.util.Random(3) {
+            @Override public double nextDouble() { return roll; }
+        };
+    }
+
+    @Test void traitorsRespondToHumanDiscussionAndUseItForTheirVoteWithoutBotReplyLoops() {
+        var bot = agentAtTable(always(0.99));
         var prompt = bot.onFrame("EVENT", event("CHAT_MESSAGE", Map.of("from", "human", "channel", "table",
-                "text", "other keeps changing their story")), "bot", Difficulty.MEDIUM).orElseThrow();
+                "text", "Nova, Rex keeps changing their story")), "bot", Difficulty.MEDIUM).orElseThrow();
         assertThat(prompt.speak()).isTrue();
         assertThat(bot.speechAction(prompt, "What changed in their story?", "bot").orElseThrow().data())
                 .containsEntry("channel", "table");
@@ -112,7 +127,17 @@ class BotTextInteractionTest {
                 "text", "Another bot reply")), "bot", Difficulty.MEDIUM)).isEmpty();
         bot.onFrame("PHASE", Map.of("phase", "Vote"), "bot", Difficulty.MEDIUM);
         var vote = bot.onFrame("EVENT", event("VOTE_OPEN", Map.of()), "bot", Difficulty.MEDIUM).orElseThrow();
-        assertThat(vote.userPrompt()).contains("other keeps changing their story");
+        assertThat(vote.userPrompt()).contains("Rex keeps changing their story");
+    }
+
+    @Test void agentsTalkingToEachOtherStopAfterThreeRepliesAPhase() {
+        var bot = agentAtTable(always(0.0));
+        int replies = 0;
+        for (int i = 0; i < 10; i++) {
+            if (bot.onFrame("EVENT", event("CHAT_MESSAGE", Map.of("from", "other", "channel", "table",
+                    "text", "Bot line " + i)), "bot", Difficulty.MEDIUM).isPresent()) replies++;
+        }
+        assertThat(replies).isEqualTo(3);
     }
 
     @Test void faithfulBotsNeverSpeakOnThePrivateTraitorsChannel() {
