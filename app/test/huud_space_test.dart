@@ -275,6 +275,174 @@ void main() {
     expect(find.byKey(const ValueKey('huud-go-live-h1')), findsNothing);
   });
 
+  testWidgets('your Huuds are listed with a count, and New Huud stops at five', (tester) async {
+    await pump(
+        tester,
+        const HuudHomeScreen(),
+        (r) async => _json([
+              mine('h1', 'Family', live: true, here: 2),
+              mine('h2', 'Friends'),
+              mine('h9', "Ada's Huud", owns: false),
+            ]),
+        settle: false);
+    expect(find.text('2/5'), findsOneWidget);
+    expect(find.byKey(const ValueKey('your-huud-h1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('own-huud-h2')), findsOneWidget);
+    expect(find.byKey(const ValueKey('huud-go-live-h2')), findsOneWidget);
+    expect(find.byKey(const ValueKey('huud-new')), findsOneWidget);
+    expect(find.byKey(const ValueKey('member-huud-h9')), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+    await pump(tester, const HuudHomeScreen(),
+        (r) async => _json([for (var i = 1; i <= 5; i++) mine('h$i', 'Huud $i', live: i == 1)]),
+        settle: false);
+    expect(find.text('5/5'), findsOneWidget);
+    expect(find.byKey(const ValueKey('huud-new')), findsNothing);
+    expect(find.byKey(const ValueKey('huud-limit')), findsOneWidget);
+  });
+
+  testWidgets('Go Live on a second Huud asks to end the Live one first', (tester) async {
+    final calls = await pump(tester, const HuudHomeScreen(), (r) async {
+      if (r.url.path == '/api/v1/huud-spaces/h2/live') return _json({..._huud(), 'id': 'h2'});
+      if (r.url.path == '/api/v1/huud-spaces/mine') {
+        return _json([mine('h1', 'Family', live: true, here: 2), mine('h2', 'Friends')]);
+      }
+      return _json(_huud());
+    }, settle: false);
+    await tester.tap(find.byKey(const ValueKey('huud-go-live-h2')));
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 200));
+    }
+    expect(find.text('One Live at a time'), findsOneWidget);
+    await tester.tap(find.text('End it and go Live here'));
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 200));
+    }
+    expect(find.text('Who should we tell?'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('golive-online')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('golive-confirm')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(calls, contains('POST /api/v1/huud-spaces/h2/live {"notify":"online","switchLive":true}'));
+  });
+
+  testWidgets('making another Huud needs its own name, and asks before ending the Live one', (tester) async {
+    final calls = await pump(
+        tester,
+        Scaffold(body: CreateHuudSheet(another: true, otherLive: MyHuud.fromJson(mine('h1', 'Family', live: true)))),
+        (r) async => _json(_huud()));
+    expect(find.text('Make another Huud'), findsOneWidget);
+    expect(tester.widget<TextField>(find.byKey(const ValueKey('huud-name'))).controller!.text, isEmpty);
+
+    await tester.ensureVisible(find.byKey(const ValueKey('huud-create')));
+    await tester.tap(find.byKey(const ValueKey('huud-create')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('huud-create-notice')), findsOneWidget);
+    expect(calls.where((c) => c.startsWith('POST')), isEmpty);
+
+    await tester.ensureVisible(find.byKey(const ValueKey('huud-name-pick-Friends')));
+    await tester.tap(find.byKey(const ValueKey('huud-name-pick-Friends')));
+    await tester.pump();
+    await tester.ensureVisible(find.byKey(const ValueKey('huud-create')));
+    await tester.tap(find.byKey(const ValueKey('huud-create')));
+    await tester.pumpAndSettle();
+    expect(find.text('One Live at a time'), findsOneWidget);
+    await tester.tap(find.text('End it and make this one Live'));
+    await tester.pumpAndSettle();
+    final sent = calls.singleWhere((c) => c.startsWith('POST /api/v1/huud-spaces '));
+    final body = jsonDecode(sent.substring(sent.indexOf(' {') + 1)) as Map;
+    expect(body, containsPair('name', 'Friends'));
+    expect(body, containsPair('another', true));
+    expect(body, containsPair('switchLive', true));
+  });
+
+  testWidgets('a refused new Huud says why in plain words, not "try again"', (tester) async {
+    await pump(
+        tester,
+        Scaffold(body: CreateHuudSheet(another: true, otherLive: MyHuud.fromJson(mine('h1', 'Family', live: true)))),
+        (r) async => http.Response(
+            '{"status":409,"code":"FINISH_GAME_FIRST","message":"Error has occurred, try again later."}', 409));
+    await tester.ensureVisible(find.byKey(const ValueKey('huud-name-pick-Friends')));
+    await tester.tap(find.byKey(const ValueKey('huud-name-pick-Friends')));
+    await tester.pump();
+    await tester.ensureVisible(find.byKey(const ValueKey('huud-create')));
+    await tester.tap(find.byKey(const ValueKey('huud-create')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('End it and make this one Live'));
+    await tester.pumpAndSettle();
+    expect(find.text("You're in a game in your other Huud — finish it first, then come over."), findsOneWidget);
+    expect(find.textContaining('another go'), findsNothing);
+  });
+
+  testWidgets("a Live Huud you belong to while you're in another: Come in here brings you over", (tester) async {
+    var moved = false;
+    final calls = await pump(tester, const HuudSpaceScreen(id: 'h1'), (r) async {
+      if (r.url.path == '/api/v1/huud-spaces/h1/join') {
+        moved = true;
+        return _json(_huud(host: false));
+      }
+      return _json({
+        ..._huud(host: false),
+        if (!moved) 'elsewhere': {'id': 'h7', 'name': 'Family', 'playing': false},
+      });
+    }, settle: false, gameFirst: false);
+    expect(find.text("You're in Family right now"), findsOneWidget);
+    expect(find.byKey(const ValueKey('huud-talk')), findsNothing, reason: 'your voice stays where you are');
+    await tester.tap(find.byKey(const ValueKey('huud-come-in')));
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 200));
+    }
+    expect(calls.where((c) => c.startsWith('POST /api/v1/huud-spaces/h1/join')), hasLength(1));
+    expect(find.byKey(const ValueKey('huud-elsewhere')), findsNothing);
+    expect(find.byKey(const ValueKey('huud-talk')), findsOneWidget);
+  });
+
+  testWidgets("in a game in another Huud: finish it first, there's no way over yet", (tester) async {
+    await pump(
+        tester,
+        const HuudSpaceScreen(id: 'h1'),
+        (r) async => _json({
+              ..._huud(host: false),
+              'elsewhere': {'id': 'h7', 'name': 'Family', 'playing': true},
+            }),
+        settle: false,
+        gameFirst: false);
+    expect(find.text("You're in a game in Family"), findsOneWidget);
+    expect(find.byKey(const ValueKey('huud-come-in')), findsNothing);
+  });
+
+  testWidgets('a game from the Games tab with several Huuds asks which one', (tester) async {
+    final calls = await pump(
+        tester,
+        Scaffold(
+            body: Builder(
+                builder: (context) => TextButton(
+                    key: const ValueKey('play-ludo'),
+                    onPressed: () => openHuudForGame(context, 'ludo'),
+                    child: const Text('Ludo')))), (r) async {
+      if (r.url.path == '/api/v1/huud-spaces/mine') {
+        return _json([mine('h1', 'Family', live: true, here: 2), mine('h2', 'Friends')]);
+      }
+      if (r.url.path == '/api/v1/huud-spaces/h1') return _json({..._huud(), 'id': 'h1'});
+      return _json(_huud());
+    });
+    await tester.tap(find.byKey(const ValueKey('play-ludo')));
+    // The Live dot pulses for ever, so there's no "settled".
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 200));
+    }
+    expect(find.text('Play Ludo in…'), findsOneWidget);
+    expect(find.byKey(const ValueKey('game-huud-h1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('game-huud-h2')), findsOneWidget);
+    expect(find.byKey(const ValueKey('game-huud-new')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('game-huud-h1')));
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 200));
+    }
+    expect(calls, contains('POST /api/v1/huud-spaces/h1/game {"gameType":"ludo"}'));
+  });
+
   testWidgets('typing a code joins that Huud', (tester) async {
     final calls = await pump(tester, const HuudHomeScreen(), (r) async {
       if (r.url.path == '/api/v1/huud-spaces/mine') return _json([]);

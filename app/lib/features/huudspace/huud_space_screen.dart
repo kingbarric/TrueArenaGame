@@ -450,7 +450,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     try {
       return await call(AppScope.of(context).api);
     } on ApiException catch (e) {
-      if (mounted) huudSnack(context, e.message);
+      if (mounted) huudSnack(context, huudRefusal(e));
     } catch (_) {
       if (mounted) huudSnack(context, userErrorMessage);
     } finally {
@@ -482,6 +482,17 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
               ? 'You joined! Say hi 👋'
               : "Asked the host — you'll get in when they say yes ⏳");
       if (huud.youAreIn) _loadChat();
+    }
+  }
+
+  /// From another Huud's hangout into this one — the server takes you out of that one.
+  Future<void> _comeOver() async {
+    final from = _huud?.elsewhere?.name;
+    final raw = await _run('join', (api) => api.post('/huud-spaces/${widget.id}/join'));
+    if (raw is Map && mounted) {
+      setState(() => _huud = HuudSpace.fromJson(raw.cast<String, dynamic>()));
+      huudSnack(context, from == null ? "You're in 👋" : "You're in 👋 You've left $from.");
+      _loadChat();
     }
   }
 
@@ -744,12 +755,14 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
       HangoutState.instance.roomName?.startsWith(huud.voiceRoom) ?? false;
 
   /// In a Live Huud you're always connected — muted until you tap the mic.
+  /// Not when you're in another Huud's hangout: looking in here leaves your
+  /// voice where you are.
   void _syncVoice(HuudSpace huud) {
     final voice = HuudVoice.instance;
     final room = _voiceRoom(huud);
     if (ModalRoute.of(context)?.isCurrent ?? true)
       HangoutState.instance.foreground = room;
-    final belong = huud.active && huud.live && huud.youAreIn;
+    final belong = huud.active && huud.live && huud.youAreIn && huud.elsewhere == null;
     if (belong && !voice.isIn(room) && !voice.isConnecting(room)) {
       final api = AppScope.of(context).api;
       void open() => _backToHuud(huud.id);
@@ -1209,6 +1222,8 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                               ? _people(n, huud)
                               : _chatSlivers(n, huud)),
                         ] else ...[
+                          if (huud.elsewhere != null)
+                            _box(_elsewhere(n, huud), top: 16),
                           if (huud.youAreHost && huud.requests.isNotEmpty)
                             _box(_asking(n, huud), top: 16),
                           SliverPadding(
@@ -1543,7 +1558,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
                 ),
               ),
             ),
-          if (huud.active && huud.live && huud.youAreIn) ...[
+          if (huud.active && huud.live && huud.youAreIn && huud.elsewhere == null) ...[
             MicStateButton(
               key: const ValueKey('huud-talk'),
               state: _micState(huud),
@@ -1575,6 +1590,36 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
           ],
         ],
       );
+
+  /// Yours and Live, but you're in another Huud's hangout — one at a time.
+  /// Come over (leaving that one), or finish the game you're in there first.
+  Widget _elsewhere(NeonColors n, HuudSpace huud) {
+    final away = huud.elsewhere!;
+    return HuudCard(
+      key: const ValueKey('huud-elsewhere'),
+      highlight: true,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text(away.playing ? "You're in a game in ${away.name}" : "You're in ${away.name} right now",
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: n.ink)),
+        const SizedBox(height: 4),
+        Text(
+            away.playing
+                ? 'Finish it there first, then come over.'
+                : "You can be in one Huud at a time. Come in here and you'll leave ${away.name}.",
+            style: TextStyle(fontSize: 14, height: 1.35, color: n.mid)),
+        if (!away.playing) ...[
+          const SizedBox(height: 12),
+          HuudButton(
+              key: const ValueKey('huud-come-in'),
+              label: 'Come in here',
+              icon: Icons.login_rounded,
+              expand: true,
+              busy: _busy == 'join',
+              onPressed: _comeOver),
+        ],
+      ]),
+    );
+  }
 
   /// Outside the Huud: walk in, ask to come in, or wait for the answer.
   Widget _door(NeonColors n, HuudSpace huud) {
