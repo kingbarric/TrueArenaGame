@@ -31,12 +31,22 @@ Future<HuudSpace?> goLive(BuildContext context, String huudId) async {
     if (context.mounted) huudSnack(context, "You're Live! 🔴");
     return HuudSpace.fromJson((raw as Map).cast<String, dynamic>());
   } on ApiException catch (e) {
-    if (context.mounted) huudSnack(context, e.message);
+    if (context.mounted) huudSnack(context, huudRefusal(e));
   } catch (_) {
     if (context.mounted) huudSnack(context, userErrorMessage);
   }
   return null;
 }
+
+/// What to say when a Huud request is turned down. The server keeps its
+/// reasons to itself and sends a code; the rules about having several Huuds
+/// are said here in the app's own words, anything else is "try again".
+String huudRefusal(ApiException e) => switch (e.diagnosticMessage) {
+      'FINISH_GAME_FIRST' => "You're in a game in your other Huud — finish it first, then come over.",
+      'ONE_LIVE_HUUD' => 'Another of your Huuds is Live — only one can be Live at a time. End it first.',
+      'HUUD_LIMIT' => "You have $kMaxHuuds Huuds — that's the most. Delete one in its settings to make another.",
+      _ => e.message,
+    };
 
 /// Your Huuds, from the server's list: yours only, the Live one first.
 Future<List<MyHuud>> ownHuuds(ApiClient api) async {

@@ -366,6 +366,24 @@ class HuudSpaceIT {
         assertThat(amasNow.host().userId()).isEqualTo(esi);
     }
 
+    /** {@code huud}'s current game, marked in_game with {@code player} in it — and, when {@code running}, really being played. */
+    private UUID gameUnderWay(UUID host, UUID huud, UUID player, boolean running) {
+        UUID room = huuds.addGame(host, huud, "whot").block().id();
+        db.sql("UPDATE rooms SET status='in_game' WHERE id=:id").bind("id", room).fetch().rowsUpdated().block();
+        db.sql("INSERT INTO room_members(room_id,user_id) VALUES(:room,:user) ON CONFLICT DO NOTHING")
+                .bind("room", room).bind("user", player).fetch().rowsUpdated().block();
+        if (running) {
+            runtimes.computeIfAbsent(room, id -> new app.truearena.room.RoomRuntime(id, host.toString()))
+                    .start(new app.truearena.game.whot.WhotModule(), new app.truearena.engine.GameState() {
+                        @Override public String phase() { return "Play"; }
+                        @Override public int round() { return 1; }
+                        @Override public boolean finished() { return false; }
+                        @Override public List<app.truearena.engine.GameEvent> events() { return List.of(); }
+                    }, null);
+        }
+        return room;
+    }
+
     @Test void nobodyIsPulledOutOfAGameTheyAreIn() {
         UUID ama = person("Game host"), kofi = person("Other host"), esi = person("Player");
         var amas = huuds.create(ama, "Game table", "public").block();
@@ -373,12 +391,7 @@ class HuudSpaceIT {
         huuds.join(esi, amas.id()).block();
         huuds.join(esi, kofis.id()).block();
         huuds.join(esi, amas.id()).block();
-        UUID room = db.sql("INSERT INTO rooms(code,host_id,status,game_type,huud_space_id) "
-                        + "VALUES(:code,:host,'in_game','whot',:huud) RETURNING id")
-                .bind("code", UUID.randomUUID().toString().substring(0, 6).toUpperCase()).bind("host", ama).bind("huud", amas.id())
-                .map((r, m) -> r.get("id", UUID.class)).one().block();
-        db.sql("INSERT INTO room_members(room_id,user_id) VALUES(:room,:user)").bind("room", room).bind("user", esi)
-                .fetch().rowsUpdated().block();
+        UUID room = gameUnderWay(ama, amas.id(), esi, true);
 
         assertThatThrownBy(() -> huuds.join(esi, kofis.id()).block())
                 .isInstanceOf(ResponseStatusException.class).hasMessageContaining("finish it first");
@@ -387,6 +400,20 @@ class HuudSpaceIT {
         // Nor can they make a Huud of their own and walk into it.
         assertThatThrownBy(() -> huuds.create(esi, "Mine", "public").block()).hasMessageContaining("finish it first");
         assertThat(huuds.mine(esi).filter(HuudSpaceDtos.MyHuud::youOwn).count().block()).isZero();
+        runtimes.remove(room);
+    }
+
+    @Test void aGameLeftMarkedInPlayDoesNotStopYouMakingAnotherHuud() {
+        // A restart (or the Huud moving on) leaves rooms marked in_game with nobody playing them.
+        UUID ama = person("Restarted host"), friend = person("Restarted friend");
+        var first = huuds.create(ama, "Family", "public").block();
+        huuds.join(friend, first.id()).block();
+        gameUnderWay(ama, first.id(), ama, false);
+
+        var second = huuds.create(ama, "Friends", "friends", null, null, null, false, null, true, true).block();
+        assertThat(second.live()).isTrue();
+        assertThat(hangouts(ama)).containsExactly(second.id());
+        assertThat(huuds.view(first.id(), ama).block().live()).isFalse();
     }
 
     @Test void liveCardsTellTheGameMoveByMoveAndKeepTheChatForMembers() throws Exception {

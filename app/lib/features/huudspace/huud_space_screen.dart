@@ -450,7 +450,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     try {
       return await call(AppScope.of(context).api);
     } on ApiException catch (e) {
-      if (mounted) huudSnack(context, e.message);
+      if (mounted) huudSnack(context, huudRefusal(e));
     } catch (_) {
       if (mounted) huudSnack(context, userErrorMessage);
     } finally {

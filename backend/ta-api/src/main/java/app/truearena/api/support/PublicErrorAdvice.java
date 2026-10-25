@@ -22,7 +22,11 @@ public class PublicErrorAdvice {
         if (status >= 500) LOG.error("Request failed", error);
         String reason = error instanceof ResponseStatusException r && r.getReason() != null ? r.getReason() : "";
         String code = reason.contains("already playing") ? "ALREADY_PLAYING"
-                : reason.contains("already friends") ? "ALREADY_FRIENDS" : "REQUEST_FAILED";
+                : reason.contains("already friends") ? "ALREADY_FRIENDS"
+                // The multiple-Huud rules: the app says each one in its own words.
+                : reason.contains("finish it first") ? "FINISH_GAME_FIRST"
+                : reason.contains("only one of your Huuds can be Live") ? "ONE_LIVE_HUUD"
+                : reason.contains("delete one to make another") ? "HUUD_LIMIT" : "REQUEST_FAILED";
         return ResponseEntity.status(status).body(Map.of("status", status, "code", code, "message", MESSAGE));
     }
 }

@@ -188,8 +188,7 @@ public class HuudSpaceService {
                             .then(another ? Mono.<UUID>empty() : ownedId(user))
                             .switchIfEmpty(Mono.defer(() -> owned(user).collectList().flatMap(mine -> {
                                 if (mine.size() >= MAX_HUUDS) {
-                                    return Mono.error(ApiExceptions.conflict(
-                                            "You have " + MAX_HUUDS + " Huuds already — delete one to make another"));
+                                    return Mono.error(ApiExceptions.conflict(tooMany()));
                                 }
                                 Owned live = mine.stream().filter(Owned::live).findFirst().orElse(null);
                                 if (live != null && !switchLive) return Mono.error(ApiExceptions.conflict(liveAlready(live.name())));
@@ -260,6 +259,10 @@ public class HuudSpaceService {
     /** Your other Huud that's Live, if one is — only one of yours can be. */
     private Mono<Owned> liveOwned(UUID user, UUID except) {
         return owned(user).filter(o -> o.live() && !o.id().equals(except)).next();
+    }
+
+    static String tooMany() {
+        return "You have " + MAX_HUUDS + " Huuds already — delete one to make another";
     }
 
     static String liveAlready(String name) {
@@ -459,17 +462,29 @@ public class HuudSpaceService {
                         .doOnSuccess(v -> notifyMembers(from, "away", user)));
     }
 
-    /** The Live hangout you're in other than {@code here} (null: any), and whether you're in a game in it. */
+    /**
+     * The Live hangout you're in other than {@code here} (null: any), and
+     * whether you're in a game in it: the Huud's current game or a
+     * championship match there, still running. An old game left marked
+     * in_game — the Huud moved on, or the server restarted — doesn't count.
+     */
     private Mono<HuudSpaceDtos.Elsewhere> hangoutElsewhere(UUID here, UUID user) {
-        return db.sql("SELECT s.id, s.name, EXISTS(SELECT 1 FROM rooms r JOIN room_members rm ON rm.room_id=r.id "
-                        + "WHERE r.huud_space_id=s.id AND r.status='in_game' AND rm.user_id=:user) AS playing "
+        return db.sql("SELECT s.id, s.name, ARRAY(SELECT r.id FROM rooms r JOIN room_members rm ON rm.room_id=r.id "
+                        + "WHERE r.status='in_game' AND rm.user_id=:user AND (r.id=s.current_room_id OR r.id IN ("
+                        + "  SELECT cm.room_id FROM championship_matches cm JOIN championships c ON c.id=cm.championship_id "
+                        + "  WHERE c.huud_space_id=s.id AND cm.status='active'))) AS games "
                         + "FROM huud_space_members m JOIN huud_spaces s ON s.id=m.huud_space_id "
                         + "WHERE m.user_id=:user AND m.live_at IS NOT NULL AND s.status='active' AND s.live_since IS NOT NULL "
                         + "AND s.id<>:here LIMIT 1")
                 .bind("user", user).bind("here", here == null ? NOWHERE : here)
                 .map((r, m) -> new HuudSpaceDtos.Elsewhere(r.get("id", UUID.class), r.get("name", String.class),
-                        Boolean.TRUE.equals(r.get("playing", Boolean.class))))
+                        java.util.Arrays.stream(r.get("games", UUID[].class)).anyMatch(this::running)))
                 .one();
+    }
+
+    /** A game that's on: its table is set up here and nobody has won yet. */
+    private boolean running(UUID room) {
+        return runtimes.find(room).filter(rt -> rt.started() && !rt.state().finished()).isPresent();
     }
 
     /** Making a Huud or going Live walks you in — not while you're mid-game in another one. */

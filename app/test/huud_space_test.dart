@@ -357,6 +357,24 @@ void main() {
     expect(body, containsPair('switchLive', true));
   });
 
+  testWidgets('a refused new Huud says why in plain words, not "try again"', (tester) async {
+    await pump(
+        tester,
+        Scaffold(body: CreateHuudSheet(another: true, otherLive: MyHuud.fromJson(mine('h1', 'Family', live: true)))),
+        (r) async => http.Response(
+            '{"status":409,"code":"FINISH_GAME_FIRST","message":"Error has occurred, try again later."}', 409));
+    await tester.ensureVisible(find.byKey(const ValueKey('huud-name-pick-Friends')));
+    await tester.tap(find.byKey(const ValueKey('huud-name-pick-Friends')));
+    await tester.pump();
+    await tester.ensureVisible(find.byKey(const ValueKey('huud-create')));
+    await tester.tap(find.byKey(const ValueKey('huud-create')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('End it and make this one Live'));
+    await tester.pumpAndSettle();
+    expect(find.text("You're in a game in your other Huud — finish it first, then come over."), findsOneWidget);
+    expect(find.textContaining('another go'), findsNothing);
+  });
+
   testWidgets("a Live Huud you belong to while you're in another: Come in here brings you over", (tester) async {
     var moved = false;
     final calls = await pump(tester, const HuudSpaceScreen(id: 'h1'), (r) async {

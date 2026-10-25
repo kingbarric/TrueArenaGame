@@ -143,7 +143,7 @@ class _CreateHuudSheetState extends State<CreateHuudSheet> {
       if (mounted) {
         setState(() {
           if (e.status == 409) {
-            _notice = e.message;
+            _notice = huudRefusal(e);
           } else {
             _error = e.message;
           }
@@ -548,7 +548,7 @@ Future<void> openHuudForGame(BuildContext context, String gameType, {VoidCallbac
           if (setup?.gameConfig != null) 'gameConfig': setup!.gameConfig});
       huud = HuudSpace.fromJson((await api.get('/huud-spaces/${huud.id}') as Map).cast<String, dynamic>());
     } on ApiException catch (e) {
-      if (context.mounted) huudSnack(context, e.message);
+      if (context.mounted) huudSnack(context, huudRefusal(e));
       return;
     } catch (_) {
       if (context.mounted) huudSnack(context, userErrorMessage);
