@@ -63,7 +63,13 @@ public record UserRow(
         return new UserRow(id, displayName, avatarUrl,
                 newPhone != null ? newPhone : phone,
                 newEmail != null ? newEmail : email,
-                username, false, deviceId, isBot, ownerUserId, botGameType, botDifficulty, publicKey, createdAt);
+                username, false, null, isBot, ownerUserId, botGameType, botDifficulty, publicKey, createdAt);
+    }
+
+    /** A device identifier may recover guests only, never a registered account. */
+    public UserRow withoutDeviceId() {
+        return new UserRow(id, displayName, avatarUrl, phone, email, username, isGuest, null, isBot,
+                ownerUserId, botGameType, botDifficulty, publicKey, createdAt);
     }
 
     /** Uploads this device's E2E public key — see `POST /me/public-key`. */

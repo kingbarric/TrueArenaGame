@@ -100,19 +100,18 @@ public class AuthController {
                         return recordIssue(null, "OTP_FAILED", method)
                                 .then(Mono.error(ApiExceptions.unauthorized("invalid or expired code")));
                     }
-                    // A guest calling this with their own guest bearer token upgrades that
-                    // same account in place (same id, same room membership/stats) instead of
-                    // finding-or-creating a separate one — see UserRow.upgraded. Anyone else
-                    // (no token, or already a real account re-verifying) keeps today's path.
-                    return CurrentUser.id()
+                    // A verified contact restores its existing account first. Only an
+                    // unclaimed contact upgrades the current guest, preserving guest history.
+                    Mono<Upserted> existing = (phone != null ? users.findByPhone(phone) : users.findByEmail(email))
+                            .map(u -> new Upserted(u, false));
+                    return existing.switchIfEmpty(Mono.defer(() -> CurrentUser.id()
                             .flatMap(users::findById)
                             .filter(UserRow::isGuest)
                             .flatMap(guest -> upgradeGuest(guest, phone, email))
-                            .flatMap(u -> recordLogin(u, method))
-                            .map(u -> tokensFor(u, false))
-                            .switchIfEmpty(Mono.defer(() -> upsertUser(phone, email, null)
-                                    .flatMap(r -> recordLogin(r.user(), method).map(u -> new Upserted(u, r.created())))
-                                    .map(r -> tokensFor(r.user(), r.created()))));
+                            .map(u -> new Upserted(u, true))
+                            .switchIfEmpty(Mono.defer(() -> upsertUser(phone, email, null)))))
+                            .flatMap(r -> recordLogin(r.user(), method).map(u -> new Upserted(u, r.created())))
+                            .map(r -> tokensFor(r.user(), r.created()));
                 });
     }
 
@@ -122,6 +121,8 @@ public class AuthController {
             + "guest row and rooms rather than minting a new identity every time.")
     public Mono<TokenResponse> guestSignIn(@Valid @RequestBody GuestSignInRequest body) {
         return users.findByDeviceId(body.deviceId())
+                .flatMap(user -> user.isGuest() ? Mono.just(user)
+                        : users.save(user.withoutDeviceId()).then(Mono.<UserRow>empty()))
                 .switchIfEmpty(Mono.defer(() -> {
                     String name = body.displayName() != null && !body.displayName().isBlank()
                             ? body.displayName() : "Player";
@@ -152,7 +153,7 @@ public class AuthController {
                         .flatMap(users::findById)
                         .filter(UserRow::isGuest)
                         .flatMap(guest -> users.save(guest.upgraded(null, identity.email()))
-                                .map(user -> new Upserted(user, false)))
+                                .map(user -> new Upserted(user, true)))
                         .switchIfEmpty(Mono.defer(() -> upsertUser(null, identity.email(), identity.name())))))
                 .flatMap(result -> googleAccounts.findByUserId(result.user().id())
                         .flatMap(link -> Mono.<Upserted>error(ApiExceptions.conflict(
@@ -192,7 +193,7 @@ public class AuthController {
                             .flatMap(users::findById)
                             .filter(UserRow::isGuest)
                             .flatMap(guest -> users.save(guest.upgraded(null, email))
-                                    .map(user -> new Upserted(user, false)))
+                                    .map(user -> new Upserted(user, true)))
                             .switchIfEmpty(Mono.defer(() -> upsertUser(null, email, null)));
                 }))
                 .flatMap(result -> appleAccounts.findByUserId(result.user().id())

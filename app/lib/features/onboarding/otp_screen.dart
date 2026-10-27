@@ -85,7 +85,6 @@ class _OtpScreenState extends State<OtpScreen> {
       _error = null;
     });
     final app = AppScope.of(context);
-    final upgradingGuest = app.identity == Identity.guest;
     try {
       final res = await app.api.post('/auth/otp/verify', {
         widget.isEmail ? 'email' : 'phone': widget.identifier,
@@ -95,7 +94,7 @@ class _OtpScreenState extends State<OtpScreen> {
       await app.completeAccountSignIn(tokens);
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => (tokens.newAccount || upgradingGuest) ? const AvatarSetupScreen() : const MainShell()),
+        MaterialPageRoute(builder: (_) => tokens.newAccount ? const AvatarSetupScreen() : const MainShell()),
         (route) => false,
       );
     } on ApiException catch (e) {
