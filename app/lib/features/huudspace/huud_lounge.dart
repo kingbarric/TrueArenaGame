@@ -149,7 +149,7 @@ class _HuudLoungeState extends State<HuudLounge> {
                           color: Color(0xfffff0df),
                           child: Center(
                               child: Icon(Icons.weekend_rounded,
-                                  size: 70, color: Color(0xffe0812e))))
+                                  size: 70, color: Color(0xffb9855b))))
                       : _LoungeScene(
                           members: seated,
                           roomNumber: table,
