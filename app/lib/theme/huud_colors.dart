@@ -19,22 +19,22 @@ class HuudColors {
 
   final Color orange, orangeDeep, orangeText, orangeSoft, onOrange, live;
 
-  // A warm orange, not a neon one: toned down from #FF8A1F so the hero
-  // card and buttons don't glare, with dark ink on them still easy to read.
+  // Muted terracotta keeps large cards and buttons calm. Both gradient
+  // endpoints retain at least 4.9:1 contrast with the dark label ink.
   static const _dark = HuudColors(
-    orange: Color(0xFFE0812E),
-    orangeDeep: Color(0xFFCE6422),
-    orangeText: Color(0xFFEA9E57),
-    orangeSoft: Color(0x26E0812E),
+    orange: Color(0xFFB9855B),
+    orangeDeep: Color(0xFFAC7952),
+    orangeText: Color(0xFFD1A37D),
+    orangeSoft: Color(0x1AB9855B),
     onOrange: kCabinetInk,
     live: Color(0xFF4ADE80),
   );
 
   static const _light = HuudColors(
-    orange: Color(0xFFE0812E),
-    orangeDeep: Color(0xFFD56820),
-    orangeText: Color(0xFFB34A00),
-    orangeSoft: Color(0xFFFFE8D2),
+    orange: Color(0xFFB9855B),
+    orangeDeep: Color(0xFFAC7952),
+    orangeText: Color(0xFF925E3A),
+    orangeSoft: Color(0xFFF0E1D4),
     onOrange: kCabinetInk,
     live: Color(0xFF15803D),
   );
@@ -42,8 +42,8 @@ class HuudColors {
   static HuudColors of(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark ? _dark : _light;
 
-  /// A small reduction in button saturation; artwork and status accents stay vivid.
-  Color get buttonFill => Color.lerp(orange, const Color(0xFFFFE0B8), .18)!;
+  /// A gentle lift in the muted fill, without the old bright peach cast.
+  Color get buttonFill => Color.lerp(orange, const Color(0xFFD8C3B2), .10)!;
 
   LinearGradient get glow => LinearGradient(
         begin: Alignment.topLeft,

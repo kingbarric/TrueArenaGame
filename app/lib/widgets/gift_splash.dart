@@ -97,10 +97,10 @@ class _GiftCard extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: 230),
         padding: const EdgeInsets.fromLTRB(10, 8, 14, 8),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [Color(0xffffc233), Color(0xffe0812e)]),
+          gradient: const LinearGradient(colors: [Color(0xffd3b77c), Color(0xffb9855b)]),
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: const Color(0xff241708), width: 1.6),
-          boxShadow: [BoxShadow(color: const Color(0xffe0812e).withValues(alpha: 0.55), blurRadius: 16)],
+          boxShadow: [BoxShadow(color: const Color(0xffb9855b).withValues(alpha: 0.22), blurRadius: 12)],
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           const HuudText('🎁', style: TextStyle(fontSize: 24)),
