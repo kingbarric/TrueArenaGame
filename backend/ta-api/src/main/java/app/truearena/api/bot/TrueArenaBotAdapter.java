@@ -307,6 +307,20 @@ public final class TrueArenaBotAdapter implements GameBotAdapter {
         return random.nextDouble() < 0.6 / listening.size();
     }
 
+    /** How often the round table named this player — by anyone but themselves. */
+    private int talkedAbout(String id) {
+        String name = nameOf(id);
+        if (name == null || name.length() < 2 || name.startsWith("Player ") || "someone".equals(name)) return 0;
+        String lower = name.toLowerCase(Locale.ROOT);
+        int count = 0;
+        for (String line : discussion) {
+            int colon = line.indexOf(": ");
+            if (colon > 0 && line.substring(0, colon).equalsIgnoreCase(name)) continue;
+            if (line.toLowerCase(Locale.ROOT).substring(Math.max(0, colon + 2)).contains(lower)) count++;
+        }
+        return count;
+    }
+
     private static boolean mentions(String text, String name) {
         return name != null && name.length() >= 2 && !name.startsWith("Player ")
                 && text.toLowerCase(Locale.ROOT).contains(name.toLowerCase(Locale.ROOT));
@@ -419,7 +433,8 @@ public final class TrueArenaBotAdapter implements GameBotAdapter {
                     + (level == Difficulty.HARD ? voteEvidence.getOrDefault(id, 0.0) : 0);
             if ("Night".equals(phase)) return participation.getOrDefault(id, 0) * 8
                     - (level == Difficulty.HARD ? evidence * 4 : 0);
-            return evidence * 10;
+            // The table's talk counts too: whoever keeps being named draws the votes.
+            return evidence * 10 + talkedAbout(id) * 4;
         });
         return Optional.of(PlayerAction.of(botId, "Night".equals(phase) ? "NIGHT_TARGET" : "CAST_VOTE", Map.of("target", target)));
     }

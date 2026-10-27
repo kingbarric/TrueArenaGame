@@ -143,6 +143,18 @@ class TraitorsAgentDynamicsTest {
         assertThat(sees(agent("bot-1", "faithful", List.of(), reluctant()), "bot-1", suspect)).isEmpty();
     }
 
+    @Test void aFaithfulAgentVotesForWhoeverTheTableKeepsNaming() {
+        TrueArenaBotAdapter agent = agent("bot-1", "faithful", List.of(), eager());
+        agent.playerNames(Map.of("alice", "Alice", "bob", "Bob", "carol", "Carol", "dan", "Dan", "bot-2", "Rex"));
+        sees(agent, "bot-1", table("RoundTable", "faithful", PLAYERS, Map.of()));
+        for (String line : List.of("I don't trust Carol at all", "Carol changed her story twice", "Agreed, Carol is shady")) {
+            agent.onFrame("EVENT", event("CHAT_MESSAGE", Map.of("from", "alice", "channel", "table", "text", line)), "bot-1", LEVEL);
+        }
+        PlayerAction vote = sees(agent, "bot-1", table("Vote", "faithful", PLAYERS, Map.of())).orElseThrow();
+        assertThat(vote.type()).isEqualTo("CAST_VOTE");
+        assertThat(vote.data()).containsEntry("target", "carol");
+    }
+
     @Test void agentsWhoAreOutSitOnTheJury_andJoinTheCrowd() {
         List<String> stillIn = PLAYERS.stream().filter(id -> !id.equals("bot-1")).toList();
         PlayerAction verdict = sees(agent("bot-1", "faithful", List.of(), eager()), "bot-1",
