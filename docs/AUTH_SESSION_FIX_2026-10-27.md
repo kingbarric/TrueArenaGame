@@ -20,4 +20,9 @@ All sign-in screens use the server's `newAccount` flag. First-time guest upgrade
 - 9 new backend session tests plus the existing Apple verification test passed.
 - 10 Flutter session, deletion, and resume tests passed.
 - Targeted analyzer: no errors or warnings; two existing const-constructor hints in Welcome.
-- No device installation or backend deployment performed for this fix.
+
+## Delivery
+
+On 27 October, at the user's request, signed iOS build 1.0.1 (2026102701) was installed on iKingbarric and its version read back. It targets the test API. Automatic launch was blocked because the phone was locked.
+
+The user also approved test-server deployment. To preserve newer invitation/gameplay work already running there, commit `a2fdafb` was cherry-picked on deployed revision `2ab38da`, producing `62a5dfa` on `codex/auth-test-deploy`. That exact backend revision is healthy and public health reports UP. Guest sign-in, same-device recovery, separate-device identity, refresh and /me passed against the deployed API using two disposable accounts, both removed afterward. Native Apple/Google account-picker flows still need a manual phone check.
