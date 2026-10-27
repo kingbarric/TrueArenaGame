@@ -1121,7 +1121,8 @@ class HuudSpaceIT {
 
         var picked = requests.pick(host, huud.id(), java.util.List.of(ada)).block();
         assertThat(picked.currentGame().playerIds()).containsExactlyInAnyOrder(host, ada);
-        assertThat(picked.currentGame().table()).extracting("displayName").contains("Ada");
+        assertThat(picked.currentGame().table()).extracting("displayName")
+                .contains(users.findById(ada).block().username());
         assertThat(picked.currentGame().readyIds()).isEmpty();
         assertThat(huuds.view(huud.id(), ada).block().currentGame().youArePlaying()).isTrue();
 

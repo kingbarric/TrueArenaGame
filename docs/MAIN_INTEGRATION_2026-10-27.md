@@ -92,3 +92,9 @@ origin/release eca4be6
 - Full Flutter analyzer: no errors or warnings; 93 existing informational hints.
 - The old Google first-time guest-upgrade test was updated to expect onboarding (`newAccount: true`); returning-account tests continue to require false.
 - Backend Maven verify with integration tests skipped: 934 tests reported, 7 skipped, 0 failures, 0 errors. Database/container integration checks remain for CI.
+
+## Phone delivery and CI follow-up
+
+Pushed consolidated main at `7b5706341f71b99f87da83bfac88fd892dcd1786`. Signed iOS build **1.0.1 (2026102702)** was built from that exact revision against the test API, installed on iKingbarric, its version read back, and the app launched successfully.
+
+The gameplay/Huud/invitation screens match the latest pre-auth checkout (8439152) byte-for-byte. The auth changes remain present. CI then identified one stale integration assertion expecting a full display name in a table roster now intentionally showing usernames. The assertion was updated to check the selected user's username; this follow-up changes no shipped app or server behavior. CI reruns the database-backed checks after the update.
