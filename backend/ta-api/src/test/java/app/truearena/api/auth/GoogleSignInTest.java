@@ -86,7 +86,7 @@ class GoogleSignInTest {
                     assertThat(result.user().id()).isEqualTo(id);
                     assertThat(result.user().email()).isEqualTo("guest@example.com");
                     assertThat(result.user().isGuest()).isFalse();
-                    assertThat(result.newAccount()).isFalse();
+                    assertThat(result.newAccount()).isTrue();
                 }).verifyComplete();
         verify(links).link("subject-2", id);
     }

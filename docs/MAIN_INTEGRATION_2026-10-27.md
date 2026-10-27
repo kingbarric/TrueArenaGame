@@ -85,3 +85,10 @@ origin/feature/ws-game-transport d82b0e8
 origin/main 806a9ea
 origin/release eca4be6
 ```
+
+## Validation
+
+- Full Flutter test suite: 574 passed.
+- Full Flutter analyzer: no errors or warnings; 93 existing informational hints.
+- The old Google first-time guest-upgrade test was updated to expect onboarding (`newAccount: true`); returning-account tests continue to require false.
+- Backend Maven verify with integration tests skipped: 934 tests reported, 7 skipped, 0 failures, 0 errors. Database/container integration checks remain for CI.
