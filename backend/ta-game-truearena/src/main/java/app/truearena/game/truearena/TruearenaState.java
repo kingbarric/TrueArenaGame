@@ -83,6 +83,49 @@ public final class TruearenaState implements GameState {
     /** The host ended the game early: it's over, and nobody won. */
     final boolean endedByHost;
 
+    // --- the dynamics (docs/TRAITORS_DYNAMICS_PLAN.md) ---
+    /** Recruiting: the Faithful the Traitors made tonight's offer to, until they answer; null when none. */
+    final String recruitOffer;
+    /** Everyone ever asked — nobody is asked twice. */
+    final Set<String> recruitAsked;
+    /** Tonight the Traitors are recruiting instead of murdering. */
+    final boolean recruitNight;
+    /** The Traitors used their one skip tonight. */
+    final boolean skipTonight;
+    /** The Poisoned Pie: bakes left, baked tonight, on the table, its filling, its clue and who took it. */
+    final int pieUses;
+    final boolean pieBaked;
+    final boolean pieAvailable;
+    final boolean piePoisoned;
+    final String pieClue;
+    final String pieHolder;
+    /** Crime-Scene Clues, oldest first. */
+    final List<Map<String, Object>> crimeClues;
+    /** Alibis: tonight's, secret until morning, and the last ones published. */
+    final Map<String, String> alibis;
+    final Map<String, String> alibiBoard;
+    /** The Seer's Lantern: who holds it, whether it's been used, tonight's turn, and what it showed. */
+    final String seer;
+    final boolean lanternUsed;
+    final boolean lanternTonight;
+    final Map<String, String> visions;
+    /** The Black Spot: tonight's mark, who holds it now, everyone who has today, and who lost their vote. */
+    final String spotPending;
+    final String spotHolder;
+    final List<String> spotChain;
+    final String spotSilenced;
+    /** Last Stand: used, and what it showed the table. */
+    final boolean lastStandUsed;
+    final Map<String, Object> standReveal;
+    /** Faithful who voted for a real Traitor at least once — Super Faithful, once they're out. */
+    final Set<String> rightVoters;
+    /** The Ghost Jury: its votes, the tied ballot's top count, and whether it has sat today. */
+    final Map<String, String> juryVotes;
+    final int juryTopVotes;
+    final boolean juryDone;
+    /** The Crowd's Hunch this round: who in the crowd suspects whom. */
+    final Map<String, String> crowdVotes;
+
     private TruearenaState(Draft d) {
         this.phase = d.phase;
         this.round = d.round;
@@ -134,6 +177,34 @@ public final class TruearenaState implements GameState {
         this.seq = d.seq;
         this.win = d.win;
         this.endedByHost = d.endedByHost;
+        this.recruitOffer = d.recruitOffer;
+        this.recruitAsked = Set.copyOf(d.recruitAsked);
+        this.recruitNight = d.recruitNight;
+        this.skipTonight = d.skipTonight;
+        this.pieUses = d.pieUses;
+        this.pieBaked = d.pieBaked;
+        this.pieAvailable = d.pieAvailable;
+        this.piePoisoned = d.piePoisoned;
+        this.pieClue = d.pieClue;
+        this.pieHolder = d.pieHolder;
+        this.crimeClues = List.copyOf(d.crimeClues);
+        this.alibis = Collections.unmodifiableMap(new LinkedHashMap<>(d.alibis));
+        this.alibiBoard = Collections.unmodifiableMap(new LinkedHashMap<>(d.alibiBoard));
+        this.seer = d.seer;
+        this.lanternUsed = d.lanternUsed;
+        this.lanternTonight = d.lanternTonight;
+        this.visions = Collections.unmodifiableMap(new LinkedHashMap<>(d.visions));
+        this.spotPending = d.spotPending;
+        this.spotHolder = d.spotHolder;
+        this.spotChain = List.copyOf(d.spotChain);
+        this.spotSilenced = d.spotSilenced;
+        this.lastStandUsed = d.lastStandUsed;
+        this.standReveal = d.standReveal == null ? null : Map.copyOf(d.standReveal);
+        this.rightVoters = Set.copyOf(d.rightVoters);
+        this.juryVotes = Collections.unmodifiableMap(new LinkedHashMap<>(d.juryVotes));
+        this.juryTopVotes = d.juryTopVotes;
+        this.juryDone = d.juryDone;
+        this.crowdVotes = Collections.unmodifiableMap(new LinkedHashMap<>(d.crowdVotes));
     }
 
     @Override public String phase() { return phase; }
@@ -152,6 +223,11 @@ public final class TruearenaState implements GameState {
 
     List<String> aliveFaithful() {
         return alive.stream().filter(id -> !isTraitor(id)).toList();
+    }
+
+    /** Faithful who are out of the game — murdered or banished. They sit on the Ghost Jury. */
+    List<String> ghosts() {
+        return eliminatedLog.stream().filter(id -> FAITHFUL.equals(roles.get(id))).toList();
     }
 
     static TruearenaState initial(List<String> playerIds, GameConfig config, long seed) {
@@ -216,6 +292,34 @@ public final class TruearenaState implements GameState {
         long seq;
         WinResult win;
         boolean endedByHost;
+        String recruitOffer;
+        Set<String> recruitAsked = new LinkedHashSet<>();
+        boolean recruitNight;
+        boolean skipTonight;
+        int pieUses;
+        boolean pieBaked;
+        boolean pieAvailable;
+        boolean piePoisoned;
+        String pieClue;
+        String pieHolder;
+        List<Map<String, Object>> crimeClues = new ArrayList<>();
+        Map<String, String> alibis = new LinkedHashMap<>();
+        Map<String, String> alibiBoard = new LinkedHashMap<>();
+        String seer;
+        boolean lanternUsed;
+        boolean lanternTonight;
+        Map<String, String> visions = new LinkedHashMap<>();
+        String spotPending;
+        String spotHolder;
+        List<String> spotChain = new ArrayList<>();
+        String spotSilenced;
+        boolean lastStandUsed;
+        Map<String, Object> standReveal;
+        Set<String> rightVoters = new LinkedHashSet<>();
+        Map<String, String> juryVotes = new LinkedHashMap<>();
+        int juryTopVotes;
+        boolean juryDone;
+        Map<String, String> crowdVotes = new LinkedHashMap<>();
 
         Draft() {
         }
@@ -271,6 +375,34 @@ public final class TruearenaState implements GameState {
             this.seq = s.seq;
             this.win = s.win;
             this.endedByHost = s.endedByHost;
+            this.recruitOffer = s.recruitOffer;
+            this.recruitAsked = new LinkedHashSet<>(s.recruitAsked);
+            this.recruitNight = s.recruitNight;
+            this.skipTonight = s.skipTonight;
+            this.pieUses = s.pieUses;
+            this.pieBaked = s.pieBaked;
+            this.pieAvailable = s.pieAvailable;
+            this.piePoisoned = s.piePoisoned;
+            this.pieClue = s.pieClue;
+            this.pieHolder = s.pieHolder;
+            this.crimeClues = new ArrayList<>(s.crimeClues);
+            this.alibis = new LinkedHashMap<>(s.alibis);
+            this.alibiBoard = new LinkedHashMap<>(s.alibiBoard);
+            this.seer = s.seer;
+            this.lanternUsed = s.lanternUsed;
+            this.lanternTonight = s.lanternTonight;
+            this.visions = new LinkedHashMap<>(s.visions);
+            this.spotPending = s.spotPending;
+            this.spotHolder = s.spotHolder;
+            this.spotChain = new ArrayList<>(s.spotChain);
+            this.spotSilenced = s.spotSilenced;
+            this.lastStandUsed = s.lastStandUsed;
+            this.standReveal = s.standReveal == null ? null : new LinkedHashMap<>(s.standReveal);
+            this.rightVoters = new LinkedHashSet<>(s.rightVoters);
+            this.juryVotes = new LinkedHashMap<>(s.juryVotes);
+            this.juryTopVotes = s.juryTopVotes;
+            this.juryDone = s.juryDone;
+            this.crowdVotes = new LinkedHashMap<>(s.crowdVotes);
         }
 
         void emit(String type, Map<String, Object> payload) {

@@ -14,6 +14,7 @@ import app.truearena.engine.RuleViolation;
 import app.truearena.engine.WinResult;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -54,6 +55,20 @@ public final class TrueArenaModule implements GameModule {
     static final int MORNING_LAST_WILL_SECONDS = 45;
     /** Long enough for the host to step through a sequential reveal one ballot at a time. */
     static final int VOTE_REVIEW_SECONDS = 60;
+    /** The Ghost Jury's deliberation over a tie. */
+    static final int JURY_SECONDS = 30;
+
+    /** What a pie can look like — honest, or not (the clue is true about two times in three). */
+    static final List<String> SHIELD_CLUES = List.of(
+            "A golden crust that smells of honey",
+            "Still warm, wrapped in a clean white cloth",
+            "Dusted with sugar — someone took care over this one",
+            "It smells of apples and cinnamon");
+    static final List<String> POISON_CLUES = List.of(
+            "A faint smell of bitter almonds",
+            "The crust is cracked and oddly dark",
+            "A thin green stain under the crust",
+            "It sat out in the cold all night");
 
     @Override
     public List<Phase> definePhases(GameSettings settings) {
@@ -76,6 +91,7 @@ public final class TrueArenaModule implements GameModule {
                 new Phase("VoteReview", VOTE_REVIEW_SECONDS),
                 new Phase("Elimination", REVEAL_SECONDS),
                 new Phase("WinCheck", REVEAL_SECONDS),
+                new Phase("GhostJury", JURY_SECONDS),
                 Phase.untimed("Results")
         );
     }
@@ -137,9 +153,17 @@ public final class TrueArenaModule implements GameModule {
             d.doubleAgentCandidate = shuffled.get(specialIdx++);
             d.emitToRole("DOUBLE_AGENT_CANDIDATE", Map.of("id", d.doubleAgentCandidate), TruearenaState.TRAITOR);
         }
+        if (config.twistEnabled("seer_lantern") && specialIdx < n) {
+            d.seer = shuffled.get(specialIdx++);
+            d.emitToPlayer("SEER_GRANTED", Map.of(), d.seer);
+        }
         if (config.twistEnabled("poisoned_gift")) {
             Object uses = config.twistParams("poisoned_gift").getOrDefault("uses", 1);
             d.giftUses = uses instanceof Number number ? Math.max(0, number.intValue()) : 1;
+        }
+        if (config.twistEnabled("poisoned_pie")) {
+            Object uses = config.twistParams("poisoned_pie").getOrDefault("uses", 1);
+            d.pieUses = uses instanceof Number number ? Math.max(0, number.intValue()) : 1;
         }
         if (config.twistEnabled("false_reveal")) {
             Object uses = config.twistParams("false_reveal").getOrDefault("uses", 1);
@@ -191,6 +215,17 @@ public final class TrueArenaModule implements GameModule {
             case "RECRUIT_DOUBLE_AGENT" -> recruitDoubleAgent(d, s, action);
             case "LAST_WILL" -> submitLastWill(d, s, action);
             case "HOST_ASSIGN_VOTE" -> hostAssignVote(d, s, action);
+            case "RECRUIT_OFFER" -> recruitOffer(d, s, action);
+            case "RECRUIT_ANSWER" -> recruitAnswer(d, s, action);
+            case "BAKE_PIE" -> bakePie(d, s, action);
+            case "TAKE_PIE" -> takePie(d, s, action);
+            case "ALIBI" -> alibi(d, s, action);
+            case "SEER_LANTERN" -> lantern(d, s, action);
+            case "PLACE_SPOT" -> placeSpot(d, s, action);
+            case "PASS_SPOT" -> passSpot(d, s, action);
+            case "LAST_STAND" -> lastStand(d, s, action);
+            case "GHOST_VOTE" -> ghostVote(d, s, action);
+            case "CROWD_VOTE" -> crowdVote(d, s, action);
             case "ADVANCE_PHASE" -> advance(d, d.phase);
             case "END_GAME" -> endByHost(d);
             default -> throw new RuleViolation("UNKNOWN_ACTION", "no handler for " + action.type());
@@ -212,6 +247,7 @@ public final class TrueArenaModule implements GameModule {
     private void nightTarget(TruearenaState.Draft d, TruearenaState s, PlayerAction a) {
         require(d.phase.equals("Night"), "WRONG_PHASE", "night targeting is Night-only");
         require(s.alive.contains(a.actor()) && s.isTraitor(a.actor()), "NOT_TRAITOR", "only living Traitors pick a target");
+        require(!s.recruitNight, "RECRUITING_TONIGHT", "tonight the Traitors are recruiting, not murdering");
         String target = a.str("target");
         require(target != null && s.alive.contains(target), "BAD_TARGET", "target must be a living player");
         require(!s.isTraitor(target), "BAD_TARGET", "night target must be a living Faithful");
@@ -229,15 +265,36 @@ public final class TrueArenaModule implements GameModule {
         d.nightSubmissions.put(a.actor(), target);
         d.nightTarget = target;
         d.emitToRole("NIGHT_TARGET_SET", Map.of("by", a.actor(), "target", target), TruearenaState.TRAITOR);
+        maybeResolveNight(d);
+    }
 
-        List<String> livingTraitors = s.aliveTraitors();
-        boolean allIn = d.nightSubmissions.keySet().containsAll(livingTraitors);
-        boolean agreed = !s.config.nightKill().requireTraitorConsensus()
+    /**
+     * The night ends early once everyone it needs has acted: the Traitors (agreed, or
+     * recruiting, or skipping), everyone's alibi in that mode, and the Seer's lantern.
+     * Otherwise the clock ends it.
+     */
+    private void maybeResolveNight(TruearenaState.Draft d) {
+        if (traitorsDone(d) && othersDone(d)) resolveNight(d);
+    }
+
+    private static boolean traitorsDone(TruearenaState.Draft d) {
+        if (d.recruitNight || d.skipTonight) return true;
+        List<String> living = build(d).aliveTraitors();
+        boolean allIn = d.nightSubmissions.keySet().containsAll(living);
+        boolean agreed = !d.config.nightKill().requireTraitorConsensus()
                 || d.nightSubmissions.values().stream().distinct().count() == 1
                     && d.secondNightSubmissions.values().stream().distinct().count() <= 1;
-        if (allIn && agreed) {
-            resolveNight(d, false);
-        }
+        return allIn && agreed;
+    }
+
+    private static boolean othersDone(TruearenaState.Draft d) {
+        if (d.config.twistEnabled("alibis") && !d.alibis.keySet().containsAll(d.alive)) return false;
+        return !seerPending(d);
+    }
+
+    private static boolean seerPending(TruearenaState.Draft d) {
+        return d.config.twistEnabled("seer_lantern") && d.seer != null && d.alive.contains(d.seer)
+                && TruearenaState.FAITHFUL.equals(d.roles.get(d.seer)) && !d.lanternUsed && !d.lanternTonight;
     }
 
     private void nightSkip(TruearenaState.Draft d, TruearenaState s, PlayerAction a) {
@@ -245,8 +302,9 @@ public final class TrueArenaModule implements GameModule {
         require(s.isTraitor(a.actor()) && s.alive.contains(a.actor()), "NOT_TRAITOR", "only living Traitors may skip");
         require(s.config.nightKill().allowSkip() && !s.nightSkipUsed, "SKIP_UNAVAILABLE", "no skip left");
         d.nightSkipUsed = true;
+        d.skipTonight = true;
         d.nightTarget = null;
-        resolveNight(d, true);
+        maybeResolveNight(d);
     }
 
     private void nightGift(TruearenaState.Draft d, TruearenaState s, PlayerAction a) {
@@ -328,6 +386,7 @@ public final class TrueArenaModule implements GameModule {
         require(d.phase.equals("Vote") || d.phase.equals("Revote") || d.phase.equals("SuddenDeath"),
                 "WRONG_PHASE", "voting is not open");
         require(s.alive.contains(a.actor()), "DEAD", "eliminated players cannot vote");
+        require(!a.actor().equals(s.spotSilenced), "BLACK_SPOT", "the Black Spot took your vote this round");
         require(!s.voteLocked.contains(a.actor()), "VOTE_LOCKED", "your vote is already locked");
         String target = a.str("target");
         require(target != null && s.alive.contains(target), "BAD_TARGET", "target must be a living player");
@@ -337,8 +396,8 @@ public final class TrueArenaModule implements GameModule {
         }
         d.votes.put(a.actor(), target);
         d.voteLocked.add(a.actor());
-        d.emit("VOTE_PROGRESS", Map.of("locked", d.voteLocked.size(), "total", s.alive.size()));
-        if (d.voteLocked.containsAll(s.alive)) {
+        d.emit("VOTE_PROGRESS", Map.of("locked", d.voteLocked.size(), "total", voters(d).size()));
+        if (d.voteLocked.containsAll(voters(d))) {
             if ("Vote".equals(d.phase)) closeVoting(d);
             else tallyAndBanish(d);
         }
@@ -417,6 +476,178 @@ public final class TrueArenaModule implements GameModule {
         d.emitToRole("DOUBLE_AGENT_RECRUITED", Map.of("id", d.doubleAgentCandidate), TruearenaState.TRAITOR);
     }
 
+    // ---------------------------------------------------------------- the dynamics
+
+    /**
+     * Whether the Traitors may recruit tonight. They have to have lost one of their own —
+     * never growing past their starting number — and afterwards there must still be two
+     * Faithful for every Traitor, so recruiting closes by itself once five are left.
+     */
+    static boolean recruitOpen(TruearenaState s) {
+        if (!s.config.twistEnabled("recruiting") || s.recruitOffer != null || s.recruitNight) return false;
+        int traitors = s.aliveTraitors().size();
+        if (traitors == 0 || traitors >= s.originalTraitors.size()) return false;
+        if (traitors + 1 > s.alive.size() / 3) return false;
+        return s.aliveFaithful().stream().anyMatch(id -> !s.recruitAsked.contains(id));
+    }
+
+    /** Tonight the Traitors recruit instead of murdering: the offer reaches its Faithful at dawn, anonymously. */
+    private void recruitOffer(TruearenaState.Draft d, TruearenaState s, PlayerAction a) {
+        require("Night".equals(d.phase), "WRONG_PHASE", "the Traitors recruit at night");
+        require(s.alive.contains(a.actor()) && s.isTraitor(a.actor()), "NOT_TRAITOR", "only a living Traitor can recruit");
+        require(recruitOpen(s), "RECRUIT_UNAVAILABLE", "the Traitors can't recruit tonight");
+        String target = a.str("target");
+        require(target != null && s.alive.contains(target) && !s.isTraitor(target) && !s.recruitAsked.contains(target),
+                "BAD_TARGET", "make the offer to a living Faithful who hasn't been asked");
+        d.recruitNight = true;
+        d.recruitOffer = target;
+        d.recruitAsked.add(target);
+        d.nightSubmissions.clear();
+        d.secondNightSubmissions.clear();
+        d.nightTarget = null;
+        d.emitToRole("RECRUIT_CHOSEN", Map.of("by", a.actor(), "target", target), TruearenaState.TRAITOR);
+        maybeResolveNight(d);
+    }
+
+    /**
+     * Join, or refuse. Refusing doesn't expose anyone — the offer never said who sent it —
+     * and whether the threat was real is the Traitors' call the next night.
+     */
+    private void recruitAnswer(TruearenaState.Draft d, TruearenaState s, PlayerAction a) {
+        require("MorningReveal".equals(d.phase) || "RoundTable".equals(d.phase) || "Defense".equals(d.phase),
+                "WRONG_PHASE", "answer the offer before the vote");
+        require(a.actor().equals(s.recruitOffer) && s.alive.contains(a.actor()), "NO_OFFER", "you have no offer to answer");
+        boolean accept = Boolean.TRUE.equals(a.data().get("accept"));
+        d.recruitOffer = null;
+        if (accept) {
+            d.roles.put(a.actor(), TruearenaState.RECRUITED);
+            List<String> fellows = build(d).aliveTraitors().stream().filter(id -> !id.equals(a.actor())).toList();
+            d.emitToPlayer("RECRUITED_AS_TRAITOR", Map.of("reason", "offer"), a.actor());
+            d.emitToPlayer("FELLOW_TRAITORS", Map.of("ids", fellows), a.actor());
+            d.emitToRole("RECRUIT_ACCEPTED", Map.of("id", a.actor()), TruearenaState.TRAITOR);
+        } else {
+            d.emitToRole("RECRUIT_REFUSED", Map.of("id", a.actor(), "reason", "refused"), TruearenaState.TRAITOR);
+        }
+    }
+
+    /** Once a game the Traitors bake: a real shield, or poison. It's served at dawn with a clue. */
+    private void bakePie(TruearenaState.Draft d, TruearenaState s, PlayerAction a) {
+        require("Night".equals(d.phase), "WRONG_PHASE", "pies are baked at night");
+        require(s.alive.contains(a.actor()) && s.isTraitor(a.actor()), "NOT_TRAITOR", "only a living Traitor can bake");
+        require(s.config.twistEnabled("poisoned_pie") && s.pieUses > 0 && !s.pieBaked && !s.pieAvailable
+                && s.pieHolder == null, "PIE_UNAVAILABLE", "there's no pie to bake tonight");
+        String filling = a.str("filling");
+        require("shield".equals(filling) || "poison".equals(filling), "BAD_FILLING", "bake a shield or poison");
+        d.pieBaked = true;
+        d.piePoisoned = "poison".equals(filling);
+        d.pieUses--;
+        d.emitToRole("PIE_BAKED", Map.of("by", a.actor(), "filling", filling), TruearenaState.TRAITOR);
+    }
+
+    /** First come, first served. Whoever takes it finds out the next night. */
+    private void takePie(TruearenaState.Draft d, TruearenaState s, PlayerAction a) {
+        require("RoundTable".equals(d.phase), "WRONG_PHASE", "the pie is taken at the round table");
+        require(s.pieAvailable && s.alive.contains(a.actor()), "PIE_UNAVAILABLE", "there's no pie on the table");
+        d.pieAvailable = false;
+        d.pieHolder = a.actor();
+        d.emit("PIE_TAKEN", Map.of("holder", a.actor()));
+    }
+
+    /** Where you were tonight, and with whom. Secret until morning; you can change it until then. */
+    private void alibi(TruearenaState.Draft d, TruearenaState s, PlayerAction a) {
+        require("Night".equals(d.phase), "WRONG_PHASE", "alibis are given at night");
+        require(s.config.twistEnabled("alibis"), "ALIBIS_UNAVAILABLE", "this mode has no alibis");
+        require(s.alive.contains(a.actor()), "DEAD", "only the living give alibis");
+        String with = a.str("with");
+        require(with != null && s.alive.contains(with) && !with.equals(a.actor()), "BAD_TARGET", "name another living player");
+        d.alibis.put(a.actor(), with);
+        maybeResolveNight(d);
+    }
+
+    /** The Seer looks at one player's true side — once a game. No target keeps the lantern for another night. */
+    private void lantern(TruearenaState.Draft d, TruearenaState s, PlayerAction a) {
+        require("Night".equals(d.phase), "WRONG_PHASE", "the lantern is lit at night");
+        require(s.config.twistEnabled("seer_lantern") && a.actor().equals(s.seer) && s.alive.contains(a.actor())
+                && !s.isTraitor(a.actor()) && !s.lanternUsed && !s.lanternTonight,
+                "LANTERN_UNAVAILABLE", "you hold no lantern tonight");
+        String target = a.str("target");
+        d.lanternTonight = true;
+        if (target != null) {
+            require(s.alive.contains(target) && !target.equals(a.actor()), "BAD_TARGET", "look at another living player");
+            String side = s.isTraitor(target) ? "traitor" : "faithful";
+            d.lanternUsed = true;
+            d.visions.put(target, side);
+            d.emitToPlayer("LANTERN_VISION", Map.of("target", target, "side", side), a.actor());
+        }
+        maybeResolveNight(d);
+    }
+
+    /** The Traitors mark someone. At dawn the whole table sees who holds the Black Spot. */
+    private void placeSpot(TruearenaState.Draft d, TruearenaState s, PlayerAction a) {
+        require("Night".equals(d.phase), "WRONG_PHASE", "the Black Spot is placed at night");
+        require(s.alive.contains(a.actor()) && s.isTraitor(a.actor()), "NOT_TRAITOR", "only a living Traitor can place it");
+        require(s.config.twistEnabled("black_spot") && s.spotPending == null, "SPOT_UNAVAILABLE", "the Black Spot is already placed tonight");
+        String target = a.str("target");
+        require(target != null && s.alive.contains(target) && !target.equals(a.actor()), "BAD_TARGET", "mark another living player");
+        d.spotPending = target;
+        d.emitToRole("BLACK_SPOT_CHOSEN", Map.of("by", a.actor(), "target", target), TruearenaState.TRAITOR);
+    }
+
+    /** Pass it on — never to someone who has already held it today. Every pass is a public clue. */
+    private void passSpot(TruearenaState.Draft d, TruearenaState s, PlayerAction a) {
+        require("MorningReveal".equals(d.phase) || "RoundTable".equals(d.phase), "WRONG_PHASE", "pass the Black Spot before the vote");
+        require(a.actor().equals(s.spotHolder) && s.alive.contains(a.actor()), "NOT_HOLDER", "you don't hold the Black Spot");
+        String to = a.str("to");
+        require(to != null && s.alive.contains(to) && !s.spotChain.contains(to), "BAD_TARGET",
+                "pass it to someone who hasn't held it today");
+        d.spotHolder = to;
+        d.spotChain.add(to);
+        d.emit("BLACK_SPOT_PASSED", Map.of("from", a.actor(), "to", to));
+    }
+
+    /** At the final four: give up your place to show everyone one player's true side. Once a game. */
+    private void lastStand(TruearenaState.Draft d, TruearenaState s, PlayerAction a) {
+        require("RoundTable".equals(d.phase), "WRONG_PHASE", "a Last Stand is made at the round table");
+        require(s.config.twistEnabled("last_stand") && !s.lastStandUsed && s.alive.size() <= 4,
+                "LAST_STAND_UNAVAILABLE", "a Last Stand is only possible at the final four");
+        require(s.alive.contains(a.actor()), "DEAD", "only someone still at the table can make a stand");
+        String target = a.str("target");
+        require(target != null && s.alive.contains(target) && !target.equals(a.actor()), "BAD_TARGET", "choose another living player");
+        String side = s.isTraitor(target) ? "traitor" : "faithful";
+        d.lastStandUsed = true;
+        d.standReveal = new LinkedHashMap<>(Map.of("by", a.actor(), "target", target, "side", side));
+        d.emit("LAST_STAND", Map.of("by", a.actor(), "target", target, "side", side));
+        eliminate(d, a.actor(), "last_stand");
+        settleWin(d);
+    }
+
+    /** A ghost's verdict on a tie. Super Faithful count double — silently. */
+    private void ghostVote(TruearenaState.Draft d, TruearenaState s, PlayerAction a) {
+        require("GhostJury".equals(d.phase), "WRONG_PHASE", "the Ghost Jury isn't sitting");
+        List<String> ghosts = s.ghosts();
+        require(ghosts.contains(a.actor()), "NOT_A_GHOST", "only Faithful who are out sit on the Ghost Jury");
+        String target = a.str("target");
+        require(d.tieCandidates.contains(target), "BAD_TARGET", "choose one of the tied players");
+        d.juryVotes.put(a.actor(), target);
+        if (d.juryVotes.keySet().containsAll(ghosts)) resolveJury(d);
+    }
+
+    /**
+     * The crowd's suspicion: spectators, and Faithful who are out. Living players can't
+     * join it, and nor can a Traitor who's out. Each counts once; the table only ever
+     * sees the total.
+     */
+    private void crowdVote(TruearenaState.Draft d, TruearenaState s, PlayerAction a) {
+        require(s.config.twistEnabled("crowd_hunch"), "HUNCH_UNAVAILABLE", "this game has no crowd's hunch");
+        require(!"RoleReveal".equals(d.phase), "WRONG_PHASE", "the crowd hasn't seen enough yet");
+        require(!s.alive.contains(a.actor()), "PLAYING", "players at the table can't join the crowd");
+        require(!s.players.contains(a.actor()) || !s.isTraitor(a.actor()), "NOT_A_GHOST",
+                "only spectators and Faithful who are out join the crowd");
+        String target = a.str("target");
+        require(target != null && s.alive.contains(target), "BAD_TARGET", "suspect a living player");
+        d.crowdVotes.put(a.actor(), target);
+    }
+
     private void submitLastWill(TruearenaState.Draft d, TruearenaState s, PlayerAction a) {
         require("MorningReveal".equals(d.phase), "WRONG_PHASE", "a last will is left the morning after elimination");
         require(s.config.twistEnabled("last_will"), "LAST_WILL_UNAVAILABLE", "last will is not enabled");
@@ -438,15 +669,15 @@ public final class TrueArenaModule implements GameModule {
     private void hostAssignVote(TruearenaState.Draft d, TruearenaState s, PlayerAction a) {
         require("HostAssignVotes".equals(d.phase), "WRONG_PHASE", "no missing votes to assign right now");
         String voter = a.str("voterId");
-        require(voter != null && s.alive.contains(voter) && !d.voteLocked.contains(voter),
+        require(voter != null && voters(d).contains(voter) && !d.voteLocked.contains(voter),
                 "BAD_TARGET", "that player already voted or is not in this game");
         String target = a.str("target");
         require(target != null && s.alive.contains(target) && !target.equals(voter),
                 "BAD_TARGET", "target must be a living player other than the voter");
         d.votes.put(voter, target);
         d.voteLocked.add(voter);
-        d.emit("VOTE_PROGRESS", Map.of("locked", d.voteLocked.size(), "total", s.alive.size()));
-        List<String> stillMissing = d.alive.stream().filter(id -> !d.voteLocked.contains(id)).toList();
+        d.emit("VOTE_PROGRESS", Map.of("locked", d.voteLocked.size(), "total", voters(d).size()));
+        List<String> stillMissing = voters(d).stream().filter(id -> !d.voteLocked.contains(id)).toList();
         if (stillMissing.isEmpty()) {
             enterVoteReview(d);
         }
@@ -457,7 +688,8 @@ public final class TrueArenaModule implements GameModule {
     private void advance(TruearenaState.Draft d, String from) {
         switch (from) {
             case "RoleReveal" -> goNight(d);
-            case "Night" -> resolveNight(d, false);
+            case "Night" -> resolveNight(d);
+            case "GhostJury" -> resolveJury(d);
             case "MorningReveal" -> {
                 d.confessionals.clear();
                 d.phase = "RoundTable";
@@ -481,7 +713,7 @@ public final class TrueArenaModule implements GameModule {
                 banish(d, d.tieCandidates.get(rng.nextInt(d.tieCandidates.size())), 0);
             }
             case "HostAssignVotes" -> {
-                List<String> stillMissing = d.alive.stream().filter(id -> !d.voteLocked.contains(id)).toList();
+                List<String> stillMissing = voters(d).stream().filter(id -> !d.voteLocked.contains(id)).toList();
                 if (!stillMissing.isEmpty()) {
                     d.voteLocked.addAll(stillMissing);
                     d.emit("AFK_ABSTAINED", Map.of("ids", stillMissing));
@@ -509,13 +741,40 @@ public final class TrueArenaModule implements GameModule {
     }
 
     private void openVote(TruearenaState.Draft d) {
+        endRoundTable(d);
         d.phase = "Vote";
         d.votes.clear();
         d.voteLocked.clear();
         d.votesRevealed = 0;
         d.tieCandidates.clear();
         d.tieStage = 0;
+        d.juryDone = false;
         d.emit("MICS_FORCE_MUTED", Map.of());
+    }
+
+    /**
+     * The round table is over: an unanswered offer counts as a refusal, a pie nobody
+     * took spoils, and whoever holds the Black Spot loses their vote.
+     */
+    private void endRoundTable(TruearenaState.Draft d) {
+        if (d.recruitOffer != null) {
+            d.emitToRole("RECRUIT_REFUSED", Map.of("id", d.recruitOffer, "reason", "no_answer"), TruearenaState.TRAITOR);
+            d.emitToPlayer("RECRUIT_EXPIRED", Map.of(), d.recruitOffer);
+            d.recruitOffer = null;
+        }
+        if (d.pieAvailable) {
+            d.pieAvailable = false;
+            d.emit("PIE_SPOILED", Map.of("filling", d.piePoisoned ? "poison" : "shield"));
+        }
+        if (d.spotHolder != null && d.alive.contains(d.spotHolder) && d.spotSilenced == null) {
+            d.spotSilenced = d.spotHolder;
+            d.emit("BLACK_SPOT_SILENCED", Map.of("holder", d.spotHolder));
+        }
+    }
+
+    /** Who may vote today: everyone alive, except the one the Black Spot silenced. */
+    private static List<String> voters(TruearenaState.Draft d) {
+        return d.alive.stream().filter(id -> !id.equals(d.spotSilenced)).toList();
     }
 
     /**
@@ -526,6 +785,7 @@ public final class TrueArenaModule implements GameModule {
      * trial_of_two loop).
      */
     private void openFinalVote(TruearenaState.Draft d) {
+        endRoundTable(d);
         d.phase = "Vote";
         d.votes.clear();
         d.voteLocked.clear();
@@ -542,13 +802,29 @@ public final class TrueArenaModule implements GameModule {
         d.nightTarget = null;
         d.survivorsChoiceVotes.clear();
         d.accused = null; // yesterday's accusation is over
+        d.alibis.clear();
+        d.lanternTonight = false;
+        d.recruitNight = false;
+        d.skipTonight = false;
+        d.spotPending = null;
+        d.spotHolder = null;
+        d.spotChain.clear();
+        d.spotSilenced = null;
+        d.crowdVotes.clear();
+        d.juryDone = false;
         d.emit("NIGHT_FALLS", Map.of("round", d.round));
     }
 
-    /** @param skipped the Traitors used their one skip tonight (as opposed to simply not choosing) */
-    private void resolveNight(TruearenaState.Draft d, boolean skipped) {
+    /**
+     * Dawn. Poison takes whoever it was due to take, the pie someone took yesterday shows
+     * what it was, tonight's murder lands (or the Traitors were recruiting instead), and the
+     * morning brings its news: a clue, the alibis, the Black Spot and a fresh pie.
+     */
+    private void resolveNight(TruearenaState.Draft d) {
+        boolean skipped = d.skipTonight;
         boolean opensDry = d.round == 1 && !d.config.nightKill().opensWithKill();
         List<String> eliminated = new ArrayList<>();
+        List<String> murdered = new ArrayList<>();
         for (String poisoned : List.copyOf(d.poisonDue.keySet())) {
             if (d.poisonDue.get(poisoned) <= d.round) {
                 if (d.alive.contains(poisoned)) {
@@ -558,33 +834,79 @@ public final class TrueArenaModule implements GameModule {
                 d.poisonDue.remove(poisoned);
             }
         }
-        if (opensDry || skipped) {
+        // Yesterday's pie: poison takes its eater now; a real one guards them tonight.
+        String pieGuard = null;
+        if (d.pieHolder != null && d.alive.contains(d.pieHolder)) {
+            if (d.piePoisoned) {
+                eliminate(d, d.pieHolder, "poison");
+                eliminated.add(d.pieHolder);
+                d.emit("PIE_REVEALED", Map.of("holder", d.pieHolder, "filling", "poison"));
+            } else {
+                pieGuard = d.pieHolder;
+            }
+        }
+        if (d.recruitNight) {
+            d.emit("NO_MURDER", Map.of("round", d.round, "reason", "recruiting"));
+        } else if (opensDry || skipped) {
             d.emit("NO_MURDER", Map.of("round", d.round, "reason", opensDry ? "opening_night" : "skipped"));
         } else if (d.config.nightKill().requireTraitorConsensus()
                 && d.nightSubmissions.values().stream().distinct().count() > 1) {
             d.emit("NO_MURDER", Map.of("round", d.round, "reason", "no_consensus"));
         } else if (d.nightTarget != null && d.alive.contains(d.nightTarget)) {
-            if (d.nightTarget.equals(d.shieldHolder) && !d.shieldPoisoned) {
-                d.emit("SHIELD_BLOCKED_MURDER", Map.of("holder", d.shieldHolder));
-                d.shieldHolder = null;
-            } else {
-                eliminate(d, d.nightTarget, "murder");
-                eliminated.add(d.nightTarget);
-                notifySilentWitness(d, d.nightTarget);
-            }
+            List<String> targets = new ArrayList<>(List.of(d.nightTarget));
             String second = d.secondNightSubmissions.values().stream().findFirst().orElse(null);
-            if (second != null && d.alive.contains(second)) {
-                if (second.equals(d.shieldHolder) && !d.shieldPoisoned) {
+            if (second != null) targets.add(second);
+            for (String target : targets) {
+                if (!d.alive.contains(target)) continue;
+                if (target.equals(d.shieldHolder) && !d.shieldPoisoned) {
                     d.emit("SHIELD_BLOCKED_MURDER", Map.of("holder", d.shieldHolder));
                     d.shieldHolder = null;
+                } else if (target.equals(pieGuard)) {
+                    d.emit("PIE_SAVED", Map.of("holder", pieGuard));
                 } else {
-                    eliminate(d, second, "murder");
-                    eliminated.add(second);
-                    notifySilentWitness(d, second);
+                    eliminate(d, target, "murder");
+                    eliminated.add(target);
+                    murdered.add(target);
+                    notifySilentWitness(d, target);
                 }
             }
         } else {
             d.emit("NO_MURDER", Map.of("round", d.round, "reason", "no_target"));
+        }
+        if (pieGuard != null) {
+            d.emit("PIE_REVEALED", Map.of("holder", pieGuard, "filling", "shield"));
+        }
+        d.pieHolder = null;
+        for (String victim : murdered) {
+            crimeClue(d, victim);
+        }
+        // Tonight's offer reaches its Faithful — without saying who sent it.
+        if (d.recruitOffer != null) {
+            if (d.alive.contains(d.recruitOffer)) {
+                d.emitToPlayer("RECRUIT_OFFER", Map.of("round", d.round), d.recruitOffer);
+            } else {
+                d.emitToRole("RECRUIT_REFUSED", Map.of("id", d.recruitOffer, "reason", "gone"), TruearenaState.TRAITOR);
+                d.recruitOffer = null;
+            }
+        }
+        if (d.config.twistEnabled("alibis")) {
+            d.alibiBoard = new LinkedHashMap<>(d.alibis);
+            d.emit("ALIBIS_REVEALED", Map.of("round", d.round, "alibis", Map.copyOf(d.alibiBoard)));
+            d.alibis.clear();
+        }
+        if (d.spotPending != null) {
+            if (d.alive.contains(d.spotPending)) {
+                d.spotHolder = d.spotPending;
+                d.spotChain = new ArrayList<>(List.of(d.spotPending));
+                d.emit("BLACK_SPOT_MARKED", Map.of("holder", d.spotPending));
+            }
+            d.spotPending = null;
+        }
+        if (d.pieBaked) {
+            d.pieBaked = false;
+            d.pieAvailable = true;
+            d.pieClue = pieClue(d);
+            d.emit("PIE_SERVED", Map.of("clue", d.pieClue));
         }
         d.nightSubmissions.clear();
         d.secondNightSubmissions.clear();
@@ -596,6 +918,88 @@ public final class TrueArenaModule implements GameModule {
         p.put("eliminatedIds", eliminated);
         d.emit("MORNING_REVEAL", p);
         settleWin(d); // "after each murder ... check the win conditions" (rules doc)
+    }
+
+    /** The pie's clue: true about two times in three — honest, or the other filling's look. */
+    private static String pieClue(TruearenaState.Draft d) {
+        RandomSource rng = RandomSource.seeded(d.seed + 4049L * d.round);
+        Object truth = d.config.twistParams("poisoned_pie").getOrDefault("clueTruth", 0.67);
+        double p = truth instanceof Number number ? number.doubleValue() : 0.67;
+        boolean honest = rng.nextInt(100) < Math.round(p * 100);
+        List<String> pool = honest == d.piePoisoned ? POISON_CLUES : SHIELD_CLUES;
+        return pool.get(rng.nextInt(pool.size()));
+    }
+
+    /**
+     * Every murder leaves one true but vague clue about the killers: how near one sat to
+     * the victim, three names at least one of whom is a Traitor, or a Faithful a Traitor
+     * voted for. Never a name on its own.
+     */
+    private void crimeClue(TruearenaState.Draft d, String victim) {
+        if (!d.config.twistEnabled("crime_clues")) return;
+        TruearenaState now = build(d);
+        List<String> traitors = now.aliveTraitors();
+        if (traitors.isEmpty()) return;
+        RandomSource rng = RandomSource.seeded(d.seed + 7919L * d.round + d.eliminationIndex);
+        int first = rng.nextInt(3);
+        Map<String, Object> clue = null;
+        for (int i = 0; i < 3 && clue == null; i++) {
+            clue = switch ((first + i) % 3) {
+                case 0 -> seatClue(d, victim, traitors, rng);
+                case 1 -> trioClue(traitors, now.aliveFaithful(), rng);
+                default -> voteClue(d, now, traitors);
+            };
+        }
+        if (clue == null) return;
+        clue.put("round", d.round);
+        clue.put("victim", victim);
+        d.crimeClues.add(clue);
+        d.emit("CRIME_CLUE", new LinkedHashMap<>(clue));
+    }
+
+    /** "A Traitor sat within N seats of the victim" — counted round the table, either way. */
+    private static Map<String, Object> seatClue(TruearenaState.Draft d, String victim, List<String> traitors, RandomSource rng) {
+        int n = d.players.size();
+        int at = d.players.indexOf(victim);
+        if (at < 0 || n < 4) return null;
+        int nearest = n;
+        for (String t : traitors) {
+            int gap = Math.abs(d.players.indexOf(t) - at);
+            nearest = Math.min(nearest, Math.min(gap, n - gap));
+        }
+        Map<String, Object> clue = new LinkedHashMap<>();
+        clue.put("kind", "seat");
+        clue.put("within", Math.min(n / 2, nearest + rng.nextInt(2)));
+        return clue;
+    }
+
+    /** "At least one of these three is a Traitor." */
+    private static Map<String, Object> trioClue(List<String> traitors, List<String> faithful, RandomSource rng) {
+        if (faithful.size() < 2) return null;
+        List<String> pool = new ArrayList<>(faithful);
+        rng.shuffle(pool);
+        List<String> trio = new ArrayList<>(List.of(traitors.get(rng.nextInt(traitors.size())), pool.get(0), pool.get(1)));
+        trio.sort(Comparator.naturalOrder()); // no order to read anything into
+        Map<String, Object> clue = new LinkedHashMap<>();
+        clue.put("kind", "trio");
+        clue.put("ids", trio);
+        return clue;
+    }
+
+    /** "A Traitor voted for X at the last vote" — X being Faithful. Never from a veiled ballot. */
+    private static Map<String, Object> voteClue(TruearenaState.Draft d, TruearenaState now, List<String> traitors) {
+        if (d.ballotHistory.isEmpty()) return null;
+        Map<String, Object> last = d.ballotHistory.getLast();
+        if (Boolean.TRUE.equals(last.get("veiled")) || !(last.get("votes") instanceof Map<?, ?> votes)) return null;
+        for (String traitor : traitors.stream().sorted().toList()) {
+            if (votes.get(traitor) instanceof String target && !now.isTraitor(target)) {
+                Map<String, Object> clue = new LinkedHashMap<>();
+                clue.put("kind", "vote");
+                clue.put("target", target);
+                return clue;
+            }
+        }
+        return null;
     }
 
     /** Only living Traitors can ever be night-targeted, so any murder victim is Faithful by construction. */
@@ -626,7 +1030,7 @@ public final class TrueArenaModule implements GameModule {
     }
 
     private void closeVoting(TruearenaState.Draft d) {
-        List<String> missing = d.alive.stream().filter(id -> !d.voteLocked.contains(id)).toList();
+        List<String> missing = voters(d).stream().filter(id -> !d.voteLocked.contains(id)).toList();
         if (!missing.isEmpty() && "host_assigns".equals(d.config.afk())) {
             // Ballot stays genuinely open for these ids — HOST_ASSIGN_VOTE fills them in,
             // or the HostAssignVotes phase timer auto-abstains whoever's still missing.
@@ -681,17 +1085,41 @@ public final class TrueArenaModule implements GameModule {
                 "stage", d.tieStage == 0 ? "vote" : "tie",
                 "veiled", veiled(d),
                 "votes", new LinkedHashMap<>(d.votes)));
+        // A Faithful who votes for a real Traitor earns the Ghost Jury's double vote, should they fall.
+        TruearenaState now = build(d);
+        d.votes.forEach((voter, target) -> {
+            if (!now.isTraitor(voter) && now.isTraitor(target)) d.rightVoters.add(voter);
+        });
         Map<String, Integer> tally = new LinkedHashMap<>();
         for (String t : d.votes.values()) {
             tally.merge(t, 1, Integer::sum);
         }
         int max = tally.values().stream().mapToInt(Integer::intValue).max().orElse(0);
         List<String> tied = tally.entrySet().stream().filter(e -> e.getValue() == max).map(Map.Entry::getKey).sorted().toList();
-
-        String banished;
         if (tied.size() == 1) {
-            banished = tied.get(0);
-        } else if (d.tieStage == 0 && (d.config.twistEnabled("trial_of_two")
+            banish(d, tied.get(0), max);
+            return;
+        }
+        breakTie(d, tied, max);
+    }
+
+    /**
+     * A tied ballot. The Ghost Jury sits first where the mode has one (Classic only after its
+     * revote); otherwise — or if the ghosts can't agree — the mode's own tie rule decides.
+     */
+    private void breakTie(TruearenaState.Draft d, List<String> tied, int max) {
+        if (jurySits(d)) {
+            d.tieCandidates = new ArrayList<>(tied);
+            d.juryTopVotes = max;
+            d.juryVotes.clear();
+            d.phase = "GhostJury";
+            clearBallot(d);
+            // No juror count: it would say how many of the hidden eliminations were Faithful.
+            d.emit("GHOST_JURY_OPEN", Map.of("tied", tied));
+            return;
+        }
+        String banished;
+        if (d.tieStage == 0 && (d.config.twistEnabled("trial_of_two")
                 || "trial_of_two".equals(d.config.tieBreak()))) {
             // Twist takes precedence over whatever `tieBreak` is configured (docs/GAME_CONFIG.md
             // compatibility rule: "the twist wins"). Reuses the existing Defense phase/timer;
@@ -736,6 +1164,32 @@ public final class TrueArenaModule implements GameModule {
             d.emit("TIE_RESOLVED", Map.of("method", rule, "tied", tied, "chosen", banished));
         }
         banish(d, banished, max);
+    }
+
+    /** Whether the Ghost Jury sits for this tie: once a day, only with ghosts, and in Classic only after the revote. */
+    private static boolean jurySits(TruearenaState.Draft d) {
+        if (!d.config.twistEnabled("ghost_jury") || d.juryDone) return false;
+        if (Boolean.TRUE.equals(d.config.twistParams("ghost_jury").get("afterRevote")) && d.tieStage == 0) return false;
+        return !build(d).ghosts().isEmpty();
+    }
+
+    /** The ghosts' verdict. A clear choice is banished; otherwise the mode's own rule takes over. */
+    private void resolveJury(TruearenaState.Draft d) {
+        List<String> tied = List.copyOf(d.tieCandidates);
+        Map<String, Integer> weight = new LinkedHashMap<>();
+        d.juryVotes.forEach((ghost, target) -> weight.merge(target, d.rightVoters.contains(ghost) ? 2 : 1, Integer::sum));
+        int top = weight.values().stream().mapToInt(Integer::intValue).max().orElse(0);
+        List<String> leaders = weight.entrySet().stream().filter(e -> e.getValue() == top)
+                .map(Map.Entry::getKey).sorted().toList();
+        d.juryVotes.clear();
+        d.juryDone = true;
+        if (leaders.size() == 1) {
+            d.emit("GHOST_JURY_VERDICT", Map.of("chosen", leaders.getFirst()));
+            banish(d, leaders.getFirst(), d.juryTopVotes);
+        } else {
+            d.emit("GHOST_JURY_VERDICT", Map.of("undecided", tied));
+            breakTie(d, tied, d.juryTopVotes);
+        }
     }
 
     private void banish(TruearenaState.Draft d, String banished, int votes) {
@@ -913,8 +1367,15 @@ public final class TrueArenaModule implements GameModule {
         TruearenaState s = (TruearenaState) state;
         if (s.finished()) return java.util.Set.of();
         return switch (s.phase()) {
-            case "Night" -> s.alive.stream().filter(s::isTraitor).collect(java.util.stream.Collectors.toSet());
-            case "Vote", "Revote" -> s.alive.stream().filter(id -> !s.voteLocked.contains(id))
+            case "Night" -> s.alive.stream().filter(id -> s.isTraitor(id)
+                            || s.config.twistEnabled("alibis") && !s.alibis.containsKey(id)
+                            || id.equals(s.seer) && s.config.twistEnabled("seer_lantern") && !s.lanternUsed
+                                    && !s.lanternTonight && !s.isTraitor(id))
+                    .collect(java.util.stream.Collectors.toSet());
+            case "Vote", "Revote" -> s.alive.stream().filter(id -> !s.voteLocked.contains(id) && !id.equals(s.spotSilenced))
+                    .collect(java.util.stream.Collectors.toSet());
+            case "MorningReveal", "RoundTable" -> s.recruitOffer == null ? java.util.Set.of() : java.util.Set.of(s.recruitOffer);
+            case "GhostJury" -> s.ghosts().stream().filter(id -> !s.juryVotes.containsKey(id))
                     .collect(java.util.stream.Collectors.toSet());
             case "Defense" -> s.tieDefensePending ? java.util.Set.copyOf(s.tieCandidates)
                     : s.accused == null ? java.util.Set.of() : java.util.Set.of(s.accused);
@@ -973,10 +1434,57 @@ public final class TrueArenaModule implements GameModule {
                 && s.eliminatedLog.contains(playerId) && !s.lastWills.containsKey(playerId)) {
             m.put("canLeaveLastWill", true);
         }
+        if (!s.finished()) privateDynamics(s, playerId, m);
         if (s.finished()) {
             m.put("allRoles", s.roles);
         }
         return new PlayerVisibleState(m);
+    }
+
+    /** What only this player gets to see of the dynamics — their own offer, pie, lantern, alibi or jury seat. */
+    private static void privateDynamics(TruearenaState s, String playerId, Map<String, Object> m) {
+        boolean night = "Night".equals(s.phase);
+        boolean traitor = s.isTraitor(playerId) && s.alive.contains(playerId);
+        if (traitor && night && recruitOpen(s)) {
+            m.put("canRecruit", true);
+            m.put("recruitTargets", s.aliveFaithful().stream().filter(id -> !s.recruitAsked.contains(id)).toList());
+        }
+        if (traitor && s.recruitNight) m.put("recruitingTonight", s.recruitOffer);
+        if (playerId.equals(s.recruitOffer) && !night) m.put("recruitOffer", true);
+        if (traitor && night && s.config.twistEnabled("poisoned_pie") && s.pieUses > 0 && !s.pieBaked
+                && !s.pieAvailable && s.pieHolder == null) {
+            m.put("canBakePie", true);
+        }
+        if (s.isTraitor(playerId) && s.pieBaked) m.put("pieBakedTonight", s.piePoisoned ? "poison" : "shield");
+        if (traitor && night && s.config.twistEnabled("black_spot")) {
+            m.put("canPlaceSpot", s.spotPending == null);
+            m.put("spotPending", s.spotPending);
+        }
+        if (night && s.config.twistEnabled("alibis") && s.alive.contains(playerId)) {
+            m.put("alibiNeeded", true);
+            m.put("yourAlibi", s.alibis.get(playerId));
+        }
+        if (playerId.equals(s.seer) && s.config.twistEnabled("seer_lantern")) {
+            Map<String, Object> seer = new LinkedHashMap<>();
+            seer.put("lanternUsed", s.lanternUsed);
+            seer.put("canLight", night && s.alive.contains(playerId) && !s.isTraitor(playerId)
+                    && !s.lanternUsed && !s.lanternTonight);
+            seer.put("visions", s.visions);
+            m.put("seer", seer);
+        }
+        if ("GhostJury".equals(s.phase) && s.ghosts().contains(playerId)) {
+            m.put("ghostJuror", true);
+            m.put("yourJuryVote", s.juryVotes.get(playerId));
+        }
+        if (s.config.twistEnabled("crowd_hunch") && !s.alive.contains(playerId) && !s.isTraitor(playerId)
+                && !"RoleReveal".equals(s.phase)) {
+            m.put("canCrowdVote", true);
+            m.put("yourCrowdVote", s.crowdVotes.get(playerId));
+        }
+        if (s.config.twistEnabled("last_stand") && !s.lastStandUsed && "RoundTable".equals(s.phase)
+                && s.alive.size() <= 4 && s.alive.contains(playerId)) {
+            m.put("canLastStand", true);
+        }
     }
 
     @Override
@@ -1013,19 +1521,71 @@ public final class TrueArenaModule implements GameModule {
         }
         m.put("revealedRoles", revealed);
         m.put("lastWills", s.lastWills);
-        m.put("voteProgress", Map.of("locked", s.voteLocked.size(), "total", s.alive.size()));
+        m.put("voteProgress", Map.of("locked", s.voteLocked.size(),
+                "total", (int) s.alive.stream().filter(id -> !id.equals(s.spotSilenced)).count()));
         m.put("rules", rulesView(s.config));
         m.put("immunityAvailable", s.config.twistEnabled("immunity_coin")
                 && s.immunityHolder == null && !s.immunityConsumed);
         if ("HostAssignVotes".equals(s.phase)) {
-            m.put("missingVoters", s.alive.stream().filter(id -> !s.voteLocked.contains(id)).toList());
+            m.put("missingVoters", s.alive.stream().filter(id -> !s.voteLocked.contains(id) && !id.equals(s.spotSilenced)).toList());
         }
+        publicDynamics(s, m);
         if (s.config.twistEnabled("survivors_choice")) {
             m.put("survivorsChoiceVotes", s.survivorsChoiceVotes.size());
         }
         m.put("veiled", s.config.veilThreshold() > 0 && s.alive.size() <= s.config.veilThreshold());
         if (s.finished()) m.put("winningSide", s.win.winningSide());
         return m;
+    }
+
+    /** What the whole table (and every spectator) sees of the dynamics. */
+    private static void publicDynamics(TruearenaState s, Map<String, Object> m) {
+        GameConfig c = s.config;
+        if (c.twistEnabled("poisoned_pie")) {
+            Map<String, Object> pie = new LinkedHashMap<>();
+            pie.put("available", s.pieAvailable);
+            pie.put("clue", s.pieAvailable ? s.pieClue : null);
+            pie.put("holder", s.pieHolder);
+            m.put("pie", pie);
+        }
+        if (c.twistEnabled("crime_clues")) m.put("crimeClues", s.crimeClues);
+        if (c.twistEnabled("alibis")) m.put("alibiBoard", s.alibiBoard);
+        if (c.twistEnabled("black_spot")) {
+            Map<String, Object> spot = new LinkedHashMap<>();
+            spot.put("holder", s.spotHolder);
+            spot.put("chain", s.spotChain);
+            spot.put("silenced", s.spotSilenced);
+            m.put("blackSpot", spot);
+        }
+        if (c.twistEnabled("last_stand")) {
+            m.put("lastStandUsed", s.lastStandUsed);
+            m.put("standReveal", s.standReveal);
+        }
+        if (c.twistEnabled("crowd_hunch")) m.put("crowdHunch", crowdHunch(s));
+    }
+
+    /**
+     * The crowd's favourite suspect, shown only once enough have voted that no single vote
+     * can be picked out. Super Faithful count double — nobody is told.
+     */
+    static Map<String, Object> crowdHunch(TruearenaState s) {
+        Map<String, Object> h = new LinkedHashMap<>();
+        int voters = s.crowdVotes.size();
+        h.put("voters", voters);
+        Object min = s.config.twistParams("crowd_hunch").getOrDefault("minVoters", 3);
+        if (voters < (min instanceof Number n ? Math.max(3, n.intValue()) : 3)) return h;
+        Map<String, Integer> weight = new LinkedHashMap<>();
+        s.crowdVotes.forEach((voter, target) -> {
+            if (s.alive.contains(target)) weight.merge(target, s.rightVoters.contains(voter) ? 2 : 1, Integer::sum);
+        });
+        int total = weight.values().stream().mapToInt(Integer::intValue).sum();
+        if (total == 0) return h;
+        int top = weight.values().stream().mapToInt(Integer::intValue).max().orElse(0);
+        List<String> leaders = weight.entrySet().stream().filter(e -> e.getValue() == top).map(Map.Entry::getKey).sorted().toList();
+        h.put("suspect", leaders.getFirst());
+        h.put("percent", Math.round(100f * top / total));
+        h.put("split", leaders.size() > 1);
+        return h;
     }
 
     /**

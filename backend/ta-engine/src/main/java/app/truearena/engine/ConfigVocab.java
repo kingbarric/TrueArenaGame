@@ -20,7 +20,10 @@ public final class ConfigVocab {
     public static final Set<String> TWISTS = Set.of(
             "hidden_legacy", "poisoned_gift", "secret_accusation", "blackmail", "double_agent",
             "last_will", "confessional", "immunity_coin", "silent_witness", "false_reveal",
-            "trial_of_two", "survivors_choice"
+            "trial_of_two", "survivors_choice",
+            // The dynamics (docs/TRAITORS_DYNAMICS_PLAN.md).
+            "recruiting", "poisoned_pie", "crime_clues", "alibis", "seer_lantern", "black_spot",
+            "last_stand", "crowd_hunch", "ghost_jury"
     );
 
     private ConfigVocab() {

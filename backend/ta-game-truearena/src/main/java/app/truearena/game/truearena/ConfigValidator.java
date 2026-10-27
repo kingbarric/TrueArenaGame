@@ -85,7 +85,7 @@ public final class ConfigValidator {
                 // The same four the engine hands a special-Faithful slot to (TrueArenaModule.initialState);
                 // silent_witness used to be left out of this count.
                 .filter(id -> id.equals("secret_accusation") || id.equals("blackmail")
-                        || id.equals("double_agent") || id.equals("silent_witness"))
+                        || id.equals("double_agent") || id.equals("silent_witness") || id.equals("seer_lantern"))
                 .count();
         if (specialFaithfulNeed > Math.max(0, t.players() - traitors - 1)) {
             warn.add("enabled twists need " + specialFaithfulNeed + " special Faithful but only "

@@ -59,6 +59,36 @@ public final class TwistRegistry {
         add("survivors_choice", "Survivors' Choice",
                 "At the final four the group may end early; any Traitor alive means the Traitors win.",
                 List.of("WinCheck"), Map.of());
+        // --- the dynamics (docs/TRAITORS_DYNAMICS_PLAN.md) ---
+        add("recruiting", "Recruiting",
+                "After losing one of their own, the Traitors may spend a night making a Faithful an anonymous offer "
+                        + "— join, or else. Never past two Faithful per Traitor, nor their starting number.",
+                List.of("Night", "MorningReveal", "RoundTable"), Map.of());
+        add("poisoned_pie", "The Poisoned Pie",
+                "Once a game the Traitors bake a pie — a shield or poison — and serve it with a clue that's usually true. "
+                        + "Whoever takes it finds out the next night.",
+                List.of("Night", "RoundTable"), Map.of("uses", 1, "clueTruth", 0.67));
+        add("crime_clues", "Crime-Scene Clues",
+                "Every murder leaves one true but vague clue about the killers.",
+                List.of("MorningReveal"), Map.of());
+        add("alibis", "Alibis",
+                "Each night everyone names who they were with; the morning shows who backs whom up.",
+                List.of("Night", "MorningReveal"), Map.of());
+        add("seer_lantern", "The Seer's Lantern",
+                "One secret Faithful may look at one player's true side, once a game.",
+                List.of("Night"), Map.of());
+        add("black_spot", "The Black Spot",
+                "The Traitors mark someone each night; it's passed round the table, and whoever holds it at the vote loses their vote.",
+                List.of("Night", "RoundTable", "Vote"), Map.of());
+        add("last_stand", "Last Stand",
+                "At the final four, one player may give up their place to show everyone one player's true side.",
+                List.of("RoundTable"), Map.of());
+        add("crowd_hunch", "The Crowd's Hunch",
+                "Spectators and Faithful who are out vote on who they suspect; the table sees the crowd's favourite once three have voted.",
+                List.of("RoundTable", "Vote"), Map.of("minVoters", 3));
+        add("ghost_jury", "The Ghost Jury",
+                "Faithful who are out break a tied vote. Those who once voted for a real Traitor count double — quietly.",
+                List.of("Vote"), Map.of());
     }
 
     private TwistRegistry() {
