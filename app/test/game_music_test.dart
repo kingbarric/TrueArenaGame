@@ -30,6 +30,15 @@ void main() {
     expect(GameMusic.traitorsScene('Elimination'), MusicMood.traitorsReveal);
   });
 
+  test('the round table plays faintly so people hear each other; night, vote and reveal stay full', () {
+    final table = GameMusic.volumeFor(GameMusic.traitorsScene('RoundTable'));
+    expect(table, lessThan(0.1));
+    for (final scene in [MusicMood.traitorsNight, MusicMood.traitorsVote, MusicMood.traitorsReveal]) {
+      expect(GameMusic.volumeFor(scene), greaterThan(table * 2), reason: '$scene');
+    }
+    expect(GameMusic.volumeFor(MusicMood.cinematic), 0.14);
+  });
+
   test('each Traitors scene plays only its own tracks — no piano — and they ship', () {
     for (final mood in [MusicMood.traitorsNight, MusicMood.traitorsTable, MusicMood.traitorsVote, MusicMood.traitorsReveal]) {
       final list = GameMusic.debugPlaylist(mood, seed: 3);

@@ -120,7 +120,7 @@ class GameMusic {
     await stop();
     if (autoplay) _enabled = true;
     _mood = mood;
-    _sessionVolume = mood == MusicMood.cinematic ? 0.14 : _volume;
+    _sessionVolume = volumeFor(mood);
     _playlist =
         _shuffleFor(mood, seed ?? DateTime.now().microsecondsSinceEpoch);
     _position = 0;
@@ -160,6 +160,15 @@ class GameMusic {
     if (token != _sessionToken) return;
     await start(mood);
   }
+
+  /// How loud a session plays. The Traitors round table is barely there —
+  /// people are talking, and should hear themselves over it; Huudpoly's
+  /// cinematic track sits low too. Everything else plays at [_volume].
+  static double volumeFor(MusicMood mood) => switch (mood) {
+        MusicMood.traitorsTable => 0.07,
+        MusicMood.cinematic => 0.14,
+        _ => _volume,
+      };
 
   /// Which Traitors scene a phase belongs to.
   static MusicMood traitorsScene(String phase) => switch (phase) {
