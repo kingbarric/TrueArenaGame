@@ -66,8 +66,8 @@ public final class AuthDtos {
             String refreshToken,
             long expiresInSeconds,
             UserView user,
-            // true only on the verify call that actually created the account — lets the
-            // client offer the "pick a username" step once, right after signup.
+            // true when creating a registered account or upgrading a guest for the first
+            // time; false when restoring an existing account, regardless of the caller.
             boolean newAccount) {
     }
 }

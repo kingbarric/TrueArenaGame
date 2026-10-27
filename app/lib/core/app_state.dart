@@ -441,11 +441,16 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  int _sessionGeneration = 0;
+  bool _signingOut = false;
+
   /// Exchanges the stored refresh token for a fresh pair and updates the
   /// session in place. Used both at cold-start recovery (above) and by
   /// `ApiClient` itself mid-session on any 401 (see `bootstrap`'s
   /// `api.refreshHandler = _tryRefresh` and `ApiClient._send`).
   Future<bool> _tryRefresh() async {
+    if (_signingOut) return false;
+    final generation = _sessionGeneration;
     final prefs = await SharedPreferences.getInstance();
     final refreshToken = await _readSessionSecret(_kRefresh, prefs);
     if (refreshToken == null || refreshToken.isEmpty) return false;
@@ -453,6 +458,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       final res =
           await api.post('/auth/refresh', {'refreshToken': refreshToken})
               as Map<String, dynamic>;
+      if (generation != _sessionGeneration) return false;
       await _completeSignIn(AuthTokens.fromJson(res));
       return true;
     } catch (_) {
@@ -461,7 +467,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> _loadMe() async {
+    final generation = _sessionGeneration;
     final me = await api.get('/me') as Map<String, dynamic>;
+    if (generation != _sessionGeneration || _signingOut) return;
     user = UserView.fromJson(me);
     identity = user!.isGuest ? Identity.guest : Identity.account;
     await _cacheUser(user!);
@@ -639,6 +647,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   /// the caller assuming it, so e.g. an OTP verify that upgraded a guest in
   /// place correctly flips this device from guest to account.
   Future<void> _completeSignIn(AuthTokens tokens) async {
+    ++_sessionGeneration;
     api.bearer = tokens.access;
     user = tokens.user;
     identity = tokens.user.isGuest ? Identity.guest : Identity.account;
@@ -724,15 +733,18 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> signOut({bool accountDeleted = false}) async {
+    ++_sessionGeneration;
+    _signingOut = true;
     if (accountDeleted) {
       try { await HangoutState.instance.room?.disconnect(); } catch (_) {}
       HangoutState.instance.clear();
     } else {
-      await HangoutState.instance.leave?.call();
-      if (HangoutState.instance.active) return;
+      try { await HangoutState.instance.leave?.call(); } catch (_) {}
+      try { await HangoutState.instance.room?.disconnect(); } catch (_) {}
+      HangoutState.instance.clear();
     }
     if (onSignedOut != null) {
-      try { await onSignedOut!(); } catch (_) { if (!accountDeleted) rethrow; }
+      try { await onSignedOut!(); } catch (_) {}
     }
     try {
       await _googleClient?.signOut();
@@ -748,6 +760,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     _presenceTimer = null;
     onlineFriends.value = <String>{};
     user = null;
+    avatarEmoji = null;
+    avatarImagePath = null;
     identity = Identity.anonymous;
     await clearActiveRoom();
     pendingGameInvite = null;
@@ -758,6 +772,10 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     await _deleteSessionSecret(_kAccess, prefs);
     await _deleteSessionSecret(_kRefresh, prefs);
     await prefs.remove(_kCachedUser);
+    await prefs.remove(_kAvatarEmoji);
+    await prefs.remove(_kAvatarImage);
+    api.deviceId = await DeviceId.rotate();
+    _signingOut = false;
     notifyListeners();
   }
 
