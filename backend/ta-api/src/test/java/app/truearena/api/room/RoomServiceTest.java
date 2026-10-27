@@ -309,6 +309,19 @@ class RoomServiceTest {
         verify(members).save(argThat(m -> m.nickname().equals("player")));
     }
 
+    @Test
+    void roomView_usesUsernameEvenWhenStoredNicknameIsAFullName() {
+        UUID hostId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        when(rooms.findHostedLobby(hostId, "truearena")).thenReturn(Mono.just(room(roomId, hostId, 0)));
+        when(members.findByRoomId(roomId)).thenReturn(Flux.just(RoomMemberRow.of(roomId, hostId, "Ada Lovelace")));
+        when(users.findById(hostId)).thenReturn(Mono.just(realUser(hostId)));
+        when(jwt.issueAccess(hostId)).thenReturn("token");
+        StepVerifier.create(service.hostedLobby(hostId, "truearena"))
+                .expectNextMatches(v -> v.members().getFirst().nickname().equals("player"))
+                .verifyComplete();
+    }
+
     // ---------------------------------------------------------------- join
 
     @Test

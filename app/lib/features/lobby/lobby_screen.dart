@@ -201,7 +201,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
   }
 
   RoomView _exampleRoom(AppState app) {
-    final me = app.user?.displayName ?? 'You';
+    final me = app.user?.handle ?? 'You';
     return RoomView(
       id: 'example',
       code: 'NIGHT7',

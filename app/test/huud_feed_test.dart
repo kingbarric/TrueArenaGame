@@ -421,14 +421,14 @@ void main() {
     await tester.enterText(field, 'am');
     await tester.pump(const Duration(milliseconds: 350));
     await tester.pump();
-    expect(find.text('Amaka O.'), findsOneWidget);
+    expect(find.text('amaka'), findsOneWidget);
 
     slow.complete(_json([
       {'userId': 'ada', 'displayName': 'Ada Stale', 'username': 'ada', 'isFriend': false, 'requestPending': false}
     ]));
     await tester.pumpAndSettle();
-    expect(find.text('Ada Stale'), findsNothing);
-    expect(find.text('Amaka O.'), findsOneWidget);
+    expect(find.text('ada'), findsNothing);
+    expect(find.text('amaka'), findsOneWidget);
   });
 
   testWidgets('the countdown re-renders without refetching, and expired cards drop out', (tester) async {
@@ -475,7 +475,7 @@ void main() {
       'actor': {'userId': 'u1'},
       'win': {'matchId': 'm'},
     });
-    expect(item.actor.name, '');
+    expect(item.actor.name, 'Player');
     expect(item.win!.recent, isEmpty);
     expect(item.win!.streak, 0);
     expect(item.gameName, '');

@@ -10,6 +10,19 @@ import 'keep_awake.dart';
 import 'table_minimum.dart';
 import '../widgets/neon.dart' show Presence;
 
+/// Only known, actionable messages are shown; internal server details stay hidden.
+String gameActionMessage(Object? code) {
+  if (tableTooSmallCodes.contains(code)) return tableTooSmallMessage;
+  return switch (code) {
+    'UNKNOWN_ACTION' => 'This game server needs an update to support that action.',
+    'NOT_HOST' => 'Only the current host can do that.',
+    'TOURNAMENT_GAME' => 'Championship matches must play to the end.',
+    'ALREADY_FINISHED' => 'This game has already ended.',
+    'GAME_PAUSED' => 'Resume the game before trying that action.',
+    _ => userRetryMessage,
+  };
+}
+
 /// A room connection that survives short network outages. A reconnect sends
 /// the highest event `seq` this socket has actually seen, so the server can
 /// replay just what was missed instead of resending a full snapshot every
@@ -157,7 +170,7 @@ class GameSocket {
           final payload = (frame['payload'] as Map?)?.cast<String, dynamic>();
           frame['payload'] = {
             ...?payload,
-            'message': tableTooSmallCodes.contains(payload?['code']) ? tableTooSmallMessage : userRetryMessage,
+            'message': gameActionMessage(payload?['code']),
           };
         }
         _updatePresence(frame);

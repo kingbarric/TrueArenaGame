@@ -17,7 +17,10 @@ String huudLink(String code) => Invitation(InvitationKind.huud, code.toUpperCase
 
 /// The code in a recognized Huud invitation, including the configured test host.
 String? huudCodeFromLink(String? text) {
-  final invite = Invitation.fromText(text);
+  final trimmed = text?.trim();
+  final normalized = trimmed != null && RegExp(r'^(?:www\.)?playhuud\.com/').hasMatch(trimmed)
+      ? 'https://$trimmed' : trimmed;
+  final invite = Invitation.fromText(normalized);
   return invite?.kind == InvitationKind.huud ? invite!.code : null;
 }
 
@@ -33,7 +36,8 @@ Future<void> shareHuud(BuildContext context, HuudSpace huud) async {
   if (code == null) return;
   await shareInvitation(context, InvitationArtwork(
       invitation: Invitation(InvitationKind.huud, code), name: huud.name,
-      gameType: huud.currentGame?.gameType));
+      gameType: huud.currentGame?.gameType, mode: huud.currentGame?.mode,
+      hostName: AppScope.of(context).user?.displayName));
 }
 
 Future<void> copyHuudLink(BuildContext context, HuudSpace huud) async {

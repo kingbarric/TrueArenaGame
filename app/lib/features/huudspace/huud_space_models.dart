@@ -3,6 +3,7 @@
 /// inside it comes and goes, the Huud stays.
 library;
 
+import '../../core/player_identity.dart';
 import '../../core/table_minimum.dart';
 
 enum HuudPrivacy { friends, private, public }
@@ -58,11 +59,11 @@ class HuudMember {
   final bool here;
   final bool canSpeak;
 
-  /// Full name — only for their profile card.
-  String get name => displayName.isNotEmpty ? displayName : username;
+  /// Public-facing identity uses the username.
+  String get name => handle;
 
   /// How they're shown everywhere else: their username.
-  String get handle => username.isNotEmpty ? username : name.split(' ').first;
+  String get handle => playerHandle(username, displayName: displayName);
 
   factory HuudMember.fromJson(Map<String, dynamic> j) => HuudMember(
         userId: j['userId'].toString(),
@@ -660,7 +661,8 @@ class HuudSeat {
 
   factory HuudSeat.fromJson(Map<String, dynamic> j) => HuudSeat(
         userId: j['userId'].toString(),
-        name: j['displayName'] as String? ?? 'Player',
+        name: j['bot'] == true ? j['displayName'] as String? ?? 'Cyber Agent'
+          : playerHandle(j['username'] as String?, displayName: j['displayName'] as String?),
         avatarUrl: j['avatarUrl'] as String?,
         bot: j['bot'] == true,
         ready: j['ready'] == true,

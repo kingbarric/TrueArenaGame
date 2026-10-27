@@ -13,7 +13,7 @@ void main() {
       final loader = FontLoader('MonopolySans')
         ..addFont(rootBundle.load('assets/fonts/monopoly/Roboto-Regular.ttf'));
       await loader.load();
-      for (final game in [null, 'chess', 'draughts', 'slayhuud']) {
+      for (final game in [null, 'chess', 'draughts', 'slayhuud', 'truearena', 'whot', 'ludo', 'goosi', 'wordbluff', 'monopoly']) {
         final data = InvitationArtwork(
             invitation: Invitation(
                 game == null
@@ -46,6 +46,11 @@ void main() {
             final file = File(path);
             await file.parent.create(recursive: true);
             await file.writeAsBytes(bytes.buffer.asUint8List());
+          }
+          if (const bool.fromEnvironment('EXPORT_SHARE_PREVIEW')) {
+            if (game == 'truearena' && !landscape) {
+              await File('/tmp/playhuud-invitation-preview.png').writeAsBytes(bytes.buffer.asUint8List());
+            }
           }
           image.dispose();
         }

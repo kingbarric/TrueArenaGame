@@ -1,3 +1,4 @@
+import '../../core/player_identity.dart';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -149,7 +150,7 @@ List<PlayerCardData> buildPlayerCards(CompetitiveProfile p,
     for (final r in p.games)
       if (!order.contains(r.gameType) && !(r.gameType == 'wordbluff' && order.contains('bluff'))) r,
   ];
-  final name = p.displayName;
+  final name = firstName(p.displayName);
 
   final games = records.fold<int>(0, (s, r) => s + r.stats.gamesPlayed);
   final wins = records.fold<int>(0, (s, r) => s + r.stats.wins);
@@ -346,7 +347,7 @@ class PlayerCard extends StatelessWidget {
                 top: h * 0.51,
                 child: Column(children: [
                   SizedBox(height: h * .07, child: FittedBox(fit: BoxFit.scaleDown,
-                    child: Text(data.name.toUpperCase(),
+                    child: Text(firstName(data.name).toUpperCase(),
                         maxLines: 1,
                         style: TextStyle(
                             color: t.accent,

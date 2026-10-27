@@ -2,6 +2,7 @@
 /// [HuudItem] per card; its [HuudItem.kind] says which detail block is set.
 library;
 
+import '../../core/player_identity.dart';
 import 'package:clock/clock.dart';
 
 /// "Your Huud" is you and your friends; "For you" is the whole public lobby.
@@ -55,11 +56,11 @@ class HuudPerson {
   final String? avatarUrl;
   final bool friend;
 
-  /// Full name — only for their profile card.
-  String get name => displayName.isNotEmpty ? displayName : username;
+  /// Public-facing identity uses the username.
+  String get name => handle;
 
   /// How they're shown everywhere else: their username.
-  String get handle => username.isNotEmpty ? username : name.split(' ').first;
+  String get handle => playerHandle(username, displayName: displayName);
 
   factory HuudPerson.fromJson(Map<String, dynamic> j) => HuudPerson(
         userId: j['userId'].toString(),

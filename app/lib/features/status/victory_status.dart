@@ -1,3 +1,5 @@
+import '../../core/player_identity.dart';
+import '../../widgets/game_artwork.dart';
 import '../../core/share_origin.dart';
 import '../../core/api_client.dart' show userErrorMessage, userRetryMessage;
 import 'dart:async';
@@ -19,6 +21,8 @@ const gameStatusNames = {
   'chess': 'Chess',
   'goosi': 'Macala',
   'truearena': 'Traitors',
+  'monopoly': 'Huudpoly',
+  'slayhuud': 'SlayHuud',
 };
 
 class VictoryStatus {
@@ -55,57 +59,39 @@ class VictoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AspectRatio(
-        aspectRatio: 0.78,
-        child: Container(
-          padding: const EdgeInsets.all(26),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xff181433),
-                  Color(0xff39205f),
-                  Color(0xff0b4352)
-                ]),
-          ),
-          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            const Icon(Icons.emoji_events_rounded,
-                color: Color(0xffffd36b), size: 82),
-            const SizedBox(height: 22),
-            const Text('VICTORY',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 36,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 3)),
-            const SizedBox(height: 12),
-            Text(playerName,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 23,
-                    fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Text(gameStatusNames[gameType] ?? gameType,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Color(0xffffd36b), fontSize: 20)),
-            if (detail != null) ...[
-              const SizedBox(height: 18),
-              Text(detail!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white70, fontSize: 15)),
-            ],
-            const SizedBox(height: 32),
-            const Text('PLAYHUUD',
-                style: TextStyle(
-                    color: Colors.white60,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 4)),
-          ]),
-        ),
-      );
+    aspectRatio: .78,
+    child: ClipRRect(borderRadius: BorderRadius.circular(24),
+      child: LayoutBuilder(builder: (context, box) {
+        final scale = box.maxWidth / 300;
+        Widget gap(double height) => SizedBox(height: height * scale);
+        Widget words(String text, double size, Color color, {int lines = 2}) =>
+          Text(text, textAlign: TextAlign.center, maxLines: lines, overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontFamily: 'MonopolySans', decoration: TextDecoration.none, color: color, fontSize: size * scale, height: 1.15,
+              fontWeight: FontWeight.w800));
+        return Stack(fit: StackFit.expand, children: [
+          Image.asset(gameArtworkAsset(gameType), fit: BoxFit.cover, excludeFromSemantics: true),
+          const DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(
+            begin: Alignment.topCenter, end: Alignment.bottomCenter,
+            colors: [Color(0x66101622), Color(0xbb101622), Color(0xff101622)]))),
+          Padding(padding: EdgeInsets.all(20 * scale), child: Column(children: [
+            Image.asset('assets/images/branding/playhuud-wordmark-transparent.png',
+              height: 30 * scale, fit: BoxFit.contain, semanticLabel: 'PlayHuud'),
+            gap(10),
+            words(gameStatusNames[gameType] ?? gameType, 20, const Color(0xffffd36b)),
+            const Spacer(),
+            Icon(Icons.emoji_events_rounded, color: const Color(0xffffd36b), size: 42 * scale),
+            gap(6), words('VICTORY', 32, Colors.white),
+            gap(6), words(firstName(playerName), 23, Colors.white, lines: 1),
+            if (detail != null) ...[gap(8), words(detail!, 13, Colors.white70)],
+            const Spacer(),
+            words(gameInvitationHook(gameType), 16, Colors.white),
+            gap(10),
+            words('Think you can beat me? Join the game.', 13, const Color(0xffffd36b)),
+            gap(8), words('playhuud.com', 12, Colors.white70, lines: 1),
+          ])),
+        ]);
+      })),
+  );
 }
 
 /// Shown only on a player's own win. Sharing exports the same card shown here.
@@ -167,6 +153,11 @@ class _PublishVictoryState extends State<_PublishVictory> {
     final origin = shareOrigin(context);
     setState(() => _busy = true);
     try {
+      await precacheImage(AssetImage(gameArtworkAsset(widget.gameType)), context);
+      if (!mounted) return;
+      await precacheImage(const AssetImage('assets/images/branding/playhuud-wordmark-transparent.png'), context);
+      if (!mounted) return;
+      await WidgetsBinding.instance.endOfFrame;
       final boundary =
           _cardKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
       if (boundary == null) throw StateError('Card is not ready');
@@ -180,7 +171,7 @@ class _PublishVictoryState extends State<_PublishVictory> {
       await Share.shareXFiles([XFile(file.path, mimeType: 'image/png')],
           sharePositionOrigin: origin,
           text:
-              'I won ${gameStatusNames[widget.gameType] ?? widget.gameType} on PlayHuud!');
+              'I won ${gameStatusNames[widget.gameType] ?? widget.gameType} on PlayHuud! ${gameInvitationHook(widget.gameType)} Think you can beat me? Join me: https://playhuud.com');
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -281,7 +272,7 @@ class _StatusScreenState extends State<StatusScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(18, 20, 18, 100),
                 children: [
-                  if (_error != null) Center(child: Text(userErrorMessage)),
+                  if (_error != null) const Center(child: Text(userErrorMessage)),
                   if (active?.isEmpty == true)
                     const Center(
                         child: Padding(
@@ -291,7 +282,7 @@ class _StatusScreenState extends State<StatusScreen> {
                     ListTile(
                       leading: const Icon(Icons.circle,
                           size: 13, color: Color(0xff4ade80)),
-                      title: Text(status.displayName),
+                      title: Text(playerHandle(status.username, displayName: status.displayName)),
                       subtitle: Text(
                           '@${status.username} · expires in ${status.expiresAt.difference(DateTime.now()).inHours + 1}h'),
                     ),

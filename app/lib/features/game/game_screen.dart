@@ -1,7 +1,7 @@
+import '../../widgets/game_artwork.dart';
 import '../../widgets/match_coin_reward.dart';
 import '../../core/api_client.dart' show userErrorMessage;
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -150,6 +150,7 @@ class _GameScreenState extends State<GameScreen> {
   final List<RevealSubject> _revealSubjects = [];
   bool _nobodyThisPhase = false;
   bool _revealDone = false;
+  String? _preset;
 
   bool _musicOn = GameMusic.enabled;
   bool _sfxOn = GameSfx.enabled;
@@ -371,6 +372,7 @@ class _GameScreenState extends State<GameScreen> {
         allRoles = (p['allRoles'] as Map).cast<String, String>();
       }
       winningSide = p['winningSide'] as String? ?? winningSide;
+      _preset = p['preset'] as String? ?? _preset;
       _applyRules(p['rules']);
       _nightPicks = ((p['nightPicks'] as Map?) ?? const {}).cast<String, String>();
       _canSkipNight = p['canSkipNight'] == true;
@@ -771,11 +773,17 @@ class _GameScreenState extends State<GameScreen> {
       {String? choice}) async {
     final target = await showModalBottomSheet<String>(
       context: context,
+      backgroundColor: context.neon.panel.withValues(alpha: 1),
+      showDragHandle: true,
       builder: (ctx) => SafeArea(child: ListView(
         shrinkWrap: true,
         children: [
           for (final id in candidates)
-            ListTile(title: Text(label(id)), onTap: () => Navigator.pop(ctx, id)),
+            ListTile(
+              minTileHeight: 56,
+              title: Text(label(id), style: TextStyle(
+                color: ctx.neon.ink, fontSize: 18, fontWeight: FontWeight.w600)),
+              onTap: () => Navigator.pop(ctx, id)),
         ],
       )),
     );
@@ -912,13 +920,14 @@ class _GameScreenState extends State<GameScreen> {
         ),
         body: Stack(
           children: [
+            Positioned.fill(child: GameArtworkBackdrop(gameType: 'truearena', mode: _preset)),
             Positioned.fill(
                 child: GameBackdropMotifs(
                     gold: n.gold, brand: n.brand, jade: n.jade)),
             SafeArea(
               // Laid out under the stage rather than floating over it.
               child: Column(children: [
-                _clockBar(n),
+                if (phase != 'RoundTable') _clockBar(n),
                 Expanded(
                   child: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 260),
@@ -1269,63 +1278,102 @@ class _GameScreenState extends State<GameScreen> {
           onPressed: _actionLocked ? null : () => _chooseTargetAction(
             'AWARD_IMMUNITY', alive.toList())),
     ];
-    return Column(
-      children: [
-        Expanded(
-          child: TableRing(
-            players: players,
-            seat: (id, size) => _seat(n, id, size),
-            centre: (width) => _tableCentre(n, width),
-          ),
-        ),
+    return LayoutBuilder(builder: (context, box) {
+      final buttonCount = (_canAccuse ? 1 : 0) + (widget.isHost ? 1 : 0);
+      final textWidth = (box.maxWidth - 144).clamp(1.0, double.infinity);
+      double textHeight(String text, TextStyle style) {
+        final painter = TextPainter(text: TextSpan(text: text, style: style),
+          textDirection: Directionality.of(context), textScaler: MediaQuery.textScalerOf(context))
+          ..layout(maxWidth: textWidth);
+        return painter.height;
+      }
+      final titleHeight = textHeight('Round table',
+        Theme.of(context).textTheme.displayLarge!.copyWith(fontSize: 28));
+      final requiredHeight = 180 + textHeight('Talk it out — who feels like a traitor?',
+        const TextStyle(fontSize: 16, height: 1.25)) +
+        (_secondsLeft == null ? 0 : 48) + buttonCount * 58 + (buttonCount > 0 ? 12 : 0) +
+        (feed.isEmpty ? 0 : 48);
+      final clockHeight = widget.isHost || _paused ? 46 : 0;
+      final chatHeight = _chatExpanded
+        ? (box.maxHeight - requiredHeight - clockHeight - (twists.isEmpty ? 0 : 64)).clamp(120.0, 320.0)
+        : 54.0;
+      final tableHeight = box.maxHeight - chatHeight - (twists.isEmpty ? 0 : 64) - clockHeight;
+      final titleAbove = tableHeight < requiredHeight + titleHeight + 6;
+      return Column(children: [
+        _clockBar(n, tableTitle: titleAbove),
+        Expanded(child: DiscussionTable(
+          players: players,
+          seat: (id, size) => _seat(n, id, size),
+          child: _tableCentre(n, showTitle: !titleAbove),
+        )),
         if (twists.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Wrap(spacing: 8, runSpacing: 8, alignment: WrapAlignment.center, children: twists),
-          ),
-        _chatPanel(n),
-      ],
-    );
+          Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Wrap(spacing: 8, runSpacing: 8, alignment: WrapAlignment.center, children: twists)),
+        _chatPanel(n, height: chatHeight),
+      ]);
+    });
   }
 
-  /// What sits in the middle of the table.
-  Widget _tableCentre(NeonColors n, double width) => SizedBox(
-        width: math.max(width, 150),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const HuudText('🎪', style: TextStyle(fontSize: 30)),
-          const SizedBox(height: 2),
-          Text('Round table',
-              key: const ValueKey('round-table-title'),
-              style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 22)),
-          const SizedBox(height: 2),
-          Text('Talk it out — who feels like a traitor?',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: n.mid, fontSize: 12)),
-          if (_secondsLeft != null) ...[const SizedBox(height: 6), _countdown(n)],
-          if (feed.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Text(feed.first,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: n.mid, fontSize: 11.5)),
-          ],
-          if (_canAccuse) ...[
-            const SizedBox(height: 8),
-            NeonButton('Make your accusation', style: NeonStyle.ghost, expand: false,
-              onPressed: _actionLocked ? null : () => _chooseTargetAction(
+  /// Controls keep their natural font and touch sizes on the solid tabletop.
+  Widget _tableCentre(NeonColors n, {required bool showTitle}) =>
+      LayoutBuilder(builder: (context, box) {
+        const cream = Color(0xffffefd6);
+        Widget action(String text, Key key, VoidCallback? onPressed) =>
+            SizedBox(width: double.infinity, child: FilledButton(
+              key: key,
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xffffdf9b),
+                foregroundColor: const Color(0xff352010),
+                minimumSize: const Size(0, 48),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+              onPressed: onPressed, child: Text(text, textAlign: TextAlign.center)));
+        final buttons = <Widget>[
+          if (_canAccuse)
+            action('Make your accusation', const ValueKey('round-table-accuse'),
+              _actionLocked ? null : () => _chooseTargetAction(
                 'ACCUSE', alive.where((id) => id != widget.selfId).toList())),
+          if (widget.isHost)
+            action('Skip to the vote', const ValueKey('round-table-skip'),
+              _actionLocked ? null : _advance),
+        ];
+        final details = Column(mainAxisSize: MainAxisSize.min, children: [
+          if (showTitle) ...[
+            Text('Round table', key: const ValueKey('round-table-title'), textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 28, color: cream)),
+            const SizedBox(height: 6),
           ],
-          if (widget.isHost) ...[
+          const Text('Talk it out — who feels like a traitor?', textAlign: TextAlign.center,
+            style: TextStyle(color: cream, fontSize: 16, height: 1.25)),
+          if (_secondsLeft != null) ...[
             const SizedBox(height: 8),
-            NeonButton('Skip to the vote',
-                key: const ValueKey('round-table-skip'),
-                style: NeonStyle.ghost,
-                expand: false,
-                onPressed: _actionLocked ? null : _advance),
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              const Icon(Icons.hourglass_bottom_rounded, color: Color(0xffffdf9b), size: 24),
+              const SizedBox(width: 8),
+              Text(_paused ? '⏸ ${_clock(_secondsLeft!)}' : _clock(_secondsLeft!),
+                style: const TextStyle(color: cream, fontSize: 28,
+                  fontWeight: FontWeight.w800, fontFeatures: [FontFeature.tabularFigures()])),
+            ]),
           ],
-        ]),
-      );
+        ]);
+        final controls = Column(mainAxisSize: MainAxisSize.min, children: [
+          for (var i = 0; i < buttons.length; i++) ...[
+            if (i > 0) const SizedBox(height: 8), buttons[i],
+          ],
+        ]);
+        if (box.maxWidth > 400 && box.maxHeight < 280) {
+          return Row(children: [Expanded(child: details), const SizedBox(width: 20), Expanded(child: controls)]);
+        }
+        return Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          details,
+          if (feed.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Flexible(child: Text(feed.first, maxLines: 2, overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center, style: const TextStyle(color: cream, fontSize: 16))),
+          ],
+          if (buttons.isNotEmpty) ...[const SizedBox(height: 12), controls],
+        ]);
+      });
 
   /// Opens beneath the discussion for anyone who'd rather type than talk — a
   /// public "table" channel everyone sees, plus a "traitors" channel only
@@ -1333,22 +1381,19 @@ class _GameScreenState extends State<GameScreen> {
   /// GameOrchestrator.handleChat — this hides the option, that guarantees it).
   /// Shown during RoundTable, and to the Traitors at night (traitors' channel
   /// only) so they can agree a target. There's no chat during voting.
-  Widget _chatPanel(NeonColors n) {
+  Widget _chatPanel(NeonColors n, {double? height}) {
     final atNight = phase == 'Night';
     final onTraitorChannel = atNight || _chatChannel == 'traitors';
     final messages = onTraitorChannel ? _traitorChat : _tableChat;
     final tint = onTraitorChannel ? n.brand : n.gold;
     // Shorter at night: the target picker above it matters more.
-    final openHeight = MediaQuery.sizeOf(context).height < 600 ? 180.0 : (atNight ? 240.0 : 320.0);
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
+    final openHeight = height ?? (MediaQuery.sizeOf(context).height < 600 ? 180.0 : (atNight ? 240.0 : 320.0));
+    return Container(
       height: _chatExpanded ? openHeight : 54,
       decoration: BoxDecoration(
           color: n.panel,
           border: const Border(top: BorderSide(color: kCabinetInk, width: 2))),
-      // Lay the contents out at their final height and clip while the panel
-      // grows — otherwise they overflow for the length of the animation.
+      // Constrain chat independently so resizing never squeezes the table.
       child: ClipRect(
        child: OverflowBox(
         alignment: Alignment.topCenter,
@@ -1563,6 +1608,9 @@ class _GameScreenState extends State<GameScreen> {
   /// round the seats, stops on whoever's gone, and then shows what they were.
   /// The host moves on once it's all been shown (the clock still does too).
   Widget _revealStage(NeonColors n, String heading, {List<Widget> extras = const []}) {
+    // Elimination is the server's pre-tally phase: ADVANCE_PHASE calculates
+    // the banishment. Waiting for a subject here would deadlock the host.
+    final awaitingTally = phase == 'Elimination' && _revealSubjects.isEmpty && !_nobodyThisPhase;
     return Column(children: [
       Expanded(
         child: EliminationReveal(
@@ -1585,7 +1633,7 @@ class _GameScreenState extends State<GameScreen> {
             NeonButton('Continue',
                 key: const ValueKey('reveal-continue'),
                 style: NeonStyle.ghost,
-                onPressed: !_revealDone || _actionLocked ? null : _advance)
+                onPressed: _actionLocked || (!_revealDone && !awaitingTally) ? null : _advance)
           else
             _waiting(n, _movingOnLine),
         ]),
@@ -1911,10 +1959,10 @@ class _GameScreenState extends State<GameScreen> {
   bool get _phaseShowsClock =>
       const {'Night', 'RoundTable', 'Vote', 'Revote', 'SuddenDeath', 'Defense'}.contains(phase);
 
-  Widget _clockBar(NeonColors n) {
+  Widget _clockBar(NeonColors n, {bool tableTitle = false}) {
     final left = _secondsLeft;
     final hostControls = widget.isHost && !_amSpectator && left != null && !finished;
-    if (finished || (!_paused && !hostControls)) return const SizedBox.shrink();
+    if (finished || (!tableTitle && !_paused && !hostControls)) return const SizedBox.shrink();
     final style = Theme.of(context).textTheme.labelSmall;
     final resumes = _pauseResumesIn;
     return Padding(
@@ -1925,15 +1973,17 @@ class _GameScreenState extends State<GameScreen> {
         const SizedBox(width: 6),
         Expanded(
           child: Text(
-            _paused
+            tableTitle ? 'Round table' : _paused
                 ? (resumes != null && resumes > 0
                     ? 'Clock paused · runs again in ${_clock(resumes)}'
                     : 'Clock paused')
                 : (_phaseShowsClock ? '' : _clock(left ?? 0)),
+            key: tableTitle ? const ValueKey('round-table-title') : null,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: style?.copyWith(
-                color: _paused ? n.gold : n.jade,
+                fontSize: tableTitle ? 18 : null,
+                color: tableTitle ? n.ink : (_paused ? n.gold : n.jade),
                 fontWeight: FontWeight.w800,
                 fontFeatures: const [FontFeature.tabularFigures()]),
           ),

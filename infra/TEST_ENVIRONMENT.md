@@ -80,7 +80,8 @@ It opens only the dedicated test voice media ports. It prints `TEST OK` once
 The app reads its server from `API_BASE` at build time:
 
 ```
-flutter run --dart-define=API_BASE=https://vps-8030ec94.vps.ovh.net/test
+../infra/run-test-phone.sh -d <phone-id>
+# Or: flutter run --dart-define=API_BASE=https://vps-8030ec94.vps.ovh.net/test --dart-define=INVITE_BASE_URL=https://vps-8030ec94.vps.ovh.net/test
 ```
 
 A test build uses the same bundle ID as the store app, so installing it replaces the

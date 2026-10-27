@@ -1,3 +1,4 @@
+import '../../core/player_identity.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -270,9 +271,8 @@ class _MonopolyGameScreenState extends State<MonopolyGameScreen> {
       for (final v in raw as List) {
         final m = monopolyMap(v), from = monopolyMap(m['from']);
         messages.add((
-          who: from['username']?.toString() ??
-              from['displayName']?.toString() ??
-              'Member',
+          who: playerHandle(from['username']?.toString(),
+              displayName: from['displayName']?.toString(), fallback: 'Member'),
           text: m['body']?.toString() ?? ''
         ));
       }

@@ -1,3 +1,5 @@
+import '../../widgets/game_artwork.dart';
+import '../../core/player_identity.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -29,17 +31,18 @@ String invitationGameAsset(String? game) =>
 
 class InvitationArtwork {
   const InvitationArtwork(
-      {required this.invitation, required this.name, this.gameType});
+      {required this.invitation, required this.name, this.gameType, this.mode, this.hostName});
   final Invitation invitation;
   final String name;
   final String? gameType;
+  final String? mode, hostName;
   bool get championship => invitation.kind == InvitationKind.championship;
   String get game => invitationGameNames[gameType] ?? 'Games';
   String get prompt =>
-      championship ? 'Can you take the crown?' : 'Good games. Better company.';
+      championship ? 'The crown is up for grabs. Make it yours.' : gameInvitationHook(gameType);
   String get shareText => championship
       ? '$prompt Join the $game championship "$name" on PlayHuud!\nPlay as a guest or sign in. Accept your invitation here:\n${invitation.url}'
-      : 'You are invited to "$name" on PlayHuud! ${gameType == null ? 'Come hang out and play.' : 'Come play $game with us.'}\nJoin as a guest or sign in:\n${invitation.url}';
+      : '$prompt ${hostName == null ? 'You are invited' : '${firstName(hostName)} invites you'} to play $game on PlayHuud!\nJoin the table in "$name". Play as a guest or sign in:\n${invitation.url}';
 }
 
 Future<ui.Image> _asset(String path) async {
@@ -66,21 +69,15 @@ Future<ui.Image> renderInvitationArtwork(InvitationArtwork data,
       group.add(await _asset(invitationGameAsset(type)));
     }
   }
+  final backdrop = await _asset(gameArtworkAsset(data.gameType, mode: data.mode));
   final recorder = ui.PictureRecorder();
   final canvas = Canvas(recorder);
-  canvas.drawRect(
-      Offset.zero & size,
-      Paint()
-        ..shader = ui.Gradient.linear(
-            Offset.zero, Offset(size.width, size.height), [
-          const Color(0xff101a26),
-          const Color(0xff241124),
-          const Color(0xff0d111b)
-        ], [
-          0,
-          .55,
-          1
-        ]));
+  paintImage(canvas: canvas, rect: Offset.zero & size, image: backdrop,
+    fit: BoxFit.cover, filterQuality: FilterQuality.high);
+  canvas.drawRect(Offset.zero & size, Paint()..shader = ui.Gradient.linear(
+    Offset.zero, Offset(landscape ? size.width : 0, size.height),
+    [const Color(0xc7101420), const Color(0x57101420), const Color(0xf5101420)],
+    [0, .4, 1]));
   canvas.drawCircle(
       Offset(landscape ? 970 : 600, landscape ? 300 : 560),
       landscape ? 330 : 430,
@@ -144,16 +141,16 @@ Future<ui.Image> renderInvitationArtwork(InvitationArtwork data,
   text(
       data.championship
           ? '${data.game.toUpperCase()} CHAMPIONSHIP'
-          : 'YOUR INVITATION',
+          : '${data.game.toUpperCase()} · YOU’RE INVITED',
       landscape ? 185 : 815,
       landscape ? 25 : 32,
       gold,
       lines: 1);
   text(data.prompt, landscape ? 240 : 880, landscape ? 57 : 64, Colors.white);
-  text(data.name, landscape ? 395 : 1060, landscape ? 32 : 39,
+  text(data.hostName == null ? data.name : '${firstName(data.hostName)} saved you a seat · ${data.name}', landscape ? 395 : 1060, landscape ? 32 : 39,
       const Color(0xffd5c8dc),
       lines: landscape ? 2 : 3);
-  text('Play as a guest. Register whenever you want.', landscape ? 515 : 1280,
+  text('Your seat is waiting. Join the game.', landscape ? 515 : 1280,
       landscape ? 21 : 28, gold,
       lines: 1);
   text(
@@ -168,6 +165,7 @@ Future<ui.Image> renderInvitationArtwork(InvitationArtwork data,
   final picture = recorder.endRecording();
   final image = await picture.toImage(size.width.toInt(), size.height.toInt());
   picture.dispose();
+  backdrop.dispose();
   brand.dispose();
   game?.dispose();
   for (final item in group) {

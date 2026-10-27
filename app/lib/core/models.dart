@@ -3,6 +3,8 @@
 /// docs/GAME_CONFIG.md in Dart.
 library;
 
+import 'player_identity.dart';
+
 class UserView {
   const UserView({
     required this.id,
@@ -15,6 +17,9 @@ class UserView {
   });
 
   final String id;
+  String get firstNameOnly => firstName(displayName);
+  String get handle => playerHandle(username, displayName: displayName);
+
   final String displayName;
   final String? username;
   final String? phone;
@@ -150,7 +155,8 @@ class RoomMember {
 
   factory RoomMember.fromJson(Map<String, dynamic> j) => RoomMember(
         userId: j['userId'] as String,
-        nickname: j['nickname'] as String?,
+        nickname: j['isBot'] == true ? j['nickname'] as String?
+          : playerHandle(j['username'] as String?, displayName: j['nickname'] as String?),
         ready: j['ready'] as bool? ?? false,
         connected:
             (j['connectionStatus'] as String? ?? 'connected') == 'connected',

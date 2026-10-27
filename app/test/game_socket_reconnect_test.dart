@@ -8,6 +8,13 @@ import 'package:truearena/core/game_socket.dart';
 import 'package:truearena/core/table_minimum.dart';
 
 void main() {
+  test('host action failures explain what can be done', () {
+    expect(gameActionMessage('UNKNOWN_ACTION'), contains('needs an update'));
+    expect(gameActionMessage('NOT_HOST'), contains('current host'));
+    expect(gameActionMessage('TOURNAMENT_GAME'), contains('must play to the end'));
+    expect(gameActionMessage('INTERNAL'), userRetryMessage);
+  });
+
   test('game ERROR frames retain codes but strip internal messages', () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     final peers = <WebSocket>[];

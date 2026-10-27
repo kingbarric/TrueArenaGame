@@ -217,9 +217,9 @@ void main() {
       final cards = buildPlayerCards(CompetitiveProfile.fromJson(_profileJson()));
       expect(playerCardShareText(cards[0]), 'My PlayHuud player card #000127. Come play me: https://playhuud.com');
       expect(playerCardShareText(cards[1]),
-          'My Draughts card on PlayHuud — strength 63/100, competitive rating 1842. Find me: #000127 https://playhuud.com');
+          'Set the trap. Take the crown. Think you can beat me at Draughts? Strength 63/100, competitive rating 1842. Join me on PlayHuud: #000127 https://playhuud.com');
       expect(playerCardShareText(cards.firstWhere((c) => c.title == 'WHOT')),
-          'Come play Whot with me on PlayHuud #000127: https://playhuud.com');
+          'Stack the drama. Play your last card. Come play Whot with me on PlayHuud #000127: https://playhuud.com');
     });
 
     test('the shared image is story-sized (9:16), for WhatsApp Status and friends', () async {

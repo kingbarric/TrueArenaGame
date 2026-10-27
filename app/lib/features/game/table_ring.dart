@@ -21,6 +21,7 @@ class TableRing extends StatelessWidget {
   /// Colours the table top — a reveal can darken or warm it.
   final Color? tableTint;
 
+
   @override
   Widget build(BuildContext context) => LayoutBuilder(builder: (context, box) {
         final n = context.neon;
@@ -77,4 +78,114 @@ class TableRing extends StatelessWidget {
             }),
         ]);
       });
+}
+
+/// Discussion seats follow the outside edges, leaving the entire tabletop usable.
+class DiscussionTable extends StatelessWidget {
+  const DiscussionTable({super.key, required this.players, required this.seat,
+    required this.child});
+  final List<String> players;
+  final Widget Function(String, double) seat;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(builder: (context, box) {
+    const seatW = 58.0;
+    const seatH = 76.0;
+    final w = box.maxWidth;
+    final h = box.maxHeight;
+    // Seats follow the perimeter so the corners also provide usable room.
+    final rx = math.max(0.0, (w - seatW) / 2 - 2);
+    final ry = math.max(0.0, (h - seatH) / 2 - 2);
+    return Stack(children: [
+      Positioned.fill(
+        left: seatW + 2, right: seatW + 2,
+        top: seatH + 2, bottom: seatH + 2,
+        child: CustomPaint(
+          key: const ValueKey('discussion-wooden-table'),
+          painter: const _WoodTablePainter(),
+          child: Padding(padding: const EdgeInsets.all(12), child: child),
+        ),
+      ),
+      for (final (i, id) in players.indexed)
+        Builder(builder: (context) {
+          final horizontal = rx * 2;
+          final vertical = ry * 2;
+          final perimeter = 2 * (horizontal + vertical);
+          var distance = (horizontal / 2 + perimeter * i / players.length) % perimeter;
+          late final Offset position;
+          if (distance <= horizontal) {
+            position = Offset(seatW / 2 + 2 + distance, seatH / 2 + 2);
+          } else if ((distance -= horizontal) <= vertical) {
+            position = Offset(w - seatW / 2 - 2, seatH / 2 + 2 + distance);
+          } else if ((distance -= vertical) <= horizontal) {
+            position = Offset(w - seatW / 2 - 2 - distance, h - seatH / 2 - 2);
+          } else {
+            distance -= horizontal;
+            position = Offset(seatW / 2 + 2, h - seatH / 2 - 2 - distance);
+          }
+          return Positioned(
+            key: ValueKey('table-seat-$id'),
+            left: position.dx - seatW / 2,
+            top: position.dy - seatH / 2,
+            width: seatW, height: seatH,
+            child: FittedBox(fit: BoxFit.scaleDown,
+              alignment: Alignment.topCenter, child: seat(id, 40)),
+          );
+        }),
+    ]);
+  });
+}
+
+class _WoodTablePainter extends CustomPainter {
+  const _WoodTablePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final shape = RRect.fromRectAndRadius(rect, const Radius.circular(26));
+    canvas.drawShadow(Path()..addRRect(shape), Colors.black, 8, false);
+    canvas.save();
+    canvas.clipRRect(shape);
+    canvas.drawRect(rect, Paint()..shader = const LinearGradient(
+      colors: [Color(0xff59351f), Color(0xff885831), Color(0xff624027)],
+      begin: Alignment.topLeft, end: Alignment.bottomRight,
+    ).createShader(rect));
+    // Solid timber planks and fine flowing grain, behind the controls.
+    for (double y = 0; y < size.height; y += 42) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y),
+        Paint()..color = const Color(0xff382315)..strokeWidth = 2);
+      for (var j = 1; j <= 3; j++) {
+        final path = Path()..moveTo(0, y + j * 9);
+        path.cubicTo(size.width * .3, y + j * 9 - 5,
+          size.width * .65, y + j * 9 + 6, size.width, y + j * 9);
+        canvas.drawPath(path, Paint()..color = const Color(0xffb68350).withValues(alpha: .22)
+          ..style = PaintingStyle.stroke..strokeWidth = .8);
+      }
+    }
+    // A sealed clue envelope rests in the corner, clear of the controls.
+    canvas.save();
+    canvas.translate(20, 17);
+    canvas.rotate(-.18);
+    canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(-12, -7, 25, 17),
+      const Radius.circular(2)), Paint()..color = const Color(0xffd9bb83));
+    canvas.drawPath(Path()..moveTo(-12, -7)..lineTo(0, 3)..lineTo(13, -7),
+      Paint()..color = const Color(0xff8a653e)..style = PaintingStyle.stroke..strokeWidth = 1);
+    canvas.drawCircle(const Offset(0, 3), 3.5, Paint()..color = const Color(0xff8a2922));
+    canvas.restore();
+    // Etched compass / secret-society seal in the timber.
+    final seal = Offset(size.width - 27, size.height - 27);
+    final ink = Paint()..color = const Color(0xffe5bd79).withValues(alpha: .23)
+      ..style = PaintingStyle.stroke..strokeWidth = 1.2;
+    canvas.drawCircle(seal, 17, ink);
+    canvas.drawCircle(seal, 13, ink);
+    canvas.drawPath(Path()..moveTo(seal.dx, seal.dy - 12)
+      ..lineTo(seal.dx + 10, seal.dy + 8)..lineTo(seal.dx - 10, seal.dy + 8)..close(), ink);
+    canvas.restore();
+    canvas.drawRRect(shape.deflate(2), Paint()..color = const Color(0xffb98951)
+      ..style = PaintingStyle.stroke..strokeWidth = 3);
+  }
+
+  @override
+  bool shouldRepaint(covariant _WoodTablePainter oldDelegate) => false;
 }

@@ -34,7 +34,7 @@ http.Response _json(Object body, [int status = 200]) =>
     http.Response(jsonEncode(body), status, headers: {'content-type': 'application/json'});
 
 Map<String, dynamic> _member(String id, String name, {bool host = false, bool here = true}) =>
-    {'userId': id, 'displayName': name, 'username': name.toLowerCase(), 'host': host, 'here': here};
+    {'userId': id, 'displayName': name, 'username': name.toLowerCase().replaceAll(' ', '_'), 'host': host, 'here': here};
 
 Map<String, dynamic> _huud({
   bool host = true,
@@ -878,7 +878,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('huud-tab-chat')));
     await tester.pumpAndSettle();
     expect(find.text('Rematch!'), findsOneWidget);
-    expect(find.text('ada obi'), findsOneWidget);
+    expect(find.text('ada_obi'), findsOneWidget);
     expect(find.byKey(const ValueKey('chat-time-1')), findsOneWidget);
     expect(find.text('just now'), findsWidgets);
 

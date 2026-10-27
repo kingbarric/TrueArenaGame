@@ -1,3 +1,4 @@
+import 'package:truearena/widgets/game_artwork.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -90,6 +91,15 @@ void main() {
     await tester.pump();
     return socket;
   }
+
+  testWidgets('selected Traitors mode artwork is blended behind gameplay', (tester) async {
+    await open(tester, _snap('RoundTable', extra: {'preset': 'blood_moon'}));
+    final backdrop = tester.widget<GameArtworkBackdrop>(find.byType(GameArtworkBackdrop));
+    expect(backdrop.mode, 'blood_moon');
+    expect(backdrop.gameType, 'truearena');
+    expect(find.byKey(const ValueKey('round-table-title')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('bot game opens round-table text and sends player discussion',
       (tester) async {
@@ -293,6 +303,28 @@ void main() {
     expect(socket.actions('ADVANCE_PHASE'), hasLength(1));
   });
 
+  testWidgets('wooden table fits timer and both actions without scrolling on phones', (tester) async {
+    await open(tester, _snap('RoundTable', extra: {
+      'canAccuse': true, 'secondsLeft': 120, 'botTextMode': true,
+      'players': [for (var i = 1; i <= 16; i++) 'p$i'],
+    }), host: true);
+    for (final size in [const Size(390, 844), const Size(390, 700)]) {
+      tester.view.physicalSize = size * 3;
+      await tester.pumpAndSettle(const Duration(milliseconds: 250));
+      final wood = find.byKey(const ValueKey('discussion-wooden-table'));
+      expect(wood, findsOneWidget);
+      expect(find.descendant(of: wood, matching: find.byType(Scrollable)), findsNothing);
+      final bounds = tester.getRect(wood);
+      for (final key in ['round-table-accuse', 'round-table-skip']) {
+        final button = tester.getRect(find.byKey(ValueKey(key)));
+        expect(bounds.contains(button.topLeft), isTrue);
+        expect(bounds.contains(button.bottomRight), isTrue);
+        expect(button.height, greaterThanOrEqualTo(48));
+      }
+      expect(tester.takeException(), isNull);
+    }
+  });
+
   testWidgets('players other than the host have no skip', (tester) async {
     await open(tester, _snap('RoundTable'));
     expect(find.byKey(const ValueKey('round-table-skip')), findsNothing);
@@ -459,6 +491,38 @@ void main() {
 
     await seconds(tester, 4);
     await tester.tap(find.byKey(const ValueKey('reveal-continue')));
+    await tester.pump();
+    expect(socket.actions('ADVANCE_PHASE'), hasLength(1));
+  });
+
+  testWidgets('host can continue the pre-tally elimination without a reveal event', (tester) async {
+    final socket = await open(tester, _snap('VoteReview'), host: true);
+    socket.phase('Elimination');
+    await tester.pump();
+    await seconds(tester, 6);
+    final button = find.byKey(const ValueKey('reveal-continue'));
+    expect(tester.widget<NeonButton>(button).onPressed, isNotNull,
+      reason: 'the server needs ADVANCE_PHASE before it can calculate the outcome');
+    await tester.tap(button);
+    await tester.pump();
+    expect(socket.actions('ADVANCE_PHASE'), hasLength(1));
+    expect(tester.widget<NeonButton>(button).onPressed, isNull,
+      reason: 'prevent duplicate requests while awaiting the server');
+    socket.phase('WinCheck');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Checking the table…'), findsOneWidget);
+  });
+
+  testWidgets('an active banishment reveal still finishes before host can continue', (tester) async {
+    final socket = await open(tester, _snap('Elimination'), host: true);
+    socket.event('PLAYER_ELIMINATED', {'id': 'p2', 'cause': 'banished', 'roleShown': true, 'role': 'traitor'});
+    await tester.pump();
+    final button = find.byKey(const ValueKey('reveal-continue'));
+    expect(tester.widget<NeonButton>(button).onPressed, isNull);
+    await seconds(tester, 12);
+    expect(tester.widget<NeonButton>(button).onPressed, isNotNull);
+    await tester.tap(button);
     await tester.pump();
     expect(socket.actions('ADVANCE_PHASE'), hasLength(1));
   });

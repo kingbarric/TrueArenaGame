@@ -437,8 +437,8 @@ public class GameOrchestrator {
         return rooms.findById(rt.roomId)
                 .zipWith(members.findByRoomId(rt.roomId)
                         .concatMap(m -> users.findById(m.userId())
-                                .map(u -> lobbyMemberPayload(m, u.isBot(), u.avatarUrl()))
-                                .defaultIfEmpty(lobbyMemberPayload(m, false, null)))
+                                .map(u -> lobbyMemberPayload(m, u.isBot(), u.avatarUrl(), u.username()))
+                                .defaultIfEmpty(lobbyMemberPayload(m, false, null, null)))
                         .collectList())
                 .doOnNext(t -> {
                     RoomRow room = t.getT1();
@@ -463,10 +463,11 @@ public class GameOrchestrator {
                 .then();
     }
 
-    private Map<String, Object> lobbyMemberPayload(RoomMemberRow member, boolean isBot, String avatarUrl) {
+    private Map<String, Object> lobbyMemberPayload(RoomMemberRow member, boolean isBot, String avatarUrl, String username) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("userId", member.userId().toString());
-        payload.put("nickname", member.nickname() == null ? "" : member.nickname());
+        payload.put("nickname", !isBot && username != null ? username : member.nickname() == null ? "" : member.nickname());
+        if (!isBot && username != null) payload.put("username", username);
         payload.put("ready", member.readyState());
         payload.put("connectionStatus", member.connectionStatus());
         payload.put("isBot", isBot);

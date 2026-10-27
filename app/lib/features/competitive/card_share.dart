@@ -1,3 +1,5 @@
+import '../../widgets/game_artwork.dart';
+import 'package:flutter/services.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -22,10 +24,10 @@ String playerCardShareText(PlayerCardData card) {
   }
   final game = card.title.split(' ').map((w) => w.isEmpty ? w : w[0] + w.substring(1).toLowerCase()).join(' ');
   if (card.blank) {
-    return 'Come play $game with me on PlayHuud$id: $_site';
+    return '${gameInvitationHook(card.gameType)} Come play $game with me on PlayHuud$id: $_site';
   }
   final rating = card.competitiveRating == null ? '' : ', competitive rating ${card.competitiveRating}';
-  return 'My $game card on PlayHuud — strength ${card.bigValue}/100$rating. Find me:$id $_site';
+  return '${gameInvitationHook(card.gameType)} Think you can beat me at $game? Strength ${card.bigValue}/100$rating. Join me on PlayHuud:$id $_site';
 }
 
 /// Captures the card under [cardKey] (a RepaintBoundary) and composes it
@@ -43,6 +45,16 @@ Future<ui.Image> composePlayerCardStory(ui.Image cardImage, PlayerCardData card)
       Paint()
         ..shader = ui.Gradient.linear(
             Offset.zero, Offset(w, h), [Color.lerp(t.top, Colors.black, 0.2)!, Colors.black]));
+  if (card.gameType != null) {
+    final bytes = await rootBundle.load(gameArtworkAsset(card.gameType));
+    final codec = await ui.instantiateImageCodec(bytes.buffer.asUint8List());
+    final frame = await codec.getNextFrame();
+    paintImage(canvas: canvas, rect: Offset.zero & kStorySize, image: frame.image,
+      fit: BoxFit.cover, filterQuality: FilterQuality.high);
+    canvas.drawRect(Offset.zero & kStorySize, Paint()..color = const Color(0xb3101420));
+    frame.image.dispose();
+    codec.dispose();
+  }
   // A soft glow in the card's colour behind it.
   canvas.drawCircle(
       Offset(w / 2, h * 0.47),
@@ -63,7 +75,7 @@ Future<ui.Image> composePlayerCardStory(ui.Image cardImage, PlayerCardData card)
   _text(canvas, 'PLAYHUUD', y: 130, size: 72, color: t.accent, spacing: 16, weight: FontWeight.w900);
   _text(canvas, card.gameType == null ? 'PLAYER CARD' : '${card.title} CARD',
       y: 225, size: 34, color: Colors.white70, spacing: 8, weight: FontWeight.w700);
-  _text(canvas, card.playhuudId == null ? 'Play me on PlayHuud' : 'Find me: ${card.playhuudId}',
+  _text(canvas, card.playhuudId == null ? 'Think you can beat me?' : 'Challenge me: ${card.playhuudId}',
       y: h - 290, size: 46, color: Colors.white, weight: FontWeight.w800);
   _text(canvas, 'playhuud.com', y: h - 210, size: 40, color: t.accent, spacing: 4, weight: FontWeight.w700);
 

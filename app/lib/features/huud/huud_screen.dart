@@ -509,7 +509,7 @@ class _HuudScreenState extends State<HuudScreen> {
   }
 
   Widget _header(BuildContext context, NeonColors n, AppState app) {
-    final me = app.user?.username ?? app.user?.displayName ?? 'Player';
+    final me = app.user?.handle ?? 'Player';
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 8, 0),
       child: Row(children: [

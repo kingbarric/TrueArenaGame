@@ -1588,7 +1588,7 @@ public class HuudSpaceService {
                             List.<HuudSpaceDtos.Seat>of(), mode, app.truearena.api.room.TableSizes.minPlayers(type, config));
                 })
                 .one()
-                .flatMap(game -> db.sql("SELECT u.id, u.display_name, u.avatar_url, u.is_bot, rm.ready_state "
+                .flatMap(game -> db.sql("SELECT u.id, CASE WHEN u.is_bot THEN u.display_name ELSE u.username END AS display_name, u.avatar_url, u.is_bot, rm.ready_state "
                                 + "FROM room_members rm JOIN users u ON u.id=rm.user_id WHERE rm.room_id=:id ORDER BY rm.joined_at")
                         .bind("id", game.roomId())
                         .map((r, m) -> new HuudSpaceDtos.Seat(r.get("id", UUID.class), r.get("display_name", String.class),
