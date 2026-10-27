@@ -59,12 +59,12 @@ public final class TrueArenaModule implements GameModule {
     static final int JURY_SECONDS = 30;
 
     /** What a pie can look like — honest, or not (the clue is true about two times in three). */
-    static final List<String> SHIELD_CLUES = List.of(
+    public static final List<String> SHIELD_CLUES = List.of(
             "A golden crust that smells of honey",
             "Still warm, wrapped in a clean white cloth",
             "Dusted with sugar — someone took care over this one",
             "It smells of apples and cinnamon");
-    static final List<String> POISON_CLUES = List.of(
+    public static final List<String> POISON_CLUES = List.of(
             "A faint smell of bitter almonds",
             "The crust is cracked and oddly dark",
             "A thin green stain under the crust",

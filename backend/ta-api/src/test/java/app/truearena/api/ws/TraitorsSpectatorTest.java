@@ -71,6 +71,37 @@ class TraitorsSpectatorTest {
         }
     }
 
+    @SuppressWarnings("unchecked")
+    @Test void aSpectatorsCrowdVoteReachesTheGame_butNoOtherGameAction() throws Exception {
+        var lock = org.mockito.Mockito.mock(app.truearena.room.RoomLock.class);
+        org.mockito.Mockito.when(lock.withLock(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any())).thenAnswer(call -> ((java.util.function.Supplier<reactor.core.publisher.Mono<?>>) call.getArgument(2)).get());
+        var log = org.mockito.Mockito.mock(app.truearena.room.RoomEventLog.class);
+        org.mockito.Mockito.when(log.append(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(reactor.core.publisher.Mono.empty());
+        var live = new GameOrchestrator(null, lock, log, null, null, null, null, null, null, null, null, null, mapper, null);
+        var rt = table();
+        rt.setState(rt.module().onPhaseElapsed(rt.state(), "RoleReveal")); // night falls: the crowd can weigh in
+        rt.spectatorUserIds.add("viewer");
+        var frames = listen(rt, "viewer");
+
+        live.handleFrame(rt, "viewer", mapper.writeValueAsString(Envelope.of(MessageType.PLAYER_ACTION,
+                Map.of("action", "CROWD_VOTE", "data", Map.of("target", "p3")))), true).block();
+        assertThat((Map<String, Object>) rt.module().broadcastState(rt.state()).data().get("crowdHunch"))
+                .containsEntry("voters", 1);
+
+        var before = rt.state();
+        live.handleFrame(rt, "viewer", mapper.writeValueAsString(Envelope.of(MessageType.PLAYER_ACTION,
+                Map.of("action", "CAST_VOTE", "data", Map.of("target", "p3")))), true).block();
+        assertThat(frames.getLast().payload().get("code")).isEqualTo("SPECTATOR_READ_ONLY");
+        assertThat(rt.state()).isSameAs(before);
+
+        rt.tournament = true;
+        live.handleFrame(rt, "viewer", mapper.writeValueAsString(Envelope.of(MessageType.PLAYER_ACTION,
+                Map.of("action", "CROWD_VOTE", "data", Map.of("target", "p4")))), true).block();
+        assertThat(frames.getLast().payload().get("code")).as("championships stay read-only").isEqualTo("SPECTATOR_READ_ONLY");
+    }
+
     @Test void aGameWithoutReactionsStillTurnsThemDown() throws Exception {
         var rt = new RoomRuntime(UUID.randomUUID(), "a");
         var module = new app.truearena.game.chess.ChessModule();

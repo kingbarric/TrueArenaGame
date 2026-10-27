@@ -351,9 +351,11 @@ public class GameOrchestrator {
         if (spectator
                 && in.type() != MessageType.HELLO && in.type() != MessageType.PING
                 && in.type() != MessageType.CHAT_SEND && in.type() != MessageType.REACTION_SEND
-                && in.type() != MessageType.SPECTATOR_VOICE_REQUEST) {
+                && in.type() != MessageType.SPECTATOR_VOICE_REQUEST && !crowdVote(in)) {
             return tellError(rt, userId, "SPECTATOR_READ_ONLY", "spectators can watch and comment, but cannot control the game");
         }
+        if (spectator && rt.tournament && crowdVote(in))
+            return tellError(rt, userId, "SPECTATOR_READ_ONLY", "championship matches are read-only for viewers");
         if (spectator && rt.tournament && in.type() == MessageType.CHAT_SEND)
             return tellError(rt, userId, "SPECTATOR_READ_ONLY", "championship matches are read-only for viewers");
         try {
@@ -1553,6 +1555,15 @@ public class GameOrchestrator {
                 return afterMutation(rt, step.events());
             }));
         });
+    }
+
+    /**
+     * The one game action a spectator may take: their vote in a Traitors table's Crowd's
+     * Hunch. The game itself checks they really are watching, not playing.
+     */
+    static boolean crowdVote(Envelope in) {
+        return in.type() == MessageType.PLAYER_ACTION && in.payload() != null
+                && "CROWD_VOTE".equals(String.valueOf(in.payload().get("action")));
     }
 
     /**
