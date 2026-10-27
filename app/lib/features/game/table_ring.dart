@@ -80,61 +80,126 @@ class TableRing extends StatelessWidget {
       });
 }
 
+/// A line drawn across the table between two seats — an alibi, the Black Spot's trail.
+class TableLink {
+  const TableLink(this.from, this.to, this.color, {this.dashed = false, this.width = 2});
+  final String from, to;
+  final Color color;
+  final bool dashed;
+  final double width;
+}
+
 /// Discussion seats follow the outside edges, leaving the entire tabletop usable.
 class DiscussionTable extends StatelessWidget {
   const DiscussionTable({super.key, required this.players, required this.seat,
-    required this.child});
+    required this.child, this.links = const []});
   final List<String> players;
   final Widget Function(String, double) seat;
   final Widget child;
 
+  /// Lines between seats, drawn over the tabletop and under the faces.
+  final List<TableLink> links;
+
+  static const _seatW = 58.0;
+  static const _seatH = 76.0;
+
+  /// Where seat [i] of [count] sits — the perimeter, so the corners are used too.
+  static Offset seatCentre(int i, int count, double w, double h) {
+    final rx = math.max(0.0, (w - _seatW) / 2 - 2);
+    final ry = math.max(0.0, (h - _seatH) / 2 - 2);
+    final horizontal = rx * 2;
+    final vertical = ry * 2;
+    final perimeter = 2 * (horizontal + vertical);
+    var distance = (horizontal / 2 + perimeter * i / count) % perimeter;
+    if (distance <= horizontal) return Offset(_seatW / 2 + 2 + distance, _seatH / 2 + 2);
+    if ((distance -= horizontal) <= vertical) return Offset(w - _seatW / 2 - 2, _seatH / 2 + 2 + distance);
+    if ((distance -= vertical) <= horizontal) return Offset(w - _seatW / 2 - 2 - distance, h - _seatH / 2 - 2);
+    distance -= horizontal;
+    return Offset(_seatW / 2 + 2, h - _seatH / 2 - 2 - distance);
+  }
+
   @override
   Widget build(BuildContext context) => LayoutBuilder(builder: (context, box) {
-    const seatW = 58.0;
-    const seatH = 76.0;
     final w = box.maxWidth;
     final h = box.maxHeight;
-    // Seats follow the perimeter so the corners also provide usable room.
-    final rx = math.max(0.0, (w - seatW) / 2 - 2);
-    final ry = math.max(0.0, (h - seatH) / 2 - 2);
+    final centres = {
+      for (final (i, id) in players.indexed) id: seatCentre(i, players.length, w, h),
+    };
+    // The wood, then the lines, then what's on the table, then the faces —
+    // so a line never runs over the table's words.
     return Stack(children: [
-      Positioned.fill(
-        left: seatW + 2, right: seatW + 2,
-        top: seatH + 2, bottom: seatH + 2,
+      const Positioned.fill(
+        left: _seatW + 2, right: _seatW + 2,
+        top: _seatH + 2, bottom: _seatH + 2,
         child: CustomPaint(
-          key: const ValueKey('discussion-wooden-table'),
-          painter: const _WoodTablePainter(),
-          child: Padding(padding: const EdgeInsets.all(12), child: child),
+          key: ValueKey('discussion-wooden-table'),
+          painter: _WoodTablePainter(),
         ),
       ),
-      for (final (i, id) in players.indexed)
-        Builder(builder: (context) {
-          final horizontal = rx * 2;
-          final vertical = ry * 2;
-          final perimeter = 2 * (horizontal + vertical);
-          var distance = (horizontal / 2 + perimeter * i / players.length) % perimeter;
-          late final Offset position;
-          if (distance <= horizontal) {
-            position = Offset(seatW / 2 + 2 + distance, seatH / 2 + 2);
-          } else if ((distance -= horizontal) <= vertical) {
-            position = Offset(w - seatW / 2 - 2, seatH / 2 + 2 + distance);
-          } else if ((distance -= vertical) <= horizontal) {
-            position = Offset(w - seatW / 2 - 2 - distance, h - seatH / 2 - 2);
-          } else {
-            distance -= horizontal;
-            position = Offset(seatW / 2 + 2, h - seatH / 2 - 2 - distance);
-          }
-          return Positioned(
-            key: ValueKey('table-seat-$id'),
-            left: position.dx - seatW / 2,
-            top: position.dy - seatH / 2,
-            width: seatW, height: seatH,
-            child: FittedBox(fit: BoxFit.scaleDown,
-              alignment: Alignment.topCenter, child: seat(id, 40)),
-          );
-        }),
+      if (links.isNotEmpty)
+        Positioned.fill(
+          child: IgnorePointer(
+            child: CustomPaint(
+              key: const ValueKey('discussion-table-links'),
+              painter: _LinkPainter(links, centres),
+            ),
+          ),
+        ),
+      Positioned.fill(
+        left: _seatW + 2, right: _seatW + 2,
+        top: _seatH + 2, bottom: _seatH + 2,
+        child: Padding(padding: const EdgeInsets.all(12), child: child),
+      ),
+      for (final id in players)
+        Positioned(
+          key: ValueKey('table-seat-$id'),
+          left: centres[id]!.dx - _seatW / 2,
+          top: centres[id]!.dy - _seatH / 2,
+          width: _seatW, height: _seatH,
+          child: FittedBox(fit: BoxFit.scaleDown,
+            alignment: Alignment.topCenter, child: seat(id, 40)),
+        ),
     ]);
   });
+}
+
+/// Seat-to-seat lines, aimed at the faces (a little above each seat's centre).
+class _LinkPainter extends CustomPainter {
+  const _LinkPainter(this.links, this.centres);
+  final List<TableLink> links;
+  final Map<String, Offset> centres;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final link in links) {
+      final a = centres[link.from], b = centres[link.to];
+      if (a == null || b == null) continue;
+      final from = a.translate(0, -12), to = b.translate(0, -12);
+      final paint = Paint()
+        ..color = link.color
+        ..strokeWidth = link.width
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.stroke;
+      // A gentle bow toward the middle of the table, so crossing lines stay readable.
+      final mid = Offset((from.dx + to.dx) / 2, (from.dy + to.dy) / 2);
+      final toCentre = Offset(size.width / 2, size.height / 2) - mid;
+      final bend = mid + toCentre * 0.18;
+      final path = Path()..moveTo(from.dx, from.dy)..quadraticBezierTo(bend.dx, bend.dy, to.dx, to.dy);
+      if (!link.dashed) {
+        canvas.drawPath(path, paint);
+      } else {
+        for (final metric in path.computeMetrics()) {
+          for (double d = 0; d < metric.length; d += 10) {
+            canvas.drawPath(metric.extractPath(d, math.min(d + 5, metric.length)), paint);
+          }
+        }
+      }
+      canvas.drawCircle(to, link.width + 1.5, Paint()..color = link.color);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _LinkPainter old) => old.links != links || old.centres != centres;
 }
 
 class _WoodTablePainter extends CustomPainter {

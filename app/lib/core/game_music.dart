@@ -173,7 +173,8 @@ class GameMusic {
   /// Which Traitors scene a phase belongs to.
   static MusicMood traitorsScene(String phase) => switch (phase) {
         'Night' => MusicMood.traitorsNight,
-        'Vote' || 'Revote' || 'SuddenDeath' || 'HostAssignVotes' || 'VoteReview' || 'Defense' || 'HostDecision' =>
+        'Vote' || 'Revote' || 'SuddenDeath' || 'HostAssignVotes' || 'VoteReview' || 'Defense' || 'HostDecision' ||
+        'GhostJury' =>
           MusicMood.traitorsVote,
         'MorningReveal' || 'Elimination' => MusicMood.traitorsReveal,
         _ => MusicMood.traitorsTable,

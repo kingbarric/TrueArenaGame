@@ -20,6 +20,7 @@ import '../onboarding/guest_save_session_card.dart';
 import '../huudspace/leave_game.dart';
 import 'table_ring.dart';
 import 'traitors_reveal.dart';
+import 'traitors_twists.dart';
 import '../whot/whot_effects.dart' show WhotReactionLane, whotReactions;
 import '../../widgets/huud_art.dart';
 
@@ -141,6 +142,16 @@ class _GameScreenState extends State<GameScreen> {
   bool _reactionCooling = false, _spectatorsMuted = false;
 
   bool get _amSpectator => !players.contains(widget.selfId);
+
+  /// The dynamics: the pie, the clues, the alibis, the Black Spot, the crowd —
+  /// and this player's own offer, lantern and jury seat.
+  final _tw = TraitorsTwists();
+
+  /// A spectator's own hunch — the server never sends it back to them.
+  String? _myHunch;
+
+  /// The web of alibis (and the Black Spot's trail), drawn over a cleared table on request.
+  bool _showWeb = false;
 
   /// The host stopped the game partway: it's over, and nobody won.
   bool _endedByHost = false;
@@ -386,6 +397,7 @@ class _GameScreenState extends State<GameScreen> {
       _missingVoters = ((p['missingVoters'] as List?) ?? const []).cast<String>();
       _survivorsChoiceVotes = p['survivorsChoiceVotes'] as int? ?? 0;
       _yourVote = p['yourVote'] as String?;
+      _tw.apply(p);
       final progress = p['voteProgress'];
       if (progress is Map) {
         _voteProgress = (locked: progress['locked'] as int? ?? 0, total: progress['total'] as int? ?? 0);
@@ -450,6 +462,7 @@ class _GameScreenState extends State<GameScreen> {
       'Revote' => _timers[vote],
       'SuddenDeath' => _suddenDeathSeconds,
       'Defense' => _defenseSeconds,
+      'GhostJury' => 30,
       _ => null
     };
     if (seconds == null || seconds <= 0) {
@@ -544,6 +557,7 @@ class _GameScreenState extends State<GameScreen> {
           _accused = data['accused'] as String?;
         case 'TIE_REPLAY':
         case 'TIE_HOST_DECISION':
+        case 'GHOST_JURY_OPEN':
           _tieCandidates = ((data['tied'] as List?) ?? const []).cast<String>();
         case 'NO_MURDER':
         case 'NO_BANISH':
@@ -646,6 +660,7 @@ class _GameScreenState extends State<GameScreen> {
         return 'Night ${data['round']} falls.';
       case 'NO_MURDER':
         return switch (data['reason']) {
+          'recruiting' => 'Nobody was murdered… but the Traitors were busy.',
           'opening_night' => 'A quiet first night — no one was taken.',
           'no_consensus' => 'The traitors couldn\'t agree — no one was taken.',
           _ => 'No one was taken tonight.',
@@ -737,6 +752,60 @@ class _GameScreenState extends State<GameScreen> {
         return data['winningSide'] == 'traitors'
             ? 'The Traitors win.'
             : 'The Faithful win.';
+      // --- the dynamics ---
+      case 'RECRUIT_OFFER':
+        return 'A sealed letter waits for you…';
+      case 'RECRUIT_CHOSEN':
+        return '${label(data['by'] as String)} is recruiting ${label(data['target'] as String)} tonight.';
+      case 'RECRUIT_ACCEPTED':
+        return data['id'] == widget.selfId ? null : '${label(data['id'] as String)} accepted — they\'re one of you now.';
+      case 'RECRUIT_REFUSED':
+        final who = label(data['id'] as String);
+        return switch (data['reason']) {
+          'no_answer' => '$who never answered the letter.',
+          'gone' => '$who is gone — the offer died with them.',
+          _ => '$who refused. Make good on the threat… or let it go.',
+        };
+      case 'RECRUIT_EXPIRED':
+        return 'You didn\'t answer the letter. It burns away.';
+      case 'PIE_BAKED':
+        return '${label(data['by'] as String)} baked a pie — ${data['filling'] == 'shield' ? 'a real shield' : 'poison'}.';
+      case 'PIE_SERVED':
+        return 'A pie appears on the table: "${data['clue']}"';
+      case 'PIE_TAKEN':
+        return '${label(data['holder'] as String)} took the pie.';
+      case 'PIE_SAVED':
+        return 'The pie was a shield — it saved ${label(data['holder'] as String)} from the Traitors.';
+      case 'PIE_REVEALED':
+        return data['filling'] == 'poison'
+            ? 'The pie was poisoned. ${label(data['holder'] as String)} is gone.'
+            : 'The pie was a real shield.';
+      case 'PIE_SPOILED':
+        return 'Nobody touched the pie. It was ${data['filling'] == 'poison' ? 'poisoned' : 'a real shield'}.';
+      case 'CRIME_CLUE':
+        return '🔎 ${clueText(data, label)}';
+      case 'ALIBIS_REVEALED':
+        return 'The alibis are in — see who backs whom up.';
+      case 'BLACK_SPOT_CHOSEN':
+        return '${label(data['by'] as String)} marked ${label(data['target'] as String)} with the Black Spot.';
+      case 'BLACK_SPOT_MARKED':
+        return '${label(data['holder'] as String)} woke up holding the Black Spot.';
+      case 'BLACK_SPOT_PASSED':
+        return '${label(data['from'] as String)} passed the Black Spot to ${label(data['to'] as String)}.';
+      case 'BLACK_SPOT_SILENCED':
+        return '${label(data['holder'] as String)} holds the Black Spot — no vote for them this round.';
+      case 'SEER_GRANTED':
+        return 'You hold the Seer\'s lantern. Once a game, see one player\'s true side.';
+      case 'LANTERN_VISION':
+        return 'Your lantern shows ${label(data['target'] as String)} is ${data['side'] == 'traitor' ? 'a TRAITOR' : 'Faithful'}.';
+      case 'LAST_STAND':
+        return '${label(data['by'] as String)} made a Last Stand — ${label(data['target'] as String)} is ${data['side'] == 'traitor' ? 'a Traitor' : 'Faithful'}.';
+      case 'GHOST_JURY_OPEN':
+        return 'A tie — the Ghost Jury will decide.';
+      case 'GHOST_JURY_VERDICT':
+        return data['chosen'] == null
+            ? 'The ghosts couldn\'t agree.'
+            : 'The ghosts have spoken: ${label(data['chosen'] as String)}.';
       default:
         return null;
     }
@@ -954,6 +1023,17 @@ class _GameScreenState extends State<GameScreen> {
                 if (widget.spectating && !finished && !_spectatorsMuted) _reactionTray(),
               ]),
             ),
+            // The Traitors' offer, sealed — only for the Faithful it was sent to.
+            if (_tw.recruitOffer && !finished && const {'MorningReveal', 'RoundTable', 'Defense'}.contains(phase))
+              Positioned.fill(
+                child: ColoredBox(
+                  color: Colors.black.withValues(alpha: 0.62),
+                  child: Center(child: SingleChildScrollView(child: RecruitLetter(
+                    busy: _actionLocked,
+                    onAnswer: (accept) => _sendAction('RECRUIT_ANSWER', {'accept': accept}),
+                  ))),
+                ),
+              ),
             // Reactions drift up the edges, clear of the table and its buttons.
             for (final side in const [0, 1])
               Positioned(
@@ -1031,6 +1111,7 @@ class _GameScreenState extends State<GameScreen> {
       'RoleReveal' => _roleReveal(n),
       'Night' => _night(n),
       'MorningReveal' => _revealStage(n, 'Who was taken in the night?', extras: [
+          if (_trayCards(n).isNotEmpty) SizedBox(height: 140, child: _trayRow(_trayCards(n))),
           if (_canLeaveLastWill)
             NeonButton('Leave your last will', style: NeonStyle.ghost,
                 onPressed: _actionLocked ? null : () => _sendTextAction('LAST_WILL',
@@ -1058,6 +1139,7 @@ class _GameScreenState extends State<GameScreen> {
                 onPressed: _actionLocked ? null : () => _sendAction('USE_IMMUNITY')),
         ]),
       'WinCheck' => _simpleAdvance(n, '🔎', 'Checking the table…'),
+      'GhostJury' => _ghostJury(n),
       'Results' => _results(n),
       _ => const Center(child: CircularProgressIndicator()),
     };
@@ -1134,23 +1216,23 @@ class _GameScreenState extends State<GameScreen> {
     final candidates = alive
         .where((id) => id != widget.selfId && !fellowTraitors.contains(id))
         .toList();
-    if (!isTraitor || !_amAlive) {
-      return _centered([
-        const HuudText('🌙', style: TextStyle(fontSize: 56)),
-        const SizedBox(height: 14),
-        Text('The town sleeps…',
-            style: Theme.of(context)
-                .textTheme
-                .displayLarge
-                ?.copyWith(fontSize: 26)),
-        const SizedBox(height: 8),
-        Text('The traitors are choosing.',
-            style:
-                Theme.of(context).textTheme.bodyMedium?.copyWith(color: n.mid)),
-        if (_secondsLeft != null) ...[
-          const SizedBox(height: 14),
-          _countdown(n)
-        ],
+    if (!isTraitor || !_amAlive) return _quietNight(n);
+    if (_tw.recruitingTonight != null) {
+      return Column(children: [
+        Expanded(child: _centered([
+          const HuudText('🤝', artwork: false, style: TextStyle(fontSize: 56)),
+          const SizedBox(height: 12),
+          Text('Recruiting tonight',
+              key: const ValueKey('traitors-recruiting-tonight'),
+              style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 26, color: n.brand)),
+          const SizedBox(height: 8),
+          Text('No murder tonight. At dawn ${label(_tw.recruitingTonight!)} finds your sealed letter — '
+              'it won\'t say who sent it.',
+              textAlign: TextAlign.center, style: TextStyle(color: n.mid)),
+          if (_secondsLeft != null) ...[const SizedBox(height: 14), _countdown(n)],
+        ])),
+        _traitorPlan(n),
+        if (fellowTraitors.isNotEmpty) _chatPanel(n),
       ]);
     }
     final consensus = _rules['requireTraitorConsensus'] == true;
@@ -1159,6 +1241,7 @@ class _GameScreenState extends State<GameScreen> {
     _nightPicks.forEach((traitor, target) =>
         picks.putIfAbsent(target, () => []).add(traitor == widget.selfId ? 'You' : label(traitor)));
     return Column(children: [
+      _traitorPlan(n),
       Expanded(child: _pickerScreen(
         n,
         title: _firstNightTarget == null ? 'Choose your target' : 'Choose a second target',
@@ -1197,6 +1280,57 @@ class _GameScreenState extends State<GameScreen> {
       ]),
       if (fellowTraitors.isNotEmpty) _chatPanel(n),
     ]);
+  }
+
+  /// Night for everyone but a living Traitor: the Seer's lantern and the alibi
+  /// come first where the mode has them; otherwise, the town sleeps.
+  Widget _quietNight(NeonColors n) {
+    final others = alive.where((id) => id != widget.selfId).toList();
+    if (_amAlive && _tw.canLight) {
+      return Column(children: [
+        const Padding(padding: EdgeInsets.only(top: 12), child: LanternGlow(size: 40)),
+        Expanded(child: _pickerScreen(n,
+            title: 'Light the lantern',
+            subtitle: 'Once a game, see one player\'s true side. Only you will know.',
+            candidates: others,
+            onPick: (id) => _sendAction('SEER_LANTERN', {'target': id}),
+            accent: const Color(0xffffc04d),
+            countdown: true)),
+        TextButton(
+            key: const ValueKey('traitors-lantern-keep'),
+            onPressed: _actionLocked ? null : () => _sendAction('SEER_LANTERN'),
+            child: const Text('Keep it for another night')),
+      ]);
+    }
+    if (_amAlive && _tw.alibiNeeded) {
+      return _pickerScreen(n,
+          title: 'Where were you tonight?',
+          subtitle: _tw.yourAlibi == null
+              ? 'Pick who you were with. Everyone sees the alibis at dawn.'
+              : 'Your alibi: with ${label(_tw.yourAlibi!)}. Waiting for the night to end…',
+          candidates: others,
+          onPick: (id) => _sendAction('ALIBI', {'with': id}),
+          accent: n.jade,
+          countdown: true,
+          lockedChoice: _tw.yourAlibi);
+    }
+    return _centered([
+        const HuudText('🌙', style: TextStyle(fontSize: 56)),
+        const SizedBox(height: 14),
+        Text('The town sleeps…',
+            style: Theme.of(context)
+                .textTheme
+                .displayLarge
+                ?.copyWith(fontSize: 26)),
+        const SizedBox(height: 8),
+        Text('The traitors are choosing.',
+            style:
+                Theme.of(context).textTheme.bodyMedium?.copyWith(color: n.mid)),
+        if (_secondsLeft != null) ...[
+          const SizedBox(height: 14),
+          _countdown(n)
+        ],
+      ]);
   }
 
   Widget _defense(NeonColors n) {
@@ -1294,21 +1428,29 @@ class _GameScreenState extends State<GameScreen> {
         (_secondsLeft == null ? 0 : 48) + buttonCount * 58 + (buttonCount > 0 ? 12 : 0) +
         (feed.isEmpty ? 0 : 48);
       final clockHeight = widget.isHost || _paused ? 46 : 0;
+      // The dynamics take their own room: the crowd's meter, a Last Stand, the tabletop tray.
+      final meter = _crowdMeter(n);
+      final tray = _trayCards(n);
+      final extrasHeight = (meter == null ? 0 : 66) + (_tw.standReveal == null ? 0 : 70) + (tray.isEmpty ? 0 : 140);
       final chatHeight = _chatExpanded
-        ? (box.maxHeight - requiredHeight - clockHeight - (twists.isEmpty ? 0 : 64)).clamp(120.0, 320.0)
+        ? (box.maxHeight - requiredHeight - clockHeight - extrasHeight - (twists.isEmpty ? 0 : 64)).clamp(120.0, 320.0)
         : 54.0;
-      final tableHeight = box.maxHeight - chatHeight - (twists.isEmpty ? 0 : 64) - clockHeight;
+      final tableHeight = box.maxHeight - chatHeight - (twists.isEmpty ? 0 : 64) - clockHeight - extrasHeight;
       final titleAbove = tableHeight < requiredHeight + titleHeight + 6;
       return Column(children: [
         _clockBar(n, tableTitle: titleAbove),
+        if (_tw.standReveal != null) LastStandBanner(reveal: _tw.standReveal!, name: _nameOrYou),
+        if (meter != null) meter,
         Expanded(child: DiscussionTable(
           players: players,
           seat: (id, size) => _seat(n, id, size),
-          child: _tableCentre(n, showTitle: !titleAbove),
+          links: _showWeb ? _tableLinks(n) : const [],
+          child: _showWeb ? _webLegend(n) : _tableCentre(n, showTitle: !titleAbove),
         )),
         if (twists.isNotEmpty)
           Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: Wrap(spacing: 8, runSpacing: 8, alignment: WrapAlignment.center, children: twists)),
+        if (tray.isNotEmpty) SizedBox(height: 140, child: _trayRow(tray)),
         _chatPanel(n, height: chatHeight),
       ]);
     });
@@ -1563,6 +1705,22 @@ class _GameScreenState extends State<GameScreen> {
 
   Widget _vote(NeonColors n) {
     final progress = _voteProgress == null ? '' : ' · ${_voteProgress!.locked}/${_voteProgress!.total} in';
+    final meter = _crowdMeter(n);
+    if (_amAlive && _tw.spotSilenced == widget.selfId) {
+      return _centered([
+        const SpotToken(size: 54),
+        const SizedBox(height: 14),
+        Text('The Black Spot took your vote',
+            key: const ValueKey('traitors-silenced'),
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 24)),
+        const SizedBox(height: 8),
+        Text('You held it when the vote opened. Watch the others decide$progress',
+            textAlign: TextAlign.center, style: TextStyle(color: n.mid)),
+        if (_secondsLeft != null) ...[const SizedBox(height: 12), _countdown(n)],
+        if (meter != null) ...[const SizedBox(height: 14), meter],
+      ]);
+    }
     if (!_amAlive) {
       // Eliminated players and spectators watch; the picker only produced errors for them.
       return _centered([
@@ -1573,6 +1731,7 @@ class _GameScreenState extends State<GameScreen> {
         Text(widget.spectating ? 'Watch how the table votes$progress' : 'You\'re out of this game — watch how it plays out$progress',
             textAlign: TextAlign.center, style: TextStyle(color: n.mid)),
         if (_secondsLeft != null) ...[const SizedBox(height: 12), _countdown(n)],
+        if (meter != null) ...[const SizedBox(height: 12), meter],
         const SizedBox(height: 14),
         _recentFeed(n, max: 4),
       ]);
@@ -1748,6 +1907,377 @@ class _GameScreenState extends State<GameScreen> {
     ]);
   }
 
+  // ---------------------------------------------------------------- the dynamics
+
+  String _nameOrYou(String id) => id == widget.selfId ? 'You' : label(id);
+
+  Widget _avatar(String id, double size) => ValueListenableBuilder<Set<String>>(
+        valueListenable: widget.socket.onlinePlayers,
+        builder: (_, online, __) => OnlineAvatar(label(id),
+            size: size, imageUrl: widget.socket.memberAvatars[id], online: online.contains(id),
+            presence: widget.socket.presenceOf(id)),
+      );
+
+  /// One player from [ids], chosen from their faces; null if they back out.
+  Future<String?> _pickPlayer(String title, String subtitle, List<String> ids, {Color? accent}) {
+    final n = context.neon;
+    return showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: n.panel.withValues(alpha: 1),
+      builder: (ctx) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(title, textAlign: TextAlign.center,
+                style: Theme.of(ctx).textTheme.displayLarge?.copyWith(fontSize: 22, color: accent ?? n.ink)),
+            const SizedBox(height: 6),
+            Text(subtitle, textAlign: TextAlign.center, style: TextStyle(color: n.mid, fontSize: 13)),
+            const SizedBox(height: 16),
+            Wrap(spacing: 16, runSpacing: 14, alignment: WrapAlignment.center, children: [
+              for (final id in ids)
+                Bouncy(
+                  key: ValueKey('pick-$id'),
+                  onTap: () => Navigator.pop(ctx, id),
+                  child: SizedBox(width: 72, child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    _avatar(id, 54),
+                    const SizedBox(height: 4),
+                    Text(label(id), maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: n.ink, fontSize: 12, fontWeight: FontWeight.w700)),
+                  ])),
+                ),
+            ]),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  /// A living Traitor's night: recruit instead of murdering, bake the pie, place
+  /// the Black Spot, give an alibi — whichever this table plays with.
+  Widget _traitorPlan(NeonColors n) {
+    final chips = <Widget>[
+      if (_tw.canRecruit)
+        _planChip(n, '🤝', 'Recruit instead', 'plan-recruit', n.brand, _recruit),
+      if (_tw.canBakePie) _planChip(n, '🥧', 'Bake a pie', 'plan-pie', const Color(0xffffb35c), _bakePie),
+      if (_tw.pieBakedTonight != null)
+        _planChip(n, '🥧', _tw.pieBakedTonight == 'poison' ? 'Poison baked' : 'Shield baked', 'plan-pie-done',
+            const Color(0xffffb35c), null),
+      if (_tw.canPlaceSpot) _planChip(n, '☠️', 'Place the Black Spot', 'plan-spot', n.mute, _placeSpot),
+      if (_tw.spotPending != null)
+        _planChip(n, '☠️', 'Spot on ${label(_tw.spotPending!)}', 'plan-spot-done', n.mute, null),
+      if (_tw.alibiNeeded)
+        _planChip(n, '🗺️', _tw.yourAlibi == null ? 'Give your alibi' : 'Alibi: ${label(_tw.yourAlibi!)}',
+            'plan-alibi', n.jade, _giveAlibi),
+    ];
+    if (chips.isEmpty) return const SizedBox.shrink();
+    return SizedBox(
+      key: const ValueKey('traitors-night-plan'),
+      height: 52,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+        itemCount: chips.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (_, i) => chips[i],
+      ),
+    );
+  }
+
+  Widget _planChip(NeonColors n, String emoji, String text, String key, Color accent, VoidCallback? onTap) => Bouncy(
+        key: ValueKey(key),
+        onTap: onTap == null || _actionLocked ? null : onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: onTap == null ? accent.withValues(alpha: 0.14) : n.panel,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: accent.withValues(alpha: onTap == null ? 0.4 : 0.9), width: 1.6),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            HuudText(emoji, artwork: false, style: const TextStyle(fontSize: 16)),
+            const SizedBox(width: 6),
+            Text(text, style: TextStyle(color: n.ink, fontSize: 12.5, fontWeight: FontWeight.w800)),
+            if (onTap == null) ...[const SizedBox(width: 4), Icon(Icons.check_rounded, size: 14, color: accent)],
+          ]),
+        ),
+      );
+
+  Future<void> _recruit() async {
+    final id = await _pickPlayer('Make an offer',
+        'Tonight nobody is murdered. At dawn they find a sealed letter — join, or else. It won\'t say who sent it.',
+        _tw.recruitTargets, accent: context.neon.brand);
+    if (mounted && id != null) _sendAction('RECRUIT_OFFER', {'target': id});
+  }
+
+  Future<void> _bakePie() async {
+    final n = context.neon;
+    final filling = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: n.panel.withValues(alpha: 1),
+      builder: (ctx) => SafeArea(child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const PieArt(size: 64),
+          const SizedBox(height: 8),
+          Text('Bake a pie', style: Theme.of(ctx).textTheme.displayLarge?.copyWith(fontSize: 22)),
+          const SizedBox(height: 6),
+          Text('It\'s served at dawn with a clue that\'s true about two times in three. '
+              'Whoever takes it finds out the next night.',
+              textAlign: TextAlign.center, style: TextStyle(color: n.mid, fontSize: 13)),
+          const SizedBox(height: 16),
+          Row(children: [
+            Expanded(child: FilledButton(
+              key: const ValueKey('bake-shield'),
+              onPressed: () => Navigator.pop(ctx, 'shield'),
+              style: FilledButton.styleFrom(backgroundColor: n.gold, foregroundColor: kCabinetInk,
+                  minimumSize: const Size(0, 52)),
+              child: const Text('🛡️  A real shield'))),
+            const SizedBox(width: 10),
+            Expanded(child: FilledButton(
+              key: const ValueKey('bake-poison'),
+              onPressed: () => Navigator.pop(ctx, 'poison'),
+              style: FilledButton.styleFrom(backgroundColor: const Color(0xff4f6b2a), foregroundColor: Colors.white,
+                  minimumSize: const Size(0, 52)),
+              child: const Text('☠️  Poison'))),
+          ]),
+        ]),
+      )),
+    );
+    if (mounted && filling != null) _sendAction('BAKE_PIE', {'filling': filling});
+  }
+
+  Future<void> _placeSpot() async {
+    final id = await _pickPlayer('Place the Black Spot',
+        'Whoever holds it when the vote opens loses their vote. They can pass it on — every pass is a clue.',
+        alive.where((id) => id != widget.selfId).toList());
+    if (mounted && id != null) _sendAction('PLACE_SPOT', {'target': id});
+  }
+
+  Future<void> _giveAlibi() async {
+    final id = await _pickPlayer('Where were you tonight?', 'Pick who you were with. Everyone sees the alibis at dawn.',
+        alive.where((id) => id != widget.selfId).toList(), accent: context.neon.jade);
+    if (mounted && id != null) _sendAction('ALIBI', {'with': id});
+  }
+
+  Future<void> _passSpot() async {
+    final chain = _tw.spotChain;
+    final id = await _pickPlayer('Pass the Black Spot', 'Never back to someone who\'s held it today.',
+        alive.where((id) => !chain.contains(id)).toList());
+    if (mounted && id != null) _sendAction('PASS_SPOT', {'to': id});
+  }
+
+  Future<void> _castHunch() async {
+    final id = await _pickPlayer('Your hunch', 'Who do you think is a Traitor? The table only ever sees the crowd\'s total.',
+        alive.toList(), accent: context.neon.jade);
+    if (!mounted || id == null) return;
+    if (widget.spectating) setState(() => _myHunch = id);
+    _sendAction('CROWD_VOTE', {'target': id});
+  }
+
+  Future<void> _makeLastStand() async {
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Make a Last Stand?'),
+        content: const Text('You leave the game — and everyone sees one player\'s true side. Once a game.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Not yet')),
+          TextButton(key: const ValueKey('last-stand-confirm'), onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Make my stand')),
+        ],
+      ),
+    );
+    if (!mounted || sure != true) return;
+    final id = await _pickPlayer('Who do you unmask?', 'Everyone will see whether they\'re a Traitor.',
+        alive.where((id) => id != widget.selfId).toList(), accent: context.neon.brand);
+    if (mounted && id != null) _sendAction('LAST_STAND', {'target': id});
+  }
+
+  /// What's on the table: the pie, the latest clue, the Black Spot, the alibis,
+  /// what the lantern showed, and a Last Stand when it's possible.
+  List<Widget> _trayCards(NeonColors n) {
+    const amber = Color(0xffffb35c);
+    final talking = const {'MorningReveal', 'RoundTable'}.contains(phase);
+    final cards = <Widget>[];
+    if (_tw.pieOnTable) {
+      cards.add(TableObjectCard(
+        key: const ValueKey('tray-pie'),
+        emoji: '🥧',
+        leading: const PieArt(size: 30),
+        title: 'A pie on the table',
+        body: '"${_tw.pie?['clue'] ?? ''}" — clues are true about two times in three.',
+        accent: amber,
+        action: _amAlive && phase == 'RoundTable' && !widget.spectating ? 'Take the pie' : null,
+        onAction: _actionLocked ? null : () => _sendAction('TAKE_PIE'),
+      ));
+    } else if (_tw.pieHolder != null) {
+      cards.add(TableObjectCard(
+        key: const ValueKey('tray-pie'),
+        emoji: '🥧',
+        leading: const PieArt(size: 30, warm: false),
+        title: 'The pie is taken',
+        body: '${_nameOrYou(_tw.pieHolder!)} took it. Shield or poison? The night will tell.',
+        accent: amber,
+      ));
+    }
+    if (_tw.clues.isNotEmpty) {
+      cards.add(TableObjectCard(
+        key: const ValueKey('tray-clue'),
+        emoji: '🔎',
+        title: 'Crime-scene clue',
+        body: clueText(_tw.clues.last, _nameOrYou),
+        accent: amber,
+      ));
+    }
+    if (_tw.spotHolder != null) {
+      final mine = _tw.spotHolder == widget.selfId;
+      cards.add(TableObjectCard(
+        key: const ValueKey('tray-spot'),
+        emoji: '☠️',
+        leading: const SpotToken(size: 22),
+        title: 'The Black Spot',
+        body: mine
+            ? 'You hold it. Pass it on before the vote — or lose your vote.'
+            : '${label(_tw.spotHolder!)} holds it. Whoever has it when the vote opens can\'t vote.',
+        accent: const Color(0xffd9c7b0),
+        action: mine && talking ? 'Pass it on' : null,
+        onAction: _actionLocked ? null : _passSpot,
+      ));
+    }
+    if (_tw.alibiBoard.isNotEmpty || _tw.spotChain.length > 1) {
+      final links = _tw.alibiLinks;
+      final pairs = links.where((l) => l.mutual).length;
+      final oneWay = links.length - pairs;
+      cards.add(TableObjectCard(
+        key: const ValueKey('tray-alibis'),
+        emoji: '🗺️',
+        title: _tw.alibiBoard.isEmpty ? 'The Black Spot\'s path' : 'Last night\'s alibis',
+        body: _tw.alibiBoard.isEmpty
+            ? 'See who passed it to whom.'
+            : '$pairs ${pairs == 1 ? 'pair backs' : 'pairs back'} each other up; '
+                '$oneWay ${oneWay == 1 ? 'story goes' : 'stories go'} one way.',
+        accent: n.jade,
+        action: phase == 'RoundTable' ? (_showWeb ? 'Hide the web' : 'See the web') : null,
+        onAction: () => setState(() => _showWeb = !_showWeb),
+      ));
+    }
+    if (_tw.visions.isNotEmpty) {
+      cards.add(TableObjectCard(
+        key: const ValueKey('tray-lantern'),
+        emoji: '🏮',
+        title: 'Your lantern showed',
+        body: [
+          for (final e in _tw.visions.entries) '${label(e.key)} is ${e.value == 'traitor' ? 'a TRAITOR' : 'Faithful'}.'
+        ].join(' '),
+        accent: const Color(0xffffc04d),
+      ));
+    }
+    if (_tw.canLastStand) {
+      cards.add(TableObjectCard(
+        key: const ValueKey('tray-last-stand'),
+        emoji: '⚔️',
+        title: 'Last Stand',
+        body: 'Give up your place to show everyone one player\'s true side. Once a game.',
+        accent: n.brand,
+        action: 'Make a stand',
+        onAction: _actionLocked ? null : _makeLastStand,
+      ));
+    }
+    return cards;
+  }
+
+  Widget _trayRow(List<Widget> cards) => ListView.separated(
+        key: const ValueKey('traitors-tabletop-tray'),
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+        itemCount: cards.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (_, i) => cards[i],
+      );
+
+  /// Alibis as gold (backing each other up) or dashed red (one-way) lines, and the
+  /// Black Spot's trail, hand to hand.
+  List<TableLink> _tableLinks(NeonColors n) => [
+        for (final l in _tw.alibiLinks)
+          TableLink(l.from, l.to,
+              (l.mutual ? n.gold : const Color(0xffe0704a)).withValues(alpha: 0.8), dashed: !l.mutual),
+        for (var i = 1; i < _tw.spotChain.length; i++)
+          TableLink(_tw.spotChain[i - 1], _tw.spotChain[i], kSpotCrimson, width: 3),
+      ];
+
+  /// While the web is open: what the lines mean, and a way back to the table.
+  Widget _webLegend(NeonColors n) {
+    Widget key(Color color, String text, {bool dashed = false}) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 3),
+          child: Row(children: [
+            SizedBox(width: 26, child: dashed
+                ? Row(mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [for (var i = 0; i < 3; i++) Container(width: 6, height: 3, color: color)])
+                : Container(height: 3, color: color)),
+            const SizedBox(width: 8),
+            Flexible(child: Text(text,
+                style: const TextStyle(color: Color(0xffffefd6), fontSize: 13, fontWeight: FontWeight.w700))),
+          ]),
+        );
+    return Center(child: Container(
+     key: const ValueKey('traitors-web-legend'),
+     padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+     decoration: BoxDecoration(
+       color: const Color(0xff3a2414).withValues(alpha: 0.9),
+       borderRadius: BorderRadius.circular(16),
+       border: Border.all(color: const Color(0xffb98951), width: 1.4),
+     ),
+     child: Column(mainAxisSize: MainAxisSize.min, children: [
+      const Text('The web', style: TextStyle(color: Color(0xffffefd6), fontSize: 22, fontWeight: FontWeight.w900)),
+      const SizedBox(height: 8),
+      if (_tw.alibiBoard.isNotEmpty) ...[
+        key(n.gold, 'They back each other up'),
+        key(const Color(0xffe0704a), 'A one-way story', dashed: true),
+      ],
+      if (_tw.spotChain.length > 1) key(kSpotCrimson, 'The Black Spot\'s path'),
+      const SizedBox(height: 10),
+      TextButton(
+        key: const ValueKey('traitors-web-hide'),
+        onPressed: () => setState(() => _showWeb = false),
+        style: TextButton.styleFrom(foregroundColor: const Color(0xffffdf9b)),
+        child: const Text('Back to the table'),
+      ),
+    ])));
+  }
+
+  /// The crowd's hunch — and a say in it for spectators and Faithful who are out.
+  Widget? _crowdMeter(NeonColors n) {
+    final hunch = _tw.hunch;
+    if (hunch == null || finished || phase == 'RoleReveal') return null;
+    final canVote = widget.spectating || _tw.canCrowdVote;
+    return CrowdMeter(
+      hunch: hunch,
+      name: _nameOrYou,
+      yourVote: widget.spectating ? _myHunch : _tw.yourCrowdVote,
+      onVote: canVote && !_actionLocked ? _castHunch : null,
+    );
+  }
+
+  Widget _ghostJury(NeonColors n) => GhostJuryStage(
+        tied: _tieCandidates,
+        avatar: _avatar,
+        name: _nameOrYou,
+        juror: _tw.ghostJuror,
+        vote: _tw.yourJuryVote,
+        onVote: _tw.ghostJuror && _tw.yourJuryVote == null && !_actionLocked
+            ? (id) => _sendAction('GHOST_VOTE', {'target': id})
+            : null,
+        footer: Column(mainAxisSize: MainAxisSize.min, children: [
+          if (_secondsLeft != null) _countdown(n),
+          const SizedBox(height: 6),
+          _waiting(n, _tw.ghostJuror ? 'Super Faithful count double — nobody is told who they are.'
+              : 'The ghosts are deliberating…'),
+        ]),
+      );
+
   // ---------------------------------------------------------------- shared bits
 
   Widget _pickerScreen(
@@ -1870,14 +2400,28 @@ class _GameScreenState extends State<GameScreen> {
   /// their name, and their role once it's been shown.
   Widget _seat(NeonColors n, String id, double size, {bool spotlight = false}) {
     const alivePulse = Color(0xff4ade80);
+    const clueAmber = Color(0xffffb35c);
     final isAlive = alive.contains(id) || spotlight;
     final isMe = id == widget.selfId;
-    final role = revealedRoles[id] ?? allRoles?[id];
+    // A Last Stand unmasks someone still at the table: their seat shows it too.
+    final stood = _tw.standReveal?['target'] == id ? _tw.standReveal!['side'] as String? : null;
+    final role = revealedRoles[id] ?? allRoles?[id] ?? stood;
     final accused = id == _accused;
+    final glow = isAlive && !spotlight && _tw.seatGlow(players).contains(id);
+    final vision = _tw.visions[id];
     return Opacity(
       opacity: isAlive ? 1 : 0.42,
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Stack(alignment: Alignment.center, children: [
+        Stack(alignment: Alignment.center, clipBehavior: Clip.none, children: [
+          if (glow)
+            Container(
+              key: ValueKey('clue-glow-$id'),
+              width: size + 14,
+              height: size + 14,
+              decoration: BoxDecoration(shape: BoxShape.circle,
+                  border: Border.all(color: clueAmber, width: 2),
+                  boxShadow: [BoxShadow(color: clueAmber.withValues(alpha: 0.8), blurRadius: 18, spreadRadius: 2)]),
+            ),
           Container(
             padding: const EdgeInsets.all(2),
             decoration: BoxDecoration(
@@ -1908,6 +2452,18 @@ class _GameScreenState extends State<GameScreen> {
             ),
           ),
           if (!isAlive && !spotlight) Icon(Icons.close_rounded, size: size * 0.7, color: const Color(0xffe0704a)),
+          if (_tw.spotHolder == id && isAlive)
+            Positioned(right: -6, top: -6, child: SpotToken(key: ValueKey('spot-on-$id'), size: size * 0.52)),
+          if (_tw.pieHolder == id && isAlive)
+            Positioned(right: -6, bottom: -4, child: PieArt(size: size * 0.46, warm: false)),
+          if (vision != null)
+            Positioned(left: -4, top: -4, child: Container(
+              key: ValueKey('vision-on-$id'),
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(shape: BoxShape.circle,
+                  color: vision == 'traitor' ? n.brand : n.jade),
+              child: HuudText('👁', style: TextStyle(fontSize: size * 0.24)),
+            )),
         ]),
         const SizedBox(height: 3),
         Text(
