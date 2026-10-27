@@ -175,11 +175,12 @@ class LocalBotStrategyTest {
         bot.onFrame("SNAPSHOT", Map.of("phase", "RoundTable", "yourRole", "faithful",
                 "alive", List.of("bot", "voter", "other", "eliminated")), "bot", Difficulty.HARD);
         bot.onFrame("EVENT", Map.of("type", "VOTE_REVEALED", "data", Map.of("voter", "voter", "target", "eliminated")), "bot", Difficulty.HARD);
-        bot.onFrame("EVENT", Map.of("type", "PLAYER_ELIMINATED", "data", Map.of("id", "eliminated", "roleShown", true,
-                "role", "traitor")), "bot", Difficulty.HARD);
+        bot.onFrame("EVENT", Map.of("type", "PLAYER_ELIMINATED", "data", Map.of("id", "eliminated", "cause", "banish",
+                "roleShown", true, "role", "traitor")), "bot", Difficulty.HARD);
         bot.onFrame("EVENT", Map.of("type", "PUBLIC_ACCUSATION", "data", Map.of("by", "other", "accused", "voter")), "bot", Difficulty.HARD);
         bot.onFrame("PHASE", Map.of("phase", "Vote"), "bot", Difficulty.HARD);
-        assertThat(bot.decideLocally("bot", Difficulty.MEDIUM).orElseThrow().data()).containsEntry("target", "voter");
+        // Voting out a revealed Traitor outweighs one accusation, at every level.
+        assertThat(bot.decideLocally("bot", Difficulty.MEDIUM).orElseThrow().data()).containsEntry("target", "other");
         assertThat(bot.decideLocally("bot", Difficulty.HARD).orElseThrow().data()).containsEntry("target", "other");
     }
 }

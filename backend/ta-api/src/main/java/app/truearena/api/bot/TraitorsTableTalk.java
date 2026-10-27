@@ -128,6 +128,20 @@ final class TraitorsTableTalk {
             "{name} trusts us. That makes them the safest pick.",
             "What about {name}? They've been leading the table.");
 
+    /** Standing up for someone the table is going after — honestly, or a Traitor covering for its own. */
+    private static final List<String> VOUCH = List.of(
+            "Leave {name} alone, {speaker}. I'd look at {other} first.",
+            "I trust {name}, {speaker}. Try {other} instead.",
+            "{speaker}, {name} is solid. You're barking up the wrong tree.",
+            "Hold on, {speaker} — I'd vouch for {name}. {other} worries me more.");
+
+    /** Pulling the table together on one name, so the Faithful don't split their votes. */
+    private static final List<String> RALLY = List.of(
+            "Let's not split the vote. I'm going with {name}.",
+            "We keep coming back to {name}. That's my vote.",
+            "Everyone's saying {name}, and I agree. Let's stick together.",
+            "If we scatter our votes, the Traitors win. {name}, for me.");
+
     private final Random random;
     private final Set<String> said = new HashSet<>();
 
@@ -143,6 +157,16 @@ final class TraitorsTableTalk {
     /** Answering what {@code speaker} said; {@code accused} when they were talking about this agent. */
     String reply(Persona persona, String speaker, String suspect, boolean accused) {
         return pick(accused ? persona.defences : persona.replies, Map.of("speaker", speaker, "name", suspect));
+    }
+
+    /** Answering {@code speaker}, who went after {@code name}: they're fine, look at {@code other}. */
+    String vouch(String speaker, String name, String other) {
+        return pick(VOUCH, Map.of("speaker", speaker, "name", name, "other", other));
+    }
+
+    /** Calling the table together behind {@code name}. */
+    String rally(String name) {
+        return pick(RALLY, Map.of("name", name));
     }
 
     /** At night, to fellow Traitors: who to take. */

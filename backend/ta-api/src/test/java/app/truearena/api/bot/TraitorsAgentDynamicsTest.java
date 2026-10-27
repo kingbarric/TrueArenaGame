@@ -155,6 +155,139 @@ class TraitorsAgentDynamicsTest {
         assertThat(vote.data()).containsEntry("target", "carol");
     }
 
+    // ---------------------------------------------------------------- reading the table like a person
+
+    private static final Map<String, String> NAMES = Map.of("alice", "Alice", "bob", "Bob", "carol", "Carol",
+            "dan", "Dan", "bot-1", "Nova", "bot-2", "Rex");
+
+    /** Goes with the table's talk, and takes every chance to speak up. */
+    private static Random followsTheTable() {
+        return new Random(7) {
+            @Override public double nextDouble() { return 0.0; }
+            @Override public int nextInt(int bound) { return bound - 1; }
+        };
+    }
+
+    private static Map<String, Object> chat(String from, String text) {
+        return event("CHAT_MESSAGE", Map.of("from", from, "channel", "table", "text", text));
+    }
+
+    private static void at(TrueArenaBotAdapter agent, String phase, int round) {
+        agent.onFrame("PHASE", Map.of("phase", phase, "round", round), "bot-1", LEVEL);
+    }
+
+    private static void ballot(TrueArenaBotAdapter agent, String voter, String target) {
+        agent.onFrame("EVENT", event("VOTE_REVEALED", Map.of("voter", voter, "target", target)), "bot-1", LEVEL);
+    }
+
+    private static void out(TrueArenaBotAdapter agent, String id, String role) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("id", id);
+        data.put("cause", "banish");
+        data.put("roleShown", role != null);
+        data.put("role", role);
+        agent.onFrame("EVENT", event("PLAYER_ELIMINATED", data), "bot-1", LEVEL);
+    }
+
+    @Test void standingUpForSomeoneIsHeard_butNotDistrust() {
+        assertThat(TrueArenaBotAdapter.vouchesFor("Leave Carol alone, she's been fine", "Carol")).isTrue();
+        assertThat(TrueArenaBotAdapter.vouchesFor("I trust Carol, honestly", "Carol")).isTrue();
+        assertThat(TrueArenaBotAdapter.vouchesFor("Carol is solid.", "Carol")).isTrue();
+        assertThat(TrueArenaBotAdapter.vouchesFor("I don't trust Carol at all", "Carol")).isFalse();
+        assertThat(TrueArenaBotAdapter.vouchesFor("Not saying it's Carol… but it's probably Carol.", "Carol")).isFalse();
+    }
+
+    @Test void onceATraitorIsUnmasked_whoeverKeptVotingWithThemIsNext() {
+        TrueArenaBotAdapter agent = agent("bot-1", "faithful", List.of(), eager());
+        agent.playerNames(NAMES);
+        sees(agent, "bot-1", table("RoundTable", "faithful", PLAYERS, Map.of()));
+        at(agent, "VoteReview", 1);
+        ballot(agent, "carol", "bob");
+        ballot(agent, "dan", "bob");
+        ballot(agent, "alice", "carol");
+        ballot(agent, "bot-2", "dan");
+        out(agent, "bob", null);
+        at(agent, "VoteReview", 2);
+        ballot(agent, "carol", "alice");
+        ballot(agent, "dan", "alice");
+        ballot(agent, "alice", "carol");
+        ballot(agent, "bot-2", "carol");
+        out(agent, "carol", "traitor");
+        List<String> left = List.of("alice", "bot-1", "bot-2", "dan");
+        PlayerAction vote = sees(agent, "bot-1", table("Vote", "faithful", left, Map.of("round", 3))).orElseThrow();
+        assertThat(vote.data()).containsEntry("target", "dan");
+    }
+
+    @Test void whoeverVouchedForAnUnmaskedTraitorIsRemembered() {
+        TrueArenaBotAdapter agent = agent("bot-1", "faithful", List.of(), eager());
+        agent.playerNames(NAMES);
+        sees(agent, "bot-1", table("RoundTable", "faithful", PLAYERS, Map.of()));
+        agent.onFrame("EVENT", chat("dan", "Leave Carol alone, she's been with us all game."), "bot-1", LEVEL);
+        at(agent, "VoteReview", 2);
+        out(agent, "carol", "traitor");
+        List<String> left = List.of("alice", "bob", "bot-1", "bot-2", "dan");
+        PlayerAction vote = sees(agent, "bot-1", table("Vote", "faithful", left, Map.of("round", 3))).orElseThrow();
+        assertThat(vote.data()).containsEntry("target", "dan");
+    }
+
+    @Test void aTraitorAgentSometimesCoversForAFellowTraitor_thatsTheSlip() {
+        Map<String, Object> roundTable = table("RoundTable", "traitor", PLAYERS, Map.of("fellowTraitors", List.of("bot-2")));
+        TrueArenaBotAdapter slips = agent("bot-1", "traitor", List.of("bot-2"), eager());
+        slips.playerNames(NAMES);
+        sees(slips, "bot-1", roundTable);
+        String said = slips.onFrame("EVENT", chat("alice", "I'm telling you, Rex is the Traitor."), "bot-1", LEVEL)
+                .orElseThrow().fallback();
+        assertThat(TrueArenaBotAdapter.vouchesFor(said, "Rex")).as(said).isTrue();
+
+        TrueArenaBotAdapter careful = agent("bot-1", "traitor", List.of("bot-2"), reluctant());
+        careful.playerNames(NAMES);
+        sees(careful, "bot-1", roundTable);
+        careful.onFrame("EVENT", chat("alice", "I'm telling you, Rex is the Traitor."), "bot-1", LEVEL)
+                .ifPresent(p -> assertThat(TrueArenaBotAdapter.vouchesFor(p.fallback(), "Rex")).as(p.fallback()).isFalse());
+    }
+
+    @Test void aFaithfulAgentSpeaksUpForSomeoneItsOwnEvidenceClears() {
+        TrueArenaBotAdapter agent = agent("bot-1", "faithful", List.of(), eager());
+        agent.playerNames(NAMES);
+        sees(agent, "bot-1", table("RoundTable", "faithful", PLAYERS, Map.of()));
+        agent.onFrame("EVENT", event("LANTERN_VISION", Map.of("target", "bob", "side", "faithful")), "bot-1", LEVEL);
+        String said = agent.onFrame("EVENT", chat("alice", "Bob has been lying all game."), "bot-1", LEVEL)
+                .orElseThrow().fallback();
+        assertThat(TrueArenaBotAdapter.vouchesFor(said, "Bob")).as(said).isTrue();
+    }
+
+    @Test void whenTheTableSettlesOnAName_anAgentCallsEveryoneTogether() {
+        TrueArenaBotAdapter agent = agent("bot-1", "faithful", List.of(), followsTheTable());
+        agent.playerNames(NAMES);
+        sees(agent, "bot-1", table("RoundTable", "faithful", PLAYERS, Map.of()));
+        agent.onFrame("EVENT", chat("alice", "Dan dodged my question twice."), "bot-1", LEVEL);
+        agent.onFrame("EVENT", chat("bob", "Agreed, Dan is acting strange."), "bot-1", LEVEL);
+        String said = agent.onFrame("EVENT", chat("carol", "So what does everyone think?"), "bot-1", LEVEL)
+                .orElseThrow().fallback();
+        assertThat(said).contains("Dan").containsAnyOf("split the vote", "my vote", "stick together", "scatter our votes");
+    }
+
+    @Test void aTraitorAgentMayJoinThePileOnADoomedFellow_toLookClean() {
+        Map<String, Object> roundTable = table("RoundTable", "traitor", PLAYERS, Map.of("fellowTraitors", List.of("carol")));
+        List<String> lines = List.of("Carol is lying", "Yes, Carol for sure", "It's Carol, obviously");
+        TrueArenaBotAdapter bus = agent("bot-1", "traitor", List.of("carol"), eager());
+        bus.playerNames(NAMES);
+        sees(bus, "bot-1", roundTable);
+        for (int i = 0; i < lines.size(); i++) {
+            bus.onFrame("EVENT", chat(List.of("alice", "bob", "dan").get(i), lines.get(i)), "bot-1", LEVEL);
+        }
+        Map<String, Object> vote = table("Vote", "traitor", PLAYERS, Map.of("fellowTraitors", List.of("carol")));
+        assertThat(sees(bus, "bot-1", vote).orElseThrow().data()).containsEntry("target", "carol");
+
+        TrueArenaBotAdapter loyal = agent("bot-1", "traitor", List.of("carol"), reluctant());
+        loyal.playerNames(NAMES);
+        sees(loyal, "bot-1", roundTable);
+        for (int i = 0; i < lines.size(); i++) {
+            loyal.onFrame("EVENT", chat(List.of("alice", "bob", "dan").get(i), lines.get(i)), "bot-1", LEVEL);
+        }
+        assertThat(sees(loyal, "bot-1", vote).orElseThrow().data().get("target")).isNotEqualTo("carol");
+    }
+
     @Test void agentsWhoAreOutSitOnTheJury_andJoinTheCrowd() {
         List<String> stillIn = PLAYERS.stream().filter(id -> !id.equals("bot-1")).toList();
         PlayerAction verdict = sees(agent("bot-1", "faithful", List.of(), eager()), "bot-1",

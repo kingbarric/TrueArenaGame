@@ -30,9 +30,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  * without the dynamics (docs/TRAITORS_DYNAMICS_PLAN.md).
  *
  * <p>It guards that every mode plays to an end with agents in every seat. The win
- * rates it prints are not the game's balance: agents can't reason the way people do,
- * so their Faithful barely beat chance and the Traitors win most all-agent games
- * either way. Read them only for which way a twist pushes.
+ * rates it prints are not the game's balance: agents read the vote record, remember
+ * who vouched for whom and rally behind one name, but they can't read people, so the
+ * Traitors still win most all-agent games (about 55–75%, from 85–99% before agents
+ * did any of that). Read them only for which way a twist pushes.
  */
 class TraitorsBalanceSimulationTest {
 
