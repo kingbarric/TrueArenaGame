@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../core/game_sfx.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/huud_art.dart';
+import 'table_depth.dart';
 import 'table_ring.dart';
 
 /// Someone leaving the table, and — when the rules show it — what they were.
@@ -37,6 +38,7 @@ class EliminationReveal extends StatefulWidget {
     this.onDone,
     this.nameSeconds = 5,
     this.roleSeconds = 3,
+    this.dawn = false,
   });
 
   final List<String> players;
@@ -52,6 +54,9 @@ class EliminationReveal extends StatefulWidget {
   /// Everything's been shown.
   final VoidCallback? onDone;
   final int nameSeconds, roleSeconds;
+
+  /// The morning after: the candles burn low through the drumroll and come up with the news.
+  final bool dawn;
 
   @override
   State<EliminationReveal> createState() => _EliminationRevealState();
@@ -161,6 +166,12 @@ class _EliminationRevealState extends State<EliminationReveal> with SingleTicker
     final showing = _stage == _Stage.name || _stage == _Stage.role ? subject?.id : null;
     final spotlit = showing ?? (_stage == _Stage.drumroll && widget.players.isNotEmpty ? widget.players[_spot] : null);
     final mood = _stage == _Stage.role && subject?.role != null ? (subject!.traitor ? _Mood.joy : _Mood.grief) : _Mood.none;
+    final suspense = _stage == _Stage.drumroll || _stage == _Stage.waiting;
+    final leaving = showing == null ? -1 : widget.players.indexOf(showing);
+    // The camera: a slow push in while everyone waits, then a lean toward whoever's leaving.
+    final (zoom, focus, move) = leaving >= 0
+        ? (1.08, Alignment.lerp(Alignment.center, TableRing.seatAlignment(leaving, widget.players.length), 0.55)!, 1200)
+        : suspense ? (1.04, Alignment.center, 2600) : (1.0, Alignment.center, 1200);
     return Stack(fit: StackFit.expand, children: [
       // A Faithful lost: the table goes dark around them.
       AnimatedOpacity(
@@ -168,15 +179,38 @@ class _EliminationRevealState extends State<EliminationReveal> with SingleTicker
         duration: const Duration(milliseconds: 900),
         child: const ColoredBox(color: Color(0x660B1220)),
       ),
-      TableRing(
-        players: widget.players,
-        tableTint: switch (mood) {
-          _Mood.joy => const Color(0xff5a3a10),
-          _Mood.grief => const Color(0xff1c2433),
-          _Mood.none => null,
-        },
-        seat: (id, size) => widget.seat(id, size, id == spotlit),
-        centre: (width) => SizedBox(width: math.max(width, 170), child: _centre(n, subject)),
+      TableCamera(
+        zoom: zoom,
+        focus: focus,
+        duration: Duration(milliseconds: move),
+        child: TableRing(
+          players: widget.players,
+          tableTint: switch (mood) {
+            _Mood.joy => const Color(0xff5a3a10),
+            _Mood.grief => const Color(0xff1c2433),
+            _Mood.none => null,
+          },
+          dim: switch (mood) {
+            _Mood.grief => 0.6,
+            _Mood.joy => 0.0,
+            _Mood.none => widget.dawn && suspense ? 0.55 : 0.15,
+          },
+          seat: (id, size) => widget.seat(id, size, id == spotlit),
+          centre: (width) => SizedBox(width: math.max(width, 170), child: _centre(n, subject)),
+        ),
+      ),
+      // The edges of the room close in while the table holds its breath.
+      IgnorePointer(
+        child: AnimatedOpacity(
+          key: const ValueKey('reveal-vignette'),
+          opacity: suspense || _stage == _Stage.name ? 1 : 0.4,
+          duration: const Duration(milliseconds: 700),
+          child: const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(radius: 0.95, colors: [Colors.transparent, Color(0x8C000000)], stops: [0.55, 1]),
+            ),
+          ),
+        ),
       ),
       if (mood != _Mood.none)
         IgnorePointer(

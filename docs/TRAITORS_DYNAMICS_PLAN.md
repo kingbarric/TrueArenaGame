@@ -205,6 +205,12 @@ Everything above is built on `feature/traitors-dynamics`, with these choices and
   - Agent ghosts sit on the jury and join the crowd.
 - **What agents learn from:** clues, alibis and visions feed their suspicion.
 - **How agents vote:** they now weigh who the round table keeps naming.
+- **Reading the table like people (every level):**
+  - **The vote record:** voting out a revealed Faithful counts against you; voting out a revealed Traitor clears you. Once a Traitor is unmasked, whoever kept voting for the same names they did, round after round, comes under suspicion.
+  - **Vouches:** agents remember who stood up for whom ("Leave Ada alone", "I trust Ada"). Vouching for someone later unmasked as a Traitor is damning; standing up for someone the agent already doubts is a small mark too.
+  - **One name, not five:** when the table has settled on a name (named at least twice and clearly ahead), Faithful agents vote together on it unless their own evidence clears that player, and sometimes say so ("Let's not split the vote").
+  - **Traitor slips:** a Traitor agent sometimes covers for a fellow Traitor who's being accused (35%), which the table can catch later. It goes after whoever keeps pointing at its side, and when the table has clearly settled on a fellow Traitor, it sometimes joins that vote to look clean (30%).
+  - **Faithful vouch too:** a Faithful agent speaks up for someone its own evidence clears, so a vouch on its own proves nothing.
 
 **App** (`traitors_twists.dart`, `game_screen.dart`, `table_ring.dart`)
 - **At night:** the Traitors' plan chips; the lantern and alibi pickers.
@@ -214,16 +220,29 @@ Everything above is built on `feature/traitors-dynamics`, with these choices and
 - **The web:** "See the web" shows the alibi and Black Spot lines over a cleared table.
 - **Elsewhere:** the crowd meter, the Ghost Jury stage, the silenced-vote screen, the Last Stand banner, and a feed line for every new event.
 
+**The 2.5D table** (`table_depth.dart`, `table_ring.dart`, `traitors_reveal.dart`). The wood, the light and the camera have depth; names, votes, buttons, the tray and the web stay flat and readable.
+- **The round table:** the top tilts away in true perspective (planks and grain foreshorten toward the far edge), the near edge shows the slab's thickness, and the table throws a shadow. The far row of seats sits a little closer together and smaller (90% at the top to 106% at the bottom), and every seat stands on a soft shadow.
+- **Candlelight:** two candles on the far corners and a warm pool of light that flickers. The flicker steps about 12 times a second rather than every frame, to save battery. It stops when the screen is hidden or motion is reduced.
+- **The reveals:** the oval table gets a rim and a shadow. During the drumroll the camera pushes in slowly (to 104%) and the edges darken; when the name comes up it leans toward that seat (to 108%). The morning reveal starts with the candles low and brings them up with the news. A Faithful lost dims them and turns the table cold; a Traitor caught leaves them bright.
+- **The sealed letter:** it slides up from the table, turning straight and growing as it comes close enough to read.
+- **Reduced motion:** the camera never moves, the flicker stops and the letter is simply there.
+
 **Tests**
 - `TraitorsDynamicsTest` (20): each twist, its limits and secrecy.
 - `TraitorsAgentDynamicsTest` (9) and `TraitorsSpectatorTest`: agents and spectators.
 - `traitors_dynamics_ui_test.dart` (12): the screens.
 - `TraitorsBalanceSimulationTest`: 1,500 all-agent games, every mode playing to an end.
+- `table_depth_test.dart` (6): the perspective maths, seat depth, the reveal camera, reduced motion and the letter.
 
-**What balance testing can and can't tell us yet.** In all-agent games the Traitors win about 85–99% in every mode, before and after the dynamics. Agent Faithful can't reason the way people do, so their votes barely beat chance, while Traitors never vote for one another. The simulation only shows which way a twist pushes:
-- Crime-Scene Clues brought Classic from about 91% to 79–85%.
+**What balance testing can and can't tell us yet.** At first, all-agent games went to the Traitors 85–99% of the time in every mode. The agent Faithful were guessing and spreading their votes, while the Traitors always voted together. A simple model with no AI at all, using the real table sizes, reproduced those numbers.
+
+Once agents read the vote record, remembered vouches and rallied behind one name, the Traitors' win rate fell to about 57–74% (one run: Classic 63%, Heist 62%, Blood Moon 69%, The Last Alibi 57%, Final Gambit 74%). Runs vary by a few points. Agents still can't read people, so this is a floor for the Faithful, not the game's balance.
+
+The simulation shows which way a twist pushes:
+- Crime-Scene Clues help the Faithful in Classic.
 - The Seer moved Final Gambit within a few points.
 - Recruiting nudges the Traitors up.
+- Heist and Blood Moon (3 Traitors in 10) are the modes to watch once real games come in.
 
 Real balance has to come from real tables. The next step is to read the Traitors win rate per mode from finished games on the test server, then tune `clueTruth`, the recruiting cap and the pie odds.
 

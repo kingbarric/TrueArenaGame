@@ -18,6 +18,7 @@ import '../../widgets/neon_form.dart';
 import '../status/victory_status.dart';
 import '../onboarding/guest_save_session_card.dart';
 import '../huudspace/leave_game.dart';
+import 'table_depth.dart';
 import 'table_ring.dart';
 import 'traitors_reveal.dart';
 import 'traitors_twists.dart';
@@ -1028,10 +1029,10 @@ class _GameScreenState extends State<GameScreen> {
               Positioned.fill(
                 child: ColoredBox(
                   color: Colors.black.withValues(alpha: 0.62),
-                  child: Center(child: SingleChildScrollView(child: RecruitLetter(
+                  child: Center(child: SingleChildScrollView(child: LetterArrival(child: RecruitLetter(
                     busy: _actionLocked,
                     onAnswer: (accept) => _sendAction('RECRUIT_ANSWER', {'accept': accept}),
-                  ))),
+                  )))),
                 ),
               ),
             // Reactions drift up the edges, clear of the table and its buttons.
@@ -1778,6 +1779,7 @@ class _GameScreenState extends State<GameScreen> {
           subjects: List.of(_revealSubjects),
           nobody: _nobodyThisPhase,
           heading: heading,
+          dawn: phase == 'MorningReveal',
           seat: (id, size, spotlight) => _seat(n, id, size, spotlight: spotlight),
           onDone: () {
             if (mounted) setState(() => _revealDone = true);
