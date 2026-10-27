@@ -1,6 +1,6 @@
 # Traitors dynamics — agreed plan
 
-Status: discussed 25–27 October 2026. Only the quieter round table is built, on `feature/traitors-dynamics`. Every other item here is a plan.
+Status: discussed 25–27 October 2026; built on `feature/traitors-dynamics` on 27 October 2026 (see *As built* at the end). Not merged or deployed.
 
 The five Traitors modes play too much alike. Apart from Midnight Heist's shield, a game is murder, talk, vote, repeat. This plan gives each mode a signature twist and lets the Traitors recruit when they lose people. It also gives two groups a part to play: players who are out of the game, and people watching.
 
@@ -169,3 +169,61 @@ Build on `feature/traitors-dynamics`, test and commit, then ask before any insta
 - Should the Pie's clue be true two times in three, or three times in four?
 - Should Last Stand's reveal go to the whole table, or only to the Faithful who made the sacrifice?
 - Should the Crowd's Hunch need 3 voters, or more for big tables?
+
+## As built
+
+Everything above is built on `feature/traitors-dynamics`, with these choices and limits.
+
+**Server** (`TrueArenaModule`, `TruearenaState`, `TwistRegistry`)
+- **New twist ids:** `recruiting`, `poisoned_pie` (`uses`, `clueTruth` 0.67), `crime_clues`, `alibis`, `seer_lantern`, `black_spot`, `last_stand`, `crowd_hunch` (`minVoters` 3) and `ghost_jury` (`afterRevote` in Classic). Each mode's preset switches on its set from *Who gets what*.
+- **New actions:**
+  - recruiting: `RECRUIT_OFFER`, `RECRUIT_ANSWER`;
+  - the pie: `BAKE_PIE`, `TAKE_PIE`;
+  - alibis and the lantern: `ALIBI`, `SEER_LANTERN`;
+  - the Black Spot: `PLACE_SPOT`, `PASS_SPOT`;
+  - the endgame and the out: `LAST_STAND`, `GHOST_VOTE`, `CROWD_VOTE`.
+- **A new phase, `GhostJury`,** runs for 30 seconds.
+- **The night** ends early only once everyone it needs has acted: the Traitors (agreed, recruiting or skipping), every alibi, and the Seer's lantern. Otherwise the clock ends it.
+- **The recruiting rule:**
+  - It needs a lost Traitor, and the Traitors never go back above their starting number.
+  - After a recruit, the number of Traitors must be at most a third of the living players, rounded down (players alive ÷ 3).
+  - The offer is anonymous and replaces that night's murder.
+  - No answer before the vote counts as a refusal, and nobody is asked twice.
+- **Public versus private:**
+  - The broadcast shows the pie (never its filling), the clues, the alibi board, the Black Spot, a Last Stand and the crowd meter.
+  - Each player's own view adds their offer, their pie, their lantern visions, their jury seat and their own crowd vote.
+  - The jury never publishes how many jurors it has, because that would reveal how many hidden-role eliminations were Faithful.
+- **Spectators:** a spectator may send one game action, `CROWD_VOTE`, except in championship matches.
+
+**Cyber Agents** (`TrueArenaBotAdapter`)
+- **Twist moves:** each twist is a move an agent weighs once per phase.
+  - The lead Traitor agent recruits (65%), bakes (60%, poison 55%) and places the Spot.
+  - Every agent gives an alibi.
+  - An offer is accepted by personality: Quiet 50%, Joker 35%, Peacemaker 25%, Detective 20%, Sceptic 15%, Hothead 5%. Hotheads and Sceptics announce a refusal at the table.
+  - A shield-looking pie tempts 30% of agents; a poison-looking one, 8%.
+  - The Seer lights the lantern (70%) and hints at a Traitor it saw.
+  - Agent ghosts sit on the jury and join the crowd.
+- **What agents learn from:** clues, alibis and visions feed their suspicion.
+- **How agents vote:** they now weigh who the round table keeps naming.
+
+**App** (`traitors_twists.dart`, `game_screen.dart`, `table_ring.dart`)
+- **At night:** the Traitors' plan chips; the lantern and alibi pickers.
+- **The offer:** a sealed letter.
+- **The tabletop tray:** pie, clue, Black Spot, alibis, lantern and Last Stand cards.
+- **The seats:** clue glow, skull token, pie and vision badges.
+- **The web:** "See the web" shows the alibi and Black Spot lines over a cleared table.
+- **Elsewhere:** the crowd meter, the Ghost Jury stage, the silenced-vote screen, the Last Stand banner, and a feed line for every new event.
+
+**Tests**
+- `TraitorsDynamicsTest` (20): each twist, its limits and secrecy.
+- `TraitorsAgentDynamicsTest` (9) and `TraitorsSpectatorTest`: agents and spectators.
+- `traitors_dynamics_ui_test.dart` (12): the screens.
+- `TraitorsBalanceSimulationTest`: 1,500 all-agent games, every mode playing to an end.
+
+**What balance testing can and can't tell us yet.** In all-agent games the Traitors win about 85–99% in every mode, before and after the dynamics. Agent Faithful can't reason the way people do, so their votes barely beat chance, while Traitors never vote for one another. The simulation only shows which way a twist pushes:
+- Crime-Scene Clues brought Classic from about 91% to 79–85%.
+- The Seer moved Final Gambit within a few points.
+- Recruiting nudges the Traitors up.
+
+Real balance has to come from real tables. The next step is to read the Traitors win rate per mode from finished games on the test server, then tune `clueTruth`, the recruiting cap and the pie odds.
+
