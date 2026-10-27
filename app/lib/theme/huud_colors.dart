@@ -19,18 +19,20 @@ class HuudColors {
 
   final Color orange, orangeDeep, orangeText, orangeSoft, onOrange, live;
 
+  // A warm orange, not a neon one: toned down from #FF8A1F so the hero
+  // card and buttons don't glare, with dark ink on them still easy to read.
   static const _dark = HuudColors(
-    orange: Color(0xFFFF8A1F),
-    orangeDeep: Color(0xFFE85D04),
-    orangeText: Color(0xFFFFA24C),
-    orangeSoft: Color(0x26FF8A1F),
+    orange: Color(0xFFE0812E),
+    orangeDeep: Color(0xFFCE6422),
+    orangeText: Color(0xFFEA9E57),
+    orangeSoft: Color(0x26E0812E),
     onOrange: kCabinetInk,
     live: Color(0xFF4ADE80),
   );
 
   static const _light = HuudColors(
-    orange: Color(0xFFFF8A1F),
-    orangeDeep: Color(0xFFF26B0F),
+    orange: Color(0xFFE0812E),
+    orangeDeep: Color(0xFFD56820),
     orangeText: Color(0xFFB34A00),
     orangeSoft: Color(0xFFFFE8D2),
     onOrange: kCabinetInk,
