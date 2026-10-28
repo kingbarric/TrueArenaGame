@@ -166,7 +166,12 @@ class FullGameContractIT {
             env.put("type", type);
             env.put("ts", System.currentTimeMillis());
             env.put("payload", payload);
-            c.ws.sendText(mapper.writeValueAsString(env), true);
+            // Java WebSocket permits only one outstanding send per socket. Host
+            // controls and the same client's ballot can otherwise race and return
+            // a failed future, silently dropping the one advance this test sends.
+            synchronized (c) {
+                c.ws.sendText(mapper.writeValueAsString(env), true).get(5, TimeUnit.SECONDS);
+            }
         } catch (Exception e) {
             violations.add("failed to send " + type + " for " + c.name + ": " + e);
         }
@@ -291,7 +296,10 @@ class FullGameContractIT {
         if (c == host) {
             String key = phase + ":" + round;
             if (HOST_ADVANCE_PHASES.contains(phase) && advancedForPhase.add(key)) {
-                scheduler.schedule(() -> sendFrame(host, "PLAYER_ACTION", Map.of("action", "ADVANCE_PHASE")),
+                scheduler.schedule(() -> {
+                    if (phase.equals(c.phase) && round == c.round)
+                        sendFrame(host, "PLAYER_ACTION", Map.of("action", "ADVANCE_PHASE"));
+                },
                         List.of("Revote", "SuddenDeath").contains(phase) ? 800 : 120, TimeUnit.MILLISECONDS);
             }
             if ("Results".equals(phase)) {
@@ -428,7 +436,7 @@ class FullGameContractIT {
         }
         assertThat(violations).as("no client should ever see another player's un-revealed role").isEmpty();
         assertThat(finished.get()).as("the game should reach GAME_OVER/Results within the deadline; host phases: %s",
-                host.frames.stream().filter(f -> "PHASE".equals(f.get("type"))).toList()).isTrue();
+                List.copyOf(host.frames).stream().filter(f -> "PHASE".equals(f.get("type"))).toList()).isTrue();
         assertThat(winningSide.get()).isIn("faithful", "traitors");
 
         // ---- host migration: disconnect the host, a connected human takes over ----
