@@ -766,8 +766,15 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     await clearActiveRoom();
     pendingGameInvite = null;
     await _inboxSub?.cancel();
-    await inbox?.close();
+    final previousInbox = inbox;
     inbox = null;
+    // A socket still connecting on an offline network may never finish close.
+    // Local credential removal must not wait indefinitely for that handshake.
+    try {
+      await previousInbox?.close().timeout(const Duration(seconds: 2));
+    } catch (_) {
+      // The old connection is already detached and cannot restore this session.
+    }
     final prefs = await SharedPreferences.getInstance();
     await _deleteSessionSecret(_kAccess, prefs);
     await _deleteSessionSecret(_kRefresh, prefs);
