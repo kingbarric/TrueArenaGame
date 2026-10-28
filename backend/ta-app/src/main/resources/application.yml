@@ -56,6 +56,10 @@ truearena:
     reviewer-email: ${REVIEWER_EMAIL:}
     reviewer-code-sha256: ${REVIEWER_CODE_SHA256:}
     reviewer-expires-at: ${REVIEWER_EXPIRES_AT:}
+    # Independent Apple review credentials preserve the existing Google Play account.
+    apple-reviewer-email: ${APPLE_REVIEWER_EMAIL:}
+    apple-reviewer-code-sha256: ${APPLE_REVIEWER_CODE_SHA256:}
+    apple-reviewer-expires-at: ${APPLE_REVIEWER_EXPIRES_AT:}
     jwt-secret: ${JWT_SECRET:dev-only-change-me-0000000000000000000000000000}
     access-ttl: 15m
     refresh-ttl: 30d

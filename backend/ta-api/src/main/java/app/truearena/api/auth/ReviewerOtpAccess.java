@@ -20,11 +20,15 @@ final class ReviewerOtpAccess {
     private final Instant expiresAt;
 
     ReviewerOtpAccess(ReactiveStringRedisTemplate redis, Environment environment) {
+        this(redis, environment, "truearena.auth.reviewer");
+    }
+
+    ReviewerOtpAccess(ReactiveStringRedisTemplate redis, Environment environment, String prefix) {
         this.redis = redis;
-        email = normalize(environment.getProperty("truearena.auth.reviewer-email", ""));
-        hash = environment.getProperty("truearena.auth.reviewer-code-sha256", "");
+        email = normalize(environment.getProperty(prefix + "-email", ""));
+        hash = environment.getProperty(prefix + "-code-sha256", "");
         Instant expiry;
-        String configuredExpiry = environment.getProperty("truearena.auth.reviewer-expires-at", "").trim();
+        String configuredExpiry = environment.getProperty(prefix + "-expires-at", "").trim();
         try {
             // Permanent access must be explicit; missing or malformed settings still fail closed.
             expiry = configuredExpiry.equals("never") ? Instant.MAX : Instant.parse(configuredExpiry);

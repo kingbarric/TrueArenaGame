@@ -67,3 +67,18 @@ expiry were changed. Production health returned UP. Live invalid-code checks ret
 401 for the reviewer and an ordinary identifier. No codes were requested or messages
 sent. No mobile rebuild is needed. The reusable code remains private; it was not
 regenerated or published. A successful real-code login was not repeated in this run.
+
+## Independent Apple reviewer access — 28 October 2026
+
+The optional `truearena.auth.apple-reviewer-email`, `apple-reviewer-code-sha256`
+and `apple-reviewer-expires-at` settings provide a second, independently scoped
+reviewer account. Production supplies the corresponding
+`TRUEARENA_AUTH_APPLE_REVIEWER_*` variables through its private reviewer.env.
+Missing settings disable this account; an explicit `never` retains review access.
+The existing Google Play reviewer configuration and account remain unchanged.
+
+Both accounts use the same constant-time hash verification and per-identifier
+Redis attempt limit. A code cannot authenticate the other reviewer or an
+ordinary account, and neither slot bypasses the test environment allowlist.
+The plaintext Apple code stays in private operator credentials and Apple's
+restricted review instructions, never source or the user database.

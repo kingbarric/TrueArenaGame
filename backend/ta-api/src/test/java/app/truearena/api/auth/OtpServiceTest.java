@@ -31,4 +31,47 @@ class OtpServiceTest {
    StepVerifier.create(otp.verify("review@example.com", "123456")).expectNext(false).verifyComplete();
    verifyNoInteractions(redis, sms, email);
  }
+
+ @Test void separateAppleAndExistingReviewerCodesStayScopedAndNeverSendMail() throws Exception {
+   var env = new MockEnvironment().withProperty("spring.profiles.active", "prod");
+   for (var entry : java.util.Map.of("reviewer", "482915", "apple-reviewer", "739182").entrySet()) {
+     String prefix = "truearena.auth." + entry.getKey();
+     env.withProperty(prefix + "-email", entry.getKey() + "@example.com")
+        .withProperty(prefix + "-code-sha256", java.util.HexFormat.of().formatHex(
+           java.security.MessageDigest.getInstance("SHA-256").digest(entry.getValue().getBytes(java.nio.charset.StandardCharsets.UTF_8))))
+        .withProperty(prefix + "-expires-at", "never");
+   }
+   @SuppressWarnings("unchecked")
+   org.springframework.data.redis.core.ReactiveValueOperations<String,String> values = mock(org.springframework.data.redis.core.ReactiveValueOperations.class);
+   when(redis.opsForValue()).thenReturn(values);
+   when(values.increment(anyString())).thenReturn(Mono.just(2L));
+   when(values.get("otp:ordinary@example.com")).thenReturn(Mono.empty());
+   var otp = new OtpService(redis, sms, email, "", "", env);
+   StepVerifier.create(otp.requestEmail("apple-reviewer@example.com")).verifyComplete();
+   StepVerifier.create(otp.requestEmail("reviewer@example.com")).verifyComplete();
+   StepVerifier.create(otp.verify("apple-reviewer@example.com", "739182")).expectNext(true).verifyComplete();
+   StepVerifier.create(otp.verify("reviewer@example.com", "482915")).expectNext(true).verifyComplete();
+   StepVerifier.create(otp.verify("apple-reviewer@example.com", "482915")).expectNext(false).verifyComplete();
+   StepVerifier.create(otp.verify("reviewer@example.com", "739182")).expectNext(false).verifyComplete();
+   StepVerifier.create(otp.verify("ordinary@example.com", "739182")).expectNext(false).verifyComplete();
+   verify(values, times(2)).increment("reviewer-otp-attempts:apple-reviewer@example.com");
+   verify(values, times(2)).increment("reviewer-otp-attempts:reviewer@example.com");
+   verifyNoInteractions(sms, email);
+ }
+ @Test void appleReviewerWithoutValidConfigurationCannotUseDevelopmentBypass() {
+   var env = new MockEnvironment().withProperty("spring.profiles.active", "prod")
+       .withProperty("truearena.auth.apple-reviewer-email", "apple@example.com");
+   var otp = new OtpService(redis, sms, email, "123456", "", env);
+   StepVerifier.create(otp.requestEmail("apple@example.com")).verifyComplete();
+   StepVerifier.create(otp.verify("apple@example.com", "123456")).expectNext(false).verifyComplete();
+   verifyNoInteractions(redis, sms, email);
+ }
+ @Test void appleReviewerDoesNotBypassTestEnvironmentAllowlist() {
+   var env = new MockEnvironment().withProperty("spring.profiles.active", "test")
+       .withProperty("truearena.auth.apple-reviewer-email", "apple@example.com");
+   var otp = new OtpService(redis, sms, email, "123456", "approved@example.com", env);
+   StepVerifier.create(otp.requestEmail("apple@example.com")).verifyError();
+   StepVerifier.create(otp.verify("apple@example.com", "123456")).expectNext(false).verifyComplete();
+   verifyNoInteractions(redis, sms, email);
+ }
 }
