@@ -52,7 +52,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * checked on every frame every client actually received — the same invariant
  * {@code SecretDataGuaranteeTest} checks in-process, now proven at the transport layer.
  * Also exercises the two live-room behaviors nothing else covers end-to-end: reconnect
- * replay (a real {@code lastSeq} follows the initial view with missed events) and host migration (disconnect
+ * replay (a full HELLO view followed by an incremental {@code lastSeq} request) and host migration (disconnect
  * the host, a connected human takes over within the 10s grace).
  */
 @SpringBootTest(classes = FullGameContractIT.TestApplication.class,
@@ -99,6 +99,7 @@ class FullGameContractIT {
     private final List<String> violations = Collections.synchronizedList(new ArrayList<>());
     private final Set<String> advancedForPhase = Collections.synchronizedSet(new HashSet<>());
     private final AtomicBoolean finished = new AtomicBoolean(false);
+    private final AtomicBoolean playEnabled = new AtomicBoolean(false);
     private final AtomicReference<String> winningSide = new AtomicReference<>();
     private TestClient host;
 
@@ -119,6 +120,8 @@ class FullGameContractIT {
         WebSocket ws;
         final List<Map<String, Object>> frames = Collections.synchronizedList(new ArrayList<>());
         volatile String myRole;
+        volatile String phase;
+        volatile int round;
         volatile List<String> fellowTraitors = List.of();
         // Mutated (PLAYER_ELIMINATED) from this client's own WS-listener thread and read
         // from the scheduler's bot-action threads — needs real thread-safety, not just a
@@ -273,15 +276,23 @@ class FullGameContractIT {
         return others.isEmpty() ? null : others.get(0);
     }
 
-    private static final List<String> UNTIMED_HOST_ADVANCE =
-            List.of("RoleReveal", "MorningReveal", "RoundTable", "VoteReview", "Elimination", "WinCheck");
+    private static final List<String> HOST_ADVANCE_PHASES =
+            // Exercise the host escape hatch for tie phases too; clients still cast normal ballots.
+            List.of("RoleReveal", "MorningReveal", "RoundTable", "Defense", "VoteReview",
+                    "Elimination", "WinCheck", "HostDecision", "HostAssignVotes", "GhostJury",
+                    "Revote", "SuddenDeath");
 
     private void onPhase(TestClient c, String phase, int round) {
+        c.phase = phase;
+        c.round = round;
+        // Keep the board stable while checking HELLO replay: live phase changes
+        // legitimately broadcast snapshots independently of the HELLO response.
+        if (!playEnabled.get()) return;
         if (c == host) {
             String key = phase + ":" + round;
-            if (UNTIMED_HOST_ADVANCE.contains(phase) && advancedForPhase.add(key)) {
+            if (HOST_ADVANCE_PHASES.contains(phase) && advancedForPhase.add(key)) {
                 scheduler.schedule(() -> sendFrame(host, "PLAYER_ACTION", Map.of("action", "ADVANCE_PHASE")),
-                        120, TimeUnit.MILLISECONDS);
+                        List.of("Revote", "SuddenDeath").contains(phase) ? 800 : 120, TimeUnit.MILLISECONDS);
             }
             if ("Results".equals(phase)) {
                 finished.set(true);
@@ -294,7 +305,7 @@ class FullGameContractIT {
                         150, TimeUnit.MILLISECONDS);
             }
         }
-        if ("Vote".equals(phase)) {
+        if (List.of("Vote", "Revote", "SuddenDeath").contains(phase)) {
             String target = pickTarget(c);
             if (target != null) {
                 long delay = 200 + ThreadLocalRandom.current().nextInt(300);
@@ -343,7 +354,7 @@ class FullGameContractIT {
 
         sendFrame(host, "GAME_START", Map.of());
 
-        // ---- reconnect: transport sends the current view, then HELLO replays missed events ----
+        // ---- reconnect: HELLO requests the current view, then an incremental HELLO replays events ----
         TestClient reconnecting = clients.get(1);
         long deadlineForFirstEvent = System.currentTimeMillis() + 5000;
         while (lastSeqSeen(reconnecting) == 0 && System.currentTimeMillis() < deadlineForFirstEvent) {
@@ -387,12 +398,13 @@ class FullGameContractIT {
             }
         };
         reconnecting.ws = http.newWebSocketBuilder().buildAsync(uri, listener).get(10, TimeUnit.SECONDS);
-        // onConnect now sends an authoritative per-player view before HELLO.
-        // Isolate that transport baseline from the incremental HELLO response.
+        // Request the reconnect baseline explicitly: connecting alone emits presence,
+        // while HELLO(lastSeq=0) supplies the authoritative per-player view.
+        sendFrame(reconnecting, "HELLO", Map.of("lastSeq", 0));
         long baselineWait = System.currentTimeMillis() + 5000;
         while (reconnecting.frames.stream().noneMatch(f -> "SNAPSHOT".equals(f.get("type")))
                 && System.currentTimeMillis() < baselineWait) Thread.sleep(25);
-        assertThat(reconnecting.frames).as("transport reconnect restores this player's current view")
+        assertThat(reconnecting.frames).as("full HELLO restores this player's current view")
                 .anyMatch(f -> "SNAPSHOT".equals(f.get("type")));
         reconnecting.frames.clear();
         sendFrame(reconnecting, "HELLO", Map.of("lastSeq", seenSeq));
@@ -406,6 +418,8 @@ class FullGameContractIT {
                 .anyMatch(f -> "PHASE".equals(f.get("type")));
 
         // ---- play the rest of the game to completion ----
+        playEnabled.set(true);
+        for (TestClient c : clients) onPhase(c, c.phase, c.round);
         long gameDeadline = System.currentTimeMillis() + 30_000;
         // A Results PHASE can arrive before GAME_OVER. Wait for its winner too,
         // rather than asserting on a value that another socket thread has not set yet.
@@ -413,7 +427,8 @@ class FullGameContractIT {
             Thread.sleep(250);
         }
         assertThat(violations).as("no client should ever see another player's un-revealed role").isEmpty();
-        assertThat(finished.get()).as("the game should reach GAME_OVER/Results within the deadline").isTrue();
+        assertThat(finished.get()).as("the game should reach GAME_OVER/Results within the deadline; host phases: %s",
+                host.frames.stream().filter(f -> "PHASE".equals(f.get("type"))).toList()).isTrue();
         assertThat(winningSide.get()).isIn("faithful", "traitors");
 
         // ---- host migration: disconnect the host, a connected human takes over ----
