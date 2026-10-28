@@ -15,7 +15,7 @@ SHA = 'a' * 40
 
 
 class ReleaseBundleTest(unittest.TestCase):
-    def archive(self, directory, extra=None, revision=SHA):
+    def archive(self, directory, extra=None, revision=SHA, omit=None):
         path = pathlib.Path(directory) / 'release.tar.gz'
         jar = io.BytesIO()
         with zipfile.ZipFile(jar, 'w') as z:
@@ -23,6 +23,7 @@ class ReleaseBundleTest(unittest.TestCase):
         content = {name: b'public configuration' for name in bundle.REQUIRED}
         content['revision.txt'] = revision.encode()
         content['backend.jar'] = jar.getvalue()
+        if omit: content.pop(omit)
         content['website/.well-known/assetlinks.json'] = b'[]'
         with tarfile.open(path, 'w:gz') as archive:
             for name, data in content.items():
@@ -52,6 +53,25 @@ class ReleaseBundleTest(unittest.TestCase):
                 extra = tarfile.TarInfo(name);extra.type=kind;extra.linkname='/etc/passwd';extra.size=0
                 target=pathlib.Path(d)/'stage'
                 with self.assertRaises(ValueError): bundle.unpack(self.archive(d,extra),target,SHA)
+                self.assertFalse(target.exists())
+
+    def test_runtime_dockerfile_copy_sources_are_required(self):
+        root = pathlib.Path(__file__).parents[1]
+        for line in (root / 'backend/Dockerfile.runtime').read_text().splitlines():
+            if line.startswith('COPY ') and not line.startswith('COPY --from='):
+                source = line.split()[1]
+                member = 'backend.jar' if source == 'ta-app/target/truearena-backend.jar' else source
+                self.assertIn(member, bundle.REQUIRED, source)
+                self.assertIn(member, bundle.RUNTIME_FILES, source)
+                if member != 'backend.jar':
+                    self.assertTrue((root / bundle.RUNTIME_FILES[member]).exists(), source)
+
+    def test_missing_engine_installer_is_rejected_before_writing(self):
+        for engine in ['stockfish', 'scan']:
+            with self.subTest(engine=engine), tempfile.TemporaryDirectory() as d:
+                target = pathlib.Path(d) / 'stage'
+                with self.assertRaisesRegex(ValueError, 'Incomplete release archive'):
+                    bundle.unpack(self.archive(d, omit=f'{engine}/install.sh'), target, SHA)
                 self.assertFalse(target.exists())
 
     def test_wrong_commit_is_rejected(self):

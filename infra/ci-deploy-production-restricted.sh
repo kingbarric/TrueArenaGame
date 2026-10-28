@@ -22,6 +22,11 @@ cp "$release/backend.jar" "$context/image/ta-app/target/truearena-backend.jar"
 # The private staging umask must not make the jar unreadable to the image appuser.
 chmod 644 "$context/image/ta-app/target/truearena-backend.jar"
 cp "$release/Dockerfile.runtime" "$context/image/Dockerfile"
+# Keep the runtime Dockerfile and its pinned engine installers in one verified bundle.
+for engine in stockfish scan; do
+  mkdir -p "$context/image/$engine"
+  cp "$release/$engine/install.sh" "$context/image/$engine/install.sh"
+done
 image="truearena-backend:release-$revision"
 docker build -q --label "org.opencontainers.image.revision=$revision" -t "$image" "$context/image"
 backup="$root/backups/production-$(date -u +%Y%m%dT%H%M%SZ)-${revision:0:12}"

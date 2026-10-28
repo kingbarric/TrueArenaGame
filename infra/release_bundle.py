@@ -6,7 +6,13 @@ import subprocess
 import tarfile
 import zipfile
 
-REQUIRED = {'backend.jar', 'Dockerfile.runtime', 'revision.txt',
+RUNTIME_FILES = {
+    'backend.jar': 'backend/ta-app/target/truearena-backend.jar',
+    'Dockerfile.runtime': 'backend/Dockerfile.runtime',
+    'stockfish/install.sh': 'backend/stockfish/install.sh',
+    'scan/install.sh': 'backend/scan/install.sh',
+}
+REQUIRED = set(RUNTIME_FILES) | {'revision.txt',
             'infra/docker-compose.prod.yml', 'infra/Caddyfile.prod',
             'infra/livekit.prod.yaml', 'infra/smoke.sh'}
 MAX_SIZE = 512 * 1024 * 1024
@@ -23,8 +29,7 @@ def pack(root, output, revision):
     root = pathlib.Path(root)
     website = subprocess.check_output(['git', '-C', str(root), 'ls-files', '-z', 'website'], text=True).split('\0')
     files = {name: root / name for name in REQUIRED - {'backend.jar', 'revision.txt'}}
-    files['Dockerfile.runtime'] = root / 'backend/Dockerfile.runtime'
-    files['backend.jar'] = root / 'backend/ta-app/target/truearena-backend.jar'
+    files.update({name: root / source for name, source in RUNTIME_FILES.items()})
     files.update({name: root / name for name in website if name})
     with tarfile.open(output, 'w:gz') as archive:
         import io
