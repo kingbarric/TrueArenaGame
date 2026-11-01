@@ -90,6 +90,11 @@ void main() {
     HangoutState.instance.clear();
   });
 
+  /// Traitors' box of modes sits above the games grid, so a game further
+  /// down is only built once it's scrolled to.
+  Future<void> reach(WidgetTester tester, String key) => tester.scrollUntilVisible(
+      find.byKey(ValueKey(key)), 200, scrollable: find.byType(Scrollable).first);
+
   Future<List<String>> pump(WidgetTester tester, Widget home, Future<http.Response> Function(http.Request) routes,
       {bool guest = false, bool settle = true, bool gameFirst = true}) async {
     final calls = <String>[];
@@ -480,7 +485,9 @@ void main() {
     expect(find.text("👑 You're the host"), findsOneWidget);
     expect(find.text('3 in Huud · 3 members'), findsOneWidget);
     expect(find.text('Pick a game to play'), findsOneWidget);
+    expect(find.byKey(const ValueKey('huud-pick-traitors-box')), findsOneWidget);
     for (final g in ['whot', 'draughts', 'chess', 'ludo']) {
+      await reach(tester, 'huud-pick-$g');
       expect(find.byKey(ValueKey('huud-pick-$g')), findsOneWidget);
     }
     // Talk and Invite — each a picture and a word. It's your Huud, so no Leave.
@@ -491,6 +498,7 @@ void main() {
     expect(find.byKey(const ValueKey('huud-leave')), findsNothing);
 
     // Whot first asks which one — Classic or The Tell — with a briefing of each.
+    await reach(tester, 'huud-pick-whot');
     await tester.tap(find.byKey(const ValueKey('huud-pick-whot')));
     await tester.pumpAndSettle();
     expect(find.text('Which Whot?'), findsOneWidget);
@@ -524,6 +532,7 @@ void main() {
                 'ranked': false,
               })
             : _json(_huud()));
+    await reach(tester, 'huud-pick-whot');
     await tester.tap(find.byKey(const ValueKey('huud-pick-whot')));
     await tester.pumpAndSettle();
     await tester.tapAt(const Offset(20, 20)); // the scrim
@@ -627,7 +636,21 @@ void main() {
     expect(find.byKey(const ValueKey('huud-end')), findsNothing);
     expect(find.byKey(const ValueKey('huud-mute')), findsOneWidget);
     // Covering the host still permits organising the game.
+    await reach(tester, 'huud-pick-whot');
     expect(find.byKey(const ValueKey('huud-pick-whot')), findsOneWidget);
+  });
+
+  testWidgets('a Traitors mode in the box is picked as tapped — no "Which Traitors?" again', (tester) async {
+    final calls = await pump(tester, const HuudSpaceScreen(id: 'h1'), (_) async => _json(_huud()));
+    expect(find.byKey(const ValueKey('huud-pick-traitors-box')), findsOneWidget);
+    expect(find.byKey(const ValueKey('huud-pick-truearena')), findsNothing,
+        reason: 'Traitors is shown once, as its box of modes');
+    await reach(tester, 'huud-pick-traitors-blood_moon');
+    await tester.tap(find.byKey(const ValueKey('huud-pick-traitors-blood_moon')));
+    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(find.text('Which Traitors?'), findsNothing);
+    expect(calls, contains('POST /api/v1/huud-spaces/h1/game {"gameType":"truearena","mode":"blood_moon"}'));
   });
 
   testWidgets('the owner can delete the Huud from settings, after saying yes', (tester) async {

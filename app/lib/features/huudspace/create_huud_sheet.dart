@@ -17,8 +17,10 @@ import '../../widgets/huud_art.dart';
 ///
 /// [gameType] pre-picks the first game (from the Games tab); [share] starts
 /// with "Show it on the feed" switched on; [onQuickPlay] adds a way out to
-/// the game's old quick lobby (bots, solo play).
-Future<void> startHuud(BuildContext context, {String? gameType, bool share = false, VoidCallback? onQuickPlay}) async {
+/// the game's old quick lobby (bots, solo play). [mode] is the game's mode
+/// when it was already chosen (a Traitors mode tile), so it isn't asked again.
+Future<void> startHuud(BuildContext context,
+    {String? gameType, String? mode, bool share = false, VoidCallback? onQuickPlay}) async {
   if (!await canHostOrPromptToVerify(context)) return;
   if (!context.mounted) return;
   var owned = const <MyHuud>[];
@@ -36,6 +38,7 @@ Future<void> startHuud(BuildContext context, {String? gameType, bool share = fal
     context,
     builder: (_) => CreateHuudSheet(
         gameType: gameType,
+        mode: mode,
         share: share,
         onQuickPlay: onQuickPlay,
         another: owned.isNotEmpty,
@@ -50,9 +53,12 @@ Future<void> startHuud(BuildContext context, {String? gameType, bool share = fal
 /// extras: a first game, and sharing it to the feed.
 class CreateHuudSheet extends StatefulWidget {
   const CreateHuudSheet(
-      {super.key, this.gameType, this.share = false, this.onQuickPlay, this.another = false, this.otherLive});
+      {super.key, this.gameType, this.mode, this.share = false, this.onQuickPlay, this.another = false, this.otherLive});
 
   final String? gameType;
+
+  /// [gameType]'s mode, already chosen before the sheet opened.
+  final String? mode;
   final bool share;
   final VoidCallback? onQuickPlay;
 
@@ -74,7 +80,7 @@ class _CreateHuudSheetState extends State<CreateHuudSheet> {
   late String? _game = widget.gameType;
 
   /// Whot's "classic" or "tell", SlayHuud's "battle" or "group" — asked when the game is picked.
-  String? _mode;
+  late String? _mode = widget.mode;
   Map<String, dynamic>? _gameConfig;
   late bool _share = widget.share;
   bool _busy = false;
@@ -495,8 +501,9 @@ class _PrivacyChoice extends StatelessWidget {
 /// several, you pick which — the Live one first), and if nothing's set up yet
 /// the tapped game becomes the next one (a game that's on is never replaced).
 /// No Huud: make one with that game picked — or take [quickPlay] to the
-/// game's own quick lobby.
-Future<void> openHuudForGame(BuildContext context, String gameType, {VoidCallback? quickPlay}) async {
+/// game's own quick lobby. [mode] skips the "which mode?" question when it
+/// was answered already, as a Traitors mode tile does.
+Future<void> openHuudForGame(BuildContext context, String gameType, {String? mode, VoidCallback? quickPlay}) async {
   final api = AppScope.of(context).api;
   var owned = const <MyHuud>[];
   try {
@@ -510,7 +517,7 @@ Future<void> openHuudForGame(BuildContext context, String gameType, {VoidCallbac
     picked = await showHuudSheet<String>(context, builder: (_) => _HuudForGameSheet(gameType: gameType, huuds: owned));
     if (picked == null || !context.mounted) return;
     if (picked == _newHuud) {
-      await startHuud(context, gameType: gameType, onQuickPlay: quickPlay);
+      await startHuud(context, gameType: gameType, mode: mode, onQuickPlay: quickPlay);
       return;
     }
   }
@@ -524,7 +531,7 @@ Future<void> openHuudForGame(BuildContext context, String gameType, {VoidCallbac
   }
   if (!context.mounted) return;
   if (current == null) {
-    await startHuud(context, gameType: gameType, onQuickPlay: quickPlay);
+    await startHuud(context, gameType: gameType, mode: mode, onQuickPlay: quickPlay);
     return;
   }
   var huud = HuudSpace.fromJson(current);
@@ -538,8 +545,8 @@ Future<void> openHuudForGame(BuildContext context, String gameType, {VoidCallbac
   final game = huud.currentGame;
   if (game == null || game.finished) {
     // Which Traitors, Whot or SlayHuud — asked before the table is set.
-    HuudGameSetup? setup;
-    if (huudGameHasModes(gameType)) {
+    HuudGameSetup? setup = mode == null ? null : HuudGameSetup(mode);
+    if (setup == null && huudGameHasModes(gameType)) {
       setup = await askHuudGameSetup(context, gameType);
       if (setup == null || !context.mounted) return;
     }

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/game_badge.dart';
 import '../../widgets/neon.dart';
+import '../../widgets/traitors_modes_box.dart';
 import '../chess/chess_lobby_screen.dart';
 import '../slayhuud/slay_hub_screen.dart';
 import '../draughts/draughts_mode_screen.dart';
@@ -35,8 +36,9 @@ class GameCatalogEntry {
   final bool available;
 }
 
-// Two per row on the games grid: Traitors · SlayHuud, Word Bluff · Huudpoly,
-// Chess · Draughts, Ludo · Whot, then Macala.
+// Traitors has a box of its own on the games lists (its five modes); the
+// rest go two per row: SlayHuud · Word Bluff, Huudpoly · Chess,
+// Draughts · Ludo, Whot · Macala.
 const List<GameCatalogEntry> gameCatalog = [
   GameCatalogEntry(
     id: 'truearena',
@@ -103,8 +105,21 @@ const List<GameCatalogEntry> gameCatalog = [
   ),
 ];
 
-/// The grid shown from Home's "New game" — pick a game first, then (for
-/// TrueArena today) a mode.
+/// Every game but Traitors, which a games list shows as its own box of modes.
+final gamesBesideTraitors = [for (final g in gameCatalog) if (g.id != 'truearena') g];
+
+/// A Traitors mode tile: accounts play it in their Huud, everyone else in the
+/// mode's own lobby. Either way the mode is already chosen.
+Future<void> openTraitorsMode(BuildContext context, String mode) async {
+  if (AppScope.of(context).identity == Identity.account) {
+    await openHuudForGame(context, 'truearena', mode: mode);
+  } else {
+    await openTraitorsModeLobby(context, mode);
+  }
+}
+
+/// The grid shown from Chats and Friends — Traitors' modes in one box, then
+/// the other games.
 class GameSelectScreen extends StatelessWidget {
   const GameSelectScreen({super.key});
 
@@ -114,17 +129,28 @@ class GameSelectScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Choose a game')),
       body: SafeArea(
-        child: GridView.builder(
-          padding: const EdgeInsets.all(16),
+        child: CustomScrollView(slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+            sliver: SliverToBoxAdapter(
+              child: TraitorsModesBox(
+                keyPrefix: 'pick-traitors',
+                onPick: (mode) => openTraitorsMode(context, mode),
+              ),
+            ),
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            sliver: SliverGrid.builder(
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
             mainAxisSpacing: 14,
             crossAxisSpacing: 14,
             childAspectRatio: 0.92,
           ),
-          itemCount: gameCatalog.length,
+          itemCount: gamesBesideTraitors.length,
           itemBuilder: (context, i) {
-            final g = gameCatalog[i];
+            final g = gamesBesideTraitors[i];
             return NeonCard(
               mirror: i.isOdd,
               selected: g.available,
@@ -211,7 +237,9 @@ class GameSelectScreen extends StatelessWidget {
               ),
             );
           },
-        ),
+            ),
+          ),
+        ]),
       ),
     );
   }

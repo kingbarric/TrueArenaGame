@@ -10,6 +10,28 @@ import '../lobby/lobby_screen.dart';
 import '../onboarding/guest_gate.dart';
 import '../setup/setup_screen.dart';
 
+/// A Traitors mode tapped on a games list, without a Huud (guests): that
+/// mode's lobby straight away — the mode was chosen on the tile, so the
+/// list of five isn't shown again. If the modes can't be loaded, the list.
+Future<void> openTraitorsModeLobby(BuildContext context, String slug) async {
+  if (!await canHostOrPromptToVerify(context)) return;
+  if (!context.mounted) return;
+  ModePreset? preset;
+  try {
+    final raw = await AppScope.of(context).api.get('/config/presets') as List;
+    preset = raw
+        .map((e) => ModePreset.fromJson((e as Map).cast<String, dynamic>()))
+        .where((p) => p.slug == slug)
+        .firstOrNull;
+  } catch (_) {
+    // Fall back to the list below.
+  }
+  if (!context.mounted) return;
+  final chosen = preset;
+  await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => chosen == null ? const ModeSelectScreen() : LobbyScreen(preset: chosen)));
+}
+
 /// Presets-first: the five modes launch as-is. "Customize" (an admin choice) opens the
 /// full GameConfig editor — a later screen; here it's a stub target.
 class ModeSelectScreen extends StatefulWidget {

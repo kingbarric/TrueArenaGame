@@ -8,6 +8,7 @@ import '../../widgets/idle_wiggle.dart';
 import '../../widgets/motif.dart';
 import '../../widgets/neon.dart';
 import '../../widgets/playhuud_logo.dart';
+import '../../widgets/traitors_modes_box.dart';
 import '../chess/chess_lobby_screen.dart';
 import '../draughts/draughts_mode_screen.dart';
 import '../games/game_select_screen.dart';
@@ -139,7 +140,17 @@ class HomeScreen extends StatelessWidget {
                     .titleMedium
                     ?.copyWith(color: n.ink, fontWeight: FontWeight.w800)),
           ),
-          // Two to a row, so each game's artwork is big enough to read.
+          // Traitors first, as one box holding its five modes; a mode opens
+          // straight into that mode.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
+            child: TraitorsModesBox(
+              keyPrefix: 'home-traitors',
+              onPick: (mode) => openTraitorsMode(context, mode),
+            ),
+          ),
+          // Then the other games, two to a row, so each game's artwork is
+          // big enough to read.
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 22),
             child: LayoutBuilder(builder: (context, constraints) {
@@ -151,7 +162,7 @@ class HomeScreen extends StatelessWidget {
                   runSpacing: 12,
                   alignment: WrapAlignment.center,
                   children: [
-                    for (final game in gameCatalog)
+                    for (final game in gamesBesideTraitors)
                       SizedBox(
                           width: tileWidth, child: _gameTile(context, n, game)),
                   ]);

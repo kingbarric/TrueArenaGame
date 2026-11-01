@@ -32,6 +32,7 @@ import 'safety_sheet.dart';
 import '../../core/keep_awake.dart';
 import '../competitive/player_profile_screen.dart';
 import '../../widgets/huud_art.dart';
+import '../../widgets/traitors_modes_box.dart';
 
 Future<void> openHuudSpace(BuildContext context, String id,
         {HuudSpace? initial, bool startOnGame = false, String? gameNotice}) =>
@@ -505,11 +506,16 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
     if (mounted) _load();
   }
 
-  Future<void> _pickGame(String gameType) async {
-    // Whot and SlayHuud are two games each: ask which before anyone is seated.
-    final asks = huudGameHasModes(gameType);
-    final setup = asks ? await askHuudGameSetup(context, gameType) : null;
+  /// The Traitors mode tile being opened, for its spinner.
+  String? _pickingMode;
+
+  Future<void> _pickGame(String gameType, {String? mode}) async {
+    // Whot and SlayHuud are two games each: ask which before anyone is seated
+    // — unless the mode was the tile tapped (Traitors).
+    final asks = mode == null && huudGameHasModes(gameType);
+    final setup = mode != null ? HuudGameSetup(mode) : asks ? await askHuudGameSetup(context, gameType) : null;
     if (asks && (setup == null || !mounted)) return;
+    _pickingMode = mode;
     final raw = await _run(
         'game-$gameType',
         (api) => api.post('/huud-spaces/${widget.id}/game',
@@ -2190,6 +2196,17 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
           sliver:
               SliverToBoxAdapter(child: HuudSectionTitle(title, emoji: '🎮')),
         ),
+        // Traitors' five modes in one box; a mode is picked as it's tapped.
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          sliver: SliverToBoxAdapter(
+            child: TraitorsModesBox(
+              keyPrefix: 'huud-pick-traitors',
+              busyMode: _busy == 'game-truearena' ? _pickingMode : null,
+              onPick: _busy == null ? (mode) => _pickGame('truearena', mode: mode) : null,
+            ),
+          ),
+        ),
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           sliver: SliverGrid(
@@ -2201,6 +2218,7 @@ class _HuudSpaceScreenState extends State<HuudSpaceScreen> {
             ),
             delegate: SliverChildListDelegate([
               for (final g in huudGameOrder)
+                if (g != 'truearena')
                 HuudGameTile(
                   key: ValueKey('huud-pick-$g'),
                   gameType: g,

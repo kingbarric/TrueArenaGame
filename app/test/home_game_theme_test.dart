@@ -50,8 +50,13 @@ void main() {
     for (final theme in [NeonTheme.dark, NeonTheme.light]) {
       await show(theme);
       expect(find.byType(NeonCard), findsNothing);
+      // Traitors is a box of its five modes, each opening that mode.
+      expect(find.byKey(const ValueKey('home-traitors-box')), findsOneWidget);
+      for (final mode in ['classic_conspiracy', 'midnight_heist', 'blood_moon', 'the_last_alibi', 'final_gambit']) {
+        expect(find.byKey(ValueKey('home-traitors-$mode')), findsOneWidget);
+      }
+      expect(find.byKey(const ValueKey('home-game-truearena')), findsNothing);
       for (final entry in {
-        'truearena': 'traitors.png',
         'bluff': 'word_bluff.png',
         'draughts': 'draft.png',
         'whot': 'whot.png',
@@ -88,7 +93,7 @@ void main() {
 
     for (final theme in [NeonTheme.nebulaDark, NeonTheme.nebulaLight]) {
       await show(theme);
-      expect(find.byType(NeonCard), findsNWidgets(gameCatalog.length));
+      expect(find.byType(NeonCard), findsNWidgets(gamesBesideTraitors.length));
       final tile = tester.widget<AnimatedContainer>(find
           .descendant(
             of: find.byType(NeonCard).first,
@@ -100,7 +105,7 @@ void main() {
 
     for (final theme in [NeonTheme.supercarDark, NeonTheme.supercarLight]) {
       await show(theme);
-      expect(find.byType(NeonCard), findsNWidgets(gameCatalog.length));
+      expect(find.byType(NeonCard), findsNWidgets(gamesBesideTraitors.length));
       final tile = tester.widget<AnimatedContainer>(find
           .descendant(
             of: find.byType(NeonCard).first,
