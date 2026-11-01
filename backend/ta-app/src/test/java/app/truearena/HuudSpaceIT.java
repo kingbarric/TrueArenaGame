@@ -668,6 +668,22 @@ class HuudSpaceIT {
         assertThat(huuds.clearGame(host, huud.id()).block().currentGame()).isNull();
     }
 
+    @Test void anAgentAtTheTableGoesByItsTableNameNotItsPoolAccount() {
+        UUID host = person("Host");
+        var huud = huuds.create(host, null, "public").block();
+        var room = huuds.addGame(host, huud.id(), "whot").block();
+        String tag = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+        UUID agent = users.save(UserRow.newBot("Cyber Agent", "system_agent_" + tag, null, "system_pool", "medium"))
+                .block().id();
+        db.sql("INSERT INTO room_members (room_id, user_id, nickname, connection_status, ready_state, bot_difficulty) "
+                        + "VALUES (:room, :agent, 'cyber_max', 'connected', false, 'medium')")
+                .bind("room", room.id()).bind("agent", agent).fetch().rowsUpdated().block();
+
+        assertThat(huuds.view(huud.id(), host).block().currentGame().table())
+                .filteredOn(HuudSpaceDtos.Seat::bot).extracting(HuudSpaceDtos.Seat::displayName)
+                .containsExactly("cyber_max");
+    }
+
     @Test void beingInTheHuudIsNotASeatTheHostPicksWhoPlays() {
         UUID host = person("Host"), ada = person("Ada"), chidi = person("Chidi");
         var huud = huuds.create(host, null, "public", "draughts", null, false).block();

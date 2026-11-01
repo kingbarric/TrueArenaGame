@@ -215,8 +215,11 @@ public class HuudService {
                         LEFT JOIN users t ON t.id = p.target_user_id
                         LEFT JOIN LATERAL (
                             SELECT array_agg(m.user_id ORDER BY m.joined_at) AS ids,
-                                   array_agg(u.display_name ORDER BY m.joined_at) AS names,
-                                   array_agg(u.username ORDER BY m.joined_at) AS usernames,
+                                   -- an agent by its name at this table, not its pool account's
+                                   array_agg(CASE WHEN u.is_bot THEN COALESCE(NULLIF(m.nickname, ''), u.display_name)
+                                                  ELSE u.display_name END ORDER BY m.joined_at) AS names,
+                                   array_agg(CASE WHEN u.is_bot THEN COALESCE(NULLIF(m.nickname, ''), u.display_name)
+                                                  ELSE u.username END ORDER BY m.joined_at) AS usernames,
                                    array_agg(COALESCE(u.avatar_url, '') ORDER BY m.joined_at) AS avatars,
                                    array_agg(%s ORDER BY m.joined_at) AS friends
                             FROM room_members m JOIN users u ON u.id = m.user_id
