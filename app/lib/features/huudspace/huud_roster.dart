@@ -5,6 +5,7 @@ import '../../core/app_state.dart';
 import '../../theme/neon_theme.dart';
 import '../../widgets/neon.dart';
 import '../../widgets/cyber_agent_difficulty.dart';
+import '../../widgets/cyber_agent_sheet.dart';
 import 'huud_kit.dart';
 import 'huud_space_models.dart';
 import '../../widgets/huud_art.dart';
@@ -118,11 +119,11 @@ class _HuudRosterState extends State<HuudRoster> {
   /// One tap seats an agent at the selected level, without opening another sheet.
   Future<void> _addAgent() async {
     if (_seated.length >= widget.seats) return;
-    final bots = _seated.where((s) => s.bot).length;
+    final name = cyberAgentName(_seated.map((s) => s.name));
     final roomId = widget.roomId;
     await _run('agent', (api) async {
       final raw = await api.post('/rooms/$roomId/bots',
-          {'name': 'Cyber ${bots + 1}', 'difficulty': _agentDifficulty});
+          {'name': name, 'difficulty': _agentDifficulty});
       // Show the confirmed seat even if the lobby socket is delayed.
       if (mounted &&
           widget.roomId == roomId &&
@@ -130,7 +131,7 @@ class _HuudRosterState extends State<HuudRoster> {
           raw['userId'] != null) {
         final agent = HuudSeat(
             userId: raw['userId'].toString(),
-            name: raw['displayName'] as String? ?? 'Cyber ${bots + 1}',
+            name: raw['displayName'] as String? ?? name,
             bot: true);
         setState(() => _addedAgents[agent.userId] = agent);
       }

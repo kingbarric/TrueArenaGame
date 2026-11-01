@@ -84,6 +84,56 @@ class BotServicePoolTest {
 
     @Test
     @SuppressWarnings("unchecked")
+    void anOldNumberedNameBecomesACyberNameNobodyAtTheTableHas_aTypedNameIsKept() {
+        UUID hostId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        UUID agentId = UUID.randomUUID();
+        RoomRepository rooms = mock(RoomRepository.class);
+        RoomMemberRepository members = mock(RoomMemberRepository.class);
+        UserRepository users = mock(UserRepository.class);
+        RoomLock lock = mock(RoomLock.class);
+        GameBotAdapterFactory adapters = mock(GameBotAdapterFactory.class);
+        BotService service = spy(service(rooms, members, users, adapters, lock));
+        UserRow poolAgent = new UserRow(agentId, "Cyber Agent", null, null, null, "system_agent_01",
+                false, null, true, null, "system_pool", "medium", null, Instant.now());
+
+        when(rooms.findById(roomId)).thenReturn(Mono.just(room(roomId, hostId)));
+        when(members.countByRoomId(any())).thenReturn(Mono.just(2L));
+        when(members.findByRoomId(roomId)).thenReturn(Flux.just(
+                new RoomMemberRow(null, roomId, hostId, "Ada", "connected", false, null, null),
+                RoomMemberRow.bot(roomId, UUID.randomUUID(), "cyber_max", "easy")));
+        when(users.findSystemAgentForRoom(any())).thenReturn(Mono.just(poolAgent));
+        when(members.save(any())).thenAnswer(call -> Mono.just(call.getArgument(0)));
+        when(adapters.create("whot")).thenReturn(new WhotBotAdapter());
+        when(lock.withLock(any(), any(), any())).thenAnswer(call ->
+                ((Supplier<Mono<?>>) call.getArgument(2)).get());
+        doNothing().when(service).startRuntime(any(), any(), any(), any());
+
+        for (String old : java.util.List.of("Cyber 2", "Cyber", "Cyber Agent 1", "cyber_agent3", " ")) {
+            StepVerifier.create(service.addBot(roomId, hostId, old, "medium"))
+                    .assertNext(view -> assertThat(view.displayName())
+                            .matches("cyber_[a-z]+").isNotEqualTo("cyber_max"))
+                    .verifyComplete();
+        }
+        StepVerifier.create(service.addBot(roomId, hostId, "Sharp Kofi", "medium"))
+                .assertNext(view -> assertThat(view.displayName()).isEqualTo("Sharp Kofi"))
+                .verifyComplete();
+        verify(service).startRuntime(any(), eq(agentId), eq("Sharp Kofi"), any());
+    }
+
+    @Test
+    void cyberNamesStayUniqueEvenWhenEveryNameIsTaken() {
+        java.util.List<String> taken = new java.util.ArrayList<>();
+        java.util.Random random = new java.util.Random(7);
+        for (int i = 0; i < AgentNames.NAMES.size() + 5; i++) {
+            String name = AgentNames.pick(taken, random);
+            assertThat(name).matches("cyber_[a-z]+\\d*").isNotIn(taken.stream().map(String::toLowerCase).toList());
+            taken.add(i % 2 == 0 ? name : name.toUpperCase());
+        }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
     void poolExhaustionIsReportedWithoutAnyOtherHuudConflict() {
         UUID hostId = UUID.randomUUID();
         UUID roomId = UUID.randomUUID();

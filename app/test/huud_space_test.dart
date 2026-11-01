@@ -1122,7 +1122,7 @@ void main() {
     // One tap adds an agent — no picker, no "is playing" banner.
     await tester.tap(find.byKey(const ValueKey('roster-add-agent')));
     await tester.pumpAndSettle();
-    expect(calls.where((c) => c.contains('/bots {"name":"Cyber 1","difficulty":"medium"}')), hasLength(1));
+    expect(calls.where((c) => RegExp(r'/bots \{"name":"cyber_[a-z]+","difficulty":"medium"\}').hasMatch(c)), hasLength(1));
     expect(find.textContaining('is playing'), findsNothing);
 
     await tester.ensureVisible(find.byKey(const ValueKey('segment-hard')));
@@ -1131,7 +1131,7 @@ void main() {
     await tester.ensureVisible(find.byKey(const ValueKey('roster-add-agent')));
     await tester.tap(find.byKey(const ValueKey('roster-add-agent')));
     await tester.pumpAndSettle();
-    expect(calls.where((c) => c.contains('/bots {"name":"Cyber 1","difficulty":"hard"}')), hasLength(1));
+    expect(calls.where((c) => RegExp(r'/bots \{"name":"cyber_[a-z]+","difficulty":"hard"\}').hasMatch(c)), hasLength(1));
   });
 
   testWidgets('present players precede away players even when away players are seated', (tester) async {

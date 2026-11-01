@@ -189,7 +189,7 @@ class _DraughtsLobbyScreenState extends State<DraughtsLobbyScreen> {
 
   Future<void> _addBot(RoomView room) async {
     final choice = await showCyberAgentPicker(context,
-        defaultName: 'Cyber ${room.members.where((m) => m.isBot).length + 1}');
+        taken: room.members.map((m) => m.nickname));
     if (choice == null || !mounted) return;
     setState(() => _addingBot = true);
     try {

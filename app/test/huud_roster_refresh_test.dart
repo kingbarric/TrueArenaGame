@@ -70,11 +70,11 @@ void main() {
       await tester.tap(add);
       expect(adds, 1);
       response.complete(http.Response(
-          jsonEncode({'userId': 'bot', 'displayName': 'Cyber 1'}), 200,
+          jsonEncode({'userId': 'bot', 'displayName': 'cyber_max'}), 200,
           headers: {'content-type': 'application/json'}));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
-      expect(find.text('Cyber 1 (Cyber Agent)'), findsOneWidget);
+      expect(find.text('cyber_max (Cyber Agent)'), findsOneWidget);
       expect(find.text('2 / 2 playing'), findsOneWidget);
       expect(add, findsNothing);
       refresh.complete();

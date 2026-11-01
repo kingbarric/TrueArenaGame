@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -18,7 +20,7 @@ void main() {
           return TextButton(
             onPressed: () async {
               selected =
-                  await showCyberAgentPicker(context, defaultName: 'Cyber 2');
+                  await showCyberAgentPicker(context, taken: ['Ada']);
             },
             child: const Text('Open'),
           );
@@ -29,6 +31,11 @@ void main() {
     await tester.tap(find.text('Open'));
     await tester.pumpAndSettle();
     expect(find.text('ADD A CYBER AGENT'), findsOneWidget);
+    final suggested = tester
+        .widget<TextField>(find.byKey(const ValueKey('cyber-agent-name')))
+        .controller!
+        .text;
+    expect(suggested, matches(RegExp(r'^cyber_[a-z]+$')));
     expect(find.text('YOUR CYBER AGENTS'), findsNothing);
     expect(find.text('Delete'), findsNothing);
     expect(find.text('Rookie'), findsOneWidget);
@@ -90,5 +97,19 @@ void main() {
     expect(find.text('Rookie'), findsOneWidget);
     expect(find.text('Pro'), findsOneWidget);
     expect(find.text('Legend'), findsOneWidget);
+  });
+
+  test('agents are named cyber_ with a name nobody at the table has', () {
+    final taken = <String?>['Ada', null];
+    for (var i = 0; i < 16; i++) {
+      final name = cyberAgentName(taken, Random(i));
+      expect(name, matches(RegExp(r'^cyber_[a-z]+\d*$')));
+      expect(taken, isNot(contains(name)));
+      taken.add(name);
+    }
+    // Even once every name is used, a new one is still unique.
+    final everyName = [for (final n in cyberAgentNames) 'Cyber_$n'];
+    final extra = cyberAgentName(everyName, Random(1));
+    expect(extra, matches(RegExp(r'^cyber_[a-z]+\d+$')));
   });
 }

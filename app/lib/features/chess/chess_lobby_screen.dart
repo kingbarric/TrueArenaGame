@@ -199,7 +199,8 @@ class _ChessLobbyScreenState extends State<ChessLobbyScreen> {
   }
 
   Future<void> _addBot(RoomView room) async {
-    final choice = await showCyberAgentPicker(context, defaultName: 'Cyber 1');
+    final choice = await showCyberAgentPicker(context,
+        taken: room.members.map((m) => m.nickname));
     if (choice == null || !mounted) return;
     setState(() => _addingBot = true);
     try {

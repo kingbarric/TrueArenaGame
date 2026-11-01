@@ -192,7 +192,7 @@ class _WhotLobbyScreenState extends State<WhotLobbyScreen> {
     final room = _room;
     if (room == null) return;
     final choice = await showCyberAgentPicker(context,
-        defaultName: 'Cyber ${room.members.where((m) => m.isBot).length + 1}');
+        taken: room.members.map((m) => m.nickname));
     // Re-read _room rather than trusting the pre-await snapshot — the room
     // could have ended, or been replaced by a different one, while the
     // picker sheet was open.

@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 
 import '../theme/neon_theme.dart';
@@ -12,11 +14,40 @@ class AgentChoice {
   final String difficulty;
 }
 
+const cyberAgentNames = [
+  'max', 'tan', 'kim', 'zed', 'ivy', 'rex', 'jax', 'kai', 'lux', 'ace', //
+  'dex', 'neo', 'sky', 'ray', 'leo', 'mia', 'nia', 'obi', 'ama', 'kofi',
+  'zola', 'tobi', 'femi', 'ike', 'yaw', 'esi', 'sol', 'pip', 'jin', 'lia',
+  'fox', 'jet', 'kit', 'ren', 'vic', 'zia', 'nova', 'remi', 'tayo', 'kemi',
+];
+
+/// What a new Cyber Agent is called: cyber_max, cyber_kim — a name nobody at
+/// the table has yet, never "Cyber 2". The server names agents the same way
+/// for older apps that still send the numbered names.
+String cyberAgentName(Iterable<String?> taken, [Random? random]) {
+  final used = {
+    for (final n in taken)
+      if (n != null) n.trim().toLowerCase()
+  };
+  final r = random ?? Random();
+  final free = [
+    for (final n in cyberAgentNames)
+      if (!used.contains('cyber_$n')) 'cyber_$n'
+  ];
+  if (free.isNotEmpty) return free[r.nextInt(free.length)];
+  for (var i = 2;; i++) {
+    final n = 'cyber_${cyberAgentNames[r.nextInt(cyberAgentNames.length)]}$i';
+    if (!used.contains(n)) return n;
+  }
+}
+
 /// Every lobby uses the same direct flow: name the agent, choose its level,
 /// and add it to this Huud. There is no personal agent inventory to manage,
 /// and no per-game filtering — every Cyber Agent comes from one shared pool.
+/// [taken] is everyone already at the table, so the suggested name is new.
 Future<AgentChoice?> showCyberAgentPicker(BuildContext context,
-    {String defaultName = 'Cyber'}) {
+    {Iterable<String?> taken = const []}) {
+  final defaultName = cyberAgentName(taken);
   return showModalBottomSheet<AgentChoice>(
     context: context,
     isScrollControlled: true,

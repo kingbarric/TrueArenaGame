@@ -107,12 +107,19 @@ public class BotService {
             }
             return users.findSystemAgentForRoom(room.id())
                     .switchIfEmpty(Mono.error(ApiExceptions.conflict("no Cyber Agent seat is available")))
-                    .flatMap(agent -> members.save(RoomMemberRow.bot(room.id(), agent.id(), name,
-                                    difficulty.name().toLowerCase()))
-                            .doOnSuccess(ignored -> startRuntime(room, agent.id(), name, difficulty))
-                            .thenReturn(new BotAddedView(agent.id(), name,
-                                    difficulty.name().toLowerCase())));
+                    .flatMap(agent -> tableName(room, name).flatMap(chosen -> members.save(RoomMemberRow.bot(
+                                    room.id(), agent.id(), chosen, difficulty.name().toLowerCase()))
+                            .doOnSuccess(ignored -> startRuntime(room, agent.id(), chosen, difficulty))
+                            .thenReturn(new BotAddedView(agent.id(), chosen,
+                                    difficulty.name().toLowerCase()))));
         });
+    }
+
+    /** The host's own name for the agent, or a cyber_ name no one at the table has yet. */
+    private Mono<String> tableName(RoomRow room, String requested) {
+        if (!AgentNames.needsName(requested)) return Mono.just(requested);
+        return members.findByRoomId(room.id()).map(RoomMemberRow::nickname).collectList()
+                .map(taken -> AgentNames.pick(taken, java.util.concurrent.ThreadLocalRandom.current()));
     }
 
     public Mono<Void> removeBot(UUID roomId, UUID requesterId, UUID botId) {
