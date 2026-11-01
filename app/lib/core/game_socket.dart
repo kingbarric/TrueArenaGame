@@ -19,6 +19,20 @@ String gameActionMessage(Object? code) {
     'TOURNAMENT_GAME' => 'Championship matches must play to the end.',
     'ALREADY_FINISHED' => 'This game has already ended.',
     'GAME_PAUSED' => 'Resume the game before trying that action.',
+    // Races: the game moved on, or someone got there first. Saying so beats
+    // "try again" — trying again can't work.
+    'WRONG_PHASE' || 'BAD_PHASE' => 'Too late — the game has already moved on.',
+    'NOT_STARTED' => "The game hasn't started yet.",
+    'NO_CLOCK' => "There's no clock running to add time to.",
+    'PIE_UNAVAILABLE' => 'Someone took the pie first.',
+    'SHIELD_UNAVAILABLE' => 'Someone claimed the shield first.',
+    'VOTE_LOCKED' => 'Your vote is already in.',
+    'DEAD' => "You're out of this game — you can still watch it play out.",
+    'BLACK_SPOT' => 'The Black Spot took your vote this round.',
+    'SPOT_UNAVAILABLE' => 'The Black Spot is already placed tonight.',
+    'RECRUITING_TONIGHT' => 'Tonight the Traitors are recruiting, not murdering.',
+    'NO_OFFER' => 'That offer has gone.',
+    'LAST_STAND_UNAVAILABLE' => 'A Last Stand is no longer possible.',
     _ => userRetryMessage,
   };
 }

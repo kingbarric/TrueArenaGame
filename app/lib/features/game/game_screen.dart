@@ -350,6 +350,7 @@ class _GameScreenState extends State<GameScreen> {
     _paused = p['paused'] == true;
     _pauseResumesIn = p['pauseResumesInSeconds'] as int?;
     final phaseChanged = p['phase'] != null && p['phase'] != phase;
+    if (phaseChanged || (p['round'] is int && p['round'] != round)) _screenChanged();
     setState(() {
       phase = p['phase'] as String? ?? phase;
       final botTextMode = p['botTextMode'] as bool? ?? _botTextMode;
@@ -431,6 +432,7 @@ class _GameScreenState extends State<GameScreen> {
     // on. Resetting on each one cleared your highlighted vote the moment anyone
     // else voted, and wiped the traitors' night chat on every pick.
     if (!changed) return;
+    _screenChanged();
     setState(() {
       if (nextRound != round && round > 0) {
         _tableChat.add(_ChatLine.marker('Round $nextRound'));
@@ -823,7 +825,37 @@ class _GameScreenState extends State<GameScreen> {
         'PLAYER_ACTION', {'action': action, if (data != null) 'data': data});
   }
 
-  void _advance() => _sendAction('ADVANCE_PHASE');
+  /// The host moving the game on. The tap names the screen it was made on,
+  /// so one that lands just after the clock moved the game on is spent
+  /// rather than skipping the phase that followed.
+  void _advance() => _sendAction('ADVANCE_PHASE', {'from': phase, 'round': round});
+
+  /// Bumped whenever the game moves to another phase or round.
+  int _screen = 0;
+  bool _choiceOpen = false;
+
+  /// Opens [choose] (a picker, a sheet, a prompt) for the phase on screen
+  /// now. If the game moves on while it's open it closes by itself and the
+  /// choice is dropped: a pick made for the round table can't land on the
+  /// vote and come back refused.
+  Future<T?> _forThisPhase<T>(Future<T?> Function() choose) async {
+    final screen = _screen;
+    _choiceOpen = true;
+    try {
+      final picked = await choose();
+      return mounted && screen == _screen ? picked : null;
+    } finally {
+      if (screen == _screen) _choiceOpen = false;
+    }
+  }
+
+  void _screenChanged() {
+    _screen++;
+    if (!_choiceOpen) return;
+    _choiceOpen = false;
+    // Only sheets and dialogs close; the game screen itself never does.
+    Navigator.of(context).popUntil((route) => route is! PopupRoute);
+  }
 
   void _pickNightTarget(String id) {
     setState(() => _selectedTarget = id);
@@ -841,7 +873,7 @@ class _GameScreenState extends State<GameScreen> {
 
   Future<void> _chooseTargetAction(String action, List<String> candidates,
       {String? choice}) async {
-    final target = await showModalBottomSheet<String>(
+    final target = await _forThisPhase(() => showModalBottomSheet<String>(
       context: context,
       backgroundColor: context.neon.panel.withValues(alpha: 1),
       showDragHandle: true,
@@ -856,13 +888,13 @@ class _GameScreenState extends State<GameScreen> {
               onTap: () => Navigator.pop(ctx, id)),
         ],
       )),
-    );
+    ));
     if (!mounted || target == null) return;
     _sendAction(action, {'target': target, if (choice != null) 'choice': choice});
   }
 
   Future<void> _useGift() async {
-    final choice = await showDialog<String>(
+    final choice = await _forThisPhase(() => showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Poisoned Gift'),
@@ -872,7 +904,7 @@ class _GameScreenState extends State<GameScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx, 'direct_poison'), child: const Text('Direct poison')),
         ],
       ),
-    );
+    ));
     if (!mounted || choice == null) return;
     if (choice == 'shield') {
       _sendAction('NIGHT_GIFT', {'choice': choice});
@@ -906,21 +938,21 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Future<void> _sendTextAction(String action, String title, String hint, {int maxLength = 140}) async {
-    final text = await _promptText(title, hint, maxLength: maxLength);
+    final text = await _forThisPhase(() => _promptText(title, hint, maxLength: maxLength));
     if (!mounted || text == null || text.isEmpty) return;
     _sendAction(action, {'text': text});
   }
 
   /// Host fills in an absent player's ballot: pick the voter, then their vote.
   Future<void> _assignMissingVote(String voter) async {
-    final target = await showModalBottomSheet<String>(
+    final target = await _forThisPhase(() => showModalBottomSheet<String>(
       context: context,
       builder: (ctx) => SafeArea(child: ListView(shrinkWrap: true, children: [
         ListTile(title: Text('${label(voter)} votes for…', style: const TextStyle(fontWeight: FontWeight.w800))),
         for (final id in alive.where((id) => id != voter))
           ListTile(title: Text(label(id)), onTap: () => Navigator.pop(ctx, id)),
       ])),
-    );
+    ));
     if (!mounted || target == null) return;
     _sendAction('HOST_ASSIGN_VOTE', {'voterId': voter, 'target': target});
   }
@@ -1433,8 +1465,12 @@ class _GameScreenState extends State<GameScreen> {
       final meter = _crowdMeter(n);
       final tray = _trayCards(n);
       final extrasHeight = (meter == null ? 0 : 66) + (_tw.standReveal == null ? 0 : 70) + (tray.isEmpty ? 0 : 140);
+      // Open, the chat needs its header (54), the box you type in (70), the
+      // Table/Traitors switch when a Traitor has one (54), and room for a
+      // couple of lines — below that its own column overflows.
+      final chatMin = 54.0 + 70 + (isTraitor ? 54 : 0) + 48;
       final chatHeight = _chatExpanded
-        ? (box.maxHeight - requiredHeight - clockHeight - extrasHeight - (twists.isEmpty ? 0 : 64)).clamp(120.0, 320.0)
+        ? (box.maxHeight - requiredHeight - clockHeight - extrasHeight - (twists.isEmpty ? 0 : 64)).clamp(chatMin, 320.0)
         : 54.0;
       final tableHeight = box.maxHeight - chatHeight - (twists.isEmpty ? 0 : 64) - clockHeight - extrasHeight;
       final titleAbove = tableHeight < requiredHeight + titleHeight + 6;
@@ -1480,14 +1516,19 @@ class _GameScreenState extends State<GameScreen> {
             action('Skip to the vote', const ValueKey('round-table-skip'),
               _actionLocked ? null : _advance),
         ];
+        // A crowded table (a Traitor's chat open, the tray out) leaves the
+        // centre short: the prompt goes first, then everything shrinks to
+        // fit rather than spilling over the seats.
+        final roomy = box.maxHeight >= 190;
         final details = Column(mainAxisSize: MainAxisSize.min, children: [
           if (showTitle) ...[
             Text('Round table', key: const ValueKey('round-table-title'), textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 28, color: cream)),
             const SizedBox(height: 6),
           ],
-          const Text('Talk it out — who feels like a traitor?', textAlign: TextAlign.center,
-            style: TextStyle(color: cream, fontSize: 16, height: 1.25)),
+          if (roomy || !showTitle)
+            const Text('Talk it out — who feels like a traitor?', textAlign: TextAlign.center,
+              style: TextStyle(color: cream, fontSize: 16, height: 1.25)),
           if (_secondsLeft != null) ...[
             const SizedBox(height: 8),
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -1504,18 +1545,20 @@ class _GameScreenState extends State<GameScreen> {
             if (i > 0) const SizedBox(height: 8), buttons[i],
           ],
         ]);
+        Widget fit(Widget child) => FittedBox(
+            fit: BoxFit.scaleDown, child: SizedBox(width: box.maxWidth, child: child));
         if (box.maxWidth > 400 && box.maxHeight < 280) {
-          return Row(children: [Expanded(child: details), const SizedBox(width: 20), Expanded(child: controls)]);
+          return fit(Row(children: [Expanded(child: details), const SizedBox(width: 20), Expanded(child: controls)]));
         }
-        return Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        return fit(Column(mainAxisSize: MainAxisSize.min, children: [
           details,
-          if (feed.isNotEmpty) ...[
+          if (feed.isNotEmpty && roomy) ...[
             const SizedBox(height: 8),
-            Flexible(child: Text(feed.first, maxLines: 2, overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center, style: const TextStyle(color: cream, fontSize: 16))),
+            Text(feed.first, maxLines: 2, overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center, style: const TextStyle(color: cream, fontSize: 16)),
           ],
           if (buttons.isNotEmpty) ...[const SizedBox(height: 12), controls],
-        ]);
+        ]));
       });
 
   /// Opens beneath the discussion for anyone who'd rather type than talk — a
@@ -1921,8 +1964,12 @@ class _GameScreenState extends State<GameScreen> {
       );
 
   /// One player from [ids], chosen from their faces; null if they back out.
-  Future<String?> _pickPlayer(String title, String subtitle, List<String> ids, {Color? accent}) {
+  Future<String?> _pickPlayer(String title, String subtitle, List<String> ids,
+      {Color? accent, bool forThisPhase = true}) {
     final n = context.neon;
+    if (forThisPhase) {
+      return _forThisPhase(() => _pickPlayer(title, subtitle, ids, accent: accent, forThisPhase: false));
+    }
     return showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
@@ -2015,7 +2062,7 @@ class _GameScreenState extends State<GameScreen> {
 
   Future<void> _bakePie() async {
     final n = context.neon;
-    final filling = await showModalBottomSheet<String>(
+    final filling = await _forThisPhase(() => showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
       backgroundColor: n.panel.withValues(alpha: 1),
@@ -2047,7 +2094,7 @@ class _GameScreenState extends State<GameScreen> {
           ]),
         ]),
       )),
-    );
+    ));
     if (mounted && filling != null) _sendAction('BAKE_PIE', {'filling': filling});
   }
 
@@ -2073,14 +2120,14 @@ class _GameScreenState extends State<GameScreen> {
 
   Future<void> _castHunch() async {
     final id = await _pickPlayer('Your hunch', 'Who do you think is a Traitor? The table only ever sees the crowd\'s total.',
-        alive.toList(), accent: context.neon.jade);
+        alive.toList(), accent: context.neon.jade, forThisPhase: false);
     if (!mounted || id == null) return;
     if (widget.spectating) setState(() => _myHunch = id);
     _sendAction('CROWD_VOTE', {'target': id});
   }
 
   Future<void> _makeLastStand() async {
-    final sure = await showDialog<bool>(
+    final sure = await _forThisPhase(() => showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Make a Last Stand?'),
@@ -2091,7 +2138,7 @@ class _GameScreenState extends State<GameScreen> {
               child: const Text('Make my stand')),
         ],
       ),
-    );
+    ));
     if (!mounted || sure != true) return;
     final id = await _pickPlayer('Who do you unmask?', 'Everyone will see whether they\'re a Traitor.',
         alive.where((id) => id != widget.selfId).toList(), accent: context.neon.brand);

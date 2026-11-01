@@ -565,7 +565,13 @@ class GhostJuryStage extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: n.mid),
               ),
               const SizedBox(height: 22),
-              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              // Two tied players sit side by side; three or more wrap onto
+              // another line rather than running off the screen.
+              Wrap(
+                alignment: WrapAlignment.center,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                runSpacing: 12,
+                children: [
                 for (final (i, id) in tied.indexed) ...[
                   if (i > 0)
                     Padding(
@@ -587,7 +593,13 @@ class GhostJuryStage extends StatelessWidget {
                       child: Column(mainAxisSize: MainAxisSize.min, children: [
                         avatar(id, 62),
                         const SizedBox(height: 6),
-                        Text(name(id), style: TextStyle(color: n.ink, fontWeight: FontWeight.w800)),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 96),
+                          child: Text(name(id),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(color: n.ink, fontWeight: FontWeight.w800)),
+                        ),
                       ]),
                     ),
                   ),

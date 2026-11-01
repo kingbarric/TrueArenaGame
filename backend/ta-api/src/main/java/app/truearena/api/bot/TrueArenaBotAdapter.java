@@ -685,7 +685,10 @@ public final class TrueArenaBotAdapter implements GameBotAdapter {
                     if (random.nextDouble() < chance) return move(me, "TAKE_PIE", Map.of());
                 }
                 List<String> rivals = alive.stream().filter(id -> !id.equals(me)).toList();
-                if (table && flag("canLastStand") && !isTraitor() && once("stand") && !rivals.isEmpty() && random.nextDouble() < 0.15) {
+                // A game still running at four has one Traitor left, so a Faithful can step
+                // out and leave it 1 against 2. At three it's 1 against 1 the moment they
+                // leave: a stand there just hands the Traitors the game.
+                if (table && flag("canLastStand") && !isTraitor() && rivals.size() >= 3 && once("stand") && random.nextDouble() < 0.15) {
                     return move(me, "LAST_STAND", Map.of("target", mostSuspicious(rivals)));
                 }
                 if (table && flag("canCrowdVote") && view.get("yourCrowdVote") == null && once("crowd") && !alive.isEmpty()) {

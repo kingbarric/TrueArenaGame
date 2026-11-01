@@ -325,6 +325,29 @@ void main() {
     }
   });
 
+  testWidgets("the host's skip names the screen it was tapped on", (tester) async {
+    final socket = await open(tester, _snap('RoundTable', extra: {'secondsLeft': 120}), host: true);
+    await tester.tap(find.byKey(const ValueKey('round-table-skip')));
+    await tester.pump();
+    expect(socket.actions('ADVANCE_PHASE').single['data'], {'from': 'RoundTable', 'round': 1});
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('a picker left open when the phase ends closes and sends nothing', (tester) async {
+    final socket = await open(tester, _snap('RoundTable', extra: {'canAccuse': true, 'secondsLeft': 120}));
+    await tester.tap(find.byKey(const ValueKey('round-table-accuse')));
+    await tester.pumpAndSettle(const Duration(milliseconds: 100));
+    expect(find.byType(BottomSheet), findsOneWidget);
+
+    // The clock runs out while the player is still choosing.
+    socket.phase('Vote');
+    await tester.pumpAndSettle(const Duration(milliseconds: 100));
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(socket.actions('ACCUSE'), isEmpty);
+    expect(find.byType(GameScreen), findsOneWidget, reason: 'only the sheet closes, never the game');
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('players other than the host have no skip', (tester) async {
     await open(tester, _snap('RoundTable'));
     expect(find.byKey(const ValueKey('round-table-skip')), findsNothing);

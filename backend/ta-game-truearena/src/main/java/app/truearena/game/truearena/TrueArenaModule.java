@@ -226,7 +226,14 @@ public final class TrueArenaModule implements GameModule {
             case "LAST_STAND" -> lastStand(d, s, action);
             case "GHOST_VOTE" -> ghostVote(d, s, action);
             case "CROWD_VOTE" -> crowdVote(d, s, action);
-            case "ADVANCE_PHASE" -> advance(d, d.phase);
+            case "ADVANCE_PHASE" -> {
+                // The host's tap says which screen it was made on. When the clock
+                // has already moved the game on, that tap is spent — it must not
+                // close the phase that followed (a late "Continue" on the morning
+                // reveal used to skip the whole round table).
+                if (staleAdvance(d, action)) return s;
+                advance(d, d.phase);
+            }
             case "END_GAME" -> endByHost(d);
             default -> throw new RuleViolation("UNKNOWN_ACTION", "no handler for " + action.type());
         }
@@ -684,6 +691,14 @@ public final class TrueArenaModule implements GameModule {
     }
 
     // ---------------------------------------------------------------- phase machine
+
+    /** An advance naming a phase (and round) the game has already left. Untagged taps still count. */
+    static boolean staleAdvance(TruearenaState.Draft d, PlayerAction a) {
+        String from = a.str("from");
+        if (from == null) return false;
+        Object round = a.data() == null ? null : a.data().get("round");
+        return !from.equals(d.phase) || (round instanceof Number n && n.intValue() != d.round);
+    }
 
     private void advance(TruearenaState.Draft d, String from) {
         switch (from) {

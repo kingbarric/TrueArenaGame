@@ -200,4 +200,39 @@ class TrueArenaEngineTest {
                 .containsExactlyInAnyOrderElementsOf(afterTs.alive.stream()
                         .filter(id -> !afterTs.voteLocked.contains(id)).toList());
     }
+
+    // ---------------------------------------------------------------- the host's advance tap
+
+    @Test
+    void aHostTapMeantForAPhaseTheClockAlreadyEndedIsSpent() {
+        GameState s = module.initialState(ids(6), Presets.CLASSIC_CONSPIRACY.config(), RandomSource.seeded(3));
+        s = module.onPhaseElapsed(s, "RoleReveal"); // the clock moved on to Night
+        GameState after = module.onPlayerAction(s,
+                PlayerAction.of("p1", "ADVANCE_PHASE", Map.of("from", "RoleReveal", "round", 1)));
+        assertThat(after.phase()).isEqualTo("Night");
+        assertThat(after).isSameAs(s);
+    }
+
+    @Test
+    void aHostTapForTheCurrentPhaseMovesItOn() {
+        GameState s = module.initialState(ids(6), Presets.CLASSIC_CONSPIRACY.config(), RandomSource.seeded(3));
+        GameState after = module.onPlayerAction(s,
+                PlayerAction.of("p1", "ADVANCE_PHASE", Map.of("from", "RoleReveal", "round", s.round())));
+        assertThat(after.phase()).isEqualTo("Night");
+    }
+
+    @Test
+    void aTapFromTheSamePhaseOfAnEarlierRoundIsSpent() {
+        GameState vote = driveToVote(Presets.CLASSIC_CONSPIRACY.config(), 6);
+        GameState after = module.onPlayerAction(vote,
+                PlayerAction.of("p1", "ADVANCE_PHASE", Map.of("from", "Vote", "round", vote.round() - 1)));
+        assertThat(after.phase()).isEqualTo("Vote");
+    }
+
+    @Test
+    void anUntaggedTapFromAnOlderAppStillAdvances() {
+        GameState s = module.initialState(ids(6), Presets.CLASSIC_CONSPIRACY.config(), RandomSource.seeded(3));
+        GameState after = module.onPlayerAction(s, PlayerAction.of("p1", "ADVANCE_PHASE", Map.of()));
+        assertThat(after.phase()).isEqualTo("Night");
+    }
 }

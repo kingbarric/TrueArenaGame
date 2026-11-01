@@ -15,6 +15,14 @@ void main() {
     expect(gameActionMessage('INTERNAL'), userRetryMessage);
   });
 
+  test('a race lost to the clock or another player says so, not "try again"', () {
+    expect(gameActionMessage('WRONG_PHASE'), contains('moved on'));
+    expect(gameActionMessage('PIE_UNAVAILABLE'), contains('took the pie first'));
+    expect(gameActionMessage('SHIELD_UNAVAILABLE'), contains('claimed the shield first'));
+    expect(gameActionMessage('VOTE_LOCKED'), contains('already in'));
+    expect(gameActionMessage('WRONG_PHASE'), isNot(userRetryMessage));
+  });
+
   test('game ERROR frames retain codes but strip internal messages', () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     final peers = <WebSocket>[];

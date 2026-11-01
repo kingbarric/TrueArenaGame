@@ -143,6 +143,17 @@ class TraitorsAgentDynamicsTest {
         assertThat(sees(agent("bot-1", "faithful", List.of(), reluctant()), "bot-1", suspect)).isEmpty();
     }
 
+    @Test void aFaithfulAgentMakesALastStandAtFour_neverAtThreeWhereLeavingLosesTheGame() {
+        Map<String, Object> four = table("RoundTable", "faithful", List.of("alice", "bob", "bot-1", "carol"),
+                Map.of("canLastStand", true));
+        assertThat(sees(agent("bot-1", "faithful", List.of(), eager()), "bot-1", four).orElseThrow().type())
+                .isEqualTo("LAST_STAND");
+        Map<String, Object> three = table("RoundTable", "faithful", List.of("alice", "bot-1", "carol"),
+                Map.of("canLastStand", true));
+        assertThat(sees(agent("bot-1", "faithful", List.of(), eager()), "bot-1", three).map(PlayerAction::type))
+                .isNotEqualTo(Optional.of("LAST_STAND"));
+    }
+
     @Test void aFaithfulAgentVotesForWhoeverTheTableKeepsNaming() {
         TrueArenaBotAdapter agent = agent("bot-1", "faithful", List.of(), eager());
         agent.playerNames(Map.of("alice", "Alice", "bob", "Bob", "carol", "Carol", "dan", "Dan", "bot-2", "Rex"));
