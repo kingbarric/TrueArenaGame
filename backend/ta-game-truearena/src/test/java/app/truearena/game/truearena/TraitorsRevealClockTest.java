@@ -84,5 +84,14 @@ class TraitorsRevealClockTest {
         // Over is over: nothing moves it on again.
         assertThat(runner.apply(ended.state(), PlayerAction.of("p1", "ADVANCE_PHASE", Map.of())).state().phase())
                 .isEqualTo("Results");
+
+        // Everyone can still be shown the ended table. Building these views threw
+        // (no winner to name), so the end never reached a phone and the screen froze.
+        Map<String, Object> table = module.broadcastState(ended.state()).data();
+        assertThat(table).containsEntry("endedByHost", true).doesNotContainKey("winningSide");
+        assertThat((Map<?, ?>) table.get("allRoles")).hasSize(8);
+        for (String p : List.of("p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8")) {
+            assertThat(module.visibleStateFor(ended.state(), p).data()).containsEntry("phase", "Results");
+        }
     }
 }

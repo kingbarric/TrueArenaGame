@@ -397,6 +397,32 @@ void main() {
     expect(find.text('You won! 🎉'), findsNothing);
   });
 
+  testWidgets('a phone that comes back after the host ended the game lands on that ending', (tester) async {
+    await open(tester, _snap('Results', extra: {
+      'endedByHost': true,
+      'allRoles': {for (final p in _players) p: p == 'p2' ? 'traitor' : 'faithful'},
+    }));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('The host ended the game'), findsOneWidget);
+    expect(find.text('You won! 🎉'), findsNothing);
+  });
+
+  testWidgets('told the game is over while still at the table, the screen asks where the game really is', (tester) async {
+    final socket = await open(tester, _snap('RoundTable'), host: true);
+    socket.sent.clear();
+    socket.frames.add({
+      'type': 'ERROR',
+      'payload': {'code': 'ALREADY_FINISHED', 'message': 'This game has already ended.'},
+    });
+    await tester.pump();
+    expect(socket.sent.map((s) => s.type), ['HELLO']);
+    expect(socket.sent.single.payload, {'lastSeq': 0});
+
+    socket.snapshot(_snap('Results', extra: {'endedByHost': true}));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('The host ended the game'), findsOneWidget);
+  });
+
   testWidgets('only the host has End game', (tester) async {
     await open(tester, _snap('RoundTable'));
     await tester.tap(find.byTooltip('Game settings'));

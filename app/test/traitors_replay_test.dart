@@ -21,7 +21,8 @@ import 'package:truearena/widgets/neon.dart' show Presence;
 /// the app's error box in the middle of a game.
 ///
 /// Recorded with tools/traitors_play.mjs against a local backend: one JSON
-/// frame per line, led by a META line naming the player, gzipped.
+/// frame per line, led by a META line naming the player, gzipped. The
+/// host-ended-* games were recorded with END_AT, the host ending the game.
 class _Socket implements GameSocket {
   @override
   final awaySince = <String, DateTime>{};
@@ -118,12 +119,18 @@ void main() {
           fail('$name: the screen failed on ${text.length > 200 ? '${text.substring(0, 200)}…' : text}\n$detail');
         }
       }
-      expect(phases, greaterThan(3), reason: '$name should play through several phases');
+      // host-ended-*: the host ended the game for everyone partway through.
+      final endedByHost = name.startsWith('host-ended');
+      expect(phases, greaterThan(endedByHost ? 1 : 3), reason: '$name should play through several phases');
       // Let any opening animation and the result screen settle, then leave.
       for (var i = 0; i < 10; i++) {
         await tester.pump(const Duration(milliseconds: 200));
       }
       expect(tester.takeException(), isNull);
+      if (endedByHost) {
+        expect(find.text('The host ended the game'), findsOneWidget,
+            reason: '$name: everyone should land on the ended game\'s results');
+      }
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 1));
     });

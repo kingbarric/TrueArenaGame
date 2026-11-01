@@ -1549,7 +1549,10 @@ public final class TrueArenaModule implements GameModule {
             m.put("survivorsChoiceVotes", s.survivorsChoiceVotes.size());
         }
         m.put("veiled", s.config.veilThreshold() > 0 && s.alive.size() <= s.config.veilThreshold());
-        if (s.finished()) m.put("winningSide", s.win.winningSide());
+        // A game the host ended is finished with no winner — this used to throw
+        // here, so the end never reached anyone and the table stayed frozen.
+        if (s.win != null) m.put("winningSide", s.win.winningSide());
+        if (s.endedByHost) m.put("endedByHost", true);
         return m;
     }
 

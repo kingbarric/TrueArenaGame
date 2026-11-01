@@ -13,6 +13,8 @@
 //                locked phone does (GameSocket's reconnect, from lastSeq)
 //   UNTAGGED=1   send the host's advance without its phase, as app builds
 //                before 2026-11 did
+//   END_AT=<phase>  the host ends the game for everyone on reaching that
+//                phase (e.g. RoundTable); the game must still reach Results
 import fs from 'node:fs';
 
 const [, , BASE = 'http://localhost:18080', SLUG = 'final_gambit', GAMES = '1', SCALE = '0.15'] = process.argv;
@@ -94,12 +96,14 @@ async function playOne(gameNo, presets) {
         st.snap = p;
         if (p.alive) st.alive = new Set(p.alive);
         onPhase(p.phase, p.round ?? st.round);
-        if (p.phase === 'Results') finish();
+        if (p.phase === 'Results') setTimeout(finish, 1500);
       } else if (f.type === 'PHASE') {
         onPhase(p.phase, p.round);
-        if (p.phase === 'Results') finish();
+        if (p.phase === 'Results') setTimeout(finish, 1500);
       } else if (f.type === 'EVENT' && p.type === 'GAME_OVER') {
         log.result = p.data?.winningSide ?? p.data?.winner ?? JSON.stringify(p.data).slice(0, 80);
+      } else if (f.type === 'EVENT' && p.type === 'GAME_ENDED_BY_HOST') {
+        log.result = 'ended by host';
       }
     };
   }
@@ -155,6 +159,10 @@ async function playOne(gameNo, presets) {
     const traitor = () => s().yourRole === 'traitor' || s().yourRole === 'recruited_traitor';
     const advance = (ms = humanDelay()) => later(ms, () => act('ADVANCE_PHASE', process.env.UNTAGGED ? undefined : { from: phase, round }));
     const chat = (channel) => later(rand(300, 5000), () => send('CHAT_SEND', { channel, text: pick(['hmm', 'not me', 'who was quiet?', 'I trust Cyber 2', 'vote with me']) }));
+    // A phase can close before the tap lands (a night the agents finish fast) — then the next one ends it.
+    if (process.env.END_AT === phase && !st.ended) {
+      return later(rand(300, 1200), () => { st.ended = true; act('END_GAME'); });
+    }
     switch (phase) {
       case 'RoleReveal': return advance(rand(500, 3000));
       case 'Night': {
@@ -254,6 +262,6 @@ for (let g = 1; g <= n; g++) {
   // A phase the human's advance tap closed within a second of it opening: a skipped screen.
   const skipped = log.durations.filter((d) => d.ms < 1000 && d.byHuman && !['WinCheck'].includes(d.phase)).map((d) => `${d.round}:${d.phase}`);
   log.skipped = skipped;
-  console.log(`[${SLUG} #${g}] phases=${log.phases.length} last=${log.phases.at(-1)} drops=${log.drops || 0} errors=${log.errors.length} ${codes.join(' ')} stale=${(log.staleAdvance || []).join(',')} stalls=${log.stalls.join(';')}`);
+  console.log(`[${SLUG} #${g}] phases=${log.phases.length} last=${log.phases.at(-1)} drops=${log.drops || 0} errors=${log.errors.length} ${codes.join(' ')} stale=${(log.staleAdvance || []).join(',')} stalls=${log.stalls.join(';')} result=${log.result}`);
 }
 console.log('SUMMARY ' + JSON.stringify({ slug: SLUG, games: n, finished: results.filter((r) => r.phases.at(-1)?.endsWith('Results')).length, errors: results.flatMap((r) => r.errors.map((e) => `${e.code}:${e.sent}@${e.sentPhase}->${e.nowPhase}`)), skipped: results.flatMap((r) => r.skipped), stalls: results.flatMap((r) => r.stalls) }));

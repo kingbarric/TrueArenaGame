@@ -335,12 +335,17 @@ class _GameScreenState extends State<GameScreen> {
       case 'EVENT':
         _applyEvent((env['payload'] as Map).cast<String, dynamic>());
       case 'ERROR':
-        final msg = (env['payload'] as Map)['message']?.toString() ??
-            userErrorMessage;
+        final payload = env['payload'] as Map;
+        final msg = payload['message']?.toString() ?? userErrorMessage;
         _actionLocked = false;
         if (mounted) {
           ScaffoldMessenger.of(context)
               .showSnackBar(SnackBar(content: Text(msg)));
+        }
+        // Told the game is over while this screen still shows the table: the
+        // ending never reached this phone, so ask where the game really is.
+        if (payload['code'] == 'ALREADY_FINISHED' && phase != 'Results') {
+          widget.socket.send('HELLO', {'lastSeq': 0});
         }
     }
   }
@@ -385,6 +390,7 @@ class _GameScreenState extends State<GameScreen> {
         allRoles = (p['allRoles'] as Map).cast<String, String>();
       }
       winningSide = p['winningSide'] as String? ?? winningSide;
+      if (p['endedByHost'] == true) _endedByHost = true;
       _preset = p['preset'] as String? ?? _preset;
       _applyRules(p['rules']);
       _nightPicks = ((p['nightPicks'] as Map?) ?? const {}).cast<String, String>();
