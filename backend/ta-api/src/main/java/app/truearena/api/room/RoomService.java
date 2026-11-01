@@ -463,7 +463,8 @@ public class RoomService {
     }
 
     private Mono<RoomView> view(RoomRow room, UUID viewerId) {
-        return members.findByRoomId(room.id())
+        return members.findByRoomId(room.id()).collectList()   // seats first, then who's in them
+                .flatMapMany(Flux::fromIterable)
                 .concatMap(m -> users.findById(m.userId())
                         .map(u -> new RoomMemberView(m.userId(), u.isBot() ? m.nickname() : u.username(), m.connectionStatus(),
                                 m.readyState(), u.isBot(), u.avatarUrl()))

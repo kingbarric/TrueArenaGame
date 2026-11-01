@@ -326,6 +326,10 @@ public class GameOrchestrator {
         return members.findByRoomIdAndUserId(roomId, UUID.fromString(userId))
                 .flatMap(m -> members.save(new RoomMemberRow(m.id(), m.roomId(), m.userId(), m.nickname(),
                         status, m.readyState(), m.botDifficulty(), m.joinedAt())))
+                // A finished game releases its Cyber Agents, deleting their seats
+                // while their sockets are still closing: the seat is gone, so
+                // there's no connection left to record.
+                .onErrorResume(org.springframework.dao.TransientDataAccessResourceException.class, e -> Mono.empty())
                 .then();
     }
 
@@ -437,7 +441,8 @@ public class GameOrchestrator {
 
     private Mono<Void> sendLobbySnapshot(RoomRuntime rt, String userId) {
         return rooms.findById(rt.roomId)
-                .zipWith(members.findByRoomId(rt.roomId)
+                .zipWith(members.findByRoomId(rt.roomId).collectList()   // seats first, then who's in them
+                        .flatMapMany(Flux::fromIterable)
                         .concatMap(m -> users.findById(m.userId())
                                 .map(u -> lobbyMemberPayload(m, u.isBot(), u.avatarUrl(), u.username()))
                                 .defaultIfEmpty(lobbyMemberPayload(m, false, null, null)))
@@ -1865,7 +1870,8 @@ public class GameOrchestrator {
      * rooms using the same system identities are deliberately unaffected.
      */
     private Mono<Void> releaseAgents(UUID roomId) {
-        return members.findByRoomId(roomId)
+        return members.findByRoomId(roomId).collectList()
+                .flatMapMany(Flux::fromIterable)
                 .concatMap(member -> users.findById(member.userId())
                         .filter(UserRow::isBot)
                         .flatMap(agent -> {

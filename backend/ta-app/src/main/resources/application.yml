@@ -5,6 +5,12 @@ spring:
     url: ${R2DBC_URL:r2dbc:postgresql://localhost:5432/truearena}
     username: ${DB_USERNAME:truearena}
     password: ${DB_PASSWORD:truearena}
+    pool:
+      max-size: ${DB_POOL_MAX:20}
+      # A request that can't get a connection fails after this instead of
+      # waiting for ever: a pool held up by nested queries used to freeze
+      # every request on the server until it was restarted.
+      max-acquire-time: ${DB_POOL_ACQUIRE_TIMEOUT:10s}
   flyway:
     enabled: true
     url: ${JDBC_URL:jdbc:postgresql://localhost:5432/truearena}

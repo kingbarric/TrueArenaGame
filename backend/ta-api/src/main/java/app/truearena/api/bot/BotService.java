@@ -174,7 +174,8 @@ public class BotService {
     /** Reconnect existing room-scoped agents after Huudpoly runtime recovery. */
     public Mono<Void> resumeMonopolyRoom(RoomRow room) {
         if (!"monopoly".equals(room.gameType()) || "ended".equals(room.status())) return Mono.empty();
-        return members.findByRoomId(room.id())
+        return members.findByRoomId(room.id()).collectList()
+                .flatMapMany(Flux::fromIterable)
                 .filter(member -> member.botDifficulty() != null && !registry.contains(room.id(), member.userId()))
                 .concatMap(member -> users.findById(member.userId()).filter(UserRow::isBot)
                         .doOnNext(agent -> startRuntime(room, member.userId(), member.nickname(),
