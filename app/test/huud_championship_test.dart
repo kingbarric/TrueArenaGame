@@ -176,7 +176,8 @@ void main() {
     expect(find.textContaining('Knockout · one game a match'), findsOneWidget);
     // Name and start are filled in already; the name follows the game until the host types one.
     expect(cupName(tester), 'Chess Championship');
-    expect(find.text('📅  Today'), findsOneWidget);
+    // A start about 15 minutes away can fall tomorrow near midnight.
+    expect(find.textContaining(RegExp(r'^📅  (Today|Tomorrow)$')), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('cup-game-draughts')));
     await tester.pump();
     expect(cupName(tester), 'Draughts Championship');
